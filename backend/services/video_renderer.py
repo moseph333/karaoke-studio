@@ -130,13 +130,26 @@ class VideoRenderer:
         title: str = "Karaoke Track",
         artist: str = "Artist",
         aspect_ratio: str = "16:9",
-        progress_callback=None
+        duration: Optional[float] = None,
+        progress_callback: Optional[Any] = None,
+        cancel_event: Optional[Any] = None
     ) -> str:
         """
         Synthesizes final karaoke video using FFmpeg and libass.
-        Creates an ambient blurred album art background or utilizes custom video/image.
+        Streams FFmpeg output with -progress pipe:1 to calculate real-time percentage and ETA.
+        Supports cancellation via cancel_event.
         """
+        import time
         width, height = (1920, 1080) if aspect_ratio == "16:9" else (1080, 1920)
+
+        # If duration was not provided, probe audio file
+        if not duration or duration <= 0:
+            try:
+                import soundfile as sf
+                info = sf.info(audio_path)
+                duration = float(info.duration)
+            except Exception:
+                duration = 200.0  # safe fallback if probe fails
 
         # Escape ASS path for FFmpeg subtitles filter
         escaped_ass = str(ass_subtitles_path).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
@@ -162,6 +175,8 @@ class VideoRenderer:
 
         cmd = [
             "ffmpeg", "-y",
+            "-progress", "pipe:1",
+            "-nostats",
             *bg_input,
             "-i", audio_path,
             "-filter_complex", filter_complex,
@@ -179,10 +194,84 @@ class VideoRenderer:
         ]
 
         logger.info(f"Rendering video with FFmpeg: {' '.join(cmd)}")
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1
+        )
 
-        if result.returncode != 0:
-            logger.error(f"Video rendering failed: {result.stderr}")
-            raise RuntimeError(f"FFmpeg video render error: {result.stderr}")
+        current_frame = 0
+        current_fps = 0.0
+        current_speed = 1.0
+        out_time_sec = 0.0
+        last_callback_time = 0.0
+
+        try:
+            for line in process.stdout:
+                if cancel_event and cancel_event.is_set():
+                    logger.warning("Video rendering cancelled by user.")
+                    process.terminate()
+                    try:
+                        process.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                    raise RuntimeError("Video rendering was cancelled by user")
+
+                line = line.strip()
+                if not line or "=" not in line:
+                    continue
+
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip()
+
+                if key == "frame":
+                    try:
+                        current_frame = int(val)
+                    except ValueError:
+                        pass
+                elif key == "fps":
+                    try:
+                        current_fps = float(val)
+                    except ValueError:
+                        pass
+                elif key == "speed":
+                    try:
+                        speed_cleaned = val.replace("x", "").strip()
+                        current_speed = float(speed_cleaned)
+                    except ValueError:
+                        pass
+                elif key in ("out_time_us", "out_time_ms"):
+                    try:
+                        div = 1_000_000 if key == "out_time_us" else 1_000
+                        out_time_sec = float(val) / div
+                    except ValueError:
+                        pass
+                elif key == "progress" and val in ("continue", "end"):
+                    now = time.time()
+                    if now - last_callback_time >= 0.25 or val == "end":
+                        last_callback_time = now
+                        pct = 100.0 if val == "end" else min(99.0, max(0.0, (out_time_sec / duration) * 100.0))
+                        eta_sec = None
+                        if val != "end" and current_speed > 0.05 and duration > out_time_sec:
+                            eta_sec = max(0, int((duration - out_time_sec) / current_speed))
+                        
+                        detail = f"Encoding 1080p60: frame {current_frame} ({current_fps:.0f} fps, {current_speed:.1f}x speed)"
+                        if progress_callback:
+                            progress_callback(pct, detail, eta_sec)
+
+            process.wait()
+
+        except Exception as e:
+            if cancel_event and cancel_event.is_set():
+                process.terminate()
+            raise e
+
+        if process.returncode != 0:
+            stderr_out = process.stderr.read() if process.stderr else ""
+            logger.error(f"Video rendering failed: {stderr_out}")
+            raise RuntimeError(f"FFmpeg video render error: {stderr_out}")
 
         return str(output_mp4_path)
