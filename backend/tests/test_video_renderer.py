@@ -49,3 +49,39 @@ def test_generate_ass_subtitles(tmp_path):
     # Check for countdown dots
     assert "Countdown" in content
     assert "●" in content
+
+
+def test_cancel_endpoints():
+    import threading
+    from fastapi.testclient import TestClient
+    from backend.main import app, projects, active_cancellations
+
+    client = TestClient(app)
+
+    # Test pipeline cancel
+    proj_id = "test_cancel_proj"
+    cancel_evt = threading.Event()
+    active_cancellations[proj_id] = cancel_evt
+    projects[proj_id] = {
+        "id": proj_id,
+        "status": "separating",
+        "progress": 40,
+        "lines": []
+    }
+
+    res = client.post(f"/api/project/{proj_id}/cancel")
+    assert res.status_code == 200
+    assert cancel_evt.is_set()
+    assert projects[proj_id]["status"] == "cancelled"
+
+    # Test render cancel
+    render_key = f"{proj_id}_render"
+    render_cancel_evt = threading.Event()
+    active_cancellations[render_key] = render_cancel_evt
+    projects[proj_id]["render_status"] = "rendering"
+
+    res_render = client.post(f"/api/project/{proj_id}/cancel-render")
+    assert res_render.status_code == 200
+    assert render_cancel_evt.is_set()
+    assert projects[proj_id]["render_status"] == "idle"
+
