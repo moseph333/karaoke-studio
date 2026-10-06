@@ -282,9 +282,13 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
                 if p.get("status") == "ready":
                     logger.info(f"Returning cached ready project {p_id} for {video_id}")
                     return {"project_id": p.get("id", p_id), "status": "ready"}
-                elif p.get("status") in ["queued", "downloading", "separating", "fetching_lyrics", "aligning"]:
-                    logger.info(f"Project {p_id} for {video_id} already in progress ({p.get('status')})")
-                    return {"project_id": p.get("id", p_id), "status": p.get("status")}
+                elif p.get("status") in ["queued", "downloading", "separating", "fetching_lyrics", "aligning", "mixing"]:
+                    # Verify task is genuinely running in memory, not a stale session artifact
+                    is_active = (p_id in active_cancellations) or (video_id in active_cancellations)
+                    if is_active:
+                        logger.info(f"Project {p_id} for {video_id} already in progress ({p.get('status')})")
+                        return {"project_id": p.get("id", p_id), "status": p.get("status")}
+                    logger.warning(f"Project {p_id} was left in state '{p.get('status')}' from a previous server session. Resuming pipeline.")
 
     project_id = video_id if video_id else str(uuid.uuid4())[:8]
     proj_data = {
