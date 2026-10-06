@@ -1,6 +1,8 @@
 import os
 import uuid
 import json
+import time
+import threading
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -20,6 +22,8 @@ from backend.services.youtube_uploader import YouTubeMetadataService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("karaoke_backend")
+
+active_cancellations: Dict[str, threading.Event] = {}
 
 app = FastAPI(title="YouTube Karaoke Studio API", version="1.0.0")
 
@@ -130,15 +134,49 @@ def search_tracks(req: SearchRequest):
 
 
 def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] = None):
-    try:
-        proj = get_project_or_404(project_id)
-        
-        # Step 1: Download Audio and Metadata
-        proj["status"] = "downloading"
-        proj["progress"] = 15
+    cancel_event = threading.Event()
+    active_cancellations[project_id] = cancel_event
+    pipeline_start = time.time()
+
+    def update_pipe(status: str, progress: int, detail: str, eta_s: Optional[int] = None):
+        if cancel_event.is_set():
+            raise RuntimeError("Processing cancelled by user")
+        proj = find_project(project_id)
+        if not proj:
+            return
+        proj["status"] = status
+        proj["progress"] = progress
+        proj["status_detail"] = detail
+        proj["heartbeat"] = int(time.time() * 1000)
+        proj["elapsed_seconds"] = int(time.time() - pipeline_start)
+        if eta_s is not None:
+            proj["eta_seconds"] = eta_s
         save_projects()
-        meta = downloader.extract_info_and_download(url_or_id)
+
+    try:
+        # Step 1: Download Audio and Metadata
+        update_pipe("downloading", 10, "Fetching audio track and metadata...", 15)
+        
+        last_dl_tick = 0.0
+        def dl_hook(d):
+            nonlocal last_dl_tick
+            if cancel_event.is_set():
+                raise RuntimeError("Processing cancelled by user")
+            now = time.time()
+            if d.get("status") == "downloading" and now - last_dl_tick >= 0.25:
+                last_dl_tick = now
+                total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
+                downloaded = d.get("downloaded_bytes", 0)
+                pct = (downloaded / total * 100.0) if total > 0 else 0.0
+                speed = d.get("speed")
+                speed_str = f" • {speed / (1024*1024):.1f} MB/s" if speed else ""
+                eta = d.get("eta")
+                pipe_progress = int(10 + (pct * 0.25))
+                update_pipe("downloading", pipe_progress, f"Downloading audio ({pct:.0f}%{speed_str})", eta_s=eta)
+
+        meta = downloader.extract_info_and_download(url_or_id, progress_hook=dl_hook)
         track_id = meta.get("id")
+        proj = get_project_or_404(project_id)
         proj.update(meta)
         proj["id"] = project_id  # Guarantee project ID remains consistent
         if track_id:
@@ -151,21 +189,33 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] =
         if meta.get("thumbnail_path"):
             thumb_name = Path(meta["thumbnail_path"]).name
             proj["thumbnail_url"] = f"/static/downloads/{thumb_name}"
+        save_projects()
 
         # Step 2: Separate Stems (Vocals & Instrumental)
-        proj["status"] = "separating"
-        proj["progress"] = 40
-        save_projects()
-        stems = separator.separate_stems(meta["audio_path"], audio_id)
+        duration = float(meta.get("duration") or 180)
+        initial_sep_eta = max(15, int(duration * 0.25))
+        update_pipe("separating", 35, "Initializing Demucs AI stem separation...", initial_sep_eta)
+
+        def sep_cb(pct, detail, eta_s):
+            pipe_progress = int(35 + ((pct or 0.0) * 0.35))
+            update_pipe("separating", pipe_progress, detail, eta_s=eta_s)
+
+        stems = separator.separate_stems(
+            audio_path=meta["audio_path"],
+            track_id=audio_id,
+            duration=duration,
+            progress_callback=sep_cb,
+            cancel_event=cancel_event
+        )
+        proj = get_project_or_404(project_id)
         proj["vocals_path"] = stems["vocals_path"]
         proj["instrumental_path"] = stems["instrumental_path"]
         proj["vocals_url"] = f"/static/stems/{audio_id}/vocals.wav"
         proj["instrumental_url"] = f"/static/stems/{audio_id}/instrumental.wav"
+        save_projects()
 
         # Step 3: Fetch Lyrics
-        proj["status"] = "fetching_lyrics"
-        proj["progress"] = 65
-        save_projects()
+        update_pipe("fetching_lyrics", 72, "Retrieving lyrics from LRCLIB...", 5)
         if custom_lyrics and custom_lyrics.strip():
             lyric_data = {
                 "source": "custom",
@@ -176,19 +226,20 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] =
         else:
             lyric_data = lyrics_service.fetch_lyrics(meta["title"], meta["artist"], meta.get("duration"))
         
+        proj = get_project_or_404(project_id)
         proj["lyric_source"] = lyric_data["source"]
         proj["is_synced"] = lyric_data["synced"]
+        save_projects()
 
         # Step 4: Forced Word-Level Alignment
-        proj["status"] = "aligning"
-        proj["progress"] = 80
-        save_projects()
+        update_pipe("aligning", 82, "Aligning lyrics to vocal acoustic energy envelopes...", 5)
         aligned_lines = aligner.align_lyrics(stems["vocals_path"], lyric_data["lines"])
+        proj = get_project_or_404(project_id)
         proj["lines"] = aligned_lines
+        save_projects()
 
         # Step 5: Mix Initial Master
-        proj["status"] = "ready"
-        proj["progress"] = 100
+        update_pipe("mixing", 92, "Mixing initial master playback...", 3)
         master_path = audio_mixer.mix_and_shift(
             instrumental_path=stems["instrumental_path"],
             vocals_path=stems["vocals_path"],
@@ -196,16 +247,27 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] =
             guide_volume=0.0,
             output_filename=f"{audio_id}_master.wav"
         )
+        proj = get_project_or_404(project_id)
         proj["master_audio_path"] = master_path
         proj["master_audio_url"] = f"/static/output/{audio_id}_master.wav"
-        save_projects()
+        
+        # Step 6: Ready!
+        update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
 
     except Exception as e:
         logger.error(f"Pipeline error for {project_id}: {e}", exc_info=True)
         proj = find_project(project_id) or {}
-        proj["status"] = "error"
-        proj["error"] = str(e)
+        if cancel_event.is_set():
+            proj["status"] = "cancelled"
+            proj["status_detail"] = "Processing was cancelled by user"
+            proj["progress"] = 0
+        else:
+            proj["status"] = "error"
+            proj["error"] = str(e)
+            proj["status_detail"] = f"Error: {e}"
         save_projects()
+    finally:
+        active_cancellations.pop(project_id, None)
 
 
 @app.post("/api/process")
@@ -291,11 +353,29 @@ def mix_audio(project_id: str, req: MixRequest):
 
 
 def run_video_render(project_id: str, req: RenderRequest):
-    proj = get_project_or_404(project_id)
-    try:
+    cancel_event = threading.Event()
+    render_key = f"{project_id}_render"
+    active_cancellations[render_key] = cancel_event
+    render_start = time.time()
+
+    def update_render(progress: int, detail: str, eta_s: Optional[int] = None):
+        if cancel_event.is_set():
+            raise RuntimeError("Video rendering was cancelled by user")
+        proj = find_project(project_id)
+        if not proj:
+            return
         proj["render_status"] = "rendering"
-        proj["render_progress"] = 20
+        proj["render_progress"] = progress
+        proj["render_detail"] = detail
+        proj["render_heartbeat"] = int(time.time() * 1000)
+        proj["render_elapsed_seconds"] = int(time.time() - render_start)
+        if eta_s is not None:
+            proj["render_eta_seconds"] = eta_s
         save_projects()
+
+    try:
+        update_render(5, "Generating progressive karaoke subtitles...", 45)
+        proj = get_project_or_404(project_id)
 
         track_id = proj.get("track_id") or proj.get("id") or "track"
         ass_path = OUTPUT_DIR / f"{track_id}.ass"
@@ -308,8 +388,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             style_config=req.style_config
         )
 
-        proj["render_progress"] = 40
-        save_projects()
+        update_render(15, "Mixing master audio with pitch adjustment...", 40)
 
         # 2. Mix audio with current pitch & guide vocal settings
         mixed_audio = audio_mixer.mix_and_shift(
@@ -320,8 +399,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             output_filename=f"{track_id}_final_audio.wav"
         )
 
-        proj["render_progress"] = 60
-        save_projects()
+        update_render(22, "Initializing FFmpeg 1080p60 encoding engine...", 35)
 
         # 3. Custom background if specified
         custom_bg_file = None
@@ -329,6 +407,10 @@ def run_video_render(project_id: str, req: RenderRequest):
             bg_candidate = BACKGROUNDS_DIR / req.custom_bg_id
             if bg_candidate.exists():
                 custom_bg_file = str(bg_candidate)
+
+        def ffmpeg_cb(pct, detail, eta_s):
+            render_pct = int(22 + ((pct or 0.0) * 0.75))
+            update_render(render_pct, detail, eta_s=eta_s)
 
         # 4. Render Video
         video_renderer.render_video(
@@ -339,11 +421,17 @@ def run_video_render(project_id: str, req: RenderRequest):
             custom_bg_path=custom_bg_file,
             title=proj.get("title", "Karaoke Track"),
             artist=proj.get("artist", "Artist"),
-            aspect_ratio=req.aspect_ratio
+            aspect_ratio=req.aspect_ratio,
+            duration=proj.get("duration"),
+            progress_callback=ffmpeg_cb,
+            cancel_event=cancel_event
         )
 
+        proj = get_project_or_404(project_id)
         proj["render_status"] = "completed"
         proj["render_progress"] = 100
+        proj["render_detail"] = "Video export complete!"
+        proj["render_eta_seconds"] = 0
         proj["video_url"] = f"/static/output/{track_id}_karaoke.mp4"
 
         # Generate YouTube package
@@ -360,19 +448,57 @@ def run_video_render(project_id: str, req: RenderRequest):
     except Exception as e:
         logger.error(f"Render failed for {project_id}: {e}", exc_info=True)
         proj = find_project(project_id) or {}
-        proj["render_status"] = "error"
-        proj["render_error"] = str(e)
+        if cancel_event.is_set():
+            proj["render_status"] = "idle"
+            proj["render_detail"] = "Rendering cancelled"
+            proj["render_progress"] = 0
+        else:
+            proj["render_status"] = "error"
+            proj["render_error"] = str(e)
+            proj["render_detail"] = f"Render error: {e}"
         save_projects()
+    finally:
+        active_cancellations.pop(render_key, None)
 
 
 @app.post("/api/project/{project_id}/render")
 def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks):
     proj = get_project_or_404(project_id)
     proj["render_status"] = "queued"
-    proj["render_progress"] = 0
+    proj["render_progress"] = 5
+    proj["render_detail"] = "Queueing render job..."
+    proj["render_eta_seconds"] = 45
+    proj["render_heartbeat"] = int(time.time() * 1000)
     save_projects()
     bg_tasks.add_task(run_video_render, project_id, req)
     return {"status": "queued"}
+
+
+@app.post("/api/project/{project_id}/cancel")
+def cancel_project(project_id: str):
+    if project_id in active_cancellations:
+        active_cancellations[project_id].set()
+    proj = find_project(project_id)
+    if proj:
+        proj["status"] = "cancelled"
+        proj["status_detail"] = "Processing cancelled by user"
+        proj["progress"] = 0
+        save_projects()
+    return {"status": "ok"}
+
+
+@app.post("/api/project/{project_id}/cancel-render")
+def cancel_render(project_id: str):
+    render_key = f"{project_id}_render"
+    if render_key in active_cancellations:
+        active_cancellations[render_key].set()
+    proj = find_project(project_id)
+    if proj:
+        proj["render_status"] = "idle"
+        proj["render_detail"] = "Rendering cancelled by user"
+        proj["render_progress"] = 0
+        save_projects()
+    return {"status": "ok"}
 
 
 @app.get("/api/project/{project_id}/youtube-package")
