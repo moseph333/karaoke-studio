@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
-import { Download, Copy, Check, ExternalLink, X, Film, Sparkles, Youtube } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Download, Copy, Check, ExternalLink, X, Film, Sparkles, Youtube, Clock, Activity, XCircle } from 'lucide-react';
 import { ProjectState } from '../types';
 
 interface ExportModalProps {
   project: ProjectState;
   isOpen: boolean;
   onClose: () => void;
+  onCancelRender?: () => void;
 }
 
-export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClose }) => {
+export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClose, onCancelRender }) => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+
+  // Re-render every second while rendering to keep heartbeat and elapsed timer live
+  useEffect(() => {
+    if (!isOpen) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -21,6 +30,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
     navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const formatTimer = (seconds?: number | null) => {
+    if (seconds === undefined || seconds === null || seconds < 0) return '--:--';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const getHeartbeatText = (lastHeartbeat?: number) => {
+    if (!lastHeartbeat) return 'Active';
+    const diffSec = Math.max(0, Math.round((Date.now() - lastHeartbeat) / 1000));
+    if (diffSec < 2) return 'Pulse just now';
+    return `Pulse ${diffSec}s ago`;
   };
 
   const yt = project.youtube_package;
@@ -50,19 +73,66 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
 
         {/* 1. Rendering In-Progress State */}
         {isRendering && (
-          <div className="py-12 text-center space-y-4">
-            <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <h3 className="text-lg font-bold text-white">Rendering High-Definition Karaoke Video...</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
-              Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.
-            </p>
-            <div className="w-72 bg-slate-800 h-2.5 rounded-full mx-auto overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full transition-all duration-500"
-                style={{ width: `${project.render_progress || 30}%` }}
-              ></div>
+          <div className="py-10 text-center space-y-6">
+            <div className="relative w-20 h-20 mx-auto">
+              <div className="w-full h-full border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin"></div>
+              <Sparkles className="absolute inset-0 m-auto w-7 h-7 text-cyan-400 animate-pulse" />
             </div>
-            <p className="text-xs font-mono text-cyan-400">{project.render_progress || 30}% Completed</p>
+
+            {/* Heartbeat Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>FFmpeg Encoder Active • {getHeartbeatText(project.render_heartbeat)}</span>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-bold text-white font-['Montserrat']">
+                Rendering High-Definition Karaoke Video...
+              </h3>
+              <p className="text-xs text-slate-300 mt-2 font-mono max-w-md mx-auto bg-slate-950/60 py-2 px-3 rounded-xl border border-slate-800">
+                {project.render_detail || 'Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.'}
+              </p>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="max-w-md mx-auto space-y-2">
+              <div className="w-full bg-slate-950 border border-slate-800 h-3 rounded-full overflow-hidden p-0.5 shadow-inner">
+                <div
+                  className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 shadow-lg shadow-cyan-500/30"
+                  style={{ width: `${Math.max(5, project.render_progress || 5)}%` }}
+                ></div>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
+                <span className="flex items-center gap-1.5 text-cyan-400">
+                  <Activity className="w-3.5 h-3.5" />
+                  {project.render_progress || 5}% Complete
+                </span>
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-slate-500" />
+                    Elapsed: {formatTimer(project.render_elapsed_seconds)}
+                  </span>
+                  <span className="text-slate-200">
+                    Est. remaining: {project.render_eta_seconds !== undefined && project.render_eta_seconds !== null ? `~${formatTimer(project.render_eta_seconds)}` : 'Calculating...'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Cancel Render Option */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onCancelRender}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5"
+              >
+                <XCircle className="w-3.5 h-3.5 text-red-400" />
+                Cancel Render
+              </button>
+            </div>
           </div>
         )}
 
