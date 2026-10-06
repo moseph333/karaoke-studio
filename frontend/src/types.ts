@@ -14,8 +14,12 @@ export interface LyricLine {
 
 export interface ProjectState {
   id: string;
-  status: 'queued' | 'downloading' | 'separating' | 'fetching_lyrics' | 'aligning' | 'ready' | 'error';
+  status: 'queued' | 'downloading' | 'separating' | 'fetching_lyrics' | 'aligning' | 'mixing' | 'ready' | 'error' | 'cancelled';
   progress: number;
+  status_detail?: string;
+  eta_seconds?: number;
+  elapsed_seconds?: number;
+  heartbeat?: number;
   title?: string;
   artist?: string;
   duration?: number;
@@ -30,6 +34,10 @@ export interface ProjectState {
   error?: string;
   render_status?: 'idle' | 'queued' | 'rendering' | 'completed' | 'error';
   render_progress?: number;
+  render_detail?: string;
+  render_eta_seconds?: number;
+  render_elapsed_seconds?: number;
+  render_heartbeat?: number;
   render_error?: string;
   video_url?: string;
   youtube_package?: {
