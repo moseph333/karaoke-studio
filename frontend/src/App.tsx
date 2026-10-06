@@ -5,7 +5,7 @@ import { LyricTimelineEditor } from './components/LyricTimelineEditor';
 import { VisualThemePicker, THEMES } from './components/VisualThemePicker';
 import { ExportModal } from './components/ExportModal';
 import { ProjectState, LyricLine, VisualTheme } from './types';
-import { Mic2, Film, Sparkles, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Mic2, Film, Sparkles, AlertCircle, ArrowLeft, RefreshCw, Clock, Activity, XCircle } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<ProjectState | null>(null);
@@ -17,15 +17,16 @@ export const App: React.FC = () => {
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [customBgId, setCustomBgId] = useState<string>('');
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [, setTick] = useState(0);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Poll project state if in an active/queued stage
+  // Poll project state every 1000ms if in an active/queued stage
   useEffect(() => {
     if (!project?.id) return;
     
     const needsPolling =
-      ['queued', 'downloading', 'separating', 'fetching_lyrics', 'aligning'].includes(project.status) ||
+      ['queued', 'downloading', 'separating', 'fetching_lyrics', 'aligning', 'mixing'].includes(project.status) ||
       ['queued', 'rendering'].includes(project.render_status || '');
 
     if (!needsPolling) return;
@@ -57,10 +58,58 @@ export const App: React.FC = () => {
       } catch (err) {
         console.error('Failed to poll project status:', err);
       }
-    }, 1500);
+    }, 1000);
 
     return () => clearInterval(timer);
   }, [project?.id, project?.status, project?.render_status]);
+
+  // Tick effect to interpolate timers smoothly every second
+  useEffect(() => {
+    const isWorking =
+      ['queued', 'downloading', 'separating', 'fetching_lyrics', 'aligning', 'mixing'].includes(project?.status || '') ||
+      ['queued', 'rendering'].includes(project?.render_status || '');
+    if (!isWorking) return;
+
+    const ticker = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(ticker);
+  }, [project?.status, project?.render_status]);
+
+  const formatTimer = (seconds?: number | null) => {
+    if (seconds === undefined || seconds === null || seconds < 0) return '--:--';
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const getHeartbeatText = (lastHeartbeat?: number) => {
+    if (!lastHeartbeat) return 'Active';
+    const diffSec = Math.max(0, Math.round((Date.now() - lastHeartbeat) / 1000));
+    if (diffSec < 2) return 'Pulse just now';
+    return `Pulse ${diffSec}s ago`;
+  };
+
+  const handleCancelProcess = async () => {
+    if (!project?.id) return;
+    try {
+      await fetch(`/api/project/${project.id}/cancel`, { method: 'POST' });
+    } catch (e) {
+      console.error('Cancel failed', e);
+    }
+    setProject(null);
+  };
+
+  const handleCancelRender = async () => {
+    if (!project?.id) return;
+    try {
+      await fetch(`/api/project/${project.id}/cancel-render`, { method: 'POST' });
+    } catch (e) {
+      console.error('Cancel render failed', e);
+    }
+    setProject((prev) => (prev ? { ...prev, render_status: 'idle', render_progress: 0 } : null));
+    setIsExportOpen(false);
+  };
 
 
   // Handle Audio playback time updates
@@ -248,34 +297,98 @@ export const App: React.FC = () => {
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
         {!project ? (
           <TrackSearch onSelectTrack={handleSelectTrack} isLoading={loading} />
-        ) : project.status !== 'ready' && project.status !== 'error' ? (
+        ) : project.status !== 'ready' && project.status !== 'error' && project.status !== 'cancelled' ? (
           /* Processing Pipeline Progress Screen */
-          <div className="max-w-xl mx-auto py-20 text-center space-y-6">
+          <div className="max-w-xl mx-auto py-16 text-center space-y-6">
             <div className="relative w-24 h-24 mx-auto">
               <div className="w-full h-full border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin"></div>
               <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-cyan-400 animate-pulse" />
+            </div>
+
+            {/* Live Heartbeat Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium shadow-sm">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Engine Active • {getHeartbeatText(project.heartbeat)}</span>
             </div>
 
             <div>
               <h2 className="text-2xl font-bold text-white capitalize font-['Montserrat']">
                 {project.status.replace('_', ' ')}...
               </h2>
-              <p className="text-sm text-slate-400 mt-1">
-                {project.status === 'downloading' && 'Fetching high-fidelity audio and cover art...'}
-                {project.status === 'separating' && 'Isolating vocals and backing instrumental track...'}
-                {project.status === 'fetching_lyrics' && 'Retrieving lyrics from LRCLIB database...'}
-                {project.status === 'aligning' && 'Running forced acoustic alignment for word-by-word timing...'}
+              <p className="text-xs text-slate-300 mt-2 font-mono max-w-md mx-auto bg-slate-950/60 py-2.5 px-3.5 rounded-xl border border-slate-800">
+                {project.status_detail || (
+                  project.status === 'downloading'
+                    ? 'Fetching high-fidelity audio and cover art...'
+                    : project.status === 'separating'
+                    ? 'Isolating vocals and backing instrumental track with Demucs AI...'
+                    : project.status === 'fetching_lyrics'
+                    ? 'Retrieving synchronized lyrics from LRCLIB database...'
+                    : project.status === 'aligning'
+                    ? 'Running forced acoustic alignment for word-by-word timing...'
+                    : project.status === 'mixing'
+                    ? 'Synthesizing master stereo mix...'
+                    : 'Processing audio track...'
+                )}
               </p>
             </div>
 
-            {/* Progress Bar */}
-            <div className="w-full bg-slate-900 border border-slate-800 h-3 rounded-full overflow-hidden p-0.5">
-              <div
-                className="bg-gradient-to-r from-cyan-500 to-blue-600 h-full rounded-full transition-all duration-700 ease-out"
-                style={{ width: `${project.progress}%` }}
-              ></div>
+            {/* Progress Bar & Timers */}
+            <div className="max-w-md mx-auto space-y-2">
+              <div className="w-full bg-slate-950 border border-slate-800 h-3 rounded-full overflow-hidden p-0.5 shadow-inner">
+                <div
+                  className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 h-full rounded-full transition-all duration-500 shadow-md shadow-cyan-500/30"
+                  style={{ width: `${Math.max(5, project.progress)}%` }}
+                ></div>
+              </div>
+              <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
+                <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                  <Activity className="w-3.5 h-3.5" />
+                  {project.progress}% Complete
+                </span>
+                <div className="flex items-center gap-4">
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-slate-500" />
+                    Elapsed: {formatTimer(project.elapsed_seconds)}
+                  </span>
+                  <span className="text-slate-200">
+                    Est. remaining: {project.eta_seconds !== undefined && project.eta_seconds !== null ? `~${formatTimer(project.eta_seconds)}` : 'Calculating...'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <p className="text-xs font-mono text-cyan-400">{project.progress}% Complete</p>
+
+            {/* Cancel & Return to Search */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleCancelProcess}
+                className="px-4 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 shadow-md"
+              >
+                <XCircle className="w-3.5 h-3.5 text-red-400" />
+                Cancel & Return to Search
+              </button>
+            </div>
+          </div>
+        ) : project.status === 'cancelled' ? (
+          /* Cancelled Screen */
+          <div className="max-w-md mx-auto py-16 text-center space-y-4">
+            <div className="p-3 w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 mx-auto flex items-center justify-center">
+              <XCircle className="w-6 h-6" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Track Processing Cancelled</h2>
+            <p className="text-xs text-slate-400">
+              The processing job was aborted. You can search or select a new song anytime.
+            </p>
+            <button
+              type="button"
+              onClick={() => setProject(null)}
+              className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition-all shadow-md shadow-cyan-500/20"
+            >
+              Search Another Song
+            </button>
           </div>
         ) : project.status === 'error' ? (
           /* Error Screen */
@@ -374,6 +487,7 @@ export const App: React.FC = () => {
           project={project}
           isOpen={isExportOpen}
           onClose={() => setIsExportOpen(false)}
+          onCancelRender={handleCancelRender}
         />
       )}
     </div>
