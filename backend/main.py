@@ -1,7 +1,9 @@
 import os
+import re
 import uuid
 import json
 import time
+import secrets
 import threading
 import logging
 from pathlib import Path
@@ -31,28 +33,44 @@ app = FastAPI(title="YouTube Karaoke Studio API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=config.ALLOWED_ORIGINS,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+def is_authenticated(request: Request, app_pwd: str) -> bool:
+    if not app_pwd:
+        return True
+    token = request.headers.get("X-App-Password")
+    if not token:
+        auth_header = request.headers.get("Authorization") or ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+    if not token:
+        token = request.cookies.get("karaoke_token")
+    if not token:
+        return False
+    return secrets.compare_digest(token, app_pwd)
+
 @app.middleware("http")
 async def check_auth_middleware(request: Request, call_next):
-    # Only protect /api routes, excluding /api/health and /api/auth
     path = request.url.path
     app_pwd = config.APP_PASSWORD
-    if app_pwd and path.startswith("/api/") and not path.startswith("/api/health") and not path.startswith("/api/auth"):
-        token = request.headers.get("X-App-Password") or ""
-        if not token:
-            auth_header = request.headers.get("Authorization") or ""
-            if auth_header.startswith("Bearer "):
-                token = auth_header[7:].strip()
-        if token != app_pwd:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Invalid or missing studio passphrase"}
-            )
+    if app_pwd:
+        is_api_protected = (
+            path.startswith("/api/")
+            and not path.startswith("/api/health")
+            and not path.startswith("/api/auth")
+        )
+        is_static_protected = path.startswith("/static/")
+        if is_api_protected or is_static_protected:
+            if not is_authenticated(request, app_pwd):
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid or missing studio passphrase"}
+                )
     return await call_next(request)
 
 
@@ -155,24 +173,38 @@ def auth_status(request: Request):
     app_pwd = config.APP_PASSWORD
     if not app_pwd:
         return {"auth_required": False, "authenticated": True}
-    token = request.headers.get("X-App-Password") or ""
-    if not token:
-        auth_header = request.headers.get("Authorization") or ""
-        if auth_header.startswith("Bearer "):
-            token = auth_header[7:].strip()
-    return {"auth_required": True, "authenticated": token == app_pwd}
-
+    return {"auth_required": True, "authenticated": is_authenticated(request, app_pwd)}
 
 
 @app.post("/api/auth/login")
 def auth_login(req: LoginRequest):
-    if config.APP_PASSWORD and req.password != config.APP_PASSWORD:
+    if config.APP_PASSWORD and not secrets.compare_digest(req.password, config.APP_PASSWORD):
         raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
-    return {
-        "status": "ok",
-        "token": req.password if config.APP_PASSWORD else "ok",
-        "username": req.username or "Friend"
-    }
+
+    token = req.password if config.APP_PASSWORD else "ok"
+    response = JSONResponse(
+        content={
+            "status": "ok",
+            "token": token,
+            "username": req.username or "Friend",
+        }
+    )
+    if config.APP_PASSWORD:
+        response.set_cookie(
+            key="karaoke_token",
+            value=token,
+            httponly=True,
+            samesite="lax",
+            max_age=60 * 60 * 24 * 30,  # 30 days
+        )
+    return response
+
+
+@app.post("/api/auth/logout")
+def auth_logout():
+    response = JSONResponse(content={"status": "ok"})
+    response.delete_cookie(key="karaoke_token")
+    return response
 
 
 
@@ -577,19 +609,30 @@ def get_youtube_package(project_id: str):
     )
 
 
+def sanitize_upload_filename(filename: Optional[str], default_stem: str = "upload") -> str:
+    raw_name = Path(filename or default_stem).name
+    # Strip dangerous characters and allow only alphanumeric, underscore, dot, and dash
+    cleaned = re.sub(r'[^a-zA-Z0-9_.-]', '_', raw_name).strip("._-")
+    return cleaned or default_stem
+
+
 @app.post("/api/upload-instrumental")
 async def upload_instrumental(project_id: str = Form(...), file: UploadFile = File(...)):
-    proj = get_project_or_404(project_id)
+    safe_proj_id = sanitize_upload_filename(project_id, default_stem="project")
+    proj = get_project_or_404(safe_proj_id)
 
-    file_ext = Path(file.filename or "custom.wav").suffix or ".wav"
-    target_path = STEMS_DIR / project_id / f"custom_inst{file_ext}"
+    raw_ext = Path(file.filename or "custom.wav").suffix.lower()
+    allowed_exts = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
+    file_ext = raw_ext if raw_ext in allowed_exts else ".wav"
+
+    target_path = STEMS_DIR / safe_proj_id / f"custom_inst{file_ext}"
     target_path.parent.mkdir(parents=True, exist_ok=True)
     
     content = await file.read()
     target_path.write_bytes(content)
 
     proj["instrumental_path"] = str(target_path)
-    proj["instrumental_url"] = f"/static/stems/{project_id}/custom_inst{file_ext}"
+    proj["instrumental_url"] = f"/static/stems/{safe_proj_id}/custom_inst{file_ext}"
     save_projects()
 
     return {"status": "ok", "instrumental_url": proj["instrumental_url"]}
@@ -597,7 +640,8 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
 
 @app.post("/api/upload-background")
 async def upload_background(file: UploadFile = File(...)):
-    bg_id = f"{uuid.uuid4().hex[:8]}_{file.filename}"
+    safe_name = sanitize_upload_filename(file.filename, default_stem="bg.jpg")
+    bg_id = f"{uuid.uuid4().hex[:8]}_{safe_name}"
     target_path = BACKGROUNDS_DIR / bg_id
     content = await file.read()
     target_path.write_bytes(content)

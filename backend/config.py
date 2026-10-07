@@ -30,6 +30,21 @@ for d in [DATA_DIR, DOWNLOADS_DIR, STEMS_DIR, OUTPUT_DIR, ASSETS_DIR, BACKGROUND
 # Access Control
 APP_PASSWORD = os.getenv("APP_PASSWORD", "").strip()
 
+# Allowed Origins for CORS (with support for comma-separated ALLOWED_ORIGINS env var)
+raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
+if raw_origins:
+    ALLOWED_ORIGINS = [orig.strip() for orig in raw_origins.split(",") if orig.strip()]
+else:
+    ALLOWED_ORIGINS = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ]
+
+
 
 
 # Default Video Configuration
