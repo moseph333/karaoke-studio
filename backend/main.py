@@ -83,40 +83,82 @@ app.mount("/static/backgrounds", StaticFiles(directory=str(BACKGROUNDS_DIR)), na
 
 # Persistent store for project states
 PROJECTS_STORE_FILE = DATA_DIR / "projects.json"
+PROJECTS_BACKUP_FILE = DATA_DIR / "projects.json.bak"
+PROJECTS_LOCK = threading.RLock()
 
 def load_projects() -> Dict[str, Dict[str, Any]]:
-    if PROJECTS_STORE_FILE.exists():
-        try:
-            return json.loads(PROJECTS_STORE_FILE.read_text(encoding="utf-8"))
-        except Exception as e:
-            logger.warning(f"Could not load projects.json: {e}")
-    return {}
+    with PROJECTS_LOCK:
+        # 1. Attempt primary load
+        if PROJECTS_STORE_FILE.exists():
+            try:
+                content = PROJECTS_STORE_FILE.read_text(encoding="utf-8").strip()
+                if content:
+                    return json.loads(content)
+            except Exception as e:
+                logger.error(f"Corrupted projects.json detected: {e}. Attempting backup recovery...")
+        
+        # 2. Attempt fallback to backup if primary failed or does not exist
+        if PROJECTS_BACKUP_FILE.exists():
+            try:
+                content = PROJECTS_BACKUP_FILE.read_text(encoding="utf-8").strip()
+                if content:
+                    logger.info("Successfully recovered projects state from projects.json.bak")
+                    return json.loads(content)
+            except Exception as e:
+                logger.error(f"Could not load backup projects.json.bak: {e}")
+        
+        return {}
 
 def save_projects():
-    try:
-        # Deduplicate aliased keys
-        unique_projects: Dict[str, Any] = {}
-        for k, v in projects.items():
-            pid = v.get("id", k)
-            if pid not in unique_projects:
-                unique_projects[pid] = v
-        PROJECTS_STORE_FILE.write_text(json.dumps(unique_projects, indent=2), encoding="utf-8")
-    except Exception as e:
-        logger.warning(f"Failed to persist projects.json: {e}")
+    with PROJECTS_LOCK:
+        try:
+            # Deduplicate aliased keys
+            unique_projects: Dict[str, Any] = {}
+            for k, v in projects.items():
+                pid = v.get("id", k)
+                if pid not in unique_projects:
+                    unique_projects[pid] = v
+            serialized = json.dumps(unique_projects, indent=2)
+
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            # Write to a temporary file in the same directory (guarantees same filesystem for atomic rename)
+            temp_file = DATA_DIR / f".projects.json.tmp.{uuid.uuid4().hex}"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                f.write(serialized)
+                f.flush()
+                os.fsync(f.fileno())
+
+            # If current store file exists and has size, back it up before replacement
+            if PROJECTS_STORE_FILE.exists() and PROJECTS_STORE_FILE.stat().st_size > 0:
+                try:
+                    PROJECTS_BACKUP_FILE.write_bytes(PROJECTS_STORE_FILE.read_bytes())
+                except Exception as bak_err:
+                    logger.warning(f"Could not update projects backup: {bak_err}")
+
+            # Atomic swap
+            os.replace(temp_file, PROJECTS_STORE_FILE)
+        except Exception as e:
+            logger.error(f"Failed to persist projects.json atomically: {e}")
+            if "temp_file" in locals() and temp_file.exists():
+                try:
+                    temp_file.unlink()
+                except Exception:
+                    pass
 
 projects: Dict[str, Dict[str, Any]] = load_projects()
 
 def find_project(project_id: str) -> Optional[Dict[str, Any]]:
-    if project_id in projects:
-        return projects[project_id]
-    disk_projects = load_projects()
-    projects.update(disk_projects)
-    if project_id in projects:
-        return projects[project_id]
-    for p_id, p in projects.items():
-        if p.get("id") == project_id or p.get("track_id") == project_id:
-            return p
-    return None
+    with PROJECTS_LOCK:
+        if project_id in projects:
+            return projects[project_id]
+        disk_projects = load_projects()
+        projects.update(disk_projects)
+        if project_id in projects:
+            return projects[project_id]
+        for p_id, p in projects.items():
+            if p.get("id") == project_id or p.get("track_id") == project_id:
+                return p
+        return None
 
 def get_project_or_404(project_id: str) -> Dict[str, Any]:
     proj = find_project(project_id)

@@ -34,6 +34,7 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(main_mod, "OUTPUT_DIR", test_output)
     monkeypatch.setattr(main_mod, "BACKGROUNDS_DIR", test_backgrounds)
     monkeypatch.setattr(main_mod, "PROJECTS_STORE_FILE", test_store)
+    monkeypatch.setattr(main_mod, "PROJECTS_BACKUP_FILE", test_data_dir / "projects.json.bak")
 
     projects.clear()
     active_cancellations.clear()
