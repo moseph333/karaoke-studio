@@ -3,6 +3,20 @@ from pathlib import Path
 
 # Base Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Automatically load local .env if present
+env_file = BASE_DIR / ".env"
+if env_file.exists():
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        v = v.strip().strip("'\"")
+        if k and k not in os.environ:
+            os.environ[k] = v
+
 DATA_DIR = Path(os.getenv("KARAOKE_DATA_DIR", BASE_DIR / "workspace_data"))
 DOWNLOADS_DIR = DATA_DIR / "downloads"
 STEMS_DIR = DATA_DIR / "stems"
@@ -15,6 +29,7 @@ for d in [DATA_DIR, DOWNLOADS_DIR, STEMS_DIR, OUTPUT_DIR, ASSETS_DIR, BACKGROUND
 
 # Access Control
 APP_PASSWORD = os.getenv("APP_PASSWORD", "").strip()
+
 
 
 # Default Video Configuration

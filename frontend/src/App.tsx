@@ -35,12 +35,18 @@ export const App: React.FC = () => {
       .then((data) => {
         if (data.auth_required) {
           setAuthRequired(true);
-          if (!localStorage.getItem('karaoke_auth_token')) {
+          if (!data.authenticated) {
+            localStorage.removeItem('karaoke_auth_token');
+            setAuthToken('');
             setShowAuthModal(true);
           }
+        } else {
+          setAuthRequired(false);
+          setShowAuthModal(false);
         }
       })
       .catch(() => {});
+
 
     const handleUnauthorized = () => setShowAuthModal(true);
     window.addEventListener('karaoke_unauthorized', handleUnauthorized);

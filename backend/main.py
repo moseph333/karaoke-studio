@@ -151,8 +151,17 @@ def health_check():
 
 
 @app.get("/api/auth/status")
-def auth_status():
-    return {"auth_required": bool(config.APP_PASSWORD)}
+def auth_status(request: Request):
+    app_pwd = config.APP_PASSWORD
+    if not app_pwd:
+        return {"auth_required": False, "authenticated": True}
+    token = request.headers.get("X-App-Password") or ""
+    if not token:
+        auth_header = request.headers.get("Authorization") or ""
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:].strip()
+    return {"auth_required": True, "authenticated": token == app_pwd}
+
 
 
 @app.post("/api/auth/login")

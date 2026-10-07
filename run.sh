@@ -9,6 +9,14 @@ echo "=================================================="
 echo "    🎤 Launching YouTube Karaoke Studio           "
 echo "=================================================="
 
+# Load local .env if present
+if [ -f "$PROJECT_DIR/.env" ]; then
+    echo "🔑 Loading environment from .env..."
+    set -a
+    source "$PROJECT_DIR/.env"
+    set +a
+fi
+
 # 1. Verify FFmpeg installation
 if ! command -v ffmpeg &> /dev/null; then
     echo "❌ Error: ffmpeg is not installed on this system."
@@ -36,7 +44,7 @@ fi
 echo "✅ Using Python: $($PYTHON --version)"
 
 # 3. Check and build frontend if needed
-if [ ! -d "$PROJECT_DIR/frontend/dist" ]; then
+if [ ! -d "$PROJECT_DIR/frontend/dist" ] || [ "$PROJECT_DIR/frontend/src" -nt "$PROJECT_DIR/frontend/dist" ]; then
     echo "📦 Building frontend UI..."
     if command -v npm &> /dev/null; then
         (cd "$PROJECT_DIR/frontend" && npm install && npm run build)
@@ -44,6 +52,7 @@ if [ ! -d "$PROJECT_DIR/frontend/dist" ]; then
         echo "⚠️ Warning: npm not found. Frontend dist not built."
     fi
 fi
+
 
 # 4. Start FastAPI server
 echo "🚀 Starting server at http://localhost:8000 ..."

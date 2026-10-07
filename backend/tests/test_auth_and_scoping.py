@@ -21,10 +21,17 @@ def test_auth_status_and_protected_routes():
     try:
         config.APP_PASSWORD = "secret_passphrase"
         
-        # Auth status indicates required
+        # Auth status indicates required and unauthenticated without header
         res = client.get("/api/auth/status")
         assert res.status_code == 200
         assert res.json()["auth_required"] is True
+        assert res.json()["authenticated"] is False
+
+        # Auth status indicates authenticated with valid header
+        res = client.get("/api/auth/status", headers={"X-App-Password": "secret_passphrase"})
+        assert res.status_code == 200
+        assert res.json()["authenticated"] is True
+
 
         # Unauthenticated request to protected route fails with 401
         res = client.get("/api/projects")
