@@ -179,22 +179,22 @@ class TrackDownloader:
             except Exception as e:
                 logger.warning(f"Could not download thumbnail directly: {e}")
 
-            clean_title = title
-            clean_artist = artist
-            if " - " in title:
-                parts = title.split(" - ", 1)
-                clean_artist = parts[0].strip()
-                clean_title = re.sub(r"[\(\[\{].*?(official|audio|video|lyrics|hd|4k|hq).*?[\)\]\}]", "", parts[1], flags=re.I).strip()
+        clean_title = title
+        clean_artist = artist
+        if " - " in title:
+            parts = title.split(" - ", 1)
+            clean_artist = parts[0].strip()
+            clean_title = re.sub(r"[\(\[\{].*?(official|audio|video|lyrics|hd|4k|hq).*?[\)\]\}]", "", parts[1], flags=re.I).strip()
 
-            return {
-                "id": v_id,
-                "title": clean_title,
-                "raw_title": title,
-                "artist": clean_artist,
-                "duration": duration,
-                "audio_path": str(final_wav),
-                "thumbnail_path": str(thumb_path) if thumb_path else None,
-                "thumbnail_url": meta.get("thumbnail"),
-                "url": url,
-            }
+        return {
+            "id": v_id,
+            "title": clean_title,
+            "raw_title": title,
+            "artist": clean_artist,
+            "duration": duration,
+            "audio_path": str(final_wav),
+            "thumbnail_path": str(thumb_path) if thumb_path else None,
+            "thumbnail_url": meta.get("thumbnail"),
+            "url": url,
+        }
 
