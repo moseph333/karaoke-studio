@@ -51,12 +51,9 @@ def test_generate_ass_subtitles(tmp_path):
     assert "●" in content
 
 
-def test_cancel_endpoints():
+def test_cancel_endpoints(client):
     import threading
-    from fastapi.testclient import TestClient
-    from backend.main import app, projects, active_cancellations
-
-    client = TestClient(app)
+    from backend.main import projects, active_cancellations
 
     # Test pipeline cancel
     proj_id = "test_cancel_proj"
