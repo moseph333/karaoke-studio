@@ -82,3 +82,49 @@ def test_cancel_endpoints(client):
     assert render_cancel_evt.is_set()
     assert projects[proj_id]["render_status"] == "idle"
 
+
+def test_render_video_drains_stderr_without_deadlock(tmp_path):
+    import wave
+    renderer = VideoRenderer(output_dir=tmp_path)
+    output_ass = tmp_path / "test.ass"
+    output_mp4 = tmp_path / "test.mp4"
+    audio_path = tmp_path / "test.wav"
+
+    # Generate a short 1-second dummy audio wav
+    with wave.open(str(audio_path), "wb") as wf:
+        wf.setnchannels(2)
+        wf.setsampwidth(2)
+        wf.setframerate(44100)
+        wf.writeframes(b"\x00" * (44100 * 4))
+
+    output_ass.write_text(
+        "[Script Info]\n"
+        "Title: Test\n"
+        "ScriptType: v4.00+\n"
+        "PlayResX: 1920\n"
+        "PlayResY: 1080\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        "Style: Default,Montserrat,52,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,1,0,1,3,2,2,80,80,200,1\n\n"
+        "[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+        "Dialogue: 0,0:00:00.00,0:00:01.00,Default,,0,0,0,,{\\kf100}Test\n",
+        encoding="utf-8"
+    )
+
+    progress_reports = []
+    def on_progress(pct, detail, eta):
+        progress_reports.append((pct, detail, eta))
+
+    rendered = renderer.render_video(
+        audio_path=str(audio_path),
+        ass_subtitles_path=str(output_ass),
+        output_mp4_path=output_mp4,
+        duration=1.0,
+        progress_callback=on_progress
+    )
+
+    assert os.path.exists(rendered)
+    assert len(progress_reports) > 0
+
+

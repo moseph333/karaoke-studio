@@ -1,5 +1,6 @@
 import os
 import subprocess
+import threading
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -175,6 +176,7 @@ class VideoRenderer:
 
         cmd = [
             "ffmpeg", "-y",
+            "-loglevel", "warning",
             "-progress", "pipe:1",
             "-nostats",
             *bg_input,
@@ -201,6 +203,19 @@ class VideoRenderer:
             text=True,
             bufsize=1
         )
+
+        stderr_lines: List[str] = []
+
+        def _drain_stderr():
+            if process.stderr:
+                try:
+                    for err_line in process.stderr:
+                        stderr_lines.append(err_line)
+                except Exception:
+                    pass
+
+        stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+        stderr_thread.start()
 
         current_frame = 0
         current_fps = 0.0
@@ -245,24 +260,26 @@ class VideoRenderer:
                         pass
                 elif key in ("out_time_us", "out_time_ms"):
                     try:
-                        div = 1_000_000 if key == "out_time_us" else 1_000
-                        out_time_sec = float(val) / div
+                        # In FFmpeg -progress output, both out_time_us and out_time_ms are in microseconds
+                        out_time_sec = float(val) / 1_000_000
                     except ValueError:
                         pass
                 elif key == "progress" and val in ("continue", "end"):
                     now = time.time()
                     if now - last_callback_time >= 0.25 or val == "end":
                         last_callback_time = now
-                        pct = 100.0 if val == "end" else min(99.0, max(0.0, (out_time_sec / duration) * 100.0))
+                        eff_time = out_time_sec if out_time_sec > 0 else (current_frame / 60.0)
+                        pct = 100.0 if val == "end" else min(99.0, max(0.0, (eff_time / duration) * 100.0))
                         eta_sec = None
-                        if val != "end" and current_speed > 0.05 and duration > out_time_sec:
-                            eta_sec = max(0, int((duration - out_time_sec) / current_speed))
+                        if val != "end" and current_speed > 0.05 and duration > eff_time:
+                            eta_sec = max(0, int((duration - eff_time) / current_speed))
                         
                         detail = f"Encoding 1080p60: frame {current_frame} ({current_fps:.0f} fps, {current_speed:.1f}x speed)"
                         if progress_callback:
                             progress_callback(pct, detail, eta_sec)
 
             process.wait()
+            stderr_thread.join(timeout=1.0)
 
         except Exception as e:
             if cancel_event and cancel_event.is_set():
@@ -270,7 +287,7 @@ class VideoRenderer:
             raise e
 
         if process.returncode != 0:
-            stderr_out = process.stderr.read() if process.stderr else ""
+            stderr_out = "".join(stderr_lines).strip()
             logger.error(f"Video rendering failed: {stderr_out}")
             raise RuntimeError(f"FFmpeg video render error: {stderr_out}")
 
