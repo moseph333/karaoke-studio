@@ -73,6 +73,14 @@ async def check_auth_middleware(request: Request, call_next):
                 )
     return await call_next(request)
 
+@app.middleware("http")
+async def add_security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 
 
 # Mount static directories so frontend can stream audio and video
@@ -219,7 +227,7 @@ def auth_status(request: Request):
 
 
 @app.post("/api/auth/login")
-def auth_login(req: LoginRequest):
+def auth_login(req: LoginRequest, request: Request):
     if config.APP_PASSWORD and not secrets.compare_digest(req.password, config.APP_PASSWORD):
         raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
 
@@ -232,11 +240,13 @@ def auth_login(req: LoginRequest):
         }
     )
     if config.APP_PASSWORD:
+        is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
         response.set_cookie(
             key="karaoke_token",
             value=token,
             httponly=True,
             samesite="lax",
+            secure=is_https,
             max_age=60 * 60 * 24 * 30,  # 30 days
         )
     return response
@@ -539,11 +549,12 @@ def run_video_render(project_id: str, req: RenderRequest):
 
         update_render(22, "Initializing FFmpeg 1080p60 encoding engine...", 35)
 
-        # 3. Custom background if specified
+        # 3. Custom background if specified (harden against path traversal)
         custom_bg_file = None
         if req.custom_bg_id:
-            bg_candidate = BACKGROUNDS_DIR / req.custom_bg_id
-            if bg_candidate.exists():
+            safe_bg_id = Path(req.custom_bg_id).name
+            bg_candidate = (BACKGROUNDS_DIR / safe_bg_id).resolve()
+            if bg_candidate.is_relative_to(BACKGROUNDS_DIR.resolve()) and bg_candidate.is_file():
                 custom_bg_file = str(bg_candidate)
 
         def ffmpeg_cb(pct, detail, eta_s):
@@ -651,11 +662,46 @@ def get_youtube_package(project_id: str):
     )
 
 
+# Upload security limits and allowed MIME extensions
+MAX_BACKGROUND_UPLOAD_BYTES = 10 * 1024 * 1024    # 10 MB
+MAX_INSTRUMENTAL_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+ALLOWED_BACKGROUND_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_AUDIO_EXTS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
+
+
 def sanitize_upload_filename(filename: Optional[str], default_stem: str = "upload") -> str:
     raw_name = Path(filename or default_stem).name
     # Strip dangerous characters and allow only alphanumeric, underscore, dot, and dash
     cleaned = re.sub(r'[^a-zA-Z0-9_.-]', '_', raw_name).strip("._-")
     return cleaned or default_stem
+
+
+async def save_upload_file_bounded(file: UploadFile, target_path: Path, max_bytes: int) -> int:
+    """
+    Streams and writes UploadFile content to disk with a strict byte ceiling.
+    Avoids unbounded memory consumption and prevents DoS through large file payloads.
+    """
+    total_bytes = 0
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = target_path.with_suffix(f".tmp.{uuid.uuid4().hex}")
+    try:
+        with open(temp_path, "wb") as f:
+            while chunk := await file.read(1024 * 64):
+                total_bytes += len(chunk)
+                if total_bytes > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Uploaded file exceeds maximum permitted size of {max_bytes // (1024 * 1024)}MB"
+                    )
+                f.write(chunk)
+        temp_path.replace(target_path)
+        return total_bytes
+    finally:
+        if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
 
 
 @app.post("/api/upload-instrumental")
@@ -664,17 +710,17 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
     proj = get_project_or_404(safe_proj_id)
 
     raw_ext = Path(file.filename or "custom.wav").suffix.lower()
-    allowed_exts = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
-    file_ext = raw_ext if raw_ext in allowed_exts else ".wav"
+    if raw_ext not in ALLOWED_AUDIO_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}"
+        )
 
-    target_path = STEMS_DIR / safe_proj_id / f"custom_inst{file_ext}"
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    content = await file.read()
-    target_path.write_bytes(content)
+    target_path = STEMS_DIR / safe_proj_id / f"custom_inst{raw_ext}"
+    await save_upload_file_bounded(file, target_path, MAX_INSTRUMENTAL_UPLOAD_BYTES)
 
     proj["instrumental_path"] = str(target_path)
-    proj["instrumental_url"] = f"/static/stems/{safe_proj_id}/custom_inst{file_ext}"
+    proj["instrumental_url"] = f"/static/stems/{safe_proj_id}/custom_inst{raw_ext}"
     save_projects()
 
     return {"status": "ok", "instrumental_url": proj["instrumental_url"]}
@@ -682,11 +728,18 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
 
 @app.post("/api/upload-background")
 async def upload_background(file: UploadFile = File(...)):
+    raw_ext = Path(file.filename or "bg.jpg").suffix.lower()
+    if raw_ext not in ALLOWED_BACKGROUND_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported image format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_BACKGROUND_EXTS))}"
+        )
+
     safe_name = sanitize_upload_filename(file.filename, default_stem="bg.jpg")
     bg_id = f"{uuid.uuid4().hex[:8]}_{safe_name}"
     target_path = BACKGROUNDS_DIR / bg_id
-    content = await file.read()
-    target_path.write_bytes(content)
+
+    await save_upload_file_bounded(file, target_path, MAX_BACKGROUND_UPLOAD_BYTES)
     return {"status": "ok", "bg_id": bg_id, "bg_url": f"/static/backgrounds/{bg_id}"}
 
 

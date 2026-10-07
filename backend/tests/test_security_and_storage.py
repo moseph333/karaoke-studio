@@ -60,7 +60,7 @@ def test_cookie_lifecycle_login_logout(unauth_client):
 
 def test_upload_filename_sanitization(client):
     # Test path traversal in upload-background
-    malicious_filename = "../../../etc/cron.d/malicious.sh"
+    malicious_filename = "../../../etc/cron.d/malicious.jpg"
     res = client.post(
         "/api/upload-background",
         files={"file": (malicious_filename, io.BytesIO(b"echo pwned"), "image/jpeg")}
@@ -122,3 +122,51 @@ def test_concurrent_atomic_saves():
     # Verify JSON is completely intact and parsable
     content = json.loads(main_mod.PROJECTS_STORE_FILE.read_text(encoding="utf-8"))
     assert len(content) > 0
+
+
+def test_http_security_headers_present(client):
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    assert res.headers.get("X-Content-Type-Options") == "nosniff"
+    assert res.headers.get("X-Frame-Options") == "DENY"
+    assert res.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+
+
+def test_upload_background_extension_validation(client):
+    # Reject .html
+    html_res = client.post(
+        "/api/upload-background",
+        files={"file": ("exploit.html", io.BytesIO(b"<script>alert(1)</script>"), "text/html")}
+    )
+    assert html_res.status_code == 400
+    assert "Unsupported image format" in html_res.json()["detail"]
+
+    # Reject .svg
+    svg_res = client.post(
+        "/api/upload-background",
+        files={"file": ("vector.svg", io.BytesIO(b"<svg></svg>"), "image/svg+xml")}
+    )
+    assert svg_res.status_code == 400
+    assert "Unsupported image format" in svg_res.json()["detail"]
+
+    # Allow valid image extension
+    valid_res = client.post(
+        "/api/upload-background",
+        files={"file": ("wallpaper.jpg", io.BytesIO(b"\xff\xd8\xff\xe0 dummy jpeg"), "image/jpeg")}
+    )
+    assert valid_res.status_code == 200
+    assert "bg_id" in valid_res.json()
+
+
+def test_upload_file_size_limit(client, monkeypatch):
+    # Temporarily set upload limit to 100 bytes for testing
+    monkeypatch.setattr(main_mod, "MAX_BACKGROUND_UPLOAD_BYTES", 100)
+    large_payload = b"X" * 105
+
+    res = client.post(
+        "/api/upload-background",
+        files={"file": ("big_image.png", io.BytesIO(large_payload), "image/png")}
+    )
+    assert res.status_code == 413
+    assert "exceeds maximum permitted size" in res.json()["detail"]
+
