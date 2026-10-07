@@ -8,9 +8,10 @@ import { AuthModal } from './components/AuthModal';
 import { ProjectState, LyricLine, VisualTheme } from './types';
 import { Mic2, Film, Sparkles, AlertCircle, ArrowLeft, RefreshCw, Clock, Activity, XCircle, User } from 'lucide-react';
 import { apiFetch } from './api';
+import { useProjectPolling } from './hooks/useProjectPolling';
 
 export const App: React.FC = () => {
-  const [project, setProject] = useState<ProjectState | null>(null);
+  const { project, setProject } = useProjectPolling(null);
   const [loading, setLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -19,7 +20,6 @@ export const App: React.FC = () => {
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [customBgId, setCustomBgId] = useState<string>('');
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const [, setTick] = useState(0);
 
   // Authentication & Friend Profile State
   const [authRequired, setAuthRequired] = useState(false);
@@ -59,62 +59,6 @@ export const App: React.FC = () => {
     setAuthToken(token);
     setShowAuthModal(false);
   };
-
-
-  // Poll project state every 1000ms if in an active/queued stage
-  useEffect(() => {
-    if (!project?.id) return;
-    
-    const needsPolling =
-      ['queued', 'downloading', 'separating', 'fetching_lyrics', 'aligning', 'mixing'].includes(project.status) ||
-      ['queued', 'rendering'].includes(project.render_status || '');
-
-    if (!needsPolling) return;
-
-    let consecutiveErrors = 0;
-    const maxRetries = 5;
-
-    const timer = setInterval(async () => {
-      try {
-        const res = await apiFetch(`/api/project/${project.id}`);
-        if (res.ok) {
-          consecutiveErrors = 0;
-          const data: ProjectState = await res.json();
-          setProject(data);
-        } else if (res.status === 404) {
-          consecutiveErrors++;
-          if (consecutiveErrors >= maxRetries) {
-            setProject((prev) =>
-              prev
-                ? {
-                    ...prev,
-                    status: 'error',
-                    error: 'Session timed out or server reloaded. Please click "Try Another Track" to re-open.',
-                  }
-                : null
-            );
-          }
-        }
-      } catch (err) {
-        console.error('Failed to poll project status:', err);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [project?.id, project?.status, project?.render_status]);
-
-  // Tick effect to interpolate timers smoothly every second
-  useEffect(() => {
-    const isWorking =
-      ['queued', 'downloading', 'separating', 'fetching_lyrics', 'aligning', 'mixing'].includes(project?.status || '') ||
-      ['queued', 'rendering'].includes(project?.render_status || '');
-    if (!isWorking) return;
-
-    const ticker = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 1000);
-    return () => clearInterval(ticker);
-  }, [project?.status, project?.render_status]);
 
   const formatTimer = (seconds?: number | null) => {
     if (seconds === undefined || seconds === null || seconds < 0) return '--:--';
@@ -362,16 +306,16 @@ export const App: React.FC = () => {
           />
         ) : project.status !== 'ready' && project.status !== 'error' && project.status !== 'cancelled' ? (
           /* Processing Pipeline Progress Screen */
-          <div className="max-w-xl mx-auto py-16 text-center space-y-6">
+          <div className="max-w-xl mx-auto py-16 text-center space-y-6" role="status" aria-live="polite">
             <div className="relative w-24 h-24 mx-auto">
-              <div className="w-full h-full border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin"></div>
-              <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-cyan-400 animate-pulse" />
+              <div className="w-full h-full border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin motion-reduce:animate-none"></div>
+              <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-cyan-400 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
             </div>
 
             {/* Live Heartbeat Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium shadow-sm">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="animate-ping motion-reduce:animate-none absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <span>Engine Active • {getHeartbeatText(project.heartbeat)}</span>
