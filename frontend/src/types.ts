@@ -31,6 +31,8 @@ export interface ProjectState {
   lines: LyricLine[];
   semitones: number;
   guide_volume: number;
+  created_by?: string;
+  created_at?: number;
   error?: string;
   render_status?: 'idle' | 'queued' | 'rendering' | 'completed' | 'error';
   render_progress?: number;

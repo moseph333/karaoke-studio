@@ -4,8 +4,9 @@ import { AudioControls } from './components/AudioControls';
 import { LyricTimelineEditor } from './components/LyricTimelineEditor';
 import { VisualThemePicker, THEMES } from './components/VisualThemePicker';
 import { ExportModal } from './components/ExportModal';
+import { AuthModal } from './components/AuthModal';
 import { ProjectState, LyricLine, VisualTheme } from './types';
-import { Mic2, Film, Sparkles, AlertCircle, ArrowLeft, RefreshCw, Clock, Activity, XCircle } from 'lucide-react';
+import { Mic2, Film, Sparkles, AlertCircle, ArrowLeft, RefreshCw, Clock, Activity, XCircle, User } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<ProjectState | null>(null);
@@ -19,7 +20,39 @@ export const App: React.FC = () => {
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [, setTick] = useState(0);
 
+  // Authentication & Friend Profile State
+  const [authRequired, setAuthRequired] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(localStorage.getItem('karaoke_user_name') || 'Friend');
+  const [authToken, setAuthToken] = useState(localStorage.getItem('karaoke_auth_token') || '');
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Check server auth requirement on load
+  useEffect(() => {
+    fetch('/api/auth/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.auth_required) {
+          setAuthRequired(true);
+          if (!localStorage.getItem('karaoke_auth_token')) {
+            setShowAuthModal(true);
+          }
+        }
+      })
+      .catch(() => {});
+
+    const handleUnauthorized = () => setShowAuthModal(true);
+    window.addEventListener('karaoke_unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('karaoke_unauthorized', handleUnauthorized);
+  }, []);
+
+  const handleAuthSuccess = (username: string, token: string) => {
+    setCurrentUser(username);
+    setAuthToken(token);
+    setShowAuthModal(false);
+  };
+
 
   // Poll project state every 1000ms if in an active/queued stage
   useEffect(() => {
@@ -149,7 +182,11 @@ export const App: React.FC = () => {
       const res = await fetch('/api/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url_or_id: urlOrId, custom_lyrics: customLyrics }),
+        body: JSON.stringify({
+          url_or_id: urlOrId,
+          custom_lyrics: customLyrics,
+          created_by: currentUser || 'Friend',
+        }),
       });
       if (!res.ok) throw new Error('Failed to initiate processing');
       const data = await res.json();
@@ -267,36 +304,54 @@ export const App: React.FC = () => {
             </div>
           </div>
 
-          {project && (
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setProject(null)}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                New Song
-              </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowAuthModal(true)}
+              className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-slate-300 text-xs font-medium transition-all flex items-center gap-1.5 shadow"
+              title="Click to change your nickname or passphrase"
+            >
+              <User className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="font-semibold text-white">{currentUser}</span>
+            </button>
 
-              {project.status === 'ready' && (
+            {project && (
+              <>
                 <button
                   type="button"
-                  onClick={handleStartRender}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                  onClick={() => setProject(null)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5"
                 >
-                  <Film className="w-4 h-4" />
-                  Render & Export Video
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  New Song
                 </button>
-              )}
-            </div>
-          )}
+
+                {project.status === 'ready' && (
+                  <button
+                    type="button"
+                    onClick={handleStartRender}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                  >
+                    <Film className="w-4 h-4" />
+                    Render & Export Video
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
         {!project ? (
-          <TrackSearch onSelectTrack={handleSelectTrack} isLoading={loading} />
+          <TrackSearch
+            onSelectTrack={handleSelectTrack}
+            onOpenProject={(p) => setProject(p)}
+            isLoading={loading}
+            currentUser={currentUser}
+            authToken={authToken}
+          />
         ) : project.status !== 'ready' && project.status !== 'error' && project.status !== 'cancelled' ? (
           /* Processing Pipeline Progress Screen */
           <div className="max-w-xl mx-auto py-16 text-center space-y-6">
@@ -490,6 +545,12 @@ export const App: React.FC = () => {
           onCancelRender={handleCancelRender}
         />
       )}
+
+      {/* Shared Studio Passphrase & Friend Profile Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 };
