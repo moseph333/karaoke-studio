@@ -1,0 +1,33 @@
+services:
+  karaoke-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: karaoke-studio
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - PORT=8000
+      - APP_PASSWORD=${APP_PASSWORD:-}
+      - KARAOKE_DATA_DIR=/app/workspace_data
+    volumes:
+      - ${KARAOKE_DATA_DIR:-./workspace_data}:/app/workspace_data
+      - demucs-models:/root/.cache/torch
+
+  # Cloudflare Tunnel Sidecar (Optional)
+  # Boots when running: docker compose --profile tunnel up -d
+  # Or automatically connects if CLOUDFLARE_TUNNEL_TOKEN is set in your .env
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-karaoke
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - karaoke-studio
+    profiles:
+      - tunnel
+
+volumes:
+  demucs-models:
+    name: karaoke-demucs-models
