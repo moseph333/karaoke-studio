@@ -1,57 +1,88 @@
 # YouTube Karaoke Studio
 
-An AI-powered web studio to generate high-definition karaoke tracks ready for YouTube upload directly from YouTube Music URLs or search queries.
+Web studio for turning YouTube songs into 1080p karaoke videos with synchronized lyrics, pitch shifting, and YouTube-ready metadata.
 
 ![Karaoke Studio Interface](https://raw.githubusercontent.com/antigravity/assets/main/karaoke-preview.png)
 
 ## Features
 
-- **Source Sourcing**: Search any song or paste a direct YouTube / YouTube Music URL using `yt-dlp`.
-- **Vocal & Stem Isolation**: Demucs AI stem separation separates isolated `vocals.wav` and `instrumental.wav`. Also supports uploading your own official instrumental backing track.
-- **Synced Lyrics Acquisition**: Automatically queries the open LRCLIB database and `syncedlyrics` for timecoded lyrics, with optional custom lyrics input.
-- **Forced Word-by-Word Alignment**: Acoustic energy and envelope alignment calculates exact word-level start and end timestamps.
-- **Interactive Timeline Editor**:
-  - Live audio scrubbing and word boundary editing.
-  - Word wipe preview with real-time progressive color fill.
-  - 3-2-1 visual countdown cue dots before vocal entries.
-  - Line nudging (-0.2s / +0.2s) for instant beat alignment.
-- **Studio Audio Mixing**:
-  - Pitch transposition: Shift key up or down by semitones (`-12` to `+12`) without affecting tempo.
-  - Guide vocal blend: Blend subtle vocal levels (0% to 50%) into the instrumental track.
-- **Theme & Video Customizer**:
-  - Presets: Modern Gold, Cyber Cyan, Neon Sunset, Classic KTV Blue/Yellow.
-  - Custom background video or image upload, or auto-generated dynamic blurred album art background.
-  - 16:9 Widescreen (YouTube standard) and 9:16 Vertical (YouTube Shorts).
-- **YouTube Metadata & Export Kit**:
-  - High-bitrate 1080p60 MP4 with AAC 320kbps audio.
-  - 1-Click Copy formatted YouTube Title, Description with chapter timestamps & lyric sheet, and SEO Tags.
+- **Audio intake**: search song titles or paste YouTube / YouTube Music links using `yt-dlp`.
+- **Stem separation**: Demucs isolates `vocals.wav` and `instrumental.wav`. Supports direct uploads for official backing tracks.
+- **Lyric sync**: pulls timecoded lyrics from LRCLIB and `syncedlyrics`, or accepts custom text.
+- **Word alignment**: calculates word-level boundaries using acoustic energy and envelope detection.
+- **Timeline editor**: audio scrubbing, boundary trimming, progressive wipe previews, 3-2-1 visual countdown dots, and +/-0.2s line nudging.
+- **Studio mixing**: semitone pitch shifting (-12 to +12) without tempo change, and 0% to 50% guide vocal blending.
+- **Themes and styling**: four presets (Modern Gold, Cyber Cyan, Neon Sunset, Classic KTV), custom video/image backgrounds, auto-blurred album art, and 16:9 widescreen or 9:16 vertical outputs.
+- **Export kit**: 1080p60 MP4 with 320 kbps AAC audio, plus formatted titles, description timestamps, lyric sheets, and tags ready for YouTube upload.
+- **Access control**: optional password protection for hosted sessions and LAN parties.
 
 ## Quick Start
 
-### 1. Launch with Single Command
+### Option 1: Automatic local launch
+
+Run the startup script:
 
 ```bash
 ./run.sh
 ```
 
-This script will verify FFmpeg, check dependencies, build the frontend if needed, start the FastAPI server at `http://localhost:8000`, and open your browser automatically.
+The script verifies FFmpeg, sets up the Python virtual environment, builds the frontend if needed, starts the FastAPI server on port 8000, and opens your browser.
 
-### 2. Manual Start
+### Option 2: Docker Compose
 
-**Backend**:
+Start the studio container:
+
 ```bash
-./venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+docker compose up -d
 ```
 
-**Frontend (Development mode)**:
+To expose the studio via an existing Cloudflare Tunnel, set `CLOUDFLARE_TUNNEL_TOKEN` in your `.env` file and start with the tunnel profile:
+
+```bash
+docker compose --profile tunnel up -d
+```
+
+### Option 3: Manual development setup
+
+1. Install backend dependencies and start the API:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+2. Start the Vite development server:
+
 ```bash
 cd frontend
+npm install
 npm run dev
 ```
 
+The frontend development server proxies API requests to `http://localhost:8000`.
+
+## Configuration
+
+Copy `.env.example` to `.env` to customize settings:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `PORT` | `8000` | Port for the web interface and FastAPI server |
+| `APP_PASSWORD` | *(empty)* | Passphrase required to log in. Leave empty for open access. |
+| `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Zero Trust tunnel token for routing a custom domain to Docker. |
+| `KARAOKE_DATA_DIR` | `./workspace_data` | Directory for downloaded audio, stems, and rendered videos. |
+
 ## System Requirements
 
-- **OS**: Linux / macOS / Windows
-- **Python**: 3.10+ (Recommended: Python 3.12)
-- **Node.js**: 18+
-- **FFmpeg**: Required with `libass` support (standard on modern Linux distributions).
+- **Operating system**: Linux, macOS, or Windows (WSL2 recommended)
+- **Python**: 3.10 or higher (Python 3.12 recommended)
+- **Node.js**: 18 or higher
+- **FFmpeg**: compiled with `libass` support (required for subtitle burning)
+- **Disk space**: at least 5 GB free for Demucs model weights and audio workfiles
+
