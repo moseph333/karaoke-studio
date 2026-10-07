@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Music, Sparkles, FileText, ChevronDown, ChevronUp, FolderHeart, Globe, CheckCircle2, Clock, Play } from 'lucide-react';
 import { SearchResult, ProjectState } from '../types';
+import { apiFetch } from '../api';
 
 interface TrackSearchProps {
   onSelectTrack: (urlOrId: string, customLyrics?: string) => void;
@@ -33,10 +34,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const fetchLibrary = async () => {
     setLoadingLibrary(true);
     try {
-      const headers: Record<string, string> = {};
-      if (authToken) headers['X-App-Password'] = authToken;
-
-      const res = await fetch('/api/projects?scope=all', { headers });
+      const res = await apiFetch('/api/projects?scope=all');
       if (res.ok) {
         const data: Record<string, ProjectState> = await res.json();
         // Deduplicate projects by ID
@@ -71,12 +69,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
     setSearching(true);
     setError(null);
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (authToken) headers['X-App-Password'] = authToken;
-
-      const res = await fetch('/api/search', {
+      const res = await apiFetch('/api/search', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: query.trim(), limit: 5 }),
       });
       if (!res.ok) throw new Error('Search failed');

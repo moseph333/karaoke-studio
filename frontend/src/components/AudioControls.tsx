@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Volume2, Mic, Upload, Sliders, Music2 } from 'lucide-react';
+import { apiFetch } from '../api';
 
 interface AudioControlsProps {
   projectId: string;
@@ -56,7 +57,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
     formData.append('file', file);
 
     try {
-      const res = await fetch('/api/upload-instrumental', {
+      const res = await apiFetch('/api/upload-instrumental', {
         method: 'POST',
         body: formData,
       });

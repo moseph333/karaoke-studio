@@ -7,6 +7,7 @@ import { ExportModal } from './components/ExportModal';
 import { AuthModal } from './components/AuthModal';
 import { ProjectState, LyricLine, VisualTheme } from './types';
 import { Mic2, Film, Sparkles, AlertCircle, ArrowLeft, RefreshCw, Clock, Activity, XCircle, User } from 'lucide-react';
+import { apiFetch } from './api';
 
 export const App: React.FC = () => {
   const [project, setProject] = useState<ProjectState | null>(null);
@@ -30,7 +31,7 @@ export const App: React.FC = () => {
 
   // Check server auth requirement on load
   useEffect(() => {
-    fetch('/api/auth/status')
+    apiFetch('/api/auth/status')
       .then((res) => res.json())
       .then((data) => {
         if (data.auth_required) {
@@ -75,7 +76,7 @@ export const App: React.FC = () => {
 
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`/api/project/${project.id}`);
+        const res = await apiFetch(`/api/project/${project.id}`);
         if (res.ok) {
           consecutiveErrors = 0;
           const data: ProjectState = await res.json();
@@ -132,7 +133,7 @@ export const App: React.FC = () => {
   const handleCancelProcess = async () => {
     if (!project?.id) return;
     try {
-      await fetch(`/api/project/${project.id}/cancel`, { method: 'POST' });
+      await apiFetch(`/api/project/${project.id}/cancel`, { method: 'POST' });
     } catch (e) {
       console.error('Cancel failed', e);
     }
@@ -142,7 +143,7 @@ export const App: React.FC = () => {
   const handleCancelRender = async () => {
     if (!project?.id) return;
     try {
-      await fetch(`/api/project/${project.id}/cancel-render`, { method: 'POST' });
+      await apiFetch(`/api/project/${project.id}/cancel-render`, { method: 'POST' });
     } catch (e) {
       console.error('Cancel render failed', e);
     }
@@ -185,7 +186,7 @@ export const App: React.FC = () => {
   const handleSelectTrack = async (urlOrId: string, customLyrics?: string) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/process', {
+      const res = await apiFetch('/api/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -215,7 +216,7 @@ export const App: React.FC = () => {
   const handleSaveLines = async (updatedLines: LyricLine[]) => {
     if (!project?.id) return;
     try {
-      const res = await fetch(`/api/project/${project.id}/lyrics`, {
+      const res = await apiFetch(`/api/project/${project.id}/lyrics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lines: updatedLines }),
@@ -235,7 +236,7 @@ export const App: React.FC = () => {
     if (audioRef.current) audioRef.current.pause();
 
     try {
-      const res = await fetch(`/api/project/${project.id}/mix`, {
+      const res = await apiFetch(`/api/project/${project.id}/mix`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ semitones, guide_volume: guideVolume }),
@@ -263,7 +264,7 @@ export const App: React.FC = () => {
     setIsExportOpen(true);
 
     try {
-      await fetch(`/api/project/${project.id}/render`, {
+      await apiFetch(`/api/project/${project.id}/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -290,6 +291,7 @@ export const App: React.FC = () => {
         <audio
           ref={audioRef}
           src={project.master_audio_url}
+          crossOrigin="use-credentials"
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={() => setIsPlaying(false)}

@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Palette, Upload, Monitor, Smartphone, Check } from 'lucide-react';
 import { VisualTheme } from '../types';
+import { apiFetch } from '../api';
 
 export const THEMES: VisualTheme[] = [
   {
@@ -74,7 +75,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
     formData.append('file', file);
 
     try {
-      const res = await fetch('/api/upload-background', {
+      const res = await apiFetch('/api/upload-background', {
         method: 'POST',
         body: formData,
       });

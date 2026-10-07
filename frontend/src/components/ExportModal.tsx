@@ -152,6 +152,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
               <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-xl">
                 <video
                   src={project.video_url}
+                  crossOrigin="use-credentials"
                   controls
                   className="w-full h-full object-contain"
                 />
