@@ -98,7 +98,7 @@ Karaoke Studio was engineered as a high-concurrency, local-first media workstati
 
 ### Development & AI Assistance
 
-LLMs were used as pair-programming tools during development for scaffolding boilerplate, initial test fixtures, and documentation drafts. System architecture, audio and video pipelines (Demucs and FFmpeg), concurrency controls, and security reviews were manually authored, tested, and verified.
+Code generation, test suites, and refactors were iteratively produced using LLMs under direct engineering oversight. System architecture, product requirements, homelab infrastructure deployment, and real-world failure triage—including FFmpeg stream deadlocks, YouTube rate limits, and pipeline concurrency—were driven, tested, and validated by the maintainer.
 
 ## Maintenance & Support
 
