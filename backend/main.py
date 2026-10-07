@@ -198,8 +198,20 @@ class ProcessRequest(BaseModel):
     custom_lyrics: Optional[str] = None
     created_by: Optional[str] = None
 
+class WordTimingSchema(BaseModel):
+    word: str
+    start_time: float
+    end_time: float
+
+class LyricLineSchema(BaseModel):
+    id: Optional[int] = None
+    text: str
+    start_time: float
+    end_time: float
+    words: List[WordTimingSchema] = []
+
 class LyricsUpdateRequest(BaseModel):
-    lines: List[Dict[str, Any]]
+    lines: List[LyricLineSchema]
 
 class MixRequest(BaseModel):
     semitones: int = 0
@@ -466,7 +478,7 @@ def get_project(project_id: str):
 @app.post("/api/project/{project_id}/lyrics")
 def update_lyrics(project_id: str, req: LyricsUpdateRequest):
     proj = get_project_or_404(project_id)
-    proj["lines"] = req.lines
+    proj["lines"] = [line.model_dump() for line in req.lines]
     save_projects()
     return {"status": "ok", "lines_count": len(req.lines)}
 
