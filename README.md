@@ -1,12 +1,12 @@
-# YouTube Karaoke Studio
+# Karaoke Studio
 
-Web studio for turning YouTube songs into 1080p karaoke videos with synchronized lyrics, pitch shifting, and YouTube-ready metadata.
+Local-first audio workstation for stem separation, acoustic word alignment, timeline lyric synchronization, and 1080p lyric video rendering.
 
 ![Karaoke Studio Interface](https://raw.githubusercontent.com/antigravity/assets/main/karaoke-preview.png)
 
 ## Features
 
-- **Audio intake**: search song titles or paste YouTube / YouTube Music links using `yt-dlp`.
+- **Audio intake**: upload local tracks (`.mp3`, `.wav`, `.flac`) or ingest audio streams via `yt-dlp`.
 - **Stem separation**: Demucs isolates `vocals.wav` and `instrumental.wav`. Supports direct uploads for official backing tracks.
 - **Lyric sync**: pulls timecoded lyrics from LRCLIB and `syncedlyrics`, or accepts custom text.
 - **Word alignment**: calculates word-level boundaries using acoustic energy and envelope detection.
@@ -85,4 +85,30 @@ cp .env.example .env
 - **Node.js**: 18 or higher
 - **FFmpeg**: compiled with `libass` support (required for subtitle burning)
 - **Disk space**: at least 5 GB free for Demucs model weights and audio workfiles
+
+## Architecture & Engineering Highlights
+
+Karaoke Studio was engineered as a high-concurrency, local-first media workstation:
+
+- **Asynchronous Task Engine**: FastAPI backend with non-blocking worker queues, dynamic progress streaming, cancelable threads, and heartbeat monitors for compute-intensive Demucs and FFmpeg jobs.
+- **Audio DSP Pipeline**: Demucs v4 (Hybrid Transformer) stem isolation combined with acoustic energy envelope detection to calculate fine-grained syllable and word boundaries.
+- **Video Rendering Engine**: Native FFmpeg filtergraphs with `libass` compositing to burn dynamic progressive wipe karaoke styles directly into 1080p60 MP4 with 320 kbps AAC audio.
+- **Fault-Tolerant Storage**: Atomic JSON persistence with automated backup recovery to guard against state corruption during sudden shutdowns.
+- **Modern Interface**: React 18, Tailwind CSS, Lucide icons, and Wavesurfer.js audio scrubbers for interactive timeline editing.
+
+### AI-Accelerated Engineering Disclosure
+
+This project was designed, architected, and hardened by Joseph Maxwell, leveraging modern generative AI assistants (LLMs) for rapid boilerplate generation, initial test fixture authoring, and documentation iteration. All system architecture decisions, security hardening (atomic file safety, timing-safe authentication, static media protection), Demucs/FFmpeg integration, and edge-case handling were actively directed, reviewed, and tested.
+
+## Maintenance & Support
+
+This repository is maintained as an open-source portfolio and personal showcase project. It is provided **"as-is"** without dedicated commercial support or SLAs. Upstream dependencies (such as YouTube stream extractors or external lyric APIs) may require periodic updates if upstream platforms alter their signatures.
+
+## Legal & Fair-Use Disclaimer
+
+Karaoke Studio is intended strictly for personal, educational, and fair-use audio exploration, practice, and amateur karaoke production using locally owned media or authorized streams. The authors do not encourage or condone copyright infringement. Users are solely responsible for ensuring compliance with all applicable copyright laws and third-party terms of service.
+
+## License
+
+This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE). Any derivative network services or distributions must provide corresponding source code under the same license terms.
 
