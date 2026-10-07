@@ -75,8 +75,12 @@ class TrackDownloader:
                 ydl_opts_meta = {
                     "skip_download": True,
                     "quiet": True,
-                    "remote_components": ["ejs:github"],
-                    "js_runtimes": {"node": {"path": "/usr/bin/node"}},
+                    "no_warnings": True,
+                    "extractor_args": {
+                        "youtube": {
+                            "player_client": ["ios", "android", "mweb"],
+                        }
+                    },
                 }
                 with yt_dlp.YoutubeDL(ydl_opts_meta) as ydl:
                     meta = ydl.extract_info(url_or_id, download=False)
@@ -111,7 +115,7 @@ class TrackDownloader:
             url = url_or_id
 
         ydl_opts = {
-            "format": "ba/b",
+            "format": "bestaudio/ba/b[height<=?720]/b",
             "outtmpl": str(self.output_dir / "%(id)s.%(ext)s"),
             "postprocessors": [
                 {
@@ -122,40 +126,58 @@ class TrackDownloader:
             "writethumbnail": True,
             "quiet": True,
             "no_warnings": True,
-            "remote_components": ["ejs:github"],
-            "js_runtimes": {"node": {"path": "/usr/bin/node"}},
         }
 
         if progress_hook:
             ydl_opts["progress_hooks"] = [progress_hook]
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            meta = ydl.extract_info(url, download=True)
-            v_id = meta.get("id")
-            title = meta.get("title", "Unknown Track")
-            artist = meta.get("artist") or meta.get("uploader") or "Unknown Artist"
-            duration = meta.get("duration", 0)
+        client_profiles = [
+            ["ios", "android", "mweb"],
+            ["android"],
+            ["web"],
+        ]
 
-            # Audio file path
-            final_wav = self.output_dir / f"{v_id}.wav"
-            
-            # Find downloaded thumbnail
-            thumb_path = None
-            for ext in ["webp", "jpg", "jpeg", "png"]:
-                candidate = self.output_dir / f"{v_id}.{ext}"
-                if candidate.exists():
-                    thumb_path = candidate
-                    break
-            
-            if not thumb_path and meta.get("thumbnail"):
-                thumb_candidate = self.output_dir / f"{v_id}.jpg"
-                try:
-                    res = requests.get(meta.get("thumbnail"), timeout=10)
-                    if res.status_code == 200:
-                        thumb_candidate.write_bytes(res.content)
-                        thumb_path = thumb_candidate
-                except Exception as e:
-                    logger.warning(f"Could not download thumbnail directly: {e}")
+        meta = None
+        last_err = None
+        for clients in client_profiles:
+            ydl_opts["extractor_args"] = {"youtube": {"player_client": clients}}
+            try:
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    meta = ydl.extract_info(url, download=True)
+                    if meta:
+                        break
+            except Exception as e:
+                logger.warning(f"Download with clients {clients} failed: {e}. Trying fallback...")
+                last_err = e
+
+        if not meta:
+            raise last_err or RuntimeError("Failed to extract video information")
+
+        v_id = meta.get("id")
+        title = meta.get("title", "Unknown Track")
+        artist = meta.get("artist") or meta.get("uploader") or "Unknown Artist"
+        duration = meta.get("duration", 0)
+
+        # Audio file path
+        final_wav = self.output_dir / f"{v_id}.wav"
+        
+        # Find downloaded thumbnail
+        thumb_path = None
+        for ext in ["webp", "jpg", "jpeg", "png"]:
+            candidate = self.output_dir / f"{v_id}.{ext}"
+            if candidate.exists():
+                thumb_path = candidate
+                break
+        
+        if not thumb_path and meta.get("thumbnail"):
+            thumb_candidate = self.output_dir / f"{v_id}.jpg"
+            try:
+                res = requests.get(meta.get("thumbnail"), timeout=10)
+                if res.status_code == 200:
+                    thumb_candidate.write_bytes(res.content)
+                    thumb_path = thumb_candidate
+            except Exception as e:
+                logger.warning(f"Could not download thumbnail directly: {e}")
 
             clean_title = title
             clean_artist = artist
