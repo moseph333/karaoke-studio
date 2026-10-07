@@ -96,6 +96,10 @@ Karaoke Studio was engineered as a high-concurrency, local-first media workstati
 - **Fault-Tolerant Storage**: Atomic JSON persistence with automated backup recovery to guard against state corruption during sudden shutdowns.
 - **Modern Interface**: React 18, Tailwind CSS, Lucide icons, and Wavesurfer.js audio scrubbers for interactive timeline editing.
 
+### Development & AI Assistance
+
+LLMs were used as pair-programming tools during development for scaffolding boilerplate, initial test fixtures, and documentation drafts. System architecture, audio and video pipelines (Demucs and FFmpeg), concurrency controls, and security reviews were manually authored, tested, and verified.
+
 ## Maintenance & Support
 
 This repository is maintained as an open-source portfolio and personal showcase project. It is provided **"as-is"** without dedicated commercial support or SLAs. Upstream dependencies (such as YouTube stream extractors or external lyric APIs) may require periodic updates if upstream platforms alter their signatures.
