@@ -54,6 +54,28 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('karaoke_unauthorized', handleUnauthorized);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const projectId = params.get('project');
+    const tParam = params.get('t');
+    if (projectId) {
+      apiFetch(`/api/project/${projectId}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data && data.id) {
+            setProject(data);
+            if (tParam) {
+              const seekTime = parseFloat(tParam);
+              if (!isNaN(seekTime)) {
+                setCurrentTime(seekTime);
+              }
+            }
+          }
+        })
+        .catch((e) => console.error('Failed to load project from URL parameter', e));
+    }
+  }, []);
+
   const handleAuthSuccess = (username: string, token: string) => {
     setCurrentUser(username);
     setAuthToken(token);

@@ -2,7 +2,7 @@
 
 Local-first audio workstation for stem separation, acoustic word alignment, timeline lyric synchronization, and 1080p lyric video rendering.
 
-![Karaoke Studio Interface](https://raw.githubusercontent.com/antigravity/assets/main/karaoke-preview.png)
+![Karaoke Studio Interface](docs/karaoke-preview.png)
 
 ## Features
 

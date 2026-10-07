@@ -18,6 +18,7 @@ workspace_data/
 *.jpg
 *.webp
 *.png
+!docs/**
 
 # Secrets
 client_secret.json
