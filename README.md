@@ -96,10 +96,6 @@ Karaoke Studio was engineered as a high-concurrency, local-first media workstati
 - **Fault-Tolerant Storage**: Atomic JSON persistence with automated backup recovery to guard against state corruption during sudden shutdowns.
 - **Modern Interface**: React 18, Tailwind CSS, Lucide icons, and Wavesurfer.js audio scrubbers for interactive timeline editing.
 
-### AI-Accelerated Engineering Disclosure
-
-This project was designed, architected, and hardened by Joseph Maxwell, leveraging modern generative AI assistants (LLMs) for rapid boilerplate generation, initial test fixture authoring, and documentation iteration. All system architecture decisions, security hardening (atomic file safety, timing-safe authentication, static media protection), Demucs/FFmpeg integration, and edge-case handling were actively directed, reviewed, and tested.
-
 ## Maintenance & Support
 
 This repository is maintained as an open-source portfolio and personal showcase project. It is provided **"as-is"** without dedicated commercial support or SLAs. Upstream dependencies (such as YouTube stream extractors or external lyric APIs) may require periodic updates if upstream platforms alter their signatures.
