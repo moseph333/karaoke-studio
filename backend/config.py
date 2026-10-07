@@ -3,7 +3,7 @@ from pathlib import Path
 
 # Base Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "workspace_data"
+DATA_DIR = Path(os.getenv("KARAOKE_DATA_DIR", BASE_DIR / "workspace_data"))
 DOWNLOADS_DIR = DATA_DIR / "downloads"
 STEMS_DIR = DATA_DIR / "stems"
 OUTPUT_DIR = DATA_DIR / "output"
@@ -12,6 +12,10 @@ BACKGROUNDS_DIR = DATA_DIR / "backgrounds"
 
 for d in [DATA_DIR, DOWNLOADS_DIR, STEMS_DIR, OUTPUT_DIR, ASSETS_DIR, BACKGROUNDS_DIR]:
     d.mkdir(parents=True, exist_ok=True)
+
+# Access Control
+APP_PASSWORD = os.getenv("APP_PASSWORD", "").strip()
+
 
 # Default Video Configuration
 DEFAULT_VIDEO_CONFIG = {

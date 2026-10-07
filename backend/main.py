@@ -6,11 +6,13 @@ import threading
 import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import JSONResponse
 from pydantic import BaseModel
 
+from backend import config
 from backend.config import DATA_DIR, DOWNLOADS_DIR, STEMS_DIR, OUTPUT_DIR, BACKGROUNDS_DIR
 from backend.services.downloader import TrackDownloader
 from backend.services.separator import AudioSeparator
@@ -34,6 +36,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def check_auth_middleware(request: Request, call_next):
+    # Only protect /api routes, excluding /api/health and /api/auth
+    path = request.url.path
+    app_pwd = config.APP_PASSWORD
+    if app_pwd and path.startswith("/api/") and not path.startswith("/api/health") and not path.startswith("/api/auth"):
+        token = request.headers.get("X-App-Password") or ""
+        if not token:
+            auth_header = request.headers.get("Authorization") or ""
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:].strip()
+        if token != app_pwd:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or missing studio passphrase"}
+            )
+    return await call_next(request)
+
+
 
 # Mount static directories so frontend can stream audio and video
 app.mount("/static/downloads", StaticFiles(directory=str(DOWNLOADS_DIR)), name="downloads")
@@ -95,6 +117,10 @@ youtube_service = YouTubeMetadataService()
 
 
 # --- Request / Response Models ---
+class LoginRequest(BaseModel):
+    password: str
+    username: Optional[str] = "Friend"
+
 class SearchRequest(BaseModel):
     query: str
     limit: Optional[int] = 5
@@ -102,6 +128,7 @@ class SearchRequest(BaseModel):
 class ProcessRequest(BaseModel):
     url_or_id: str
     custom_lyrics: Optional[str] = None
+    created_by: Optional[str] = None
 
 class LyricsUpdateRequest(BaseModel):
     lines: List[Dict[str, Any]]
@@ -121,6 +148,24 @@ class RenderRequest(BaseModel):
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "service": "YouTube Karaoke Studio"}
+
+
+@app.get("/api/auth/status")
+def auth_status():
+    return {"auth_required": bool(config.APP_PASSWORD)}
+
+
+@app.post("/api/auth/login")
+def auth_login(req: LoginRequest):
+    if config.APP_PASSWORD and req.password != config.APP_PASSWORD:
+        raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
+    return {
+        "status": "ok",
+        "token": req.password if config.APP_PASSWORD else "ok",
+        "username": req.username or "Friend"
+    }
+
+
 
 
 @app.post("/api/search")
@@ -297,7 +342,9 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
         "progress": 0,
         "lines": [],
         "semitones": 0,
-        "guide_volume": 0.0
+        "guide_volume": 0.0,
+        "created_by": req.created_by or "Friend",
+        "created_at": int(time.time())
     }
     if video_id:
         proj_data["track_id"] = video_id
@@ -308,10 +355,14 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
 
 
 @app.get("/api/projects")
-def list_projects():
+def list_projects(scope: Optional[str] = "all", user: Optional[str] = None):
     disk_projects = load_projects()
     projects.update(disk_projects)
+    
+    if scope == "my" and user:
+        return {pid: p for pid, p in projects.items() if p.get("created_by") == user}
     return projects
+
 
 
 @app.get("/api/project/{project_id}")
