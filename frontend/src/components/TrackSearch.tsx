@@ -115,13 +115,14 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
       </div>
 
       {/* Search Input */}
-      <form onSubmit={handleSearch} className="relative">
+      <form onSubmit={handleSearch} className="relative" role="search">
         <div className="relative flex items-center">
-          <Search className="absolute left-4 w-5 h-5 text-slate-400" />
+          <Search className="absolute left-4 w-5 h-5 text-slate-400" aria-hidden="true" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            aria-label="Paste YouTube or YouTube Music URL or search song title"
             placeholder="Paste YouTube / YouTube Music URL or search song title..."
             className="w-full pl-12 pr-32 py-4 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-base shadow-xl"
             disabled={isLoading || searching}
@@ -129,10 +130,11 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
           <button
             type="submit"
             disabled={isLoading || searching || !query.trim()}
+            aria-label={searching ? "Searching YouTube..." : "Search YouTube or load track"}
             className="absolute right-2.5 px-5 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-sm transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {searching ? (
-              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" role="status" aria-label="Loading"></span>
             ) : (
               'Search / Go'
             )}
@@ -145,17 +147,21 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
         <button
           type="button"
           onClick={() => setShowCustomLyrics(!showCustomLyrics)}
+          aria-expanded={showCustomLyrics}
+          aria-controls="custom-lyrics-panel"
           className="w-full flex items-center justify-between px-4 py-3 text-xs text-slate-400 hover:text-slate-200 transition-colors"
         >
           <span className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-cyan-400" />
+            <FileText className="w-4 h-4 text-cyan-400" aria-hidden="true" />
             (Optional) Provide custom lyrics text
           </span>
-          {showCustomLyrics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          {showCustomLyrics ? <ChevronUp className="w-4 h-4" aria-hidden="true" /> : <ChevronDown className="w-4 h-4" aria-hidden="true" />}
         </button>
         {showCustomLyrics && (
-          <div className="p-4 pt-1 border-t border-slate-800/50">
+          <div id="custom-lyrics-panel" className="p-4 pt-1 border-t border-slate-800/50">
             <textarea
+              id="custom-lyrics-textarea"
+              aria-label="Custom plain lyrics text"
               value={customLyrics}
               onChange={(e) => setCustomLyrics(e.target.value)}
               placeholder="Paste line-by-line lyrics here. If left blank, synchronized lyrics are queried automatically from LRCLIB."
@@ -219,9 +225,11 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
       {/* Studio Library / Recent Songs */}
       <div className="pt-4 border-t border-slate-800/80 space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" role="tablist" aria-label="Song library filters">
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === 'my'}
               onClick={() => setActiveTab('my')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
                 activeTab === 'my'
@@ -229,11 +237,13 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                   : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent'
               }`}
             >
-              <FolderHeart className="w-3.5 h-3.5" />
+              <FolderHeart className="w-3.5 h-3.5" aria-hidden="true" />
               My Songs ({myProjects.length})
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={activeTab === 'community'}
               onClick={() => setActiveTab('community')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
                 activeTab === 'community'
@@ -241,7 +251,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                   : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent'
               }`}
             >
-              <Globe className="w-3.5 h-3.5" />
+              <Globe className="w-3.5 h-3.5" aria-hidden="true" />
               Community Library ({libraryProjects.length})
             </button>
           </div>

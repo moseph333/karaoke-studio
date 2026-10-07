@@ -108,16 +108,16 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
 
         {/* Live Badge */}
         <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700/60 backdrop-blur text-xs font-medium text-slate-300">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+          <span className="w-2 h-2 rounded-full bg-red-500 motion-safe:animate-pulse" aria-hidden="true"></span>
           Live Visual Preview
         </div>
 
         {/* Countdown Cue Display */}
         {showCountdown && (
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-3 text-cyan-400 font-extrabold text-3xl font-['Montserrat'] animate-bounce">
-            <span className={countdownSeconds >= 3 ? 'text-yellow-400 scale-125' : 'text-slate-600'}>●</span>
-            <span className={countdownSeconds >= 2 ? 'text-yellow-400 scale-125' : 'text-slate-600'}>●</span>
-            <span className={countdownSeconds >= 1 ? 'text-yellow-400 scale-125' : 'text-slate-600'}>●</span>
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-3 text-cyan-400 font-extrabold text-3xl font-['Montserrat'] motion-safe:animate-bounce motion-reduce:animate-none" aria-label={`Starting in ${countdownSeconds} seconds`}>
+            <span className={countdownSeconds >= 3 ? 'text-yellow-400 scale-125' : 'text-slate-600'} aria-hidden="true">●</span>
+            <span className={countdownSeconds >= 2 ? 'text-yellow-400 scale-125' : 'text-slate-600'} aria-hidden="true">●</span>
+            <span className={countdownSeconds >= 1 ? 'text-yellow-400 scale-125' : 'text-slate-600'} aria-hidden="true">●</span>
           </div>
         )}
 
@@ -130,10 +130,12 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 {currentLine.words.map((w, idx) => {
                   const progress = getWordProgress(w);
                   return (
-                    <span
+                    <button
+                      type="button"
                       key={idx}
                       onClick={() => onSeek(w.start_time)}
-                      className="relative cursor-pointer transition-transform hover:scale-105"
+                      aria-label={`Jump playback to word ${w.word} at ${w.start_time.toFixed(2)} seconds`}
+                      className="relative cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded p-0.5 bg-transparent border-0 inline-block text-inherit font-inherit"
                       title={`${w.word} (${w.start_time.toFixed(2)}s - ${w.end_time.toFixed(2)}s)`}
                     >
                       {/* Unsung text */}
@@ -142,6 +144,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                       </span>
                       {/* Progressive Sung overlay clip */}
                       <span
+                        aria-hidden="true"
                         className="absolute inset-0 overflow-hidden whitespace-nowrap drop-shadow-[0_0_12px_rgba(250,204,21,0.6)]"
                         style={{
                           width: `${progress}%`,
@@ -151,7 +154,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                       >
                         {w.word}
                       </span>
-                    </span>
+                    </button>
                   );
                 })}
               </div>
@@ -215,14 +218,16 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 }`}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div
+                  <button
+                    type="button"
                     onClick={() => {
                       onSeek(line.start_time);
                       setSelectedLineId(isExpanded ? null : line.id);
                     }}
-                    className="flex items-center gap-3 cursor-pointer flex-1 overflow-hidden"
+                    aria-label={`Select line: ${line.text} (${line.start_time.toFixed(1)}s to ${line.end_time.toFixed(1)}s)`}
+                    className="flex items-center gap-3 cursor-pointer flex-1 overflow-hidden text-left bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded"
                   >
-                    <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-1 rounded">
+                    <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-1 rounded shrink-0">
                       {line.start_time.toFixed(1)}s - {line.end_time.toFixed(1)}s
                     </span>
                     <span
@@ -232,33 +237,37 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                     >
                       {line.text}
                     </span>
-                  </div>
+                  </button>
 
                   {/* Nudge & Expand Controls */}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 shrink-0">
                     <button
                       type="button"
                       onClick={() => nudgeLine(line.id, -0.2)}
-                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                      aria-label={`Nudge line ${line.id} 0.2s earlier`}
+                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       title="Nudge 0.2s earlier"
                     >
-                      <Rewind className="w-3.5 h-3.5" />
+                      <Rewind className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       onClick={() => nudgeLine(line.id, 0.2)}
-                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                      aria-label={`Nudge line ${line.id} 0.2s later`}
+                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       title="Nudge 0.2s later"
                     >
-                      <FastForward className="w-3.5 h-3.5" />
+                      <FastForward className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedLineId(isExpanded ? null : line.id)}
-                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs"
+                      aria-label={isExpanded ? `Collapse word timings for line ${line.id}` : `Expand word timings for line ${line.id}`}
+                      aria-expanded={isExpanded}
+                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       title="Expand word timings"
                     >
-                      <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                      <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} aria-hidden="true" />
                     </button>
                   </div>
                 </div>

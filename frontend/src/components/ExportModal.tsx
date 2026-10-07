@@ -20,6 +20,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
     return () => clearInterval(interval);
   }, [isOpen]);
 
+  // Dismiss on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const isRendering = project.render_status === 'queued' || project.render_status === 'rendering';
@@ -49,22 +61,28 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
   const yt = project.youtube_package;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="export-modal-title"
+    >
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 relative">
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+          aria-label="Close export dialog"
+          className="absolute top-5 right-5 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
         >
-          <X className="w-5 h-5" />
+          <X className="w-5 h-5" aria-hidden="true" />
         </button>
 
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
           <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-            <Film className="w-6 h-6" />
+            <Film className="w-6 h-6" aria-hidden="true" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-white">Export & YouTube Package</h2>
+            <h2 id="export-modal-title" className="text-xl font-bold text-white">Export & YouTube Package</h2>
             <p className="text-xs text-slate-400">
               {project.title} • {project.artist}
             </p>
@@ -73,10 +91,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
 
         {/* 1. Rendering In-Progress State */}
         {isRendering && (
-          <div className="py-10 text-center space-y-6">
+          <div className="py-10 text-center space-y-6" role="status" aria-live="polite">
             <div className="relative w-20 h-20 mx-auto">
-              <div className="w-full h-full border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin"></div>
-              <Sparkles className="absolute inset-0 m-auto w-7 h-7 text-cyan-400 animate-pulse" />
+              <div className="w-full h-full border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin motion-reduce:animate-none"></div>
+              <Sparkles className="absolute inset-0 m-auto w-7 h-7 text-cyan-400 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
             </div>
 
             {/* Heartbeat Badge */}
