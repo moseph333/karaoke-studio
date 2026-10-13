@@ -164,6 +164,7 @@ describe('AudioControls', () => {
 
     // Verifies alert banner is shown
     expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByTestId('audio-error-banner')).toBeInTheDocument();
     expect(screen.getByText(/MEDIA_ERR_DECODE/i)).toBeInTheDocument();
     expect(screen.getByText(/Audio decoding failed/i)).toBeInTheDocument();
 
@@ -178,12 +179,32 @@ describe('AudioControls', () => {
       })
     );
 
-    // Clicking Retry Playback dismisses error and calls load
+    // Clicking Retry Playback dismisses error, reloads, and attempts playback resumption
     const retryBtn = screen.getByRole('button', { name: /retry playback/i });
     await user.click(retryBtn);
 
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('audio-error-banner')).not.toBeInTheDocument();
     expect(audioEl.load).toHaveBeenCalled();
+    expect(audioEl.play).toHaveBeenCalled();
+  });
+
+  it('dismisses active playback error banner when playback resumes (onPlay)', () => {
+    render(<AudioControls {...defaultProps} />);
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+
+    Object.defineProperty(audioEl, 'error', {
+      value: { code: 2, message: 'Network dropped' },
+      configurable: true,
+      writable: true,
+    });
+    fireEvent.error(audioEl);
+
+    expect(screen.getByTestId('audio-error-banner')).toBeInTheDocument();
+
+    fireEvent.play(audioEl);
+
+    expect(screen.queryByTestId('audio-error-banner')).not.toBeInTheDocument();
   });
 
   it('maps MediaError code 2 (MEDIA_ERR_NETWORK) and code 4 (MEDIA_ERR_SRC_NOT_SUPPORTED)', () => {

@@ -172,6 +172,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       if (currentTime > 0) {
         resolvedAudioRef.current.currentTime = currentTime;
       }
+      resolvedAudioRef.current.play()?.catch(() => {});
     }
     onRetryPlayback?.();
   };
@@ -221,6 +222,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           data-testid="audio-element"
           src={masterAudioUrl}
           crossOrigin="use-credentials"
+          onPlay={() => setPlaybackError(null)}
           onTimeUpdate={onTimeUpdate}
           onLoadedMetadata={onLoadedMetadata}
           onEnded={onEnded}
@@ -233,6 +235,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       {/* Playback Error Alert Banner */}
       {playbackError && (
         <div
+          data-testid="audio-error-banner"
           role="alert"
           aria-live="assertive"
           className="mb-4 p-3.5 rounded-xl bg-red-950/70 border border-red-800/80 text-red-200 text-xs flex flex-wrap items-center justify-between gap-3 shadow-lg"
