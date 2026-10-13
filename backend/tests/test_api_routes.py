@@ -186,6 +186,21 @@ class TestRouteValidationErrors:
         )
         assert res.status_code == 422
 
+    @pytest.mark.parametrize("raw_nonfinite", [b"NaN", b"Infinity", b"-Infinity"])
+    def test_mix_raw_nan_inf_payloads_return_422_not_500(
+        self, client, test_project_factory, raw_nonfinite
+    ):
+        """Raw non-finite float tokens in JSON payload return HTTP 422 with sanitized errors, not 500."""
+        proj = test_project_factory()
+        payload = b'{"semitones": 0, "guide_volume": ' + raw_nonfinite + b"}"
+        res = client.post(
+            f"/api/project/{proj['id']}/mix",
+            content=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        assert res.status_code == 422
+        assert "detail" in res.json()
+
     # --- /api/project/{id}/render validation ---
 
     @pytest.mark.parametrize(
@@ -289,6 +304,38 @@ class TestRouteValidationErrors:
         proj = test_project_factory()
         res = client.post(f"/api/project/{proj['id']}/lyrics", json={})
         assert res.status_code == 422
+
+    @pytest.mark.parametrize("bad_time", ["Infinity", "-Infinity", "NaN", 100000.0])
+    def test_lyrics_infinite_or_out_of_bounds_timestamp_rejected_422(
+        self, client, test_project_factory, bad_time
+    ):
+        """Reject lyric line with infinite, NaN, or >86400s timestamp with HTTP 422."""
+        proj = test_project_factory()
+        payload = {
+            "lines": [
+                {
+                    "id": 1,
+                    "text": "Out of bounds line",
+                    "start_time": 1.0,
+                    "end_time": bad_time,
+                    "words": [],
+                }
+            ]
+        }
+        res = client.post(f"/api/project/{proj['id']}/lyrics", json=payload)
+        assert res.status_code == 422
+
+    def test_lyrics_raw_infinity_payload_returns_422_not_500(self, client, test_project_factory):
+        """Raw Infinity token in lyrics payload is sanitized and returns HTTP 422, not 500."""
+        proj = test_project_factory()
+        raw_payload = b'{"lines": [{"id": 1, "text": "Inf", "start_time": 1.0, "end_time": Infinity, "words": []}]}'
+        res = client.post(
+            f"/api/project/{proj['id']}/lyrics",
+            content=raw_payload,
+            headers={"Content-Type": "application/json"},
+        )
+        assert res.status_code == 422
+        assert "detail" in res.json()
 
     # --- /api/search validation ---
 
@@ -451,6 +498,47 @@ class TestRouteAuthenticationAndSecurity:
         res3 = unauth_client.get("/api/projects", cookies={"karaoke_token": pwd})
         assert res3.status_code == 200
 
+    def test_unicode_passphrase_rejected_401_not_500(self, unauth_client, monkeypatch):
+        """Non-ASCII Unicode login attempt returns HTTP 401 instead of crashing with HTTP 500."""
+        monkeypatch.setattr(config, "APP_PASSWORD", "studio_ascii_secret")
+        res = unauth_client.post("/api/auth/login", json={"password": "pàsswörd_test"})
+        assert res.status_code == 401
+        assert "passphrase" in res.json().get("detail", "").lower()
+
+    def test_unicode_app_password_matches_successfully_200(self, unauth_client, monkeypatch):
+        """Setting Unicode APP_PASSWORD and matching Unicode password returns HTTP 200."""
+        unicode_pwd = "k@raöke_päss"
+        monkeypatch.setattr(config, "APP_PASSWORD", unicode_pwd)
+
+        # 1. Login with matching Unicode password returns 200
+        login_res = unauth_client.post(
+            "/api/auth/login", json={"password": unicode_pwd, "username": "UnicodeUser"}
+        )
+        assert login_res.status_code == 200
+        assert login_res.json()["status"] == "ok"
+
+        # 2. Login with wrong Unicode password returns 401
+        res_wrong = unauth_client.post(
+            "/api/auth/login", json={"password": "wröng_pass", "username": "UnicodeUser"}
+        )
+        assert res_wrong.status_code == 401
+        assert "passphrase" in res_wrong.json().get("detail", "").lower()
+
+        # 3. Protected route access when Unicode APP_PASSWORD is configured handles token safely
+        res_ascii_hdr = unauth_client.get(
+            "/api/projects", headers={"X-App-Password": "ascii_token"}
+        )
+        assert res_ascii_hdr.status_code == 401
+
+        # 4. Also test multibyte Unicode emoji passphrase via login body
+        emoji_pwd = "k@raöke_secret_🔑"
+        monkeypatch.setattr(config, "APP_PASSWORD", emoji_pwd)
+        login_emoji = unauth_client.post(
+            "/api/auth/login", json={"password": emoji_pwd, "username": "EmojiUser"}
+        )
+        assert login_emoji.status_code == 200
+        assert login_emoji.json()["status"] == "ok"
+
     def test_public_endpoints_accessible_without_auth(self, unauth_client, monkeypatch):
         """Public endpoints (/api/health and /api/auth/status) remain accessible without credentials."""
         monkeypatch.setattr(config, "APP_PASSWORD", "studio_super_secret")
@@ -572,7 +660,7 @@ class TestRouteUploadValidation:
     # --- Instrumental Stem Upload ---
 
     def test_upload_instrumental_empty_file_handled(self, client, test_project_factory):
-        """0-byte instrumental audio upload is safely handled."""
+        """0-byte instrumental audio upload is rejected with HTTP 400."""
         proj = test_project_factory()
         empty_payload = io.BytesIO(b"")
         res = client.post(
@@ -580,7 +668,8 @@ class TestRouteUploadValidation:
             data={"project_id": proj["id"]},
             files={"file": ("empty.wav", empty_payload, "audio/wav")},
         )
-        assert res.status_code in [200, 400]
+        assert res.status_code == 400
+        assert "uploaded file is empty (0 bytes)" in res.json().get("detail", "").lower()
 
     @pytest.mark.parametrize("bad_ext", ["track.exe", "track.txt", "cover.jpg", "script.py"])
     def test_upload_instrumental_invalid_audio_extension_rejected_400(

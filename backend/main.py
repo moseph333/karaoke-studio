@@ -1,6 +1,7 @@
 import hmac
 import json
 import logging
+import math
 import os
 import re
 import threading
@@ -10,6 +11,8 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -31,6 +34,32 @@ logger = logging.getLogger("karaoke_backend")
 active_cancellations: dict[str, threading.Event] = {}
 
 app = FastAPI(title="YouTube Karaoke Studio API", version="1.0.0")
+
+
+def sanitize_validation_errors(obj: Any) -> Any:
+    if isinstance(obj, float):
+        if not math.isfinite(obj):
+            return str(obj)
+        return obj
+    elif isinstance(obj, dict):
+        return {k: sanitize_validation_errors(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple, set)):
+        return [sanitize_validation_errors(item) for item in obj]
+    elif isinstance(obj, Exception):
+        return str(obj)
+    elif isinstance(obj, (str, int, bool)) or obj is None:
+        return obj
+    try:
+        return jsonable_encoder(obj)
+    except Exception:
+        return str(obj)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    sanitized = sanitize_validation_errors(exc.errors())
+    return JSONResponse(status_code=422, content={"detail": sanitized})
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,7 +87,10 @@ def is_authenticated(request: Request, app_pwd: str) -> bool:
             token = token.strip()
     if not token:
         return False
-    return hmac.compare_digest(token, app_pwd)
+    try:
+        return hmac.compare_digest(token.encode("utf-8"), app_pwd.encode("utf-8"))
+    except Exception:
+        return False
 
 
 @app.middleware("http")
@@ -255,11 +287,25 @@ class ProcessRequest(BaseModel):
 class WordTimingSchema(BaseModel):
     model_config = ConfigDict(extra="ignore")
     word: str = Field(..., description="Word text")
-    start_time: float = Field(..., ge=0.0, description="Word start time in seconds (non-negative)")
-    end_time: float = Field(..., ge=0.0, description="Word end time in seconds (non-negative)")
+    start_time: float = Field(
+        ...,
+        ge=0.0,
+        le=86400.0,
+        allow_inf_nan=False,
+        description="Word start time in seconds (non-negative)",
+    )
+    end_time: float = Field(
+        ...,
+        ge=0.0,
+        le=86400.0,
+        allow_inf_nan=False,
+        description="Word end time in seconds (non-negative)",
+    )
 
     @model_validator(mode="after")
     def validate_word_timestamps(self) -> "WordTimingSchema":
+        if not math.isfinite(self.start_time) or not math.isfinite(self.end_time):
+            raise ValueError(f"Word '{self.word}' timestamps must be finite numbers")
         if self.end_time < self.start_time:
             raise ValueError(
                 f"Word '{self.word}' end_time ({self.end_time}s) cannot be earlier than start_time ({self.start_time}s)"
@@ -271,8 +317,20 @@ class LyricLineSchema(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: int | None = Field(default=None, description="Optional line ID")
     text: str = Field(default="", description="Line text")
-    start_time: float = Field(..., ge=0.0, description="Line start time in seconds (non-negative)")
-    end_time: float = Field(..., ge=0.0, description="Line end time in seconds (non-negative)")
+    start_time: float = Field(
+        ...,
+        ge=0.0,
+        le=86400.0,
+        allow_inf_nan=False,
+        description="Line start time in seconds (non-negative)",
+    )
+    end_time: float = Field(
+        ...,
+        ge=0.0,
+        le=86400.0,
+        allow_inf_nan=False,
+        description="Line end time in seconds (non-negative)",
+    )
     words: list[WordTimingSchema] = Field(
         default_factory=list,
         description="Word-level timing tokens",
@@ -280,6 +338,8 @@ class LyricLineSchema(BaseModel):
 
     @model_validator(mode="after")
     def validate_line_and_words(self) -> "LyricLineSchema":
+        if not math.isfinite(self.start_time) or not math.isfinite(self.end_time):
+            raise ValueError("Line timestamps must be finite numbers")
         if self.end_time < self.start_time:
             raise ValueError(
                 f"Line end_time ({self.end_time}s) cannot be earlier than start_time ({self.start_time}s)"
@@ -311,6 +371,7 @@ class MixRequest(BaseModel):
         default=0.0,
         ge=0.0,
         le=1.0,
+        allow_inf_nan=False,
         description="Guide vocal blend level (0.0 to 1.0)",
     )
 
@@ -327,6 +388,7 @@ class RenderRequest(BaseModel):
         default=0.0,
         ge=0.0,
         le=1.0,
+        allow_inf_nan=False,
         description="Guide vocal blend level (0.0 to 1.0)",
     )
     aspect_ratio: Literal["16:9", "9:16"] = Field(
@@ -360,7 +422,13 @@ def auth_status(request: Request):
 def auth_login(req: LoginRequest, request: Request):
     if config.APP_PASSWORD:
         pwd = (req.password or "").strip()
-        if not pwd or not hmac.compare_digest(pwd, config.APP_PASSWORD):
+        if not pwd:
+            raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
+        try:
+            is_valid = hmac.compare_digest(pwd.encode("utf-8"), config.APP_PASSWORD.encode("utf-8"))
+        except Exception:
+            is_valid = False
+        if not is_valid:
             logger.warning(f"Failed login attempt for user: {req.username}")
             raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
 
@@ -376,14 +444,17 @@ def auth_login(req: LoginRequest, request: Request):
         is_https = (
             request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
         )
-        response.set_cookie(
-            key="karaoke_token",
-            value=token,
-            httponly=True,
-            samesite="lax",
-            secure=is_https,
-            max_age=60 * 60 * 24 * 30,  # 30 days
-        )
+        try:
+            response.set_cookie(
+                key="karaoke_token",
+                value=token,
+                httponly=True,
+                samesite="lax",
+                secure=is_https,
+                max_age=60 * 60 * 24 * 30,  # 30 days
+            )
+        except Exception:
+            pass
     return response
 
 
@@ -909,7 +980,7 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
 
     target_path = STEMS_DIR / safe_proj_id / f"custom_inst{raw_ext}"
     bytes_written = await save_upload_file_bounded(
-        file, target_path, MAX_INSTRUMENTAL_UPLOAD_BYTES, min_bytes=0
+        file, target_path, MAX_INSTRUMENTAL_UPLOAD_BYTES, min_bytes=1
     )
     logger.info(f"Saved instrumental audio for project {safe_proj_id} ({bytes_written} bytes)")
 
