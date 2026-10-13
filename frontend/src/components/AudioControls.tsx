@@ -1,8 +1,70 @@
-import React, { useRef, useState } from 'react';
-import { Play, Pause, RotateCcw, Mic, Upload, Sliders, Music2 } from 'lucide-react';
+import React, { useRef, useState, useEffect } from 'react';
+import { Play, Pause, RotateCcw, Mic, Upload, Sliders, Music2, AlertCircle } from 'lucide-react';
 import { apiFetch } from '../api';
+import { useToast } from '../hooks/useToast';
 
-interface AudioControlsProps {
+export interface AudioPlaybackError {
+  code: number;
+  codeName:
+    | 'MEDIA_ERR_ABORTED'
+    | 'MEDIA_ERR_NETWORK'
+    | 'MEDIA_ERR_DECODE'
+    | 'MEDIA_ERR_SRC_NOT_SUPPORTED'
+    | 'MEDIA_ERR_UNKNOWN';
+  message: string;
+  timestamp: number;
+}
+
+export function parseMediaError(error: MediaError | null): AudioPlaybackError {
+  if (!error) {
+    return {
+      code: 0,
+      codeName: 'MEDIA_ERR_UNKNOWN',
+      message: 'An unknown audio playback error occurred.',
+      timestamp: Date.now(),
+    };
+  }
+
+  switch (error.code) {
+    case 1:
+      return {
+        code: 1,
+        codeName: 'MEDIA_ERR_ABORTED',
+        message: 'Audio playback was aborted. Click Retry to reload the track.',
+        timestamp: Date.now(),
+      };
+    case 2:
+      return {
+        code: 2,
+        codeName: 'MEDIA_ERR_NETWORK',
+        message: 'Network error loading audio stream. Please check server connectivity.',
+        timestamp: Date.now(),
+      };
+    case 3:
+      return {
+        code: 3,
+        codeName: 'MEDIA_ERR_DECODE',
+        message: 'Audio decoding failed. The audio stream may be corrupt or incomplete.',
+        timestamp: Date.now(),
+      };
+    case 4:
+      return {
+        code: 4,
+        codeName: 'MEDIA_ERR_SRC_NOT_SUPPORTED',
+        message: 'Audio format not supported or file not found on server.',
+        timestamp: Date.now(),
+      };
+    default:
+      return {
+        code: error.code,
+        codeName: 'MEDIA_ERR_UNKNOWN',
+        message: error.message || 'An unexpected audio playback error occurred.',
+        timestamp: Date.now(),
+      };
+  }
+}
+
+export interface AudioControlsProps {
   projectId: string;
   masterAudioUrl?: string;
   instrumentalUrl?: string;
@@ -14,11 +76,21 @@ interface AudioControlsProps {
   onSeek: (time: number) => void;
   onMixChange: (semitones: number, guideVolume: number) => void;
   onCustomInstrumentalUploaded?: (url: string) => void;
+  // Controls state synchronization (PROJECT.md Feature 38)
+  initialSemitones?: number;
+  initialGuideVolume?: number;
+  // Audio playback bindings & resilience (Dispatch Feature 38)
+  audioRef?: React.RefObject<HTMLAudioElement>;
+  onTimeUpdate?: () => void;
+  onLoadedMetadata?: () => void;
+  onEnded?: () => void;
+  onPlaybackError?: (error: AudioPlaybackError) => void;
+  onRetryPlayback?: () => void;
 }
 
 export const AudioControls: React.FC<AudioControlsProps> = ({
   projectId,
-  masterAudioUrl: _masterAudioUrl,
+  masterAudioUrl,
   currentTime,
   duration,
   isPlaying,
@@ -26,12 +98,39 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   onSeek,
   onMixChange,
   onCustomInstrumentalUploaded,
+  initialSemitones = 0,
+  initialGuideVolume = 0.0,
+  audioRef,
+  onTimeUpdate,
+  onLoadedMetadata,
+  onEnded,
+  onPlaybackError,
+  onRetryPlayback,
 }) => {
-  const [semitones, setSemitones] = useState(0);
-  const [guideVolume, setGuideVolume] = useState(0.0);
+  const { toast } = useToast();
+  const [semitones, setSemitones] = useState(initialSemitones);
+  const [guideVolume, setGuideVolume] = useState(initialGuideVolume);
   const [isApplyingMix, setIsApplyingMix] = useState(false);
   const [uploadingInst, setUploadingInst] = useState(false);
+  const [playbackError, setPlaybackError] = useState<AudioPlaybackError | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const internalAudioRef = useRef<HTMLAudioElement | null>(null);
+  const resolvedAudioRef = audioRef || internalAudioRef;
+
+  // Sync state when props change
+  useEffect(() => {
+    setSemitones(initialSemitones);
+  }, [initialSemitones, projectId]);
+
+  useEffect(() => {
+    setGuideVolume(initialGuideVolume);
+  }, [initialGuideVolume, projectId]);
+
+  // Clear error when master audio url changes
+  useEffect(() => {
+    setPlaybackError(null);
+  }, [masterAudioUrl]);
 
   const handleSemitoneChange = (delta: number) => {
     const nextVal = Math.max(-12, Math.min(12, semitones + delta));
@@ -40,11 +139,41 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
 
   const handleApplyAudioMix = async () => {
     setIsApplyingMix(true);
+    setPlaybackError(null);
     try {
       await onMixChange(semitones, guideVolume);
     } finally {
       setIsApplyingMix(false);
     }
+  };
+
+  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
+    const mediaError = e.currentTarget.error;
+    const parsed = parseMediaError(mediaError);
+    setPlaybackError(parsed);
+
+    // Stop playback state if currently playing
+    if (isPlaying) {
+      onTogglePlay();
+    }
+
+    onPlaybackError?.(parsed);
+
+    // Dispatch event for optional listeners
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('karaoke_audio_error', { detail: parsed }));
+    }
+  };
+
+  const handleRetryPlayback = () => {
+    setPlaybackError(null);
+    if (resolvedAudioRef.current) {
+      resolvedAudioRef.current.load();
+      if (currentTime > 0) {
+        resolvedAudioRef.current.currentTime = currentTime;
+      }
+    }
+    onRetryPlayback?.();
   };
 
   const handleInstrumentalUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,12 +194,12 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       const data = await res.json();
       if (onCustomInstrumentalUploaded && data.instrumental_url) {
         onCustomInstrumentalUploaded(data.instrumental_url);
+        toast.success('Custom instrumental uploaded successfully');
       }
-      // Re-mix
       handleApplyAudioMix();
     } catch (err) {
       console.error('Error uploading instrumental:', err);
-      alert('Could not upload instrumental file.');
+      toast.error('Could not upload instrumental file.');
     } finally {
       setUploadingInst(false);
     }
@@ -85,6 +214,48 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
 
   return (
     <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-2xl backdrop-blur-md">
+      {/* Native Master Audio Element */}
+      {masterAudioUrl && (
+        <audio
+          ref={resolvedAudioRef}
+          data-testid="audio-element"
+          src={masterAudioUrl}
+          crossOrigin="use-credentials"
+          onTimeUpdate={onTimeUpdate}
+          onLoadedMetadata={onLoadedMetadata}
+          onEnded={onEnded}
+          onError={handleAudioError}
+          className="hidden"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Playback Error Alert Banner */}
+      {playbackError && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="mb-4 p-3.5 rounded-xl bg-red-950/70 border border-red-800/80 text-red-200 text-xs flex flex-wrap items-center justify-between gap-3 shadow-lg"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" aria-hidden="true" />
+            <div>
+              <p className="font-semibold text-red-300">Playback Error: {playbackError.codeName}</p>
+              <p className="text-[11px] text-slate-300 font-mono mt-0.5">{playbackError.message}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleRetryPlayback}
+            className="px-3 py-1.5 rounded-lg bg-red-800/80 hover:bg-red-700 text-white font-medium text-xs transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 shadow"
+            aria-label="Retry playback"
+          >
+            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+            Retry Playback
+          </button>
+        </div>
+      )}
+
       {/* Player Header & Main Scrub Bar */}
       <div className="flex flex-col gap-2 mb-5">
         <div className="flex items-center justify-between text-xs text-slate-400 font-mono">

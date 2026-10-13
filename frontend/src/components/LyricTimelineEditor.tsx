@@ -1,16 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { LyricLine, WordTiming } from '../types';
-import { Edit3, Check, ChevronRight, FastForward, Rewind } from 'lucide-react';
+import {
+  Edit3,
+  Check,
+  ChevronRight,
+  FastForward,
+  Rewind,
+  AlertTriangle,
+  RotateCcw,
+  Loader2,
+} from 'lucide-react';
+import { useToast } from '../hooks/useToast';
 
 interface LyricTimelineEditorProps {
   lines: LyricLine[];
   currentTime: number;
   duration: number;
   onSeek: (time: number) => void;
-  onSaveLines: (updatedLines: LyricLine[]) => void;
+  onSaveLines: (updatedLines: LyricLine[]) => Promise<void | boolean> | void;
   albumArtUrl?: string;
   themeSungColor?: string;
   themeUnsungColor?: string;
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
@@ -21,16 +32,52 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   albumArtUrl,
   themeSungColor = '#facc15',
   themeUnsungColor = '#ffffff',
+  onDirtyChange,
 }) => {
+  const { toast } = useToast();
   const [editableLines, setEditableLines] = useState<LyricLine[]>(lines);
+  const [initialLines, setInitialLines] = useState<LyricLine[]>(lines);
   const [selectedLineId, setSelectedLineId] = useState<number | null>(null);
-  const [hasChanges, setHasChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
 
-  // Sync if prop lines change and no local edits
-  React.useEffect(() => {
-    setEditableLines(lines);
-    setHasChanges(false);
-  }, [lines]);
+  // Compute dirty state via deep JSON equality
+  const hasUnsavedChanges = useMemo(() => {
+    return JSON.stringify(editableLines) !== JSON.stringify(initialLines);
+  }, [editableLines, initialLines]);
+
+  // Synchronize when parent `lines` change, but ONLY if no active unsaved changes
+  const prevLinesRef = useRef(lines);
+  useEffect(() => {
+    if (prevLinesRef.current !== lines) {
+      prevLinesRef.current = lines;
+      if (!hasUnsavedChanges) {
+        setEditableLines(lines);
+        setInitialLines(lines);
+      }
+    }
+  }, [lines, hasUnsavedChanges]);
+
+  // Notify parent of dirty state changes
+  useEffect(() => {
+    onDirtyChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges, onDirtyChange]);
+
+  // Browser unload guard
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'You have unsaved lyric timing changes. Are you sure you want to leave?';
+      return e.returnValue;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
 
   // Find currently active line and next line
   const activeLineIndex = editableLines.findIndex(
@@ -59,7 +106,6 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
       return { ...l, start_time: newStart, end_time: newEnd, words: newWords };
     });
     setEditableLines(updated);
-    setHasChanges(true);
   };
 
   // Handle editing a single word timing
@@ -69,12 +115,13 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
     field: 'start_time' | 'end_time',
     value: number
   ) => {
+    const safeValue = isNaN(value) ? 0 : Math.max(0, parseFloat(value.toFixed(3)));
     const updated = editableLines.map((l) => {
       if (l.id !== lineId) return l;
       const words = [...l.words];
       words[wordIndex] = {
         ...words[wordIndex],
-        [field]: Math.max(0, parseFloat(value.toFixed(3))),
+        [field]: safeValue,
       };
 
       // Update line boundaries to encompass all words
@@ -83,12 +130,28 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
       return { ...l, start_time: lineStart, end_time: lineEnd, words };
     });
     setEditableLines(updated);
-    setHasChanges(true);
   };
 
-  const handleSave = () => {
-    onSaveLines(editableLines);
-    setHasChanges(false);
+  // Save changes with async guard
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await onSaveLines(editableLines);
+      setInitialLines(editableLines);
+      toast.success('Lyric timing changes saved');
+    } catch (err) {
+      console.error('Failed to save lyric timings:', err);
+      toast.error('Failed to save lyric timings');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Discard changes and revert to initialLines
+  const handleConfirmDiscard = () => {
+    setEditableLines(initialLines);
+    setShowDiscardModal(false);
+    toast.info('Lyric edits discarded');
   };
 
   // Helper for word sweep calculation
@@ -227,15 +290,36 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
               Click any line to jump audio. Nudge words or lines to fine-tune sync with the beat.
             </p>
           </div>
-          {hasChanges && (
-            <button
-              type="button"
-              onClick={handleSave}
-              className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all animate-pulse"
-            >
-              <Check className="w-4 h-4" />
-              Save Timing Changes
-            </button>
+          {hasUnsavedChanges && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDiscardModal(true)}
+                disabled={isSaving}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Discard Changes
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Save Timing Changes
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
 
@@ -370,6 +454,48 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
           })}
         </div>
       </div>
+
+      {/* 3. Discard Changes Confirmation Modal */}
+      {showDiscardModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="discard-dialog-title"
+          aria-describedby="discard-dialog-desc"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+              </div>
+              <h3 id="discard-dialog-title" className="text-base font-bold text-white">
+                Discard Unsaved Timing Changes?
+              </h3>
+            </div>
+            <p id="discard-dialog-desc" className="text-xs text-slate-300 leading-relaxed">
+              You have made modifications to lyric timing boundaries that have not been saved to the
+              server. Discarding will revert all line and word timings back to the last saved state.
+            </p>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDiscardModal(false)}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDiscard}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 focus:outline-none focus:ring-2 focus:ring-rose-400"
+              >
+                Discard Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Palette, Upload, Monitor, Smartphone, Check } from 'lucide-react';
 import { VisualTheme } from '../types';
 import { apiFetch } from '../api';
+import { useToast } from '../hooks/useToast';
 
 export const THEMES: VisualTheme[] = [
   {
@@ -63,6 +64,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   onCustomBgUploaded,
   customBgId,
 }) => {
+  const { toast } = useToast();
   const [uploadingBg, setUploadingBg] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,9 +84,10 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
       onCustomBgUploaded(data.bg_id);
+      toast.success('Custom background image uploaded successfully');
     } catch (err) {
       console.error('Background upload error:', err);
-      alert('Could not upload custom background file.');
+      toast.error('Could not upload custom background file.');
     } finally {
       setUploadingBg(false);
     }
