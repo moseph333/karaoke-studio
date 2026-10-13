@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { TrackSearch } from './components/TrackSearch';
 import { AudioControls } from './components/AudioControls';
 import { LyricTimelineEditor } from './components/LyricTimelineEditor';
@@ -20,6 +20,7 @@ import {
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useToast } from './hooks/useToast';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 export const App: React.FC = () => {
   const { toast } = useToast();
@@ -28,6 +29,7 @@ export const App: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState<VisualTheme>(THEMES[0]);
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [customBgId, setCustomBgId] = useState<string>('');
@@ -141,10 +143,11 @@ export const App: React.FC = () => {
   const handleLoadedMetadata = () => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration);
+      setIsMuted(audioRef.current.muted);
     }
   };
 
-  const handleTogglePlay = () => {
+  const handleTogglePlay = useCallback(() => {
     if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
@@ -158,14 +161,40 @@ export const App: React.FC = () => {
           setIsPlaying(false);
         });
     }
-  };
+  }, [isPlaying]);
 
-  const handleSeek = (time: number) => {
+  const handleSeek = useCallback(
+    (time: number) => {
+      if (audioRef.current) {
+        const maxDuration = Math.max(0, duration || audioRef.current.duration || 0);
+        const clamped = Math.max(0, Math.min(maxDuration, time));
+        audioRef.current.currentTime = clamped;
+        setCurrentTime(clamped);
+      }
+    },
+    [duration]
+  );
+
+  const handleToggleMute = useCallback(() => {
     if (audioRef.current) {
-      audioRef.current.currentTime = time;
-      setCurrentTime(time);
+      const nextMuted = !audioRef.current.muted;
+      audioRef.current.muted = nextMuted;
+      setIsMuted(nextMuted);
     }
-  };
+    window.dispatchEvent(new CustomEvent('karaoke_toggle_mute'));
+  }, []);
+
+  // Feature 41: Global Keyboard Shortcuts (Space, Left/Right 5s, M)
+  useKeyboardShortcuts({
+    onTogglePlay: handleTogglePlay,
+    onSeek: handleSeek,
+    onToggleMute: handleToggleMute,
+    audioRef,
+    currentTime,
+    duration,
+    enabled: Boolean(project && project.status === 'ready'),
+    seekStep: 5,
+  });
 
   // Start processing a new track
   const handleSelectTrack = async (urlOrId: string, customLyrics?: string) => {
@@ -528,6 +557,8 @@ export const App: React.FC = () => {
               onMixChange={handleMixChange}
               initialSemitones={project.semitones}
               initialGuideVolume={project.guide_volume}
+              initialMuted={isMuted}
+              onMuteChange={setIsMuted}
               audioRef={audioRef}
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
@@ -546,6 +577,7 @@ export const App: React.FC = () => {
               lines={project.lines}
               currentTime={currentTime}
               duration={duration}
+              isPlaying={isPlaying}
               onSeek={handleSeek}
               onSaveLines={handleSaveLines}
               albumArtUrl={project.thumbnail_url}
@@ -578,7 +610,11 @@ export const App: React.FC = () => {
       )}
 
       {/* Shared Studio Passphrase & Friend Profile Modal */}
-      <AuthModal isOpen={showAuthModal} onSuccess={handleAuthSuccess} />
+      <AuthModal
+        isOpen={showAuthModal}
+        onSuccess={handleAuthSuccess}
+        onClose={() => setShowAuthModal(false)}
+      />
     </div>
   );
 };

@@ -246,4 +246,206 @@ describe('AudioControls', () => {
     // Verifies button returns to interactive state
     expect(screen.getByRole('button', { name: /replace instrumental file/i })).not.toBeDisabled();
   });
+
+  // --- Feature 42: Master Volume & Mute Controls Test Suite ---
+
+  it('renders master volume slider and mute toggle button with initial defaults', () => {
+    localStorage.clear();
+    render(<AudioControls {...defaultProps} />);
+
+    // Slider verification
+    const slider = screen.getByRole('slider', { name: /master volume/i }) as HTMLInputElement;
+    expect(slider).toBeInTheDocument();
+    expect(slider.min).toBe('0');
+    expect(slider.max).toBe('1');
+    expect(slider.step).toBe('0.01');
+    expect(slider.value).toBe('1');
+    expect(screen.getAllByText('100%').length).toBeGreaterThanOrEqual(1);
+
+    // Mute button verification
+    const muteBtn = screen.getByRole('button', { name: /mute audio/i });
+    expect(muteBtn).toBeInTheDocument();
+    expect(muteBtn).toHaveAttribute('aria-pressed', 'false');
+
+    // Audio element sync verification
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+    expect(audioEl.volume).toBe(1.0);
+    expect(audioEl.muted).toBe(false);
+  });
+
+  it('updates volume slider, modifies audio.volume, and calls onVolumeChange', () => {
+    localStorage.clear();
+    const onVolumeChange = vi.fn();
+    render(<AudioControls {...defaultProps} onVolumeChange={onVolumeChange} />);
+
+    const slider = screen.getByRole('slider', { name: /master volume/i });
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+
+    fireEvent.change(slider, { target: { value: '0.45' } });
+
+    expect(slider).toHaveValue('0.45');
+    expect(screen.getByText('45%')).toBeInTheDocument();
+    expect(audioEl.volume).toBe(0.45);
+    expect(onVolumeChange).toHaveBeenCalledWith(0.45);
+    expect(localStorage.getItem('karaoke_master_volume')).toBe('0.45');
+  });
+
+  it('toggles mute button to muted state, updates aria-label, and sets audio.muted', async () => {
+    localStorage.clear();
+    const user = userEvent.setup();
+    const onMuteChange = vi.fn();
+    render(<AudioControls {...defaultProps} onMuteChange={onMuteChange} initialVolume={0.8} />);
+
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+    const muteBtn = screen.getByRole('button', { name: /mute audio/i });
+
+    await user.click(muteBtn);
+
+    expect(audioEl.muted).toBe(true);
+    expect(onMuteChange).toHaveBeenCalledWith(true);
+    expect(localStorage.getItem('karaoke_master_muted')).toBe('true');
+    expect(screen.getByRole('button', { name: /unmute audio/i })).toBeInTheDocument();
+    expect(screen.getByText('Muted')).toBeInTheDocument();
+  });
+
+  it('smart unmutes and restores the previous non-zero volume', async () => {
+    localStorage.clear();
+    const user = userEvent.setup();
+    const onVolumeChange = vi.fn();
+    const onMuteChange = vi.fn();
+
+    render(
+      <AudioControls
+        {...defaultProps}
+        initialVolume={0.75}
+        onVolumeChange={onVolumeChange}
+        onMuteChange={onMuteChange}
+      />
+    );
+
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+    const muteBtn = screen.getByRole('button', { name: /mute audio/i });
+
+    // Step 1: Mute
+    await user.click(muteBtn);
+    expect(audioEl.muted).toBe(true);
+    expect(screen.getByText('Muted')).toBeInTheDocument();
+
+    // Step 2: Unmute -> should restore 75%
+    const unmuteBtn = screen.getByRole('button', { name: /unmute audio/i });
+    await user.click(unmuteBtn);
+
+    expect(audioEl.muted).toBe(false);
+    expect(audioEl.volume).toBe(0.75);
+    expect(screen.getByText('75%')).toBeInTheDocument();
+    expect(onVolumeChange).toHaveBeenCalledWith(0.75);
+    expect(onMuteChange).toHaveBeenCalledWith(false);
+  });
+
+  it('auto-unmutes when adjusting volume slider up from 0 or while muted', () => {
+    localStorage.clear();
+    const onMuteChange = vi.fn();
+
+    render(
+      <AudioControls
+        {...defaultProps}
+        initialVolume={0.6}
+        initialMuted={true}
+        onMuteChange={onMuteChange}
+      />
+    );
+
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+    expect(audioEl.muted).toBe(true);
+
+    const slider = screen.getByRole('slider', { name: /master volume/i });
+    fireEvent.change(slider, { target: { value: '0.85' } });
+
+    expect(audioEl.muted).toBe(false);
+    expect(audioEl.volume).toBe(0.85);
+    expect(screen.getByText('85%')).toBeInTheDocument();
+    expect(onMuteChange).toHaveBeenCalledWith(false);
+  });
+
+  it('syncs audio element state when native volumechange event fires', () => {
+    localStorage.clear();
+    const onVolumeChange = vi.fn();
+    const onMuteChange = vi.fn();
+
+    render(
+      <AudioControls
+        {...defaultProps}
+        onVolumeChange={onVolumeChange}
+        onMuteChange={onMuteChange}
+      />
+    );
+
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+
+    // Simulate external audio element property update and volumechange event
+    audioEl.volume = 0.3;
+    audioEl.muted = true;
+    fireEvent(audioEl, new Event('volumechange'));
+
+    expect(screen.getByText('Muted')).toBeInTheDocument();
+    expect(onVolumeChange).toHaveBeenCalledWith(0.3);
+    expect(onMuteChange).toHaveBeenCalledWith(true);
+    expect(localStorage.getItem('karaoke_master_volume')).toBe('0.3');
+    expect(localStorage.getItem('karaoke_master_muted')).toBe('true');
+  });
+
+  it('initializes volume and muted states from localStorage when present', () => {
+    localStorage.setItem('karaoke_master_volume', '0.62');
+    localStorage.setItem('karaoke_master_muted', 'true');
+
+    render(<AudioControls {...defaultProps} />);
+
+    const slider = screen.getByRole('slider', { name: /master volume/i }) as HTMLInputElement;
+    expect(slider.value).toBe('0.62');
+    expect(screen.getByRole('button', { name: /unmute audio/i })).toBeInTheDocument();
+    expect(screen.getByText('Muted')).toBeInTheDocument();
+
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+    expect(audioEl.volume).toBe(0.62);
+    expect(audioEl.muted).toBe(true);
+  });
+
+  it('responds to window karaoke_toggle_mute custom event', () => {
+    localStorage.clear();
+    const onMuteChange = vi.fn();
+    render(<AudioControls {...defaultProps} onMuteChange={onMuteChange} initialVolume={0.9} />);
+
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+    expect(audioEl.muted).toBe(false);
+
+    // Dispatch global custom event
+    window.dispatchEvent(new CustomEvent('karaoke_toggle_mute'));
+
+    expect(audioEl.muted).toBe(true);
+    expect(onMuteChange).toHaveBeenCalledWith(true);
+  });
+
+  it('re-applies volume and muted state when masterAudioUrl changes', () => {
+    localStorage.clear();
+    const { rerender } = render(
+      <AudioControls {...defaultProps} initialVolume={0.4} initialMuted={true} />
+    );
+
+    const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+    expect(audioEl.volume).toBe(0.4);
+    expect(audioEl.muted).toBe(true);
+
+    rerender(
+      <AudioControls
+        {...defaultProps}
+        masterAudioUrl="/static/new-track.wav"
+        initialVolume={0.4}
+        initialMuted={true}
+      />
+    );
+
+    const updatedAudio = screen.getByTestId('audio-element') as HTMLAudioElement;
+    expect(updatedAudio.volume).toBe(0.4);
+    expect(updatedAudio.muted).toBe(true);
+  });
 });
