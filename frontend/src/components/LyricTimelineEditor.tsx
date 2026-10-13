@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LyricLine, WordTiming } from '../types';
+import { LyricLine } from '../types';
 import {
   Edit3,
   Check,
@@ -11,11 +11,14 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import { LyricDisplay } from './LyricDisplay';
 
-interface LyricTimelineEditorProps {
+export interface LyricTimelineEditorProps {
   lines: LyricLine[];
   currentTime: number;
   duration: number;
+  isPlaying?: boolean;
   onSeek: (time: number) => void;
   onSaveLines: (updatedLines: LyricLine[]) => Promise<void | boolean> | void;
   albumArtUrl?: string;
@@ -24,9 +27,24 @@ interface LyricTimelineEditorProps {
   onDirtyChange?: (isDirty: boolean) => void;
 }
 
+const sanitizeTimestamp = (val: number): number => {
+  return isNaN(val) ? 0 : Math.max(0, parseFloat(val.toFixed(3)));
+};
+
+const formatLineTime = (t: number): string => {
+  const rounded = parseFloat(t.toFixed(3));
+  const str = rounded.toFixed(2);
+  if (str.endsWith('0')) {
+    return rounded.toFixed(1);
+  }
+  return str;
+};
+
 export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   lines,
   currentTime,
+  duration,
+  isPlaying = false,
   onSeek,
   onSaveLines,
   albumArtUrl,
@@ -40,6 +58,11 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   const [selectedLineId, setSelectedLineId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
+
+  const discardModalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: showDiscardModal,
+    onClose: () => setShowDiscardModal(false),
+  });
 
   // Compute dirty state via deep JSON equality
   const hasUnsavedChanges = useMemo(() => {
@@ -79,52 +102,125 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
     };
   }, [hasUnsavedChanges]);
 
-  // Find currently active line and next line
+  // Find currently active line for list item highlight
   const activeLineIndex = editableLines.findIndex(
     (l) => currentTime >= l.start_time - 1.5 && currentTime <= l.end_time + 1.0
   );
-
   const currentLine = activeLineIndex >= 0 ? editableLines[activeLineIndex] : null;
-  const nextLine =
-    activeLineIndex >= 0 && activeLineIndex + 1 < editableLines.length
-      ? editableLines[activeLineIndex + 1]
-      : !currentLine && editableLines.length > 0
-        ? editableLines[0]
-        : null;
 
   // Handle nudging an entire line by offset seconds
   const nudgeLine = (lineId: number, offset: number) => {
     const updated = editableLines.map((l) => {
       if (l.id !== lineId) return l;
-      const newStart = Math.max(0, parseFloat((l.start_time + offset).toFixed(3)));
-      const newEnd = Math.max(newStart + 0.5, parseFloat((l.end_time + offset).toFixed(3)));
-      const newWords = l.words.map((w) => ({
-        ...w,
-        start_time: Math.max(0, parseFloat((w.start_time + offset).toFixed(3))),
-        end_time: Math.max(0.1, parseFloat((w.end_time + offset).toFixed(3))),
-      }));
+
+      const minStart = Math.min(l.start_time, ...l.words.map((w) => w.start_time));
+      const effectiveOffset = offset < 0 ? Math.max(offset, -minStart) : offset;
+
+      const newStart = sanitizeTimestamp(l.start_time + effectiveOffset);
+      const newEnd = Math.max(newStart, sanitizeTimestamp(l.end_time + effectiveOffset));
+      const newWords = l.words.map((w) => {
+        const wStart = sanitizeTimestamp(w.start_time + effectiveOffset);
+        const wEnd = Math.max(wStart, sanitizeTimestamp(w.end_time + effectiveOffset));
+        return { ...w, start_time: wStart, end_time: wEnd };
+      });
+
       return { ...l, start_time: newStart, end_time: newEnd, words: newWords };
     });
     setEditableLines(updated);
   };
 
-  // Handle editing a single word timing
+  // Handle nudging a specific word boundary ('start_time' or 'end_time')
+  const nudgeWordBoundary = (
+    lineId: number,
+    wordIndex: number,
+    field: 'start_time' | 'end_time',
+    delta: number
+  ) => {
+    const updated = editableLines.map((l) => {
+      if (l.id !== lineId) return l;
+      const words = l.words.map((w) => ({ ...w }));
+      const targetWord = words[wordIndex];
+      if (!targetWord) return l;
+
+      if (field === 'start_time') {
+        const prevWordStart = wordIndex > 0 ? words[wordIndex - 1].start_time : 0;
+        const nextWordStart =
+          wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
+        const maxAllowed = Math.min(targetWord.end_time, nextWordStart);
+        const minAllowed = prevWordStart;
+
+        const proposed = targetWord.start_time + delta;
+        targetWord.start_time = sanitizeTimestamp(
+          Math.min(maxAllowed, Math.max(minAllowed, proposed))
+        );
+      } else {
+        const minAllowed = targetWord.start_time;
+        const proposed = targetWord.end_time + delta;
+        targetWord.end_time = sanitizeTimestamp(Math.max(minAllowed, proposed));
+      }
+
+      const lineStart = Math.min(...words.map((w) => w.start_time));
+      const lineEnd = Math.max(...words.map((w) => w.end_time));
+      return { ...l, start_time: lineStart, end_time: lineEnd, words };
+    });
+    setEditableLines(updated);
+  };
+
+  // Handle nudging an entire word (both start and end)
+  const nudgeWord = (lineId: number, wordIndex: number, delta: number) => {
+    const updated = editableLines.map((l) => {
+      if (l.id !== lineId) return l;
+      const words = l.words.map((w) => ({ ...w }));
+      const targetWord = words[wordIndex];
+      if (!targetWord) return l;
+
+      const dur = sanitizeTimestamp(targetWord.end_time - targetWord.start_time);
+      const prevWordStart = wordIndex > 0 ? words[wordIndex - 1].start_time : 0;
+      const nextWordStart =
+        wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
+
+      const proposedStart = targetWord.start_time + delta;
+      const clampedStart = sanitizeTimestamp(
+        Math.min(nextWordStart, Math.max(prevWordStart, proposedStart))
+      );
+      targetWord.start_time = clampedStart;
+      targetWord.end_time = sanitizeTimestamp(clampedStart + dur);
+
+      const lineStart = Math.min(...words.map((w) => w.start_time));
+      const lineEnd = Math.max(...words.map((w) => w.end_time));
+      return { ...l, start_time: lineStart, end_time: lineEnd, words };
+    });
+    setEditableLines(updated);
+  };
+
+  // Handle editing a single word timing with monotonic clamping
   const updateWordTiming = (
     lineId: number,
     wordIndex: number,
     field: 'start_time' | 'end_time',
     value: number
   ) => {
-    const safeValue = isNaN(value) ? 0 : Math.max(0, parseFloat(value.toFixed(3)));
+    const safeValue = sanitizeTimestamp(value);
     const updated = editableLines.map((l) => {
       if (l.id !== lineId) return l;
-      const words = [...l.words];
-      words[wordIndex] = {
-        ...words[wordIndex],
-        [field]: safeValue,
-      };
+      const words = l.words.map((w) => ({ ...w }));
+      const targetWord = words[wordIndex];
+      if (!targetWord) return l;
 
-      // Update line boundaries to encompass all words
+      if (field === 'start_time') {
+        const prevWordStart = wordIndex > 0 ? words[wordIndex - 1].start_time : 0;
+        const nextWordStart =
+          wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
+        const maxAllowed = Math.min(targetWord.end_time, nextWordStart);
+        const minAllowed = prevWordStart;
+        targetWord.start_time = sanitizeTimestamp(
+          Math.min(maxAllowed, Math.max(minAllowed, safeValue))
+        );
+      } else {
+        const minAllowed = targetWord.start_time;
+        targetWord.end_time = sanitizeTimestamp(Math.max(minAllowed, safeValue));
+      }
+
       const lineStart = Math.min(...words.map((w) => w.start_time));
       const lineEnd = Math.max(...words.map((w) => w.end_time));
       return { ...l, start_time: lineStart, end_time: lineEnd, words };
@@ -154,129 +250,19 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
     toast.info('Lyric edits discarded');
   };
 
-  // Helper for word sweep calculation
-  const getWordProgress = (word: WordTiming) => {
-    if (currentTime < word.start_time) return 0;
-    if (currentTime > word.end_time) return 100;
-    const dur = word.end_time - word.start_time;
-    if (dur <= 0) return 100;
-    return Math.min(100, Math.max(0, ((currentTime - word.start_time) / dur) * 100));
-  };
-
-  // Countdown cue calculation
-  const showCountdown =
-    currentLine &&
-    currentLine.start_time - currentTime > 0 &&
-    currentLine.start_time - currentTime <= 3.0;
-  const countdownSeconds = showCountdown ? Math.ceil(currentLine!.start_time - currentTime) : 0;
-
   return (
     <div className="space-y-6">
-      {/* 1. Live Karaoke Stage Preview */}
-      <div className="relative aspect-video w-full rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex flex-col justify-end p-8 select-none">
-        {/* Dynamic blurred album background */}
-        {albumArtUrl && (
-          <div
-            className="absolute inset-0 bg-cover bg-center filter blur-3xl opacity-35 scale-110 pointer-events-none transition-all duration-700"
-            style={{ backgroundImage: `url(${albumArtUrl})` }}
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none" />
-
-        {/* Live Badge */}
-        <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700/60 backdrop-blur text-xs font-medium text-slate-300">
-          <span
-            className="w-2 h-2 rounded-full bg-red-500 motion-safe:animate-pulse"
-            aria-hidden="true"
-          ></span>
-          Live Visual Preview
-        </div>
-
-        {/* Countdown Cue Display */}
-        {showCountdown && (
-          <div
-            className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-3 text-cyan-400 font-extrabold text-3xl font-['Montserrat'] motion-safe:animate-bounce motion-reduce:animate-none"
-            aria-label={`Starting in ${countdownSeconds} seconds`}
-          >
-            <span
-              className={countdownSeconds >= 3 ? 'text-yellow-400 scale-125' : 'text-slate-600'}
-              aria-hidden="true"
-            >
-              ●
-            </span>
-            <span
-              className={countdownSeconds >= 2 ? 'text-yellow-400 scale-125' : 'text-slate-600'}
-              aria-hidden="true"
-            >
-              ●
-            </span>
-            <span
-              className={countdownSeconds >= 1 ? 'text-yellow-400 scale-125' : 'text-slate-600'}
-              aria-hidden="true"
-            >
-              ●
-            </span>
-          </div>
-        )}
-
-        {/* Current & Upcoming Lyrics Lines */}
-        <div className="relative z-10 space-y-4 text-center max-w-4xl mx-auto w-full">
-          {/* Active Line (Line 1) */}
-          <div className="min-h-[5rem] flex items-center justify-center">
-            {currentLine ? (
-              <div className="text-3xl md:text-5xl font-extrabold font-['Montserrat'] tracking-tight flex flex-wrap justify-center gap-x-3 gap-y-1">
-                {currentLine.words.map((w, idx) => {
-                  const progress = getWordProgress(w);
-                  return (
-                    <button
-                      type="button"
-                      key={idx}
-                      onClick={() => onSeek(w.start_time)}
-                      aria-label={`Jump playback to word ${w.word} at ${w.start_time.toFixed(2)} seconds`}
-                      className="relative cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded p-0.5 bg-transparent border-0 inline-block text-inherit font-inherit"
-                      title={`${w.word} (${w.start_time.toFixed(2)}s - ${w.end_time.toFixed(2)}s)`}
-                    >
-                      {/* Unsung text */}
-                      <span style={{ color: themeUnsungColor }} className="drop-shadow-md">
-                        {w.word}
-                      </span>
-                      {/* Progressive Sung overlay clip */}
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-0 overflow-hidden whitespace-nowrap drop-shadow-[0_0_12px_rgba(250,204,21,0.6)]"
-                        style={{
-                          width: `${progress}%`,
-                          color: themeSungColor,
-                          transition: progress > 0 && progress < 100 ? 'width 60ms linear' : 'none',
-                        }}
-                      >
-                        {w.word}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-xl text-slate-500 font-medium italic">
-                {currentTime < (editableLines[0]?.start_time || 0)
-                  ? '♪ Instrumental Intro ♪'
-                  : '♪ Instrumental Break ♪'}
-              </p>
-            )}
-          </div>
-
-          {/* Upcoming Line (Line 2) */}
-          <div className="min-h-[2.5rem] flex items-center justify-center">
-            {nextLine ? (
-              <p className="text-xl md:text-2xl font-bold font-['Montserrat'] text-slate-400/80 drop-shadow">
-                {nextLine.text}
-              </p>
-            ) : (
-              <span className="text-sm text-slate-600">-- End of song --</span>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* 1. Live Karaoke Stage Preview (Feature 43: LyricDisplay) */}
+      <LyricDisplay
+        lines={editableLines}
+        currentTime={currentTime}
+        duration={duration}
+        isPlaying={isPlaying}
+        onSeek={onSeek}
+        albumArtUrl={albumArtUrl}
+        themeSungColor={themeSungColor}
+        themeUnsungColor={themeUnsungColor}
+      />
 
       {/* 2. Visual Timeline & Precision Word Editor */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
@@ -345,11 +331,11 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                       onSeek(line.start_time);
                       setSelectedLineId(isExpanded ? null : line.id);
                     }}
-                    aria-label={`Select line: ${line.text} (${line.start_time.toFixed(1)}s to ${line.end_time.toFixed(1)}s)`}
+                    aria-label={`Select line: ${line.text} (${formatLineTime(line.start_time)}s to ${formatLineTime(line.end_time)}s)`}
                     className="flex items-center gap-3 cursor-pointer flex-1 overflow-hidden text-left bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded"
                   >
                     <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-1 rounded shrink-0">
-                      {line.start_time.toFixed(1)}s - {line.end_time.toFixed(1)}s
+                      {formatLineTime(line.start_time)}s - {formatLineTime(line.end_time)}s
                     </span>
                     <span
                       className={`text-sm font-semibold truncate ${
@@ -360,26 +346,53 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                     </span>
                   </button>
 
-                  {/* Nudge & Expand Controls */}
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  {/* Nudge & Expand Controls (Feature 44: Dual-Step Line Nudging) */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* Coarse Earlier: -0.2s */}
                     <button
                       type="button"
                       onClick={() => nudgeLine(line.id, -0.2)}
                       aria-label={`Nudge line ${line.id} 0.2s earlier`}
                       className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                      title="Nudge 0.2s earlier"
+                      title="Coarse nudge 0.2s earlier"
                     >
                       <Rewind className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
+
+                    {/* Fine Earlier: -0.05s */}
+                    <button
+                      type="button"
+                      onClick={() => nudgeLine(line.id, -0.05)}
+                      aria-label={`Nudge line ${line.id} 0.05s earlier`}
+                      className="px-1.5 py-1 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-[10px] font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      title="Fine nudge 0.05s earlier"
+                    >
+                      -0.05s
+                    </button>
+
+                    {/* Fine Later: +0.05s */}
+                    <button
+                      type="button"
+                      onClick={() => nudgeLine(line.id, 0.05)}
+                      aria-label={`Nudge line ${line.id} 0.05s later`}
+                      className="px-1.5 py-1 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-[10px] font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      title="Fine nudge 0.05s later"
+                    >
+                      +0.05s
+                    </button>
+
+                    {/* Coarse Later: +0.2s */}
                     <button
                       type="button"
                       onClick={() => nudgeLine(line.id, 0.2)}
                       aria-label={`Nudge line ${line.id} 0.2s later`}
                       className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                      title="Nudge 0.2s later"
+                      title="Coarse nudge 0.2s later"
                     >
                       <FastForward className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
+
+                    {/* Expand / Collapse */}
                     <button
                       type="button"
                       onClick={() => setSelectedLineId(isExpanded ? null : line.id)}
@@ -389,7 +402,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                           : `Expand word timings for line ${line.id}`
                       }
                       aria-expanded={isExpanded}
-                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400 ml-1"
                       title="Expand word timings"
                     >
                       <ChevronRight
@@ -400,50 +413,117 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                   </div>
                 </div>
 
-                {/* Expanded Word-Level Timing Inputs */}
+                {/* Expanded Word-Level Timing Inputs (Feature 44: Word Steppers & Whole-Word Shift) */}
                 {isExpanded && (
-                  <div className="mt-3 pt-3 border-t border-slate-800/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  <div className="mt-3 pt-3 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
                     {line.words.map((w, wIdx) => (
                       <div
                         key={wIdx}
-                        className="flex items-center justify-between p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs"
+                        className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs"
                       >
-                        <span
-                          onClick={() => onSeek(w.start_time)}
-                          className="font-bold text-white cursor-pointer hover:text-cyan-400 mr-2"
-                        >
-                          {w.word}
-                        </span>
-                        <div className="flex items-center gap-1 font-mono text-[11px]">
-                          <input
-                            type="number"
-                            step="0.05"
-                            value={w.start_time}
-                            onChange={(e) =>
-                              updateWordTiming(
-                                line.id,
-                                wIdx,
-                                'start_time',
-                                parseFloat(e.target.value)
-                              )
-                            }
-                            className="w-14 p-1 rounded bg-slate-950 border border-slate-700 text-center text-slate-200"
-                          />
-                          <span className="text-slate-500">-</span>
-                          <input
-                            type="number"
-                            step="0.05"
-                            value={w.end_time}
-                            onChange={(e) =>
-                              updateWordTiming(
-                                line.id,
-                                wIdx,
-                                'end_time',
-                                parseFloat(e.target.value)
-                              )
-                            }
-                            className="w-14 p-1 rounded bg-slate-950 border border-slate-700 text-center text-slate-200"
-                          />
+                        <div className="flex items-center justify-between">
+                          <span
+                            onClick={() => onSeek(w.start_time)}
+                            className="font-bold text-white cursor-pointer hover:text-cyan-400 truncate mr-2"
+                            title={`Click to seek to word: ${w.word}`}
+                          >
+                            {w.word}
+                          </span>
+                          {/* Word Shift Pill */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => nudgeWord(line.id, wIdx, -0.05)}
+                              aria-label={`Nudge word ${w.word} 0.05s earlier`}
+                              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                              title="Shift word 0.05s earlier"
+                            >
+                              ◀
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => nudgeWord(line.id, wIdx, 0.05)}
+                              aria-label={`Nudge word ${w.word} 0.05s later`}
+                              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                              title="Shift word 0.05s later"
+                            >
+                              ▶
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                          {/* Start Time Stepper */}
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => nudgeWordBoundary(line.id, wIdx, 'start_time', -0.05)}
+                              aria-label={`Nudge start of word ${w.word} 0.05s earlier`}
+                              className="w-5 h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              step="0.05"
+                              value={w.start_time}
+                              onChange={(e) =>
+                                updateWordTiming(
+                                  line.id,
+                                  wIdx,
+                                  'start_time',
+                                  parseFloat(e.target.value)
+                                )
+                              }
+                              aria-label={`Start time for word ${w.word}`}
+                              className="w-14 h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => nudgeWordBoundary(line.id, wIdx, 'start_time', 0.05)}
+                              aria-label={`Nudge start of word ${w.word} 0.05s later`}
+                              className="w-5 h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <span className="text-slate-500 font-bold">to</span>
+
+                          {/* End Time Stepper */}
+                          <div className="flex items-center gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', -0.05)}
+                              aria-label={`Nudge end of word ${w.word} 0.05s earlier`}
+                              className="w-5 h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              step="0.05"
+                              value={w.end_time}
+                              onChange={(e) =>
+                                updateWordTiming(
+                                  line.id,
+                                  wIdx,
+                                  'end_time',
+                                  parseFloat(e.target.value)
+                                )
+                              }
+                              aria-label={`End time for word ${w.word}`}
+                              className="w-14 h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', 0.05)}
+                              aria-label={`Nudge end of word ${w.word} 0.05s later`}
+                              className="w-5 h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -455,9 +535,11 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
         </div>
       </div>
 
-      {/* 3. Discard Changes Confirmation Modal */}
+      {/* 3. Discard Changes Confirmation Modal (Feature 45: Focus Trapped) */}
       {showDiscardModal && (
         <div
+          ref={discardModalRef}
+          tabIndex={-1}
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           role="dialog"
           aria-modal="true"

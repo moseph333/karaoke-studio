@@ -1,7 +1,65 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Mic, Upload, Sliders, Music2, AlertCircle } from 'lucide-react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  Mic,
+  Upload,
+  Sliders,
+  Music2,
+  AlertCircle,
+  Volume2,
+  Volume1,
+  VolumeX,
+} from 'lucide-react';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
+
+export const MASTER_VOLUME_STORAGE_KEY = 'karaoke_master_volume';
+export const MASTER_MUTED_STORAGE_KEY = 'karaoke_master_muted';
+
+function getStoredMasterVolume(fallback = 1.0): number {
+  try {
+    const raw = localStorage.getItem(MASTER_VOLUME_STORAGE_KEY);
+    if (raw !== null) {
+      const parsed = parseFloat(raw);
+      if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Storage access restricted
+  }
+  return fallback;
+}
+
+function setStoredMasterVolume(volume: number): void {
+  try {
+    localStorage.setItem(MASTER_VOLUME_STORAGE_KEY, volume.toString());
+  } catch {
+    // Storage access restricted
+  }
+}
+
+function getStoredMasterMuted(fallback = false): boolean {
+  try {
+    const raw = localStorage.getItem(MASTER_MUTED_STORAGE_KEY);
+    if (raw !== null) {
+      return raw === 'true';
+    }
+  } catch {
+    // Storage access restricted
+  }
+  return fallback;
+}
+
+function setStoredMasterMuted(isMuted: boolean): void {
+  try {
+    localStorage.setItem(MASTER_MUTED_STORAGE_KEY, isMuted ? 'true' : 'false');
+  } catch {
+    // Storage access restricted
+  }
+}
 
 export interface AudioPlaybackError {
   code: number;
@@ -79,6 +137,11 @@ export interface AudioControlsProps {
   // Controls state synchronization (PROJECT.md Feature 38)
   initialSemitones?: number;
   initialGuideVolume?: number;
+  // Master volume and mute controls (PROJECT.md Feature 42)
+  initialVolume?: number;
+  initialMuted?: boolean;
+  onVolumeChange?: (volume: number) => void;
+  onMuteChange?: (isMuted: boolean) => void;
   // Audio playback bindings & resilience (Dispatch Feature 38)
   audioRef?: React.RefObject<HTMLAudioElement>;
   onTimeUpdate?: () => void;
@@ -100,6 +163,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   onCustomInstrumentalUploaded,
   initialSemitones = 0,
   initialGuideVolume = 0.0,
+  initialVolume,
+  initialMuted,
+  onVolumeChange,
+  onMuteChange,
   audioRef,
   onTimeUpdate,
   onLoadedMetadata,
@@ -114,6 +181,24 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   const [uploadingInst, setUploadingInst] = useState(false);
   const [playbackError, setPlaybackError] = useState<AudioPlaybackError | null>(null);
 
+  // Master Volume & Mute State
+  const [volume, setVolume] = useState<number>(() => {
+    if (initialVolume !== undefined && !isNaN(initialVolume)) {
+      return Math.max(0, Math.min(1, initialVolume));
+    }
+    return getStoredMasterVolume(1.0);
+  });
+
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    if (initialMuted !== undefined) {
+      return initialMuted;
+    }
+    return getStoredMasterMuted(false);
+  });
+
+  // Preserve last non-zero volume for smart unmute restoration
+  const previousVolumeRef = useRef<number>(volume > 0 ? volume : 1.0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const internalAudioRef = useRef<HTMLAudioElement | null>(null);
   const resolvedAudioRef = audioRef || internalAudioRef;
@@ -126,6 +211,28 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   useEffect(() => {
     setGuideVolume(initialGuideVolume);
   }, [initialGuideVolume, projectId]);
+
+  useEffect(() => {
+    if (initialVolume !== undefined && !isNaN(initialVolume)) {
+      const clamped = Math.max(0, Math.min(1, initialVolume));
+      setVolume(clamped);
+      if (clamped > 0) previousVolumeRef.current = clamped;
+    }
+  }, [initialVolume]);
+
+  useEffect(() => {
+    if (initialMuted !== undefined) {
+      setIsMuted(initialMuted);
+    }
+  }, [initialMuted]);
+
+  // Synchronize audio element when it mounts or when audio URL changes
+  useEffect(() => {
+    if (resolvedAudioRef.current) {
+      resolvedAudioRef.current.volume = volume;
+      resolvedAudioRef.current.muted = isMuted;
+    }
+  }, [resolvedAudioRef, masterAudioUrl, volume, isMuted]);
 
   // Clear error when master audio url changes
   useEffect(() => {
@@ -165,10 +272,97 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
     }
   };
 
+  // Bidirectional audio element sync: fires on native volumechange
+  const handleAudioVolumeChange = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    const audioEl = e.currentTarget;
+    if (audioEl.volume !== volume) {
+      setVolume(audioEl.volume);
+      if (audioEl.volume > 0) {
+        previousVolumeRef.current = audioEl.volume;
+      }
+      setStoredMasterVolume(audioEl.volume);
+      onVolumeChange?.(audioEl.volume);
+    }
+    if (audioEl.muted !== isMuted) {
+      setIsMuted(audioEl.muted);
+      setStoredMasterMuted(audioEl.muted);
+      onMuteChange?.(audioEl.muted);
+    }
+  };
+
+  const handleVolumeSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    const clamped = Math.max(0, Math.min(1, isNaN(val) ? 0 : val));
+
+    setVolume(clamped);
+    setStoredMasterVolume(clamped);
+    if (clamped > 0) {
+      previousVolumeRef.current = clamped;
+    }
+
+    if (resolvedAudioRef.current) {
+      resolvedAudioRef.current.volume = clamped;
+    }
+    onVolumeChange?.(clamped);
+
+    // Slider adjustments while muted automatically unmute (if volume > 0)
+    if (isMuted && clamped > 0) {
+      setIsMuted(false);
+      setStoredMasterMuted(false);
+      if (resolvedAudioRef.current) {
+        resolvedAudioRef.current.muted = false;
+      }
+      onMuteChange?.(false);
+    }
+  };
+
+  const handleToggleMute = useCallback(() => {
+    if (isMuted || volume === 0) {
+      // Unmuting: restore previous non-zero volume (or default 1.0)
+      const restored = previousVolumeRef.current > 0 ? previousVolumeRef.current : 1.0;
+      setIsMuted(false);
+      setStoredMasterMuted(false);
+      setVolume(restored);
+      setStoredMasterVolume(restored);
+
+      if (resolvedAudioRef.current) {
+        resolvedAudioRef.current.muted = false;
+        resolvedAudioRef.current.volume = restored;
+      }
+
+      onMuteChange?.(false);
+      onVolumeChange?.(restored);
+    } else {
+      // Muting: preserve current volume
+      if (volume > 0) {
+        previousVolumeRef.current = volume;
+      }
+      setIsMuted(true);
+      setStoredMasterMuted(true);
+
+      if (resolvedAudioRef.current) {
+        resolvedAudioRef.current.muted = true;
+      }
+
+      onMuteChange?.(true);
+    }
+  }, [isMuted, volume, onMuteChange, onVolumeChange, resolvedAudioRef]);
+
+  // Listen for global custom event for keyboard shortcut integration
+  useEffect(() => {
+    const handleGlobalToggleMute = () => {
+      handleToggleMute();
+    };
+    window.addEventListener('karaoke_toggle_mute', handleGlobalToggleMute);
+    return () => window.removeEventListener('karaoke_toggle_mute', handleGlobalToggleMute);
+  }, [handleToggleMute]);
+
   const handleRetryPlayback = () => {
     setPlaybackError(null);
     if (resolvedAudioRef.current) {
       resolvedAudioRef.current.load();
+      resolvedAudioRef.current.volume = volume;
+      resolvedAudioRef.current.muted = isMuted;
       if (currentTime > 0) {
         resolvedAudioRef.current.currentTime = currentTime;
       }
@@ -227,6 +421,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           onLoadedMetadata={onLoadedMetadata}
           onEnded={onEnded}
           onError={handleAudioError}
+          onVolumeChange={handleAudioVolumeChange}
           className="hidden"
           aria-hidden="true"
         />
@@ -287,8 +482,8 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         />
       </div>
 
-      {/* Control Buttons & Sliders */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+      {/* Control Buttons & Sliders Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
         {/* Play/Pause & Transport */}
         <div className="flex items-center gap-3">
           <button
@@ -318,6 +513,61 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           <div className="text-xs text-slate-400">
             <p className="font-semibold text-white">Karaoke Playback</p>
             <p className="text-[11px] text-slate-500">Sync with video timeline</p>
+          </div>
+        </div>
+
+        {/* Master Volume Controls (Feature 42) */}
+        <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5 text-slate-400 font-medium">
+              <button
+                type="button"
+                onClick={handleToggleMute}
+                aria-label={isMuted || volume === 0 ? 'Unmute audio' : 'Mute audio'}
+                aria-pressed={isMuted || volume === 0}
+                title={isMuted || volume === 0 ? 'Unmute audio (M)' : 'Mute audio (M)'}
+                className="p-1 -ml-1 rounded-md hover:bg-slate-800 text-slate-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              >
+                {isMuted || volume === 0 ? (
+                  <VolumeX className="w-4 h-4 text-red-400" aria-hidden="true" />
+                ) : volume < 0.5 ? (
+                  <Volume1 className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+                ) : (
+                  <Volume2 className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+                )}
+              </button>
+              <span>Master Volume</span>
+            </div>
+            <span
+              className={`font-mono font-bold ${
+                isMuted || volume === 0 ? 'text-red-400' : 'text-cyan-400'
+              }`}
+            >
+              {isMuted || volume === 0 ? 'Muted' : `${Math.round(volume * 100)}%`}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={handleVolumeSliderChange}
+            aria-label="Master volume"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={isMuted || volume === 0 ? 0 : Math.round(volume * 100)}
+            aria-valuetext={isMuted || volume === 0 ? 'Muted' : `${Math.round(volume * 100)}%`}
+            className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400 transition-all ${
+              isMuted || volume === 0
+                ? 'bg-slate-800 accent-slate-500 opacity-60'
+                : 'bg-slate-800 accent-cyan-400 hover:accent-cyan-300'
+            }`}
+          />
+          <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500">
+            <span>0%</span>
+            <span>50%</span>
+            <span>100%</span>
           </div>
         </div>
 

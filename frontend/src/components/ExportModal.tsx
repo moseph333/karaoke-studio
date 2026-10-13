@@ -13,6 +13,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { ProjectState } from '../types';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ExportModalProps {
   project: ProjectState;
@@ -30,24 +31,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [_tick, setTick] = useState(0);
 
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    isOpen,
+    onClose,
+  });
+
   // Re-render every second while rendering to keep heartbeat and elapsed timer live
   useEffect(() => {
     if (!isOpen) return;
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, [isOpen]);
-
-  // Dismiss on Escape key
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -79,10 +73,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   return (
     <div
+      ref={modalRef}
+      tabIndex={-1}
       className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="export-modal-title"
+      aria-describedby="export-modal-desc"
     >
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 relative">
         <button
@@ -102,7 +99,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <h2 id="export-modal-title" className="text-xl font-bold text-white">
               Export & YouTube Package
             </h2>
-            <p className="text-xs text-slate-400">
+            <p id="export-modal-desc" className="text-xs text-slate-400">
               {project.title} • {project.artist}
             </p>
           </div>

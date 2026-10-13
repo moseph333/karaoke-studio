@@ -215,4 +215,138 @@ describe('LyricTimelineEditor', () => {
     expect(screen.getByText(/4.8s - 7.8s/i)).toBeInTheDocument();
     expect(screen.getByText(/Save Timing Changes/i)).toBeInTheDocument();
   });
+
+  // --- Feature 44: Timeline Precision Nudging & Invariants Test Suite ---
+
+  it('fine-nudges a line earlier and later by 0.05s', async () => {
+    const user = userEvent.setup();
+    const onSaveLines = vi.fn();
+    render(<LyricTimelineEditor {...defaultProps} onSaveLines={onSaveLines} />);
+
+    // Fine nudge earlier by 0.05s
+    const fineEarlierBtn = screen.getByRole('button', { name: /nudge line 1 0.05s earlier/i });
+    await user.click(fineEarlierBtn);
+
+    expect(screen.getByText(/4.95s - 7.95s/i)).toBeInTheDocument();
+    expect(screen.getByText(/Save Timing Changes/i)).toBeInTheDocument();
+
+    // Fine nudge later by 0.05s -> restores clean state
+    const fineLaterBtn = screen.getByRole('button', { name: /nudge line 1 0.05s later/i });
+    await user.click(fineLaterBtn);
+
+    expect(screen.getByText(/5.0s - 8.0s/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Save Timing Changes/i)).not.toBeInTheDocument();
+  });
+
+  it('clamps line start at 0s and does not allow negative timestamps', async () => {
+    const user = userEvent.setup();
+    const lineNearZero: LyricLine[] = [
+      {
+        id: 99,
+        text: 'Start of track',
+        start_time: 0.02,
+        end_time: 1.5,
+        words: [{ word: 'Start', start_time: 0.02, end_time: 1.0 }],
+      },
+    ];
+    render(<LyricTimelineEditor {...defaultProps} lines={lineNearZero} />);
+
+    const coarseEarlierBtn = screen.getByRole('button', { name: /nudge line 99 0.2s earlier/i });
+    await user.click(coarseEarlierBtn);
+
+    // Line start clamped at 0.0s, not negative
+    expect(screen.getByText(/0.0s -/i)).toBeInTheDocument();
+  });
+
+  it('precision nudges individual word boundaries with +/-0.05s buttons', async () => {
+    const user = userEvent.setup();
+    render(<LyricTimelineEditor {...defaultProps} />);
+
+    // Expand line 1
+    const expandBtn = screen.getByRole('button', { name: /expand word timings for line 1/i });
+    await user.click(expandBtn);
+
+    // Nudge word 'Is' start_time earlier by 0.05s
+    const nudgeWordStartEarlier = screen.getByRole('button', {
+      name: /nudge start of word Is 0.05s earlier/i,
+    });
+    await user.click(nudgeWordStartEarlier);
+
+    expect(screen.getByText(/Save Timing Changes/i)).toBeInTheDocument();
+    const inputs = screen.getAllByRole('spinbutton');
+    expect(inputs[0]).toHaveValue(4.95);
+  });
+
+  it('enforces monotonic sequencing so word start_time cannot exceed word end_time', async () => {
+    const user = userEvent.setup();
+    render(<LyricTimelineEditor {...defaultProps} />);
+
+    const expandBtn = screen.getByRole('button', { name: /expand word timings for line 1/i });
+    await user.click(expandBtn);
+
+    // 'Is' word has start 5.0, end 5.5. Nudge start later 15 times (+0.75s)
+    const nudgeWordStartLater = screen.getByRole('button', {
+      name: /nudge start of word Is 0.05s later/i,
+    });
+    for (let i = 0; i < 15; i++) {
+      await user.click(nudgeWordStartLater);
+    }
+
+    const inputs = screen.getAllByRole('spinbutton');
+    // Start must not exceed end_time (5.5)
+    expect(parseFloat(inputs[0].getAttribute('value') || '0')).toBeLessThanOrEqual(5.5);
+  });
+
+  it('shifts entire word timing earlier and later with duration preserved', async () => {
+    const user = userEvent.setup();
+    render(<LyricTimelineEditor {...defaultProps} />);
+
+    // Expand line 1
+    const expandBtn = screen.getByRole('button', { name: /expand word timings for line 1/i });
+    await user.click(expandBtn);
+
+    // Word 'Is' has initial start: 5.0, end: 5.5 (duration 0.5s)
+    const shiftEarlierBtn = screen.getByRole('button', { name: /nudge word Is 0.05s earlier/i });
+    await user.click(shiftEarlierBtn);
+
+    const inputs = screen.getAllByRole('spinbutton');
+    expect(inputs[0]).toHaveValue(4.95);
+    expect(inputs[1]).toHaveValue(5.45);
+  });
+
+  // --- Feature 45: Discard Modal Focus Trapping ---
+
+  it('traps focus in discard confirmation modal and dismisses on Escape', async () => {
+    const user = userEvent.setup();
+    render(<LyricTimelineEditor {...defaultProps} />);
+
+    // Make dirty to reveal Discard Changes button
+    const nudgeBtn = screen.getByRole('button', { name: /nudge line 1 0.2s earlier/i });
+    await user.click(nudgeBtn);
+
+    const discardTriggerBtn = screen.getByRole('button', { name: /discard changes/i });
+    await user.click(discardTriggerBtn);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+
+    const keepEditingBtn = screen.getByRole('button', { name: /keep editing/i });
+    const confirmDiscardBtn = within(dialog).getByRole('button', { name: /discard changes/i });
+
+    // Focus starts inside dialog
+    expect(keepEditingBtn).toHaveFocus();
+
+    // Tab to next button
+    await user.tab();
+    expect(confirmDiscardBtn).toHaveFocus();
+
+    // Tab wraps back to first button
+    await user.tab();
+    expect(keepEditingBtn).toHaveFocus();
+
+    // Press Escape dismisses modal and returns focus to trigger button
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(discardTriggerBtn).toHaveFocus();
+  });
 });

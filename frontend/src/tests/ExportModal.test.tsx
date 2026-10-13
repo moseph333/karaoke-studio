@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExportModal } from '../components/ExportModal';
+import { getFocusableElements } from '../hooks/useFocusTrap';
 import { ProjectState } from '../types';
 
 describe('ExportModal', () => {
@@ -83,5 +84,37 @@ describe('ExportModal', () => {
     expect(screen.getByText(/Rendering High-Definition Karaoke Video/i)).toBeInTheDocument();
     expect(screen.getByText(/42\s*%/)).toBeInTheDocument();
     expect(screen.getByText(/Encoding video frames at 60fps.../i)).toBeInTheDocument();
+  });
+
+  // --- Feature 45: Focus Trap & A11y Tests ---
+
+  it('renders with complete ARIA attributes including aria-describedby', () => {
+    render(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveAttribute('aria-labelledby', 'export-modal-title');
+    expect(dialog).toHaveAttribute('aria-describedby', 'export-modal-desc');
+  });
+
+  it('traps focus inside the modal and wraps Tab from last element back to first', async () => {
+    const user = userEvent.setup();
+    render(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole('dialog');
+    const focusable = getFocusableElements(dialog);
+    expect(focusable.length).toBeGreaterThan(0);
+
+    const firstElement = focusable[0];
+    const lastElement = focusable[focusable.length - 1];
+
+    expect(firstElement).toHaveFocus();
+
+    lastElement.focus();
+    expect(lastElement).toHaveFocus();
+
+    // Tab wraps around to first focusable element
+    await user.tab();
+    expect(firstElement).toHaveFocus();
   });
 });
