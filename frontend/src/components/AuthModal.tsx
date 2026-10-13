@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
+import { apiFetch, getAuthUser, setAuthToken, setAuthUser } from '../api';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -8,7 +9,7 @@ interface AuthModalProps {
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
   const [password, setPassword] = useState('');
-  const [username, setUsername] = useState(localStorage.getItem('karaoke_user_name') || '');
+  const [username, setUsername] = useState(getAuthUser() === 'Friend' ? '' : getAuthUser());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +26,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
     setError(null);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -44,8 +45,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
       const confirmedUser = data.username || username.trim() || 'Friend';
       const token = data.token || password.trim();
 
-      localStorage.setItem('karaoke_auth_token', token);
-      localStorage.setItem('karaoke_user_name', confirmedUser);
+      setAuthToken(token);
+      setAuthUser(confirmedUser);
 
       onSuccess(confirmedUser, token);
     } catch (err: unknown) {

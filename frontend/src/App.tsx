@@ -19,8 +19,10 @@ import {
 } from 'lucide-react';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
+import { useToast } from './hooks/useToast';
 
 export const App: React.FC = () => {
+  const { toast } = useToast();
   const { project, setProject } = useProjectPolling(null);
   const [loading, setLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -30,6 +32,7 @@ export const App: React.FC = () => {
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [customBgId, setCustomBgId] = useState<string>('');
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isLyricsDirty, setIsLyricsDirty] = useState(false);
 
   // Authentication & Friend Profile State
   const [_authRequired, setAuthRequired] = useState(false);
@@ -150,7 +153,10 @@ export const App: React.FC = () => {
       audioRef.current
         .play()
         .then(() => setIsPlaying(true))
-        .catch(console.error);
+        .catch((err) => {
+          console.error('Playback failed:', err);
+          setIsPlaying(false);
+        });
     }
   };
 
@@ -185,7 +191,7 @@ export const App: React.FC = () => {
         guide_volume: 0,
       });
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error processing track');
+      toast.error(err instanceof Error ? err.message : 'Error processing track');
     } finally {
       setLoading(false);
     }
@@ -202,9 +208,12 @@ export const App: React.FC = () => {
       });
       if (res.ok) {
         setProject((prev) => (prev ? { ...prev, lines: updatedLines } : null));
+      } else {
+        throw new Error('Server returned non-200 while saving lyrics');
       }
     } catch (err) {
       console.error('Failed to update lyrics:', err);
+      throw err;
     }
   };
 
@@ -276,18 +285,6 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0d0f17] text-slate-100 flex flex-col font-['Inter']">
-      {/* Hidden Master Audio Element */}
-      {project?.master_audio_url && (
-        <audio
-          ref={audioRef}
-          src={project.master_audio_url}
-          crossOrigin="use-credentials"
-          onTimeUpdate={handleTimeUpdate}
-          onLoadedMetadata={handleLoadedMetadata}
-          onEnded={() => setIsPlaying(false)}
-        />
-      )}
-
       {/* Top Navbar */}
       <header className="border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -317,7 +314,19 @@ export const App: React.FC = () => {
               <>
                 <button
                   type="button"
-                  onClick={() => setProject(null)}
+                  onClick={() => {
+                    if (isLyricsDirty) {
+                      if (
+                        window.confirm(
+                          'You have unsaved lyric timing edits. Discard and return to song search?'
+                        )
+                      ) {
+                        setProject(null);
+                      }
+                    } else {
+                      setProject(null);
+                    }
+                  }}
                   className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
@@ -517,6 +526,16 @@ export const App: React.FC = () => {
               onTogglePlay={handleTogglePlay}
               onSeek={handleSeek}
               onMixChange={handleMixChange}
+              initialSemitones={project.semitones}
+              initialGuideVolume={project.guide_volume}
+              audioRef={audioRef}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              onEnded={() => setIsPlaying(false)}
+              onPlaybackError={(err) => {
+                console.error('Audio playback error:', err);
+                setIsPlaying(false);
+              }}
               onCustomInstrumentalUploaded={(url) =>
                 setProject({ ...project, instrumental_url: url })
               }
@@ -532,6 +551,7 @@ export const App: React.FC = () => {
               albumArtUrl={project.thumbnail_url}
               themeSungColor={selectedTheme.previewSung}
               themeUnsungColor={selectedTheme.previewUnsung}
+              onDirtyChange={setIsLyricsDirty}
             />
 
             {/* Visual Theme & Aspect Ratio Picker */}

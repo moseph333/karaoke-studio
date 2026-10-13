@@ -80,3 +80,13 @@ export interface VisualTheme {
   previewSung: string;
   previewUnsung: string;
 }
+
+export type ToastType = 'success' | 'error' | 'warning' | 'info';
+
+export interface Toast {
+  id: string;
+  message: string;
+  type: ToastType;
+  duration?: number; // Duration in ms; 0 or undefined for default (4000ms)
+  createdAt: number;
+}
