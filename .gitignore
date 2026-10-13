@@ -4,11 +4,23 @@ __pycache__/
 *$py.class
 venv/
 .pytest_cache/
+.ruff_cache/
+
+# Test coverage
+.coverage
+.coverage.*
+htmlcov/
+coverage/
+coverage_html/
+*.lcov
 
 # Node
 node_modules/
 frontend/node_modules/
 frontend/dist/
+
+# Local agent artifacts
+.agents/
 
 # Workspace Audio & Video Cache
 workspace_data/
