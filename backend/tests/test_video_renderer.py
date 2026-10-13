@@ -366,3 +366,148 @@ def test_render_video_subprocess_cleanup_on_cancellation(tmp_path, monkeypatch):
         )
 
     assert mock_proc.terminated is True
+
+
+def test_escape_ass_text_sanitizes_literal_newlines():
+    """Verifies VideoRenderer._escape_ass_text sanitizes \\r\\n, \\n, and \\r into single spaces."""
+    escaped = VideoRenderer._escape_ass_text("Line 1\r\nLine 2\nLine 3\rLine 4")
+    assert escaped == "Line 1 Line 2 Line 3 Line 4"
+    assert "\n" not in escaped
+    assert "\r" not in escaped
+
+
+def test_generate_ass_subtitles_embedded_newlines_stay_on_single_dialogue_line(tmp_path):
+    """Verifies lyric lines with embedded newlines (\\r\\n, \\n, \\r) are sanitized and stay on a single Dialogue line."""
+    renderer = VideoRenderer(output_dir=tmp_path)
+    output_ass = tmp_path / "newlines.ass"
+
+    multiline_lyrics = [
+        {
+            "id": 0,
+            "text": "Verse Line 1\r\nVerse Line 2\nVerse Line 3\rVerse Line 4",
+            "start_time": 1.0,
+            "end_time": 5.0,
+            "words": [
+                {"word": "Verse\r\nLine 1", "start_time": 1.0, "end_time": 2.0},
+                {"word": "Verse\nLine 2", "start_time": 2.0, "end_time": 3.0},
+                {"word": "Verse\rLine 3", "start_time": 3.0, "end_time": 4.0},
+                {"word": "Verse 4", "start_time": 4.0, "end_time": 5.0},
+            ],
+        },
+        {
+            "id": 1,
+            "text": "Plain line\r\nwith embedded\nnewlines",
+            "start_time": 6.0,
+            "end_time": 9.0,
+            "words": [],
+        },
+    ]
+
+    renderer.generate_ass_subtitles(multiline_lyrics, output_ass)
+    content = output_ass.read_text(encoding="utf-8")
+    lines = content.splitlines()
+
+    dialogue_lines = [line for line in lines if line.startswith("Dialogue:")]
+    assert len(dialogue_lines) == 2
+
+    for d_line in dialogue_lines:
+        assert "\r" not in d_line
+        assert "\n" not in d_line
+
+    # Word-level: verified individual words sanitized without splitting lines
+    assert "Verse Line 1" in dialogue_lines[0]
+    assert "Verse Line 2" in dialogue_lines[0]
+    assert "Verse Line 3" in dialogue_lines[0]
+
+    # Line-level fallback: verified entire text sanitized into single line
+    assert "Plain line with embedded newlines" in dialogue_lines[1]
+
+    events_section = False
+    for line in lines:
+        if line.strip() == "[Events]":
+            events_section = True
+            continue
+        if (
+            events_section
+            and line.strip()
+            and not line.startswith("Format:")
+            and not line.startswith("Comment:")
+        ):
+            assert line.startswith("Dialogue:"), (
+                f"Invalid un-prefixed line found in ASS [Events]: {line!r}"
+            )
+
+
+def test_aspect_ratio_fallback_consistency(tmp_path, monkeypatch):
+    """Verifies non-standard aspect ratios consistently fall back to 1920x1080 across subtitles and video render."""
+    renderer = VideoRenderer(output_dir=tmp_path)
+    output_ass = tmp_path / "ar_test.ass"
+    output_mp4 = tmp_path / "ar_test.mp4"
+    audio_path = tmp_path / "ar_test.wav"
+    audio_path.write_bytes(
+        b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00D\xac\x00\x00\x88X\x01\x00\x02\x00\x10\x00data\x00\x00\x00\x00"
+    )
+
+    recorded_cmds = []
+
+    class MockProcess:
+        def __init__(self, cmd):
+            self.cmd = cmd
+            recorded_cmds.append(cmd)
+            self.stdout = []
+            self.stderr = []
+            self.returncode = 0
+
+        def poll(self):
+            return 0
+
+        def terminate(self):
+            pass
+
+        def kill(self):
+            pass
+
+        def wait(self, timeout=None):
+            return 0
+
+    monkeypatch.setattr("subprocess.Popen", lambda cmd, *args, **kwargs: MockProcess(cmd))
+
+    test_ratios = ["4:3", "1:1", "", "unsupported", "custom"]
+
+    for ratio in test_ratios:
+        # Check generate_ass_subtitles dimensions
+        renderer.generate_ass_subtitles([], output_ass, aspect_ratio=ratio)
+        content = output_ass.read_text(encoding="utf-8")
+        assert "PlayResX: 1920" in content, f"Failed for aspect_ratio={ratio!r}"
+        assert "PlayResY: 1080" in content, f"Failed for aspect_ratio={ratio!r}"
+
+        # Check render_video dimensions
+        renderer.render_video(
+            audio_path=str(audio_path),
+            ass_subtitles_path=str(output_ass),
+            output_mp4_path=output_mp4,
+            aspect_ratio=ratio,
+            duration=1.0,
+        )
+
+        last_cmd = recorded_cmds[-1]
+        filter_str = " ".join(last_cmd)
+        assert "s=1920x1080" in filter_str, (
+            f"render_video did not use 1920x1080 canvas for aspect_ratio={ratio!r}"
+        )
+
+    # In contrast, aspect_ratio="9:16" uses 1080x1920 in both
+    renderer.generate_ass_subtitles([], output_ass, aspect_ratio="9:16")
+    v_content = output_ass.read_text(encoding="utf-8")
+    assert "PlayResX: 1080" in v_content
+    assert "PlayResY: 1920" in v_content
+
+    renderer.render_video(
+        audio_path=str(audio_path),
+        ass_subtitles_path=str(output_ass),
+        output_mp4_path=output_mp4,
+        aspect_ratio="9:16",
+        duration=1.0,
+    )
+    v_cmd = recorded_cmds[-1]
+    assert "s=1080x1920" in " ".join(v_cmd)
