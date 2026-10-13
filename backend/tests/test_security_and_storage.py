@@ -68,7 +68,9 @@ def test_upload_filename_sanitization(client):
     malicious_filename = "../../../etc/cron.d/malicious.jpg"
     res = client.post(
         "/api/upload-background",
-        files={"file": (malicious_filename, io.BytesIO(b"echo pwned"), "image/jpeg")},
+        files={
+            "file": (malicious_filename, io.BytesIO(b"\xff\xd8\xff\xe0 echo pwned"), "image/jpeg")
+        },
     )
     assert res.status_code == 200
     bg_id = res.json()["bg_id"]
