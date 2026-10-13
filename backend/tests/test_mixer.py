@@ -1,15 +1,18 @@
 import os
+import subprocess
+
 import numpy as np
 import soundfile as sf
-import subprocess
+
 from backend.services.audio_mixer import AudioMixer
 from backend.services.video_renderer import VideoRenderer
+
 
 def test_audio_mixer_and_video_render(tmp_path):
     sr = 44100
     duration = 3.0
     t = np.linspace(0, duration, int(sr * duration), endpoint=False)
-    
+
     # Generate 440Hz sine wave (A4)
     sine_inst = 0.5 * np.sin(2 * np.pi * 440 * t)
     # Generate 880Hz sine wave (vocals)
@@ -27,7 +30,7 @@ def test_audio_mixer_and_video_render(tmp_path):
         vocals_path=str(voc_wav),
         semitones=2,
         guide_volume=0.2,
-        output_filename="test_mixed.wav"
+        output_filename="test_mixed.wav",
     )
     assert os.path.exists(mixed_path)
     mixed_data, mixed_sr = sf.read(mixed_path)
@@ -47,10 +50,10 @@ def test_audio_mixer_and_video_render(tmp_path):
                 "words": [
                     {"word": "Hello", "start_time": 0.5, "end_time": 1.5},
                     {"word": "Karaoke", "start_time": 1.5, "end_time": 2.5},
-                ]
+                ],
             }
         ],
-        output_ass_path=ass_path
+        output_ass_path=ass_path,
     )
 
     mp4_out = tmp_path / "test_karaoke.mp4"
@@ -59,7 +62,7 @@ def test_audio_mixer_and_video_render(tmp_path):
         ass_subtitles_path=str(ass_path),
         output_mp4_path=mp4_out,
         title="Test Track",
-        artist="Test Artist"
+        artist="Test Artist",
     )
 
     assert os.path.exists(rendered_file)
@@ -67,11 +70,16 @@ def test_audio_mixer_and_video_render(tmp_path):
 
     # Verify video properties using ffprobe
     probe_cmd = [
-        "ffprobe", "-v", "error",
-        "-select_streams", "v:0",
-        "-show_entries", "stream=width,height,r_frame_rate",
-        "-of", "csv=s=x:p=0",
-        str(rendered_file)
+        "ffprobe",
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height,r_frame_rate",
+        "-of",
+        "csv=s=x:p=0",
+        str(rendered_file),
     ]
     probe_res = subprocess.run(probe_cmd, stdout=subprocess.PIPE, text=True)
     assert "1920x1080" in probe_res.stdout

@@ -4,7 +4,11 @@
 
 @layer base {
   body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family:
+      'Inter',
+      system-ui,
+      -apple-system,
+      sans-serif;
     color: #f1f5f9;
     background-color: #0d0f17;
   }
@@ -30,5 +34,7 @@
 .karaoke-font {
   font-family: 'Montserrat', sans-serif;
   font-weight: 800;
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.9), 0 0 2px rgba(0, 0, 0, 1);
+  text-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.9),
+    0 0 2px rgba(0, 0, 0, 1);
 }

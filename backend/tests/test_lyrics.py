@@ -1,4 +1,5 @@
 import pytest
+
 from backend.services.lyrics import LyricsService
 
 SAMPLE_LRC = """[00:04.20]First line of the song
@@ -6,10 +7,11 @@ SAMPLE_LRC = """[00:04.20]First line of the song
 [00:14.00]Final chorus line
 """
 
+
 def test_parse_lrc():
     lines = LyricsService.parse_lrc(SAMPLE_LRC)
     assert len(lines) == 3
-    
+
     # First line checks
     assert lines[0]["text"] == "First line of the song"
     assert lines[0]["start_time"] == 4.2
@@ -28,6 +30,7 @@ def test_parse_lrc():
         for w in line["words"]:
             assert w["start_time"] <= w["end_time"]
 
+
 def test_parse_plain_text():
     text = "Hello world\nThis is a karaoke test"
     lines = LyricsService.parse_plain_text(text)
@@ -39,6 +42,7 @@ def test_parse_plain_text():
 
 def test_update_lyrics_endpoint_validation(client):
     from backend.main import projects
+
     proj_id = "test_lyric_schema"
     projects[proj_id] = {"id": proj_id, "lines": []}
 
@@ -52,8 +56,8 @@ def test_update_lyrics_endpoint_validation(client):
                 "end_time": 3.0,
                 "words": [
                     {"word": "Hello", "start_time": 1.0, "end_time": 1.8},
-                    {"word": "world", "start_time": 2.0, "end_time": 3.0}
-                ]
+                    {"word": "world", "start_time": 2.0, "end_time": 3.0},
+                ],
             }
         ]
     }
@@ -63,10 +67,6 @@ def test_update_lyrics_endpoint_validation(client):
     assert projects[proj_id]["lines"][0]["text"] == "Hello world"
 
     # Invalid schema payload (missing required start_time and text)
-    invalid_payload = {
-        "lines": [
-            {"id": 1}
-        ]
-    }
+    invalid_payload = {"lines": [{"id": 1}]}
     bad_res = client.post(f"/api/project/{proj_id}/lyrics", json=invalid_payload)
     assert bad_res.status_code == 422  # Pydantic validation failure

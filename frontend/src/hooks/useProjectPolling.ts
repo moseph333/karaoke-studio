@@ -23,7 +23,9 @@ interface UseProjectPollingReturn {
  * Custom React hook that encapsulates polling project status and synchronizing
  * background processing states between the frontend and backend.
  */
-export function useProjectPolling(initialProject: ProjectState | null = null): UseProjectPollingReturn {
+export function useProjectPolling(
+  initialProject: ProjectState | null = null
+): UseProjectPollingReturn {
   const [project, setProject] = useState<ProjectState | null>(initialProject);
   const [, setTick] = useState(0);
 
@@ -53,7 +55,8 @@ export function useProjectPolling(initialProject: ProjectState | null = null): U
                 ? {
                     ...prev,
                     status: 'error',
-                    error: 'Session timed out or server reloaded. Please click "Try Another Track" to re-open.',
+                    error:
+                      'Session timed out or server reloaded. Please click "Try Another Track" to re-open.',
                   }
                 : null
             );

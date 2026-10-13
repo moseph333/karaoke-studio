@@ -1,12 +1,14 @@
+import logging
 import os
 import subprocess
 import threading
-import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-from backend.config import OUTPUT_DIR, DEFAULT_VIDEO_CONFIG
+from typing import Any
+
+from backend.config import DEFAULT_VIDEO_CONFIG, OUTPUT_DIR
 
 logger = logging.getLogger(__name__)
+
 
 class VideoRenderer:
     def __init__(self, output_dir: Path = OUTPUT_DIR):
@@ -19,30 +21,30 @@ class VideoRenderer:
         hrs = int(seconds // 3600)
         mins = int((seconds % 3600) // 60)
         secs = int(seconds % 60)
-        csec = int(round((seconds - int(seconds)) * 100))
+        csec = round((seconds - int(seconds)) * 100)
         if csec >= 100:
             csec = 99
         return f"{hrs}:{mins:02d}:{secs:02d}.{csec:02d}"
 
     def generate_ass_subtitles(
         self,
-        lines: List[Dict[str, Any]],
+        lines: list[dict[str, Any]],
         output_ass_path: Path,
-        style_config: Optional[Dict[str, Any]] = None
+        style_config: dict[str, Any] | None = None,
     ) -> str:
         """
         Generates Advanced SubStation Alpha (.ass) subtitle file
         with smooth progressive karaoke sweep tags (\\kf).
         """
         cfg = {**DEFAULT_VIDEO_CONFIG, **(style_config or {})}
-        
+
         font_name = cfg.get("font_name", "DejaVu Sans")
         font_size = cfg.get("font_size", 54)
-        primary_color = cfg.get("primary_color", "&H0022E5FF")    # Sung color (cyan/gold)
-        secondary_color = cfg.get("secondary_color", "&H00FFFFFF")# Unsung text (white)
+        primary_color = cfg.get("primary_color", "&H0022E5FF")  # Sung color (cyan/gold)
+        secondary_color = cfg.get("secondary_color", "&H00FFFFFF")  # Unsung text (white)
         outline_color = cfg.get("outline_color", "&H00111111")
         shadow_color = cfg.get("shadow_color", "&H80000000")
-        lead_dots = cfg.get("lead_in_countdown_dots", 3)
+        _lead_dots = cfg.get("lead_in_countdown_dots", 3)
 
         ass_content = [
             "[Script Info]",
@@ -75,7 +77,7 @@ class VideoRenderer:
 
             # Alternate between Line1 and Line2 styles for natural dual-line reading
             style_name = "KaraokeLine1" if (i % 2 == 0) else "KaraokeLine2"
-            
+
             # Show line early on screen so the singer can prepare
             display_start = max(0.0, l_start - 2.5) if i == 0 else max(prev_end_time, l_start - 2.0)
             display_end = l_end + 1.2
@@ -84,7 +86,7 @@ class VideoRenderer:
             gap = l_start - prev_end_time
             if (i == 0 and l_start >= 3.0) or (i > 0 and gap >= 3.5):
                 countdown_start = max(0.0, l_start - 3.0)
-                dot_dur_cs = 100 # 1 second per dot
+                _dot_dur_cs = 100  # 1 second per dot
                 # 3 countdown dots: ● ● ● with progressive fill
                 dots_text = "{\\kf100}● {\\kf100}● {\\kf100}● "
                 ass_content.append(
@@ -93,9 +95,9 @@ class VideoRenderer:
 
             # Build line text with \\kf (progressive fill) tags
             karaoke_text_parts = []
-            
+
             # Initial lead-in delay tag if display starts before line starts
-            lead_in_cs = int(round((l_start - display_start) * 100))
+            lead_in_cs = round((l_start - display_start) * 100)
             if lead_in_cs > 0:
                 karaoke_text_parts.append(f"{{\\k{lead_in_cs}}}")
 
@@ -103,9 +105,9 @@ class VideoRenderer:
             for w in words:
                 w_start = float(w.get("start_time", cur_word_time))
                 w_end = float(w.get("end_time", w_start + 0.4))
-                dur_cs = max(1, int(round((w_end - w_start) * 100)))
+                dur_cs = max(1, round((w_end - w_start) * 100))
                 word_text = w.get("word", "")
-                
+
                 # Use \\kf for smooth progressive sweep
                 karaoke_text_parts.append(f"{{\\kf{dur_cs}}}{word_text} ")
                 cur_word_time = w_end
@@ -126,14 +128,14 @@ class VideoRenderer:
         audio_path: str,
         ass_subtitles_path: str,
         output_mp4_path: Path,
-        thumbnail_path: Optional[str] = None,
-        custom_bg_path: Optional[str] = None,
+        thumbnail_path: str | None = None,
+        custom_bg_path: str | None = None,
         title: str = "Karaoke Track",
         artist: str = "Artist",
         aspect_ratio: str = "16:9",
-        duration: Optional[float] = None,
-        progress_callback: Optional[Any] = None,
-        cancel_event: Optional[Any] = None
+        duration: float | None = None,
+        progress_callback: Any | None = None,
+        cancel_event: Any | None = None,
     ) -> str:
         """
         Synthesizes final karaoke video using FFmpeg and libass.
@@ -141,19 +143,23 @@ class VideoRenderer:
         Supports cancellation via cancel_event.
         """
         import time
+
         width, height = (1920, 1080) if aspect_ratio == "16:9" else (1080, 1920)
 
         # If duration was not provided, probe audio file
         if not duration or duration <= 0:
             try:
                 import soundfile as sf
+
                 info = sf.info(audio_path)
                 duration = float(info.duration)
             except Exception:
                 duration = 200.0  # safe fallback if probe fails
 
         # Escape ASS path for FFmpeg subtitles filter
-        escaped_ass = str(ass_subtitles_path).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
+        escaped_ass = (
+            str(ass_subtitles_path).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
+        )
 
         # Determine background input
         if custom_bg_path and os.path.exists(custom_bg_path):
@@ -175,36 +181,46 @@ class VideoRenderer:
         filter_complex = f"{filter_bg}[bg]subtitles='{escaped_ass}'[v]"
 
         cmd = [
-            "ffmpeg", "-y",
-            "-loglevel", "warning",
-            "-progress", "pipe:1",
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "warning",
+            "-progress",
+            "pipe:1",
             "-nostats",
             *bg_input,
-            "-i", audio_path,
-            "-filter_complex", filter_complex,
-            "-map", "[v]",
-            "-map", "1:a",
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", "18",
-            "-r", "60",
-            "-pix_fmt", "yuv420p",
-            "-c:a", "aac",
-            "-b:a", "320k",
+            "-i",
+            audio_path,
+            "-filter_complex",
+            filter_complex,
+            "-map",
+            "[v]",
+            "-map",
+            "1:a",
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-crf",
+            "18",
+            "-r",
+            "60",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "320k",
             "-shortest",
-            str(output_mp4_path)
+            str(output_mp4_path),
         ]
 
         logger.info(f"Rendering video with FFmpeg: {' '.join(cmd)}")
         process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
         )
 
-        stderr_lines: List[str] = []
+        stderr_lines: list[str] = []
 
         def _drain_stderr():
             if process.stderr:
@@ -269,11 +285,15 @@ class VideoRenderer:
                     if now - last_callback_time >= 0.25 or val == "end":
                         last_callback_time = now
                         eff_time = out_time_sec if out_time_sec > 0 else (current_frame / 60.0)
-                        pct = 100.0 if val == "end" else min(99.0, max(0.0, (eff_time / duration) * 100.0))
+                        pct = (
+                            100.0
+                            if val == "end"
+                            else min(99.0, max(0.0, (eff_time / duration) * 100.0))
+                        )
                         eta_sec = None
                         if val != "end" and current_speed > 0.05 and duration > eff_time:
                             eta_sec = max(0, int((duration - eff_time) / current_speed))
-                        
+
                         detail = f"Encoding 1080p60: frame {current_frame} ({current_fps:.0f} fps, {current_speed:.1f}x speed)"
                         if progress_callback:
                             progress_callback(pct, detail, eta_sec)

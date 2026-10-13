@@ -1,33 +1,34 @@
+import json
+import logging
 import os
 import re
-import uuid
-import json
-import time
 import secrets
 import threading
-import logging
+import time
+import uuid
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form, Request
+from typing import Any
+
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.responses import JSONResponse
 
 from backend import config
-from backend.config import DATA_DIR, DOWNLOADS_DIR, STEMS_DIR, OUTPUT_DIR, BACKGROUNDS_DIR
-from backend.services.downloader import TrackDownloader
-from backend.services.separator import AudioSeparator
-from backend.services.lyrics import LyricsService
+from backend.config import BACKGROUNDS_DIR, DATA_DIR, DOWNLOADS_DIR, OUTPUT_DIR, STEMS_DIR
 from backend.services.aligner import AudioAligner
 from backend.services.audio_mixer import AudioMixer
+from backend.services.downloader import TrackDownloader
+from backend.services.lyrics import LyricsService
+from backend.services.separator import AudioSeparator
 from backend.services.video_renderer import VideoRenderer
 from backend.services.youtube_uploader import YouTubeMetadataService
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("karaoke_backend")
 
-active_cancellations: Dict[str, threading.Event] = {}
+active_cancellations: dict[str, threading.Event] = {}
 
 app = FastAPI(title="YouTube Karaoke Studio API", version="1.0.0")
 
@@ -39,6 +40,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 def is_authenticated(request: Request, app_pwd: str) -> bool:
     if not app_pwd:
@@ -54,6 +56,7 @@ def is_authenticated(request: Request, app_pwd: str) -> bool:
         return False
     return secrets.compare_digest(token, app_pwd)
 
+
 @app.middleware("http")
 async def check_auth_middleware(request: Request, call_next):
     path = request.url.path
@@ -65,13 +68,12 @@ async def check_auth_middleware(request: Request, call_next):
             and not path.startswith("/api/auth")
         )
         is_static_protected = path.startswith("/static/")
-        if is_api_protected or is_static_protected:
-            if not is_authenticated(request, app_pwd):
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Invalid or missing studio passphrase"}
-                )
+        if (is_api_protected or is_static_protected) and not is_authenticated(request, app_pwd):
+            return JSONResponse(
+                status_code=401, content={"detail": "Invalid or missing studio passphrase"}
+            )
     return await call_next(request)
+
 
 @app.middleware("http")
 async def add_security_headers_middleware(request: Request, call_next):
@@ -80,7 +82,6 @@ async def add_security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
-
 
 
 # Mount static directories so frontend can stream audio and video
@@ -94,7 +95,8 @@ PROJECTS_STORE_FILE = DATA_DIR / "projects.json"
 PROJECTS_BACKUP_FILE = DATA_DIR / "projects.json.bak"
 PROJECTS_LOCK = threading.RLock()
 
-def load_projects() -> Dict[str, Dict[str, Any]]:
+
+def load_projects() -> dict[str, dict[str, Any]]:
     with PROJECTS_LOCK:
         # 1. Attempt primary load
         if PROJECTS_STORE_FILE.exists():
@@ -103,8 +105,10 @@ def load_projects() -> Dict[str, Dict[str, Any]]:
                 if content:
                     return json.loads(content)
             except Exception as e:
-                logger.error(f"Corrupted projects.json detected: {e}. Attempting backup recovery...")
-        
+                logger.error(
+                    f"Corrupted projects.json detected: {e}. Attempting backup recovery..."
+                )
+
         # 2. Attempt fallback to backup if primary failed or does not exist
         if PROJECTS_BACKUP_FILE.exists():
             try:
@@ -114,14 +118,15 @@ def load_projects() -> Dict[str, Dict[str, Any]]:
                     return json.loads(content)
             except Exception as e:
                 logger.error(f"Could not load backup projects.json.bak: {e}")
-        
+
         return {}
+
 
 def save_projects():
     with PROJECTS_LOCK:
         try:
             # Deduplicate aliased keys
-            unique_projects: Dict[str, Any] = {}
+            unique_projects: dict[str, Any] = {}
             for k, v in projects.items():
                 pid = v.get("id", k)
                 if pid not in unique_projects:
@@ -153,9 +158,11 @@ def save_projects():
                 except Exception:
                     pass
 
-projects: Dict[str, Dict[str, Any]] = load_projects()
 
-def find_project(project_id: str) -> Optional[Dict[str, Any]]:
+projects: dict[str, dict[str, Any]] = load_projects()
+
+
+def find_project(project_id: str) -> dict[str, Any] | None:
     with PROJECTS_LOCK:
         if project_id in projects:
             return projects[project_id]
@@ -163,16 +170,18 @@ def find_project(project_id: str) -> Optional[Dict[str, Any]]:
         projects.update(disk_projects)
         if project_id in projects:
             return projects[project_id]
-        for p_id, p in projects.items():
+        for p in projects.values():
             if p.get("id") == project_id or p.get("track_id") == project_id:
                 return p
         return None
 
-def get_project_or_404(project_id: str) -> Dict[str, Any]:
+
+def get_project_or_404(project_id: str) -> dict[str, Any]:
     proj = find_project(project_id)
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
     return proj
+
 
 # Services
 downloader = TrackDownloader()
@@ -187,42 +196,49 @@ youtube_service = YouTubeMetadataService()
 # --- Request / Response Models ---
 class LoginRequest(BaseModel):
     password: str
-    username: Optional[str] = "Friend"
+    username: str | None = "Friend"
+
 
 class SearchRequest(BaseModel):
     query: str
-    limit: Optional[int] = 5
+    limit: int | None = 5
+
 
 class ProcessRequest(BaseModel):
     url_or_id: str
-    custom_lyrics: Optional[str] = None
-    created_by: Optional[str] = None
+    custom_lyrics: str | None = None
+    created_by: str | None = None
+
 
 class WordTimingSchema(BaseModel):
     word: str
     start_time: float
     end_time: float
 
+
 class LyricLineSchema(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     text: str
     start_time: float
     end_time: float
-    words: List[WordTimingSchema] = []
+    words: list[WordTimingSchema] = []
+
 
 class LyricsUpdateRequest(BaseModel):
-    lines: List[LyricLineSchema]
+    lines: list[LyricLineSchema]
+
 
 class MixRequest(BaseModel):
     semitones: int = 0
     guide_volume: float = 0.0
 
+
 class RenderRequest(BaseModel):
     semitones: int = 0
     guide_volume: float = 0.0
     aspect_ratio: str = "16:9"
-    style_config: Optional[Dict[str, Any]] = None
-    custom_bg_id: Optional[str] = None
+    style_config: dict[str, Any] | None = None
+    custom_bg_id: str | None = None
 
 
 @app.get("/api/health")
@@ -252,7 +268,9 @@ def auth_login(req: LoginRequest, request: Request):
         }
     )
     if config.APP_PASSWORD:
-        is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+        is_https = (
+            request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+        )
         response.set_cookie(
             key="karaoke_token",
             value=token,
@@ -271,8 +289,6 @@ def auth_logout():
     return response
 
 
-
-
 @app.post("/api/search")
 def search_tracks(req: SearchRequest):
     try:
@@ -280,15 +296,15 @@ def search_tracks(req: SearchRequest):
         return {"results": results}
     except Exception as e:
         logger.error(f"Search failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] = None):
+def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = None):
     cancel_event = threading.Event()
     active_cancellations[project_id] = cancel_event
     pipeline_start = time.time()
 
-    def update_pipe(status: str, progress: int, detail: str, eta_s: Optional[int] = None):
+    def update_pipe(status: str, progress: int, detail: str, eta_s: int | None = None):
         if cancel_event.is_set():
             raise RuntimeError("Processing cancelled by user")
         proj = find_project(project_id)
@@ -306,8 +322,9 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] =
     try:
         # Step 1: Download Audio and Metadata
         update_pipe("downloading", 10, "Fetching audio track and metadata...", 15)
-        
+
         last_dl_tick = 0.0
+
         def dl_hook(d):
             nonlocal last_dl_tick
             if cancel_event.is_set():
@@ -319,10 +336,15 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] =
                 downloaded = d.get("downloaded_bytes", 0)
                 pct = (downloaded / total * 100.0) if total > 0 else 0.0
                 speed = d.get("speed")
-                speed_str = f" • {speed / (1024*1024):.1f} MB/s" if speed else ""
+                speed_str = f" • {speed / (1024 * 1024):.1f} MB/s" if speed else ""
                 eta = d.get("eta")
                 pipe_progress = int(10 + (pct * 0.25))
-                update_pipe("downloading", pipe_progress, f"Downloading audio ({pct:.0f}%{speed_str})", eta_s=eta)
+                update_pipe(
+                    "downloading",
+                    pipe_progress,
+                    f"Downloading audio ({pct:.0f}%{speed_str})",
+                    eta_s=eta,
+                )
 
         meta = downloader.extract_info_and_download(url_or_id, progress_hook=dl_hook)
         track_id = meta.get("id")
@@ -332,7 +354,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] =
         if track_id:
             proj["track_id"] = track_id
             projects[track_id] = proj  # Alias so lookups by track_id also resolve
-        
+
         # Relative static URLs
         audio_id = track_id or project_id
         proj["audio_url"] = f"/static/downloads/{audio_id}.wav"
@@ -355,7 +377,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] =
             track_id=audio_id,
             duration=duration,
             progress_callback=sep_cb,
-            cancel_event=cancel_event
+            cancel_event=cancel_event,
         )
         proj = get_project_or_404(project_id)
         proj["vocals_path"] = stems["vocals_path"]
@@ -371,11 +393,13 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] =
                 "source": "custom",
                 "synced": False,
                 "lines": lyrics_service.parse_plain_text(custom_lyrics),
-                "plain_lyrics": custom_lyrics
+                "plain_lyrics": custom_lyrics,
             }
         else:
-            lyric_data = lyrics_service.fetch_lyrics(meta["title"], meta["artist"], meta.get("duration"))
-        
+            lyric_data = lyrics_service.fetch_lyrics(
+                meta["title"], meta["artist"], meta.get("duration")
+            )
+
         proj = get_project_or_404(project_id)
         proj["lyric_source"] = lyric_data["source"]
         proj["is_synced"] = lyric_data["synced"]
@@ -395,12 +419,12 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: Optional[str] =
             vocals_path=stems["vocals_path"],
             semitones=0,
             guide_volume=0.0,
-            output_filename=f"{audio_id}_master.wav"
+            output_filename=f"{audio_id}_master.wav",
         )
         proj = get_project_or_404(project_id)
         proj["master_audio_path"] = master_path
         proj["master_audio_url"] = f"/static/output/{audio_id}_master.wav"
-        
+
         # Step 6: Ready!
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
 
@@ -432,13 +456,24 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
                 if p.get("status") == "ready":
                     logger.info(f"Returning cached ready project {p_id} for {video_id}")
                     return {"project_id": p.get("id", p_id), "status": "ready"}
-                elif p.get("status") in ["queued", "downloading", "separating", "fetching_lyrics", "aligning", "mixing"]:
+                elif p.get("status") in [
+                    "queued",
+                    "downloading",
+                    "separating",
+                    "fetching_lyrics",
+                    "aligning",
+                    "mixing",
+                ]:
                     # Verify task is genuinely running in memory, not a stale session artifact
                     is_active = (p_id in active_cancellations) or (video_id in active_cancellations)
                     if is_active:
-                        logger.info(f"Project {p_id} for {video_id} already in progress ({p.get('status')})")
+                        logger.info(
+                            f"Project {p_id} for {video_id} already in progress ({p.get('status')})"
+                        )
                         return {"project_id": p.get("id", p_id), "status": p.get("status")}
-                    logger.warning(f"Project {p_id} was left in state '{p.get('status')}' from a previous server session. Resuming pipeline.")
+                    logger.warning(
+                        f"Project {p_id} was left in state '{p.get('status')}' from a previous server session. Resuming pipeline."
+                    )
 
     project_id = video_id if video_id else str(uuid.uuid4())[:8]
     proj_data = {
@@ -449,7 +484,7 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
         "semitones": 0,
         "guide_volume": 0.0,
         "created_by": req.created_by or "Friend",
-        "created_at": int(time.time())
+        "created_at": int(time.time()),
     }
     if video_id:
         proj_data["track_id"] = video_id
@@ -460,14 +495,13 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
 
 
 @app.get("/api/projects")
-def list_projects(scope: Optional[str] = "all", user: Optional[str] = None):
+def list_projects(scope: str | None = "all", user: str | None = None):
     disk_projects = load_projects()
     projects.update(disk_projects)
-    
+
     if scope == "my" and user:
         return {pid: p for pid, p in projects.items() if p.get("created_by") == user}
     return projects
-
 
 
 @app.get("/api/project/{project_id}")
@@ -490,14 +524,14 @@ def mix_audio(project_id: str, req: MixRequest):
         raise HTTPException(status_code=400, detail="Instrumental stem not ready yet")
 
     track_id = proj.get("track_id") or proj.get("id") or "track"
-    output_filename = f"{track_id}_mix_{req.semitones}_{int(req.guide_volume*100)}.wav"
-    
+    output_filename = f"{track_id}_mix_{req.semitones}_{int(req.guide_volume * 100)}.wav"
+
     master_path = audio_mixer.mix_and_shift(
         instrumental_path=proj["instrumental_path"],
         vocals_path=proj.get("vocals_path"),
         semitones=req.semitones,
         guide_volume=req.guide_volume,
-        output_filename=output_filename
+        output_filename=output_filename,
     )
 
     proj["master_audio_path"] = master_path
@@ -506,10 +540,7 @@ def mix_audio(project_id: str, req: MixRequest):
     proj["guide_volume"] = req.guide_volume
     save_projects()
 
-    return {
-        "status": "ok",
-        "master_audio_url": proj["master_audio_url"]
-    }
+    return {"status": "ok", "master_audio_url": proj["master_audio_url"]}
 
 
 def run_video_render(project_id: str, req: RenderRequest):
@@ -518,7 +549,7 @@ def run_video_render(project_id: str, req: RenderRequest):
     active_cancellations[render_key] = cancel_event
     render_start = time.time()
 
-    def update_render(progress: int, detail: str, eta_s: Optional[int] = None):
+    def update_render(progress: int, detail: str, eta_s: int | None = None):
         if cancel_event.is_set():
             raise RuntimeError("Video rendering was cancelled by user")
         proj = find_project(project_id)
@@ -543,9 +574,7 @@ def run_video_render(project_id: str, req: RenderRequest):
 
         # 1. Generate ASS Subtitles
         video_renderer.generate_ass_subtitles(
-            lines=proj.get("lines", []),
-            output_ass_path=ass_path,
-            style_config=req.style_config
+            lines=proj.get("lines", []), output_ass_path=ass_path, style_config=req.style_config
         )
 
         update_render(15, "Mixing master audio with pitch adjustment...", 40)
@@ -556,7 +585,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             vocals_path=proj.get("vocals_path"),
             semitones=req.semitones,
             guide_volume=req.guide_volume,
-            output_filename=f"{track_id}_final_audio.wav"
+            output_filename=f"{track_id}_final_audio.wav",
         )
 
         update_render(22, "Initializing FFmpeg 1080p60 encoding engine...", 35)
@@ -585,7 +614,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             aspect_ratio=req.aspect_ratio,
             duration=proj.get("duration"),
             progress_callback=ffmpeg_cb,
-            cancel_event=cancel_event
+            cancel_event=cancel_event,
         )
 
         proj = get_project_or_404(project_id)
@@ -601,7 +630,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             artist=proj.get("artist", "Artist"),
             lines=proj.get("lines", []),
             semitones=req.semitones,
-            has_guide_vocal=req.guide_volume > 0.05
+            has_guide_vocal=req.guide_volume > 0.05,
         )
         proj["youtube_package"] = yt_package
         save_projects()
@@ -670,21 +699,21 @@ def get_youtube_package(project_id: str):
         artist=proj.get("artist", "Artist"),
         lines=proj.get("lines", []),
         semitones=proj.get("semitones", 0),
-        has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05
+        has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
     )
 
 
 # Upload security limits and allowed MIME extensions
-MAX_BACKGROUND_UPLOAD_BYTES = 10 * 1024 * 1024    # 10 MB
+MAX_BACKGROUND_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 MAX_INSTRUMENTAL_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 ALLOWED_BACKGROUND_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_AUDIO_EXTS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
 
 
-def sanitize_upload_filename(filename: Optional[str], default_stem: str = "upload") -> str:
+def sanitize_upload_filename(filename: str | None, default_stem: str = "upload") -> str:
     raw_name = Path(filename or default_stem).name
     # Strip dangerous characters and allow only alphanumeric, underscore, dot, and dash
-    cleaned = re.sub(r'[^a-zA-Z0-9_.-]', '_', raw_name).strip("._-")
+    cleaned = re.sub(r"[^a-zA-Z0-9_.-]", "_", raw_name).strip("._-")
     return cleaned or default_stem
 
 
@@ -703,7 +732,7 @@ async def save_upload_file_bounded(file: UploadFile, target_path: Path, max_byte
                 if total_bytes > max_bytes:
                     raise HTTPException(
                         status_code=413,
-                        detail=f"Uploaded file exceeds maximum permitted size of {max_bytes // (1024 * 1024)}MB"
+                        detail=f"Uploaded file exceeds maximum permitted size of {max_bytes // (1024 * 1024)}MB",
                     )
                 f.write(chunk)
         temp_path.replace(target_path)
@@ -725,7 +754,7 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
     if raw_ext not in ALLOWED_AUDIO_EXTS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported audio format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}"
+            detail=f"Unsupported audio format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}",
         )
 
     target_path = STEMS_DIR / safe_proj_id / f"custom_inst{raw_ext}"
@@ -744,7 +773,7 @@ async def upload_background(file: UploadFile = File(...)):
     if raw_ext not in ALLOWED_BACKGROUND_EXTS:
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported image format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_BACKGROUND_EXTS))}"
+            detail=f"Unsupported image format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_BACKGROUND_EXTS))}",
         )
 
     safe_name = sanitize_upload_filename(file.filename, default_stem="bg.jpg")
@@ -759,4 +788,3 @@ async def upload_background(file: UploadFile = File(...)):
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if FRONTEND_DIST.exists():
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
-

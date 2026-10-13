@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, User, Sparkles, AlertCircle, ArrowRight } from 'lucide-react';
+import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -48,8 +48,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
       localStorage.setItem('karaoke_user_name', confirmedUser);
 
       onSuccess(confirmedUser, token);
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setLoading(false);
     }
@@ -67,7 +67,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
           <div className="inline-flex p-3 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-cyan-400">
             <Lock className="w-6 h-6" aria-hidden="true" />
           </div>
-          <h2 id="auth-modal-title" className="text-2xl font-extrabold text-white tracking-tight font-['Montserrat']">
+          <h2
+            id="auth-modal-title"
+            className="text-2xl font-extrabold text-white tracking-tight font-['Montserrat']"
+          >
             Studio Access Gate
           </h2>
           <p className="text-xs text-slate-400">
@@ -76,7 +79,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2.5 text-rose-300 text-xs" role="alert">
+          <div
+            className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2.5 text-rose-300 text-xs"
+            role="alert"
+          >
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" aria-hidden="true" />
             <span>{error}</span>
           </div>
@@ -84,7 +90,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label htmlFor="auth-password" className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+            <label
+              htmlFor="auth-password"
+              className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"
+            >
               <Lock className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
               Studio Passphrase
             </label>
@@ -100,7 +109,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="auth-username" className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+            <label
+              htmlFor="auth-username"
+              className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"
+            >
               <User className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
               Your Nickname / Handle
             </label>

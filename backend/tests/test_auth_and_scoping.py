@@ -1,7 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
-from backend.main import app
+
 import backend.config as config
+from backend.main import app
+
 
 def test_auth_status_open():
     client = TestClient(app)
@@ -15,12 +17,13 @@ def test_auth_status_open():
     finally:
         config.APP_PASSWORD = orig_pwd
 
+
 def test_auth_status_and_protected_routes():
     client = TestClient(app)
     orig_pwd = config.APP_PASSWORD
     try:
         config.APP_PASSWORD = "secret_passphrase"
-        
+
         # Auth status indicates required and unauthenticated without header
         res = client.get("/api/auth/status")
         assert res.status_code == 200
@@ -32,17 +35,20 @@ def test_auth_status_and_protected_routes():
         assert res.status_code == 200
         assert res.json()["authenticated"] is True
 
-
         # Unauthenticated request to protected route fails with 401
         res = client.get("/api/projects")
         assert res.status_code == 401
 
         # Incorrect password fails with 401
-        res = client.post("/api/auth/login", json={"password": "wrong_password", "username": "Tester"})
+        res = client.post(
+            "/api/auth/login", json={"password": "wrong_password", "username": "Tester"}
+        )
         assert res.status_code == 401
 
         # Correct password succeeds
-        res = client.post("/api/auth/login", json={"password": "secret_passphrase", "username": "Tester"})
+        res = client.post(
+            "/api/auth/login", json={"password": "secret_passphrase", "username": "Tester"}
+        )
         assert res.status_code == 200
         data = res.json()
         assert data["status"] == "ok"

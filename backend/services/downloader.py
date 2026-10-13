@@ -1,21 +1,22 @@
-import os
-import re
-import json
 import logging
+import re
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-import yt_dlp
+from typing import Any
+
 import requests
-from backend.config import DOWNLOADS_DIR, ASSETS_DIR
+import yt_dlp
+
+from backend.config import DOWNLOADS_DIR
 
 logger = logging.getLogger(__name__)
+
 
 class TrackDownloader:
     def __init__(self, output_dir: Path = DOWNLOADS_DIR):
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def search_tracks(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def search_tracks(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
         """Search YouTube/YouTube Music for tracks."""
         ydl_opts = {
             "default_search": f"ytsearch{limit}:",
@@ -27,23 +28,30 @@ class TrackDownloader:
             info = ydl.extract_info(query, download=False)
             if not info or "entries" not in info:
                 return []
-            
+
             results = []
             for entry in info["entries"]:
                 if not entry:
                     continue
-                results.append({
-                    "id": entry.get("id"),
-                    "title": entry.get("title"),
-                    "artist": entry.get("uploader") or entry.get("channel") or "Unknown Artist",
-                    "duration": entry.get("duration", 0),
-                    "url": f"https://www.youtube.com/watch?v={entry.get('id')}",
-                    "thumbnail": entry.get("thumbnail") or (entry.get("thumbnails", [{}])[-1].get("url") if entry.get("thumbnails") else None),
-                })
+                results.append(
+                    {
+                        "id": entry.get("id"),
+                        "title": entry.get("title"),
+                        "artist": entry.get("uploader") or entry.get("channel") or "Unknown Artist",
+                        "duration": entry.get("duration", 0),
+                        "url": f"https://www.youtube.com/watch?v={entry.get('id')}",
+                        "thumbnail": entry.get("thumbnail")
+                        or (
+                            entry.get("thumbnails", [{}])[-1].get("url")
+                            if entry.get("thumbnails")
+                            else None
+                        ),
+                    }
+                )
             return results
 
     @staticmethod
-    def extract_video_id(url_or_id: str) -> Optional[str]:
+    def extract_video_id(url_or_id: str) -> str | None:
         if re.match(r"^[0-9A-Za-z_-]{11}$", url_or_id):
             return url_or_id
         match = re.search(r"(?:v=|\/|youtu\.be\/)([0-9A-Za-z_-]{11})", url_or_id)
@@ -51,7 +59,7 @@ class TrackDownloader:
             return match.group(1)
         return None
 
-    def extract_info_and_download(self, url_or_id: str, progress_hook=None) -> Dict[str, Any]:
+    def extract_info_and_download(self, url_or_id: str, progress_hook=None) -> dict[str, Any]:
         """Download audio and thumbnail from YouTube/YouTube Music."""
         video_id = self.extract_video_id(url_or_id)
         wav_path = self.output_dir / f"{video_id}.wav" if video_id else None
@@ -95,7 +103,12 @@ class TrackDownloader:
             if " - " in title:
                 parts = title.split(" - ", 1)
                 clean_artist = parts[0].strip()
-                clean_title = re.sub(r"[\(\[\{].*?(official|audio|video|lyrics|hd|4k|hq).*?[\)\]\}]", "", parts[1], flags=re.I).strip()
+                clean_title = re.sub(
+                    r"[\(\[\{].*?(official|audio|video|lyrics|hd|4k|hq).*?[\)\]\}]",
+                    "",
+                    parts[1],
+                    flags=re.I,
+                ).strip()
 
             return {
                 "id": video_id,
@@ -106,7 +119,9 @@ class TrackDownloader:
                 "audio_path": str(wav_path),
                 "thumbnail_path": str(thumb_path) if thumb_path else None,
                 "thumbnail_url": f"/static/downloads/{thumb_path.name}" if thumb_path else None,
-                "url": url_or_id if (url_or_id.startswith("http://") or url_or_id.startswith("https://")) else f"https://www.youtube.com/watch?v={video_id}",
+                "url": url_or_id
+                if (url_or_id.startswith("http://") or url_or_id.startswith("https://"))
+                else f"https://www.youtube.com/watch?v={video_id}",
             }
 
         if not (url_or_id.startswith("http://") or url_or_id.startswith("https://")):
@@ -160,7 +175,7 @@ class TrackDownloader:
 
         # Audio file path
         final_wav = self.output_dir / f"{v_id}.wav"
-        
+
         # Find downloaded thumbnail
         thumb_path = None
         for ext in ["webp", "jpg", "jpeg", "png"]:
@@ -168,7 +183,7 @@ class TrackDownloader:
             if candidate.exists():
                 thumb_path = candidate
                 break
-        
+
         if not thumb_path and meta.get("thumbnail"):
             thumb_candidate = self.output_dir / f"{v_id}.jpg"
             try:
@@ -184,7 +199,12 @@ class TrackDownloader:
         if " - " in title:
             parts = title.split(" - ", 1)
             clean_artist = parts[0].strip()
-            clean_title = re.sub(r"[\(\[\{].*?(official|audio|video|lyrics|hd|4k|hq).*?[\)\]\}]", "", parts[1], flags=re.I).strip()
+            clean_title = re.sub(
+                r"[\(\[\{].*?(official|audio|video|lyrics|hd|4k|hq).*?[\)\]\}]",
+                "",
+                parts[1],
+                flags=re.I,
+            ).strip()
 
         return {
             "id": v_id,
@@ -197,4 +217,3 @@ class TrackDownloader:
             "thumbnail_url": meta.get("thumbnail"),
             "url": url,
         }
-

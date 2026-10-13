@@ -1,5 +1,5 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Play, Pause, RotateCcw, Volume2, Mic, Upload, Sliders, Music2 } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Play, Pause, RotateCcw, Mic, Upload, Sliders, Music2 } from 'lucide-react';
 import { apiFetch } from '../api';
 
 interface AudioControlsProps {
@@ -18,7 +18,7 @@ interface AudioControlsProps {
 
 export const AudioControls: React.FC<AudioControlsProps> = ({
   projectId,
-  masterAudioUrl,
+  masterAudioUrl: _masterAudioUrl,
   currentTime,
   duration,
   isPlaying,
@@ -89,10 +89,13 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       <div className="flex flex-col gap-2 mb-5">
         <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
           <span>{formatTime(currentTime)}</span>
-          <span className="text-slate-500">Master Mix ({semitones !== 0 ? `${semitones > 0 ? '+' : ''}${semitones} st` : 'Original Key'})</span>
+          <span className="text-slate-500">
+            Master Mix (
+            {semitones !== 0 ? `${semitones > 0 ? '+' : ''}${semitones} st` : 'Original Key'})
+          </span>
           <span>{formatTime(duration)}</span>
         </div>
-        
+
         {/* Scrubber */}
         <input
           type="range"
@@ -121,9 +124,13 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 flex items-center justify-center shadow-lg transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-cyan-400"
             title={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause className="w-5 h-5 fill-slate-950" aria-hidden="true" /> : <Play className="w-5 h-5 fill-slate-950 ml-0.5" aria-hidden="true" />}
+            {isPlaying ? (
+              <Pause className="w-5 h-5 fill-slate-950" aria-hidden="true" />
+            ) : (
+              <Play className="w-5 h-5 fill-slate-950 ml-0.5" aria-hidden="true" />
+            )}
           </button>
-          
+
           <button
             type="button"
             onClick={() => onSeek(0)}
@@ -147,8 +154,12 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               <Sliders className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
               Pitch Transposition
             </span>
-            <span className={`font-mono font-bold ${semitones === 0 ? 'text-slate-300' : 'text-cyan-400'}`}>
-              {semitones === 0 ? '0 (Original)' : `${semitones > 0 ? '+' : ''}${semitones} semitones`}
+            <span
+              className={`font-mono font-bold ${semitones === 0 ? 'text-slate-300' : 'text-cyan-400'}`}
+            >
+              {semitones === 0
+                ? '0 (Original)'
+                : `${semitones > 0 ? '+' : ''}${semitones} semitones`}
             </span>
           </div>
           <div className="flex items-center gap-2 mt-1">
@@ -224,7 +235,11 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             className="px-3.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-medium transition-all flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           >
             {isApplyingMix ? (
-              <span className="w-3 h-3 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin" role="status" aria-label="Applying mix"></span>
+              <span
+                className="w-3 h-3 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin"
+                role="status"
+                aria-label="Applying mix"
+              ></span>
             ) : (
               <Music2 className="w-3.5 h-3.5" aria-hidden="true" />
             )}

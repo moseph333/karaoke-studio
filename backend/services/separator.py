@@ -1,15 +1,16 @@
-import os
-import sys
+import logging
 import re
-import time
 import shutil
 import subprocess
-import logging
+import sys
+import time
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
+
 from backend.config import STEMS_DIR
 
 logger = logging.getLogger(__name__)
+
 
 class AudioSeparator:
     def __init__(self, output_base_dir: Path = STEMS_DIR):
@@ -21,10 +22,10 @@ class AudioSeparator:
         audio_path: str,
         track_id: str,
         model_name: str = "htdemucs",
-        duration: Optional[float] = None,
-        progress_callback: Optional[Any] = None,
-        cancel_event: Optional[Any] = None
-    ) -> Dict[str, str]:
+        duration: float | None = None,
+        progress_callback: Any | None = None,
+        cancel_event: Any | None = None,
+    ) -> dict[str, str]:
         """
         Separates vocal and instrumental tracks using Demucs.
         Uses --two-stems=vocals for fast 2-stem separation (vocals vs no_vocals).
@@ -58,19 +59,18 @@ class AudioSeparator:
         cmd = [
             sys.executable,
             "-u",
-            "-m", "demucs",
+            "-m",
+            "demucs",
             "--two-stems=vocals",
-            "-n", model_name,
-            "-o", str(target_dir),
-            str(audio_file)
+            "-n",
+            model_name,
+            "-o",
+            str(target_dir),
+            str(audio_file),
         ]
 
         process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
         )
 
         stderr_lines = []
@@ -106,7 +106,9 @@ class AudioSeparator:
                     detail = f"Demucs AI separating stems ({current_pct:.0f}%)"
 
                 # Update callback at least every 0.3s or on percentage change
-                if progress_callback and (now - last_callback_time >= 0.3 or current_pct is not None):
+                if progress_callback and (
+                    now - last_callback_time >= 0.3 or current_pct is not None
+                ):
                     last_callback_time = now
                     progress_callback(current_pct, detail, eta_sec)
 
