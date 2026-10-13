@@ -10,11 +10,30 @@ Local-first audio workstation for stem separation, acoustic word alignment, time
 - **Stem separation**: Demucs isolates `vocals.wav` and `instrumental.wav`. Supports direct uploads for official backing tracks.
 - **Lyric sync**: pulls timecoded lyrics from LRCLIB and `syncedlyrics`, or accepts custom text.
 - **Word alignment**: calculates word-level boundaries using acoustic energy and envelope detection.
-- **Timeline editor**: audio scrubbing, boundary trimming, progressive wipe previews, 3-2-1 visual countdown dots, and +/-0.2s line nudging.
-- **Studio mixing**: semitone pitch shifting (-12 to +12) without tempo change, and 0% to 50% guide vocal blending.
+- **Timeline editor**: audio scrubbing, boundary trimming, progressive wipe previews, 3-2-1 visual countdown dots, and ±0.2s line nudging.
+- **Studio mixing**: semitone pitch shifting (-12 to +12) without tempo change, master volume and mute controls, and 0% to 50% guide vocal blending.
+- **Keyboard navigation**: transport shortcuts for play/pause, seeking, and mute toggling with modal and text input isolation.
 - **Themes and styling**: four presets (Modern Gold, Cyber Cyan, Neon Sunset, Classic KTV), custom video/image backgrounds, auto-blurred album art, and 16:9 widescreen or 9:16 vertical outputs.
 - **Export kit**: 1080p60 MP4 with 320 kbps AAC audio, plus formatted titles, description timestamps, lyric sheets, and tags ready for YouTube upload.
+- **Resilience & accessibility**: comprehensive error boundaries with audio auto-recovery, in-app toast alerts, and accessible focus traps for modal dialogs.
 - **Access control**: optional password protection for hosted sessions and LAN parties.
+
+## Keyboard Shortcuts & Studio Controls
+
+The studio provides keyboard shortcuts for playback navigation and precision editing controls. Global shortcuts are isolated and automatically ignored while typing in text inputs or navigating active modal dialogs.
+
+| Shortcut / Control | Type | Description |
+| :--- | :--- | :--- |
+| <kbd>Space</kbd> | Shortcut | Toggle master audio playback / pause |
+| <kbd>←</kbd> (Left Arrow) | Shortcut | Seek backward 5 seconds in timeline playback |
+| <kbd>→</kbd> (Right Arrow) | Shortcut | Seek forward 5 seconds in timeline playback |
+| <kbd>M</kbd> / <kbd>m</kbd> | Shortcut | Toggle audio mute / unmute |
+| **Master Volume** | Control | Linear volume slider (0%–100%) and mute toggle for studio monitoring |
+| **Pitch Shift** | Control | Stepper to shift playback pitch from -12 to +12 semitones without altering tempo |
+| **Guide Vocal** | Control | Blend slider from 0% to 50% vocal volume over instrumental backing tracks |
+| **Timeline Nudging** | Control | Stepper buttons to shift line start and end timestamps in ±0.2-second increments |
+| **Word Sweep** | Control | Progressive sub-line wipe preview tracking acoustic syllable boundaries in real time |
+| **Modal Focus Traps** | Accessibility | Keyboard focus looping (`Tab`, `Shift+Tab`) and `Escape` dismiss for Auth and Export dialogs |
 
 ## Quick Start
 
@@ -62,6 +81,67 @@ npm run dev
 ```
 
 The frontend development server proxies API requests to `http://localhost:8000`.
+
+## Quality Tooling & Verification
+
+Karaoke Studio maintains strict quality gates across both backend and frontend layers.
+
+### Backend Testing and Linters
+
+All backend tests and linters use Python 3.12+ inside the project virtual environment:
+
+```bash
+# Run pytest with code coverage (430+ unit, integration, and adversarial tests)
+pytest
+
+# Check code formatting with Ruff
+ruff format --check backend
+
+# Run Ruff linter checks
+ruff check backend
+
+# Auto-format Python source files
+ruff format backend
+
+# Auto-fix fixable Ruff linter warnings
+ruff check --fix backend
+```
+
+Configuration files:
+- `pyproject.toml`: Ruff lint/format rules and pytest-cov settings
+- `pytest.ini`: pytest test discovery, warning filters, and coverage flags
+
+### Frontend Testing and Linters
+
+Frontend quality tools run from the `frontend/` directory:
+
+```bash
+cd frontend
+
+# Run Vitest unit and component tests (260+ tests across 17 test suites)
+npm test
+
+# Run Vitest in interactive watch mode
+npm run test:watch
+
+# Run ESLint (zero-warning policy enforced)
+npm run lint
+
+# Check code formatting with Prettier
+npm run format:check
+
+# Auto-format frontend code with Prettier
+npm run format
+
+# Run TypeScript type check (tsc) and production bundle build (Vite)
+npm run build
+```
+
+### Continuous Integration (CI)
+
+A GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pull request targeting `main`. It executes parallel matrix jobs:
+- **Backend Quality Gates**: Ubuntu runner, Python 3.12, FFmpeg + libass, `ruff check`, `ruff format --check`, and full `pytest` suite.
+- **Frontend Quality Gates**: Ubuntu runner, Node 20, `npm run lint`, `npm run format:check`, `npm test` (Vitest), and `npm run build` (TypeScript + Vite).
 
 ## Configuration
 
@@ -111,4 +191,3 @@ Karaoke Studio is intended strictly for personal, educational, and fair-use audi
 ## License
 
 This project is licensed under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE). Any derivative network services or distributions must provide corresponding source code under the same license terms.
-
