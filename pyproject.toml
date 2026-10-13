@@ -1,0 +1,75 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["backend"]
+exclude = [
+    ".git",
+    ".pytest_cache",
+    "venv",
+    "workspace_data",
+    "frontend",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes (syntax errors, undefined variables, unused imports)
+    "I",      # isort (import sorting)
+    "UP",     # pyupgrade (modernize Python 3.12+ syntax)
+    "B",      # flake8-bugbear (common design flaws & bugs)
+    "C4",     # flake8-comprehensions (comprehension optimizations)
+    "SIM",    # flake8-simplify (code simplification)
+    "RUF",    # Ruff-specific rules
+]
+ignore = [
+    "E501",   # line-too-long: formatting is delegated to `ruff format`
+    "B008",   # function-call-in-default-argument: FastAPI dependency injection (Depends, File, Query)
+    "SIM105", # use contextlib.suppress instead of try-except-pass: overly verbose in cleanup blocks
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend"]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/**" = [
+    "S101",   # allow `assert` in test cases
+    "ARG001", # allow unused fixture arguments in test signatures
+    "F401",   # allow imported fixtures / modules for side-effects
+    "RUF001", # allow ambiguous unicode characters in test data
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+docstring-code-format = true
+
+[tool.coverage.run]
+source = ["backend"]
+branch = true
+omit = [
+    "backend/tests/*",
+    "tests/*",
+    "venv/*",
+    "workspace_data/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 50
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "raise AssertionError",
+    "return NotImplemented",
+]
+
+[tool.coverage.html]
+directory = "coverage_html"

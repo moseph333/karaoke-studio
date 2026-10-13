@@ -1,12 +1,14 @@
 import numpy as np
 import soundfile as sf
+
 from backend.services.aligner import AudioAligner
+
 
 def test_align_lyrics_with_audio(tmp_path):
     sr = 44100
     duration = 6.0
     t = np.linspace(0, duration, int(sr * duration), endpoint=False)
-    
+
     # Simulate vocals burst between 1.0s and 4.0s
     vocals = np.zeros_like(t)
     active_mask = (t >= 1.0) & (t <= 4.0)
@@ -17,19 +19,13 @@ def test_align_lyrics_with_audio(tmp_path):
 
     aligner = AudioAligner()
     raw_lines = [
-        {
-            "id": 0,
-            "text": "Sing a song for me",
-            "start_time": 1.0,
-            "end_time": 4.0,
-            "words": []
-        }
+        {"id": 0, "text": "Sing a song for me", "start_time": 1.0, "end_time": 4.0, "words": []}
     ]
 
     aligned = aligner.align_lyrics(str(vocals_file), raw_lines)
     assert len(aligned) == 1
     assert len(aligned[0]["words"]) == 5
-    
+
     # Check that word boundaries are strictly monotonic
     words = aligned[0]["words"]
     for i in range(len(words)):

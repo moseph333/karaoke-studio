@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Music, Sparkles, FileText, ChevronDown, ChevronUp, FolderHeart, Globe, CheckCircle2, Clock, Play } from 'lucide-react';
+import {
+  Search,
+  Music,
+  Sparkles,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  FolderHeart,
+  Globe,
+  CheckCircle2,
+  Clock,
+  Play,
+} from 'lucide-react';
 import { SearchResult, ProjectState } from '../types';
 import { apiFetch } from '../api';
 
@@ -80,8 +92,8 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
       if (!data.results || data.results.length === 0) {
         setError('No matching tracks found. Try a different title or paste a direct YouTube URL.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Error searching YouTube');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error searching YouTube');
     } finally {
       setSearching(false);
     }
@@ -110,7 +122,8 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
           Turn Any YouTube Song Into Karaoke
         </h1>
         <p className="mt-3 text-sm text-slate-400 max-w-xl mx-auto">
-          Word-by-word synchronized highlighting, isolated instrumentals, pitch control, and 1080p60 YouTube exports.
+          Word-by-word synchronized highlighting, isolated instrumentals, pitch control, and 1080p60
+          YouTube exports.
         </p>
       </div>
 
@@ -130,11 +143,15 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
           <button
             type="submit"
             disabled={isLoading || searching || !query.trim()}
-            aria-label={searching ? "Searching YouTube..." : "Search YouTube or load track"}
+            aria-label={searching ? 'Searching YouTube...' : 'Search YouTube or load track'}
             className="absolute right-2.5 px-5 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-sm transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {searching ? (
-              <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" role="status" aria-label="Loading"></span>
+              <span
+                className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
+                role="status"
+                aria-label="Loading"
+              ></span>
             ) : (
               'Search / Go'
             )}
@@ -155,7 +172,11 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
             <FileText className="w-4 h-4 text-cyan-400" aria-hidden="true" />
             (Optional) Provide custom lyrics text
           </span>
-          {showCustomLyrics ? <ChevronUp className="w-4 h-4" aria-hidden="true" /> : <ChevronDown className="w-4 h-4" aria-hidden="true" />}
+          {showCustomLyrics ? (
+            <ChevronUp className="w-4 h-4" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="w-4 h-4" aria-hidden="true" />
+          )}
         </button>
         {showCustomLyrics && (
           <div id="custom-lyrics-panel" className="p-4 pt-1 border-t border-slate-800/50">
@@ -265,9 +286,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
         </div>
 
         {loadingLibrary ? (
-          <div className="py-8 text-center text-xs text-slate-500">
-            Loading library tracks...
-          </div>
+          <div className="py-8 text-center text-xs text-slate-500">Loading library tracks...</div>
         ) : displayProjects.length === 0 ? (
           <div className="py-8 text-center rounded-xl bg-slate-900/30 border border-slate-800/50 p-6 space-y-1">
             <p className="text-xs text-slate-400">
@@ -313,7 +332,11 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                             : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                         }`}
                       >
-                        {isReady ? <CheckCircle2 className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
+                        {isReady ? (
+                          <CheckCircle2 className="w-2.5 h-2.5" />
+                        ) : (
+                          <Clock className="w-2.5 h-2.5" />
+                        )}
                         {isReady ? 'Ready' : p.status}
                       </span>
                       {p.created_by && (

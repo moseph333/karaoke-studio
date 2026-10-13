@@ -14,7 +14,16 @@ export interface LyricLine {
 
 export interface ProjectState {
   id: string;
-  status: 'queued' | 'downloading' | 'separating' | 'fetching_lyrics' | 'aligning' | 'mixing' | 'ready' | 'error' | 'cancelled';
+  status:
+    | 'queued'
+    | 'downloading'
+    | 'separating'
+    | 'fetching_lyrics'
+    | 'aligning'
+    | 'mixing'
+    | 'ready'
+    | 'error'
+    | 'cancelled';
   progress: number;
   status_detail?: string;
   eta_seconds?: number;
@@ -65,8 +74,8 @@ export interface VisualTheme {
   id: string;
   name: string;
   description: string;
-  primary_color: string;    // ASS sung color
-  secondary_color: string;  // ASS unsung color
+  primary_color: string; // ASS sung color
+  secondary_color: string; // ASS unsung color
   previewBg: string;
   previewSung: string;
   previewUnsung: string;

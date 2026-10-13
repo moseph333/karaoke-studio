@@ -2,15 +2,18 @@ import io
 import json
 import threading
 from pathlib import Path
+
 from fastapi.testclient import TestClient
-from backend import config
+
 import backend.main as main_mod
+from backend import config
 from backend.main import (
     app,
+    load_projects,
     projects,
     save_projects,
-    load_projects,
 )
+
 
 def test_static_file_protection_unauthenticated(unauth_client):
     test_file = main_mod.DOWNLOADS_DIR / "sample_track.wav"
@@ -19,6 +22,7 @@ def test_static_file_protection_unauthenticated(unauth_client):
     res = unauth_client.get("/static/downloads/sample_track.wav")
     assert res.status_code == 401
     assert "passphrase" in res.json().get("detail", "").lower()
+
 
 def test_static_file_access_authenticated(client, auth_cookies, auth_headers):
     test_file = main_mod.DOWNLOADS_DIR / "sample_track.wav"
@@ -41,11 +45,11 @@ def test_static_file_access_authenticated(client, auth_cookies, auth_headers):
     assert res_header.status_code == 200
     assert res_header.content == b"RIFF dummy audio data"
 
+
 def test_cookie_lifecycle_login_logout(unauth_client):
     pwd = config.APP_PASSWORD
     login_res = unauth_client.post(
-        "/api/auth/login",
-        json={"password": pwd, "username": "TestSinger"}
+        "/api/auth/login", json={"password": pwd, "username": "TestSinger"}
     )
     assert login_res.status_code == 200
     assert "karaoke_token" in login_res.cookies
@@ -56,14 +60,15 @@ def test_cookie_lifecycle_login_logout(unauth_client):
     assert logout_res.status_code == 200
     # Cookie is expired / deleted
     cookie_header = logout_res.headers.get("set-cookie", "")
-    assert 'karaoke_token=""' in cookie_header or 'Max-Age=0' in cookie_header
+    assert 'karaoke_token=""' in cookie_header or "Max-Age=0" in cookie_header
+
 
 def test_upload_filename_sanitization(client):
     # Test path traversal in upload-background
     malicious_filename = "../../../etc/cron.d/malicious.jpg"
     res = client.post(
         "/api/upload-background",
-        files={"file": (malicious_filename, io.BytesIO(b"echo pwned"), "image/jpeg")}
+        files={"file": (malicious_filename, io.BytesIO(b"echo pwned"), "image/jpeg")},
     )
     assert res.status_code == 200
     bg_id = res.json()["bg_id"]
@@ -76,6 +81,7 @@ def test_upload_filename_sanitization(client):
     saved_file = main_mod.BACKGROUNDS_DIR / bg_id
     assert saved_file.exists()
     assert saved_file.resolve().parent == main_mod.BACKGROUNDS_DIR.resolve()
+
 
 def test_atomic_persistence_and_recovery():
     # Save a valid state
@@ -96,6 +102,7 @@ def test_atomic_persistence_and_recovery():
     # load_projects should smoothly recover from backup without raising an exception
     recovered = load_projects()
     assert "proj_recover" in recovered
+
 
 def test_concurrent_atomic_saves():
     num_threads = 10
@@ -136,7 +143,7 @@ def test_upload_background_extension_validation(client):
     # Reject .html
     html_res = client.post(
         "/api/upload-background",
-        files={"file": ("exploit.html", io.BytesIO(b"<script>alert(1)</script>"), "text/html")}
+        files={"file": ("exploit.html", io.BytesIO(b"<script>alert(1)</script>"), "text/html")},
     )
     assert html_res.status_code == 400
     assert "Unsupported image format" in html_res.json()["detail"]
@@ -144,7 +151,7 @@ def test_upload_background_extension_validation(client):
     # Reject .svg
     svg_res = client.post(
         "/api/upload-background",
-        files={"file": ("vector.svg", io.BytesIO(b"<svg></svg>"), "image/svg+xml")}
+        files={"file": ("vector.svg", io.BytesIO(b"<svg></svg>"), "image/svg+xml")},
     )
     assert svg_res.status_code == 400
     assert "Unsupported image format" in svg_res.json()["detail"]
@@ -152,7 +159,7 @@ def test_upload_background_extension_validation(client):
     # Allow valid image extension
     valid_res = client.post(
         "/api/upload-background",
-        files={"file": ("wallpaper.jpg", io.BytesIO(b"\xff\xd8\xff\xe0 dummy jpeg"), "image/jpeg")}
+        files={"file": ("wallpaper.jpg", io.BytesIO(b"\xff\xd8\xff\xe0 dummy jpeg"), "image/jpeg")},
     )
     assert valid_res.status_code == 200
     assert "bg_id" in valid_res.json()
@@ -165,8 +172,7 @@ def test_upload_file_size_limit(client, monkeypatch):
 
     res = client.post(
         "/api/upload-background",
-        files={"file": ("big_image.png", io.BytesIO(large_payload), "image/png")}
+        files={"file": ("big_image.png", io.BytesIO(large_payload), "image/png")},
     )
     assert res.status_code == 413
     assert "exceeds maximum permitted size" in res.json()["detail"]
-

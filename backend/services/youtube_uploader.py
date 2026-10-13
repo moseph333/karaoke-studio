@@ -1,31 +1,32 @@
-import os
-import json
 import logging
-from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any
+
 from backend.config import YOUTUBE_CLIENT_SECRETS_FILE
 
 logger = logging.getLogger(__name__)
+
 
 class YouTubeMetadataService:
     @staticmethod
     def generate_youtube_package(
         title: str,
         artist: str,
-        lines: List[Dict[str, Any]],
+        lines: list[dict[str, Any]],
         semitones: int = 0,
-        has_guide_vocal: bool = False
-    ) -> Dict[str, Any]:
+        has_guide_vocal: bool = False,
+    ) -> dict[str, Any]:
         """
         Creates SEO-optimized metadata and description for YouTube upload.
         """
         key_note = f"Key: {'Original Key' if semitones == 0 else f'{semitones:+d} Semitones'}"
-        vocal_type = "Instrumental with Backing/Guide" if has_guide_vocal else "Instrumental Backing Track"
+        vocal_type = (
+            "Instrumental with Backing/Guide" if has_guide_vocal else "Instrumental Backing Track"
+        )
 
         yt_title = f"{artist} - {title} (Karaoke Version / With Lyrics)"
-        
+
         # Build clean lyrics text
-        lyric_lines = [l.get("text", "") for l in lines if l.get("text")]
+        lyric_lines = [line.get("text", "") for line in lines if line.get("text")]
         lyrics_text = "\n".join(lyric_lines)
 
         # Build chapter markers if there are clear sections or timestamps
@@ -37,7 +38,7 @@ class YouTubeMetadataService:
             chapters.append(f"{mins:02d}:{secs:02d} - Lyrics Start")
 
         description = (
-            f"Sing along to \"{title}\" originally by {artist}!\n\n"
+            f'Sing along to "{title}" originally by {artist}!\n\n'
             f"🎵 Details:\n"
             f"• Song: {title}\n"
             f"• Original Artist: {artist}\n"
@@ -63,7 +64,7 @@ class YouTubeMetadataService:
             f"{artist.lower()} karaoke",
             f"{title.lower()} karaoke",
             "backing track",
-            "karaoke with lyrics"
+            "karaoke with lyrics",
         ]
 
         return {
@@ -72,7 +73,7 @@ class YouTubeMetadataService:
             "tags": tags,
             "key_note": key_note,
             "lyrics": lyrics_text,
-            "privacy_status": "unlisted"
+            "privacy_status": "unlisted",
         }
 
     @staticmethod

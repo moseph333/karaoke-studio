@@ -1,10 +1,12 @@
 import pytest
+
 from backend.services.youtube_uploader import YouTubeMetadataService
+
 
 def test_generate_youtube_package():
     sample_lines = [
         {"id": 0, "text": "First line of the song", "start_time": 5.0, "end_time": 9.0},
-        {"id": 1, "text": "Second line of the song", "start_time": 10.0, "end_time": 14.0}
+        {"id": 1, "text": "Second line of the song", "start_time": 10.0, "end_time": 14.0},
     ]
 
     pkg = YouTubeMetadataService.generate_youtube_package(
@@ -12,7 +14,7 @@ def test_generate_youtube_package():
         artist="Queen",
         lines=sample_lines,
         semitones=2,
-        has_guide_vocal=True
+        has_guide_vocal=True,
     )
 
     assert "Queen - Bohemian Rhapsody (Karaoke Version" in pkg["title"]

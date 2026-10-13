@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Copy, Check, ExternalLink, X, Film, Sparkles, Youtube, Clock, Activity, XCircle } from 'lucide-react';
+import {
+  Download,
+  Copy,
+  Check,
+  ExternalLink,
+  X,
+  Film,
+  Sparkles,
+  Youtube,
+  Clock,
+  Activity,
+  XCircle,
+} from 'lucide-react';
 import { ProjectState } from '../types';
 
 interface ExportModalProps {
@@ -9,9 +21,14 @@ interface ExportModalProps {
   onCancelRender?: () => void;
 }
 
-export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClose, onCancelRender }) => {
+export const ExportModal: React.FC<ExportModalProps> = ({
+  project,
+  isOpen,
+  onClose,
+  onCancelRender,
+}) => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
+  const [_tick, setTick] = useState(0);
 
   // Re-render every second while rendering to keep heartbeat and elapsed timer live
   useEffect(() => {
@@ -82,7 +99,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
             <Film className="w-6 h-6" aria-hidden="true" />
           </div>
           <div>
-            <h2 id="export-modal-title" className="text-xl font-bold text-white">Export & YouTube Package</h2>
+            <h2 id="export-modal-title" className="text-xl font-bold text-white">
+              Export & YouTube Package
+            </h2>
             <p className="text-xs text-slate-400">
               {project.title} • {project.artist}
             </p>
@@ -94,7 +113,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
           <div className="py-10 text-center space-y-6" role="status" aria-live="polite">
             <div className="relative w-20 h-20 mx-auto">
               <div className="w-full h-full border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin motion-reduce:animate-none"></div>
-              <Sparkles className="absolute inset-0 m-auto w-7 h-7 text-cyan-400 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+              <Sparkles
+                className="absolute inset-0 m-auto w-7 h-7 text-cyan-400 animate-pulse motion-reduce:animate-none"
+                aria-hidden="true"
+              />
             </div>
 
             {/* Heartbeat Badge */}
@@ -111,7 +133,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
                 Rendering High-Definition Karaoke Video...
               </h3>
               <p className="text-xs text-slate-300 mt-2 font-mono max-w-md mx-auto bg-slate-950/60 py-2 px-3 rounded-xl border border-slate-800">
-                {project.render_detail || 'Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.'}
+                {project.render_detail ||
+                  'Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.'}
               </p>
             </div>
 
@@ -134,7 +157,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
                     Elapsed: {formatTimer(project.render_elapsed_seconds)}
                   </span>
                   <span className="text-slate-200">
-                    Est. remaining: {project.render_eta_seconds !== undefined && project.render_eta_seconds !== null ? `~${formatTimer(project.render_eta_seconds)}` : 'Calculating...'}
+                    Est. remaining:{' '}
+                    {project.render_eta_seconds !== undefined && project.render_eta_seconds !== null
+                      ? `~${formatTimer(project.render_eta_seconds)}`
+                      : 'Calculating...'}
                   </span>
                 </div>
               </div>
@@ -158,7 +184,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
         {isError && (
           <div className="p-6 bg-red-950/40 border border-red-800/60 rounded-2xl text-center space-y-3">
             <h3 className="text-base font-bold text-red-400">Rendering Encountered an Error</h3>
-            <p className="text-xs text-red-300 font-mono">{project.render_error || 'Unknown rendering error'}</p>
+            <p className="text-xs text-red-300 font-mono">
+              {project.render_error || 'Unknown rendering error'}
+            </p>
           </div>
         )}
 
@@ -181,7 +209,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-950/70 border border-slate-800 rounded-2xl">
               <div>
                 <h4 className="text-sm font-bold text-white">Your Video Is Ready!</h4>
-                <p className="text-xs text-slate-400">High-bitrate 1080p60 MP4 with AAC 320kbps stereo audio.</p>
+                <p className="text-xs text-slate-400">
+                  High-bitrate 1080p60 MP4 with AAC 320kbps stereo audio.
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <a
@@ -224,7 +254,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
                       onClick={() => copyToClipboard(yt.title, 'title')}
                       className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
                     >
-                      {copiedField === 'title' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedField === 'title' ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
                       {copiedField === 'title' ? 'Copied!' : 'Copy Title'}
                     </button>
                   </div>
@@ -234,13 +268,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
                 {/* Description */}
                 <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold text-slate-400">Description (with Chapters & Lyrics)</span>
+                    <span className="text-xs font-semibold text-slate-400">
+                      Description (with Chapters & Lyrics)
+                    </span>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(yt.description, 'description')}
                       className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
                     >
-                      {copiedField === 'description' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedField === 'description' ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
                       {copiedField === 'description' ? 'Copied!' : 'Copy Description'}
                     </button>
                   </div>
@@ -252,13 +292,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({ project, isOpen, onClo
                 {/* Tags */}
                 <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold text-slate-400">SEO Tags (comma-separated)</span>
+                    <span className="text-xs font-semibold text-slate-400">
+                      SEO Tags (comma-separated)
+                    </span>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(yt.tags.join(', '), 'tags')}
                       className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
                     >
-                      {copiedField === 'tags' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedField === 'tags' ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
                       {copiedField === 'tags' ? 'Copied!' : 'Copy Tags'}
                     </button>
                   </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LyricLine, WordTiming } from '../types';
-import { Clock, Play, Edit3, Check, ChevronRight, FastForward, Rewind, Sparkles } from 'lucide-react';
+import { Edit3, Check, ChevronRight, FastForward, Rewind } from 'lucide-react';
 
 interface LyricTimelineEditorProps {
   lines: LyricLine[];
@@ -36,11 +36,14 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   const activeLineIndex = editableLines.findIndex(
     (l) => currentTime >= l.start_time - 1.5 && currentTime <= l.end_time + 1.0
   );
-  
+
   const currentLine = activeLineIndex >= 0 ? editableLines[activeLineIndex] : null;
-  const nextLine = activeLineIndex >= 0 && activeLineIndex + 1 < editableLines.length
-    ? editableLines[activeLineIndex + 1]
-    : (!currentLine && editableLines.length > 0 ? editableLines[0] : null);
+  const nextLine =
+    activeLineIndex >= 0 && activeLineIndex + 1 < editableLines.length
+      ? editableLines[activeLineIndex + 1]
+      : !currentLine && editableLines.length > 0
+        ? editableLines[0]
+        : null;
 
   // Handle nudging an entire line by offset seconds
   const nudgeLine = (lineId: number, offset: number) => {
@@ -60,15 +63,23 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   };
 
   // Handle editing a single word timing
-  const updateWordTiming = (lineId: number, wordIndex: number, field: 'start_time' | 'end_time', value: number) => {
+  const updateWordTiming = (
+    lineId: number,
+    wordIndex: number,
+    field: 'start_time' | 'end_time',
+    value: number
+  ) => {
     const updated = editableLines.map((l) => {
       if (l.id !== lineId) return l;
       const words = [...l.words];
-      words[wordIndex] = { ...words[wordIndex], [field]: Math.max(0, parseFloat(value.toFixed(3))) };
-      
+      words[wordIndex] = {
+        ...words[wordIndex],
+        [field]: Math.max(0, parseFloat(value.toFixed(3))),
+      };
+
       // Update line boundaries to encompass all words
-      const lineStart = Math.min(...words.map(w => w.start_time));
-      const lineEnd = Math.max(...words.map(w => w.end_time));
+      const lineStart = Math.min(...words.map((w) => w.start_time));
+      const lineEnd = Math.max(...words.map((w) => w.end_time));
       return { ...l, start_time: lineStart, end_time: lineEnd, words };
     });
     setEditableLines(updated);
@@ -90,7 +101,10 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   };
 
   // Countdown cue calculation
-  const showCountdown = currentLine && (currentLine.start_time - currentTime) > 0 && (currentLine.start_time - currentTime) <= 3.0;
+  const showCountdown =
+    currentLine &&
+    currentLine.start_time - currentTime > 0 &&
+    currentLine.start_time - currentTime <= 3.0;
   const countdownSeconds = showCountdown ? Math.ceil(currentLine!.start_time - currentTime) : 0;
 
   return (
@@ -108,16 +122,37 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
 
         {/* Live Badge */}
         <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700/60 backdrop-blur text-xs font-medium text-slate-300">
-          <span className="w-2 h-2 rounded-full bg-red-500 motion-safe:animate-pulse" aria-hidden="true"></span>
+          <span
+            className="w-2 h-2 rounded-full bg-red-500 motion-safe:animate-pulse"
+            aria-hidden="true"
+          ></span>
           Live Visual Preview
         </div>
 
         {/* Countdown Cue Display */}
         {showCountdown && (
-          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-3 text-cyan-400 font-extrabold text-3xl font-['Montserrat'] motion-safe:animate-bounce motion-reduce:animate-none" aria-label={`Starting in ${countdownSeconds} seconds`}>
-            <span className={countdownSeconds >= 3 ? 'text-yellow-400 scale-125' : 'text-slate-600'} aria-hidden="true">●</span>
-            <span className={countdownSeconds >= 2 ? 'text-yellow-400 scale-125' : 'text-slate-600'} aria-hidden="true">●</span>
-            <span className={countdownSeconds >= 1 ? 'text-yellow-400 scale-125' : 'text-slate-600'} aria-hidden="true">●</span>
+          <div
+            className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-3 text-cyan-400 font-extrabold text-3xl font-['Montserrat'] motion-safe:animate-bounce motion-reduce:animate-none"
+            aria-label={`Starting in ${countdownSeconds} seconds`}
+          >
+            <span
+              className={countdownSeconds >= 3 ? 'text-yellow-400 scale-125' : 'text-slate-600'}
+              aria-hidden="true"
+            >
+              ●
+            </span>
+            <span
+              className={countdownSeconds >= 2 ? 'text-yellow-400 scale-125' : 'text-slate-600'}
+              aria-hidden="true"
+            >
+              ●
+            </span>
+            <span
+              className={countdownSeconds >= 1 ? 'text-yellow-400 scale-125' : 'text-slate-600'}
+              aria-hidden="true"
+            >
+              ●
+            </span>
           </div>
         )}
 
@@ -160,7 +195,9 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
               </div>
             ) : (
               <p className="text-xl text-slate-500 font-medium italic">
-                {currentTime < (editableLines[0]?.start_time || 0) ? '♪ Instrumental Intro ♪' : '♪ Instrumental Break ♪'}
+                {currentTime < (editableLines[0]?.start_time || 0)
+                  ? '♪ Instrumental Intro ♪'
+                  : '♪ Instrumental Break ♪'}
               </p>
             )}
           </div>
@@ -262,12 +299,19 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                     <button
                       type="button"
                       onClick={() => setSelectedLineId(isExpanded ? null : line.id)}
-                      aria-label={isExpanded ? `Collapse word timings for line ${line.id}` : `Expand word timings for line ${line.id}`}
+                      aria-label={
+                        isExpanded
+                          ? `Collapse word timings for line ${line.id}`
+                          : `Expand word timings for line ${line.id}`
+                      }
                       aria-expanded={isExpanded}
                       className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       title="Expand word timings"
                     >
-                      <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} aria-hidden="true" />
+                      <ChevronRight
+                        className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        aria-hidden="true"
+                      />
                     </button>
                   </div>
                 </div>
@@ -291,7 +335,14 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                             type="number"
                             step="0.05"
                             value={w.start_time}
-                            onChange={(e) => updateWordTiming(line.id, wIdx, 'start_time', parseFloat(e.target.value))}
+                            onChange={(e) =>
+                              updateWordTiming(
+                                line.id,
+                                wIdx,
+                                'start_time',
+                                parseFloat(e.target.value)
+                              )
+                            }
                             className="w-14 p-1 rounded bg-slate-950 border border-slate-700 text-center text-slate-200"
                           />
                           <span className="text-slate-500">-</span>
@@ -299,7 +350,14 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                             type="number"
                             step="0.05"
                             value={w.end_time}
-                            onChange={(e) => updateWordTiming(line.id, wIdx, 'end_time', parseFloat(e.target.value))}
+                            onChange={(e) =>
+                              updateWordTiming(
+                                line.id,
+                                wIdx,
+                                'end_time',
+                                parseFloat(e.target.value)
+                              )
+                            }
                             className="w-14 p-1 rounded bg-slate-950 border border-slate-700 text-center text-slate-200"
                           />
                         </div>

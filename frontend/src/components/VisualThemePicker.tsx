@@ -8,7 +8,7 @@ export const THEMES: VisualTheme[] = [
     id: 'modern_gold',
     name: 'Modern Gold',
     description: 'Crisp white transitioning into warm radiant gold',
-    primary_color: '&H0000D7FF',   // BGR in ASS: FF D7 00 = Gold
+    primary_color: '&H0000D7FF', // BGR in ASS: FF D7 00 = Gold
     secondary_color: '&H00FFFFFF',
     previewBg: 'from-amber-950/40 to-slate-950',
     previewSung: '#fbbf24',
@@ -18,7 +18,7 @@ export const THEMES: VisualTheme[] = [
     id: 'cyber_cyan',
     name: 'Cyber Cyan',
     description: 'Electric cyan glowing wipe on ambient dark backdrop',
-    primary_color: '&H00FFFF00',   // BGR in ASS: 00 FF FF = Cyan
+    primary_color: '&H00FFFF00', // BGR in ASS: 00 FF FF = Cyan
     secondary_color: '&H00FFFFFF',
     previewBg: 'from-cyan-950/40 to-slate-950',
     previewSung: '#06b6d4',
@@ -28,7 +28,7 @@ export const THEMES: VisualTheme[] = [
     id: 'neon_pink',
     name: 'Neon Sunset',
     description: 'Vivid magenta sweep with high contrast',
-    primary_color: '&H00B300FF',   // BGR in ASS: FF 00 B3 = Neon Magenta
+    primary_color: '&H00B300FF', // BGR in ASS: FF 00 B3 = Neon Magenta
     secondary_color: '&H00FFFFFF',
     previewBg: 'from-pink-950/40 to-slate-950',
     previewSung: '#ec4899',
@@ -38,7 +38,7 @@ export const THEMES: VisualTheme[] = [
     id: 'classic_ktv',
     name: 'Classic KTV',
     description: 'Traditional karaoke blue-to-yellow karaoke look',
-    primary_color: '&H0000FFFF',   // BGR in ASS: FF FF 00 = Yellow
+    primary_color: '&H0000FFFF', // BGR in ASS: FF FF 00 = Yellow
     secondary_color: '&H00FFFFFF',
     previewBg: 'from-blue-950/40 to-slate-950',
     previewSung: '#facc15',
@@ -153,7 +153,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
               )}
               <h4 className="text-sm font-bold text-white">{t.name}</h4>
               <p className="text-[11px] text-slate-400 mt-1">{t.description}</p>
-              
+
               {/* Mini Preview bar */}
               <div className="mt-3 p-2 rounded-lg bg-slate-950/80 flex items-center justify-center font-['Montserrat'] font-extrabold text-sm">
                 <span style={{ color: t.previewSung }}>Ka-ra-</span>

@@ -5,8 +5,18 @@ import { LyricTimelineEditor } from './components/LyricTimelineEditor';
 import { VisualThemePicker, THEMES } from './components/VisualThemePicker';
 import { ExportModal } from './components/ExportModal';
 import { AuthModal } from './components/AuthModal';
-import { ProjectState, LyricLine, VisualTheme } from './types';
-import { Mic2, Film, Sparkles, AlertCircle, ArrowLeft, RefreshCw, Clock, Activity, XCircle, User } from 'lucide-react';
+import { LyricLine, VisualTheme } from './types';
+import {
+  Mic2,
+  Film,
+  Sparkles,
+  AlertCircle,
+  ArrowLeft,
+  Clock,
+  Activity,
+  XCircle,
+  User,
+} from 'lucide-react';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 
@@ -22,9 +32,11 @@ export const App: React.FC = () => {
   const [isExportOpen, setIsExportOpen] = useState(false);
 
   // Authentication & Friend Profile State
-  const [authRequired, setAuthRequired] = useState(false);
+  const [_authRequired, setAuthRequired] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [currentUser, setCurrentUser] = useState(localStorage.getItem('karaoke_user_name') || 'Friend');
+  const [currentUser, setCurrentUser] = useState(
+    localStorage.getItem('karaoke_user_name') || 'Friend'
+  );
   const [authToken, setAuthToken] = useState(localStorage.getItem('karaoke_auth_token') || '');
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -47,7 +59,6 @@ export const App: React.FC = () => {
         }
       })
       .catch(() => {});
-
 
     const handleUnauthorized = () => setShowAuthModal(true);
     window.addEventListener('karaoke_unauthorized', handleUnauthorized);
@@ -74,7 +85,7 @@ export const App: React.FC = () => {
         })
         .catch((e) => console.error('Failed to load project from URL parameter', e));
     }
-  }, []);
+  }, [setProject]);
 
   const handleAuthSuccess = (username: string, token: string) => {
     setCurrentUser(username);
@@ -117,7 +128,6 @@ export const App: React.FC = () => {
     setIsExportOpen(false);
   };
 
-
   // Handle Audio playback time updates
   const handleTimeUpdate = () => {
     if (audioRef.current) {
@@ -137,7 +147,10 @@ export const App: React.FC = () => {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play().then(() => setIsPlaying(true)).catch(console.error);
+      audioRef.current
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(console.error);
     }
   };
 
@@ -171,8 +184,8 @@ export const App: React.FC = () => {
         semitones: 0,
         guide_volume: 0,
       });
-    } catch (err: any) {
-      alert(err.message || 'Error processing track');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error processing track');
     } finally {
       setLoading(false);
     }
@@ -209,7 +222,16 @@ export const App: React.FC = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        setProject((prev) => (prev ? { ...prev, master_audio_url: data.master_audio_url, semitones, guide_volume: guideVolume } : null));
+        setProject((prev) =>
+          prev
+            ? {
+                ...prev,
+                master_audio_url: data.master_audio_url,
+                semitones,
+                guide_volume: guideVolume,
+              }
+            : null
+        );
         // Reload audio element with new mix source
         if (audioRef.current) {
           audioRef.current.load();
@@ -244,7 +266,9 @@ export const App: React.FC = () => {
           },
         }),
       });
-      setProject((prev) => (prev ? { ...prev, render_status: 'queued', render_progress: 10 } : null));
+      setProject((prev) =>
+        prev ? { ...prev, render_status: 'queued', render_progress: 10 } : null
+      );
     } catch (err) {
       console.error('Render request failed:', err);
     }
@@ -326,12 +350,21 @@ export const App: React.FC = () => {
             currentUser={currentUser}
             authToken={authToken}
           />
-        ) : project.status !== 'ready' && project.status !== 'error' && project.status !== 'cancelled' ? (
+        ) : project.status !== 'ready' &&
+          project.status !== 'error' &&
+          project.status !== 'cancelled' ? (
           /* Processing Pipeline Progress Screen */
-          <div className="max-w-xl mx-auto py-16 text-center space-y-6" role="status" aria-live="polite">
+          <div
+            className="max-w-xl mx-auto py-16 text-center space-y-6"
+            role="status"
+            aria-live="polite"
+          >
             <div className="relative w-24 h-24 mx-auto">
               <div className="w-full h-full border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin motion-reduce:animate-none"></div>
-              <Sparkles className="absolute inset-0 m-auto w-8 h-8 text-cyan-400 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+              <Sparkles
+                className="absolute inset-0 m-auto w-8 h-8 text-cyan-400 animate-pulse motion-reduce:animate-none"
+                aria-hidden="true"
+              />
             </div>
 
             {/* Live Heartbeat Badge */}
@@ -348,19 +381,18 @@ export const App: React.FC = () => {
                 {project.status.replace('_', ' ')}...
               </h2>
               <p className="text-xs text-slate-300 mt-2 font-mono max-w-md mx-auto bg-slate-950/60 py-2.5 px-3.5 rounded-xl border border-slate-800">
-                {project.status_detail || (
-                  project.status === 'downloading'
+                {project.status_detail ||
+                  (project.status === 'downloading'
                     ? 'Fetching high-fidelity audio and cover art...'
                     : project.status === 'separating'
-                    ? 'Isolating vocals and backing instrumental track with Demucs AI...'
-                    : project.status === 'fetching_lyrics'
-                    ? 'Retrieving synchronized lyrics from LRCLIB database...'
-                    : project.status === 'aligning'
-                    ? 'Running forced acoustic alignment for word-by-word timing...'
-                    : project.status === 'mixing'
-                    ? 'Synthesizing master stereo mix...'
-                    : 'Processing audio track...'
-                )}
+                      ? 'Isolating vocals and backing instrumental track with Demucs AI...'
+                      : project.status === 'fetching_lyrics'
+                        ? 'Retrieving synchronized lyrics from LRCLIB database...'
+                        : project.status === 'aligning'
+                          ? 'Running forced acoustic alignment for word-by-word timing...'
+                          : project.status === 'mixing'
+                            ? 'Synthesizing master stereo mix...'
+                            : 'Processing audio track...')}
               </p>
             </div>
 
@@ -383,7 +415,10 @@ export const App: React.FC = () => {
                     Elapsed: {formatTimer(project.elapsed_seconds)}
                   </span>
                   <span className="text-slate-200">
-                    Est. remaining: {project.eta_seconds !== undefined && project.eta_seconds !== null ? `~${formatTimer(project.eta_seconds)}` : 'Calculating...'}
+                    Est. remaining:{' '}
+                    {project.eta_seconds !== undefined && project.eta_seconds !== null
+                      ? `~${formatTimer(project.eta_seconds)}`
+                      : 'Calculating...'}
                   </span>
                 </div>
               </div>
@@ -482,7 +517,9 @@ export const App: React.FC = () => {
               onTogglePlay={handleTogglePlay}
               onSeek={handleSeek}
               onMixChange={handleMixChange}
-              onCustomInstrumentalUploaded={(url) => setProject({ ...project, instrumental_url: url })}
+              onCustomInstrumentalUploaded={(url) =>
+                setProject({ ...project, instrumental_url: url })
+              }
             />
 
             {/* Lyric Sweep Live Preview & Timeline Editor */}
@@ -521,10 +558,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Shared Studio Passphrase & Friend Profile Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onSuccess={handleAuthSuccess}
-      />
+      <AuthModal isOpen={showAuthModal} onSuccess={handleAuthSuccess} />
     </div>
   );
 };

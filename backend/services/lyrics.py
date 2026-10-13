@@ -1,16 +1,20 @@
-import re
 import logging
-from typing import Dict, Any, List, Optional
+import re
+from typing import Any
+
 import requests
 import syncedlyrics
 
 logger = logging.getLogger(__name__)
 
+
 class LyricsService:
     def __init__(self):
         self.lrclib_url = "https://lrclib.net/api"
 
-    def fetch_lyrics(self, track_title: str, artist_name: str, duration: Optional[float] = None) -> Dict[str, Any]:
+    def fetch_lyrics(
+        self, track_title: str, artist_name: str, duration: float | None = None
+    ) -> dict[str, Any]:
         """
         Fetch synced or plain lyrics from LRCLIB, syncedlyrics, or NetEase.
         Returns structured dict with raw text, synced lines, and source metadata.
@@ -25,12 +29,14 @@ class LyricsService:
 
         # 2. Try syncedlyrics library with strict timeout
         try:
-            from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+            from concurrent.futures import ThreadPoolExecutor
+            from concurrent.futures import TimeoutError as FuturesTimeout
+
             query = f"{clean_artist} - {clean_title}"
             with ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(syncedlyrics.search, query)
                 lrc_content = future.result(timeout=6.0)
-                
+
             if lrc_content:
                 parsed_lines = self.parse_lrc(lrc_content)
                 plain = "\n".join(line["text"] for line in parsed_lines)
@@ -39,23 +45,18 @@ class LyricsService:
                     "synced": True,
                     "plain_lyrics": plain,
                     "lrc": lrc_content,
-                    "lines": parsed_lines
+                    "lines": parsed_lines,
                 }
         except FuturesTimeout:
             logger.warning(f"syncedlyrics search timed out after 6 seconds for {query}")
         except Exception as e:
             logger.warning(f"syncedlyrics search failed: {e}")
 
+        return {"source": "none", "synced": False, "plain_lyrics": "", "lrc": "", "lines": []}
 
-        return {
-            "source": "none",
-            "synced": False,
-            "plain_lyrics": "",
-            "lrc": "",
-            "lines": []
-        }
-
-    def _fetch_from_lrclib(self, track_name: str, artist_name: str, duration: Optional[float]) -> Optional[Dict[str, Any]]:
+    def _fetch_from_lrclib(
+        self, track_name: str, artist_name: str, duration: float | None
+    ) -> dict[str, Any] | None:
         try:
             params = {
                 "track_name": track_name,
@@ -70,18 +71,20 @@ class LyricsService:
                 synced = bool(data.get("syncedLyrics"))
                 lrc = data.get("syncedLyrics") or ""
                 plain = data.get("plainLyrics") or ""
-                
+
                 lines = self.parse_lrc(lrc) if synced else self.parse_plain_text(plain)
                 return {
                     "source": "lrclib",
                     "synced": synced,
                     "plain_lyrics": plain,
                     "lrc": lrc,
-                    "lines": lines
+                    "lines": lines,
                 }
-            
+
             # If exact match fails, try search endpoint
-            search_resp = requests.get(f"{self.lrclib_url}/search", params={"q": f"{track_name} {artist_name}"}, timeout=5)
+            search_resp = requests.get(
+                f"{self.lrclib_url}/search", params={"q": f"{track_name} {artist_name}"}, timeout=5
+            )
             if search_resp.status_code == 200:
                 results = search_resp.json()
                 if results and len(results) > 0:
@@ -95,18 +98,17 @@ class LyricsService:
                         "synced": synced,
                         "plain_lyrics": plain,
                         "lrc": lrc,
-                        "lines": lines
+                        "lines": lines,
                     }
         except Exception as e:
             logger.warning(f"LRCLIB fetch error: {e}")
         return None
 
     @staticmethod
-    def parse_lrc(lrc_text: str) -> List[Dict[str, Any]]:
+    def parse_lrc(lrc_text: str) -> list[dict[str, Any]]:
         """Parses LRC format into a list of line dicts."""
         lines = []
         pattern = re.compile(r"\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
-        line_id = 0
 
         raw_lines = lrc_text.strip().split("\n")
         parsed_entries = []
@@ -139,35 +141,36 @@ class LyricsService:
                 for w_idx, w in enumerate(words):
                     w_start = start_time + (w_idx * word_dur)
                     w_end = w_start + word_dur
-                    word_objs.append({
-                        "word": w,
-                        "start_time": round(w_start, 3),
-                        "end_time": round(w_end, 3)
-                    })
+                    word_objs.append(
+                        {"word": w, "start_time": round(w_start, 3), "end_time": round(w_end, 3)}
+                    )
 
-            lines.append({
-                "id": line_id,
-                "text": text,
-                "start_time": round(start_time, 3),
-                "end_time": round(end_time, 3),
-                "words": word_objs
-            })
-            line_id += 1
+            lines.append(
+                {
+                    "id": idx,
+                    "text": text,
+                    "start_time": round(start_time, 3),
+                    "end_time": round(end_time, 3),
+                    "words": word_objs,
+                }
+            )
 
         return lines
 
     @staticmethod
-    def parse_plain_text(text: str) -> List[Dict[str, Any]]:
+    def parse_plain_text(text: str) -> list[dict[str, Any]]:
         """Parses plain multiline text into unaligned line items."""
         lines = []
-        raw_lines = [l.strip() for l in text.split("\n") if l.strip()]
+        raw_lines = [line.strip() for line in text.split("\n") if line.strip()]
         for idx, line in enumerate(raw_lines):
             words = line.split()
-            lines.append({
-                "id": idx,
-                "text": line,
-                "start_time": 0.0,
-                "end_time": 0.0,
-                "words": [{"word": w, "start_time": 0.0, "end_time": 0.0} for w in words]
-            })
+            lines.append(
+                {
+                    "id": idx,
+                    "text": line,
+                    "start_time": 0.0,
+                    "end_time": 0.0,
+                    "words": [{"word": w, "start_time": 0.0, "end_time": 0.0} for w in words],
+                }
+            )
         return lines

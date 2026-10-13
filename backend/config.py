@@ -45,8 +45,6 @@ else:
     ]
 
 
-
-
 # Default Video Configuration
 DEFAULT_VIDEO_CONFIG = {
     "width": 1920,
@@ -54,10 +52,10 @@ DEFAULT_VIDEO_CONFIG = {
     "fps": 60,
     "font_name": "Montserrat",
     "font_size": 52,
-    "primary_color": "&H0000FFFF",      # Vibrant yellow fill when sung
-    "secondary_color": "&H00FFFFFF",    # Crisp white unsung
-    "outline_color": "&H00000000",      # Pure black outline
-    "shadow_color": "&H80000000",       # Soft shadow
+    "primary_color": "&H0000FFFF",  # Vibrant yellow fill when sung
+    "secondary_color": "&H00FFFFFF",  # Crisp white unsung
+    "outline_color": "&H00000000",  # Pure black outline
+    "shadow_color": "&H80000000",  # Soft shadow
     "outline_width": 3,
     "shadow_width": 2,
     "lead_in_countdown_dots": 3,
