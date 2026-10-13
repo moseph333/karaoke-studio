@@ -7,7 +7,10 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-import psutil
+try:
+    import psutil
+except ImportError:  # pragma: no cover
+    psutil = None
 import pytest
 
 from backend.services.audio_mixer import AudioMixer
@@ -260,7 +263,7 @@ for i in range(60):
 
     # Inspect OS process table via psutil
     time.sleep(0.5)
-    if psutil.pid_exists(child_pid):
+    if psutil is not None and psutil.pid_exists(child_pid):
         proc = psutil.Process(child_pid)
         assert proc.status() != psutil.STATUS_ZOMBIE, f"PID {child_pid} leaked as a zombie process!"
         assert not proc.is_running(), f"PID {child_pid} is still actively running!"
@@ -393,7 +396,7 @@ for i in range(100):
     child_pid = spawned_pids[0]
 
     time.sleep(0.5)
-    if psutil.pid_exists(child_pid):
+    if psutil is not None and psutil.pid_exists(child_pid):
         proc = psutil.Process(child_pid)
         assert proc.status() != psutil.STATUS_ZOMBIE
         assert not proc.is_running()
