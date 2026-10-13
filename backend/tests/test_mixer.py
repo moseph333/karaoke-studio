@@ -1,5 +1,6 @@
 import os
 import subprocess
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -303,3 +304,76 @@ def test_audio_mixer_create_mix(tmp_path):
     master_path = mixer.create_mix(project, semitones=1, guide_volume=0.2)
     assert os.path.exists(master_path)
     assert "proj_123_master.wav" in master_path
+
+
+def test_mix_and_shift_infinite_semitones(tmp_path):
+    """Verifies that infinite semitones (inf and -inf) safely default to 0 without OverflowError."""
+    sr = 44100
+    inst_wav = tmp_path / "inst_inf.wav"
+    sf.write(str(inst_wav), np.zeros(sr), sr)
+
+    mixer = AudioMixer(output_dir=tmp_path)
+
+    # Positive infinity
+    out_pos_inf = mixer.mix_and_shift(
+        instrumental_path=str(inst_wav),
+        semitones=float("inf"),
+        output_filename="pos_inf.wav",
+    )
+    assert os.path.exists(out_pos_inf)
+    data, out_sr = sf.read(out_pos_inf)
+    assert out_sr == sr
+    assert len(data) > 0
+
+    # Negative infinity
+    out_neg_inf = mixer.mix_and_shift(
+        instrumental_path=str(inst_wav),
+        semitones=float("-inf"),
+        output_filename="neg_inf.wav",
+    )
+    assert os.path.exists(out_neg_inf)
+    data, out_sr = sf.read(out_neg_inf)
+    assert out_sr == sr
+    assert len(data) > 0
+
+
+def test_mix_and_shift_nan_and_inf_guide_volume(tmp_path):
+    """Verifies that NaN, Inf, and -Inf guide_volume safely default to 0.0 without crash or full volume boost."""
+    sr = 44100
+    inst_wav = tmp_path / "inst_nan_vol.wav"
+    voc_wav = tmp_path / "voc_nan_vol.wav"
+    sf.write(str(inst_wav), np.zeros(sr), sr)
+    sf.write(str(voc_wav), np.zeros(sr), sr)
+
+    mixer = AudioMixer(output_dir=tmp_path)
+
+    for vol_val, fname in [
+        (float("nan"), "nan_vol.wav"),
+        (float("inf"), "pos_inf_vol.wav"),
+        (float("-inf"), "neg_inf_vol.wav"),
+    ]:
+        out_path = mixer.mix_and_shift(
+            instrumental_path=str(inst_wav),
+            vocals_path=str(voc_wav),
+            semitones=0,
+            guide_volume=vol_val,
+            output_filename=fname,
+        )
+        assert os.path.exists(out_path)
+
+    # Verify that guide vocals were not included in the inputs when NaN is passed
+    def mock_run_impl(cmd, **kwargs):
+        Path(cmd[-1]).touch()
+        return subprocess.CompletedProcess(cmd, returncode=0)
+
+    with patch("subprocess.run", side_effect=mock_run_impl) as mock_run:
+        mixer.mix_and_shift(
+            instrumental_path=str(inst_wav),
+            vocals_path=str(voc_wav),
+            semitones=0,
+            guide_volume=float("nan"),
+            output_filename="nan_no_voc.wav",
+        )
+        called_cmd = mock_run.call_args[0][0]
+        # Vocals stem must be excluded because safe_guide_volume defaulted to 0.0 <= 0.001
+        assert str(voc_wav) not in called_cmd

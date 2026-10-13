@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import subprocess
 from pathlib import Path
@@ -78,7 +79,7 @@ class AudioMixer:
         # Validate and clamp semitones to [-12, 12]
         try:
             raw_semitones = round(float(semitones))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             logger.warning(f"Invalid semitones value {semitones!r}; defaulting to 0")
             raw_semitones = 0
 
@@ -90,7 +91,12 @@ class AudioMixer:
 
         # Validate and clamp guide_volume to [0.0, 1.0]
         try:
-            safe_guide_volume = max(0.0, min(1.0, float(guide_volume)))
+            parsed_vol = float(guide_volume)
+            if math.isnan(parsed_vol) or math.isinf(parsed_vol):
+                logger.warning(f"Invalid guide_volume value {guide_volume!r}; defaulting to 0.0")
+                safe_guide_volume = 0.0
+            else:
+                safe_guide_volume = max(0.0, min(1.0, parsed_vol))
         except (ValueError, TypeError):
             logger.warning(f"Invalid guide_volume value {guide_volume!r}; defaulting to 0.0")
             safe_guide_volume = 0.0

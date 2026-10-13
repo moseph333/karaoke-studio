@@ -39,6 +39,7 @@ class VideoRenderer:
         text = text.replace("\\", "\\\\")
         text = text.replace("{", "\\{")
         text = text.replace("}", "\\}")
+        text = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
         return text
 
     def generate_ass_subtitles(
@@ -200,7 +201,7 @@ class VideoRenderer:
         """
         import time
 
-        width, height = (1920, 1080) if aspect_ratio == "16:9" else (1080, 1920)
+        width, height = (1080, 1920) if aspect_ratio == "9:16" else (1920, 1080)
 
         # If duration was not provided, probe audio file
         if not duration or duration <= 0:
