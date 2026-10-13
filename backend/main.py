@@ -574,7 +574,10 @@ def run_video_render(project_id: str, req: RenderRequest):
 
         # 1. Generate ASS Subtitles
         video_renderer.generate_ass_subtitles(
-            lines=proj.get("lines", []), output_ass_path=ass_path, style_config=req.style_config
+            lines=proj.get("lines", []),
+            output_ass_path=ass_path,
+            style_config=req.style_config,
+            aspect_ratio=req.aspect_ratio,
         )
 
         update_render(15, "Mixing master audio with pitch adjustment...", 40)
