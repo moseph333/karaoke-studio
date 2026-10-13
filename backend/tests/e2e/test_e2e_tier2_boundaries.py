@@ -101,7 +101,7 @@ def test_intake_malformed_youtube_urls_handled():
 
 
 def test_separation_zero_byte_instrumental_upload(client, project_factory):
-    """Uploading a 0-byte empty file is handled without corrupting project state."""
+    """Uploading a 0-byte empty file is rejected with HTTP 400 without corrupting project state."""
     project_factory(project_id="zerobyte_p1")
     empty_file = io.BytesIO(b"")
 
@@ -110,10 +110,8 @@ def test_separation_zero_byte_instrumental_upload(client, project_factory):
         data={"project_id": "zerobyte_p1"},
         files={"file": ("empty.wav", empty_file, "audio/wav")},
     )
-    assert response.status_code == 200
-    target_path = Path(main_mod.STEMS_DIR / "zerobyte_p1" / "custom_inst.wav")
-    assert target_path.exists()
-    assert target_path.stat().st_size == 0
+    assert response.status_code == 400
+    assert "uploaded file is empty (0 bytes)" in response.json().get("detail", "").lower()
 
 
 def test_separation_oversized_audio_upload_rejected_413(client, project_factory, monkeypatch):
