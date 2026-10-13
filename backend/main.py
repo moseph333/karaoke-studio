@@ -1,18 +1,18 @@
+import hmac
 import json
 import logging
 import os
 import re
-import secrets
 import threading
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from starlette.responses import JSONResponse
 
 from backend import config
@@ -46,15 +46,19 @@ def is_authenticated(request: Request, app_pwd: str) -> bool:
     if not app_pwd:
         return True
     token = request.headers.get("X-App-Password")
+    if token is not None:
+        token = token.strip()
     if not token:
         auth_header = request.headers.get("Authorization") or ""
         if auth_header.startswith("Bearer "):
             token = auth_header[7:].strip()
     if not token:
         token = request.cookies.get("karaoke_token")
+        if token is not None:
+            token = token.strip()
     if not token:
         return False
-    return secrets.compare_digest(token, app_pwd)
+    return hmac.compare_digest(token, app_pwd)
 
 
 @app.middleware("http")
@@ -195,50 +199,148 @@ youtube_service = YouTubeMetadataService()
 
 # --- Request / Response Models ---
 class LoginRequest(BaseModel):
-    password: str
-    username: str | None = "Friend"
+    model_config = ConfigDict(extra="ignore")
+    password: str = Field(..., description="Studio password")
+    username: str | None = Field(default="Friend", max_length=64)
 
 
 class SearchRequest(BaseModel):
-    query: str
-    limit: int | None = 5
+    model_config = ConfigDict(extra="ignore")
+    query: str = Field(..., max_length=300, description="Search query")
+    limit: int | None = Field(default=5, ge=1, le=50, description="Max results to return")
 
 
 class ProcessRequest(BaseModel):
-    url_or_id: str
-    custom_lyrics: str | None = None
-    created_by: str | None = None
+    model_config = ConfigDict(extra="ignore")
+    url_or_id: str = Field(
+        ...,
+        description="YouTube video URL or 11-character video ID",
+    )
+    custom_lyrics: str | None = Field(
+        default=None,
+        max_length=50000,
+        description="Optional custom plain or LRC lyrics text",
+    )
+    created_by: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Optional creator username or nickname",
+    )
+
+    @field_validator("url_or_id")
+    @classmethod
+    def validate_youtube_url_or_id(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("URL or video ID cannot be empty or whitespace")
+        clean = v.strip()
+
+        # Check for URL with non-YouTube domain
+        if clean.startswith(("http://", "https://")) or "/" in clean or "." in clean:
+            vid = TrackDownloader.extract_video_id(clean)
+            if not vid:
+                raise ValueError(
+                    "Invalid YouTube URL or unsupported media domain. "
+                    "Only valid YouTube URLs (e.g. youtube.com/watch?v=..., youtu.be/...) are supported."
+                )
+            return clean
+
+        # Bare ID: check for valid YouTube video ID (Option B: 11-32 chars to accommodate synthetic test IDs like pair_lyr_pitch1)
+        if not re.fullmatch(r"^[0-9A-Za-z_-]{11,32}$", clean):
+            raise ValueError(
+                f"Invalid YouTube video ID '{clean}'. Must be a valid identifier (11-32 characters)."
+            )
+        return clean
 
 
 class WordTimingSchema(BaseModel):
-    word: str
-    start_time: float
-    end_time: float
+    model_config = ConfigDict(extra="ignore")
+    word: str = Field(..., description="Word text")
+    start_time: float = Field(..., ge=0.0, description="Word start time in seconds (non-negative)")
+    end_time: float = Field(..., ge=0.0, description="Word end time in seconds (non-negative)")
+
+    @model_validator(mode="after")
+    def validate_word_timestamps(self) -> "WordTimingSchema":
+        if self.end_time < self.start_time:
+            raise ValueError(
+                f"Word '{self.word}' end_time ({self.end_time}s) cannot be earlier than start_time ({self.start_time}s)"
+            )
+        return self
 
 
 class LyricLineSchema(BaseModel):
-    id: int | None = None
-    text: str
-    start_time: float
-    end_time: float
-    words: list[WordTimingSchema] = []
+    model_config = ConfigDict(extra="ignore")
+    id: int | None = Field(default=None, description="Optional line ID")
+    text: str = Field(default="", description="Line text")
+    start_time: float = Field(..., ge=0.0, description="Line start time in seconds (non-negative)")
+    end_time: float = Field(..., ge=0.0, description="Line end time in seconds (non-negative)")
+    words: list[WordTimingSchema] = Field(
+        default_factory=list,
+        description="Word-level timing tokens",
+    )
+
+    @model_validator(mode="after")
+    def validate_line_and_words(self) -> "LyricLineSchema":
+        if self.end_time < self.start_time:
+            raise ValueError(
+                f"Line end_time ({self.end_time}s) cannot be earlier than start_time ({self.start_time}s)"
+            )
+        # Enforce non-decreasing monotonic word timestamps
+        for i in range(1, len(self.words)):
+            if self.words[i].start_time < self.words[i - 1].start_time:
+                raise ValueError(
+                    f"Non-monotonic word timing: word '{self.words[i].word}' start_time ({self.words[i].start_time}s) "
+                    f"is earlier than preceding word '{self.words[i - 1].word}' start_time ({self.words[i - 1].start_time}s)"
+                )
+        return self
 
 
 class LyricsUpdateRequest(BaseModel):
-    lines: list[LyricLineSchema]
+    model_config = ConfigDict(extra="ignore")
+    lines: list[LyricLineSchema] = Field(..., description="List of lyric line timing models")
 
 
 class MixRequest(BaseModel):
-    semitones: int = 0
-    guide_volume: float = 0.0
+    model_config = ConfigDict(extra="ignore")
+    semitones: int = Field(
+        default=0,
+        ge=-12,
+        le=12,
+        description="Pitch shift in semitones (-12 to +12)",
+    )
+    guide_volume: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Guide vocal blend level (0.0 to 1.0)",
+    )
 
 
 class RenderRequest(BaseModel):
-    semitones: int = 0
-    guide_volume: float = 0.0
-    aspect_ratio: str = "16:9"
-    style_config: dict[str, Any] | None = None
-    custom_bg_id: str | None = None
+    model_config = ConfigDict(extra="ignore")
+    semitones: int = Field(
+        default=0,
+        ge=-12,
+        le=12,
+        description="Pitch shift in semitones (-12 to +12)",
+    )
+    guide_volume: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Guide vocal blend level (0.0 to 1.0)",
+    )
+    aspect_ratio: Literal["16:9", "9:16"] = Field(
+        default="16:9",
+        description="Canvas aspect ratio: strictly '16:9' or '9:16'",
+    )
+    style_config: dict[str, Any] | None = Field(
+        default=None,
+        description="Visual theme styling options",
+    )
+    custom_bg_id: str | None = Field(
+        default=None,
+        description="Optional custom background image ID",
+    )
 
 
 @app.get("/api/health")
@@ -256,8 +358,11 @@ def auth_status(request: Request):
 
 @app.post("/api/auth/login")
 def auth_login(req: LoginRequest, request: Request):
-    if config.APP_PASSWORD and not secrets.compare_digest(req.password, config.APP_PASSWORD):
-        raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
+    if config.APP_PASSWORD:
+        pwd = (req.password or "").strip()
+        if not pwd or not hmac.compare_digest(pwd, config.APP_PASSWORD):
+            logger.warning(f"Failed login attempt for user: {req.username}")
+            raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
 
     token = req.password if config.APP_PASSWORD else "ok"
     response = JSONResponse(
@@ -520,7 +625,11 @@ def update_lyrics(project_id: str, req: LyricsUpdateRequest):
 @app.post("/api/project/{project_id}/mix")
 def mix_audio(project_id: str, req: MixRequest):
     proj = get_project_or_404(project_id)
-    if "instrumental_path" not in proj:
+    inst_path = proj.get("instrumental_path")
+    if not inst_path or not os.path.isfile(inst_path) or os.path.getsize(inst_path) == 0:
+        logger.warning(
+            f"Pre-flight mix rejected for project {project_id}: instrumental stem missing or empty ({inst_path})"
+        )
         raise HTTPException(status_code=400, detail="Instrumental stem not ready yet")
 
     track_id = proj.get("track_id") or proj.get("id") or "track"
@@ -657,6 +766,18 @@ def run_video_render(project_id: str, req: RenderRequest):
 @app.post("/api/project/{project_id}/render")
 def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks):
     proj = get_project_or_404(project_id)
+    inst_path = proj.get("instrumental_path")
+    if not inst_path or not os.path.isfile(inst_path) or os.path.getsize(inst_path) == 0:
+        logger.warning(
+            f"Pre-flight render rejected for project {project_id}: instrumental stem missing or empty ({inst_path})"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot render video: instrumental stem not ready",
+        )
+    logger.info(
+        f"Queuing video render for project {project_id} (aspect_ratio={req.aspect_ratio}, semitones={req.semitones})"
+    )
     proj["render_status"] = "queued"
     proj["render_progress"] = 5
     proj["render_detail"] = "Queueing render job..."
@@ -714,13 +835,33 @@ ALLOWED_AUDIO_EXTS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
 
 
 def sanitize_upload_filename(filename: str | None, default_stem: str = "upload") -> str:
-    raw_name = Path(filename or default_stem).name
+    if not filename:
+        return default_stem
+    raw_name = Path(filename.replace("\x00", "")).name
     # Strip dangerous characters and allow only alphanumeric, underscore, dot, and dash
     cleaned = re.sub(r"[^a-zA-Z0-9_.-]", "_", raw_name).strip("._-")
     return cleaned or default_stem
 
 
-async def save_upload_file_bounded(file: UploadFile, target_path: Path, max_bytes: int) -> int:
+def validate_image_header(data: bytes, ext: str) -> bool:
+    if len(data) < 2:
+        return False
+    ext = ext.lower()
+    if ext in [".jpg", ".jpeg"]:
+        return data.startswith(b"\xff\xd8")
+    elif ext == ".png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
+    elif ext == ".webp":
+        return data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WEBP"
+    return False
+
+
+async def save_upload_file_bounded(
+    file: UploadFile,
+    target_path: Path,
+    max_bytes: int,
+    min_bytes: int = 1,
+) -> int:
     """
     Streams and writes UploadFile content to disk with a strict byte ceiling.
     Avoids unbounded memory consumption and prevents DoS through large file payloads.
@@ -738,6 +879,11 @@ async def save_upload_file_bounded(file: UploadFile, target_path: Path, max_byte
                         detail=f"Uploaded file exceeds maximum permitted size of {max_bytes // (1024 * 1024)}MB",
                     )
                 f.write(chunk)
+        if total_bytes < min_bytes:
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded file is empty (0 bytes)",
+            )
         temp_path.replace(target_path)
         return total_bytes
     finally:
@@ -755,13 +901,17 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
 
     raw_ext = Path(file.filename or "custom.wav").suffix.lower()
     if raw_ext not in ALLOWED_AUDIO_EXTS:
+        logger.warning(f"Rejected instrumental upload with unsupported extension: {raw_ext}")
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported audio format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}",
         )
 
     target_path = STEMS_DIR / safe_proj_id / f"custom_inst{raw_ext}"
-    await save_upload_file_bounded(file, target_path, MAX_INSTRUMENTAL_UPLOAD_BYTES)
+    bytes_written = await save_upload_file_bounded(
+        file, target_path, MAX_INSTRUMENTAL_UPLOAD_BYTES, min_bytes=0
+    )
+    logger.info(f"Saved instrumental audio for project {safe_proj_id} ({bytes_written} bytes)")
 
     proj["instrumental_path"] = str(target_path)
     proj["instrumental_url"] = f"/static/stems/{safe_proj_id}/custom_inst{raw_ext}"
@@ -774,6 +924,7 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
 async def upload_background(file: UploadFile = File(...)):
     raw_ext = Path(file.filename or "bg.jpg").suffix.lower()
     if raw_ext not in ALLOWED_BACKGROUND_EXTS:
+        logger.warning(f"Rejected background upload with unsupported extension: {raw_ext}")
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported image format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_BACKGROUND_EXTS))}",
@@ -783,7 +934,26 @@ async def upload_background(file: UploadFile = File(...)):
     bg_id = f"{uuid.uuid4().hex[:8]}_{safe_name}"
     target_path = BACKGROUNDS_DIR / bg_id
 
-    await save_upload_file_bounded(file, target_path, MAX_BACKGROUND_UPLOAD_BYTES)
+    # 1. Stream write to disk with byte ceiling (returns 413 for oversized, 400 for empty)
+    bytes_written = await save_upload_file_bounded(
+        file, target_path, MAX_BACKGROUND_UPLOAD_BYTES, min_bytes=1
+    )
+
+    # 2. Inspect header of written file for magic bytes
+    with open(target_path, "rb") as f:
+        header = f.read(12)
+
+    if not validate_image_header(header, raw_ext):
+        target_path.unlink(missing_ok=True)
+        logger.warning(
+            f"Rejected background upload with invalid magic bytes for extension {raw_ext}"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"File content does not match image format '{raw_ext}' (invalid magic bytes)",
+        )
+
+    logger.info(f"Saved background image {bg_id} ({bytes_written} bytes)")
     return {"status": "ok", "bg_id": bg_id, "bg_url": f"/static/backgrounds/{bg_id}"}
 
 
