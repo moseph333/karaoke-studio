@@ -47,6 +47,26 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(main_mod, "PROJECTS_STORE_FILE", test_store)
     monkeypatch.setattr(main_mod, "PROJECTS_BACKUP_FILE", test_data_dir / "projects.json.bak")
 
+    # Set default test passphrase if unset so auth-gated fixtures and routes work in CI
+    if not config.APP_PASSWORD:
+        monkeypatch.setattr(config, "APP_PASSWORD", "sluggos")
+
+    # Re-target mounted Starlette StaticFiles directories to isolated test directories
+    for route in app.routes:
+        if hasattr(route, "name") and hasattr(route, "app"):
+            if route.name == "downloads":
+                monkeypatch.setattr(route.app, "directory", str(test_downloads))
+                monkeypatch.setattr(route.app, "all_directories", [str(test_downloads)])
+            elif route.name == "stems":
+                monkeypatch.setattr(route.app, "directory", str(test_stems))
+                monkeypatch.setattr(route.app, "all_directories", [str(test_stems)])
+            elif route.name == "output":
+                monkeypatch.setattr(route.app, "directory", str(test_output))
+                monkeypatch.setattr(route.app, "all_directories", [str(test_output)])
+            elif route.name == "backgrounds":
+                monkeypatch.setattr(route.app, "directory", str(test_backgrounds))
+                monkeypatch.setattr(route.app, "all_directories", [str(test_backgrounds)])
+
     projects.clear()
     active_cancellations.clear()
 
@@ -58,18 +78,14 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
 
 @pytest.fixture
 def auth_headers():
-    pwd = config.APP_PASSWORD
-    if pwd:
-        return {"X-App-Password": pwd}
-    return {}
+    pwd = config.APP_PASSWORD or "sluggos"
+    return {"X-App-Password": pwd}
 
 
 @pytest.fixture
 def auth_cookies():
-    pwd = config.APP_PASSWORD
-    if pwd:
-        return {"karaoke_token": pwd}
-    return {}
+    pwd = config.APP_PASSWORD or "sluggos"
+    return {"karaoke_token": pwd}
 
 
 @pytest.fixture
