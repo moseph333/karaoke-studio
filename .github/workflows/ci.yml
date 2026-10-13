@@ -39,6 +39,8 @@ jobs:
 
       - name: Run pytest test suite
         run: pytest
+        env:
+          APP_PASSWORD: sluggos
 
   frontend:
     name: Frontend Quality Gates
