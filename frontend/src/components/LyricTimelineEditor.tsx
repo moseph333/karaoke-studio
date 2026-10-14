@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { LyricLine } from '../types';
+import { LyricLine, WordTiming } from '../types';
 import {
   Edit3,
   Check,
@@ -26,6 +26,48 @@ export interface LyricTimelineEditorProps {
   themeUnsungColor?: string;
   onDirtyChange?: (isDirty: boolean) => void;
 }
+
+interface ActiveWordLocation {
+  lineId: number;
+  wordIndex: number;
+  word: WordTiming;
+}
+
+const getActiveWordLocation = (
+  lines: LyricLine[],
+  currentTime: number
+): ActiveWordLocation | null => {
+  if (!lines || lines.length === 0) return null;
+
+  for (const line of lines) {
+    if (currentTime >= line.start_time - 0.5 && currentTime <= line.end_time + 0.5) {
+      if (line.words && line.words.length > 0) {
+        // Direct hit: currentTime within [start_time, end_time]
+        for (let wIdx = 0; wIdx < line.words.length; wIdx++) {
+          const w = line.words[wIdx];
+          if (currentTime >= w.start_time && currentTime <= w.end_time) {
+            return { lineId: line.id, wordIndex: wIdx, word: w };
+          }
+        }
+
+        // Gap within line: find the closest preceding word
+        for (let wIdx = line.words.length - 1; wIdx >= 0; wIdx--) {
+          const w = line.words[wIdx];
+          if (currentTime >= w.start_time) {
+            return { lineId: line.id, wordIndex: wIdx, word: w };
+          }
+        }
+
+        // Before first word in line but within line start window
+        if (currentTime >= line.start_time - 0.5) {
+          return { lineId: line.id, wordIndex: 0, word: line.words[0] };
+        }
+      }
+    }
+  }
+
+  return null;
+};
 
 const sanitizeTimestamp = (val: number): number => {
   return isNaN(val) ? 0 : Math.max(0, parseFloat(val.toFixed(3)));
@@ -58,6 +100,16 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   const [selectedLineId, setSelectedLineId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
+
+  // Auto-scroll & manual scroll interaction state
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const isProgrammaticScrollRef = useRef(false);
+  const lastTargetScrollRef = useRef<number | null>(null);
+  const userScrollTimeoutRef = useRef<number | null>(null);
+  const programmaticScrollTimeoutRef = useRef<number | null>(null);
+  const lastCurrentTimeRef = useRef(currentTime);
+  const prevIsPlayingRef = useRef(isPlaying);
 
   const discardModalRef = useFocusTrap<HTMLDivElement>({
     isOpen: showDiscardModal,
@@ -107,6 +159,174 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
     (l) => currentTime >= l.start_time - 1.5 && currentTime <= l.end_time + 1.0
   );
   const currentLine = activeLineIndex >= 0 ? editableLines[activeLineIndex] : null;
+
+  // Active word location for precision word highlight
+  const activeWordLoc = useMemo(() => {
+    return getActiveWordLocation(editableLines, currentTime);
+  }, [editableLines, currentTime]);
+
+  const activeKey = activeWordLoc
+    ? `${activeWordLoc.lineId}-${activeWordLoc.wordIndex}`
+    : activeLineIndex >= 0
+      ? `line-${editableLines[activeLineIndex].id}`
+      : null;
+
+  // Resume auto-scroll when user seeks or scrubs (> 1.5s jump)
+  useEffect(() => {
+    const timeDelta = Math.abs(currentTime - lastCurrentTimeRef.current);
+    lastCurrentTimeRef.current = currentTime;
+    if (timeDelta > 1.5) {
+      setIsUserScrolling(false);
+      if (userScrollTimeoutRef.current) {
+        clearTimeout(userScrollTimeoutRef.current);
+        userScrollTimeoutRef.current = null;
+      }
+    }
+  }, [currentTime]);
+
+  // Resume auto-scroll when playback starts
+  useEffect(() => {
+    if (!prevIsPlayingRef.current && isPlaying) {
+      setIsUserScrolling(false);
+      if (userScrollTimeoutRef.current) {
+        clearTimeout(userScrollTimeoutRef.current);
+        userScrollTimeoutRef.current = null;
+      }
+    }
+    prevIsPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (userScrollTimeoutRef.current) clearTimeout(userScrollTimeoutRef.current);
+      if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current);
+    };
+  }, []);
+
+  // Automatic timeline scrolling to keep active highlighted word comfortably in viewport
+  useEffect(() => {
+    if (isUserScrolling) return;
+
+    const container = containerRef.current;
+    if (!container || !activeKey) return;
+
+    const activeWordEl = container.querySelector('[data-active-word="true"]') as HTMLElement | null;
+    const activeLineEl = container.querySelector('[data-active-line="true"]') as HTMLElement | null;
+    const targetEl = activeWordEl || activeLineEl;
+
+    if (!targetEl) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const containerHeight = container.clientHeight || containerRect.height || 380;
+    const containerScrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+
+    let targetTop = 0;
+    const targetRect = targetEl.getBoundingClientRect();
+
+    if (targetRect.height > 0 && containerRect.height > 0) {
+      const relativeElementTop = targetRect.top - containerRect.top + containerScrollTop;
+      const elementHeight = targetRect.height;
+      targetTop = relativeElementTop - containerHeight * 0.38 + elementHeight / 2;
+    } else if (targetEl.offsetTop > 0) {
+      let top = 0;
+      let curr: HTMLElement | null = targetEl;
+      while (curr && curr !== container) {
+        top += curr.offsetTop;
+        curr = curr.offsetParent as HTMLElement | null;
+      }
+      const elementHeight = targetEl.offsetHeight || 30;
+      targetTop = top - containerHeight * 0.38 + elementHeight / 2;
+    } else {
+      const lineIdx = activeLineIndex >= 0 ? activeLineIndex : 0;
+      const estimatedLineHeight = 70;
+      targetTop = lineIdx * estimatedLineHeight - containerHeight * 0.38;
+    }
+
+    const hasRealLayout = containerHeight > 0 && scrollHeight > 0;
+    const maxScroll = hasRealLayout ? Math.max(0, scrollHeight - containerHeight) : Infinity;
+    const clampedTarget = Math.max(
+      0,
+      hasRealLayout ? Math.min(maxScroll, Math.round(targetTop)) : Math.round(targetTop)
+    );
+
+    if (Math.abs(container.scrollTop - clampedTarget) >= 2) {
+      lastTargetScrollRef.current = clampedTarget;
+      isProgrammaticScrollRef.current = true;
+      if (typeof container.scrollTo === 'function') {
+        container.scrollTo({
+          top: clampedTarget,
+          behavior: 'smooth',
+        });
+      } else {
+        container.scrollTop = clampedTarget;
+      }
+
+      if (
+        container.scrollTop !== clampedTarget &&
+        typeof window !== 'undefined' &&
+        !(window as unknown as { chrome?: unknown }).chrome
+      ) {
+        container.scrollTop = clampedTarget;
+      }
+
+      if (programmaticScrollTimeoutRef.current) {
+        clearTimeout(programmaticScrollTimeoutRef.current);
+      }
+      programmaticScrollTimeoutRef.current = window.setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 450);
+    }
+  }, [activeKey, isUserScrolling, activeLineIndex, editableLines]);
+
+  const handleScroll = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    if (isProgrammaticScrollRef.current) {
+      if (
+        lastTargetScrollRef.current !== null &&
+        Math.abs(container.scrollTop - lastTargetScrollRef.current) <= 1
+      ) {
+        // Arrived at target position from programmatic scroll
+        isProgrammaticScrollRef.current = false;
+        return;
+      }
+      // If scrollTop is different from target, user intervened and scrolled elsewhere!
+      isProgrammaticScrollRef.current = false;
+    }
+
+    setIsUserScrolling(true);
+    if (userScrollTimeoutRef.current) {
+      clearTimeout(userScrollTimeoutRef.current);
+    }
+    userScrollTimeoutRef.current = window.setTimeout(() => {
+      setIsUserScrolling(false);
+    }, 2500);
+  };
+
+  const handleUserScrollInteraction = () => {
+    isProgrammaticScrollRef.current = false;
+    setIsUserScrolling(true);
+    if (userScrollTimeoutRef.current) {
+      clearTimeout(userScrollTimeoutRef.current);
+    }
+    userScrollTimeoutRef.current = window.setTimeout(() => {
+      setIsUserScrolling(false);
+    }, 2500);
+  };
+
+  const handleLineClick = (line: LyricLine, isExpanded: boolean) => {
+    setIsUserScrolling(false);
+    onSeek(line.start_time);
+    setSelectedLineId(isExpanded ? null : line.id);
+  };
+
+  const handleWordClick = (w: WordTiming) => {
+    setIsUserScrolling(false);
+    onSeek(w.start_time);
+  };
 
   // Handle nudging an entire line by offset seconds
   const nudgeLine = (lineId: number, offset: number) => {
@@ -268,10 +488,23 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
           <div>
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Edit3 className="w-4 h-4 text-cyan-400" />
-              Word-by-Word Timeline Editor
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-cyan-400" />
+                Word-by-Word Timeline Editor
+              </h3>
+              {isUserScrolling && (
+                <button
+                  type="button"
+                  onClick={() => setIsUserScrolling(false)}
+                  className="px-2.5 py-0.5 rounded-full bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 text-[10px] font-medium flex items-center gap-1.5 transition-all shadow-md"
+                  title="Auto-scroll is paused due to manual scrolling. Click to resume immediately."
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  Auto-scroll paused • Click to resume
+                </button>
+              )}
+            </div>
             <p className="text-xs text-slate-400 mt-0.5">
               Click any line to jump audio. Nudge words or lines to fine-tune sync with the beat.
             </p>
@@ -310,7 +543,15 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
         </div>
 
         {/* Scrollable list of lines */}
-        <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1">
+        <div
+          ref={containerRef}
+          data-testid="timeline-scroll-container"
+          onScroll={handleScroll}
+          onWheel={handleUserScrollInteraction}
+          onTouchStart={handleUserScrollInteraction}
+          onPointerDown={handleUserScrollInteraction}
+          className="max-h-[380px] overflow-y-auto space-y-2 pr-1 scroll-smooth"
+        >
           {editableLines.map((line) => {
             const isCurrentlyActive = currentLine?.id === line.id;
             const isExpanded = selectedLineId === line.id;
@@ -318,6 +559,8 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
             return (
               <div
                 key={line.id}
+                data-testid={`timeline-line-${line.id}`}
+                data-active-line={isCurrentlyActive ? 'true' : undefined}
                 className={`p-3 rounded-xl border transition-all ${
                   isCurrentlyActive
                     ? 'bg-cyan-950/40 border-cyan-500/70 shadow-md'
@@ -327,10 +570,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 <div className="flex items-center justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => {
-                      onSeek(line.start_time);
-                      setSelectedLineId(isExpanded ? null : line.id);
-                    }}
+                    onClick={() => handleLineClick(line, isExpanded)}
                     aria-label={`Select line: ${line.text} (${formatLineTime(line.start_time)}s to ${formatLineTime(line.end_time)}s)`}
                     className="flex items-center gap-3 cursor-pointer flex-1 overflow-hidden text-left bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded"
                   >
@@ -413,120 +653,174 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                   </div>
                 </div>
 
+                {/* Word-by-Word Timeline Stream */}
+                {line.words && line.words.length > 0 && (
+                  <div
+                    data-testid={`timeline-words-line-${line.id}`}
+                    className="mt-2 pt-1.5 border-t border-slate-800/40 flex flex-wrap gap-1.5 items-center"
+                  >
+                    {line.words.map((w, wIdx) => {
+                      const isWordActive =
+                        activeWordLoc?.lineId === line.id && activeWordLoc?.wordIndex === wIdx;
+
+                      return (
+                        <button
+                          key={wIdx}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleWordClick(w);
+                          }}
+                          data-active-word={isWordActive ? 'true' : undefined}
+                          data-testid={
+                            isWordActive
+                              ? 'active-timeline-word'
+                              : `timeline-word-${line.id}-${wIdx}`
+                          }
+                          aria-current={isWordActive ? 'true' : undefined}
+                          aria-label={`Jump to word ${w.word} in timeline at ${formatLineTime(w.start_time)}s`}
+                          className={`px-2 py-0.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                            isWordActive
+                              ? 'bg-cyan-500/30 text-cyan-200 font-bold ring-1 ring-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.4)] scale-105'
+                              : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800/80'
+                          }`}
+                          title={`Seek to "${w.word}" (${formatLineTime(w.start_time)}s)`}
+                        >
+                          {w.word}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Expanded Word-Level Timing Inputs (Feature 44: Word Steppers & Whole-Word Shift) */}
                 {isExpanded && (
                   <div className="mt-3 pt-3 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
-                    {line.words.map((w, wIdx) => (
-                      <div
-                        key={wIdx}
-                        className="flex flex-col gap-1.5 p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-xs"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span
-                            onClick={() => onSeek(w.start_time)}
-                            className="font-bold text-white cursor-pointer hover:text-cyan-400 truncate mr-2"
-                            title={`Click to seek to word: ${w.word}`}
-                          >
-                            {w.word}
-                          </span>
-                          {/* Word Shift Pill */}
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => nudgeWord(line.id, wIdx, -0.05)}
-                              aria-label={`Nudge word ${w.word} 0.05s earlier`}
-                              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                              title="Shift word 0.05s earlier"
+                    {line.words.map((w, wIdx) => {
+                      const isWordActive =
+                        activeWordLoc?.lineId === line.id && activeWordLoc?.wordIndex === wIdx;
+
+                      return (
+                        <div
+                          key={wIdx}
+                          data-active-word={isWordActive ? 'true' : undefined}
+                          className={`flex flex-col gap-1.5 p-2.5 rounded-lg border text-xs transition-all ${
+                            isWordActive
+                              ? 'bg-cyan-950/70 border-cyan-500 ring-1 ring-cyan-400/50 shadow-md'
+                              : 'bg-slate-900 border-slate-800'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span
+                              onClick={() => handleWordClick(w)}
+                              className={`font-bold cursor-pointer truncate mr-2 ${
+                                isWordActive ? 'text-cyan-300' : 'text-white hover:text-cyan-400'
+                              }`}
+                              title={`Click to seek to word: ${w.word}`}
                             >
-                              ◀
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => nudgeWord(line.id, wIdx, 0.05)}
-                              aria-label={`Nudge word ${w.word} 0.05s later`}
-                              className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                              title="Shift word 0.05s later"
-                            >
-                              ▶
-                            </button>
+                              {w.word}
+                            </span>
+                            {/* Word Shift Pill */}
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => nudgeWord(line.id, wIdx, -0.05)}
+                                aria-label={`Nudge word ${w.word} 0.05s earlier`}
+                                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                title="Shift word 0.05s earlier"
+                              >
+                                ◀
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => nudgeWord(line.id, wIdx, 0.05)}
+                                aria-label={`Nudge word ${w.word} 0.05s later`}
+                                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                title="Shift word 0.05s later"
+                              >
+                                ▶
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                            {/* Start Time Stepper */}
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  nudgeWordBoundary(line.id, wIdx, 'start_time', -0.05)
+                                }
+                                aria-label={`Nudge start of word ${w.word} 0.05s earlier`}
+                                className="w-5 h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                step="0.05"
+                                value={w.start_time}
+                                onChange={(e) =>
+                                  updateWordTiming(
+                                    line.id,
+                                    wIdx,
+                                    'start_time',
+                                    parseFloat(e.target.value)
+                                  )
+                                }
+                                aria-label={`Start time for word ${w.word}`}
+                                className="w-14 h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => nudgeWordBoundary(line.id, wIdx, 'start_time', 0.05)}
+                                aria-label={`Nudge start of word ${w.word} 0.05s later`}
+                                className="w-5 h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                              >
+                                +
+                              </button>
+                            </div>
+
+                            <span className="text-slate-500 font-bold">to</span>
+
+                            {/* End Time Stepper */}
+                            <div className="flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', -0.05)}
+                                aria-label={`Nudge end of word ${w.word} 0.05s earlier`}
+                                className="w-5 h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                step="0.05"
+                                value={w.end_time}
+                                onChange={(e) =>
+                                  updateWordTiming(
+                                    line.id,
+                                    wIdx,
+                                    'end_time',
+                                    parseFloat(e.target.value)
+                                  )
+                                }
+                                aria-label={`End time for word ${w.word}`}
+                                className="w-14 h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', 0.05)}
+                                aria-label={`Nudge end of word ${w.word} 0.05s later`}
+                                className="w-5 h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                              >
+                                +
+                              </button>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
-                          {/* Start Time Stepper */}
-                          <div className="flex items-center gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => nudgeWordBoundary(line.id, wIdx, 'start_time', -0.05)}
-                              aria-label={`Nudge start of word ${w.word} 0.05s earlier`}
-                              className="w-5 h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              step="0.05"
-                              value={w.start_time}
-                              onChange={(e) =>
-                                updateWordTiming(
-                                  line.id,
-                                  wIdx,
-                                  'start_time',
-                                  parseFloat(e.target.value)
-                                )
-                              }
-                              aria-label={`Start time for word ${w.word}`}
-                              className="w-14 h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => nudgeWordBoundary(line.id, wIdx, 'start_time', 0.05)}
-                              aria-label={`Nudge start of word ${w.word} 0.05s later`}
-                              className="w-5 h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                            >
-                              +
-                            </button>
-                          </div>
-
-                          <span className="text-slate-500 font-bold">to</span>
-
-                          {/* End Time Stepper */}
-                          <div className="flex items-center gap-0.5">
-                            <button
-                              type="button"
-                              onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', -0.05)}
-                              aria-label={`Nudge end of word ${w.word} 0.05s earlier`}
-                              className="w-5 h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                            >
-                              -
-                            </button>
-                            <input
-                              type="number"
-                              step="0.05"
-                              value={w.end_time}
-                              onChange={(e) =>
-                                updateWordTiming(
-                                  line.id,
-                                  wIdx,
-                                  'end_time',
-                                  parseFloat(e.target.value)
-                                )
-                              }
-                              aria-label={`End time for word ${w.word}`}
-                              className="w-14 h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', 0.05)}
-                              aria-label={`Nudge end of word ${w.word} 0.05s later`}
-                              className="w-5 h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

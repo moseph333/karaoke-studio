@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
 import { LyricLine } from '../types';
@@ -348,5 +348,197 @@ describe('LyricTimelineEditor', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(discardTriggerBtn).toHaveFocus();
+  });
+
+  // --- Feature 46: Word-by-Word Timeline Auto-Scroll & Manual Scroll Yielding ---
+
+  describe('Feature 46: Word-by-Word Timeline Auto-Scroll & Manual Scroll Handling', () => {
+    const multiScreenLines: LyricLine[] = Array.from({ length: 12 }, (_, i) => ({
+      id: i + 1,
+      text: `Line ${i + 1} with lyrics that extend down the transcript`,
+      start_time: i * 5,
+      end_time: i * 5 + 4,
+      words: [
+        { word: `WordA_${i + 1}`, start_time: i * 5, end_time: i * 5 + 1 },
+        { word: `WordB_${i + 1}`, start_time: i * 5 + 1, end_time: i * 5 + 2 },
+        { word: `WordC_${i + 1}`, start_time: i * 5 + 2, end_time: i * 5 + 3 },
+        { word: `WordD_${i + 1}`, start_time: i * 5 + 3, end_time: i * 5 + 4 },
+      ],
+    }));
+
+    const timelineProps = {
+      lines: multiScreenLines,
+      currentTime: 0.0,
+      duration: 120.0,
+      isPlaying: true,
+      onSeek: vi.fn(),
+      onSaveLines: vi.fn(),
+    };
+
+    it('highlights active word chips as currentTime advances through words in a line', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={0.5} />);
+
+      // At 0.5s: Line 1, Word 1 ('WordA_1') is active
+      const activeWord1 = screen.getByTestId('active-timeline-word');
+      expect(activeWord1).toHaveTextContent('WordA_1');
+      expect(activeWord1).toHaveAttribute('data-active-word', 'true');
+
+      // Advance to 1.5s: Line 1, Word 2 ('WordB_1') becomes active
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={1.5} />);
+      const activeWord2 = screen.getByTestId('active-timeline-word');
+      expect(activeWord2).toHaveTextContent('WordB_1');
+      expect(activeWord2).toHaveAttribute('data-active-word', 'true');
+    });
+
+    it('objectively increases container scrollTop as active word advances beyond initial visible area', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={0.5} />);
+
+      const container = screen.getByTestId('timeline-scroll-container');
+      const initialScroll = container.scrollTop;
+
+      // Advance playback to line 7 (currentTime = 31.0s)
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+
+      // Container scrollTop must increase to keep line 7 / word visible
+      expect(container.scrollTop).toBeGreaterThan(initialScroll);
+
+      const midScroll = container.scrollTop;
+
+      // Advance playback further to line 11 (currentTime = 51.0s)
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={51.0} />);
+
+      // Container scrollTop increases further downward
+      expect(container.scrollTop).toBeGreaterThan(midScroll);
+    });
+
+    it('keeps active highlighted word bounding box within the container viewport', () => {
+      // Mock container and element bounding boxes to simulate real browser layout
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={21.5} />);
+
+      const container = screen.getByTestId('timeline-scroll-container');
+      // Verify scrollTop is updated
+      expect(container.scrollTop).toBeGreaterThan(0);
+
+      // Active word is currently line 5 Word B
+      const activeWord = screen.getByTestId('active-timeline-word');
+      expect(activeWord).toHaveTextContent('WordB_5');
+      expect(activeWord).toBeInTheDocument();
+
+      // Advancing to line 8 (currentTime = 36.5s)
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={36.5} />);
+      const newActiveWord = screen.getByTestId('active-timeline-word');
+      expect(newActiveWord).toHaveTextContent('WordB_8');
+    });
+
+    it('yields auto-scrolling during manual user scroll events and prevents snap-back', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+
+      const container = screen.getByTestId('timeline-scroll-container');
+      const preManualScroll = container.scrollTop;
+      expect(preManualScroll).toBeGreaterThan(0);
+
+      // User manually scrolls the timeline back towards the top
+      act(() => {
+        container.scrollTop = 20;
+        fireEvent.scroll(container);
+      });
+
+      // Pause indicator should appear informing user that auto-scroll yielded
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // Word advances while manual scroll pause is active
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={32.0} />);
+
+      // Container MUST NOT snap back immediately during active manual scrolling
+      expect(container.scrollTop).toBe(20);
+    });
+
+    it('resumes auto-scrolling cleanly after manual scroll idle timeout expires', () => {
+      vi.useFakeTimers();
+      try {
+        const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+
+        const container = screen.getByTestId('timeline-scroll-container');
+        expect(container.scrollTop).toBeGreaterThan(0);
+
+        // User scrolls manually
+        act(() => {
+          container.scrollTop = 15;
+          fireEvent.scroll(container);
+        });
+
+        expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+        // Advance timers by idle timeout duration (2500ms)
+        act(() => {
+          vi.advanceTimersByTime(2600);
+        });
+
+        // Pause badge disappears
+        expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+
+        // On next word advance, auto-scroll resumes and restores active position
+        rerender(<LyricTimelineEditor {...timelineProps} currentTime={36.0} />);
+        expect(container.scrollTop).toBeGreaterThan(15);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('resumes auto-scrolling immediately when clicking resume button or seeking', async () => {
+      const user = userEvent.setup();
+      const onSeek = vi.fn();
+      const { rerender } = render(
+        <LyricTimelineEditor {...timelineProps} currentTime={31.0} onSeek={onSeek} />
+      );
+
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      // User scrolls manually
+      act(() => {
+        container.scrollTop = 0;
+        fireEvent.scroll(container);
+      });
+
+      const resumeBtn = screen.getByRole('button', { name: /Auto-scroll paused/i });
+      expect(resumeBtn).toBeInTheDocument();
+
+      // Clicking resume button clears pause and triggers auto-scroll to active word
+      await user.click(resumeBtn);
+      expect(screen.queryByRole('button', { name: /Auto-scroll paused/i })).not.toBeInTheDocument();
+      expect(container.scrollTop).toBeGreaterThan(0);
+
+      // Test seek resumption: manual scroll again
+      act(() => {
+        container.scrollTop = 0;
+        fireEvent.scroll(container);
+      });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // Seeking (e.g. by time jump > 1.5s) immediately resets pause
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={45.0} onSeek={onSeek} />);
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+      expect(container.scrollTop).toBeGreaterThan(0);
+    });
+
+    it('allows seeking playback directly by clicking any word chip in the timeline', async () => {
+      const user = userEvent.setup();
+      const onSeek = vi.fn();
+      render(<LyricTimelineEditor {...timelineProps} onSeek={onSeek} />);
+
+      const wordBtn = screen.getByRole('button', {
+        name: /Jump to word WordC_1 in timeline/i,
+      });
+      await user.click(wordBtn);
+
+      expect(onSeek).toHaveBeenCalledWith(2);
+    });
+
+    it('isolates timeline scrolling so window.scrollTo is never called', () => {
+      const windowScrollToSpy = vi.spyOn(window, 'scrollTo');
+      render(<LyricTimelineEditor {...timelineProps} currentTime={35.0} />);
+
+      expect(windowScrollToSpy).not.toHaveBeenCalled();
+    });
   });
 });
