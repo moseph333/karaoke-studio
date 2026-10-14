@@ -107,6 +107,9 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   const isProgrammaticScrollRef = useRef(false);
   const programmaticStartScrollTopRef = useRef<number>(0);
   const lastTargetScrollRef = useRef<number | null>(null);
+  const previousTargetScrollRef = useRef<number | null>(null);
+  const hasScrolledAwayRef = useRef(false);
+  const lastUserInteractionTimeRef = useRef(0);
   const userScrollTimeoutRef = useRef<number | null>(null);
   const programmaticScrollTimeoutRef = useRef<number | null>(null);
   const lastCurrentTimeRef = useRef(currentTime);
@@ -120,6 +123,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   }, []);
 
   const resumeAutoScroll = useCallback(() => {
+    hasScrolledAwayRef.current = false;
     clearUserScrollTimeout();
     setIsUserScrolling(false);
   }, [clearUserScrollTimeout]);
@@ -185,15 +189,24 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
       : null;
 
   // Resume auto-scroll when user seeks, scrubs, or restarts playback
-  // Backward jump (< -0.1s), forward jump (> 1.5s), or restart to 0.0s indicates seeking
   useEffect(() => {
     const timeDelta = currentTime - lastCurrentTimeRef.current;
     const isRestart = currentTime === 0 && lastCurrentTimeRef.current > 0;
+    const isActivelyInteracting = Date.now() - lastUserInteractionTimeRef.current < 400;
     lastCurrentTimeRef.current = currentTime;
-    if (timeDelta < -0.1 || timeDelta > 1.5 || isRestart) {
+
+    // If audio is paused, ANY change in currentTime is an explicit seek/scrub
+    const isPausedSeek = !isPlaying && Math.abs(timeDelta) > 0.05;
+
+    // During playback, backward jump (< -0.1s), large forward jump (> 2.5s), or restart to 0.0s indicates seeking.
+    // However, if the user is actively wheel/touch scrolling the container right now, do not interrupt them.
+    const isPlaybackSeek =
+      isPlaying && !isActivelyInteracting && (timeDelta < -0.1 || timeDelta > 2.5 || isRestart);
+
+    if (isRestart || isPausedSeek || isPlaybackSeek) {
       resumeAutoScroll();
     }
-  }, [currentTime, resumeAutoScroll]);
+  }, [currentTime, isPlaying, resumeAutoScroll]);
 
   // Resume auto-scroll when playback starts
   useEffect(() => {
@@ -215,6 +228,12 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   const calculateTargetScrollTop = useCallback((): number | null => {
     const container = containerRef.current;
     if (!container) return null;
+
+    // If before first line (instrumental intro) or at 0.0s, target is the top of the container (0)
+    const firstLineStartTime = editableLines[0]?.start_time ?? 0;
+    if (currentTime < firstLineStartTime || currentTime === 0) {
+      return 0;
+    }
 
     const activeWordEl = container.querySelector('[data-active-word="true"]') as HTMLElement | null;
     const activeLineEl = container.querySelector('[data-active-line="true"]') as HTMLElement | null;
@@ -249,6 +268,10 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
       }
       const elementHeight = targetEl.offsetHeight || 30;
       targetTop = top - containerHeight * 0.38 + elementHeight / 2;
+      const maxTargetTop = Math.max(0, top - 16);
+      if (targetTop > maxTargetTop) {
+        targetTop = maxTargetTop;
+      }
     } else {
       const lineIdx = activeLineIndex >= 0 ? activeLineIndex : 0;
       const estimatedLineHeight = 70;
@@ -261,14 +284,15 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
       0,
       hasRealLayout ? Math.min(maxScroll, Math.round(targetTop)) : Math.round(targetTop)
     );
-  }, [activeLineIndex]);
+  }, [activeLineIndex, currentTime, editableLines]);
 
   // Automatic timeline scrolling to keep active highlighted word comfortably in viewport
   useEffect(() => {
     if (isUserScrolling) return;
 
     const container = containerRef.current;
-    if (!container || !activeKey) return;
+    const isIntro = currentTime < (editableLines[0]?.start_time ?? 0) || currentTime === 0;
+    if (!container || (!activeKey && !isIntro)) return;
 
     const clampedTarget = calculateTargetScrollTop();
     if (clampedTarget === null) return;
@@ -284,6 +308,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
 
     if (Math.abs(container.scrollTop - clampedTarget) >= 2) {
       programmaticStartScrollTopRef.current = container.scrollTop;
+      previousTargetScrollRef.current = lastTargetScrollRef.current;
       lastTargetScrollRef.current = clampedTarget;
       isProgrammaticScrollRef.current = true;
       if (typeof container.scrollTo === 'function') {
@@ -323,6 +348,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
     }
   }, [
     activeKey,
+    currentTime,
     isUserScrolling,
     activeLineIndex,
     editableLines,
@@ -339,6 +365,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
     if (isProgrammaticScrollRef.current) {
       const target = lastTargetScrollRef.current;
       const start = programmaticStartScrollTopRef.current;
+      const prevTarget = previousTargetScrollRef.current;
 
       if (target !== null) {
         // Did we arrive at the programmatic destination?
@@ -351,9 +378,10 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
           return;
         }
 
-        // Is currentScrollTop moving within the programmatic trajectory between start and target?
-        const minBound = Math.min(start, target) - 4;
-        const maxBound = Math.max(start, target) + 4;
+        // Is currentScrollTop moving within the programmatic trajectory between start and target
+        // (including momentum from previous in-flight target if redirection occurred)?
+        const minBound = Math.min(start, target, prevTarget ?? start) - 8;
+        const maxBound = Math.max(start, target, prevTarget ?? start) + 8;
         const isMovingTowardsTarget = currentScrollTop >= minBound && currentScrollTop <= maxBound;
 
         if (isMovingTowardsTarget) {
@@ -373,13 +401,21 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
     }
 
     // Check if user manually returned to the active position:
-    // Uses the live active element position so returning to active position always works
-    // even if playback advanced while auto-scroll was paused.
+    // Only valid if the user had previously scrolled away (> 40px)
+    // AND is not in the middle of active input gestures (e.g. wheel / touch within 200ms)
     const activeTarget = calculateTargetScrollTop();
     const targetToCompare = activeTarget !== null ? activeTarget : lastTargetScrollRef.current;
-    if (targetToCompare !== null && Math.abs(currentScrollTop - targetToCompare) <= 40) {
-      resumeAutoScroll();
-      return;
+    if (targetToCompare !== null) {
+      const dist = Math.abs(currentScrollTop - targetToCompare);
+      if (dist > 40) {
+        hasScrolledAwayRef.current = true;
+      } else if (
+        hasScrolledAwayRef.current &&
+        Date.now() - lastUserInteractionTimeRef.current > 200
+      ) {
+        resumeAutoScroll();
+        return;
+      }
     }
 
     // User is manually scrolling away from active position
@@ -391,6 +427,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   };
 
   const handleUserScrollInteraction = () => {
+    lastUserInteractionTimeRef.current = Date.now();
     isProgrammaticScrollRef.current = false;
     if (programmaticScrollTimeoutRef.current) {
       clearTimeout(programmaticScrollTimeoutRef.current);

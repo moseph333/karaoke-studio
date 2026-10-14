@@ -838,5 +838,137 @@ describe('LyricTimelineEditor', () => {
       });
       expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
     });
+
+    it('pauses auto-scroll when user manually scrolls by small increments (< 40px) from active position without false-resuming', () => {
+      render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+      // Active target for line 7 is ~276. container is at 276.
+      expect(container.scrollTop).toBeGreaterThan(0);
+      const activePos = container.scrollTop;
+
+      // User scrolls by 15px (e.g. one mouse wheel tick to activePos + 15)
+      act(() => {
+        fireEvent.wheel(container);
+        container.scrollTop = activePos + 15;
+        fireEvent.scroll(container);
+      });
+
+      // Auto-scroll MUST pause and not immediately snap back or clear pause!
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+    });
+
+    it('resumes auto-scrolling when seeking forward by small steps (< 1.5s) while paused', () => {
+      const { rerender } = render(
+        <LyricTimelineEditor {...timelineProps} currentTime={31.0} isPlaying={false} />
+      );
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      // User scrolls manually away
+      act(() => {
+        container.scrollTop = 0;
+        fireEvent.scroll(container);
+      });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // User seeks forward by 0.5s while paused (from 31.0 to 31.5)
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={31.5} isPlaying={false} />);
+
+      // A seek while paused must immediately resume auto-scroll
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
+    it('resets scroll container to top (scrollTop = 0) on restart at 0.0s during instrumental intro', () => {
+      // Track with an intro starting at 5.0s
+      const introLines: LyricLine[] = [
+        {
+          id: 1,
+          text: 'First line after intro',
+          start_time: 5.0,
+          end_time: 8.0,
+          words: [{ word: 'First', start_time: 5.0, end_time: 6.0 }],
+        },
+      ];
+      const { rerender } = render(
+        <LyricTimelineEditor
+          lines={introLines}
+          currentTime={6.0}
+          duration={60}
+          onSeek={vi.fn()}
+          onSaveLines={vi.fn()}
+        />
+      );
+      const container = screen.getByTestId('timeline-scroll-container');
+      // Set scroll to some position > 0 (e.g. simulated scrolled down)
+      container.scrollTop = 200;
+
+      // Restart at 0.0s during intro
+      rerender(
+        <LyricTimelineEditor
+          lines={introLines}
+          currentTime={0.0}
+          duration={60}
+          onSeek={vi.fn()}
+          onSaveLines={vi.fn()}
+        />
+      );
+
+      // Container should scroll back to top (0) to show intro / top of timeline
+      expect(container.scrollTop).toBe(0);
+    });
+
+    it('does not pause auto-scroll when in-flight smooth scroll redirects or reverses with momentum', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={0.5} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+      (container as unknown as { __simulatingSmoothScroll?: boolean }).__simulatingSmoothScroll =
+        true;
+      container.scrollTo = vi.fn();
+
+      // Start scrolling forward to Line 7 (~276)
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+
+      // Scroll reaches 150 moving forward
+      act(() => {
+        container.scrollTop = 150;
+        fireEvent.scroll(container);
+      });
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+
+      // Now seek/jump backward to Line 2 (~0) while in transit
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={1.0} />);
+
+      // Forward inertia carries next frame slightly past 150 (e.g. 156) before reversing
+      act(() => {
+        container.scrollTop = 156;
+        fireEvent.scroll(container);
+      });
+
+      // Momentum during redirection must NOT be flagged as manual scroll
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
+    it('does not falsely resume auto-scroll during active manual scrolling when playback advances at 2.0x speed', () => {
+      const { rerender } = render(
+        <LyricTimelineEditor {...timelineProps} currentTime={10.0} isPlaying={true} />
+      );
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      // User scrolls manually away to top and keeps scrolling
+      act(() => {
+        fireEvent.wheel(container);
+        container.scrollTop = 0;
+        fireEvent.scroll(container);
+      });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // At 2.0x speed, a frame/interval of ~800ms advances currentTime by 1.6s (10.0s -> 11.6s)
+      // while user is actively scrolling
+      act(() => {
+        fireEvent.wheel(container);
+      });
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={11.6} isPlaying={true} />);
+
+      // Playback progression at 2.0x must NOT cancel the user's manual scroll pause!
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+    });
   });
 });
