@@ -95,7 +95,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
 
   return (
     <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-6">
-      <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-800">
         <div>
           <h3 className="text-base font-bold text-white flex items-center gap-2">
             <Palette className="w-4 h-4 text-cyan-400" />
@@ -107,11 +107,11 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
         </div>
 
         {/* Aspect Ratio Selector */}
-        <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <div className="w-full sm:w-auto flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
           <button
             type="button"
             onClick={() => onChangeAspectRatio('16:9')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex-1 sm:flex-initial min-h-[40px] justify-center flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
               aspectRatio === '16:9'
                 ? 'bg-cyan-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white'
@@ -123,7 +123,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
           <button
             type="button"
             onClick={() => onChangeAspectRatio('9:16')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`flex-1 sm:flex-initial min-h-[40px] justify-center flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
               aspectRatio === '9:16'
                 ? 'bg-cyan-500 text-slate-950 shadow-md'
                 : 'text-slate-400 hover:text-white'
@@ -142,7 +142,16 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
           return (
             <div
               key={t.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
               onClick={() => onSelectTheme(t)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelectTheme(t);
+                }
+              }}
               className={`p-4 rounded-xl border cursor-pointer transition-all relative overflow-hidden bg-gradient-to-b ${t.previewBg} ${
                 isSelected
                   ? 'border-cyan-400 ring-2 ring-cyan-500/20 shadow-lg shadow-cyan-500/10'
@@ -168,14 +177,14 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
       </div>
 
       {/* Custom Background Video/Image Option */}
-      <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
+      <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs bg-slate-950/40 p-3 rounded-xl border border-slate-800/80">
         <div>
           <span className="font-semibold text-white">Custom Video / Image Background: </span>
           <span className="text-slate-400">
             {customBgId ? `Active (${customBgId})` : 'Default: Dynamic animated blurred album art'}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
           <input
             type="file"
             ref={bgInputRef}
@@ -187,7 +196,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
             type="button"
             onClick={() => bgInputRef.current?.click()}
             disabled={uploadingBg}
-            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5"
+            className="w-full sm:w-auto min-h-[40px] justify-center px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5"
           >
             <Upload className="w-3.5 h-3.5" />
             {uploadingBg ? 'Uploading...' : 'Upload Video/Image Background'}
@@ -196,7 +205,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
             <button
               type="button"
               onClick={() => onCustomBgUploaded('')}
-              className="text-slate-500 hover:text-red-400 text-xs underline"
+              className="text-slate-500 hover:text-red-400 text-xs underline min-h-[36px] flex items-center"
             >
               Reset to Album Art
             </button>

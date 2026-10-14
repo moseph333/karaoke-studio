@@ -14,6 +14,7 @@ export interface LyricDisplayProps {
   themeSungColor?: string;
   themeUnsungColor?: string;
   className?: string;
+  aspectRatio?: string;
 }
 
 export const LyricDisplay: React.FC<LyricDisplayProps> = ({
@@ -27,6 +28,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   themeSungColor = '#facc15',
   themeUnsungColor = '#ffffff',
   className = '',
+  aspectRatio = '16:9',
 }) => {
   const effectiveTime = useInterpolatedTime({
     currentTime,
@@ -67,7 +69,9 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   return (
     <div
       data-testid="lyric-display-stage"
-      className={`relative aspect-video w-full rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex flex-col justify-end p-8 select-none ${className}`}
+      className={`relative ${
+        aspectRatio === '9:16' ? 'aspect-[9/16] max-w-xs mx-auto' : 'aspect-video w-full'
+      } rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex flex-col justify-end p-3 sm:p-6 md:p-8 select-none ${className}`}
     >
       {/* Dynamic blurred album background */}
       {albumArtUrl && (
@@ -80,7 +84,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none" />
 
       {/* Live Badge */}
-      <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700/60 backdrop-blur text-xs font-medium text-slate-300">
+      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 sm:gap-2 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full bg-slate-900/80 border border-slate-700/60 backdrop-blur text-[10px] sm:text-xs font-medium text-slate-300">
         <span
           className="w-2 h-2 rounded-full bg-red-500 motion-safe:animate-pulse"
           aria-hidden="true"
@@ -119,11 +123,11 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       {/* Lyrics Display */}
       <div className="relative z-10 space-y-4 text-center max-w-4xl mx-auto w-full">
         {/* Active Line (Line 1) */}
-        <div className="min-h-[5rem] flex items-center justify-center">
+        <div className="min-h-[3rem] sm:min-h-[4.5rem] flex items-center justify-center">
           {currentLine ? (
             <div
               data-testid="active-lyrics-line"
-              className="text-3xl md:text-5xl font-extrabold font-['Montserrat'] tracking-tight flex flex-wrap justify-center gap-x-3 gap-y-1"
+              className="text-xl sm:text-3xl md:text-5xl font-extrabold font-['Montserrat'] tracking-tight flex flex-wrap justify-center gap-x-2 sm:gap-x-3 gap-y-1"
             >
               {currentLine.words.map((w, idx) => {
                 const progress = getWordProgress(w);
@@ -159,7 +163,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
               })}
             </div>
           ) : (
-            <p className="text-xl text-slate-500 font-medium italic">
+            <p className="text-sm sm:text-base md:text-xl text-slate-500 font-medium italic">
               {effectiveTime < (lines[0]?.start_time || 0)
                 ? '♪ Instrumental Intro ♪'
                 : '♪ Instrumental Break ♪'}
@@ -168,13 +172,13 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         </div>
 
         {/* Upcoming Line (Line 2) */}
-        <div className="min-h-[2.5rem] flex items-center justify-center">
+        <div className="min-h-[1.5rem] sm:min-h-[2rem] flex items-center justify-center">
           {nextLine ? (
-            <p className="text-xl md:text-2xl font-bold font-['Montserrat'] text-slate-400/80 drop-shadow">
+            <p className="text-sm sm:text-lg md:text-xl font-bold font-['Montserrat'] text-slate-400/80 drop-shadow">
               {nextLine.text}
             </p>
           ) : (
-            <span className="text-sm text-slate-600">-- End of song --</span>
+            <span className="text-xs sm:text-sm text-slate-600">-- End of song --</span>
           )}
         </div>
       </div>

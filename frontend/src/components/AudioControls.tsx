@@ -456,7 +456,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
 
       {/* Player Header & Main Scrub Bar */}
       <div className="flex flex-col gap-2 mb-5">
-        <div className="flex items-center justify-between text-xs text-slate-400 font-mono">
+        <div className="flex items-center justify-between text-[11px] sm:text-xs text-slate-400 font-mono">
           <span>{formatTime(currentTime)}</span>
           <span className="text-slate-500">
             Master Mix (
@@ -478,7 +478,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           aria-valuemax={Math.round(duration) || 100}
           aria-valuenow={Math.round(currentTime)}
           aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
-          className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 hover:accent-cyan-300 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 hover:accent-cyan-300 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 touch-none py-2"
         />
       </div>
 
@@ -504,7 +504,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             type="button"
             onClick={() => onSeek(0)}
             aria-label="Restart track from beginning"
-            className="p-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className="min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
             title="Restart Track"
           >
             <RotateCcw className="w-4 h-4" aria-hidden="true" />
@@ -526,7 +526,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
                 aria-label={isMuted || volume === 0 ? 'Unmute audio' : 'Mute audio'}
                 aria-pressed={isMuted || volume === 0}
                 title={isMuted || volume === 0 ? 'Unmute audio (M)' : 'Mute audio (M)'}
-                className="p-1 -ml-1 rounded-md hover:bg-slate-800 text-slate-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="min-h-[44px] min-w-[44px] p-2.5 -ml-2 flex items-center justify-center rounded-md hover:bg-slate-800 text-slate-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
                 {isMuted || volume === 0 ? (
                   <VolumeX className="w-4 h-4 text-red-400" aria-hidden="true" />
@@ -591,7 +591,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               type="button"
               onClick={() => handleSemitoneChange(-1)}
               aria-label="Decrease pitch by one semitone"
-              className="flex-1 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-mono text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              className="flex-1 min-h-[44px] py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-mono text-sm font-bold flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
             >
               -1
             </button>
@@ -599,7 +599,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               type="button"
               onClick={() => setSemitones(0)}
               aria-label="Reset pitch to original key"
-              className="px-2.5 py-1.5 rounded-md bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              className="px-2.5 min-h-[44px] py-2.5 rounded-md bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 text-xs font-bold flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
               title="Reset Pitch"
             >
               Reset
@@ -608,7 +608,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               type="button"
               onClick={() => handleSemitoneChange(1)}
               aria-label="Increase pitch by one semitone"
-              className="flex-1 py-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-mono text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              className="flex-1 min-h-[44px] py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-mono text-sm font-bold flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
             >
               +1
             </button>
@@ -650,13 +650,13 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
 
       {/* Bottom Bar: Apply Mix & Custom Instrumental Upload */}
       <div className="mt-4 pt-4 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={handleApplyAudioMix}
             disabled={isApplyingMix}
             aria-label="Apply audio mix settings to playback"
-            className="px-3.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-medium transition-all flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className="w-full sm:w-auto min-h-[44px] justify-center px-3.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-medium transition-all flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           >
             {isApplyingMix ? (
               <span
@@ -674,7 +674,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           </span>
         </div>
 
-        <div>
+        <div className="w-full sm:w-auto">
           <input
             type="file"
             ref={fileInputRef}
@@ -688,7 +688,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadingInst}
             aria-label="Replace instrumental file"
-            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className="w-full sm:w-auto min-h-[44px] justify-center px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
           >
             <Upload className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
             {uploadingInst ? 'Uploading...' : 'Replace Instrumental File'}

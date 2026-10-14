@@ -25,6 +25,7 @@ export interface LyricTimelineEditorProps {
   themeSungColor?: string;
   themeUnsungColor?: string;
   onDirtyChange?: (isDirty: boolean) => void;
+  aspectRatio?: string;
 }
 
 interface ActiveWordLocation {
@@ -93,6 +94,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   themeSungColor = '#facc15',
   themeUnsungColor = '#ffffff',
   onDirtyChange,
+  aspectRatio = '16:9',
 }) => {
   const { toast } = useToast();
   const [editableLines, setEditableLines] = useState<LyricLine[]>(lines);
@@ -606,13 +608,14 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
         albumArtUrl={albumArtUrl}
         themeSungColor={themeSungColor}
         themeUnsungColor={themeUnsungColor}
+        aspectRatio={aspectRatio}
       />
 
       {/* 2. Visual Timeline & Precision Word Editor */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-5 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pb-3 border-b border-slate-800">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-cyan-400" />
                 Word-by-Word Timeline Editor
@@ -634,7 +637,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
             </p>
           </div>
           {hasUnsavedChanges && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
               <button
                 type="button"
                 onClick={() => setShowDiscardModal(true)}
@@ -699,7 +702,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
               handleUserScrollInteraction();
             }
           }}
-          className="max-h-[380px] overflow-y-auto space-y-2 pr-1 scroll-smooth focus:outline-none"
+          className="max-h-[300px] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 scroll-smooth focus:outline-none touch-pan-y overscroll-contain"
         >
           {editableLines.map((line) => {
             const isCurrentlyActive = currentLine?.id === line.id;
@@ -716,18 +719,18 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                     : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700'
                 }`}
               >
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
                   <button
                     type="button"
                     onClick={() => handleLineClick(line, isExpanded)}
                     aria-label={`Select line: ${line.text} (${formatLineTime(line.start_time)}s to ${formatLineTime(line.end_time)}s)`}
-                    className="flex items-center gap-3 cursor-pointer flex-1 overflow-hidden text-left bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded"
+                    className="flex items-center gap-2 sm:gap-3 cursor-pointer w-full sm:flex-1 overflow-hidden text-left bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded min-h-[40px]"
                   >
                     <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-1 rounded shrink-0">
                       {formatLineTime(line.start_time)}s - {formatLineTime(line.end_time)}s
                     </span>
                     <span
-                      className={`text-sm font-semibold truncate ${
+                      className={`text-sm font-semibold truncate min-w-0 flex-1 ${
                         isCurrentlyActive ? 'text-cyan-300 font-bold' : 'text-slate-200'
                       }`}
                     >
@@ -736,13 +739,13 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                   </button>
 
                   {/* Nudge & Expand Controls (Feature 44: Dual-Step Line Nudging) */}
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/40 mt-2 sm:mt-0 shrink-0">
                     {/* Coarse Earlier: -0.2s */}
                     <button
                       type="button"
                       onClick={() => nudgeLine(line.id, -0.2)}
                       aria-label={`Nudge line ${line.id} 0.2s earlier`}
-                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       title="Coarse nudge 0.2s earlier"
                     >
                       <Rewind className="w-3.5 h-3.5" aria-hidden="true" />
@@ -753,7 +756,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                       type="button"
                       onClick={() => nudgeLine(line.id, -0.05)}
                       aria-label={`Nudge line ${line.id} 0.05s earlier`}
-                      className="px-1.5 py-1 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-[10px] font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       title="Fine nudge 0.05s earlier"
                     >
                       -0.05s
@@ -764,7 +767,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                       type="button"
                       onClick={() => nudgeLine(line.id, 0.05)}
                       aria-label={`Nudge line ${line.id} 0.05s later`}
-                      className="px-1.5 py-1 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-[10px] font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       title="Fine nudge 0.05s later"
                     >
                       +0.05s
@@ -775,7 +778,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                       type="button"
                       onClick={() => nudgeLine(line.id, 0.2)}
                       aria-label={`Nudge line ${line.id} 0.2s later`}
-                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       title="Coarse nudge 0.2s later"
                     >
                       <FastForward className="w-3.5 h-3.5" aria-hidden="true" />
@@ -791,7 +794,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                           : `Expand word timings for line ${line.id}`
                       }
                       aria-expanded={isExpanded}
-                      className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-400 ml-1"
+                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400 ml-1"
                       title="Expand word timings"
                     >
                       <ChevronRight
@@ -828,7 +831,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                           }
                           aria-current={isWordActive ? 'true' : undefined}
                           aria-label={`Jump to word ${w.word} in timeline at ${formatLineTime(w.start_time)}s`}
-                          className={`px-2 py-0.5 rounded-md text-xs font-medium transition-all cursor-pointer ${
+                          className={`min-h-[34px] px-2.5 py-1 text-xs inline-flex items-center rounded-md font-medium transition-all cursor-pointer ${
                             isWordActive
                               ? 'bg-cyan-500/30 text-cyan-200 font-bold ring-1 ring-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.4)] scale-105'
                               : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800/80'
@@ -875,7 +878,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                                 type="button"
                                 onClick={() => nudgeWord(line.id, wIdx, -0.05)}
                                 aria-label={`Nudge word ${w.word} 0.05s earlier`}
-                                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                className="min-h-[36px] min-w-[36px] p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
                                 title="Shift word 0.05s earlier"
                               >
                                 ◀
@@ -884,7 +887,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                                 type="button"
                                 onClick={() => nudgeWord(line.id, wIdx, 0.05)}
                                 aria-label={`Nudge word ${w.word} 0.05s later`}
-                                className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                className="min-h-[36px] min-w-[36px] p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
                                 title="Shift word 0.05s later"
                               >
                                 ▶
@@ -901,7 +904,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                                   nudgeWordBoundary(line.id, wIdx, 'start_time', -0.05)
                                 }
                                 aria-label={`Nudge start of word ${w.word} 0.05s earlier`}
-                                className="w-5 h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                className="w-8 h-8 sm:w-6 sm:h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
                               >
                                 -
                               </button>
@@ -918,13 +921,13 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                                   )
                                 }
                                 aria-label={`Start time for word ${w.word}`}
-                                className="w-14 h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                className="w-16 h-8 sm:w-14 sm:h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
                               />
                               <button
                                 type="button"
                                 onClick={() => nudgeWordBoundary(line.id, wIdx, 'start_time', 0.05)}
                                 aria-label={`Nudge start of word ${w.word} 0.05s later`}
-                                className="w-5 h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                className="w-8 h-8 sm:w-6 sm:h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
                               >
                                 +
                               </button>
@@ -938,7 +941,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                                 type="button"
                                 onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', -0.05)}
                                 aria-label={`Nudge end of word ${w.word} 0.05s earlier`}
-                                className="w-5 h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                className="w-8 h-8 sm:w-6 sm:h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
                               >
                                 -
                               </button>
@@ -955,13 +958,13 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                                   )
                                 }
                                 aria-label={`End time for word ${w.word}`}
-                                className="w-14 h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-[11px] focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                className="w-16 h-8 sm:w-14 sm:h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
                               />
                               <button
                                 type="button"
                                 onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', 0.05)}
                                 aria-label={`Nudge end of word ${w.word} 0.05s later`}
-                                className="w-5 h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] flex items-center justify-center font-bold focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                className="w-8 h-8 sm:w-6 sm:h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
                               >
                                 +
                               </button>
@@ -1002,18 +1005,18 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
               You have made modifications to lyric timing boundaries that have not been saved to the
               server. Discarding will revert all line and word timings back to the last saved state.
             </p>
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setShowDiscardModal(false)}
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500"
+                className="w-full sm:w-auto min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 flex items-center justify-center"
               >
                 Keep Editing
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDiscard}
-                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 focus:outline-none focus:ring-2 focus:ring-rose-400 flex items-center justify-center"
               >
                 Discard Changes
               </button>
