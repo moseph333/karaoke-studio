@@ -540,5 +540,157 @@ describe('LyricTimelineEditor', () => {
 
       expect(windowScrollToSpy).not.toHaveBeenCalled();
     });
+
+    it('does not pause auto-scroll during intermediate programmatic smooth scroll frames', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={0.5} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+      (container as unknown as { __simulatingSmoothScroll?: boolean }).__simulatingSmoothScroll =
+        true;
+      container.scrollTo = vi.fn();
+
+      // Advance playback to line 7 to initiate smooth scroll from 0 towards ~276
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+
+      // Simulate intermediate animation frame arriving at scrollTop = 80 (between 0 and 276)
+      act(() => {
+        container.scrollTop = 80;
+        fireEvent.scroll(container);
+      });
+
+      // Intermediate frame within trajectory must NOT be flagged as manual scroll
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
+    it('resumes auto-scrolling immediately when user manually scrolls back to the active position', () => {
+      render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      // User scrolls away to top
+      act(() => {
+        container.scrollTop = 0;
+        fireEvent.scroll(container);
+      });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // User manually scrolls back towards the active position (~276)
+      act(() => {
+        container.scrollTop = 270;
+        fireEvent.scroll(container);
+      });
+
+      // Auto-scroll immediately unpauses without waiting for the 2.5s idle timeout
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
+    it('resumes auto-scrolling immediately on backward seek', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      // User scrolls away manually
+      act(() => {
+        container.scrollTop = 0;
+        fireEvent.scroll(container);
+      });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // Backward seek: jump from 31.0s to 30.2s (delta < -0.1s)
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={30.2} />);
+
+      // Backward seek immediately resumes auto-scroll
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
+    it('resumes auto-scrolling immediately when user scrolls back to the advanced active position', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={30.0} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      // User scrolls manually away to top
+      act(() => {
+        container.scrollTop = 500;
+        fireEvent.scroll(container);
+      });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // Playback advances naturally within line (delta = 0.5s, below seek threshold) while user was paused
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={30.5} />);
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // Scrolling to old position (Line 1, scrollTop = 0) does NOT resume because active position is at Line 7
+      act(() => {
+        container.scrollTop = 0;
+        fireEvent.scroll(container);
+      });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // User scrolls to the live active position (~270, near target 276)
+      act(() => {
+        container.scrollTop = 270;
+        fireEvent.scroll(container);
+      });
+
+      // Auto-scroll resumes immediately for the live active position
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
+    it('yields auto-scrolling on keyboard scroll navigation and touch move events, but leaves space for play/pause', () => {
+      render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      // Space key must NOT trigger user scroll interaction (reserved for global play/pause)
+      fireEvent.keyDown(container, { key: ' ' });
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+
+      // Test keyboard navigation (ArrowDown)
+      fireEvent.keyDown(container, { key: 'ArrowDown' });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // Resume
+      fireEvent.click(screen.getByRole('button', { name: /Auto-scroll paused/i }));
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+
+      // Test touch move gesture
+      fireEvent.touchMove(container);
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+    });
+
+    it('clears pending timeout when clicking resume button so no delayed snap occurs', () => {
+      vi.useFakeTimers();
+      try {
+        render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+        const container = screen.getByTestId('timeline-scroll-container');
+
+        // User scrolls manually
+        act(() => {
+          container.scrollTop = 0;
+          fireEvent.scroll(container);
+        });
+        expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+        // 500ms in, user clicks resume button
+        act(() => {
+          vi.advanceTimersByTime(500);
+        });
+        const resumeBtn = screen.getByRole('button', { name: /Auto-scroll paused/i });
+        fireEvent.click(resumeBtn);
+        expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+
+        // User scrolls manually again 200ms later
+        act(() => {
+          container.scrollTop = 10;
+          fireEvent.scroll(container);
+        });
+        expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+        // Advance by remaining time of the FIRST timer (2000ms from the original 2500ms)
+        act(() => {
+          vi.advanceTimersByTime(1800);
+        });
+
+        // The stale first timer must NOT have cleared the active user scroll state!
+        expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });
