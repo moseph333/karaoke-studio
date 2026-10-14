@@ -111,14 +111,14 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const displayProjects = activeTab === 'my' ? myProjects : libraryProjects;
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-4 space-y-8">
+    <div className="max-w-3xl mx-auto py-2 sm:py-8 px-0 sm:px-4 space-y-6 sm:space-y-8">
       {/* Header */}
       <div className="text-center">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-800/40 text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-4">
           <Sparkles className="w-3.5 h-3.5" />
           AI-Powered Karaoke Studio
         </div>
-        <h1 className="text-4xl font-extrabold text-white tracking-tight sm:text-5xl font-['Montserrat']">
+        <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight font-['Montserrat']">
           Turn Any YouTube Song Into Karaoke
         </h1>
         <p className="mt-3 text-sm text-slate-400 max-w-xl mx-auto">
@@ -130,21 +130,24 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
       {/* Search Input */}
       <form onSubmit={handleSearch} className="relative" role="search">
         <div className="relative flex items-center">
-          <Search className="absolute left-4 w-5 h-5 text-slate-400" aria-hidden="true" />
+          <Search
+            className="absolute left-3.5 sm:left-4 w-4 h-4 sm:w-5 sm:h-5 text-slate-400"
+            aria-hidden="true"
+          />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Paste YouTube or YouTube Music URL or search song title"
             placeholder="Paste YouTube / YouTube Music URL or search song title..."
-            className="w-full pl-12 pr-32 py-4 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-base shadow-xl"
+            className="w-full pl-10 sm:pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm sm:text-base shadow-xl min-h-[48px]"
             disabled={isLoading || searching}
           />
           <button
             type="submit"
             disabled={isLoading || searching || !query.trim()}
             aria-label={searching ? 'Searching YouTube...' : 'Search YouTube or load track'}
-            className="absolute right-2.5 px-5 py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-sm transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="absolute right-1.5 sm:right-2.5 min-h-[36px] sm:min-h-[44px] px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-xs sm:text-sm transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2"
           >
             {searching ? (
               <span
@@ -153,7 +156,10 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 aria-label="Loading"
               ></span>
             ) : (
-              'Search / Go'
+              <>
+                <span className="sm:hidden">Go</span>
+                <span className="hidden sm:inline">Search / Go</span>
+              </>
             )}
           </button>
         </div>
@@ -209,34 +215,36 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
             <div
               key={track.id}
               onClick={() => onSelectTrack(track.url, customLyrics.trim() || undefined)}
-              className="group flex items-center justify-between p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-cyan-500/50 hover:bg-slate-800/60 transition-all cursor-pointer shadow-md"
+              className="group flex items-center justify-between p-2.5 sm:p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-cyan-500/50 hover:bg-slate-800/60 transition-all cursor-pointer shadow-md gap-2"
             >
-              <div className="flex items-center gap-3.5 overflow-hidden">
+              <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
                 {track.thumbnail ? (
                   <img
                     src={track.thumbnail}
                     alt={track.title}
-                    className="w-16 h-12 object-cover rounded-lg shadow"
+                    className="w-12 h-10 sm:w-16 sm:h-12 object-cover rounded-lg shrink-0 shadow"
                   />
                 ) : (
-                  <div className="w-16 h-12 rounded-lg bg-slate-800 flex items-center justify-center">
-                    <Music className="w-5 h-5 text-slate-500" />
+                  <div className="w-12 h-10 sm:w-16 sm:h-12 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                    <Music className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
                   </div>
                 )}
-                <div className="truncate">
-                  <h4 className="text-sm font-semibold text-white group-hover:text-cyan-300 truncate transition-colors">
+                <div className="truncate flex-1 min-w-0">
+                  <h4 className="text-xs sm:text-sm font-semibold text-white group-hover:text-cyan-300 truncate transition-colors">
                     {track.title}
                   </h4>
-                  <p className="text-xs text-slate-400 truncate mt-0.5">
+                  <p className="text-[11px] sm:text-xs text-slate-400 truncate mt-0.5">
                     {track.artist} {track.duration ? `• ${formatDuration(track.duration)}` : ''}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
-                className="shrink-0 ml-4 px-3.5 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500 group-hover:text-slate-950 font-medium text-xs transition-all border border-cyan-500/30"
+                aria-label="Create Karaoke"
+                className="shrink-0 ml-2 sm:ml-4 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500 group-hover:text-slate-950 font-medium text-[11px] sm:text-xs transition-all border border-cyan-500/30 min-h-[36px] flex items-center justify-center"
               >
-                Create Karaoke
+                <span className="sm:hidden">Create</span>
+                <span className="hidden sm:inline">Create Karaoke</span>
               </button>
             </div>
           ))}
@@ -245,14 +253,19 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
 
       {/* Studio Library / Recent Songs */}
       <div className="pt-4 border-t border-slate-800/80 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2" role="tablist" aria-label="Song library filters">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div
+            className="flex items-center gap-1.5 sm:gap-2 flex-wrap"
+            role="tablist"
+            aria-label="Song library filters"
+          >
             <button
               type="button"
               role="tab"
               aria-selected={activeTab === 'my'}
+              aria-label={`My Songs (${myProjects.length})`}
               onClick={() => setActiveTab('my')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[36px] ${
                 activeTab === 'my'
                   ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                   : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent'
@@ -265,21 +278,23 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
               type="button"
               role="tab"
               aria-selected={activeTab === 'community'}
+              aria-label={`Community Library (${libraryProjects.length})`}
               onClick={() => setActiveTab('community')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[36px] ${
                 activeTab === 'community'
                   ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                   : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent'
               }`}
             >
               <Globe className="w-3.5 h-3.5" aria-hidden="true" />
-              Community Library ({libraryProjects.length})
+              <span className="hidden xs:inline sm:inline">Community </span>Library (
+              {libraryProjects.length})
             </button>
           </div>
           <button
             type="button"
             onClick={fetchLibrary}
-            className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors"
+            className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors py-1 px-2 min-h-[36px] flex items-center"
           >
             Refresh
           </button>
@@ -303,17 +318,17 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 <div
                   key={p.id}
                   onClick={() => onOpenProject && onOpenProject(p)}
-                  className="group flex items-center gap-3 p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 hover:border-cyan-500/50 hover:bg-slate-800/50 transition-all cursor-pointer shadow"
+                  className="group flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 hover:border-cyan-500/50 hover:bg-slate-800/50 transition-all cursor-pointer shadow min-h-[64px]"
                 >
                   {p.thumbnail_url ? (
                     <img
                       src={p.thumbnail_url}
                       alt={p.title || 'Track'}
-                      className="w-14 h-14 object-cover rounded-lg shrink-0 shadow"
+                      className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg shrink-0 shadow"
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                      <Music className="w-5 h-5 text-slate-500" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
+                      <Music className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
                     </div>
                   )}
 
@@ -347,7 +362,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                     </div>
                   </div>
 
-                  <div className="shrink-0 p-2 rounded-lg bg-slate-800/60 text-slate-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors">
+                  <div className="shrink-0 p-2 rounded-lg bg-slate-800/60 text-slate-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center">
                     <Play className="w-3.5 h-3.5 fill-current" />
                   </div>
                 </div>
