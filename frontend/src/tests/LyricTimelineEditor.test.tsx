@@ -692,5 +692,151 @@ describe('LyricTimelineEditor', () => {
         vi.useRealTimers();
       }
     });
+
+    it('does not pause auto-scroll when clicking fine or coarse line nudge buttons during active playback', () => {
+      render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+      const fineNudgeBtn = screen.getByRole('button', { name: /nudge line 7 0.05s earlier/i });
+
+      // Click the nudge button (fires pointerdown followed by click)
+      fireEvent.pointerDown(fineNudgeBtn);
+      fireEvent.click(fineNudgeBtn);
+
+      // Clicking an editor action button must NOT be classified as a manual scroll interaction
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
+    it('does not pause auto-scroll when using arrow keys inside timing input fields', () => {
+      render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+
+      // Expand line 7 word timings
+      const expandBtn = screen.getByRole('button', { name: /expand word timings for line 7/i });
+      fireEvent.click(expandBtn);
+
+      // Locate a word timing input inside the expanded grid
+      const timingInput = screen.getByLabelText(/start time for word worda_7/i);
+      expect(timingInput).toBeInTheDocument();
+
+      // Press ArrowUp inside the number input to increment value
+      fireEvent.keyDown(timingInput, { key: 'ArrowUp' });
+      fireEvent.keyDown(timingInput, { key: 'ArrowDown' });
+      fireEvent.keyDown(timingInput, { key: 'Home' });
+
+      // Typing/navigating inside an input must NOT pause timeline auto-scrolling
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
+    it('resumes auto-scrolling immediately when playback restarts at 0.0s', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      // User scrolls manually
+      act(() => {
+        container.scrollTop = 0;
+        fireEvent.scroll(container);
+      });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // Audio restarts at beginning (currentTime resets to 0.0)
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={0.0} />);
+
+      // Restart immediately clears manual scroll pause
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
+    it('avoids redundant scrollTo calls when active word advances along the same line/row with identical target', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={30.0} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+      (container as unknown as { __simulatingSmoothScroll?: boolean }).__simulatingSmoothScroll =
+        true;
+      const scrollToSpy = vi.fn();
+      container.scrollTo = scrollToSpy;
+
+      // First word of Line 7 activates (currentTime = 30.5s -> line 7 word 1)
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={30.5} />);
+      expect(scrollToSpy).toHaveBeenCalledTimes(1);
+
+      // Second word of Line 7 activates (currentTime = 31.5s -> line 7 word 2)
+      // Because it shares the same line/target, in-flight smooth scroll must NOT restart
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={31.5} />);
+      expect(scrollToSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('pauses auto-scroll immediately when user clicks container native scrollbar', () => {
+      render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      // Mock bounding client rect: left = 0, width = 400, clientWidth = 385 (15px scrollbar on right)
+      vi.spyOn(container, 'getBoundingClientRect').mockReturnValue({
+        left: 0,
+        top: 0,
+        right: 400,
+        bottom: 380,
+        width: 400,
+        height: 380,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      });
+      Object.defineProperty(container, 'clientWidth', { value: 385, configurable: true });
+      Object.defineProperty(container, 'clientHeight', { value: 380, configurable: true });
+
+      // Click on the scrollbar track at clientX = 390 (>= left + clientWidth = 385)
+      fireEvent.pointerDown(container, { clientX: 390, clientY: 100 });
+
+      // Native scrollbar interaction must immediately trigger auto-scroll yielding
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+    });
+
+    it('clamps targetScrollTop to preserve top breathing room when active element is tall', () => {
+      render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+
+      vi.spyOn(container, 'getBoundingClientRect').mockReturnValue({
+        left: 0,
+        top: 0,
+        right: 400,
+        bottom: 380,
+        width: 400,
+        height: 380,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      });
+      Object.defineProperty(container, 'clientHeight', { value: 380, configurable: true });
+      Object.defineProperty(container, 'scrollHeight', { value: 2000, configurable: true });
+
+      const activeWord = screen.getByTestId('active-timeline-word');
+      // Mock active word as a tall multi-line block (e.g. 500px tall, positioned at top = 300 when scrollTop = 0)
+      vi.spyOn(activeWord, 'getBoundingClientRect').mockImplementation(() => ({
+        left: 10,
+        top: 300 - container.scrollTop,
+        right: 390,
+        bottom: 800 - container.scrollTop,
+        width: 380,
+        height: 500,
+        x: 10,
+        y: 300 - container.scrollTop,
+        toJSON: () => ({}),
+      }));
+
+      // Target top must clamp so element top has at least 16px of clearance (targetTop <= relativeElementTop - 16)
+      // relativeElementTop = 300 - 0 + 0 = 300; maxTargetTop = 300 - 16 = 284
+      // Centering formula without clamp would be 300 - (380*0.38) + 250 = 405.6 -> top would be -105.6px (clipped!)
+      // With our clamp, targetTop <= 284, so element top is >= 16px and never clipped.
+
+      // First manually scroll away to 0 (pausing auto-scroll)
+      act(() => {
+        container.scrollTop = 0;
+        fireEvent.scroll(container);
+      });
+      expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+
+      // Returning to the clamped target position (284) unpauses cleanly
+      act(() => {
+        container.scrollTop = 284;
+        fireEvent.scroll(container);
+      });
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
   });
 });
