@@ -16,6 +16,7 @@ Local-first audio workstation for stem separation, acoustic word alignment, time
 - **Themes and styling**: four presets (Modern Gold, Cyber Cyan, Neon Sunset, Classic KTV), custom video/image backgrounds, auto-blurred album art, and 16:9 widescreen or 9:16 vertical outputs.
 - **Export kit**: 1080p60 MP4 with 320 kbps AAC audio, plus formatted titles, description timestamps, lyric sheets, and tags ready for YouTube upload.
 - **Resilience & accessibility**: comprehensive error boundaries with audio auto-recovery, in-app toast alerts, and accessible focus traps for modal dialogs.
+- **Responsive mobile & tablet studio**: adaptive layouts down to 320px–375px viewports with touch-sized (`>=44px`) transport/mixing controls, 2-row mobile lyric timeline nudging, and live 16:9 widescreen / 9:16 vertical Shorts previews.
 - **Access control**: optional password protection for hosted sessions and LAN parties.
 
 ## Keyboard Shortcuts & Studio Controls
@@ -118,7 +119,7 @@ Frontend quality tools run from the `frontend/` directory:
 ```bash
 cd frontend
 
-# Run Vitest unit and component tests (260+ tests across 17 test suites)
+# Run Vitest unit, component, and responsive layout tests (440+ tests across 24 test suites)
 npm test
 
 # Run Vitest in interactive watch mode
