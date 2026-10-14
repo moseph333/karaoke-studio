@@ -102,3 +102,20 @@ if (!window.requestAnimationFrame) {
   window.requestAnimationFrame = vi.fn((cb) => setTimeout(cb, 16) as unknown as number);
   window.cancelAnimationFrame = vi.fn((id) => clearTimeout(id));
 }
+
+// Mock window.matchMedia
+if (!window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}

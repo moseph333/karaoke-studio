@@ -81,25 +81,28 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       aria-labelledby="export-modal-title"
       aria-describedby="export-modal-desc"
     >
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 relative">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-4 sm:p-6 relative">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close export dialog"
-          className="absolute top-5 right-5 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 flex items-center justify-center"
         >
           <X className="w-5 h-5" aria-hidden="true" />
         </button>
 
-        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800">
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800 pr-12">
+          <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shrink-0">
             <Film className="w-6 h-6" aria-hidden="true" />
           </div>
-          <div>
-            <h2 id="export-modal-title" className="text-xl font-bold text-white">
+          <div className="min-w-0 flex-1">
+            <h2
+              id="export-modal-title"
+              className="text-lg sm:text-xl font-bold text-white truncate sm:whitespace-normal"
+            >
               Export & YouTube Package
             </h2>
-            <p id="export-modal-desc" className="text-xs text-slate-400">
+            <p id="export-modal-desc" className="text-xs text-slate-400 truncate">
               {project.title} • {project.artist}
             </p>
           </div>
@@ -143,12 +146,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   style={{ width: `${Math.max(5, project.render_progress || 5)}%` }}
                 ></div>
               </div>
-              <div className="flex items-center justify-between text-xs text-slate-400 px-1 font-mono">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400 px-1 font-mono">
                 <span className="flex items-center gap-1.5 text-cyan-400">
                   <Activity className="w-3.5 h-3.5" />
                   {project.render_progress || 5}% Complete
                 </span>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                   <span className="flex items-center gap-1">
                     <Clock className="w-3 h-3 text-slate-500" />
                     Elapsed: {formatTimer(project.render_elapsed_seconds)}
@@ -168,7 +171,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <button
                 type="button"
                 onClick={onCancelRender}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5"
+                className="px-4 py-2 min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5"
               >
                 <XCircle className="w-3.5 h-3.5 text-red-400" />
                 Cancel Render
@@ -203,18 +206,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             )}
 
             {/* Download Buttons */}
-            <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-950/70 border border-slate-800 rounded-2xl">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-slate-950/70 border border-slate-800 rounded-2xl">
               <div>
                 <h4 className="text-sm font-bold text-white">Your Video Is Ready!</h4>
                 <p className="text-xs text-slate-400">
                   High-bitrate 1080p60 MP4 with AAC 320kbps stereo audio.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
                 <a
                   href={project.video_url}
                   download={`${project.artist || 'Karaoke'} - ${project.title || 'Track'}.mp4`}
-                  className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                  className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 min-h-[44px] w-full sm:w-auto"
                 >
                   <Download className="w-4 h-4" />
                   Download Video (.mp4)
@@ -223,7 +226,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   href="https://studio.youtube.com"
                   target="_blank"
                   rel="noreferrer"
-                  className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium text-sm transition-all flex items-center gap-1.5 shadow-md shadow-red-600/20"
+                  className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium text-sm transition-all flex items-center justify-center gap-1.5 shadow-md shadow-red-600/20 min-h-[44px] w-full sm:w-auto"
                 >
                   <Youtube className="w-4 h-4" />
                   Open YouTube Studio
@@ -249,7 +252,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <button
                       type="button"
                       onClick={() => copyToClipboard(yt.title, 'title')}
-                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium min-h-[36px] sm:min-h-[32px] px-2 py-1 rounded-lg hover:bg-slate-800/50 transition-colors"
                     >
                       {copiedField === 'title' ? (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -271,7 +274,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <button
                       type="button"
                       onClick={() => copyToClipboard(yt.description, 'description')}
-                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium min-h-[36px] sm:min-h-[32px] px-2 py-1 rounded-lg hover:bg-slate-800/50 transition-colors"
                     >
                       {copiedField === 'description' ? (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -281,7 +284,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                       {copiedField === 'description' ? 'Copied!' : 'Copy Description'}
                     </button>
                   </div>
-                  <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap max-h-36 overflow-y-auto bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+                  <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap break-words overflow-x-auto max-h-36 overflow-y-auto bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
                     {yt.description}
                   </pre>
                 </div>
@@ -295,7 +298,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <button
                       type="button"
                       onClick={() => copyToClipboard(yt.tags.join(', '), 'tags')}
-                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium"
+                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium min-h-[36px] sm:min-h-[32px] px-2 py-1 rounded-lg hover:bg-slate-800/50 transition-colors"
                     >
                       {copiedField === 'tags' ? (
                         <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -305,7 +308,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                       {copiedField === 'tags' ? 'Copied!' : 'Copy Tags'}
                     </button>
                   </div>
-                  <p className="text-xs text-slate-300 font-mono">{yt.tags.join(', ')}</p>
+                  <p className="text-xs text-slate-300 font-mono break-words">
+                    {yt.tags.join(', ')}
+                  </p>
                 </div>
               </div>
             )}
