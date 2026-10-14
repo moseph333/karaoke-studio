@@ -184,12 +184,13 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
       ? `line-${editableLines[activeLineIndex].id}`
       : null;
 
-  // Resume auto-scroll when user seeks or scrubs
-  // Backward jump (< -0.1s) or forward jump (> 1.5s) indicates seeking/scrubbing
+  // Resume auto-scroll when user seeks, scrubs, or restarts playback
+  // Backward jump (< -0.1s), forward jump (> 1.5s), or restart to 0.0s indicates seeking
   useEffect(() => {
     const timeDelta = currentTime - lastCurrentTimeRef.current;
+    const isRestart = currentTime === 0 && lastCurrentTimeRef.current > 0;
     lastCurrentTimeRef.current = currentTime;
-    if (timeDelta < -0.1 || timeDelta > 1.5) {
+    if (timeDelta < -0.1 || timeDelta > 1.5 || isRestart) {
       resumeAutoScroll();
     }
   }, [currentTime, resumeAutoScroll]);
@@ -233,6 +234,12 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
       const relativeElementTop = targetRect.top - containerRect.top + containerScrollTop;
       const elementHeight = targetRect.height;
       targetTop = relativeElementTop - containerHeight * 0.38 + elementHeight / 2;
+      // If target element is tall (e.g. line card or multi-line lyric), ensure its top
+      // is never pushed above the visible viewport (at least 16px of top padding)
+      const maxTargetTop = Math.max(0, relativeElementTop - 16);
+      if (targetTop > maxTargetTop) {
+        targetTop = maxTargetTop;
+      }
     } else if (targetEl.offsetTop > 0) {
       let top = 0;
       let curr: HTMLElement | null = targetEl;
@@ -265,6 +272,15 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
 
     const clampedTarget = calculateTargetScrollTop();
     if (clampedTarget === null) return;
+
+    // If already smoothly scrolling towards this exact target, allow in-flight animation to complete cleanly
+    if (
+      isProgrammaticScrollRef.current &&
+      lastTargetScrollRef.current !== null &&
+      Math.abs(lastTargetScrollRef.current - clampedTarget) <= 2
+    ) {
+      return;
+    }
 
     if (Math.abs(container.scrollTop - clampedTarget) >= 2) {
       programmaticStartScrollTopRef.current = container.scrollTop;
@@ -303,7 +319,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
       }
       programmaticScrollTimeoutRef.current = window.setTimeout(() => {
         isProgrammaticScrollRef.current = false;
-      }, 500);
+      }, 1000);
     }
   }, [
     activeKey,
@@ -335,10 +351,10 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
           return;
         }
 
-        // Is currentScrollTop moving in the programmatic direction between start and target?
-        const isMovingTowardsTarget =
-          (target >= start && currentScrollTop >= start - 2 && currentScrollTop <= target + 2) ||
-          (target <= start && currentScrollTop <= start + 2 && currentScrollTop >= target - 2);
+        // Is currentScrollTop moving within the programmatic trajectory between start and target?
+        const minBound = Math.min(start, target) - 4;
+        const maxBound = Math.max(start, target) + 4;
+        const isMovingTowardsTarget = currentScrollTop >= minBound && currentScrollTop <= maxBound;
 
         if (isMovingTowardsTarget) {
           // This is an intermediate animation frame of the smooth programmatic scroll.
@@ -620,10 +636,28 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
           tabIndex={0}
           onScroll={handleScroll}
           onWheel={handleUserScrollInteraction}
-          onTouchStart={handleUserScrollInteraction}
           onTouchMove={handleUserScrollInteraction}
-          onPointerDown={handleUserScrollInteraction}
+          onPointerDown={(e) => {
+            // Ignore pointerdown from interactive buttons, inputs, steppers, or chips
+            const targetEl = e.target as HTMLElement | null;
+            if (targetEl?.closest('button, input, select, textarea, [role="button"]')) {
+              return;
+            }
+            // Pointer landing directly on the container (e.g. scrollbar track or thumb)
+            const container = containerRef.current;
+            if (container && e.target === container) {
+              handleUserScrollInteraction();
+            }
+          }}
           onKeyDown={(e) => {
+            const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+            if (
+              targetTag === 'input' ||
+              targetTag === 'textarea' ||
+              (e.target as HTMLElement)?.isContentEditable
+            ) {
+              return;
+            }
             if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
               handleUserScrollInteraction();
             }
