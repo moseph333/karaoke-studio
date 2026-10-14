@@ -517,30 +517,30 @@ export const App: React.FC = () => {
           /* Studio Dashboard */
           <div className="space-y-8">
             {/* Song Meta Header */}
-            <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                 {project.thumbnail_url && (
                   <img
                     src={project.thumbnail_url}
                     alt={project.title}
-                    className="w-16 h-16 rounded-xl object-cover shadow-lg border border-slate-700/60"
+                    className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl object-cover shadow-lg border border-slate-700/60 shrink-0"
                   />
                 )}
-                <div>
-                  <h2 className="text-xl font-extrabold text-white font-['Montserrat']">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xl font-extrabold text-white font-['Montserrat'] break-words line-clamp-2 sm:line-clamp-none">
                     {project.title}
                   </h2>
-                  <p className="text-sm text-slate-400 font-medium">
+                  <p className="text-sm text-slate-400 font-medium truncate">
                     {project.artist} • {project.lines.length} lyric lines detected
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="w-full sm:w-auto flex items-center gap-3">
                 <button
                   type="button"
                   onClick={handleStartRender}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                  className="w-full sm:w-auto justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
                 >
                   <Film className="w-4 h-4" />
                   Render 1080p Video
@@ -589,6 +589,7 @@ export const App: React.FC = () => {
               themeSungColor={selectedTheme.previewSung}
               themeUnsungColor={selectedTheme.previewUnsung}
               onDirtyChange={setIsLyricsDirty}
+              aspectRatio={aspectRatio}
             />
 
             {/* Visual Theme & Aspect Ratio Picker */}
