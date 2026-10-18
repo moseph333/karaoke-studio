@@ -1,5 +1,5 @@
 /**
- * Consolidated API client and credential manager for YouTube Karaoke Studio.
+ * Consolidated API client and credential manager for Karaoke Studio.
  * Centralizes auth token and username retrieval, dual header injection
  * (X-App-Password and Authorization: Bearer), credentials inclusion,
  * and unified 401 Unauthorized event dispatch.
