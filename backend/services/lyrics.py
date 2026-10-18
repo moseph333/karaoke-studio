@@ -114,7 +114,7 @@ class LyricsService:
         """
         if not text or not isinstance(text, str):
             return False
-        return bool(re.search(r"\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]", text))
+        return bool(re.search(r"\[\d{1,4}:\d{2}(?:\.\d{1,3})?\]", text))
 
     @staticmethod
     def parse_lrc(lrc_text: str) -> list[dict[str, Any]]:
@@ -122,7 +122,7 @@ class LyricsService:
         if not lrc_text or not isinstance(lrc_text, str):
             return []
 
-        tag_pattern = re.compile(r"\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]")
+        tag_pattern = re.compile(r"\[(\d{1,4}):(\d{2})(?:\.(\d{1,3}))?\]")
         raw_lines = lrc_text.strip().split("\n")
         parsed_entries: list[tuple[float, str]] = []
 
@@ -152,7 +152,7 @@ class LyricsService:
                 leading_tags = [fallback_matches[0]]
 
             clean_text = tag_pattern.sub("", line_str)
-            clean_text = re.sub(r"<\d{1,2}:\d{2}(?:\.\d{1,3})?>", "", clean_text)
+            clean_text = re.sub(r"<\d{1,4}:\d{2}(?:\.\d{1,3})?>", "", clean_text)
             clean_text = re.sub(r"\s+", " ", clean_text).strip()
             if not clean_text:
                 continue
@@ -235,8 +235,8 @@ class LyricsService:
         sorts lines chronologically by start_time, strips raw timestamp tags,
         and formats timestamps as [mm:ss.xx].
         """
-        tag_pattern = re.compile(r"\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]")
-        bracket_pattern = re.compile(r"<\d{1,2}:\d{2}(?:\.\d{1,3})?>")
+        tag_pattern = re.compile(r"\[\d{1,4}:\d{2}(?:\.\d{1,3})?\]")
+        bracket_pattern = re.compile(r"<\d{1,4}:\d{2}(?:\.\d{1,3})?>")
 
         lrc_lines: list[str] = []
 

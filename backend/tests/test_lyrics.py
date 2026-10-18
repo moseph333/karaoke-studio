@@ -308,3 +308,83 @@ def test_generate_lrc_empty_and_edge_cases():
     empty_lines = [{"id": 0, "text": "   ", "start_time": 1.0}]
     assert LyricsService.generate_lrc(empty_lines) == ""
     assert LyricsService.generate_lrc(None) == ""  # type: ignore[arg-type]
+
+
+def test_is_lrc_multi_digit_minutes_and_extended_tracks():
+    """is_lrc auto-detects LRC timestamps with 3 and 4 minute digits (100+ minutes)."""
+    # 100+ minutes (operas, DJ sets, long live performances)
+    assert LyricsService.is_lrc("[100:00.00] Century mark") is True
+    assert LyricsService.is_lrc("[120:45.678] Two hours in") is True
+    assert LyricsService.is_lrc("[9999:59.99] Upper 4-digit minute boundary") is True
+
+    # 1-digit and 2-digit minutes remain fully supported
+    assert LyricsService.is_lrc("[1:05.12] Single digit minute") is True
+    assert LyricsService.is_lrc("[04:20.00] Standard 2-digit minute") is True
+
+    # Invalid patterns remain rejected
+    assert LyricsService.is_lrc("[12:345] Invalid 3-digit seconds") is False
+    assert LyricsService.is_lrc("[123] Missing colon and seconds") is False
+    assert LyricsService.is_lrc("[Verse 1]\nLine") is False
+    assert LyricsService.is_lrc("[ti:Song Title]") is False
+
+
+def test_parse_lrc_multi_digit_minutes():
+    """parse_lrc accurately extracts lines and computes seconds for 100+ minute tracks."""
+    lrc = (
+        "[99:58.00] Approaching century\n"
+        "[100:00.00] Exactly 100 minutes\n"
+        "[125:30.50] Two hours five minutes thirty seconds\n"
+    )
+    lines = LyricsService.parse_lrc(lrc)
+    assert len(lines) == 3
+
+    assert lines[0]["start_time"] == 5998.0  # 99 * 60 + 58
+    assert lines[0]["text"] == "Approaching century"
+
+    assert lines[1]["start_time"] == 6000.0  # 100 * 60 + 0
+    assert lines[1]["text"] == "Exactly 100 minutes"
+    assert lines[1]["words"][0]["start_time"] == 6000.0
+
+    assert lines[2]["start_time"] == 7530.5  # 125 * 60 + 30.5
+    assert lines[2]["text"] == "Two hours five minutes thirty seconds"
+
+
+def test_parse_lrc_strips_multi_digit_word_tags():
+    """parse_lrc removes multi-digit word timing tags from lyric text."""
+    lrc = "[100:10.00] Line with <100:11.50> inline word <100:13.00> tags\n"
+    lines = LyricsService.parse_lrc(lrc)
+    assert len(lines) == 1
+    assert lines[0]["text"] == "Line with inline word tags"
+    assert "<" not in lines[0]["text"]
+    assert ">" not in lines[0]["text"]
+
+
+def test_generate_lrc_multi_digit_minutes():
+    """generate_lrc outputs correct [100:xx.xx] tags and passes is_lrc validation."""
+    lines = [
+        {"id": 1, "text": "Century mark", "start_time": 6000.0},
+        {"id": 2, "text": "Two hours plus", "start_time": 7530.5},
+    ]
+    out = LyricsService.generate_lrc(lines, title="Epic Concert", artist="Symphony")
+    assert "[100:00.00]Century mark" in out
+    assert "[125:30.50]Two hours plus" in out
+    # Must pass is_lrc check
+    assert LyricsService.is_lrc(out) is True
+
+
+def test_generate_lrc_strips_existing_multi_digit_tags():
+    """generate_lrc strips existing 100+ minute tags to prevent duplicate tags."""
+    dirty_lines = [{"id": 0, "text": "[100:00.00]<100:02.00> Cleaned text", "start_time": 6000.0}]
+    out = LyricsService.generate_lrc(dirty_lines)
+    assert out.strip() == "[100:00.00]Cleaned text"
+
+
+def test_process_custom_lyrics_auto_detects_100_min_lrc():
+    """process_custom_lyrics correctly classifies and parses 100+ minute LRC text."""
+    custom = "[100:00.00] First sung line\n[101:30.00] Second sung line\n"
+    res = LyricsService().process_custom_lyrics(custom)
+    assert res["synced"] is True
+    assert res["source"] == "custom"
+    assert len(res["lines"]) == 2
+    assert res["lines"][0]["start_time"] == 6000.0
+    assert res["lines"][1]["start_time"] == 6090.0

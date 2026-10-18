@@ -130,7 +130,7 @@ class AudioAligner:
 
                 text = str(line.get("text", "")).strip()
                 text = re.sub(
-                    r"\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]|<\d{1,2}:\d{2}(?:\.\d{1,3})?>", "", text
+                    r"\[\d{1,4}:\d{2}(?:\.\d{1,3})?\]|<\d{1,4}:\d{2}(?:\.\d{1,3})?>", "", text
                 )
                 text = re.sub(r"\s+", " ", text).strip()
                 words = [w for w in text.split() if w]
@@ -245,7 +245,7 @@ class AudioAligner:
 
             text = str(line.get("text", "")).strip()
             text = re.sub(
-                r"\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]|<\d{1,2}:\d{2}(?:\.\d{1,3})?>", "", text
+                r"\[\d{1,4}:\d{2}(?:\.\d{1,3})?\]|<\d{1,4}:\d{2}(?:\.\d{1,3})?>", "", text
             )
             text = re.sub(r"\s+", " ", text).strip()
             words = [w for w in text.split() if w]
