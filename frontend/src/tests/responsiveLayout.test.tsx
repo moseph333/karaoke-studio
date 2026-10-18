@@ -5,6 +5,8 @@ import App from '../App';
 import { TrackSearch } from '../components/TrackSearch';
 import { AuthModal } from '../components/AuthModal';
 import { ExportModal } from '../components/ExportModal';
+import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
+import { EditMetadataModal } from '../components/EditMetadataModal';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
 import { AudioControls } from '../components/AudioControls';
 import { VisualThemePicker, THEMES } from '../components/VisualThemePicker';
@@ -67,6 +69,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
     guide_volume: 0.0,
     instrumental_url: '/audio/test-instrumental.mp3',
     vocals_url: '/audio/test-vocals.mp3',
+    created_by: 'Friend',
     render_status: 'idle',
     render_progress: 0,
     heartbeat: Date.now(),
@@ -664,6 +667,64 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
           expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
             document.documentElement.clientWidth
           );
+        });
+      });
+    });
+
+    describe('Project Library & Lifecycle Dialogs (Milestone 1)', () => {
+      BREAKPOINTS.forEach((bp) => {
+        it(`renders TrackSearch project cards with zero overflow at ${bp.name} (${bp.width}px)`, async () => {
+          setTestViewport(bp.width, bp.height);
+          mockApiResponse(readyProject);
+
+          const { container } = render(
+            <TrackSearch
+              onSelectTrack={vi.fn()}
+              onOpenProject={vi.fn()}
+              isLoading={false}
+              currentUser="Friend"
+            />
+          );
+
+          await waitFor(() => {
+            expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
+          });
+
+          assertZeroHorizontalOverflow(container, bp.width);
+        });
+
+        it(`renders DeleteConfirmModal with zero overflow at ${bp.name} (${bp.width}px)`, () => {
+          setTestViewport(bp.width, bp.height);
+          const { container } = render(
+            <DeleteConfirmModal
+              isOpen={true}
+              projectId="test-proj-del"
+              projectTitle="Bohemian Rhapsody"
+              projectArtist="Queen"
+              onClose={vi.fn()}
+              onDeleted={vi.fn()}
+            />
+          );
+
+          assertZeroHorizontalOverflow(container, bp.width);
+        });
+
+        it(`renders EditMetadataModal with zero overflow at ${bp.name} (${bp.width}px)`, () => {
+          setTestViewport(bp.width, bp.height);
+          const { container } = render(
+            <EditMetadataModal
+              isOpen={true}
+              project={{
+                id: 'test-proj-edit',
+                title: 'Bohemian Rhapsody',
+                artist: 'Queen',
+              }}
+              onClose={vi.fn()}
+              onSaved={vi.fn()}
+            />
+          );
+
+          assertZeroHorizontalOverflow(container, bp.width);
         });
       });
     });

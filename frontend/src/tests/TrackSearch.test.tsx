@@ -194,4 +194,146 @@ describe('TrackSearch', () => {
     expect(screen.queryByText('remove_me.wav')).not.toBeInTheDocument();
     expect(screen.getByText(/Click to select audio/i)).toBeInTheDocument();
   });
+
+  describe('Project Library Controls & Lifecycle (Milestone 1)', () => {
+    const libraryProject = {
+      id: 'proj-lib-1',
+      title: 'Bohemian Rhapsody',
+      artist: 'Queen',
+      status: 'ready',
+      created_by: 'TestSinger',
+      thumbnail_url: 'https://example.com/thumb.jpg',
+      lines: [],
+    };
+
+    beforeEach(() => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(
+        async (url: RequestInfo | URL, init?: RequestInit) => {
+          const urlStr = url.toString();
+          const method = init?.method || 'GET';
+
+          if (urlStr.includes('/api/projects')) {
+            return new Response(JSON.stringify({ [libraryProject.id]: libraryProject }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          if (urlStr.includes('/api/project/proj-lib-1') && method === 'DELETE') {
+            return new Response(JSON.stringify({ status: 'deleted', project_id: 'proj-lib-1' }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            });
+          }
+
+          if (urlStr.includes('/api/project/proj-lib-1') && method === 'PATCH') {
+            const body = JSON.parse(init?.body as string);
+            return new Response(
+              JSON.stringify({
+                ...libraryProject,
+                title: body.title,
+                artist: body.artist,
+              }),
+              { status: 200, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+
+          return new Response('{}', { status: 200 });
+        }
+      );
+    });
+
+    it('renders Edit and Delete action buttons meeting >= 44px touch target standards', async () => {
+      render(<TrackSearch {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
+      });
+
+      const editBtn = screen.getByRole('button', { name: /Edit metadata for Bohemian Rhapsody/i });
+      const deleteBtn = screen.getByRole('button', { name: /Delete project Bohemian Rhapsody/i });
+
+      expect(editBtn).toBeInTheDocument();
+      expect(deleteBtn).toBeInTheDocument();
+
+      expect(editBtn.className).toContain('min-h-[44px]');
+      expect(editBtn.className).toContain('min-w-[44px]');
+      expect(deleteBtn.className).toContain('min-h-[44px]');
+      expect(deleteBtn.className).toContain('min-w-[44px]');
+    });
+
+    it('isolates clicks so Edit and Delete do not trigger card onOpenProject', async () => {
+      const user = userEvent.setup();
+      const onOpenProject = vi.fn();
+      render(<TrackSearch {...defaultProps} onOpenProject={onOpenProject} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
+      });
+
+      const editBtn = screen.getByRole('button', { name: /Edit metadata for Bohemian Rhapsody/i });
+      await user.click(editBtn);
+
+      expect(onOpenProject).not.toHaveBeenCalled();
+      expect(screen.getByRole('heading', { name: /Edit Track Details/i })).toBeInTheDocument();
+
+      // Close modal
+      await user.click(screen.getByRole('button', { name: /Cancel/i }));
+
+      const deleteBtn = screen.getByRole('button', { name: /Delete project Bohemian Rhapsody/i });
+      await user.click(deleteBtn);
+
+      expect(onOpenProject).not.toHaveBeenCalled();
+      expect(screen.getByRole('heading', { name: /Delete Project\?/i })).toBeInTheDocument();
+    });
+
+    it('executes delete flow and removes project card from library', async () => {
+      const user = userEvent.setup();
+      render(<TrackSearch {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
+      });
+
+      const deleteBtn = screen.getByRole('button', { name: /Delete project Bohemian Rhapsody/i });
+      await user.click(deleteBtn);
+
+      expect(screen.getByRole('heading', { name: /Delete Project\?/i })).toBeInTheDocument();
+
+      const confirmBtn = screen.getByRole('button', { name: /^Delete Project$/i });
+      await user.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(screen.queryByText('Bohemian Rhapsody')).not.toBeInTheDocument();
+      });
+    });
+
+    it('executes metadata edit flow and updates project title and artist on card', async () => {
+      const user = userEvent.setup();
+      render(<TrackSearch {...defaultProps} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Bohemian Rhapsody')).toBeInTheDocument();
+      });
+
+      const editBtn = screen.getByRole('button', { name: /Edit metadata for Bohemian Rhapsody/i });
+      await user.click(editBtn);
+
+      const titleInput = screen.getByLabelText(/Track Title/i);
+      const artistInput = screen.getByLabelText(/Artist Name/i);
+
+      await user.clear(titleInput);
+      await user.type(titleInput, 'Somebody to Love');
+      await user.clear(artistInput);
+      await user.type(artistInput, 'Queen Official');
+
+      const saveBtn = screen.getByRole('button', { name: /Save Changes/i });
+      await user.click(saveBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText('Somebody to Love')).toBeInTheDocument();
+        expect(screen.getByText('Queen Official')).toBeInTheDocument();
+      });
+    });
+  });
 });
