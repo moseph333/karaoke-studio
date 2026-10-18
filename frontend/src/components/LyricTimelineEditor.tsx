@@ -9,10 +9,21 @@ import {
   AlertTriangle,
   RotateCcw,
   Loader2,
+  Plus,
+  Trash2,
+  X,
 } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { LyricDisplay } from './LyricDisplay';
+import {
+  recalculateWordTimings,
+  calculateLineInsertTimes,
+  formatLineTime,
+  sanitizeTimestamp,
+} from '../utils/lyrics';
+
+export { recalculateWordTimings };
 
 export interface LyricTimelineEditorProps {
   lines: LyricLine[];
@@ -70,19 +81,6 @@ const getActiveWordLocation = (
   return null;
 };
 
-const sanitizeTimestamp = (val: number): number => {
-  return isNaN(val) ? 0 : Math.max(0, parseFloat(val.toFixed(3)));
-};
-
-const formatLineTime = (t: number): string => {
-  const rounded = parseFloat(t.toFixed(3));
-  const str = rounded.toFixed(2);
-  if (str.endsWith('0')) {
-    return rounded.toFixed(1);
-  }
-  return str;
-};
-
 export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   lines,
   currentTime,
@@ -102,6 +100,22 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   const [selectedLineId, setSelectedLineId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [editingLineId, setEditingLineId] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
+  const [lineToDelete, setLineToDelete] = useState<LyricLine | null>(null);
+  const editInputRef = useRef<HTMLInputElement | null>(null);
+
+  const deleteModalRef = useFocusTrap<HTMLDivElement>({
+    isOpen: lineToDelete !== null,
+    onClose: () => setLineToDelete(null),
+  });
+
+  useEffect(() => {
+    if (editingLineId !== null && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingLineId]);
 
   // Auto-scroll & manual scroll interaction state
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -576,11 +590,12 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
 
   // Save changes with async guard
   const handleSave = async () => {
+    if (!hasUnsavedChanges || isSaving) return;
     setIsSaving(true);
     try {
       await onSaveLines(editableLines);
       setInitialLines(editableLines);
-      toast.success('Lyric timing changes saved');
+      toast.success('Lyric changes saved');
     } catch (err) {
       console.error('Failed to save lyric timings:', err);
       toast.error('Failed to save lyric timings');
@@ -592,8 +607,130 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   // Discard changes and revert to initialLines
   const handleConfirmDiscard = () => {
     setEditableLines(initialLines);
+    setEditingLineId(null);
+    setEditingText('');
+    setLineToDelete(null);
     setShowDiscardModal(false);
     toast.info('Lyric edits discarded');
+  };
+
+  const handleStartEditing = (line: LyricLine) => {
+    setEditingLineId(line.id);
+    setEditingText(line.text);
+  };
+
+  const handleCancelEditing = () => {
+    setEditingLineId(null);
+    setEditingText('');
+  };
+
+  const handleCommitEditing = (lineId: number, newText: string) => {
+    const trimmed = newText.trim();
+    const targetLine = editableLines.find((l) => l.id === lineId);
+    if (!targetLine) {
+      setEditingLineId(null);
+      return;
+    }
+
+    if (trimmed && trimmed !== targetLine.text) {
+      const updatedWords = recalculateWordTimings(
+        trimmed,
+        targetLine.start_time,
+        targetLine.end_time
+      );
+      const updated = editableLines.map((l) => {
+        if (l.id !== lineId) return l;
+        return {
+          ...l,
+          text: trimmed,
+          words: updatedWords,
+        };
+      });
+      setEditableLines(updated);
+    }
+    setEditingLineId(null);
+  };
+
+  const handleInsertLineAbove = (index: number) => {
+    const { start_time, end_time } = calculateLineInsertTimes(
+      editableLines,
+      index - 1,
+      currentTime,
+      duration
+    );
+    const initialText = 'New lyric line';
+    const words = recalculateWordTimings(initialText, start_time, end_time);
+    const newLine: LyricLine = {
+      id: 0,
+      text: initialText,
+      start_time,
+      end_time,
+      words,
+    };
+    const newLines = [...editableLines];
+    newLines.splice(index, 0, newLine);
+    const reindexed = newLines.map((l, idx) => ({ ...l, id: idx + 1 }));
+    setEditableLines(reindexed);
+    setSelectedLineId(index + 1);
+    handleStartEditing(reindexed[index]);
+  };
+
+  const handleInsertLineBelow = (index: number) => {
+    const { start_time, end_time } = calculateLineInsertTimes(
+      editableLines,
+      index,
+      currentTime,
+      duration
+    );
+    const initialText = 'New lyric line';
+    const words = recalculateWordTimings(initialText, start_time, end_time);
+    const newLine: LyricLine = {
+      id: 0,
+      text: initialText,
+      start_time,
+      end_time,
+      words,
+    };
+    const newLines = [...editableLines];
+    newLines.splice(index + 1, 0, newLine);
+    const reindexed = newLines.map((l, idx) => ({ ...l, id: idx + 1 }));
+    setEditableLines(reindexed);
+    setSelectedLineId(index + 2);
+    handleStartEditing(reindexed[index + 1]);
+  };
+
+  const handleInsertLineAtEnd = () => {
+    if (editableLines.length === 0) {
+      const { start_time, end_time } = calculateLineInsertTimes([], 0, currentTime, duration);
+      const initialText = 'New lyric line';
+      const words = recalculateWordTimings(initialText, start_time, end_time);
+      const newLine: LyricLine = {
+        id: 1,
+        text: initialText,
+        start_time,
+        end_time,
+        words,
+      };
+      setEditableLines([newLine]);
+      setSelectedLineId(1);
+      handleStartEditing(newLine);
+      return;
+    }
+    handleInsertLineBelow(editableLines.length - 1);
+  };
+
+  const handleConfirmDeleteLine = (lineId: number) => {
+    const filtered = editableLines.filter((l) => l.id !== lineId);
+    const reindexed = filtered.map((l, idx) => ({ ...l, id: idx + 1 }));
+    setEditableLines(reindexed);
+    if (selectedLineId === lineId) {
+      setSelectedLineId(null);
+    }
+    if (editingLineId === lineId) {
+      setEditingLineId(null);
+    }
+    setLineToDelete(null);
+    toast.info('Lyric line deleted');
   };
 
   return (
@@ -620,6 +757,16 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 <Edit3 className="w-4 h-4 text-cyan-400" />
                 Word-by-Word Timeline Editor
               </h3>
+              {hasUnsavedChanges && (
+                <span
+                  data-testid="dirty-indicator"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold"
+                  title="You have unsaved lyric or timing changes"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  Unsaved Changes
+                </span>
+              )}
               {isUserScrolling && (
                 <button
                   type="button"
@@ -640,18 +787,21 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
               <button
                 type="button"
+                data-testid="discard-changes-btn"
                 onClick={() => setShowDiscardModal(true)}
                 disabled={isSaving}
-                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50 min-h-[36px]"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 Discard Changes
               </button>
               <button
                 type="button"
+                data-testid="save-lyrics-btn"
+                aria-label="Save Timing Changes - Save Lyrics & Timing Changes"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50 min-h-[36px]"
               >
                 {isSaving ? (
                   <>
@@ -661,7 +811,9 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 ) : (
                   <>
                     <Check className="w-4 h-4" />
-                    Save Timing Changes
+                    Save Lyrics & Timing Changes
+                    <span className="sr-only">Save Timing Changes</span>
+                    <span className="sr-only">Save Lyrics</span>
                   </>
                 )}
               </button>
@@ -704,280 +856,425 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
           }}
           className="max-h-[300px] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 scroll-smooth focus:outline-none touch-pan-y overscroll-contain"
         >
-          {editableLines.map((line) => {
-            const isCurrentlyActive = currentLine?.id === line.id;
-            const isExpanded = selectedLineId === line.id;
-
-            return (
-              <div
-                key={line.id}
-                data-testid={`timeline-line-${line.id}`}
-                data-active-line={isCurrentlyActive ? 'true' : undefined}
-                className={`p-3 rounded-xl border transition-all ${
-                  isCurrentlyActive
-                    ? 'bg-cyan-950/40 border-cyan-500/70 shadow-md'
-                    : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700'
-                }`}
+          {editableLines.length === 0 ? (
+            <div className="text-center py-8 px-4 bg-slate-950/40 rounded-xl border border-slate-800/80">
+              <p className="text-sm text-slate-400 mb-3">No lyric lines yet.</p>
+              <button
+                type="button"
+                onClick={handleInsertLineAtEnd}
+                aria-label="+ Add First Lyric Line"
+                data-testid="add-line-btn"
+                className="min-h-[44px] px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleLineClick(line, isExpanded)}
-                    aria-label={`Select line: ${line.text} (${formatLineTime(line.start_time)}s to ${formatLineTime(line.end_time)}s)`}
-                    className="flex items-center gap-2 sm:gap-3 cursor-pointer w-full sm:flex-1 overflow-hidden text-left bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded min-h-[40px]"
-                  >
-                    <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-1 rounded shrink-0">
-                      {formatLineTime(line.start_time)}s - {formatLineTime(line.end_time)}s
-                    </span>
-                    <span
-                      className={`text-sm font-semibold truncate min-w-0 flex-1 ${
-                        isCurrentlyActive ? 'text-cyan-300 font-bold' : 'text-slate-200'
-                      }`}
-                    >
-                      {line.text}
-                    </span>
-                  </button>
+                <Plus className="w-4 h-4" />+ Add First Lyric Line
+              </button>
+            </div>
+          ) : (
+            <>
+              {editableLines.map((line, idx) => {
+                const isCurrentlyActive = currentLine?.id === line.id;
+                const isExpanded = selectedLineId === line.id;
 
-                  {/* Nudge & Expand Controls (Feature 44: Dual-Step Line Nudging) */}
-                  <div className="flex items-center justify-between sm:justify-end gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/40 mt-2 sm:mt-0 shrink-0">
-                    {/* Coarse Earlier: -0.2s */}
-                    <button
-                      type="button"
-                      onClick={() => nudgeLine(line.id, -0.2)}
-                      aria-label={`Nudge line ${line.id} 0.2s earlier`}
-                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                      title="Coarse nudge 0.2s earlier"
-                    >
-                      <Rewind className="w-3.5 h-3.5" aria-hidden="true" />
-                    </button>
-
-                    {/* Fine Earlier: -0.05s */}
-                    <button
-                      type="button"
-                      onClick={() => nudgeLine(line.id, -0.05)}
-                      aria-label={`Nudge line ${line.id} 0.05s earlier`}
-                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                      title="Fine nudge 0.05s earlier"
-                    >
-                      -0.05s
-                    </button>
-
-                    {/* Fine Later: +0.05s */}
-                    <button
-                      type="button"
-                      onClick={() => nudgeLine(line.id, 0.05)}
-                      aria-label={`Nudge line ${line.id} 0.05s later`}
-                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                      title="Fine nudge 0.05s later"
-                    >
-                      +0.05s
-                    </button>
-
-                    {/* Coarse Later: +0.2s */}
-                    <button
-                      type="button"
-                      onClick={() => nudgeLine(line.id, 0.2)}
-                      aria-label={`Nudge line ${line.id} 0.2s later`}
-                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                      title="Coarse nudge 0.2s later"
-                    >
-                      <FastForward className="w-3.5 h-3.5" aria-hidden="true" />
-                    </button>
-
-                    {/* Expand / Collapse */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedLineId(isExpanded ? null : line.id)}
-                      aria-label={
-                        isExpanded
-                          ? `Collapse word timings for line ${line.id}`
-                          : `Expand word timings for line ${line.id}`
-                      }
-                      aria-expanded={isExpanded}
-                      className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400 ml-1"
-                      title="Expand word timings"
-                    >
-                      <ChevronRight
-                        className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                        aria-hidden="true"
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Word-by-Word Timeline Stream */}
-                {line.words && line.words.length > 0 && (
+                return (
                   <div
-                    data-testid={`timeline-words-line-${line.id}`}
-                    className="mt-2 pt-1.5 border-t border-slate-800/40 flex flex-wrap gap-1.5 items-center"
+                    key={line.id}
+                    data-testid={`timeline-line-${line.id}`}
+                    data-active-line={isCurrentlyActive ? 'true' : undefined}
+                    className={`p-3 rounded-xl border transition-all ${
+                      isCurrentlyActive
+                        ? 'bg-cyan-950/40 border-cyan-500/70 shadow-md'
+                        : 'bg-slate-950/40 border-slate-800/80 hover:border-slate-700'
+                    }`}
                   >
-                    {line.words.map((w, wIdx) => {
-                      const isWordActive =
-                        activeWordLoc?.lineId === line.id && activeWordLoc?.wordIndex === wIdx;
-
-                      return (
-                        <button
-                          key={wIdx}
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleWordClick(w);
-                          }}
-                          data-active-word={isWordActive ? 'true' : undefined}
-                          data-testid={
-                            isWordActive
-                              ? 'active-timeline-word'
-                              : `timeline-word-${line.id}-${wIdx}`
-                          }
-                          aria-current={isWordActive ? 'true' : undefined}
-                          aria-label={`Jump to word ${w.word} in timeline at ${formatLineTime(w.start_time)}s`}
-                          className={`min-h-[34px] px-2.5 py-1 text-xs inline-flex items-center rounded-md font-medium transition-all cursor-pointer ${
-                            isWordActive
-                              ? 'bg-cyan-500/30 text-cyan-200 font-bold ring-1 ring-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.4)] scale-105'
-                              : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800/80'
-                          }`}
-                          title={`Seek to "${w.word}" (${formatLineTime(w.start_time)}s)`}
-                        >
-                          {w.word}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Expanded Word-Level Timing Inputs (Feature 44: Word Steppers & Whole-Word Shift) */}
-                {isExpanded && (
-                  <div className="mt-3 pt-3 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
-                    {line.words.map((w, wIdx) => {
-                      const isWordActive =
-                        activeWordLoc?.lineId === line.id && activeWordLoc?.wordIndex === wIdx;
-
-                      return (
-                        <div
-                          key={wIdx}
-                          data-active-word={isWordActive ? 'true' : undefined}
-                          className={`flex flex-col gap-1.5 p-2.5 rounded-lg border text-xs transition-all ${
-                            isWordActive
-                              ? 'bg-cyan-950/70 border-cyan-500 ring-1 ring-cyan-400/50 shadow-md'
-                              : 'bg-slate-900 border-slate-800'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row flex-wrap sm:items-center sm:justify-between gap-2 sm:gap-3">
+                      {editingLineId === line.id ? (
+                        <div className="flex items-center gap-1.5 w-full sm:flex-1 overflow-hidden min-h-[44px]">
+                          <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-1 rounded shrink-0">
+                            {formatLineTime(line.start_time)}s - {formatLineTime(line.end_time)}s
+                          </span>
+                          <input
+                            ref={editInputRef}
+                            type="text"
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleCommitEditing(line.id, editingText);
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditing();
+                              }
+                            }}
+                            onBlur={() => handleCommitEditing(line.id, editingText)}
+                            aria-label={`Edit text for line ${line.id}`}
+                            data-testid={`line-text-input-${line.id}`}
+                            className="flex-1 min-w-0 min-h-[44px] px-2.5 py-1.5 rounded-lg bg-slate-950 border border-cyan-500 text-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleCommitEditing(line.id, editingText)}
+                            aria-label={`Commit edit for line ${line.id}`}
+                            data-testid={`commit-edit-${line.id}`}
+                            className="min-h-[44px] min-w-[44px] p-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                            title="Commit edit (Enter)"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              handleCancelEditing();
+                            }}
+                            onClick={handleCancelEditing}
+                            aria-label={`Cancel edit for line ${line.id}`}
+                            data-testid={`cancel-edit-${line.id}`}
+                            className="min-h-[44px] min-w-[44px] p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                            title="Cancel edit (Escape)"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 w-full sm:flex-1 overflow-hidden min-h-[40px]">
+                          <button
+                            type="button"
+                            onClick={() => handleLineClick(line, isExpanded)}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              handleStartEditing(line);
+                            }}
+                            aria-label={`Select line: ${line.text} (${formatLineTime(line.start_time)}s to ${formatLineTime(line.end_time)}s)`}
+                            className="flex items-center gap-2 sm:gap-3 cursor-pointer w-full sm:flex-1 overflow-hidden text-left bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded min-h-[40px]"
+                          >
+                            <span className="font-mono text-xs text-slate-400 bg-slate-900 px-2 py-1 rounded shrink-0">
+                              {formatLineTime(line.start_time)}s - {formatLineTime(line.end_time)}s
+                            </span>
                             <span
-                              onClick={() => handleWordClick(w)}
-                              className={`font-bold cursor-pointer truncate mr-2 ${
-                                isWordActive ? 'text-cyan-300' : 'text-white hover:text-cyan-400'
+                              className={`text-sm font-semibold truncate min-w-0 flex-1 ${
+                                isCurrentlyActive ? 'text-cyan-300 font-bold' : 'text-slate-200'
                               }`}
-                              title={`Click to seek to word: ${w.word}`}
+                            >
+                              {line.text}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditing(line)}
+                            aria-label={`Edit text for line ${line.id}`}
+                            data-testid={`edit-line-text-${line.id}`}
+                            className="min-h-[44px] min-w-[44px] p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                            title="Edit line text"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Right side controls: Nudges + Structure (Insert above/below, Delete) + Expand */}
+                      <div className="flex flex-wrap items-center justify-between sm:justify-end gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800/40 mt-2 sm:mt-0 shrink-0">
+                        {/* Nudge controls */}
+                        <div className="flex items-center gap-1">
+                          {/* Coarse Earlier: -0.2s */}
+                          <button
+                            type="button"
+                            onClick={() => nudgeLine(line.id, -0.2)}
+                            aria-label={`Nudge line ${line.id} 0.2s earlier`}
+                            className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                            title="Coarse nudge 0.2s earlier"
+                          >
+                            <Rewind className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+
+                          {/* Fine Earlier: -0.05s */}
+                          <button
+                            type="button"
+                            onClick={() => nudgeLine(line.id, -0.05)}
+                            aria-label={`Nudge line ${line.id} 0.05s earlier`}
+                            className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                            title="Fine nudge 0.05s earlier"
+                          >
+                            -0.05s
+                          </button>
+
+                          {/* Fine Later: +0.05s */}
+                          <button
+                            type="button"
+                            onClick={() => nudgeLine(line.id, 0.05)}
+                            aria-label={`Nudge line ${line.id} 0.05s later`}
+                            className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800/90 hover:bg-slate-700 text-cyan-400 font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                            title="Fine nudge 0.05s later"
+                          >
+                            +0.05s
+                          </button>
+
+                          {/* Coarse Later: +0.2s */}
+                          <button
+                            type="button"
+                            onClick={() => nudgeLine(line.id, 0.2)}
+                            aria-label={`Nudge line ${line.id} 0.2s later`}
+                            className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                            title="Coarse nudge 0.2s later"
+                          >
+                            <FastForward className="w-3.5 h-3.5" aria-hidden="true" />
+                          </button>
+                        </div>
+
+                        {/* Structure controls (Insert above/below, Delete) */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleInsertLineAbove(idx)}
+                            aria-label={`Insert line above line ${line.id}`}
+                            data-testid={`insert-line-above-${line.id}`}
+                            className="min-h-[44px] min-w-[44px] p-2 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                            title="Insert line above"
+                          >
+                            <span className="flex items-center text-xs font-semibold">
+                              <Plus className="w-3.5 h-3.5 text-cyan-400" />
+                              <span className="text-[10px] text-slate-400 ml-0.5 font-mono">↑</span>
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleInsertLineBelow(idx)}
+                            aria-label={`Insert line below line ${line.id}`}
+                            data-testid={`insert-line-below-${line.id}`}
+                            className="min-h-[44px] min-w-[44px] p-2 rounded bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                            title="Insert line below"
+                          >
+                            <span className="flex items-center text-xs font-semibold">
+                              <Plus className="w-3.5 h-3.5 text-cyan-400" />
+                              <span className="text-[10px] text-slate-400 ml-0.5 font-mono">↓</span>
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setLineToDelete(line)}
+                            aria-label={`Delete line ${line.id}`}
+                            data-testid={`delete-line-${line.id}`}
+                            className="min-h-[44px] min-w-[44px] p-2 rounded bg-slate-800/80 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-rose-400"
+                            title="Delete line"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+
+                          {/* Expand / Collapse */}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedLineId(isExpanded ? null : line.id)}
+                            aria-label={
+                              isExpanded
+                                ? `Collapse word timings for line ${line.id}`
+                                : `Expand word timings for line ${line.id}`
+                            }
+                            aria-expanded={isExpanded}
+                            className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-400 ml-1"
+                            title="Expand word timings"
+                          >
+                            <ChevronRight
+                              className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Word-by-Word Timeline Stream */}
+                    {line.words && line.words.length > 0 && (
+                      <div
+                        data-testid={`timeline-words-line-${line.id}`}
+                        className="mt-2 pt-1.5 border-t border-slate-800/40 flex flex-wrap gap-1.5 items-center"
+                      >
+                        {line.words.map((w, wIdx) => {
+                          const isWordActive =
+                            activeWordLoc?.lineId === line.id && activeWordLoc?.wordIndex === wIdx;
+
+                          return (
+                            <button
+                              key={wIdx}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleWordClick(w);
+                              }}
+                              data-active-word={isWordActive ? 'true' : undefined}
+                              data-testid={
+                                isWordActive
+                                  ? 'active-timeline-word'
+                                  : `timeline-word-${line.id}-${wIdx}`
+                              }
+                              aria-current={isWordActive ? 'true' : undefined}
+                              aria-label={`Jump to word ${w.word} in timeline at ${formatLineTime(w.start_time)}s`}
+                              className={`min-h-[34px] px-2.5 py-1 text-xs inline-flex items-center rounded-md font-medium transition-all cursor-pointer ${
+                                isWordActive
+                                  ? 'bg-cyan-500/30 text-cyan-200 font-bold ring-1 ring-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.4)] scale-105'
+                                  : 'bg-slate-900/90 text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-slate-800/80'
+                              }`}
+                              title={`Seek to "${w.word}" (${formatLineTime(w.start_time)}s)`}
                             >
                               {w.word}
-                            </span>
-                            {/* Word Shift Pill */}
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => nudgeWord(line.id, wIdx, -0.05)}
-                                aria-label={`Nudge word ${w.word} 0.05s earlier`}
-                                className="min-h-[36px] min-w-[36px] p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                                title="Shift word 0.05s earlier"
-                              >
-                                ◀
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => nudgeWord(line.id, wIdx, 0.05)}
-                                aria-label={`Nudge word ${w.word} 0.05s later`}
-                                className="min-h-[36px] min-w-[36px] p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                                title="Shift word 0.05s later"
-                              >
-                                ▶
-                              </button>
-                            </div>
-                          </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
 
-                          <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
-                            {/* Start Time Stepper */}
-                            <div className="flex items-center gap-0.5">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  nudgeWordBoundary(line.id, wIdx, 'start_time', -0.05)
-                                }
-                                aria-label={`Nudge start of word ${w.word} 0.05s earlier`}
-                                className="w-8 h-8 sm:w-6 sm:h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                              >
-                                -
-                              </button>
-                              <input
-                                type="number"
-                                step="0.05"
-                                value={w.start_time}
-                                onChange={(e) =>
-                                  updateWordTiming(
-                                    line.id,
-                                    wIdx,
-                                    'start_time',
-                                    parseFloat(e.target.value)
-                                  )
-                                }
-                                aria-label={`Start time for word ${w.word}`}
-                                className="w-16 h-8 sm:w-14 sm:h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => nudgeWordBoundary(line.id, wIdx, 'start_time', 0.05)}
-                                aria-label={`Nudge start of word ${w.word} 0.05s later`}
-                                className="w-8 h-8 sm:w-6 sm:h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                              >
-                                +
-                              </button>
-                            </div>
+                    {/* Expanded Word-Level Timing Inputs (Feature 44: Word Steppers & Whole-Word Shift) */}
+                    {isExpanded && (
+                      <div className="mt-3 pt-3 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                        {line.words.map((w, wIdx) => {
+                          const isWordActive =
+                            activeWordLoc?.lineId === line.id && activeWordLoc?.wordIndex === wIdx;
 
-                            <span className="text-slate-500 font-bold">to</span>
+                          return (
+                            <div
+                              key={wIdx}
+                              data-active-word={isWordActive ? 'true' : undefined}
+                              className={`flex flex-col gap-1.5 p-2.5 rounded-lg border text-xs transition-all ${
+                                isWordActive
+                                  ? 'bg-cyan-950/70 border-cyan-500 ring-1 ring-cyan-400/50 shadow-md'
+                                  : 'bg-slate-900 border-slate-800'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span
+                                  onClick={() => handleWordClick(w)}
+                                  className={`font-bold cursor-pointer truncate mr-2 ${
+                                    isWordActive
+                                      ? 'text-cyan-300'
+                                      : 'text-white hover:text-cyan-400'
+                                  }`}
+                                  title={`Click to seek to word: ${w.word}`}
+                                >
+                                  {w.word}
+                                </span>
+                                {/* Word Shift Pill */}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => nudgeWord(line.id, wIdx, -0.05)}
+                                    aria-label={`Nudge word ${w.word} 0.05s earlier`}
+                                    className="min-h-[36px] min-w-[36px] p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                    title="Shift word 0.05s earlier"
+                                  >
+                                    ◀
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => nudgeWord(line.id, wIdx, 0.05)}
+                                    aria-label={`Nudge word ${w.word} 0.05s later`}
+                                    className="min-h-[36px] min-w-[36px] p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                    title="Shift word 0.05s later"
+                                  >
+                                    ▶
+                                  </button>
+                                </div>
+                              </div>
 
-                            {/* End Time Stepper */}
-                            <div className="flex items-center gap-0.5">
-                              <button
-                                type="button"
-                                onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', -0.05)}
-                                aria-label={`Nudge end of word ${w.word} 0.05s earlier`}
-                                className="w-8 h-8 sm:w-6 sm:h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                              >
-                                -
-                              </button>
-                              <input
-                                type="number"
-                                step="0.05"
-                                value={w.end_time}
-                                onChange={(e) =>
-                                  updateWordTiming(
-                                    line.id,
-                                    wIdx,
-                                    'end_time',
-                                    parseFloat(e.target.value)
-                                  )
-                                }
-                                aria-label={`End time for word ${w.word}`}
-                                className="w-16 h-8 sm:w-14 sm:h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => nudgeWordBoundary(line.id, wIdx, 'end_time', 0.05)}
-                                aria-label={`Nudge end of word ${w.word} 0.05s later`}
-                                className="w-8 h-8 sm:w-6 sm:h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
-                              >
-                                +
-                              </button>
+                              <div className="flex items-center justify-between gap-2 font-mono text-[11px]">
+                                {/* Start Time Stepper */}
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      nudgeWordBoundary(line.id, wIdx, 'start_time', -0.05)
+                                    }
+                                    aria-label={`Nudge start of word ${w.word} 0.05s earlier`}
+                                    className="w-8 h-8 sm:w-6 sm:h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    step="0.05"
+                                    value={w.start_time}
+                                    onChange={(e) =>
+                                      updateWordTiming(
+                                        line.id,
+                                        wIdx,
+                                        'start_time',
+                                        parseFloat(e.target.value)
+                                      )
+                                    }
+                                    aria-label={`Start time for word ${w.word}`}
+                                    className="w-16 h-8 sm:w-14 sm:h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      nudgeWordBoundary(line.id, wIdx, 'start_time', 0.05)
+                                    }
+                                    aria-label={`Nudge start of word ${w.word} 0.05s later`}
+                                    className="w-8 h-8 sm:w-6 sm:h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+
+                                <span className="text-slate-500 font-bold">to</span>
+
+                                {/* End Time Stepper */}
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      nudgeWordBoundary(line.id, wIdx, 'end_time', -0.05)
+                                    }
+                                    aria-label={`Nudge end of word ${w.word} 0.05s earlier`}
+                                    className="w-8 h-8 sm:w-6 sm:h-6 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                  >
+                                    -
+                                  </button>
+                                  <input
+                                    type="number"
+                                    step="0.05"
+                                    value={w.end_time}
+                                    onChange={(e) =>
+                                      updateWordTiming(
+                                        line.id,
+                                        wIdx,
+                                        'end_time',
+                                        parseFloat(e.target.value)
+                                      )
+                                    }
+                                    aria-label={`End time for word ${w.word}`}
+                                    className="w-16 h-8 sm:w-14 sm:h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      nudgeWordBoundary(line.id, wIdx, 'end_time', 0.05)
+                                    }
+                                    aria-label={`Nudge end of word ${w.word} 0.05s later`}
+                                    className="w-8 h-8 sm:w-6 sm:h-6 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
+                );
+              })}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleInsertLineAtEnd}
+                  aria-label="Add new lyric line"
+                  data-testid="add-line-btn"
+                  className="w-full min-h-[44px] py-2 px-3 rounded-xl border border-dashed border-slate-700 hover:border-cyan-500/70 bg-slate-950/30 hover:bg-cyan-950/20 text-slate-400 hover:text-cyan-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Lyric Line
+                </button>
               </div>
-            );
-          })}
+            </>
+          )}
         </div>
       </div>
 
@@ -1019,6 +1316,51 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 className="w-full sm:w-auto min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 focus:outline-none focus:ring-2 focus:ring-rose-400 flex items-center justify-center"
               >
                 Discard Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Delete Line Confirmation Modal (Feature 45: Focus Trapped) */}
+      {lineToDelete && (
+        <div
+          ref={deleteModalRef}
+          tabIndex={-1}
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-line-dialog-title"
+          aria-describedby="delete-line-dialog-desc"
+        >
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+              </div>
+              <h3 id="delete-line-dialog-title" className="text-base font-bold text-white">
+                Delete Lyric Line?
+              </h3>
+            </div>
+            <p id="delete-line-dialog-desc" className="text-xs text-slate-300 leading-relaxed">
+              Are you sure you want to delete line {lineToDelete.id}: &ldquo;{lineToDelete.text}
+              &rdquo; ({formatLineTime(lineToDelete.start_time)}s to{' '}
+              {formatLineTime(lineToDelete.end_time)}s)?
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setLineToDelete(null)}
+                className="w-full sm:w-auto min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 flex items-center justify-center"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmDeleteLine(lineToDelete.id)}
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 focus:outline-none focus:ring-2 focus:ring-rose-400 flex items-center justify-center"
+              >
+                Delete Line
               </button>
             </div>
           </div>

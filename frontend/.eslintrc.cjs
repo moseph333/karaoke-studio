@@ -26,7 +26,12 @@ module.exports = {
       'warn',
       {
         allowConstantExport: true,
-        allowExportNames: ['THEMES', 'parseMediaError', 'useToast'],
+        allowExportNames: [
+          'THEMES',
+          'parseMediaError',
+          'useToast',
+          'recalculateWordTimings',
+        ],
       },
     ],
     '@typescript-eslint/no-unused-vars': [
