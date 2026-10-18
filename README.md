@@ -13,7 +13,7 @@ Local-first audio workstation for stem separation, acoustic word alignment, time
 - **Word alignment**: calculates word-level boundaries using acoustic energy and envelope detection.
 - **Timeline editor**: inline lyric text editing, line insertion and deletion with automatic monotonic word-level timing recalculation, audio scrubbing, boundary trimming, progressive wipe previews, 3-2-1 visual countdown dots, ±0.2s line nudging, and dirty-state discard protection.
 - **Studio mixing**: semitone pitch shifting (-12 to +12) without tempo change, master volume and mute controls, and 0% to 50% guide vocal blending.
-- **Keyboard navigation**: transport shortcuts for play/pause, seeking, and mute toggling with modal and text input isolation.
+- **Keyboard navigation & in-app help**: transport shortcuts (`Space`, `←`, `→`, `M`) and `?` hotkey for the accessible In-App Help & Studio Usage Guide modal, plus styled contextual tooltips with hotkey badges across studio controls.
 - **Themes and styling**: four presets (Modern Gold, Cyber Cyan, Neon Sunset, Classic KTV), custom video/image backgrounds, auto-blurred album art, and 16:9 widescreen or 9:16 vertical outputs.
 - **Export kit & standalone subtitles**: instant standalone `.lrc` and `.ass` synchronized subtitle downloads (including active theme colors, `1920x1080` / `1080x1920` resolution, and progressive `\kf` karaoke tags) without waiting for a video render, plus full 1080p60 MP4 renders with 320 kbps AAC audio and YouTube metadata packages.
 - **Resilience & accessibility**: comprehensive error boundaries with audio auto-recovery, in-app toast alerts, and accessible focus traps for modal dialogs.
@@ -122,7 +122,7 @@ Frontend quality tools run from the `frontend/` directory:
 ```bash
 cd frontend
 
-# Run Vitest unit, component, and responsive layout tests (639 tests across 31 test suites)
+# Run Vitest unit, component, and responsive layout tests (760 tests across 37 test suites)
 npm test
 
 # Run Vitest in interactive watch mode

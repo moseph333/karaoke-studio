@@ -87,6 +87,7 @@ Karaoke Studio combines an asynchronous Python backend built on **FastAPI** with
 │   │   │   ├── StudioMetaHeader.tsx# Project metadata breadcrumb & edit controls
 │   │   │   ├── StudioModals.tsx    # Global modal dialog container
 │   │   │   ├── LyricDisplay.tsx    # Live synchronized karaoke lyric display
+│   │   │   ├── Tooltip.tsx         # Accessible hover/focus tooltips with hotkey badges
 │   │   │   ├── ErrorBoundary.tsx   # React error boundary with auto-recovery
 │   │   │   └── Toast.tsx           # Toast alert system
 │   │   ├── hooks/                  # Custom React hooks
@@ -181,7 +182,8 @@ frontend/src/
 │   │   │   ├── TimelineLineCard (2-row mobile layout, ±0.2s nudge, edit text, delete)
 │   │   │   ├── ExpandedWordEditor (Sub-line word timing editor)
 │   │   │   └── TimelineModals (Insert line modal, discard confirmation)
-│   │   └── LyricDisplay (Live karaoke lyric sweep)
+│   │   ├── LyricDisplay (Live karaoke lyric sweep)
+│   │   └── Tooltip (Accessible hover/focus tooltips with <kbd> hotkey badges)
 │   └── StudioModals (Global dialog manager)
 │       ├── AuthModal (Password login)
 │       ├── ExportModal (MP4 render, instant .lrc/.ass downloads, YouTube kit)
@@ -294,7 +296,7 @@ backend/tests/
 
 ### Frontend Test Architecture
 
-The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 34 test modules:
+The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 37 test modules:
 
 ```
 frontend/src/tests/
@@ -309,6 +311,8 @@ frontend/src/tests/
 ├── LyricTimelineEditor.test.tsx            # Inline editing, line nudge, dirty state tracking
 ├── StudioLifecycle.test.tsx                # App state transitions & project loading
 ├── Toast.test.tsx                          # Toast notification rendering & timers
+├── Tooltip.test.tsx                        # Tooltip hover/focus, Escape dismiss, hotkey badges
+├── TooltipStress.test.tsx                  # Rapid hover/focus churn & disabled state sync
 ├── TrackSearch.test.tsx                    # YouTube search, local audio intake, library cards
 ├── api.test.ts                             # API client, token persistence, error handling
 ├── appStateTransitions.test.tsx            # View transitions (Landing -> Search -> Processing -> Ready)
@@ -329,6 +333,7 @@ frontend/src/tests/
 ├── timelineAutoScrollAndTouch.test.tsx     # 2-row mobile line cards & auto-scroll sync
 ├── timelineLineStructureEditing.test.tsx   # Line insertion (above/below) & deletion invariants
 ├── toastAndAuthAdversarial.test.tsx        # Toast hover-pause & 401 unauthorized bus
+├── tooltipAccessibilitySemantics.test.tsx  # WAI-ARIA tooltip semantics & aria-describedby links
 ├── useFocusTrap.test.tsx                   # Focus loop & restoration unit tests
 ├── useKeyboardShortcuts.test.ts            # Shortcut listener & input isolation unit tests
 └── useProjectPolling.test.ts               # Polling exponential backoff & retry tests
@@ -346,7 +351,7 @@ All changes in the repository must pass the full suite of automated quality gate
 
 # 2. Frontend Verification (inside frontend/)
 cd frontend
-npm test -- --run                            # Baseline: >=639 passed, 0 failed
+npm test -- --run                            # Baseline: >=760 passed, 0 failed
 npm run lint                                 # Zero ESLint warnings
 npm run format:check                         # Zero Prettier diffs
 npm run build                                # Zero TypeScript or Vite compilation errors
