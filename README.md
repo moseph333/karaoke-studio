@@ -30,13 +30,14 @@ The studio provides keyboard shortcuts for playback navigation and precision edi
 | <kbd>←</kbd> (Left Arrow) | Shortcut | Seek backward 5 seconds in timeline playback |
 | <kbd>→</kbd> (Right Arrow) | Shortcut | Seek forward 5 seconds in timeline playback |
 | <kbd>M</kbd> / <kbd>m</kbd> | Shortcut | Toggle audio mute / unmute |
+| <kbd>?</kbd> | Shortcut | Toggle in-app Help & Studio Usage Guide |
 | **Master Volume** | Control | Linear volume slider (0%–100%) and mute toggle for studio monitoring |
 | **Pitch Shift** | Control | Stepper to shift playback pitch from -12 to +12 semitones without altering tempo |
 | **Guide Vocal** | Control | Blend slider from 0% to 50% vocal volume over instrumental backing tracks |
 | **Timeline Nudging** | Control | Stepper buttons to shift line start and end timestamps in ±0.2-second increments |
 | **Inline Line Editing** | Control | Edit lyric line text, insert lines above/below/end, or delete lines with automatic word-token timing recalculation |
 | **Word Sweep** | Control | Progressive sub-line wipe preview tracking acoustic syllable boundaries in real time |
-| **Modal Focus Traps** | Accessibility | Keyboard focus looping (`Tab`, `Shift+Tab`) and `Escape` dismiss for Auth, Metadata, Delete, and Export dialogs |
+| **Modal Focus Traps** | Accessibility | Keyboard focus looping (`Tab`, `Shift+Tab`) and `Escape` dismiss for Auth, Metadata, Delete, Export, and Help dialogs |
 
 ## Quick Start
 
@@ -176,11 +177,14 @@ cp .env.example .env
 
 Karaoke Studio was engineered as a high-concurrency, local-first media workstation:
 
-- **Asynchronous Task Engine**: FastAPI backend with non-blocking worker queues, dynamic progress streaming, cancelable threads, and heartbeat monitors for compute-intensive Demucs and FFmpeg jobs.
+- **Modular Backend Architecture**: FastAPI backend decomposed into single-responsibility routers (`routers/auth`, `routers/projects`, `routers/uploads`, `routers/exports`) and service layers (`services/separator`, `services/lyrics`, `services/aligner`, `services/audio_mixer`, `services/video_renderer`, `services/ass_generator`), backed by bounded worker semaphores (`MAX_CONCURRENT_JOBS`) and cancelable thread execution.
+- **Modular Frontend Architecture**: React 18 single-page application structured into focused subcomponent hierarchies (`components/audio/`, `components/export/`, `components/timeline/`, `components/track-search/`) and custom hooks (`useKeyboardShortcuts`, `useFocusTrap`, `useInterpolatedTime`, `useLyricEditorState`, `useTimelineAutoScroll`).
 - **Audio DSP Pipeline**: Demucs v4 (Hybrid Transformer) stem isolation combined with acoustic energy envelope detection to calculate fine-grained syllable and word boundaries.
 - **Video Rendering Engine**: Native FFmpeg filtergraphs with `libass` compositing to burn dynamic progressive wipe karaoke styles directly into 1080p60 MP4 with 320 kbps AAC audio.
 - **Fault-Tolerant Storage**: Atomic JSON persistence with automated backup recovery to guard against state corruption during sudden shutdowns.
-- **Modern Interface**: React 18, Tailwind CSS, Lucide icons, and Wavesurfer.js audio scrubbers for interactive timeline editing.
+- **Modern Interface**: React 18, Tailwind CSS, Lucide icons, contextual tooltips with hotkey badges, and Wavesurfer.js audio scrubbers for interactive timeline editing.
+
+For a comprehensive architectural guide covering decomposed backend routers, media processing pipelines, frontend state architecture, and test suite organization, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### Development & AI Assistance
 
