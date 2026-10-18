@@ -65,22 +65,25 @@ def test_project_factory(tmp_path: Path):
             "status": status,
             "progress": 100 if status == "ready" else 50,
             "created_by": created_by,
-            "lines": lines
-            or [
-                {
-                    "id": 1,
-                    "text": "Singing along with the track",
-                    "start_time": 1.0,
-                    "end_time": 4.0,
-                    "words": [
-                        {"word": "Singing", "start_time": 1.0, "end_time": 1.8},
-                        {"word": "along", "start_time": 1.8, "end_time": 2.5},
-                        {"word": "with", "start_time": 2.5, "end_time": 3.0},
-                        {"word": "the", "start_time": 3.0, "end_time": 3.4},
-                        {"word": "track", "start_time": 3.4, "end_time": 4.0},
-                    ],
-                }
-            ],
+            "lines": (
+                lines
+                if lines is not None
+                else [
+                    {
+                        "id": 1,
+                        "text": "Singing along with the track",
+                        "start_time": 1.0,
+                        "end_time": 4.0,
+                        "words": [
+                            {"word": "Singing", "start_time": 1.0, "end_time": 1.8},
+                            {"word": "along", "start_time": 1.8, "end_time": 2.5},
+                            {"word": "with", "start_time": 2.5, "end_time": 3.0},
+                            {"word": "the", "start_time": 3.0, "end_time": 3.4},
+                            {"word": "track", "start_time": 3.4, "end_time": 4.0},
+                        ],
+                    }
+                ]
+            ),
             "semitones": 0,
             "guide_volume": 0.0,
         }
@@ -414,6 +417,8 @@ class TestRoutePreFlightChecks:
             ),
             ("/api/project/{id}/lyrics", "post", {"lines": []}),
             ("/api/project/{id}/youtube-package", "get", None),
+            ("/api/project/{id}/export/lrc", "get", None),
+            ("/api/project/{id}/export/ass", "get", None),
         ],
     )
     def test_nonexistent_project_id_returns_404(self, client, endpoint_pattern, method, payload):
@@ -443,6 +448,8 @@ class TestRouteAuthenticationAndSecurity:
             ("/api/project/test_proj/render", "post", {"aspect_ratio": "16:9"}),
             ("/api/project/test_proj/lyrics", "post", {"lines": []}),
             ("/api/project/test_proj/youtube-package", "get", None),
+            ("/api/project/test_proj/export/lrc", "get", None),
+            ("/api/project/test_proj/export/ass", "get", None),
             ("/static/downloads/track.wav", "get", None),
             ("/static/stems/track/vocals.wav", "get", None),
         ],
@@ -1493,3 +1500,274 @@ class TestProjectMetadataUpdate:
         res = client.patch("/api/project/alias_meta_yt", json={"title": "Alias Updated Title"})
         assert res.status_code == 200
         assert main_mod.projects["canon_meta"]["title"] == "Alias Updated Title"
+
+
+# ==============================================================================
+# Subtitle Export Routes: .lrc and .ass (Milestone 2)
+# ==============================================================================
+
+
+class TestSubtitleExportLrc:
+    """Test suite for GET /api/project/{project_id}/export/lrc."""
+
+    def test_export_lrc_success_200(self, client, test_project_factory):
+        """Exporting .lrc returns HTTP 200, UTF-8 text/plain, Content-Disposition, and accurate LRC lines."""
+        proj = test_project_factory(
+            title="Bohemian Rhapsody",
+            artist="Queen",
+            lines=[
+                {
+                    "id": 1,
+                    "text": "Is this the real life?",
+                    "start_time": 2.5,
+                    "end_time": 5.0,
+                    "words": [],
+                },
+                {
+                    "id": 2,
+                    "text": "Is this just fantasy?",
+                    "start_time": 6.0,
+                    "end_time": 9.0,
+                    "words": [],
+                },
+            ],
+        )
+        pid = proj["id"]
+        res = client.get(f"/api/project/{pid}/export/lrc")
+        assert res.status_code == 200
+        assert "text/plain" in res.headers["content-type"]
+        assert "charset=utf-8" in res.headers["content-type"].lower()
+        assert (
+            'attachment; filename="Queen - Bohemian Rhapsody.lrc"'
+            in res.headers["content-disposition"]
+        )
+        content = res.text
+        assert "[ti:Bohemian Rhapsody]" in content
+        assert "[ar:Queen]" in content
+        assert "[00:02.50]Is this the real life?" in content
+        assert "[00:06.00]Is this just fantasy?" in content
+
+    def test_export_lrc_project_not_found_404(self, client):
+        """Requesting export for non-existent project ID returns HTTP 404."""
+        res = client.get("/api/project/nonexistent_proj_9999/export/lrc")
+        assert res.status_code == 404
+        assert "project not found" in res.json().get("detail", "").lower()
+
+    def test_export_lrc_no_lyrics_returns_400(self, client, test_project_factory):
+        """Projects without lyric lines return HTTP 400."""
+        proj = test_project_factory(lines=[])
+        pid = proj["id"]
+        res = client.get(f"/api/project/{pid}/export/lrc")
+        assert res.status_code == 400
+        assert "no lyric lines" in res.json().get("detail", "").lower()
+
+    def test_export_lrc_whitespace_only_lyrics_returns_400(self, client, test_project_factory):
+        """Projects with lines containing only whitespace return HTTP 400."""
+        proj = test_project_factory(
+            lines=[{"id": 1, "text": "   ", "start_time": 1.0, "end_time": 2.0}]
+        )
+        pid = proj["id"]
+        res = client.get(f"/api/project/{pid}/export/lrc")
+        assert res.status_code == 400
+        assert "no lyric lines" in res.json().get("detail", "").lower()
+
+    def test_export_lrc_independent_of_render_status(self, client, test_project_factory):
+        """Exporting .lrc succeeds even if project status is downloading and video render has never run."""
+        proj = test_project_factory(
+            status="downloading",
+            with_stems=False,
+            with_master=False,
+            lines=[{"id": 1, "text": "Early lyrics export", "start_time": 1.0, "end_time": 3.0}],
+        )
+        pid = proj["id"]
+        assert "video_url" not in proj or proj.get("video_url") is None
+        res = client.get(f"/api/project/{pid}/export/lrc")
+        assert res.status_code == 200
+        assert "[00:01.00]Early lyrics export" in res.text
+
+    def test_export_lrc_unauthenticated_returns_401(
+        self, unauth_client, test_project_factory, monkeypatch
+    ):
+        """When studio passphrase is set, unauthenticated export requests return HTTP 401."""
+        monkeypatch.setattr(config, "APP_PASSWORD", "studio_vault_passphrase")
+        proj = test_project_factory()
+        res = unauth_client.get(f"/api/project/{proj['id']}/export/lrc")
+        assert res.status_code == 401
+
+    def test_export_lrc_filename_sanitization(self, client, test_project_factory):
+        """Export filename sanitizes dangerous quotes, slashes, and control characters."""
+        import re
+
+        proj = test_project_factory(
+            title='Song / With "Quotes" & <Brackets>: Final',
+            artist="Artist / Rock",
+            lines=[
+                {"id": 1, "text": "Sanitized filename test", "start_time": 1.0, "end_time": 2.0}
+            ],
+        )
+        pid = proj["id"]
+        res = client.get(f"/api/project/{pid}/export/lrc")
+        assert res.status_code == 200
+        disposition = res.headers["content-disposition"]
+        filename_match = re.search(r'filename="([^"]+)"', disposition)
+        assert filename_match is not None
+        filename = filename_match.group(1)
+        assert "/" not in filename
+        assert "\\" not in filename
+        assert '"' not in filename
+        assert filename.endswith(".lrc")
+
+
+class TestExportAssSubtitles:
+    """Verifies GET /api/project/{project_id}/export/ass route."""
+
+    def test_export_ass_success_200_16_9(self, client, test_project_factory):
+        """Export ASS subtitle in 16:9 widescreen returns 200 with valid ASS document."""
+        proj = test_project_factory(title="My Song", artist="My Artist")
+        pid = proj["id"]
+
+        res = client.get(f"/api/project/{pid}/export/ass?aspect_ratio=16:9")
+        assert res.status_code == 200
+        assert "text/x-ssa" in res.headers["content-type"]
+        assert (
+            'attachment; filename="My Artist - My Song.ass"' in res.headers["content-disposition"]
+        )
+
+        body = res.text
+        assert "[Script Info]" in body
+        assert "PlayResX: 1920" in body
+        assert "PlayResY: 1080" in body
+        assert "Style: KaraokeLine1" in body
+        assert "\\kf" in body
+
+    def test_export_ass_success_200_9_16(self, client, test_project_factory):
+        """Export ASS subtitle in 9:16 vertical shorts returns 200 with mobile dimensions."""
+        proj = test_project_factory()
+        pid = proj["id"]
+
+        res = client.get(f"/api/project/{pid}/export/ass?aspect_ratio=9:16")
+        assert res.status_code == 200
+        body = res.text
+        assert "PlayResX: 1080" in body
+        assert "PlayResY: 1920" in body
+        assert ",60,60,640,1" in body
+
+    @pytest.mark.parametrize(
+        "theme_id,expected_bgr",
+        [
+            ("modern_gold", "&H0000D7FF"),
+            ("cyber_cyan", "&H00FFFF00"),
+            ("neon_pink", "&H00B300FF"),
+            ("classic_ktv", "&H0000FFFF"),
+        ],
+    )
+    def test_export_ass_with_visual_theme(
+        self, client, test_project_factory, theme_id, expected_bgr
+    ):
+        """Theme parameter correctly sets primary karaoke fill color."""
+        proj = test_project_factory()
+        pid = proj["id"]
+
+        res = client.get(f"/api/project/{pid}/export/ass?theme_id={theme_id}")
+        assert res.status_code == 200
+        assert expected_bgr in res.text
+
+    def test_export_ass_with_direct_color_override(self, client, test_project_factory):
+        """Custom primary_color and secondary_color query parameters override theme colors."""
+        proj = test_project_factory()
+        pid = proj["id"]
+
+        res = client.get(
+            f"/api/project/{pid}/export/ass?primary_color=%26H00112233&secondary_color=%26H00445566"
+        )
+        assert res.status_code == 200
+        assert "&H00112233" in res.text
+        assert "&H00445566" in res.text
+
+    def test_export_ass_without_video_render(self, client, test_project_factory):
+        """Ready project with render_status='idle' exports ASS immediately without requiring render."""
+        proj = test_project_factory()
+        pid = proj["id"]
+        main_mod.projects[pid]["render_status"] = "idle"
+        main_mod.projects[pid]["video_url"] = None
+
+        res = client.get(f"/api/project/{pid}/export/ass")
+        assert res.status_code == 200
+        assert "[Script Info]" in res.text
+
+    def test_export_ass_invalid_aspect_ratio_400(self, client, test_project_factory):
+        """Unsupported aspect ratio returns 400."""
+        proj = test_project_factory()
+        pid = proj["id"]
+
+        res = client.get(f"/api/project/{pid}/export/ass?aspect_ratio=4:3")
+        assert res.status_code == 400
+        assert "invalid aspect ratio" in res.json()["detail"].lower()
+
+    def test_export_ass_invalid_theme_id_400(self, client, test_project_factory):
+        """Non-existent theme_id returns 400."""
+        proj = test_project_factory()
+        pid = proj["id"]
+
+        res = client.get(f"/api/project/{pid}/export/ass?theme_id=hologram_matrix")
+        assert res.status_code == 400
+        assert "invalid theme_id" in res.json()["detail"].lower()
+
+    def test_export_ass_project_not_found_404(self, client):
+        """Exporting ASS for nonexistent project ID returns 404."""
+        res = client.get("/api/project/missing_project_xyz/export/ass")
+        assert res.status_code == 404
+        assert "project not found" in res.json()["detail"].lower()
+
+    def test_export_ass_unready_project_without_lyrics_400(self, client, test_project_factory):
+        """Project in active intake without lines returns 400."""
+        proj = test_project_factory(status="separating", lines=[])
+        pid = proj["id"]
+
+        res = client.get(f"/api/project/{pid}/export/ass")
+        assert res.status_code == 400
+        assert "lyrics are not ready" in res.json()["detail"].lower()
+
+    def test_export_ass_filename_sanitization(self, client, test_project_factory):
+        """Unsafe characters in title/artist are sanitized in Content-Disposition header."""
+        proj = test_project_factory(
+            title='Bad/Slash "Quotes" and \r\n Newline',
+            artist="Artist/Slash",
+        )
+        pid = proj["id"]
+
+        res = client.get(f"/api/project/{pid}/export/ass")
+        assert res.status_code == 200
+        cd = res.headers["content-disposition"]
+        assert "\r" not in cd
+        assert "\n" not in cd
+        assert "/" not in cd.split('filename="')[1].split('"')[0]
+
+    def test_export_ass_via_track_id_alias(self, client, test_project_factory):
+        """Export endpoint resolves track_id alias to canonical project."""
+        proj = test_project_factory(project_id="canon_ass")
+        main_mod.projects["alias_ass_yt"] = proj
+        main_mod.save_projects()
+
+        res = client.get("/api/project/alias_ass_yt/export/ass")
+        assert res.status_code == 200
+        assert "[Script Info]" in res.text
+
+    def test_export_ass_auth_protected_when_configured(
+        self, client, test_project_factory, monkeypatch
+    ):
+        """When APP_PASSWORD is set, unauthenticated export returns 401, authenticated returns 200."""
+        monkeypatch.setattr(config, "APP_PASSWORD", "studio_secret_phrase")
+        proj = test_project_factory()
+        pid = proj["id"]
+
+        # Unauthenticated -> 401
+        res_unauth = client.get(f"/api/project/{pid}/export/ass")
+        assert res_unauth.status_code == 401
+
+        # Authenticated via X-App-Password -> 200
+        res_auth = client.get(
+            f"/api/project/{pid}/export/ass",
+            headers={"X-App-Password": "studio_secret_phrase"},
+        )
+        assert res_auth.status_code == 200

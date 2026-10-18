@@ -793,3 +793,106 @@ def test_render_video_with_custom_webm_background_9_16(tmp_path):
         ).stdout.strip()
     )
     assert 1.8 <= probe_d <= 2.2
+
+
+def test_visual_themes_centralization():
+    """VISUAL_THEMES dictionary contains all 4 supported themes with correct BGR hex colors."""
+    from backend.services.video_renderer import VISUAL_THEMES
+
+    assert "modern_gold" in VISUAL_THEMES
+    assert "cyber_cyan" in VISUAL_THEMES
+    assert "neon_pink" in VISUAL_THEMES
+    assert "classic_ktv" in VISUAL_THEMES
+
+    assert VISUAL_THEMES["modern_gold"]["primary_color"] == "&H0000D7FF"
+    assert VISUAL_THEMES["cyber_cyan"]["primary_color"] == "&H00FFFF00"
+    assert VISUAL_THEMES["neon_pink"]["primary_color"] == "&H00B300FF"
+    assert VISUAL_THEMES["classic_ktv"]["primary_color"] == "&H0000FFFF"
+
+
+def test_generate_ass_content_direct_string_return():
+    """generate_ass_content returns valid ASS document string in memory without writing to disk."""
+    renderer = VideoRenderer()
+    sample_lines = [
+        {
+            "id": 0,
+            "text": "Singing direct in memory",
+            "start_time": 1.0,
+            "end_time": 4.0,
+            "words": [
+                {"word": "Singing", "start_time": 1.0, "end_time": 2.0},
+                {"word": "direct", "start_time": 2.0, "end_time": 3.0},
+                {"word": "in", "start_time": 3.0, "end_time": 3.5},
+                {"word": "memory", "start_time": 3.5, "end_time": 4.0},
+            ],
+        }
+    ]
+
+    content = renderer.generate_ass_content(sample_lines, title="Memory Anthem")
+    assert isinstance(content, str)
+    assert "[Script Info]" in content
+    assert "Title: Memory Anthem" in content
+    assert "PlayResX: 1920" in content
+    assert "PlayResY: 1080" in content
+    assert "Style: KaraokeLine1" in content
+    assert "\\kf" in content
+    assert "Singing" in content
+
+
+@pytest.mark.parametrize(
+    "aspect_ratio,expected_res_x,expected_res_y,expected_margin_v1",
+    [
+        ("16:9", "PlayResX: 1920", "PlayResY: 1080", ",80,80,200,1"),
+        ("9:16", "PlayResX: 1080", "PlayResY: 1920", ",60,60,640,1"),
+    ],
+)
+def test_generate_ass_content_aspect_ratios(
+    aspect_ratio, expected_res_x, expected_res_y, expected_margin_v1
+):
+    """generate_ass_content applies correct canvas resolution and margins for 16:9 and 9:16."""
+    renderer = VideoRenderer()
+    content = renderer.generate_ass_content([], aspect_ratio=aspect_ratio)
+    assert expected_res_x in content
+    assert expected_res_y in content
+    assert expected_margin_v1 in content
+
+
+@pytest.mark.parametrize(
+    "theme_id,expected_sung_color",
+    [
+        ("modern_gold", "&H0000D7FF"),
+        ("cyber_cyan", "&H00FFFF00"),
+        ("neon_pink", "&H00B300FF"),
+        ("classic_ktv", "&H0000FFFF"),
+    ],
+)
+def test_generate_ass_content_visual_themes(theme_id, expected_sung_color):
+    """generate_ass_content propagates theme preset colors to KaraokeLine1 and KaraokeLine2 styles."""
+    renderer = VideoRenderer()
+    content = renderer.generate_ass_content([], theme_id=theme_id)
+    assert f",{expected_sung_color},&H00FFFFFF," in content
+
+
+def test_generate_ass_content_color_overrides():
+    """Explicit primary_color and secondary_color override preset theme colors."""
+    renderer = VideoRenderer()
+    content = renderer.generate_ass_content(
+        [],
+        theme_id="modern_gold",
+        primary_color="&H00123456",
+        secondary_color="&H00654321",
+    )
+    assert ",&H00123456,&H00654321," in content
+    assert "&H0000D7FF" not in content
+
+
+def test_generate_ass_subtitles_delegation_to_generate_ass_content(tmp_path):
+    """generate_ass_subtitles delegates to generate_ass_content and writes output to file."""
+    renderer = VideoRenderer(output_dir=tmp_path)
+    output_ass = tmp_path / "delegated.ass"
+    sample_lines = [{"id": 0, "text": "Test line", "start_time": 1.0, "end_time": 2.0, "words": []}]
+
+    res_path = renderer.generate_ass_subtitles(sample_lines, output_ass, theme_id="cyber_cyan")
+    assert res_path == str(output_ass)
+    assert output_ass.is_file()
+    assert "&H00FFFF00" in output_ass.read_text(encoding="utf-8")

@@ -211,3 +211,100 @@ def test_process_custom_lyrics():
     res_empty_lrc = service.process_custom_lyrics("[00:01.00]\n[00:02.00]")
     assert res_empty_lrc["source"] == "custom"
     assert res_empty_lrc["synced"] is False
+
+
+def test_format_lrc_timestamp_standard_and_fractions():
+    """format_lrc_timestamp correctly formats zero, whole seconds, and fractional centiseconds."""
+    assert LyricsService.format_lrc_timestamp(0.0) == "[00:00.00]"
+    assert LyricsService.format_lrc_timestamp(4.2) == "[00:04.20]"
+    assert LyricsService.format_lrc_timestamp(8.5) == "[00:08.50]"
+    assert LyricsService.format_lrc_timestamp(14.0) == "[00:14.00]"
+    assert LyricsService.format_lrc_timestamp(63.456) == "[01:03.46]"
+    assert LyricsService.format_lrc_timestamp(120.0) == "[02:00.00]"
+
+
+def test_format_lrc_timestamp_edge_cases_and_clamping():
+    """format_lrc_timestamp handles rollover rounding, negative values, non-finites, and long durations."""
+    # Rollover case: 59.996s rounds to 60.00s -> must advance minute to [01:00.00]
+    assert LyricsService.format_lrc_timestamp(59.996) == "[01:00.00]"
+    # Negative seconds clamped to 0.0
+    assert LyricsService.format_lrc_timestamp(-3.5) == "[00:00.00]"
+    # NaN and infinite timestamps clamped to 0.0
+    assert LyricsService.format_lrc_timestamp(float("nan")) == "[00:00.00]"
+    assert LyricsService.format_lrc_timestamp(float("inf")) == "[00:00.00]"
+    assert LyricsService.format_lrc_timestamp(float("-inf")) == "[00:00.00]"
+    # Large timestamps exceeding 60 minutes accumulate in minutes field
+    assert LyricsService.format_lrc_timestamp(3665.50) == "[61:05.50]"
+    # Non-numeric inputs handled safely
+    assert LyricsService.format_lrc_timestamp("invalid") == "[00:00.00]"  # type: ignore[arg-type]
+    assert LyricsService.format_lrc_timestamp(None) == "[00:00.00]"  # type: ignore[arg-type]
+
+
+def test_generate_lrc_chronological_ordering():
+    """generate_lrc sorts out-of-order lines chronologically by start_time."""
+    out_of_order = [
+        {"id": 3, "text": "Third line", "start_time": 20.0},
+        {"id": 1, "text": "First line", "start_time": 2.0},
+        {"id": 2, "text": "Second line", "start_time": 10.0},
+    ]
+    lrc = LyricsService.generate_lrc(out_of_order)
+    expected = [
+        "[00:02.00]First line",
+        "[00:10.00]Second line",
+        "[00:20.00]Third line",
+    ]
+    assert lrc.strip().split("\n") == expected
+
+
+def test_generate_lrc_strips_embedded_tags_and_whitespace():
+    """generate_lrc strips existing inline or leading timestamp tags and normalizes spaces."""
+    dirty_lines = [
+        {"id": 0, "text": "  [00:04.20] Clean text <00:05.00> line  ", "start_time": 4.2},
+        {"id": 1, "text": "Line with\t extra   spaces   ", "start_time": 8.0},
+    ]
+    lrc = LyricsService.generate_lrc(dirty_lines)
+    assert "[00:04.20]Clean text line" in lrc
+    assert "[00:08.00]Line with extra spaces" in lrc
+
+
+def test_generate_lrc_metadata_headers():
+    """generate_lrc emits [ti:...] and [ar:...] tags when metadata is provided."""
+    lines = [{"id": 0, "text": "Sing along", "start_time": 5.0}]
+    # With title and artist
+    lrc_with_meta = LyricsService.generate_lrc(lines, title="Bohemian Rhapsody", artist="Queen")
+    assert lrc_with_meta.startswith("[ti:Bohemian Rhapsody]\n[ar:Queen]\n")
+    assert "[00:05.00]Sing along" in lrc_with_meta
+
+    # Without metadata
+    lrc_no_meta = LyricsService.generate_lrc(lines)
+    assert not lrc_no_meta.startswith("[ti:")
+    assert not lrc_no_meta.startswith("[ar:")
+    assert lrc_no_meta.startswith("[00:05.00]Sing along")
+
+
+def test_generate_lrc_roundtrip_with_parse_lrc():
+    """parse_lrc(generate_lrc(lines)) produces identical line text and start_times."""
+    sample = (
+        "[00:04.20]First line of the song\n"
+        "[00:08.50]Second line with more words\n"
+        "[00:14.00]Final chorus line\n"
+    )
+    parsed = LyricsService.parse_lrc(sample)
+    regenerated = LyricsService.generate_lrc(parsed)
+    assert regenerated == sample
+    reparsed = LyricsService.parse_lrc(regenerated)
+    assert len(reparsed) == len(parsed)
+    for orig, rep in zip(parsed, reparsed, strict=True):
+        assert orig["text"] == rep["text"]
+        assert orig["start_time"] == rep["start_time"]
+
+
+def test_generate_lrc_empty_and_edge_cases():
+    """generate_lrc safely handles empty line lists, whitespace-only text, and non-list inputs."""
+    assert LyricsService.generate_lrc([]) == ""
+    assert (
+        LyricsService.generate_lrc([], title="Song", artist="Artist") == "[ti:Song]\n[ar:Artist]\n"
+    )
+    empty_lines = [{"id": 0, "text": "   ", "start_time": 1.0}]
+    assert LyricsService.generate_lrc(empty_lines) == ""
+    assert LyricsService.generate_lrc(None) == ""  # type: ignore[arg-type]
