@@ -824,10 +824,14 @@ def test_separator_process_hanging_triggers_force_kill(tmp_path):
 
 
 def test_video_renderer_format_ass_time_boundary():
-    """Tests _format_ass_time clamping when centiseconds reach 100."""
-    # 0.999 seconds should produce .99 instead of .100
+    """Tests _format_ass_time rollover when centiseconds reach 100."""
+    # 0.999 seconds rounds to 100 centiseconds, rolling over cleanly to 0:00:01.00
     formatted = VideoRenderer._format_ass_time(0.999)
-    assert formatted.endswith(".99")
+    assert formatted == "0:00:01.00"
+
+    # 0.994 seconds stays within the 0:00:00.99 boundary
+    formatted_99 = VideoRenderer._format_ass_time(0.994)
+    assert formatted_99 == "0:00:00.99"
 
     # Hours formatting
     formatted_hr = VideoRenderer._format_ass_time(3665.25)

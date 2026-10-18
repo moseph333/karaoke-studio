@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import subprocess
 import threading
@@ -49,15 +50,48 @@ class VideoRenderer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     @staticmethod
+    def _safe_time(val: Any, default: float = 0.0) -> float:
+        """Safely coerce timestamp values to non-negative finite floats.
+
+        Handles None, NaN, Inf, negative values, and non-numeric types gracefully.
+        """
+        try:
+            f = float(val)
+            if math.isfinite(f) and f >= 0.0:
+                return f
+        except (ValueError, TypeError):
+            pass
+
+        try:
+            d = float(default)
+            if math.isfinite(d) and d >= 0.0:
+                return d
+        except (ValueError, TypeError):
+            pass
+
+        return 0.0
+
+    @staticmethod
     def _format_ass_time(seconds: float) -> str:
-        """Converts float seconds to ASS timestamp format: H:MM:SS.cs"""
-        hrs = int(seconds // 3600)
-        mins = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        csec = round((seconds - int(seconds)) * 100)
-        if csec >= 100:
-            csec = 99
-        return f"{hrs}:{mins:02d}:{secs:02d}.{csec:02d}"
+        """Converts float seconds to ASS timestamp format: H:MM:SS.cs
+
+        Safely handles negative values, non-finite values (NaN, Inf), None,
+        and ensures proper centisecond-to-second rollover (e.g. 59.996s -> 0:01:00.00).
+        """
+        try:
+            val = float(seconds)
+            if not math.isfinite(val) or val < 0.0:
+                val = 0.0
+        except (ValueError, TypeError):
+            val = 0.0
+
+        total_cs = round(val * 100)
+        cs = total_cs % 100
+        total_s = total_cs // 100
+        s = total_s % 60
+        m = (total_s // 60) % 60
+        h = total_s // 3600
+        return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
     @staticmethod
     def _escape_ass_text(text: str) -> str:
@@ -169,10 +203,17 @@ class VideoRenderer:
 
         prev_end_time = 0.0
 
+        if not lines or not isinstance(lines, list):
+            return "\n".join(ass_content) + "\n"
+
         for i, line in enumerate(lines):
-            l_start = float(line.get("start_time", 0.0))
-            l_end = float(line.get("end_time", l_start + 4.0))
-            words = line.get("words", [])
+            if not isinstance(line, dict):
+                continue
+            l_start = self._safe_time(line.get("start_time"), 0.0)
+            l_end = self._safe_time(line.get("end_time"), l_start + 4.0)
+            l_end = max(l_start, l_end)
+            raw_words = line.get("words", [])
+            words = raw_words if isinstance(raw_words, list) else []
 
             # Alternate between Line1 and Line2 styles for natural dual-line reading
             style_name = "KaraokeLine1" if (i % 2 == 0) else "KaraokeLine2"
@@ -208,8 +249,11 @@ class VideoRenderer:
             if words:
                 cur_word_time = l_start
                 for w in words:
-                    w_start = float(w.get("start_time", cur_word_time))
-                    w_end = float(w.get("end_time", w_start + 0.4))
+                    if not isinstance(w, dict):
+                        continue
+                    w_start = self._safe_time(w.get("start_time"), cur_word_time)
+                    w_end = self._safe_time(w.get("end_time"), w_start + 0.4)
+                    w_end = max(w_start, w_end)
                     dur_cs = max(1, round((w_end - w_start) * 100))
                     raw_word = str(w.get("word", ""))
                     word_text = self._escape_ass_text(raw_word)

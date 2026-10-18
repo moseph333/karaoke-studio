@@ -896,3 +896,102 @@ def test_generate_ass_subtitles_delegation_to_generate_ass_content(tmp_path):
     assert res_path == str(output_ass)
     assert output_ass.is_file()
     assert "&H00FFFF00" in output_ass.read_text(encoding="utf-8")
+
+
+def test_format_ass_time_centisecond_rollover_precision():
+    """_format_ass_time rolls 100 centiseconds into seconds and minutes without clamping to .99."""
+    # 59.996s -> 100 centiseconds -> 0:01:00.00 (NOT 0:00:59.99)
+    assert VideoRenderer._format_ass_time(59.996) == "0:01:00.00"
+    # 119.996s -> 0:02:00.00
+    assert VideoRenderer._format_ass_time(119.996) == "0:02:00.00"
+    # 3599.996s -> 1:00:00.00
+    assert VideoRenderer._format_ass_time(3599.996) == "1:00:00.00"
+    # 0.999s -> 0:00:01.00
+    assert VideoRenderer._format_ass_time(0.999) == "0:00:01.00"
+    # 0.994s -> 0:00:00.99
+    assert VideoRenderer._format_ass_time(0.994) == "0:00:00.99"
+
+
+def test_format_ass_time_boundary_and_negative_clamping():
+    """_format_ass_time safely handles negative, NaN, Inf, and non-numeric inputs."""
+    assert VideoRenderer._format_ass_time(-0.5) == "0:00:00.00"
+    assert VideoRenderer._format_ass_time(-100.0) == "0:00:00.00"
+    assert VideoRenderer._format_ass_time(float("nan")) == "0:00:00.00"
+    assert VideoRenderer._format_ass_time(float("inf")) == "0:00:00.00"
+    assert VideoRenderer._format_ass_time(float("-inf")) == "0:00:00.00"
+    assert VideoRenderer._format_ass_time(None) == "0:00:00.00"  # type: ignore[arg-type]
+    assert VideoRenderer._format_ass_time("invalid") == "0:00:00.00"  # type: ignore[arg-type]
+
+
+def test_format_ass_time_100_plus_minute_tracks():
+    """_format_ass_time formats long durations into correct H:MM:SS.cs."""
+    # 6000.0s = 100 minutes = 1h 40m 00s
+    assert VideoRenderer._format_ass_time(6000.0) == "1:40:00.00"
+    # 7530.5s = 125m 30.5s = 2h 05m 30.5s
+    assert VideoRenderer._format_ass_time(7530.5) == "2:05:30.50"
+
+
+def test_generate_ass_content_timestamp_resilience():
+    """generate_ass_content safely handles None, NaN, Inf, and negative timestamps without crashing."""
+    vr = VideoRenderer()
+    corrupted_lines = [
+        {
+            "id": 0,
+            "text": "Line with None start",
+            "start_time": None,
+            "end_time": 2.0,
+            "words": [{"word": "None", "start_time": None, "end_time": 1.0}],
+        },
+        {
+            "id": 1,
+            "text": "Line with NaN and Inf",
+            "start_time": float("nan"),
+            "end_time": float("inf"),
+            "words": [{"word": "NaN", "start_time": float("nan"), "end_time": float("nan")}],
+        },
+        {
+            "id": 2,
+            "text": "Line with negative times",
+            "start_time": -5.0,
+            "end_time": -2.0,
+            "words": [],
+        },
+        {
+            "id": 3,
+            "text": "Line with string invalid times",
+            "start_time": "invalid",
+            "end_time": "corrupt",
+            "words": [],
+        },
+    ]
+    # Must not raise TypeError or ValueError
+    ass = vr.generate_ass_content(corrupted_lines)
+    assert "[Script Info]" in ass
+    assert "[Events]" in ass
+    assert "Dialogue: 0," in ass
+    assert "None" in ass
+    assert "NaN" in ass
+    assert "Line with negative times" in ass
+    assert "Line with string invalid times" in ass
+
+
+def test_generate_ass_content_100_plus_minute_track():
+    """generate_ass_content generates valid dialogue event timestamps for 100+ minute tracks."""
+    vr = VideoRenderer()
+    sample_lines = [
+        {
+            "id": 0,
+            "text": "Century mark chorus",
+            "start_time": 6000.0,
+            "end_time": 6005.0,
+            "words": [
+                {"word": "Century", "start_time": 6000.0, "end_time": 6002.5},
+                {"word": "mark", "start_time": 6002.5, "end_time": 6005.0},
+            ],
+        }
+    ]
+    ass = vr.generate_ass_content(sample_lines)
+    # Start time displayed early: 6000 - 2.5 = 5997.5s = 1h 39m 57.50s
+    assert "1:39:57.50" in ass
+    assert "Century" in ass
+    assert "mark" in ass
