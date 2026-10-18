@@ -1,10 +1,12 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExportModal } from '../components/ExportModal';
 import { getFocusableElements } from '../hooks/useFocusTrap';
 import { ProjectState } from '../types';
+import * as apiModule from '../api';
+import { THEMES } from '../components/VisualThemePicker';
 
 describe('ExportModal', () => {
   const baseProject: ProjectState = {
@@ -116,5 +118,136 @@ describe('ExportModal', () => {
     // Tab wraps around to first focusable element
     await user.tab();
     expect(firstElement).toHaveFocus();
+  });
+
+  describe('Subtitle Export Controls', () => {
+    beforeEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('renders subtitle export section with Download .LRC and .ASS buttons when render_status is idle', () => {
+      const idleProject: ProjectState = {
+        ...baseProject,
+        render_status: 'idle',
+        video_url: undefined,
+      };
+
+      render(
+        <ExportModal
+          project={idleProject}
+          isOpen={true}
+          onClose={vi.fn()}
+          aspectRatio="16:9"
+          selectedTheme={THEMES[0]}
+        />
+      );
+
+      expect(screen.getByText(/Synchronized Subtitles \(\.LRC & \.ASS\)/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /download \.lrc subtitles/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /download \.ass subtitles/i })).toBeInTheDocument();
+    });
+
+    it('provides >=44px accessible touch targets for both subtitle download buttons', () => {
+      render(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
+
+      const lrcBtn = screen.getByRole('button', { name: /download \.lrc subtitles/i });
+      const assBtn = screen.getByRole('button', { name: /download \.ass subtitles/i });
+
+      expect(lrcBtn.className).toContain('min-h-[44px]');
+      expect(assBtn.className).toContain('min-h-[44px]');
+    });
+
+    it('renders subtitle export buttons concurrently while video rendering is active', () => {
+      const renderingProject: ProjectState = {
+        ...baseProject,
+        render_status: 'rendering',
+        render_progress: 35,
+      };
+
+      render(<ExportModal project={renderingProject} isOpen={true} onClose={vi.fn()} />);
+
+      // Subtitle buttons must still be present
+      expect(screen.getByRole('button', { name: /download \.lrc subtitles/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /download \.ass subtitles/i })).toBeInTheDocument();
+      // And render progress must also be present
+      expect(screen.getByText(/Rendering High-Definition Karaoke Video/i)).toBeInTheDocument();
+    });
+
+    it('triggers apiFetch with /api/project/:id/export/lrc when clicking Download .LRC', async () => {
+      const user = userEvent.setup();
+      const mockBlob = new Blob(['[00:01.00]Hello world\n'], { type: 'text/plain' });
+      const apiFetchSpy = vi.spyOn(apiModule, 'apiFetch').mockResolvedValue(
+        new Response(mockBlob, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="Queen - Bohemian Rhapsody.lrc"',
+          },
+        })
+      );
+
+      window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-lrc');
+      window.URL.revokeObjectURL = vi.fn();
+
+      render(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
+
+      const lrcBtn = screen.getByRole('button', { name: /download \.lrc subtitles/i });
+      await user.click(lrcBtn);
+
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/project/test-project-export/export/lrc');
+    });
+
+    it('triggers apiFetch with theme and aspect ratio query parameters when clicking Download .ASS', async () => {
+      const user = userEvent.setup();
+      const mockBlob = new Blob(['[Script Info]\nTitle: Test\n'], { type: 'text/x-ssa' });
+      const apiFetchSpy = vi.spyOn(apiModule, 'apiFetch').mockResolvedValue(
+        new Response(mockBlob, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/x-ssa; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="Queen - Bohemian Rhapsody.ass"',
+          },
+        })
+      );
+
+      window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-ass');
+      window.URL.revokeObjectURL = vi.fn();
+
+      render(
+        <ExportModal
+          project={baseProject}
+          isOpen={true}
+          onClose={vi.fn()}
+          aspectRatio="9:16"
+          selectedTheme={THEMES[1]} // cyber_cyan
+        />
+      );
+
+      const assBtn = screen.getByRole('button', { name: /download \.ass subtitles/i });
+      await user.click(assBtn);
+
+      expect(apiFetchSpy).toHaveBeenCalledWith(
+        '/api/project/test-project-export/export/ass?aspect_ratio=9%3A16&theme_id=cyber_cyan'
+      );
+    });
+
+    it('displays structured error message when subtitle export endpoint fails', async () => {
+      const user = userEvent.setup();
+      vi.spyOn(apiModule, 'apiFetch').mockResolvedValue(
+        new Response(JSON.stringify({ detail: 'Project lyrics are not ready for export' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      render(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
+
+      const lrcBtn = screen.getByRole('button', { name: /download \.lrc subtitles/i });
+      await user.click(lrcBtn);
+
+      expect(
+        await screen.findByText('Project lyrics are not ready for export')
+      ).toBeInTheDocument();
+    });
   });
 });

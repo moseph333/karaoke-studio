@@ -374,6 +374,38 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
         });
       });
     });
+
+    describe('Idle & Standalone Subtitle State', () => {
+      BREAKPOINTS.forEach((bp) => {
+        it(`renders idle subtitle export controls with zero overflow at ${bp.name} (${bp.width}px)`, () => {
+          setTestViewport(bp.width, bp.height);
+          const { container } = render(
+            <ExportModal
+              project={readyProject}
+              isOpen={true}
+              onClose={vi.fn()}
+              aspectRatio="16:9"
+            />
+          );
+
+          assertZeroHorizontalOverflow(container, bp.width);
+          expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+            document.documentElement.clientWidth
+          );
+        });
+      });
+
+      it('provides >=44px touch targets on standalone subtitle download buttons at 320px', () => {
+        setTestViewport(320, 568);
+        render(<ExportModal project={readyProject} isOpen={true} onClose={vi.fn()} />);
+
+        const lrcBtn = screen.getByRole('button', { name: /download \.lrc subtitles/i });
+        const assBtn = screen.getByRole('button', { name: /download \.ass subtitles/i });
+
+        expect(lrcBtn.className).toContain('min-h-[44px]');
+        expect(assBtn.className).toContain('min-h-[44px]');
+      });
+    });
   });
 
   // ---------------------------------------------------------------------------
