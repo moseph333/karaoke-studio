@@ -522,6 +522,20 @@ class RenderRequest(BaseModel):
     )
 
 
+class ProjectMetadataUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    title: str | None = Field(
+        default=None,
+        max_length=300,
+        description="Optional updated track title (max 300 chars)",
+    )
+    artist: str | None = Field(
+        default=None,
+        max_length=300,
+        description="Optional updated artist name (max 300 chars)",
+    )
+
+
 @app.get("/api/health")
 def health_check():
     return {"status": "ok", "service": "YouTube Karaoke Studio"}
@@ -976,6 +990,52 @@ def list_projects(scope: str | None = "all", user: str | None = None):
 @app.get("/api/project/{project_id}")
 def get_project(project_id: str):
     return get_project_or_404(project_id)
+
+
+@app.patch("/api/project/{project_id}")
+@app.post("/api/project/{project_id}/metadata")
+def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
+    """Updates a project's title and/or artist metadata.
+
+    Persists changes atomically to projects.json under PROJECTS_LOCK and
+    refreshes the embedded YouTube metadata package if present.
+    """
+    proj = find_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if req.title is None and req.artist is None:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one of 'title' or 'artist' must be provided",
+        )
+
+    new_title = req.title.strip() if req.title is not None else None
+    new_artist = req.artist.strip() if req.artist is not None else None
+
+    if req.title is not None and not new_title:
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+    if req.artist is not None and not new_artist:
+        raise HTTPException(status_code=400, detail="Artist cannot be empty")
+
+    with PROJECTS_LOCK:
+        if new_title is not None:
+            proj["title"] = new_title
+        if new_artist is not None:
+            proj["artist"] = new_artist
+
+        if "youtube_package" in proj:
+            proj["youtube_package"] = youtube_service.generate_youtube_package(
+                title=proj.get("title", "Karaoke Track"),
+                artist=proj.get("artist", "Artist"),
+                lines=proj.get("lines", []),
+                semitones=proj.get("semitones", 0),
+                has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
+            )
+
+        save_projects()
+
+    return proj
 
 
 @app.post("/api/project/{project_id}/lyrics")
