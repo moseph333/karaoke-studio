@@ -52,17 +52,17 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
     previousActiveElementRef.current =
       triggerRef?.current ?? (document.activeElement as HTMLElement | null);
 
-    const focusInitial = () => {
+    const focusInitial = (): boolean => {
       const container = containerRef.current;
-      if (!container) return;
+      if (!container) return false;
 
       if (document.activeElement && container.contains(document.activeElement)) {
-        return;
+        return true;
       }
 
       if (initialFocusRef?.current) {
         initialFocusRef.current.focus();
-        return;
+        return container.contains(document.activeElement);
       }
 
       const focusable = getFocusableElements(container);
@@ -71,13 +71,20 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
       } else {
         container.focus();
       }
+      return container.contains(document.activeElement) || document.activeElement === container;
     };
 
-    focusInitial();
-    const rafId = requestAnimationFrame(focusInitial);
+    const focusedImmediately = focusInitial();
+    const rafId = focusedImmediately
+      ? null
+      : requestAnimationFrame(() => {
+          focusInitial();
+        });
 
     return () => {
-      cancelAnimationFrame(rafId);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
       const prevEl = previousActiveElementRef.current;
       if (prevEl && typeof prevEl.focus === 'function' && prevEl.isConnected) {
         prevEl.focus();
