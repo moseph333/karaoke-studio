@@ -20,6 +20,7 @@ import {
   User,
   Pencil,
   Trash2,
+  Download,
 } from 'lucide-react';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
@@ -648,6 +649,17 @@ export const App: React.FC = () => {
 
                 <button
                   type="button"
+                  onClick={() => setIsExportOpen(true)}
+                  aria-label="Export subtitles and studio package"
+                  title="Export .LRC or .ASS subtitles"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <Download className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+                  <span>Export Subtitles</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleStartRender}
                   className="w-full sm:w-auto justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
                 >
@@ -721,6 +733,9 @@ export const App: React.FC = () => {
           isOpen={isExportOpen}
           onClose={() => setIsExportOpen(false)}
           onCancelRender={handleCancelRender}
+          onStartRender={handleStartRender}
+          selectedTheme={selectedTheme}
+          aspectRatio={aspectRatio}
         />
       )}
 

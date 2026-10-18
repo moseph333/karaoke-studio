@@ -11,15 +11,21 @@ import {
   Clock,
   Activity,
   XCircle,
+  FileText,
+  Loader2,
 } from 'lucide-react';
-import { ProjectState } from '../types';
+import { ProjectState, VisualTheme } from '../types';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { apiFetch } from '../api';
 
-interface ExportModalProps {
+export interface ExportModalProps {
   project: ProjectState;
   isOpen: boolean;
   onClose: () => void;
   onCancelRender?: () => void;
+  onStartRender?: () => void;
+  selectedTheme?: VisualTheme;
+  aspectRatio?: '16:9' | '9:16' | string;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -27,9 +33,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   isOpen,
   onClose,
   onCancelRender,
+  onStartRender,
+  selectedTheme,
+  aspectRatio = '16:9',
 }) => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [_tick, setTick] = useState(0);
+  const [downloadingLrc, setDownloadingLrc] = useState(false);
+  const [downloadingAss, setDownloadingAss] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const modalRef = useFocusTrap<HTMLDivElement>({
     isOpen,
@@ -48,6 +60,78 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const isRendering = project.render_status === 'queued' || project.render_status === 'rendering';
   const isCompleted = project.render_status === 'completed';
   const isError = project.render_status === 'error';
+  const isIdle = !isRendering && !isCompleted && !isError;
+
+  const handleDownloadSubtitle = async (format: 'lrc' | 'ass') => {
+    try {
+      if (format === 'lrc') setDownloadingLrc(true);
+      else setDownloadingAss(true);
+      setDownloadError(null);
+
+      const themeId = selectedTheme?.id || 'modern_gold';
+      const url =
+        format === 'lrc'
+          ? `/api/project/${project.id}/export/lrc`
+          : `/api/project/${project.id}/export/ass?aspect_ratio=${encodeURIComponent(
+              aspectRatio
+            )}&theme_id=${encodeURIComponent(themeId)}`;
+
+      const res = await apiFetch(url);
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `Failed to export .${format} subtitles`);
+      }
+
+      const blob = await res.blob();
+      let filename = `${project.artist || 'Karaoke'} - ${project.title || 'Track'}.${format}`;
+      const disposition = res.headers.get('Content-Disposition');
+      if (disposition) {
+        const rfcMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        if (rfcMatch && rfcMatch[1]) {
+          try {
+            filename = decodeURIComponent(rfcMatch[1]);
+          } catch {
+            filename = rfcMatch[1];
+          }
+        } else {
+          const stdMatch = disposition.match(/filename="?([^";]+)"?/i);
+          if (stdMatch && stdMatch[1]) {
+            filename = stdMatch[1];
+          }
+        }
+      }
+
+      if (
+        typeof window !== 'undefined' &&
+        window.URL &&
+        typeof window.URL.createObjectURL === 'function'
+      ) {
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        if (typeof window.URL.revokeObjectURL === 'function') {
+          window.URL.revokeObjectURL(blobUrl);
+        }
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (err: unknown) {
+      console.error(`Download .${format} failed:`, err);
+      setDownloadError(err instanceof Error ? err.message : `Failed to download .${format}`);
+    } finally {
+      if (format === 'lrc') setDownloadingLrc(false);
+      else setDownloadingAss(false);
+    }
+  };
 
   const copyToClipboard = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -108,7 +192,120 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           </div>
         </div>
 
-        {/* 1. Rendering In-Progress State */}
+        {/* Dedicated Standalone Subtitle Export Section (Always Available) */}
+        <div className="p-3.5 sm:p-5 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-6 space-y-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <FileText className="w-5 h-5 text-cyan-400 shrink-0" aria-hidden="true" />
+              <h3 className="text-sm sm:text-base font-bold text-white font-['Montserrat'] truncate">
+                Synchronized Subtitles (.LRC & .ASS)
+              </h3>
+            </div>
+            {project.lines && (
+              <span className="text-[11px] font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full shrink-0">
+                {project.lines.length} lines
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">
+            Export standalone karaoke subtitle files for media players, video editors, or live
+            performances without waiting for video rendering.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
+            {/* Download .LRC Button */}
+            <button
+              type="button"
+              onClick={() => handleDownloadSubtitle('lrc')}
+              disabled={downloadingLrc || downloadingAss}
+              aria-label="Download .lrc subtitles"
+              className="flex-1 min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 active:bg-slate-700 border border-slate-700 hover:border-cyan-500/50 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-between gap-2.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+            >
+              <div className="flex items-center gap-2 min-w-0 text-left">
+                {downloadingLrc ? (
+                  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />
+                ) : (
+                  <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <span className="font-bold text-xs sm:text-sm text-white block">
+                    Download .LRC
+                  </span>
+                  <span className="text-[10px] text-slate-400 block truncate">
+                    [mm:ss.xx] Timestamps
+                  </span>
+                </div>
+              </div>
+              <Download className="w-4 h-4 text-cyan-400 shrink-0" aria-hidden="true" />
+            </button>
+
+            {/* Download .ASS Button */}
+            <button
+              type="button"
+              onClick={() => handleDownloadSubtitle('ass')}
+              disabled={downloadingLrc || downloadingAss}
+              aria-label="Download .ass subtitles"
+              className="flex-1 min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 active:bg-slate-700 border border-slate-700 hover:border-purple-500/50 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-between gap-2.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+            >
+              <div className="flex items-center gap-2 min-w-0 text-left">
+                {downloadingAss ? (
+                  <Loader2 className="w-4 h-4 text-purple-400 animate-spin shrink-0" />
+                ) : (
+                  <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+                )}
+                <div className="min-w-0">
+                  <span className="font-bold text-xs sm:text-sm text-white block">
+                    Download .ASS
+                  </span>
+                  <span className="text-[10px] text-slate-400 block truncate">
+                    Karaoke \kf • {aspectRatio} • {selectedTheme?.name || 'Theme'}
+                  </span>
+                </div>
+              </div>
+              <Download className="w-4 h-4 text-purple-400 shrink-0" aria-hidden="true" />
+            </button>
+          </div>
+
+          {downloadError && (
+            <div
+              role="alert"
+              className="text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-xl font-mono break-words"
+            >
+              {downloadError}
+            </div>
+          )}
+        </div>
+
+        {/* 1. Idle Video State (Before Video Render Started) */}
+        {isIdle && (
+          <div className="p-5 rounded-2xl bg-slate-950/40 border border-slate-800/60 text-center space-y-3">
+            <div className="p-3 w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 mx-auto flex items-center justify-center">
+              <Film className="w-6 h-6" aria-hidden="true" />
+            </div>
+            <div className="max-w-md mx-auto">
+              <h3 className="text-base font-bold text-white">Full Video Render</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Synthesize a 1080p60 MP4 karaoke video with progressive subtitle wipe animations,
+                visual theme, and high-fidelity audio.
+              </p>
+            </div>
+            {onStartRender && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={onStartRender}
+                  aria-label="Start video render"
+                  className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-lg shadow-cyan-500/20 inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+                >
+                  <Film className="w-4 h-4" />
+                  Render 1080p Video
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 2. Rendering In-Progress State */}
         {isRendering && (
           <div className="py-10 text-center space-y-6" role="status" aria-live="polite">
             <div className="relative w-20 h-20 mx-auto">
