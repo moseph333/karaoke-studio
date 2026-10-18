@@ -1053,9 +1053,27 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
 
 @app.post("/api/project/{project_id}/lyrics")
 def update_lyrics(project_id: str, req: LyricsUpdateRequest):
-    proj = get_project_or_404(project_id)
-    proj["lines"] = [line.model_dump() for line in req.lines]
-    save_projects()
+    with PROJECTS_LOCK:
+        proj = get_project_or_404(project_id)
+        proj["lines"] = [line.model_dump() for line in req.lines]
+
+        # Recalculate duration if lines expand beyond existing duration
+        if req.lines:
+            max_end = max(line.end_time for line in req.lines)
+            if max_end > proj.get("duration", 0.0):
+                proj["duration"] = max_end
+
+        # Synchronize YouTube metadata package chapters if present
+        if "youtube_package" in proj:
+            proj["youtube_package"] = youtube_service.generate_youtube_package(
+                title=proj.get("title", "Karaoke Track"),
+                artist=proj.get("artist", "Artist"),
+                lines=proj.get("lines", []),
+                semitones=proj.get("semitones", 0),
+                has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
+            )
+
+        save_projects()
     return {"status": "ok", "lines_count": len(req.lines)}
 
 

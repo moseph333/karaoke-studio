@@ -966,6 +966,34 @@ class TestRouteHappyPaths:
         assert len(stored_lines) == 1
         assert stored_lines[0]["text"] == "Refined lyric line"
 
+    def test_update_lyrics_syncs_duration_and_youtube_package(self, client, test_project_factory):
+        """POST /api/project/{id}/lyrics updates duration if lines expand and regenerates youtube_package."""
+        proj = test_project_factory()
+        # Set baseline duration to 10.0 and attach a dummy youtube_package
+        projects[proj["id"]]["duration"] = 10.0
+        projects[proj["id"]]["youtube_package"] = {"title": "Old", "chapters": []}
+        save_projects()
+
+        updated_lines = [
+            {
+                "id": 1,
+                "text": "Extended line",
+                "start_time": 5.0,
+                "end_time": 15.5,
+                "words": [
+                    {"word": "Extended", "start_time": 5.0, "end_time": 10.0},
+                    {"word": "line", "start_time": 10.0, "end_time": 15.5},
+                ],
+            }
+        ]
+        res = client.post(f"/api/project/{proj['id']}/lyrics", json={"lines": updated_lines})
+        assert res.status_code == 200
+
+        stored = projects[proj["id"]]
+        assert stored["duration"] == 15.5
+        assert "youtube_package" in stored
+        assert stored["youtube_package"] is not None
+
     def test_mix_audio_happy_path(self, client, test_project_factory, monkeypatch):
         """POST /api/project/{id}/mix shifts pitch, blends guide vocals, and returns master URL."""
         proj = test_project_factory()
