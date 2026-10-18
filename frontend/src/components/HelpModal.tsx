@@ -1,0 +1,408 @@
+/**
+ * Help & Usage Guide Modal Component
+ *
+ * Provides an accessible in-app Help dialog containing:
+ * 1. Global & studio keyboard shortcuts reference table with isolation callout
+ * 2. 5-stage Studio Usage Guide (Intake, Stem Separation, Timeline, Mixer, Export)
+ * Includes WAI-ARIA dialog semantics, focus trapping, and responsive geometry.
+ */
+
+import React, { useState, useEffect } from 'react';
+import {
+  X,
+  HelpCircle,
+  Keyboard,
+  BookOpen,
+  Sparkles,
+  Music,
+  Clock,
+  Sliders,
+  Download,
+  Info,
+  Check,
+} from 'lucide-react';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+
+export interface HelpModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialTab?: 'shortcuts' | 'guide';
+}
+
+interface ShortcutItem {
+  keys: string[];
+  label: string;
+  description: string;
+  scope: string;
+}
+
+const SHORTCUTS: ShortcutItem[] = [
+  {
+    keys: ['Space'],
+    label: 'Play / Pause',
+    description: 'Play / pause master playback in the studio',
+    scope: 'Studio Workspace',
+  },
+  {
+    keys: ['← / →'],
+    label: 'Seek ±5 Seconds',
+    description: 'Seek backward / forward 5s along playback timeline',
+    scope: 'Studio Workspace',
+  },
+  {
+    keys: ['M'],
+    label: 'Mute / Unmute',
+    description: 'Toggle master mute / unmute audio playback',
+    scope: 'Studio Workspace',
+  },
+  {
+    keys: ['?'],
+    label: 'Toggle Help Modal',
+    description: 'Toggle this Help & Usage Guide modal from anywhere',
+    scope: 'Global',
+  },
+  {
+    keys: ['Tab / Shift+Tab'],
+    label: 'Focus Navigation',
+    description: 'Navigate interactive controls and cycle focus inside active dialogs',
+    scope: 'Global & Modals',
+  },
+  {
+    keys: ['Escape'],
+    label: 'Dismiss / Close',
+    description: 'Close modal dialogs, tooltips, or discard dropdowns',
+    scope: 'Modals & Tooltips',
+  },
+];
+
+interface GuideStage {
+  step: string;
+  title: string;
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
+  badge: string;
+  summary: string;
+  features: string[];
+}
+
+const STAGES: GuideStage[] = [
+  {
+    step: 'Stage 1',
+    title: '1. Audio Intake & Library',
+    icon: Music,
+    badge: 'Input',
+    summary: 'Import songs via YouTube URL or local audio files (.mp3, .wav, .flac).',
+    features: [
+      'Enter custom metadata (Title, Artist, Creator Name) for clear tracking',
+      'Optionally supply custom lyrics as plain text or pre-timed LRC format ([mm:ss.xx])',
+      'Manage saved library projects: open existing songs, edit details, or delete to free disk space',
+    ],
+  },
+  {
+    step: 'Stage 2',
+    title: '2. Stem Separation & Lyric Sync',
+    icon: Sparkles,
+    badge: 'AI Engine',
+    summary: 'Automated vocal isolation and acoustic word-level timing alignment.',
+    features: [
+      'Demucs AI separates clean vocals from backing instrumental tracks',
+      'Synchronized lyrics are fetched automatically from LRCLIB or parsed from your LRC tags',
+      'Forced acoustic alignment calculates high-resolution word-by-word timing tokens',
+    ],
+  },
+  {
+    step: 'Stage 3',
+    title: '3. Timeline Editing',
+    icon: Clock,
+    badge: 'Editor',
+    summary: 'Fine-tune line and word timings with live visual feedback.',
+    features: [
+      'Scrub audio waveform and observe live word-by-word progressive karaoke sweeps',
+      'Nudge timestamps using Coarse (±0.2s) and Fine (±0.05s) buttons for tight sync',
+      'Edit line text inline, insert new lines above/below, or delete unwanted lyric lines',
+      'Dirty state tracking prevents accidental loss of unsaved lyric timings',
+    ],
+  },
+  {
+    step: 'Stage 4',
+    title: '4. Studio Mixing & Themes',
+    icon: Sliders,
+    badge: 'Mixer',
+    summary: 'Customize playback mix, visual themes, and video orientation.',
+    features: [
+      'Pitch shift stepper: transpose key from -12 to +12 semitones without altering tempo',
+      'Guide vocal slider: blend original vocals (0% to 50%) for singing assistance',
+      'Select preset visual themes (Modern Gold, Neon Cyber, Sunset Glow, etc.)',
+      'Upload custom image (.jpg, .png) or video (.mp4, .webm) backgrounds',
+      'Switch between 16:9 Landscape (YouTube) and 9:16 Portrait (Shorts/TikTok)',
+    ],
+  },
+  {
+    step: 'Stage 5',
+    title: '5. Export & Subtitles',
+    icon: Download,
+    badge: 'Output',
+    summary: 'Instant subtitle file downloads and full 1080p60 video rendering.',
+    features: [
+      'Instant downloads: export standalone .lrc (line-synced) and .ass (karaoke \\kf sweeps)',
+      'Render full 1080p60 MP4 videos with burned-in animated karaoke subtitles',
+      'Generate ready-to-copy YouTube metadata packages (titles, descriptions, tags)',
+    ],
+  },
+];
+
+export const HelpModal: React.FC<HelpModalProps> = ({
+  isOpen,
+  onClose,
+  initialTab = 'shortcuts',
+}) => {
+  const [activeTab, setActiveTab] = useState<'shortcuts' | 'guide'>(initialTab);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab || 'shortcuts');
+    }
+  }, [isOpen, initialTab]);
+
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    isOpen,
+    onClose,
+    escapeDeactivates: true,
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <div
+      ref={modalRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="help-modal-title"
+      aria-describedby="help-modal-desc"
+      data-modal="help"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="relative w-full max-w-2xl sm:max-w-3xl max-h-[88vh] flex flex-col bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
+        {/* Close Button (>=44px touch target) */}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close help and usage guide"
+          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 flex items-center justify-center z-10"
+        >
+          <X className="w-5 h-5" aria-hidden="true" />
+        </button>
+
+        {/* Modal Header */}
+        <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-slate-800/80 pr-14">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 sm:p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
+              <HelpCircle className="w-6 h-6" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2
+                id="help-modal-title"
+                className="text-lg sm:text-xl font-bold text-white font-['Montserrat'] truncate"
+              >
+                Karaoke Studio Help & Usage Guide
+              </h2>
+              <p id="help-modal-desc" className="text-xs text-slate-400 mt-0.5 truncate">
+                Keyboard shortcuts reference and studio workflow guide
+              </p>
+            </div>
+          </div>
+
+          {/* Tab Navigation */}
+          <div
+            className="flex items-center gap-2 mt-4 border-b border-slate-800 overflow-x-auto no-scrollbar"
+            role="tablist"
+            aria-label="Help topics"
+          >
+            <button
+              type="button"
+              role="tab"
+              id="tab-shortcuts"
+              aria-controls="tabpanel-shortcuts"
+              aria-selected={activeTab === 'shortcuts'}
+              onClick={() => setActiveTab('shortcuts')}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 text-xs sm:text-sm font-semibold transition-colors min-h-[44px] focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded-t-lg whitespace-nowrap shrink-0 ${
+                activeTab === 'shortcuts'
+                  ? 'border-cyan-400 text-cyan-300 bg-cyan-500/5'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
+              }`}
+            >
+              <Keyboard className="w-4 h-4" aria-hidden="true" />
+              <span>Keyboard Shortcuts</span>
+            </button>
+
+            <button
+              type="button"
+              role="tab"
+              id="tab-guide"
+              aria-controls="tabpanel-guide"
+              aria-selected={activeTab === 'guide'}
+              onClick={() => setActiveTab('guide')}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 text-xs sm:text-sm font-semibold transition-colors min-h-[44px] focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded-t-lg whitespace-nowrap shrink-0 ${
+                activeTab === 'guide'
+                  ? 'border-cyan-400 text-cyan-300 bg-cyan-500/5'
+                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" aria-hidden="true" />
+              <span>Studio Usage Guide</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable Modal Body */}
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
+          {activeTab === 'shortcuts' ? (
+            <div
+              role="tabpanel"
+              id="tabpanel-shortcuts"
+              aria-labelledby="tab-shortcuts"
+              tabIndex={0}
+              className="space-y-4 focus:outline-none"
+            >
+              {/* Keyboard Shortcuts List */}
+              <div className="grid grid-cols-1 gap-2.5">
+                {SHORTCUTS.map((item) => (
+                  <div
+                    key={item.label}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 gap-2 hover:border-slate-700/80 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {item.keys.map((k) => (
+                          <kbd
+                            key={k}
+                            className="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-cyan-300 font-mono text-xs font-semibold shadow-inner"
+                          >
+                            {k}
+                          </kbd>
+                        ))}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs sm:text-sm font-semibold text-white block truncate">
+                          {item.label}
+                        </span>
+                        <span className="text-[11px] sm:text-xs text-slate-400 block truncate">
+                          {item.description}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="self-start sm:self-center text-[10px] sm:text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700/50 shrink-0">
+                      {item.scope}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Isolation Callout Note */}
+              <div className="p-3.5 sm:p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-200 text-xs flex items-start gap-3">
+                <Info className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="space-y-1">
+                  <span className="font-semibold text-cyan-300 block">
+                    Keyboard Shortcut Isolation
+                  </span>
+                  <p className="text-slate-300 text-[11px] sm:text-xs leading-relaxed">
+                    Single-key shortcuts (
+                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                      Space
+                    </kbd>
+                    ,{' '}
+                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                      ←
+                    </kbd>
+                    /
+                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                      →
+                    </kbd>
+                    ,{' '}
+                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                      M
+                    </kbd>
+                    ,{' '}
+                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                      ?
+                    </kbd>
+                    ) are automatically disabled while typing in text inputs, textareas, search
+                    boxes, or dropdowns, and when any modal dialog is active. They never interfere
+                    with typing lyrics or editing track details.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div
+              role="tabpanel"
+              id="tabpanel-guide"
+              aria-labelledby="tab-guide"
+              tabIndex={0}
+              className="space-y-4 focus:outline-none"
+            >
+              {STAGES.map((stg) => {
+                const IconComponent = stg.icon;
+                return (
+                  <div
+                    key={stg.step}
+                    className="p-3.5 sm:p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2.5 hover:border-slate-700/80 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
+                          <IconComponent className="w-4 h-4" aria-hidden="true" />
+                        </div>
+                        <h3 className="text-xs sm:text-sm font-bold text-white font-['Montserrat'] truncate">
+                          {stg.title}
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 uppercase tracking-wider shrink-0">
+                        {stg.badge}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-300">{stg.summary}</p>
+
+                    <ul className="space-y-1.5 pt-1 border-t border-slate-800/60">
+                      {stg.features.map((feat, idx) => (
+                        <li
+                          key={idx}
+                          className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-400"
+                        >
+                          <Check
+                            className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5"
+                            aria-hidden="true"
+                          />
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer with Dismiss Action */}
+        <div className="p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/40 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 flex items-center justify-center"
+          >
+            Got it, close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default HelpModal;

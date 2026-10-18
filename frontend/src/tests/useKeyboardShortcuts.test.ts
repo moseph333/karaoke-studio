@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { useKeyboardShortcuts, isInputElement, isModalActive } from '../hooks/useKeyboardShortcuts';
+import {
+  useKeyboardShortcuts,
+  isInputElement,
+  isModalActive,
+  isOtherModalActive,
+} from '../hooks/useKeyboardShortcuts';
 
 describe('useKeyboardShortcuts (Feature 41)', () => {
   let playFn: () => void;
@@ -16,7 +21,7 @@ describe('useKeyboardShortcuts (Feature 41)', () => {
 
   afterEach(() => {
     // Clear any modal dialog elements added during tests
-    document.querySelectorAll('[role="dialog"]').forEach((el) => el.remove());
+    document.querySelectorAll('[role="dialog"], [aria-modal="true"]').forEach((el) => el.remove());
   });
 
   it('triggers onTogglePlay on Spacebar press and calls preventDefault', () => {
@@ -312,6 +317,272 @@ describe('useKeyboardShortcuts (Feature 41)', () => {
 
       dialog.remove();
       regularDiv.remove();
+    });
+  });
+
+  describe('Help modal shortcut and isolation (Milestone 1)', () => {
+    let helpFn: () => void;
+
+    beforeEach(() => {
+      helpFn = vi.fn();
+    });
+
+    it('triggers onToggleHelp on "?" keypress and calls preventDefault', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onToggleHelp: helpFn,
+        })
+      );
+
+      const event = new KeyboardEvent('keydown', {
+        key: '?',
+        bubbles: true,
+        cancelable: true,
+      });
+      const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+
+      window.dispatchEvent(event);
+
+      expect(helpFn).toHaveBeenCalledTimes(1);
+      expect(preventDefaultSpy).toHaveBeenCalled();
+    });
+
+    it('ignores repeating "?" keypress to prevent toggle strobing', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onToggleHelp: helpFn,
+        })
+      );
+
+      const repeatingEvent = new KeyboardEvent('keydown', {
+        key: '?',
+        repeat: true,
+        bubbles: true,
+        cancelable: true,
+      });
+
+      window.dispatchEvent(repeatingEvent);
+
+      expect(helpFn).not.toHaveBeenCalled();
+    });
+
+    it('suppresses "?" when modifier keys (Ctrl, Meta, Alt) are pressed', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onToggleHelp: helpFn,
+        })
+      );
+
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', ctrlKey: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', metaKey: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: '?', altKey: true }));
+
+      expect(helpFn).not.toHaveBeenCalled();
+    });
+
+    it('allows "?" when shiftKey is active (standard Shift + / input)', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onToggleHelp: helpFn,
+        })
+      );
+
+      const event = new KeyboardEvent('keydown', {
+        key: '?',
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      });
+
+      window.dispatchEvent(event);
+
+      expect(helpFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('suppresses "?" when focus is inside text input, textarea, select, contenteditable, or ARIA input roles', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onToggleHelp: helpFn,
+        })
+      );
+
+      const input = document.createElement('input');
+      const textarea = document.createElement('textarea');
+      const select = document.createElement('select');
+      const editable = document.createElement('div');
+      editable.contentEditable = 'true';
+      const textbox = document.createElement('div');
+      textbox.setAttribute('role', 'textbox');
+      const slider = document.createElement('div');
+      slider.setAttribute('role', 'slider');
+
+      const elements = [input, textarea, select, editable, textbox, slider];
+      elements.forEach((el) => {
+        document.body.appendChild(el);
+        const event = new KeyboardEvent('keydown', {
+          key: '?',
+          bubbles: true,
+          cancelable: true,
+        });
+        const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
+        el.dispatchEvent(event);
+        expect(preventDefaultSpy).not.toHaveBeenCalled();
+        el.remove();
+      });
+
+      expect(helpFn).not.toHaveBeenCalled();
+    });
+
+    it('suppresses "?" when document.activeElement is an input even if dispatched on window', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onToggleHelp: helpFn,
+        })
+      );
+
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      input.focus();
+
+      const event = new KeyboardEvent('keydown', {
+        key: '?',
+        bubbles: true,
+      });
+      window.dispatchEvent(event);
+
+      expect(helpFn).not.toHaveBeenCalled();
+      input.remove();
+    });
+
+    it('suppresses "?" when another modal dialog (Auth, Export, etc.) is active in the document', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onToggleHelp: helpFn,
+        })
+      );
+
+      const authModal = document.createElement('div');
+      authModal.setAttribute('role', 'dialog');
+      authModal.setAttribute('aria-modal', 'true');
+      document.body.appendChild(authModal);
+
+      const event = new KeyboardEvent('keydown', {
+        key: '?',
+        bubbles: true,
+      });
+      window.dispatchEvent(event);
+
+      expect(helpFn).not.toHaveBeenCalled();
+      authModal.remove();
+    });
+
+    it('allows "?" to fire when Help modal (data-modal="help") is active, enabling toggle close', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onToggleHelp: helpFn,
+        })
+      );
+
+      const helpModal = document.createElement('div');
+      helpModal.setAttribute('role', 'dialog');
+      helpModal.setAttribute('aria-modal', 'true');
+      helpModal.setAttribute('data-modal', 'help');
+      document.body.appendChild(helpModal);
+
+      const event = new KeyboardEvent('keydown', {
+        key: '?',
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(event);
+
+      expect(helpFn).toHaveBeenCalledTimes(1);
+      helpModal.remove();
+    });
+
+    it('silences all transport shortcuts (Space, ArrowLeft, ArrowRight, M) when Help modal is open', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onTogglePlay: playFn,
+          onSeek: seekFn,
+          onToggleMute: muteFn,
+          currentTime: 20,
+          duration: 100,
+        })
+      );
+
+      const helpModal = document.createElement('div');
+      helpModal.setAttribute('role', 'dialog');
+      helpModal.setAttribute('aria-modal', 'true');
+      helpModal.setAttribute('data-modal', 'help');
+      document.body.appendChild(helpModal);
+
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true })
+      );
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm', bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'M', bubbles: true }));
+
+      expect(playFn).not.toHaveBeenCalled();
+      expect(seekFn).not.toHaveBeenCalled();
+      expect(muteFn).not.toHaveBeenCalled();
+
+      helpModal.remove();
+    });
+  });
+
+  describe('isOtherModalActive and updated isInputElement helper functions', () => {
+    it('isOtherModalActive correctly differentiates Help modal from other modals', () => {
+      expect(isOtherModalActive()).toBe(false);
+
+      const helpModal = document.createElement('div');
+      helpModal.setAttribute('role', 'dialog');
+      helpModal.setAttribute('data-modal', 'help');
+      document.body.appendChild(helpModal);
+      expect(isOtherModalActive()).toBe(false);
+
+      const otherModal = document.createElement('div');
+      otherModal.setAttribute('role', 'dialog');
+      document.body.appendChild(otherModal);
+      expect(isOtherModalActive()).toBe(true);
+
+      otherModal.remove();
+      expect(isOtherModalActive()).toBe(false);
+
+      helpModal.remove();
+    });
+
+    it('isInputElement handles slider and spinbutton roles and nested children', () => {
+      const slider = document.createElement('div');
+      slider.setAttribute('role', 'slider');
+      expect(isInputElement(slider)).toBe(true);
+
+      const sliderThumb = document.createElement('span');
+      slider.appendChild(sliderThumb);
+      expect(isInputElement(sliderThumb)).toBe(true);
+
+      const spinbutton = document.createElement('div');
+      spinbutton.setAttribute('role', 'spinbutton');
+      expect(isInputElement(spinbutton)).toBe(true);
+
+      const spinChild = document.createElement('span');
+      spinbutton.appendChild(spinChild);
+      expect(isInputElement(spinChild)).toBe(true);
+    });
+
+    it('isInputElement without arguments checks document.activeElement', () => {
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      input.focus();
+
+      expect(isInputElement()).toBe(true);
+
+      input.blur();
+      expect(isInputElement()).toBe(false);
+
+      input.remove();
     });
   });
 });

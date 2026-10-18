@@ -1,9 +1,19 @@
+/**
+ * Global Keyboard Shortcuts Hook
+ *
+ * Manages application-wide keyboard shortcuts (Space for play/pause, Left/Right arrows
+ * for seeking, 'M' for mute/unmute, and '?' for toggling Help & Usage Guide).
+ * Enforces strict input isolation (inputs, textareas, contenteditable, ARIA text controls)
+ * and modal isolation (blocking transport shortcuts when dialogs are active).
+ */
+
 import { useEffect, useRef } from 'react';
 
 export interface UseKeyboardShortcutsOptions {
   onTogglePlay?: () => void;
   onSeek?: (time: number) => void;
   onToggleMute?: () => void;
+  onToggleHelp?: () => void;
   audioRef?: React.RefObject<HTMLAudioElement | null>;
   currentTime?: number;
   duration?: number;
@@ -12,34 +22,45 @@ export interface UseKeyboardShortcutsOptions {
 }
 
 /**
- * Returns true if the target element is an interactive input or form control
- * where keystrokes should be isolated from global media shortcuts.
+ * Returns true if the target element (or active document element) is an interactive input
+ * or form control where keystrokes should be isolated from global media shortcuts.
  */
-export function isInputElement(element: EventTarget | null): boolean {
-  if (!element || !(element instanceof HTMLElement)) return false;
+export function isInputElement(element?: EventTarget | null): boolean {
+  const target =
+    arguments.length === 0
+      ? typeof document !== 'undefined'
+        ? document.activeElement
+        : null
+      : element;
 
-  const tagName = element.tagName.toUpperCase();
+  if (!target || !(target instanceof HTMLElement)) return false;
+
+  const tagName = target.tagName.toUpperCase();
   if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT') {
     return true;
   }
 
   if (
-    element.isContentEditable ||
-    element.contentEditable === 'true' ||
-    element.contentEditable === '' ||
-    element.getAttribute('contenteditable') === 'true' ||
-    element.getAttribute('contenteditable') === '' ||
-    element.closest?.('[contenteditable="true"], [contenteditable=""]')
+    target.isContentEditable ||
+    target.contentEditable === 'true' ||
+    target.contentEditable === '' ||
+    target.getAttribute('contenteditable') === 'true' ||
+    target.getAttribute('contenteditable') === '' ||
+    target.closest?.('[contenteditable="true"], [contenteditable=""]')
   ) {
     return true;
   }
 
-  const role = element.getAttribute('role');
+  const role = target.getAttribute('role');
   if (role === 'textbox' || role === 'searchbox' || role === 'spinbutton' || role === 'slider') {
     return true;
   }
 
-  if (element.closest?.('input, textarea, select, [role="textbox"], [role="searchbox"]')) {
+  if (
+    target.closest?.(
+      'input, textarea, select, [role="textbox"], [role="searchbox"], [role="spinbutton"], [role="slider"]'
+    )
+  ) {
     return true;
   }
 
@@ -49,7 +70,7 @@ export function isInputElement(element: EventTarget | null): boolean {
 /**
  * Returns true if a modal dialog is currently open in the DOM or the target is inside one.
  */
-export function isModalActive(element: EventTarget | null): boolean {
+export function isModalActive(element?: EventTarget | null): boolean {
   if (typeof document !== 'undefined') {
     const openDialog = document.querySelector('[role="dialog"], [aria-modal="true"]');
     if (openDialog) return true;
@@ -60,10 +81,22 @@ export function isModalActive(element: EventTarget | null): boolean {
   return false;
 }
 
+/**
+ * Returns true if another modal dialog (other than the Help modal) is currently open in the DOM.
+ */
+export function isOtherModalActive(): boolean {
+  if (typeof document === 'undefined') return false;
+  const otherDialog = document.querySelector(
+    '[role="dialog"]:not([data-modal="help"]), [aria-modal="true"]:not([data-modal="help"])'
+  );
+  return Boolean(otherDialog);
+}
+
 export function useKeyboardShortcuts({
   onTogglePlay,
   onSeek,
   onToggleMute,
+  onToggleHelp,
   audioRef,
   currentTime = 0,
   duration = 0,
@@ -74,6 +107,7 @@ export function useKeyboardShortcuts({
     onTogglePlay,
     onSeek,
     onToggleMute,
+    onToggleHelp,
     audioRef,
     currentTime,
     duration,
@@ -85,6 +119,7 @@ export function useKeyboardShortcuts({
       onTogglePlay,
       onSeek,
       onToggleMute,
+      onToggleHelp,
       audioRef,
       currentTime,
       duration,
@@ -101,8 +136,25 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // Feature: Help modal toggle shortcut '?' (Shift + /)
+      if (e.key === '?') {
+        const isTargetInput =
+          isInputElement(e.target) ||
+          (typeof document !== 'undefined' && isInputElement(document.activeElement));
+
+        if (!isTargetInput && !isOtherModalActive() && !e.repeat) {
+          e.preventDefault();
+          optionsRef.current.onToggleHelp?.();
+        }
+        return;
+      }
+
       // 2. Ignore if user is interacting with an input or an open modal
-      if (isInputElement(e.target) || isModalActive(e.target)) {
+      if (
+        isInputElement(e.target) ||
+        (typeof document !== 'undefined' && isInputElement(document.activeElement)) ||
+        isModalActive(e.target)
+      ) {
         return;
       }
 
