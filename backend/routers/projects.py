@@ -21,6 +21,7 @@ from backend.schemas import (
     MixRequest,
     ProcessRequest,
     ProjectMetadataUpdate,
+    RealignLyricsRequest,
     RenderRequest,
     SearchRequest,
 )
@@ -190,6 +191,90 @@ def update_lyrics(project_id: str, req: LyricsUpdateRequest):
 
         save_projects()
     return {"status": "ok", "lines_count": len(req.lines)}
+
+
+@router.post("/api/project/{project_id}/realign-lyrics")
+def realign_lyrics(project_id: str, req: RealignLyricsRequest):
+    """Realigns project lyrics acoustically using existing vocal stem.
+
+    Accepts either custom lyrics (LRC or plain text) or triggers an LRCLIB re-fetch,
+    then aligns words against the existing isolated vocal stem without re-running Demucs.
+    """
+    import backend.main as main_mod
+
+    proj = find_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    vocals_path = proj.get("vocals_path")
+    if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
+        logger.warning(
+            f"Lyric realignment rejected for {project_id}: vocals stem missing or empty ({vocals_path})"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot realign lyrics: isolated vocal stem missing or not ready",
+        )
+
+    if not req.fetch_lrclib and (not req.custom_lyrics or not req.custom_lyrics.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="Must provide either custom_lyrics or fetch_lrclib=True",
+        )
+
+    try:
+        if req.fetch_lrclib:
+            lyric_data = main_mod.lyrics_service.fetch_lyrics(
+                proj.get("title", "Karaoke Track"),
+                proj.get("artist", "Artist"),
+                proj.get("duration"),
+            )
+        else:
+            lyric_data = main_mod.lyrics_service.process_custom_lyrics(req.custom_lyrics or "")
+
+        lines_to_align = lyric_data.get("lines") or []
+        if not lines_to_align:
+            raise HTTPException(
+                status_code=400,
+                detail="No lyric lines found in provided input or LRCLIB response",
+            )
+
+        aligned_lines = main_mod.aligner.align_lyrics(vocals_path, lines_to_align)
+
+        with PROJECTS_LOCK:
+            proj["lines"] = aligned_lines
+            proj["lyric_source"] = lyric_data.get("source", "custom")
+            proj["is_synced"] = lyric_data.get("synced", True)
+
+            if aligned_lines:
+                max_end = max(
+                    (float(line.get("end_time", 0.0)) for line in aligned_lines), default=0.0
+                )
+                if max_end > proj.get("duration", 0.0):
+                    proj["duration"] = max_end
+
+            if "youtube_package" in proj:
+                proj["youtube_package"] = main_mod.youtube_service.generate_youtube_package(
+                    title=proj.get("title", "Karaoke Track"),
+                    artist=proj.get("artist", "Artist"),
+                    lines=proj.get("lines", []),
+                    semitones=proj.get("semitones", 0),
+                    has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
+                )
+
+            save_projects()
+
+        return {
+            "status": "ok",
+            "lines": aligned_lines,
+            "source": proj["lyric_source"],
+            "is_synced": proj["is_synced"],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Lyric realignment failed for {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to realign lyrics: {e}") from e
 
 
 @router.post("/api/project/{project_id}/mix")

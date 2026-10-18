@@ -231,3 +231,129 @@ export function calculateLineInsertTimes(
     return { start_time: s, end_time: round3(s + 2.0) };
   }
 }
+
+/**
+ * Applies a uniform time offset (in seconds) to lyric lines and their internal word tokens.
+ *
+ * Invariants maintained:
+ * - Lines before fromLineIndex are unmodified.
+ * - Non-negative timestamps: All line and word start_time / end_time values are >= 0.0s.
+ * - Monotonicity: For each line, words[i].start_time >= words[i-1].end_time (for i >= 1).
+ * - Minimum word duration: Each word has duration >= 0.01s.
+ * - Line endpoints anchor to word extents (if words are present), or maintain min duration >= 0.01s.
+ * - Precision: All timestamps are rounded to 3 decimal places using round3().
+ * - Returns a new array with cloned objects.
+ */
+export function applyBatchOffset(
+  lines: LyricLine[],
+  deltaSeconds: number,
+  fromLineIndex: number = 0
+): LyricLine[] {
+  if (!lines || lines.length === 0) return [];
+  const delta = round3(deltaSeconds);
+  if (!Number.isFinite(delta) || isNaN(delta)) {
+    return lines.map((l) => ({
+      ...l,
+      words: l.words ? l.words.map((w) => ({ ...w })) : [],
+    }));
+  }
+
+  const startIndex = Math.max(0, Math.min(lines.length, fromLineIndex));
+
+  return lines.map((line, idx) => {
+    if (idx < startIndex) {
+      return {
+        ...line,
+        words: line.words ? line.words.map((w) => ({ ...w })) : [],
+      };
+    }
+
+    if (!line.words || line.words.length === 0) {
+      const newStart = Math.max(0.0, sanitizeTimestamp(line.start_time + delta));
+      const proposedEnd = sanitizeTimestamp(line.end_time + delta);
+      const newEnd = Math.max(round3(newStart + 0.01), proposedEnd);
+      return {
+        ...line,
+        start_time: newStart,
+        end_time: newEnd,
+        words: [],
+      };
+    }
+
+    // Shift and sanitize each word
+    const shiftedWords: WordTiming[] = line.words.map((w) => {
+      const wStart = sanitizeTimestamp(w.start_time + delta);
+      const wEnd = sanitizeTimestamp(w.end_time + delta);
+      return {
+        word: w.word,
+        start_time: wStart,
+        end_time: wEnd,
+      };
+    });
+
+    // Enforce monotonic non-overlapping word bounds and minimum 0.01s duration
+    for (let i = 0; i < shiftedWords.length; i++) {
+      if (i === 0) {
+        shiftedWords[0].start_time = Math.max(0.0, shiftedWords[0].start_time);
+      } else {
+        shiftedWords[i].start_time = Math.max(
+          shiftedWords[i - 1].end_time,
+          shiftedWords[i].start_time
+        );
+      }
+      shiftedWords[i].end_time = Math.max(
+        round3(shiftedWords[i].start_time + 0.01),
+        shiftedWords[i].end_time
+      );
+    }
+
+    const lineStart = Math.min(...shiftedWords.map((w) => w.start_time));
+    const lineEnd = Math.max(...shiftedWords.map((w) => w.end_time));
+
+    return {
+      ...line,
+      start_time: lineStart,
+      end_time: lineEnd,
+      words: shiftedWords,
+    };
+  });
+}
+
+export interface ActiveWordLocation {
+  lineId: number;
+  wordIndex: number;
+  word: WordTiming;
+}
+
+/**
+ * Calculates current active word location based on playback currentTime.
+ */
+export function getActiveWordLocation(
+  lines: LyricLine[],
+  currentTime: number
+): ActiveWordLocation | null {
+  if (!lines || lines.length === 0) return null;
+
+  for (const line of lines) {
+    if (currentTime >= line.start_time - 0.5 && currentTime <= line.end_time + 0.5) {
+      if (line.words && line.words.length > 0) {
+        for (let wIdx = 0; wIdx < line.words.length; wIdx++) {
+          const w = line.words[wIdx];
+          if (currentTime >= w.start_time && currentTime <= w.end_time) {
+            return { lineId: line.id, wordIndex: wIdx, word: w };
+          }
+        }
+        for (let wIdx = line.words.length - 1; wIdx >= 0; wIdx--) {
+          const w = line.words[wIdx];
+          if (currentTime >= w.start_time) {
+            return { lineId: line.id, wordIndex: wIdx, word: w };
+          }
+        }
+        if (currentTime >= line.start_time - 0.5) {
+          return { lineId: line.id, wordIndex: 0, word: line.words[0] };
+        }
+      }
+    }
+  }
+  return null;
+}

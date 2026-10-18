@@ -2,16 +2,19 @@
  * Lyric Editor State Hook
  *
  * Manages mutable lyric lines, line/word nudging, inline text editing,
- * insertion, deletion, dirty state tracking, and persistence.
+ * insertion, deletion, dirty state tracking, multi-step undo/redo history,
+ * batch offset timestamp shifting, and live tap-to-sync mode.
  */
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { LyricLine } from '../types';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { LyricLine, WordTiming } from '../types';
 import { useToast } from './useToast';
+import { useLyricHistory } from './useLyricHistory';
 import {
   recalculateWordTimings,
   calculateLineInsertTimes,
   sanitizeTimestamp,
+  applyBatchOffset,
 } from '../utils/lyrics';
 
 export interface UseLyricEditorStateOptions {
@@ -38,7 +41,15 @@ export function useLyricEditorState({
   const [editingLineId, setEditingLineId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState<string>('');
   const [lineToDelete, setLineToDelete] = useState<LyricLine | null>(null);
+  const [isTapToSyncActive, setIsTapToSyncActive] = useState(false);
+  const [tapTargetIndex, setTapTargetIndex] = useState(0);
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Multi-step Undo / Redo history stack hook
+  const { canUndo, canRedo, pushSnapshot, handleUndo, handleRedo, clearHistory } = useLyricHistory({
+    currentLines: editableLines,
+    onApplySnapshot: (restored) => setEditableLines(restored),
+  });
 
   useEffect(() => {
     if (editingLineId !== null && editInputRef.current) {
@@ -47,12 +58,11 @@ export function useLyricEditorState({
     }
   }, [editingLineId]);
 
-  // Compute dirty state via deep JSON equality
-  const hasUnsavedChanges = useMemo(() => {
-    return JSON.stringify(editableLines) !== JSON.stringify(initialLines);
-  }, [editableLines, initialLines]);
+  const hasUnsavedChanges = useMemo(
+    () => JSON.stringify(editableLines) !== JSON.stringify(initialLines),
+    [editableLines, initialLines]
+  );
 
-  // Synchronize when parent `lines` change, but ONLY if no active unsaved changes
   const prevLinesRef = useRef(lines);
   useEffect(() => {
     if (prevLinesRef.current !== lines) {
@@ -60,158 +70,232 @@ export function useLyricEditorState({
       if (!hasUnsavedChanges) {
         setEditableLines(lines);
         setInitialLines(lines);
+        clearHistory();
       }
     }
-  }, [lines, hasUnsavedChanges]);
+  }, [lines, hasUnsavedChanges, clearHistory]);
 
-  // Notify parent of dirty state changes
   useEffect(() => {
     onDirtyChange?.(hasUnsavedChanges);
   }, [hasUnsavedChanges, onDirtyChange]);
 
-  // Browser unload guard
   useEffect(() => {
     if (!hasUnsavedChanges) return;
-
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = 'You have unsaved lyric timing changes. Are you sure you want to leave?';
       return e.returnValue;
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
-  // Handle nudging an entire line by offset seconds
-  const nudgeLine = (lineId: number, offset: number) => {
-    const updated = editableLines.map((l) => {
-      if (l.id !== lineId) return l;
-
-      const minStart = Math.min(l.start_time, ...l.words.map((w) => w.start_time));
-      const effectiveOffset = offset < 0 ? Math.max(offset, -minStart) : offset;
-
-      const newStart = sanitizeTimestamp(l.start_time + effectiveOffset);
-      const newEnd = Math.max(newStart, sanitizeTimestamp(l.end_time + effectiveOffset));
-      const newWords = l.words.map((w) => {
-        const wStart = sanitizeTimestamp(w.start_time + effectiveOffset);
-        const wEnd = Math.max(wStart, sanitizeTimestamp(w.end_time + effectiveOffset));
-        return { ...w, start_time: wStart, end_time: wEnd };
-      });
-
-      return { ...l, start_time: newStart, end_time: newEnd, words: newWords };
-    });
-    setEditableLines(updated);
+  const clampWordBoundary = (
+    words: WordTiming[],
+    wordIndex: number,
+    field: 'start_time' | 'end_time',
+    value: number
+  ) => {
+    const targetWord = words[wordIndex];
+    if (!targetWord) return;
+    if (field === 'start_time') {
+      const prevStart = wordIndex > 0 ? words[wordIndex - 1].start_time : 0;
+      const nextStart = wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
+      targetWord.start_time = sanitizeTimestamp(
+        Math.min(targetWord.end_time, nextStart, Math.max(prevStart, value))
+      );
+    } else {
+      targetWord.end_time = sanitizeTimestamp(Math.max(targetWord.start_time, value));
+    }
   };
 
-  // Handle nudging a specific word boundary ('start_time' or 'end_time')
+  const nudgeLine = (lineId: number, offset: number) => {
+    pushSnapshot(editableLines);
+    setEditableLines(
+      editableLines.map((l) => {
+        if (l.id !== lineId) return l;
+        const minStart = Math.min(l.start_time, ...l.words.map((w) => w.start_time));
+        const eff = offset < 0 ? Math.max(offset, -minStart) : offset;
+        const start = sanitizeTimestamp(l.start_time + eff);
+        const end = Math.max(start, sanitizeTimestamp(l.end_time + eff));
+        const words = l.words.map((w) => ({
+          ...w,
+          start_time: sanitizeTimestamp(w.start_time + eff),
+          end_time: Math.max(
+            sanitizeTimestamp(w.start_time + eff),
+            sanitizeTimestamp(w.end_time + eff)
+          ),
+        }));
+        return { ...l, start_time: start, end_time: end, words };
+      })
+    );
+  };
+
   const nudgeWordBoundary = (
     lineId: number,
     wordIndex: number,
     field: 'start_time' | 'end_time',
     delta: number
   ) => {
-    const updated = editableLines.map((l) => {
-      if (l.id !== lineId) return l;
-      const words = l.words.map((w) => ({ ...w }));
-      const targetWord = words[wordIndex];
-      if (!targetWord) return l;
-
-      if (field === 'start_time') {
-        const prevWordStart = wordIndex > 0 ? words[wordIndex - 1].start_time : 0;
-        const nextWordStart =
-          wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
-        const maxAllowed = Math.min(targetWord.end_time, nextWordStart);
-        const minAllowed = prevWordStart;
-
-        const proposed = targetWord.start_time + delta;
-        targetWord.start_time = sanitizeTimestamp(
-          Math.min(maxAllowed, Math.max(minAllowed, proposed))
-        );
-      } else {
-        const minAllowed = targetWord.start_time;
-        const proposed = targetWord.end_time + delta;
-        targetWord.end_time = sanitizeTimestamp(Math.max(minAllowed, proposed));
-      }
-
-      const lineStart = Math.min(...words.map((w) => w.start_time));
-      const lineEnd = Math.max(...words.map((w) => w.end_time));
-      return { ...l, start_time: lineStart, end_time: lineEnd, words };
-    });
-    setEditableLines(updated);
+    pushSnapshot(editableLines);
+    setEditableLines(
+      editableLines.map((l) => {
+        if (l.id !== lineId) return l;
+        const words = l.words.map((w) => ({ ...w }));
+        clampWordBoundary(words, wordIndex, field, (words[wordIndex]?.[field] ?? 0) + delta);
+        return {
+          ...l,
+          start_time: Math.min(...words.map((w) => w.start_time)),
+          end_time: Math.max(...words.map((w) => w.end_time)),
+          words,
+        };
+      })
+    );
   };
 
-  // Handle nudging an entire word (both start and end)
   const nudgeWord = (lineId: number, wordIndex: number, delta: number) => {
-    const updated = editableLines.map((l) => {
-      if (l.id !== lineId) return l;
-      const words = l.words.map((w) => ({ ...w }));
-      const targetWord = words[wordIndex];
-      if (!targetWord) return l;
-
-      const dur = sanitizeTimestamp(targetWord.end_time - targetWord.start_time);
-      const prevWordStart = wordIndex > 0 ? words[wordIndex - 1].start_time : 0;
-      const nextWordStart =
-        wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
-
-      const proposedStart = targetWord.start_time + delta;
-      const clampedStart = sanitizeTimestamp(
-        Math.min(nextWordStart, Math.max(prevWordStart, proposedStart))
-      );
-      targetWord.start_time = clampedStart;
-      targetWord.end_time = sanitizeTimestamp(clampedStart + dur);
-
-      const lineStart = Math.min(...words.map((w) => w.start_time));
-      const lineEnd = Math.max(...words.map((w) => w.end_time));
-      return { ...l, start_time: lineStart, end_time: lineEnd, words };
-    });
-    setEditableLines(updated);
+    pushSnapshot(editableLines);
+    setEditableLines(
+      editableLines.map((l) => {
+        if (l.id !== lineId) return l;
+        const words = l.words.map((w) => ({ ...w }));
+        const target = words[wordIndex];
+        if (!target) return l;
+        const dur = sanitizeTimestamp(target.end_time - target.start_time);
+        const prevStart = wordIndex > 0 ? words[wordIndex - 1].start_time : 0;
+        const nextStart = wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
+        const clampedStart = sanitizeTimestamp(
+          Math.min(nextStart, Math.max(prevStart, target.start_time + delta))
+        );
+        target.start_time = clampedStart;
+        target.end_time = sanitizeTimestamp(clampedStart + dur);
+        return {
+          ...l,
+          start_time: Math.min(...words.map((w) => w.start_time)),
+          end_time: Math.max(...words.map((w) => w.end_time)),
+          words,
+        };
+      })
+    );
   };
 
-  // Handle editing a single word timing with monotonic clamping
   const updateWordTiming = (
     lineId: number,
     wordIndex: number,
     field: 'start_time' | 'end_time',
     value: number
   ) => {
-    const safeValue = sanitizeTimestamp(value);
-    const updated = editableLines.map((l) => {
-      if (l.id !== lineId) return l;
-      const words = l.words.map((w) => ({ ...w }));
-      const targetWord = words[wordIndex];
-      if (!targetWord) return l;
-
-      if (field === 'start_time') {
-        const prevWordStart = wordIndex > 0 ? words[wordIndex - 1].start_time : 0;
-        const nextWordStart =
-          wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
-        const maxAllowed = Math.min(targetWord.end_time, nextWordStart);
-        const minAllowed = prevWordStart;
-        targetWord.start_time = sanitizeTimestamp(
-          Math.min(maxAllowed, Math.max(minAllowed, safeValue))
-        );
-      } else {
-        const minAllowed = targetWord.start_time;
-        targetWord.end_time = sanitizeTimestamp(Math.max(minAllowed, safeValue));
-      }
-
-      const lineStart = Math.min(...words.map((w) => w.start_time));
-      const lineEnd = Math.max(...words.map((w) => w.end_time));
-      return { ...l, start_time: lineStart, end_time: lineEnd, words };
-    });
-    setEditableLines(updated);
+    pushSnapshot(editableLines);
+    setEditableLines(
+      editableLines.map((l) => {
+        if (l.id !== lineId) return l;
+        const words = l.words.map((w) => ({ ...w }));
+        clampWordBoundary(words, wordIndex, field, value);
+        return {
+          ...l,
+          start_time: Math.min(...words.map((w) => w.start_time)),
+          end_time: Math.max(...words.map((w) => w.end_time)),
+          words,
+        };
+      })
+    );
   };
 
-  // Save changes with async guard
+  const handleApplyBatchOffset = (deltaSeconds: number, fromLineIndex: number = 0) => {
+    pushSnapshot(editableLines);
+    setEditableLines(applyBatchOffset(editableLines, deltaSeconds, fromLineIndex));
+    toast.success('Batch offset applied');
+  };
+
+  const handleReplaceLyrics = (newLines: LyricLine[]) => {
+    pushSnapshot(editableLines);
+    setEditableLines(newLines);
+    setSelectedLineId(newLines.length > 0 ? newLines[0].id : null);
+    setTapTargetIndex(0);
+  };
+
+  const handleTriggerTap = useCallback(() => {
+    if (tapTargetIndex >= editableLines.length) {
+      setIsTapToSyncActive(false);
+      return;
+    }
+
+    pushSnapshot(editableLines);
+    const tapTime = sanitizeTimestamp(currentTime);
+    const currentTarget = editableLines[tapTargetIndex];
+
+    const updated = editableLines.map((line, idx) => {
+      if (idx === tapTargetIndex - 1 && line.end_time > tapTime) {
+        const safeStart = Math.min(line.start_time, tapTime);
+        return {
+          ...line,
+          start_time: safeStart,
+          end_time: tapTime,
+          words: recalculateWordTimings(line.text, safeStart, tapTime),
+        };
+      }
+      if (idx === tapTargetIndex) {
+        let proposedEnd =
+          line.end_time > tapTime ? line.end_time : sanitizeTimestamp(tapTime + 3.0);
+        if (duration > tapTime + 0.5 && proposedEnd > duration) {
+          proposedEnd = sanitizeTimestamp(duration);
+        }
+        if (proposedEnd <= tapTime) {
+          proposedEnd = sanitizeTimestamp(tapTime + 0.5);
+        }
+        return {
+          ...line,
+          start_time: tapTime,
+          end_time: proposedEnd,
+          words: recalculateWordTimings(line.text, tapTime, proposedEnd),
+        };
+      }
+      return line;
+    });
+
+    setEditableLines(updated);
+
+    const nextIndex = tapTargetIndex + 1;
+    if (nextIndex >= editableLines.length) {
+      setIsTapToSyncActive(false);
+      setTapTargetIndex(0);
+      setSelectedLineId(currentTarget.id);
+      toast.success('Tap sync complete! Review and Save.');
+    } else {
+      setTapTargetIndex(nextIndex);
+      setSelectedLineId(editableLines[nextIndex]?.id ?? null);
+    }
+  }, [tapTargetIndex, editableLines, currentTime, duration, pushSnapshot, toast]);
+
+  useEffect(() => {
+    if (!isTapToSyncActive) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName.toLowerCase() === 'input' ||
+          target.tagName.toLowerCase() === 'textarea' ||
+          target.isContentEditable ||
+          target.getAttribute('contenteditable') === 'true')
+      ) {
+        return;
+      }
+      if (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        handleTriggerTap();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isTapToSyncActive, handleTriggerTap]);
+
   const handleSave = async () => {
     if (!hasUnsavedChanges || isSaving) return;
     setIsSaving(true);
     try {
       await onSaveLines(editableLines);
       setInitialLines(editableLines);
+      clearHistory();
       toast.success('Lyric changes saved');
     } catch (err) {
       console.error('Failed to save lyric timings:', err);
@@ -221,13 +305,13 @@ export function useLyricEditorState({
     }
   };
 
-  // Discard changes and revert to initialLines
   const handleConfirmDiscard = () => {
     setEditableLines(initialLines);
     setEditingLineId(null);
     setEditingText('');
     setLineToDelete(null);
     setShowDiscardModal(false);
+    clearHistory();
     toast.info('Lyric edits discarded');
   };
 
@@ -236,116 +320,61 @@ export function useLyricEditorState({
     setEditingText(line.text);
   };
 
-  const handleCancelEditing = () => {
-    setEditingLineId(null);
-    setEditingText('');
-  };
-
   const handleCommitEditing = (lineId: number, newText: string) => {
     const trimmed = newText.trim();
-    const targetLine = editableLines.find((l) => l.id === lineId);
-    if (!targetLine) {
+    const target = editableLines.find((l) => l.id === lineId);
+    if (!target) {
       setEditingLineId(null);
       return;
     }
-
-    if (trimmed && trimmed !== targetLine.text) {
-      const updatedWords = recalculateWordTimings(
-        trimmed,
-        targetLine.start_time,
-        targetLine.end_time
+    if (trimmed && trimmed !== target.text) {
+      pushSnapshot(editableLines);
+      setEditableLines(
+        editableLines.map((l) =>
+          l.id === lineId
+            ? {
+                ...l,
+                text: trimmed,
+                words: recalculateWordTimings(trimmed, target.start_time, target.end_time),
+              }
+            : l
+        )
       );
-      const updated = editableLines.map((l) => {
-        if (l.id !== lineId) return l;
-        return {
-          ...l,
-          text: trimmed,
-          words: updatedWords,
-        };
-      });
-      setEditableLines(updated);
     }
     setEditingLineId(null);
   };
 
-  const handleInsertLineAbove = (index: number) => {
+  const insertLineHelper = (insertIdx: number, afterIdx: number) => {
+    pushSnapshot(editableLines);
     const { start_time, end_time } = calculateLineInsertTimes(
       editableLines,
-      index - 1,
+      afterIdx,
       currentTime,
       duration
     );
-    const initialText = 'New lyric line';
-    const words = recalculateWordTimings(initialText, start_time, end_time);
+    const text = 'New lyric line';
     const newLine: LyricLine = {
       id: 0,
-      text: initialText,
+      text,
       start_time,
       end_time,
-      words,
+      words: recalculateWordTimings(text, start_time, end_time),
     };
     const newLines = [...editableLines];
-    newLines.splice(index, 0, newLine);
+    newLines.splice(insertIdx, 0, newLine);
     const reindexed = newLines.map((l, idx) => ({ ...l, id: idx + 1 }));
     setEditableLines(reindexed);
-    setSelectedLineId(index + 1);
-    handleStartEditing(reindexed[index]);
-  };
-
-  const handleInsertLineBelow = (index: number) => {
-    const { start_time, end_time } = calculateLineInsertTimes(
-      editableLines,
-      index,
-      currentTime,
-      duration
-    );
-    const initialText = 'New lyric line';
-    const words = recalculateWordTimings(initialText, start_time, end_time);
-    const newLine: LyricLine = {
-      id: 0,
-      text: initialText,
-      start_time,
-      end_time,
-      words,
-    };
-    const newLines = [...editableLines];
-    newLines.splice(index + 1, 0, newLine);
-    const reindexed = newLines.map((l, idx) => ({ ...l, id: idx + 1 }));
-    setEditableLines(reindexed);
-    setSelectedLineId(index + 2);
-    handleStartEditing(reindexed[index + 1]);
-  };
-
-  const handleInsertLineAtEnd = () => {
-    if (editableLines.length === 0) {
-      const { start_time, end_time } = calculateLineInsertTimes([], 0, currentTime, duration);
-      const initialText = 'New lyric line';
-      const words = recalculateWordTimings(initialText, start_time, end_time);
-      const newLine: LyricLine = {
-        id: 1,
-        text: initialText,
-        start_time,
-        end_time,
-        words,
-      };
-      setEditableLines([newLine]);
-      setSelectedLineId(1);
-      handleStartEditing(newLine);
-      return;
-    }
-    handleInsertLineBelow(editableLines.length - 1);
+    setSelectedLineId(insertIdx + 1);
+    handleStartEditing(reindexed[insertIdx]);
   };
 
   const handleConfirmDeleteLine = (lineId: number) => {
-    const filtered = editableLines.filter((l) => l.id !== lineId);
-    const reindexed = filtered.map((l, idx) => ({ ...l, id: idx + 1 }));
-    setEditableLines(reindexed);
-    if (selectedLineId === lineId) {
-      setSelectedLineId(null);
-    }
-    if (editingLineId === lineId) {
-      setEditingLineId(null);
-    }
+    pushSnapshot(editableLines);
+    setEditableLines(
+      editableLines.filter((l) => l.id !== lineId).map((l, idx) => ({ ...l, id: idx + 1 }))
+    );
+    if (selectedLineId === lineId) setSelectedLineId(null);
+    if (editingLineId === lineId) setEditingLineId(null);
     setLineToDelete(null);
     toast.info('Lyric line deleted');
   };
@@ -364,18 +393,32 @@ export function useLyricEditorState({
     setLineToDelete,
     editInputRef,
     hasUnsavedChanges,
+    canUndo,
+    canRedo,
+    handleUndo,
+    handleRedo,
     nudgeLine,
     nudgeWordBoundary,
     nudgeWord,
     updateWordTiming,
+    handleApplyBatchOffset,
+    handleReplaceLyrics,
+    isTapToSyncActive,
+    setIsTapToSyncActive,
+    tapTargetIndex,
+    setTapTargetIndex,
+    handleTriggerTap,
     handleSave,
     handleConfirmDiscard,
     handleStartEditing,
-    handleCancelEditing,
+    handleCancelEditing: () => {
+      setEditingLineId(null);
+      setEditingText('');
+    },
     handleCommitEditing,
-    handleInsertLineAbove,
-    handleInsertLineBelow,
-    handleInsertLineAtEnd,
+    handleInsertLineAbove: (idx: number) => insertLineHelper(idx, idx - 1),
+    handleInsertLineBelow: (idx: number) => insertLineHelper(idx + 1, idx),
+    handleInsertLineAtEnd: () => insertLineHelper(editableLines.length, editableLines.length - 1),
     handleConfirmDeleteLine,
   };
 }

@@ -196,3 +196,16 @@ class ProjectMetadataUpdate(BaseModel):
         max_length=300,
         description="Optional updated artist name (max 300 chars)",
     )
+
+
+class RealignLyricsRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    custom_lyrics: str | None = Field(
+        default=None,
+        max_length=50000,
+        description="Optional custom plain or LRC lyrics text",
+    )
+    fetch_lrclib: bool = Field(
+        default=False,
+        description="Re-query LRCLIB using project title and artist",
+    )
