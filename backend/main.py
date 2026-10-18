@@ -4,12 +4,14 @@ import logging
 import math
 import os
 import re
+import subprocess
 import threading
 import time
 import uuid
 from pathlib import Path
 from typing import Any, Literal
 
+import soundfile as sf
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
@@ -615,6 +617,161 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         active_cancellations.pop(project_id, None)
 
 
+def run_local_pipeline(
+    project_id: str,
+    raw_audio_path: str,
+    title: str,
+    artist: str,
+    custom_lyrics: str | None = None,
+):
+    cancel_event = threading.Event()
+    active_cancellations[project_id] = cancel_event
+    pipeline_start = time.time()
+
+    def update_pipe(status: str, progress: int, detail: str, eta_s: int | None = None):
+        if cancel_event.is_set():
+            raise RuntimeError("Processing cancelled by user")
+        proj = find_project(project_id)
+        if not proj:
+            return
+        proj["status"] = status
+        proj["progress"] = progress
+        proj["status_detail"] = detail
+        proj["heartbeat"] = int(time.time() * 1000)
+        proj["elapsed_seconds"] = int(time.time() - pipeline_start)
+        if eta_s is not None:
+            proj["eta_seconds"] = eta_s
+        save_projects()
+
+    try:
+        # Step 1: Transcode / Normalize raw uploaded audio to standard WAV (pcm_s16le, 44100Hz, 2ch)
+        update_pipe("queued", 5, "Preparing audio track...")
+        raw_path = Path(raw_audio_path)
+        wav_target = DOWNLOADS_DIR / f"{project_id}.wav"
+
+        needs_transcode = True
+        if raw_path.resolve() == wav_target.resolve() and wav_target.exists():
+            try:
+                info = sf.info(str(wav_target))
+                if info.format == "WAV":
+                    needs_transcode = False
+                    duration = float(info.duration)
+            except Exception:
+                needs_transcode = True
+
+        if needs_transcode:
+            temp_wav = DOWNLOADS_DIR / f"{project_id}_norm.wav"
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(raw_path),
+                "-vn",
+                "-acodec",
+                "pcm_s16le",
+                "-ar",
+                "44100",
+                "-ac",
+                "2",
+                str(temp_wav),
+            ]
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            if res.returncode != 0:
+                raise RuntimeError(f"FFmpeg audio transcoding failed: {res.stderr}")
+            temp_wav.replace(wav_target)
+            if raw_path.resolve() != wav_target.resolve() and raw_path.exists():
+                raw_path.unlink(missing_ok=True)
+            try:
+                info = sf.info(str(wav_target))
+                duration = float(info.duration)
+            except Exception:
+                duration = 180.0
+        else:
+            try:
+                info = sf.info(str(wav_target))
+                duration = float(info.duration)
+            except Exception:
+                duration = 180.0
+
+        proj = get_project_or_404(project_id)
+        proj["duration"] = duration
+        proj["audio_path"] = str(wav_target)
+        proj["audio_url"] = f"/static/downloads/{project_id}.wav"
+        save_projects()
+
+        # Step 2: Separate Stems (Vocals & Instrumental)
+        initial_sep_eta = max(15, int(duration * 0.25))
+        update_pipe("separating", 35, "Initializing Demucs AI stem separation...", initial_sep_eta)
+
+        def sep_cb(pct, detail, eta_s):
+            pipe_progress = int(35 + ((pct or 0.0) * 0.35))
+            update_pipe("separating", pipe_progress, detail, eta_s=eta_s)
+
+        stems = separator.separate_stems(
+            audio_path=str(wav_target),
+            track_id=project_id,
+            duration=duration,
+            progress_callback=sep_cb,
+            cancel_event=cancel_event,
+        )
+        proj = get_project_or_404(project_id)
+        proj["vocals_path"] = stems["vocals_path"]
+        proj["instrumental_path"] = stems["instrumental_path"]
+        proj["vocals_url"] = f"/static/stems/{project_id}/vocals.wav"
+        proj["instrumental_url"] = f"/static/stems/{project_id}/instrumental.wav"
+        save_projects()
+
+        # Step 3: Fetch / Process Lyrics
+        update_pipe("fetching_lyrics", 72, "Processing song lyrics...", 5)
+        if custom_lyrics and custom_lyrics.strip():
+            lyric_data = lyrics_service.process_custom_lyrics(custom_lyrics)
+        else:
+            lyric_data = lyrics_service.fetch_lyrics(title, artist, duration)
+
+        proj = get_project_or_404(project_id)
+        proj["lyric_source"] = lyric_data["source"]
+        proj["is_synced"] = lyric_data["synced"]
+        save_projects()
+
+        # Step 4: Forced Word-Level Alignment
+        update_pipe("aligning", 82, "Aligning lyrics to vocal acoustic energy envelopes...", 5)
+        aligned_lines = aligner.align_lyrics(stems["vocals_path"], lyric_data["lines"])
+        proj = get_project_or_404(project_id)
+        proj["lines"] = aligned_lines
+        save_projects()
+
+        # Step 5: Mix Initial Master
+        update_pipe("mixing", 92, "Mixing initial master playback...", 3)
+        master_path = audio_mixer.mix_and_shift(
+            instrumental_path=stems["instrumental_path"],
+            vocals_path=stems["vocals_path"],
+            semitones=0,
+            guide_volume=0.0,
+            output_filename=f"{project_id}_master.wav",
+        )
+        proj = get_project_or_404(project_id)
+        proj["master_audio_path"] = master_path
+        proj["master_audio_url"] = f"/static/output/{project_id}_master.wav"
+
+        # Step 6: Ready!
+        update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
+
+    except Exception as e:
+        logger.error(f"Pipeline error for local track {project_id}: {e}", exc_info=True)
+        proj = find_project(project_id) or {}
+        if cancel_event.is_set():
+            proj["status"] = "cancelled"
+            proj["status_detail"] = "Processing was cancelled by user"
+            proj["progress"] = 0
+        else:
+            proj["status"] = "error"
+            proj["error"] = str(e)
+            proj["status_detail"] = f"Error: {e}"
+        save_projects()
+    finally:
+        active_cancellations.pop(project_id, None)
+
+
 @app.post("/api/process")
 def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
     disk_projects = load_projects()
@@ -897,6 +1054,7 @@ def get_youtube_package(project_id: str):
 MAX_BACKGROUND_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 MAX_IMAGE_BACKGROUND_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 MAX_INSTRUMENTAL_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+MAX_TRACK_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 ALLOWED_BACKGROUND_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".webm"}
 ALLOWED_AUDIO_EXTS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
 
@@ -928,6 +1086,29 @@ def validate_background_header(data: bytes, ext: str) -> bool:
 
 
 validate_image_header = validate_background_header
+
+
+def validate_audio_header(data: bytes, ext: str) -> bool:
+    if len(data) < 2:
+        return False
+    ext = ext.lower()
+    if ext == ".wav":
+        return data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WAVE"
+    elif ext == ".mp3":
+        return data.startswith(b"ID3") or (
+            len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0
+        )
+    elif ext == ".flac":
+        return data.startswith(b"fLaC")
+    elif ext == ".ogg":
+        return data.startswith(b"OggS")
+    elif ext == ".m4a":
+        return len(data) >= 8 and data[4:8] == b"ftyp"
+    elif ext == ".aac":
+        return (len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xF6) == 0xF0) or (
+            len(data) >= 8 and data[4:8] == b"ftyp"
+        )
+    return False
 
 
 async def save_upload_file_bounded(
@@ -1033,6 +1214,79 @@ async def upload_background(file: UploadFile = File(...)):
 
     logger.info(f"Saved background media {bg_id} ({bytes_written} bytes)")
     return {"status": "ok", "bg_id": bg_id, "bg_url": f"/static/backgrounds/{bg_id}"}
+
+
+@app.post("/api/upload-track")
+@app.post("/api/upload-audio")
+async def upload_audio_track(
+    file: UploadFile = File(...),
+    title: str | None = Form(default=None),
+    artist: str | None = Form(default=None),
+    created_by: str | None = Form(default=None),
+    custom_lyrics: str | None = Form(default=None),
+    bg_tasks: BackgroundTasks = BackgroundTasks(),
+):
+    raw_ext = Path(file.filename or "").suffix.lower()
+    if raw_ext not in ALLOWED_AUDIO_EXTS:
+        logger.warning(f"Rejected track upload with unsupported extension: {raw_ext}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}",
+        )
+
+    project_id = f"local_{uuid.uuid4().hex[:8]}"
+    clean_stem = Path(
+        sanitize_upload_filename(file.filename, default_stem=f"Track {project_id}")
+    ).stem
+    track_title = (title or "").strip() or clean_stem
+    track_artist = (artist or "").strip() or "Unknown Artist"
+    creator = (created_by or "").strip() or "Friend"
+
+    target_upload_path = DOWNLOADS_DIR / f"{project_id}{raw_ext}"
+    bytes_written = await save_upload_file_bounded(
+        file, target_upload_path, MAX_TRACK_UPLOAD_BYTES, min_bytes=1
+    )
+
+    with open(target_upload_path, "rb") as f:
+        header_sample = f.read(64)
+
+    if not validate_audio_header(header_sample, raw_ext):
+        target_upload_path.unlink(missing_ok=True)
+        logger.warning(f"Rejected track upload with invalid magic bytes for extension {raw_ext}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"File content does not match audio format '{raw_ext}' (invalid magic bytes)",
+        )
+
+    logger.info(f"Accepted local audio track upload {project_id} ({bytes_written} bytes)")
+
+    proj_data = {
+        "id": project_id,
+        "track_id": project_id,
+        "title": track_title,
+        "artist": track_artist,
+        "status": "queued",
+        "progress": 0,
+        "lines": [],
+        "semitones": 0,
+        "guide_volume": 0.0,
+        "created_by": creator,
+        "created_at": int(time.time()),
+        "audio_url": f"/static/downloads/{project_id}.wav",
+    }
+
+    projects[project_id] = proj_data
+    save_projects()
+
+    bg_tasks.add_task(
+        run_local_pipeline,
+        project_id,
+        str(target_upload_path),
+        track_title,
+        track_artist,
+        custom_lyrics,
+    )
+    return {"project_id": project_id, "status": "queued"}
 
 
 # Mount built frontend if available

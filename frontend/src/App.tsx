@@ -226,6 +226,48 @@ export const App: React.FC = () => {
     }
   };
 
+  // Start processing an uploaded local audio track
+  const handleUploadTrack = async (params: {
+    file: File;
+    title?: string;
+    artist?: string;
+    customLyrics?: string;
+    createdBy?: string;
+  }) => {
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', params.file);
+      if (params.title) formData.append('title', params.title);
+      if (params.artist) formData.append('artist', params.artist);
+      if (params.customLyrics) formData.append('custom_lyrics', params.customLyrics);
+      formData.append('created_by', params.createdBy || currentUser || 'Friend');
+
+      const res = await apiFetch('/api/upload-track', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to upload audio track');
+      }
+      const data = await res.json();
+      setProject({
+        id: data.project_id,
+        status: 'queued',
+        progress: 5,
+        lines: [],
+        semitones: 0,
+        guide_volume: 0,
+      });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Error uploading audio track');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Save edited lyric timings to backend
   const handleSaveLines = async (updatedLines: LyricLine[]) => {
     if (!project?.id) return;
@@ -388,6 +430,7 @@ export const App: React.FC = () => {
         {!project ? (
           <TrackSearch
             onSelectTrack={handleSelectTrack}
+            onUploadTrack={handleUploadTrack}
             onOpenProject={(p) => setProject(p)}
             isLoading={loading}
             currentUser={currentUser}
