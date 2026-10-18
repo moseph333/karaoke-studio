@@ -4,6 +4,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -219,6 +220,120 @@ def get_project_or_404(project_id: str) -> dict[str, Any]:
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
     return proj
+
+
+def cleanup_project_disk_artifacts(
+    project_id: str,
+    track_id: str | None = None,
+    proj: dict[str, Any] | None = None,
+) -> None:
+    """Safely removes all media files associated with project_id (and unshared track_id)
+
+    from DOWNLOADS_DIR, STEMS_DIR, and OUTPUT_DIR without affecting other projects.
+    """
+    pid = project_id
+    tid = track_id
+    if proj:
+        pid = proj.get("id", project_id)
+        if not tid:
+            tid = proj.get("track_id")
+
+    with PROJECTS_LOCK:
+        other_projects = [
+            p for p in projects.values() if isinstance(p, dict) and p.get("id") != pid
+        ]
+
+    other_referenced_paths: set[Path] = set()
+    other_ids: set[str] = set()
+
+    for op in other_projects:
+        for key in (
+            "audio_path",
+            "thumbnail_path",
+            "vocals_path",
+            "instrumental_path",
+            "master_audio_path",
+            "video_path",
+        ):
+            val = op.get(key)
+            if val:
+                try:
+                    other_referenced_paths.add(Path(val).resolve())
+                except Exception:
+                    pass
+        if op.get("id"):
+            other_ids.add(str(op["id"]))
+        if op.get("track_id"):
+            other_ids.add(str(op["track_id"]))
+
+    # 1. Cleanup STEMS_DIR: STEMS_DIR / pid (and STEMS_DIR / tid if not referenced by others)
+    stem_targets = [pid]
+    if tid and tid not in other_ids and tid not in stem_targets:
+        stem_targets.append(tid)
+
+    if STEMS_DIR.exists():
+        for ident in stem_targets:
+            stem_subdir = STEMS_DIR / ident
+            if stem_subdir.exists() and stem_subdir.is_dir():
+                has_external_ref = False
+                for f in stem_subdir.rglob("*"):
+                    if f.is_file():
+                        try:
+                            if f.resolve() in other_referenced_paths:
+                                has_external_ref = True
+                                break
+                        except Exception:
+                            pass
+                if not has_external_ref:
+                    shutil.rmtree(stem_subdir, ignore_errors=True)
+
+    # 2. Cleanup flat directories: DOWNLOADS_DIR and OUTPUT_DIR
+    target_prefixes = [f"{pid}.", f"{pid}_"]
+    exact_names = {pid}
+    if tid and tid not in other_ids:
+        target_prefixes.extend([f"{tid}.", f"{tid}_"])
+        exact_names.add(tid)
+
+    for directory in (DOWNLOADS_DIR, OUTPUT_DIR):
+        if not directory.exists():
+            continue
+        for item in directory.iterdir():
+            try:
+                name = item.name
+                matches = (name in exact_names) or any(
+                    name.startswith(pfx) for pfx in target_prefixes
+                )
+                if matches:
+                    resolved = item.resolve()
+                    if resolved not in other_referenced_paths:
+                        if item.is_file() or item.is_symlink():
+                            item.unlink(missing_ok=True)
+                        elif item.is_dir():
+                            shutil.rmtree(item, ignore_errors=True)
+            except Exception as e:
+                logger.warning(f"Error checking/removing disk item {item}: {e}")
+
+    # 3. Explicitly clean files recorded directly in proj metadata if passed
+    if proj:
+        for key in (
+            "audio_path",
+            "thumbnail_path",
+            "vocals_path",
+            "instrumental_path",
+            "master_audio_path",
+            "video_path",
+        ):
+            val = proj.get(key)
+            if val:
+                try:
+                    p = Path(val).resolve()
+                    if p.exists() and p not in other_referenced_paths:
+                        if p.is_file() or p.is_symlink():
+                            p.unlink(missing_ok=True)
+                        elif p.is_dir():
+                            shutil.rmtree(p, ignore_errors=True)
+                except Exception as e:
+                    logger.warning(f"Error removing metadata-referenced file {val}: {e}")
 
 
 # Services
@@ -603,18 +718,32 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
 
     except Exception as e:
         logger.error(f"Pipeline error for {project_id}: {e}", exc_info=True)
-        proj = find_project(project_id) or {}
-        if cancel_event.is_set():
-            proj["status"] = "cancelled"
-            proj["status_detail"] = "Processing was cancelled by user"
-            proj["progress"] = 0
+        proj = find_project(project_id)
+        if proj is not None:
+            if cancel_event.is_set():
+                proj["status"] = "cancelled"
+                proj["status_detail"] = "Processing was cancelled by user"
+                proj["progress"] = 0
+            else:
+                proj["status"] = "error"
+                proj["error"] = str(e)
+                proj["status_detail"] = f"Error: {e}"
+            save_projects()
         else:
-            proj["status"] = "error"
-            proj["error"] = str(e)
-            proj["status_detail"] = f"Error: {e}"
-        save_projects()
+            logger.info(
+                f"Project {project_id} was deleted during processing; skipping status update."
+            )
     finally:
         active_cancellations.pop(project_id, None)
+        if track_id:
+            active_cancellations.pop(track_id, None)
+        if find_project(project_id) is None:
+            try:
+                cleanup_project_disk_artifacts(project_id, track_id)
+            except Exception as cleanup_err:
+                logger.warning(
+                    f"Residual cleanup failed for deleted project {project_id}: {cleanup_err}"
+                )
 
 
 def run_local_pipeline(
@@ -758,18 +887,30 @@ def run_local_pipeline(
 
     except Exception as e:
         logger.error(f"Pipeline error for local track {project_id}: {e}", exc_info=True)
-        proj = find_project(project_id) or {}
-        if cancel_event.is_set():
-            proj["status"] = "cancelled"
-            proj["status_detail"] = "Processing was cancelled by user"
-            proj["progress"] = 0
+        proj = find_project(project_id)
+        if proj is not None:
+            if cancel_event.is_set():
+                proj["status"] = "cancelled"
+                proj["status_detail"] = "Processing was cancelled by user"
+                proj["progress"] = 0
+            else:
+                proj["status"] = "error"
+                proj["error"] = str(e)
+                proj["status_detail"] = f"Error: {e}"
+            save_projects()
         else:
-            proj["status"] = "error"
-            proj["error"] = str(e)
-            proj["status_detail"] = f"Error: {e}"
-        save_projects()
+            logger.info(
+                f"Project {project_id} was deleted during processing; skipping status update."
+            )
     finally:
         active_cancellations.pop(project_id, None)
+        if find_project(project_id) is None:
+            try:
+                cleanup_project_disk_artifacts(project_id)
+            except Exception as cleanup_err:
+                logger.warning(
+                    f"Residual cleanup failed for deleted project {project_id}: {cleanup_err}"
+                )
 
 
 @app.post("/api/process")
@@ -972,18 +1113,30 @@ def run_video_render(project_id: str, req: RenderRequest):
 
     except Exception as e:
         logger.error(f"Render failed for {project_id}: {e}", exc_info=True)
-        proj = find_project(project_id) or {}
-        if cancel_event.is_set():
-            proj["render_status"] = "idle"
-            proj["render_detail"] = "Rendering cancelled"
-            proj["render_progress"] = 0
+        proj = find_project(project_id)
+        if proj is not None:
+            if cancel_event.is_set():
+                proj["render_status"] = "idle"
+                proj["render_detail"] = "Rendering cancelled"
+                proj["render_progress"] = 0
+            else:
+                proj["render_status"] = "error"
+                proj["render_error"] = str(e)
+                proj["render_detail"] = f"Render error: {e}"
+            save_projects()
         else:
-            proj["render_status"] = "error"
-            proj["render_error"] = str(e)
-            proj["render_detail"] = f"Render error: {e}"
-        save_projects()
+            logger.info(
+                f"Project {project_id} was deleted during rendering; skipping status update."
+            )
     finally:
         active_cancellations.pop(render_key, None)
+        if find_project(project_id) is None:
+            try:
+                cleanup_project_disk_artifacts(project_id)
+            except Exception as cleanup_err:
+                logger.warning(
+                    f"Residual cleanup failed for deleted project {project_id}: {cleanup_err}"
+                )
 
 
 @app.post("/api/project/{project_id}/render")
@@ -1036,6 +1189,50 @@ def cancel_render(project_id: str):
         proj["render_progress"] = 0
         save_projects()
     return {"status": "ok"}
+
+
+@app.delete("/api/project/{project_id}")
+def delete_project(project_id: str):
+    proj = find_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    pid = proj.get("id", project_id)
+    tid = proj.get("track_id")
+
+    # 1. Signal cancellation for any active background jobs
+    cancel_keys = {pid, f"{pid}_render"}
+    if tid:
+        cancel_keys.add(tid)
+        cancel_keys.add(f"{tid}_render")
+
+    for key in cancel_keys:
+        event = active_cancellations.get(key)
+        if event is not None:
+            event.set()
+
+    # 2. Atomic state removal from projects and disk store under PROJECTS_LOCK
+    with PROJECTS_LOCK:
+        keys_to_remove = {
+            k
+            for k, v in projects.items()
+            if k == pid
+            or (isinstance(v, dict) and v.get("id") == pid)
+            or (tid and k == tid and isinstance(v, dict) and v.get("id") == pid)
+        }
+        for k in keys_to_remove:
+            projects.pop(k, None)
+
+        save_projects()
+
+    # 3. Clean up on-disk media artifacts
+    cleanup_project_disk_artifacts(pid, tid, proj)
+
+    return {
+        "status": "deleted",
+        "project_id": pid,
+        "message": f"Project {project_id} deleted successfully",
+    }
 
 
 @app.get("/api/project/{project_id}/youtube-package")
