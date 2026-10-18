@@ -7,6 +7,8 @@ authentication/authorization gates (401), upload validation (400/413), and happy
 """
 
 import io
+import json
+import threading
 import uuid
 from pathlib import Path
 
@@ -1201,3 +1203,293 @@ class TestTrackUploadRoutes:
         assert res.status_code == 200
         pid = res.json()["project_id"]
         assert ".." not in pid
+
+
+class TestProjectDeletionLifecycle:
+    """Verifies DELETE /api/project/{project_id}, task cancellation, and safe disk cleanup."""
+
+    def test_delete_project_success(self, client, test_project_factory):
+        """Deleting an existing project removes it from state, projects.json, and cleans disk."""
+        proj = test_project_factory(
+            title="To Delete", artist="Eraser", with_stems=True, with_master=True
+        )
+        pid = proj["id"]
+
+        download_file = main_mod.DOWNLOADS_DIR / f"{pid}.wav"
+        create_synthetic_wav(download_file)
+        render_file = main_mod.OUTPUT_DIR / f"{pid}_karaoke.mp4"
+        render_file.write_bytes(b"dummy mp4 data")
+
+        assert (main_mod.STEMS_DIR / pid).exists()
+        assert (main_mod.OUTPUT_DIR / f"{pid}_master.wav").exists()
+        assert download_file.exists()
+        assert render_file.exists()
+
+        res = client.delete(f"/api/project/{pid}")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "deleted"
+        assert data["project_id"] == pid
+
+        # In-memory and disk verification
+        assert pid not in main_mod.projects
+        disk_projects = json.loads(main_mod.PROJECTS_STORE_FILE.read_text(encoding="utf-8"))
+        assert pid not in disk_projects
+
+        # Disk files removed
+        assert not (main_mod.STEMS_DIR / pid).exists()
+        assert not (main_mod.OUTPUT_DIR / f"{pid}_master.wav").exists()
+        assert not download_file.exists()
+        assert not render_file.exists()
+
+    def test_delete_project_404(self, client):
+        """Deleting a non-existent project returns 404."""
+        res = client.delete("/api/project/non_existent_project_id")
+        assert res.status_code == 404
+        assert "project not found" in res.json()["detail"].lower()
+
+    def test_delete_project_cancels_active_job(self, client, test_project_factory):
+        """Deleting an active project sets cancellation events for pipeline and render."""
+        proj = test_project_factory(title="In Flight", artist="Racer")
+        pid = proj["id"]
+
+        pipe_event = threading.Event()
+        render_event = threading.Event()
+        main_mod.active_cancellations[pid] = pipe_event
+        main_mod.active_cancellations[f"{pid}_render"] = render_event
+
+        res = client.delete(f"/api/project/{pid}")
+        assert res.status_code == 200
+        assert pipe_event.is_set() is True
+        assert render_event.is_set() is True
+
+    def test_delete_project_disk_cleanup_preserves_others(self, client, test_project_factory):
+        """Deleting Project A preserves files of Project B and prevents prefix substring collision."""
+        test_project_factory(project_id="p1", title="Prefix One", with_stems=True, with_master=True)
+        test_project_factory(
+            project_id="p10", title="Prefix Ten", with_stems=True, with_master=True
+        )
+        test_project_factory(project_id="p2", title="Prefix Two", with_stems=True, with_master=True)
+
+        p1_download = main_mod.DOWNLOADS_DIR / "p1.wav"
+        create_synthetic_wav(p1_download)
+        p10_download = main_mod.DOWNLOADS_DIR / "p10.wav"
+        create_synthetic_wav(p10_download)
+
+        p10_master = main_mod.OUTPUT_DIR / "p10_master.wav"
+        p2_master = main_mod.OUTPUT_DIR / "p2_master.wav"
+
+        assert p1_download.exists()
+        assert p10_download.exists()
+        assert p10_master.exists()
+        assert p2_master.exists()
+
+        res = client.delete("/api/project/p1")
+        assert res.status_code == 200
+
+        # p1 removed
+        assert not p1_download.exists()
+        assert not (main_mod.STEMS_DIR / "p1").exists()
+        assert not (main_mod.OUTPUT_DIR / "p1_master.wav").exists()
+
+        # p10 and p2 completely preserved
+        assert p10_download.exists()
+        assert p10_master.exists()
+        assert (main_mod.STEMS_DIR / "p10").exists()
+        assert p2_master.exists()
+        assert (main_mod.STEMS_DIR / "p2").exists()
+        assert "p10" in main_mod.projects
+        assert "p2" in main_mod.projects
+
+    def test_delete_project_with_track_id_alias(self, client, test_project_factory):
+        """Deleting via track_id alias cleans both canonical id and alias."""
+        proj = test_project_factory(project_id="canon_123", title="Alias Test")
+        proj["track_id"] = "alias_yt_789"
+        main_mod.projects["alias_yt_789"] = proj
+        main_mod.save_projects()
+
+        res = client.delete("/api/project/alias_yt_789")
+        assert res.status_code == 200
+        assert "canon_123" not in main_mod.projects
+        assert "alias_yt_789" not in main_mod.projects
+
+    def test_delete_project_shared_track_id_isolation(self, client, test_project_factory):
+        """If two projects share a track_id, stems are preserved until the last project is deleted."""
+        p_alpha = test_project_factory(project_id="alpha", title="Alpha")
+        p_beta = test_project_factory(project_id="beta", title="Beta")
+        p_alpha["track_id"] = "shared_yt_track"
+        p_beta["track_id"] = "shared_yt_track"
+
+        shared_stem_dir = main_mod.STEMS_DIR / "shared_yt_track"
+        shared_stem_dir.mkdir(parents=True, exist_ok=True)
+        create_synthetic_wav(shared_stem_dir / "vocals.wav")
+        p_alpha["vocals_path"] = str(shared_stem_dir / "vocals.wav")
+        p_beta["vocals_path"] = str(shared_stem_dir / "vocals.wav")
+        main_mod.save_projects()
+
+        res1 = client.delete("/api/project/alpha")
+        assert res1.status_code == 200
+        assert (shared_stem_dir / "vocals.wav").exists()
+
+        res2 = client.delete("/api/project/beta")
+        assert res2.status_code == 200
+        assert not shared_stem_dir.exists()
+
+    def test_pipeline_does_not_resurrect_deleted_project(self, monkeypatch):
+        """Background pipeline exception handler does not resurrect deleted project."""
+        pid = "ghost_test_project"
+        cancel_event = threading.Event()
+        main_mod.active_cancellations[pid] = cancel_event
+
+        main_mod.projects.pop(pid, None)
+        main_mod.save_projects()
+
+        def mock_download(*args, **kwargs):
+            raise RuntimeError("Download aborted")
+
+        monkeypatch.setattr(main_mod.downloader, "extract_info_and_download", mock_download)
+
+        main_mod.run_pipeline(pid, "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+
+        assert pid not in main_mod.projects
+        disk_projects = json.loads(main_mod.PROJECTS_STORE_FILE.read_text(encoding="utf-8"))
+        assert pid not in disk_projects
+
+
+class TestProjectMetadataUpdate:
+    """Verifies PATCH /api/project/{project_id} and POST /api/project/{project_id}/metadata."""
+
+    def test_patch_project_metadata_success(self, client, test_project_factory):
+        """Updating title and artist via PATCH updates in-memory and disk state."""
+        proj = test_project_factory(title="Original Song", artist="Original Singer")
+        pid = proj["id"]
+
+        res = client.patch(
+            f"/api/project/{pid}",
+            json={"title": "Updated Song", "artist": "Updated Singer"},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["title"] == "Updated Song"
+        assert data["artist"] == "Updated Singer"
+
+        disk_projects = json.loads(main_mod.PROJECTS_STORE_FILE.read_text(encoding="utf-8"))
+        assert disk_projects[pid]["title"] == "Updated Song"
+        assert disk_projects[pid]["artist"] == "Updated Singer"
+
+    def test_patch_project_metadata_partial(self, client, test_project_factory):
+        """Updating only title or only artist preserves the other field."""
+        proj = test_project_factory(title="Keep My Singer", artist="Original Singer")
+        pid = proj["id"]
+
+        res1 = client.patch(f"/api/project/{pid}", json={"title": "New Title Only"})
+        assert res1.status_code == 200
+        assert res1.json()["title"] == "New Title Only"
+        assert res1.json()["artist"] == "Original Singer"
+
+        res2 = client.patch(f"/api/project/{pid}", json={"artist": "New Singer Only"})
+        assert res2.status_code == 200
+        assert res2.json()["title"] == "New Title Only"
+        assert res2.json()["artist"] == "New Singer Only"
+
+    def test_patch_project_metadata_empty_rejected(self, client, test_project_factory):
+        """Missing or whitespace-only fields are rejected with 400."""
+        proj = test_project_factory(title="Valid", artist="Valid")
+        pid = proj["id"]
+
+        res1 = client.patch(f"/api/project/{pid}", json={})
+        assert res1.status_code == 400
+        assert "at least one" in res1.json()["detail"].lower()
+
+        res2 = client.patch(f"/api/project/{pid}", json={"title": ""})
+        assert res2.status_code == 400
+        assert "title cannot be empty" in res2.json()["detail"].lower()
+
+        res3 = client.patch(f"/api/project/{pid}", json={"title": "   "})
+        assert res3.status_code == 400
+        assert "title cannot be empty" in res3.json()["detail"].lower()
+
+        res4 = client.patch(f"/api/project/{pid}", json={"artist": ""})
+        assert res4.status_code == 400
+        assert "artist cannot be empty" in res4.json()["detail"].lower()
+
+        res5 = client.patch(f"/api/project/{pid}", json={"artist": "   "})
+        assert res5.status_code == 400
+        assert "artist cannot be empty" in res5.json()["detail"].lower()
+
+    def test_patch_project_metadata_404(self, client):
+        """Updating non-existent project returns 404."""
+        res = client.patch("/api/project/non_existent_id", json={"title": "Ghost"})
+        assert res.status_code == 404
+        assert "project not found" in res.json()["detail"].lower()
+
+    def test_patch_project_metadata_youtube_package_reflection(self, client, test_project_factory):
+        """Updating metadata dynamically reflects in GET /api/project/{id}/youtube-package."""
+        proj = test_project_factory(title="Old Song", artist="Old Artist")
+        pid = proj["id"]
+
+        pkg_before = client.get(f"/api/project/{pid}/youtube-package").json()
+        assert "Old Song" in pkg_before["title"]
+        assert "Old Artist" in pkg_before["title"]
+
+        res = client.patch(
+            f"/api/project/{pid}", json={"title": "Brand New Anthem", "artist": "Superstar"}
+        )
+        assert res.status_code == 200
+
+        pkg_after = client.get(f"/api/project/{pid}/youtube-package").json()
+        assert pkg_after["title"] == "Superstar - Brand New Anthem (Karaoke Version / With Lyrics)"
+        assert "Brand New Anthem" in pkg_after["description"]
+        assert "superstar" in pkg_after["tags"]
+
+    def test_update_project_metadata_post_alias(self, client, test_project_factory):
+        """POST /api/project/{id}/metadata works identically to PATCH."""
+        proj = test_project_factory(title="Post Song", artist="Post Singer")
+        pid = proj["id"]
+
+        res = client.post(
+            f"/api/project/{pid}/metadata",
+            json={"title": "Updated via POST", "artist": "Updated via POST Artist"},
+        )
+        assert res.status_code == 200
+        assert res.json()["title"] == "Updated via POST"
+        assert res.json()["artist"] == "Updated via POST Artist"
+
+    def test_update_project_metadata_strips_whitespace(self, client, test_project_factory):
+        """Leading and trailing whitespace is trimmed on save."""
+        proj = test_project_factory(title="Raw Song", artist="Raw Artist")
+        pid = proj["id"]
+
+        res = client.patch(
+            f"/api/project/{pid}",
+            json={"title": "   Trimmed Title   ", "artist": "   Trimmed Artist   "},
+        )
+        assert res.status_code == 200
+        assert res.json()["title"] == "Trimmed Title"
+        assert res.json()["artist"] == "Trimmed Artist"
+
+    def test_update_project_metadata_updates_embedded_package(self, client, test_project_factory):
+        """Pre-existing embedded proj['youtube_package'] is regenerated with new title and artist."""
+        proj = test_project_factory(title="Cached Song", artist="Cached Artist")
+        pid = proj["id"]
+        main_mod.projects[pid]["youtube_package"] = {"title": "Stale Package"}
+
+        res = client.patch(
+            f"/api/project/{pid}",
+            json={"title": "Refreshed Song", "artist": "Refreshed Artist"},
+        )
+        assert res.status_code == 200
+        assert (
+            main_mod.projects[pid]["youtube_package"]["title"]
+            == "Refreshed Artist - Refreshed Song (Karaoke Version / With Lyrics)"
+        )
+
+    def test_update_project_metadata_with_track_id_alias(self, client, test_project_factory):
+        """Accessing metadata update endpoint via track_id alias updates canonical project."""
+        proj = test_project_factory(project_id="canon_meta", title="Original Title")
+        main_mod.projects["alias_meta_yt"] = proj
+        main_mod.save_projects()
+
+        res = client.patch("/api/project/alias_meta_yt", json={"title": "Alias Updated Title"})
+        assert res.status_code == 200
+        assert main_mod.projects["canon_meta"]["title"] == "Alias Updated Title"

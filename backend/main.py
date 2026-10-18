@@ -610,6 +610,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
     cancel_event = threading.Event()
     active_cancellations[project_id] = cancel_event
     pipeline_start = time.time()
+    track_id: str | None = None
 
     def update_pipe(status: str, progress: int, detail: str, eta_s: int | None = None):
         if cancel_event.is_set():
