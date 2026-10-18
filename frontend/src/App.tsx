@@ -638,7 +638,7 @@ export const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowStudioDeleteModal(true)}
-                  aria-label="Delete project"
+                  aria-label={`Delete project ${project.title || ''}`.trim() || 'Delete project'}
                   title="Delete project"
                   className="min-h-[44px] min-w-[44px] px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-rose-950/60 border border-slate-700/60 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
                 >
@@ -649,7 +649,7 @@ export const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleStartRender}
-                  className="flex-1 sm:flex-initial justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                  className="w-full sm:w-auto justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
                 >
                   <Film className="w-4 h-4" />
                   Render 1080p Video

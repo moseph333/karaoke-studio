@@ -724,7 +724,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                     </button>
                     <div
                       aria-hidden="true"
-                      className="shrink-0 p-2.5 rounded-xl bg-slate-800/60 text-slate-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                      className="shrink-0 p-2 rounded-xl bg-slate-800/60 text-slate-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
                     >
                       <Play className="w-4 h-4 fill-current" />
                     </div>
