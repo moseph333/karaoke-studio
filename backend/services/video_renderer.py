@@ -9,6 +9,39 @@ from backend.config import DEFAULT_VIDEO_CONFIG, OUTPUT_DIR
 
 logger = logging.getLogger(__name__)
 
+VISUAL_THEMES: dict[str, dict[str, str]] = {
+    "modern_gold": {
+        "id": "modern_gold",
+        "name": "Modern Gold",
+        "description": "Crisp white transitioning into warm radiant gold",
+        "primary_color": "&H0000D7FF",
+        "secondary_color": "&H00FFFFFF",
+    },
+    "cyber_cyan": {
+        "id": "cyber_cyan",
+        "name": "Cyber Cyan",
+        "description": "Electric cyan glowing wipe on ambient dark backdrop",
+        "primary_color": "&H00FFFF00",
+        "secondary_color": "&H00FFFFFF",
+    },
+    "neon_pink": {
+        "id": "neon_pink",
+        "name": "Neon Sunset",
+        "description": "Vivid magenta sweep with high contrast",
+        "primary_color": "&H00B300FF",
+        "secondary_color": "&H00FFFFFF",
+    },
+    "classic_ktv": {
+        "id": "classic_ktv",
+        "name": "Classic KTV",
+        "description": "Traditional karaoke blue-to-yellow karaoke look",
+        "primary_color": "&H0000FFFF",
+        "secondary_color": "&H00FFFFFF",
+    },
+}
+
+DEFAULT_THEME_ID = "modern_gold"
+
 
 class VideoRenderer:
     def __init__(self, output_dir: Path = OUTPUT_DIR):
@@ -42,17 +75,21 @@ class VideoRenderer:
         text = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
         return text
 
-    def generate_ass_subtitles(
+    def generate_ass_content(
         self,
         lines: list[dict[str, Any]],
-        output_ass_path: Path,
-        style_config: dict[str, Any] | None = None,
         aspect_ratio: str = "16:9",
+        theme_id: str | None = None,
+        primary_color: str | None = None,
+        secondary_color: str | None = None,
+        title: str = "",
+        style_config: dict[str, Any] | None = None,
     ) -> str:
         """
-        Generates Advanced SubStation Alpha (.ass) subtitle file
+        Generates Advanced SubStation Alpha (.ass) subtitle file content
         with smooth progressive karaoke sweep tags (\\kf).
-        Supports dynamic 16:9 and 9:16 layout adjustments and control character escaping.
+        Supports dynamic 16:9 and 9:16 layout adjustments, visual theme presets,
+        direct color overrides, and control character escaping.
         """
         # Determine aspect ratio and layout mode
         ar = (style_config or {}).get("aspect_ratio") or aspect_ratio
@@ -82,19 +119,35 @@ class VideoRenderer:
             if not style_config or "font_size" not in style_config:
                 cfg["font_size"] = default_font_size
 
+        # Apply visual theme preset if specified
+        if theme_id and theme_id in VISUAL_THEMES:
+            theme = VISUAL_THEMES[theme_id]
+            cfg["primary_color"] = theme["primary_color"]
+            cfg["secondary_color"] = theme["secondary_color"]
+
+        # Apply direct color overrides if passed
+        if primary_color is not None:
+            cfg["primary_color"] = primary_color
+        if secondary_color is not None:
+            cfg["secondary_color"] = secondary_color
+
         font_name = cfg.get("font_name", "DejaVu Sans")
         font_size = cfg.get("font_size", default_font_size)
-        primary_color = cfg.get("primary_color", "&H0022E5FF")  # Sung color (cyan/gold)
-        secondary_color = cfg.get("secondary_color", "&H00FFFFFF")  # Unsung text (white)
+        primary_color_val = cfg.get("primary_color", "&H0022E5FF")  # Sung color (cyan/gold)
+        secondary_color_val = cfg.get("secondary_color", "&H00FFFFFF")  # Unsung text (white)
         outline_color = cfg.get("outline_color", "&H00111111")
         shadow_color = cfg.get("shadow_color", "&H80000000")
         outline_width = cfg.get("outline_width", 3)
         shadow_width = cfg.get("shadow_width", 2)
-        _lead_dots = cfg.get("lead_in_countdown_dots", 3)
+
+        safe_title = (
+            (title or "YouTube Karaoke Generator").replace("\r", " ").replace("\n", " ").strip()
+        )
+        doc_title = safe_title or "YouTube Karaoke Generator"
 
         ass_content = [
             "[Script Info]",
-            "Title: YouTube Karaoke Generator",
+            f"Title: {doc_title}",
             "ScriptType: v4.00+",
             "WrapStyle: 0",
             "ScaledBorderAndShadow: yes",
@@ -105,9 +158,9 @@ class VideoRenderer:
             "[V4+ Styles]",
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
             # Alignment 2 = Bottom Center, 5 = Top Center
-            f"Style: KaraokeLine1,{font_name},{font_size},{primary_color},{secondary_color},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line1},1",
-            f"Style: KaraokeLine2,{font_name},{font_size},{primary_color},{secondary_color},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line2},1",
-            f"Style: Countdown,{font_name},{font_size + 10},{primary_color},{secondary_color},{outline_color},{shadow_color},-1,0,0,0,100,100,2,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_countdown},1",
+            f"Style: KaraokeLine1,{font_name},{font_size},{primary_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line1},1",
+            f"Style: KaraokeLine2,{font_name},{font_size},{primary_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line2},1",
+            f"Style: Countdown,{font_name},{font_size + 10},{primary_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,2,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_countdown},1",
             f"Style: TitleCard,{font_name},64,&H00FFFFFF,&H00FFFFFF,{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,3,3,5,{margin_lr},{margin_lr},{margin_v_title},1",
             "",
             "[Events]",
@@ -177,7 +230,34 @@ class VideoRenderer:
 
             prev_end_time = max(prev_end_time, l_end)
 
-        output_ass_path.write_text("\n".join(ass_content), encoding="utf-8")
+        return "\n".join(ass_content) + "\n"
+
+    def generate_ass_subtitles(
+        self,
+        lines: list[dict[str, Any]],
+        output_ass_path: Path,
+        style_config: dict[str, Any] | None = None,
+        aspect_ratio: str = "16:9",
+        theme_id: str | None = None,
+        primary_color: str | None = None,
+        secondary_color: str | None = None,
+        title: str = "",
+    ) -> str:
+        """
+        Generates Advanced SubStation Alpha (.ass) subtitle file
+        with smooth progressive karaoke sweep tags (\\kf).
+        Supports dynamic 16:9 and 9:16 layout adjustments and control character escaping.
+        """
+        content = self.generate_ass_content(
+            lines=lines,
+            aspect_ratio=aspect_ratio,
+            theme_id=theme_id,
+            primary_color=primary_color,
+            secondary_color=secondary_color,
+            title=title,
+            style_config=style_config,
+        )
+        output_ass_path.write_text(content, encoding="utf-8")
         return str(output_ass_path)
 
     def render_video(
@@ -394,3 +474,25 @@ class VideoRenderer:
             raise RuntimeError(f"FFmpeg video render error: {stderr_out}")
 
         return str(output_mp4_path)
+
+
+def generate_ass_content(
+    lines: list[dict[str, Any]],
+    aspect_ratio: str = "16:9",
+    theme_id: str | None = None,
+    primary_color: str | None = None,
+    secondary_color: str | None = None,
+    title: str = "",
+    style_config: dict[str, Any] | None = None,
+) -> str:
+    """Module-level helper to generate ASS subtitle content string."""
+    renderer = VideoRenderer()
+    return renderer.generate_ass_content(
+        lines=lines,
+        aspect_ratio=aspect_ratio,
+        theme_id=theme_id,
+        primary_color=primary_color,
+        secondary_color=secondary_color,
+        title=title,
+        style_config=style_config,
+    )
