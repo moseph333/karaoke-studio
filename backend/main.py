@@ -11,9 +11,20 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 import soundfile as sf
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+)
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,7 +39,7 @@ from backend.services.audio_mixer import AudioMixer
 from backend.services.downloader import TrackDownloader
 from backend.services.lyrics import LyricsService
 from backend.services.separator import AudioSeparator
-from backend.services.video_renderer import VideoRenderer
+from backend.services.video_renderer import VISUAL_THEMES, VideoRenderer
 from backend.services.youtube_uploader import YouTubeMetadataService
 
 logging.basicConfig(level=logging.INFO)
@@ -1305,6 +1316,130 @@ def get_youtube_package(project_id: str):
         lines=proj.get("lines", []),
         semitones=proj.get("semitones", 0),
         has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
+    )
+
+
+def sanitize_export_filename(title: str = "", artist: str = "", fallback: str = "karaoke") -> str:
+    """Sanitize track title and artist into a safe filename stem for downloads."""
+    if artist and title:
+        raw = f"{artist} - {title}".strip()
+    elif title:
+        raw = title.strip()
+    elif artist:
+        raw = artist.strip()
+    else:
+        raw = fallback.strip()
+    cleaned = re.sub(r'[\r\n"\\/:*?<>|]', "_", raw).strip(" ._")
+    return cleaned or fallback
+
+
+@app.get("/api/project/{project_id}/export/lrc")
+def export_project_lrc(project_id: str):
+    """Export project lyric lines as standard UTF-8 .lrc subtitle file."""
+    proj = get_project_or_404(project_id)
+
+    lines = proj.get("lines")
+    if not lines or not isinstance(lines, list):
+        raise HTTPException(status_code=400, detail="Project has no lyric lines to export")
+
+    title = proj.get("title", "")
+    artist = proj.get("artist", "")
+    lrc_content = lyrics_service.generate_lrc(lines, title=title, artist=artist)
+
+    if not lyrics_service.is_lrc(lrc_content):
+        raise HTTPException(status_code=400, detail="Project has no lyric lines to export")
+
+    safe_filename = sanitize_export_filename(
+        title=title, artist=artist, fallback=proj.get("track_id") or proj.get("id") or "karaoke"
+    )
+    encoded_filename = quote(f"{safe_filename}.lrc".encode())
+
+    headers = {
+        "Content-Disposition": f"attachment; filename=\"{safe_filename}.lrc\"; filename*=UTF-8''{encoded_filename}"
+    }
+
+    return Response(
+        content=lrc_content,
+        media_type="text/plain; charset=utf-8",
+        headers=headers,
+    )
+
+
+@app.get("/api/project/{project_id}/export/ass")
+def export_project_ass(
+    project_id: str,
+    aspect_ratio: str = Query("16:9", description="Canvas aspect ratio: strictly '16:9' or '9:16'"),
+    theme_id: str | None = Query(None, description="Visual theme preset ID"),
+    primary_color: str | None = Query(
+        None, description="Optional primary (sung) ASS color override"
+    ),
+    secondary_color: str | None = Query(
+        None, description="Optional secondary (unsung) ASS color override"
+    ),
+):
+    """
+    Export synchronized Advanced SubStation Alpha (.ass) subtitles for a project.
+    Supports aspect ratios ('16:9' or '9:16'), visual theme presets, progressive \\kf tags,
+    and direct color overrides. Does NOT require prior video rendering.
+    """
+    proj = get_project_or_404(project_id)
+
+    # 1. Validate aspect_ratio
+    if aspect_ratio not in ("16:9", "9:16"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid aspect ratio. Must be '16:9' or '9:16'",
+        )
+
+    # 2. Validate theme_id if provided
+    if theme_id is not None and theme_id not in VISUAL_THEMES:
+        allowed_themes = list(VISUAL_THEMES.keys())
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid theme_id '{theme_id}'. Must be one of: {allowed_themes}",
+        )
+
+    # 3. Pre-flight check: Active processing without lyrics cannot export
+    if proj.get("status") in ("queued", "downloading", "separating", "aligning") and not proj.get(
+        "lines"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Project lyrics are not ready for export",
+        )
+
+    lines = proj.get("lines")
+    if not lines or not isinstance(lines, list):
+        raise HTTPException(status_code=400, detail="Project has no lyric lines to export")
+
+    title = proj.get("title", "").strip()
+    artist = proj.get("artist", "").strip()
+    track_title = (
+        f"{artist} - {title}" if (artist and title) else (title or artist or "Karaoke Track")
+    )
+
+    ass_content = video_renderer.generate_ass_content(
+        lines=lines,
+        aspect_ratio=aspect_ratio,
+        theme_id=theme_id,
+        primary_color=primary_color,
+        secondary_color=secondary_color,
+        title=track_title,
+    )
+
+    safe_filename = sanitize_export_filename(
+        title=title, artist=artist, fallback=proj.get("track_id") or proj.get("id") or "karaoke"
+    )
+    encoded_filename = quote(f"{safe_filename}.ass".encode())
+
+    headers = {
+        "Content-Disposition": f"attachment; filename=\"{safe_filename}.ass\"; filename*=UTF-8''{encoded_filename}"
+    }
+
+    return Response(
+        content=ass_content,
+        media_type="text/x-ssa; charset=utf-8",
+        headers=headers,
     )
 
 
