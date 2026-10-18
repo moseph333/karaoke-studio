@@ -1,3 +1,5 @@
+"""AI stem separation service running Demucs to isolate vocal and instrumental stems from source audio files."""
+
 import logging
 import re
 import shutil

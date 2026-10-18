@@ -1,3 +1,5 @@
+"""YouTube audio extraction and search service wrapping yt-dlp to query tracks, download audio streams, and extract metadata and thumbnails."""
+
 import logging
 import re
 from pathlib import Path

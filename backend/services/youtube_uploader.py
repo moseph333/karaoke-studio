@@ -1,3 +1,5 @@
+"""YouTube metadata kit generator creating formatted descriptions, timestamps, tags, and chapter markers for rendered karaoke videos."""
+
 import logging
 from typing import Any
 

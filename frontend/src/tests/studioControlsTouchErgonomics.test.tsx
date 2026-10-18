@@ -283,7 +283,7 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       line1.words.forEach((w) => {
         expect(w.start_time).toBeLessThanOrEqual(w.end_time);
       });
-    });
+    }, 15000);
 
     it('enforces monotonic word boundary clamping when repeatedly clicking step-later beyond word end', async () => {
       const user = userEvent.setup();

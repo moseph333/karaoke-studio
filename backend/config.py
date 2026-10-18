@@ -1,3 +1,5 @@
+"""Central configuration for directory paths, authentication secrets, rate limits, worker concurrency limits, default video/audio specifications, and allowed CORS origins."""
+
 import os
 from pathlib import Path
 

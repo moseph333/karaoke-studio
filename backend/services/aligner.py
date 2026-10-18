@@ -1,3 +1,5 @@
+"""Audio alignment service using vocal acoustic energy envelopes and RMS silence detection to compute monotonic word-level timestamps for lyric lines."""
+
 import logging
 import re
 from typing import Any

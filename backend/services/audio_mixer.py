@@ -1,3 +1,5 @@
+"""Master audio mixing and pitch-shifting service using FFmpeg and SoX/rubberband algorithms to blend guide vocals and transpose backing tracks."""
+
 import logging
 import math
 import os

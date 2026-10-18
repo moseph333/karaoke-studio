@@ -1,3 +1,5 @@
+"""Lyric fetching and parsing service integrating LRCLIB API and local LRC timestamp detection for custom and synced lyrics."""
+
 import logging
 import math
 import re
