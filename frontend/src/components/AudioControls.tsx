@@ -1,126 +1,33 @@
+/**
+ * Audio Controls Component
+ *
+ * Coordinates playback transport, timeline scrubbing, volume persistence,
+ * pitch transposition, guide vocal blending, and custom instrumental replacement.
+ * Integrates native HTMLMediaElement event lifecycle with global keyboard shortcuts.
+ */
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import {
-  Play,
-  Pause,
-  RotateCcw,
-  Mic,
-  Upload,
-  Sliders,
-  Music2,
-  AlertCircle,
-  Volume2,
-  Volume1,
-  VolumeX,
-} from 'lucide-react';
+import { Play, Pause, RotateCcw } from 'lucide-react';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
+import {
+  MASTER_VOLUME_STORAGE_KEY,
+  MASTER_MUTED_STORAGE_KEY,
+  getStoredMasterVolume,
+  setStoredMasterVolume,
+  getStoredMasterMuted,
+  setStoredMasterMuted,
+} from '../utils/volumeStorage';
+import { parseMediaError, type AudioPlaybackError } from '../utils/audioErrors';
+import { MasterVolumeControl } from './audio/MasterVolumeControl';
+import { PitchTranspositionControl } from './audio/PitchTranspositionControl';
+import { GuideVocalControl } from './audio/GuideVocalControl';
+import { AudioPlaybackErrorBanner } from './audio/AudioPlaybackErrorBanner';
+import { AudioMixActionsBar } from './audio/AudioMixActionsBar';
+import { Tooltip } from './Tooltip';
 
-export const MASTER_VOLUME_STORAGE_KEY = 'karaoke_master_volume';
-export const MASTER_MUTED_STORAGE_KEY = 'karaoke_master_muted';
-
-function getStoredMasterVolume(fallback = 1.0): number {
-  try {
-    const raw = localStorage.getItem(MASTER_VOLUME_STORAGE_KEY);
-    if (raw !== null) {
-      const parsed = parseFloat(raw);
-      if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
-        return parsed;
-      }
-    }
-  } catch {
-    // Storage access restricted
-  }
-  return fallback;
-}
-
-function setStoredMasterVolume(volume: number): void {
-  try {
-    localStorage.setItem(MASTER_VOLUME_STORAGE_KEY, volume.toString());
-  } catch {
-    // Storage access restricted
-  }
-}
-
-function getStoredMasterMuted(fallback = false): boolean {
-  try {
-    const raw = localStorage.getItem(MASTER_MUTED_STORAGE_KEY);
-    if (raw !== null) {
-      return raw === 'true';
-    }
-  } catch {
-    // Storage access restricted
-  }
-  return fallback;
-}
-
-function setStoredMasterMuted(isMuted: boolean): void {
-  try {
-    localStorage.setItem(MASTER_MUTED_STORAGE_KEY, isMuted ? 'true' : 'false');
-  } catch {
-    // Storage access restricted
-  }
-}
-
-export interface AudioPlaybackError {
-  code: number;
-  codeName:
-    | 'MEDIA_ERR_ABORTED'
-    | 'MEDIA_ERR_NETWORK'
-    | 'MEDIA_ERR_DECODE'
-    | 'MEDIA_ERR_SRC_NOT_SUPPORTED'
-    | 'MEDIA_ERR_UNKNOWN';
-  message: string;
-  timestamp: number;
-}
-
-export function parseMediaError(error: MediaError | null): AudioPlaybackError {
-  if (!error) {
-    return {
-      code: 0,
-      codeName: 'MEDIA_ERR_UNKNOWN',
-      message: 'An unknown audio playback error occurred.',
-      timestamp: Date.now(),
-    };
-  }
-
-  switch (error.code) {
-    case 1:
-      return {
-        code: 1,
-        codeName: 'MEDIA_ERR_ABORTED',
-        message: 'Audio playback was aborted. Click Retry to reload the track.',
-        timestamp: Date.now(),
-      };
-    case 2:
-      return {
-        code: 2,
-        codeName: 'MEDIA_ERR_NETWORK',
-        message: 'Network error loading audio stream. Please check server connectivity.',
-        timestamp: Date.now(),
-      };
-    case 3:
-      return {
-        code: 3,
-        codeName: 'MEDIA_ERR_DECODE',
-        message: 'Audio decoding failed. The audio stream may be corrupt or incomplete.',
-        timestamp: Date.now(),
-      };
-    case 4:
-      return {
-        code: 4,
-        codeName: 'MEDIA_ERR_SRC_NOT_SUPPORTED',
-        message: 'Audio format not supported or file not found on server.',
-        timestamp: Date.now(),
-      };
-    default:
-      return {
-        code: error.code,
-        codeName: 'MEDIA_ERR_UNKNOWN',
-        message: error.message || 'An unexpected audio playback error occurred.',
-        timestamp: Date.now(),
-      };
-  }
-}
+export { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY };
+export { parseMediaError, type AudioPlaybackError };
 
 export interface AudioControlsProps {
   projectId: string;
@@ -206,11 +113,8 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   // Sync state when props change
   useEffect(() => {
     setSemitones(initialSemitones);
-  }, [initialSemitones, projectId]);
-
-  useEffect(() => {
     setGuideVolume(initialGuideVolume);
-  }, [initialGuideVolume, projectId]);
+  }, [initialSemitones, initialGuideVolume, projectId]);
 
   useEffect(() => {
     if (initialVolume !== undefined && !isNaN(initialVolume)) {
@@ -429,29 +333,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
 
       {/* Playback Error Alert Banner */}
       {playbackError && (
-        <div
-          data-testid="audio-error-banner"
-          role="alert"
-          aria-live="assertive"
-          className="mb-4 p-3.5 rounded-xl bg-red-950/70 border border-red-800/80 text-red-200 text-xs flex flex-wrap items-center justify-between gap-3 shadow-lg"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" aria-hidden="true" />
-            <div>
-              <p className="font-semibold text-red-300">Playback Error: {playbackError.codeName}</p>
-              <p className="text-[11px] text-slate-300 font-mono mt-0.5">{playbackError.message}</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleRetryPlayback}
-            className="px-3 py-1.5 rounded-lg bg-red-800/80 hover:bg-red-700 text-white font-medium text-xs transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-red-400 shadow"
-            aria-label="Retry playback"
-          >
-            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
-            Retry Playback
-          </button>
-        </div>
+        <AudioPlaybackErrorBanner
+          playbackError={playbackError}
+          onRetryPlayback={handleRetryPlayback}
+        />
       )}
 
       {/* Player Header & Main Scrub Bar */}
@@ -466,49 +351,62 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         </div>
 
         {/* Scrubber */}
-        <input
-          type="range"
-          min={0}
-          max={duration || 100}
-          step={0.1}
-          value={currentTime}
-          onChange={(e) => onSeek(parseFloat(e.target.value))}
-          aria-label="Audio timeline position"
-          aria-valuemin={0}
-          aria-valuemax={Math.round(duration) || 100}
-          aria-valuenow={Math.round(currentTime)}
-          aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
-          className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 hover:accent-cyan-300 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 touch-none py-2"
-        />
+        <Tooltip
+          content="Scrub audio timeline (±5s seek)"
+          hotkey={['←', '→']}
+          position="top"
+          className="w-full"
+        >
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            step={0.1}
+            value={currentTime}
+            onChange={(e) => onSeek(parseFloat(e.target.value))}
+            aria-label="Audio timeline position"
+            aria-valuemin={0}
+            aria-valuemax={Math.round(duration) || 100}
+            aria-valuenow={Math.round(currentTime)}
+            aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+            className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 hover:accent-cyan-300 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 touch-none py-2"
+          />
+        </Tooltip>
       </div>
 
       {/* Control Buttons & Sliders Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
         {/* Play/Pause & Transport */}
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onTogglePlay}
-            aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
-            className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 flex items-center justify-center shadow-lg transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            title={isPlaying ? 'Pause' : 'Play'}
+          <Tooltip
+            content={isPlaying ? 'Pause playback' : 'Start playback'}
+            hotkey="Space"
+            position="top"
           >
-            {isPlaying ? (
-              <Pause className="w-5 h-5 fill-slate-950" aria-hidden="true" />
-            ) : (
-              <Play className="w-5 h-5 fill-slate-950 ml-0.5" aria-hidden="true" />
-            )}
-          </button>
+            <button
+              type="button"
+              onClick={onTogglePlay}
+              aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
+              className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 flex items-center justify-center shadow-lg transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            >
+              {isPlaying ? (
+                <Pause className="w-5 h-5 fill-slate-950" aria-hidden="true" />
+              ) : (
+                <Play className="w-5 h-5 fill-slate-950 ml-0.5" aria-hidden="true" />
+              )}
+            </button>
+          </Tooltip>
 
-          <button
-            type="button"
-            onClick={() => onSeek(0)}
-            aria-label="Restart track from beginning"
-            className="min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            title="Restart Track"
-          >
-            <RotateCcw className="w-4 h-4" aria-hidden="true" />
-          </button>
+          <Tooltip content="Restart track from beginning" position="top">
+            <button
+              type="button"
+              onClick={() => onSeek(0)}
+              aria-label="Restart track from beginning"
+              className="min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            >
+              <RotateCcw className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </Tooltip>
 
           <div className="text-xs text-slate-400">
             <p className="font-semibold text-white">Karaoke Playback</p>
@@ -517,184 +415,32 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         </div>
 
         {/* Master Volume Controls (Feature 42) */}
-        <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-1.5 text-slate-400 font-medium">
-              <button
-                type="button"
-                onClick={handleToggleMute}
-                aria-label={isMuted || volume === 0 ? 'Unmute audio' : 'Mute audio'}
-                aria-pressed={isMuted || volume === 0}
-                title={isMuted || volume === 0 ? 'Unmute audio (M)' : 'Mute audio (M)'}
-                className="min-h-[44px] min-w-[44px] p-2.5 -ml-2 flex items-center justify-center rounded-md hover:bg-slate-800 text-slate-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              >
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="w-4 h-4 text-red-400" aria-hidden="true" />
-                ) : volume < 0.5 ? (
-                  <Volume1 className="w-4 h-4 text-cyan-400" aria-hidden="true" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-cyan-400" aria-hidden="true" />
-                )}
-              </button>
-              <span>Master Volume</span>
-            </div>
-            <span
-              className={`font-mono font-bold ${
-                isMuted || volume === 0 ? 'text-red-400' : 'text-cyan-400'
-              }`}
-            >
-              {isMuted || volume === 0 ? 'Muted' : `${Math.round(volume * 100)}%`}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={volume}
-            onChange={handleVolumeSliderChange}
-            aria-label="Master volume"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={isMuted || volume === 0 ? 0 : Math.round(volume * 100)}
-            aria-valuetext={isMuted || volume === 0 ? 'Muted' : `${Math.round(volume * 100)}%`}
-            className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400 transition-all ${
-              isMuted || volume === 0
-                ? 'bg-slate-800 accent-slate-500 opacity-60'
-                : 'bg-slate-800 accent-cyan-400 hover:accent-cyan-300'
-            }`}
-          />
-          <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500">
-            <span>0%</span>
-            <span>50%</span>
-            <span>100%</span>
-          </div>
-        </div>
+        <MasterVolumeControl
+          volume={volume}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
+          onVolumeSliderChange={handleVolumeSliderChange}
+        />
 
         {/* Pitch Shift Controls */}
-        <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 flex items-center gap-1.5 font-medium">
-              <Sliders className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
-              Pitch Transposition
-            </span>
-            <span
-              className={`font-mono font-bold ${semitones === 0 ? 'text-slate-300' : 'text-cyan-400'}`}
-            >
-              {semitones === 0
-                ? '0 (Original)'
-                : `${semitones > 0 ? '+' : ''}${semitones} semitones`}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <button
-              type="button"
-              onClick={() => handleSemitoneChange(-1)}
-              aria-label="Decrease pitch by one semitone"
-              className="flex-1 min-h-[44px] py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-mono text-sm font-bold flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            >
-              -1
-            </button>
-            <button
-              type="button"
-              onClick={() => setSemitones(0)}
-              aria-label="Reset pitch to original key"
-              className="px-2.5 min-h-[44px] py-2.5 rounded-md bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 text-xs font-bold flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              title="Reset Pitch"
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSemitoneChange(1)}
-              aria-label="Increase pitch by one semitone"
-              className="flex-1 min-h-[44px] py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-mono text-sm font-bold flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            >
-              +1
-            </button>
-          </div>
-        </div>
+        <PitchTranspositionControl
+          semitones={semitones}
+          onSemitoneChange={handleSemitoneChange}
+          onResetPitch={() => setSemitones(0)}
+        />
 
         {/* Guide Vocal Level & Custom Track */}
-        <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 flex items-center gap-1.5 font-medium">
-              <Mic className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />
-              Guide Vocal Level
-            </span>
-            <span className="font-mono text-indigo-300 font-bold">
-              {Math.round(guideVolume * 100)}%
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={0.5}
-            step={0.05}
-            value={guideVolume}
-            onChange={(e) => setGuideVolume(parseFloat(e.target.value))}
-            aria-label="Guide vocal volume level"
-            aria-valuemin={0}
-            aria-valuemax={50}
-            aria-valuenow={Math.round(guideVolume * 100)}
-            aria-valuetext={`${Math.round(guideVolume * 100)}% guide vocal`}
-            className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          />
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-[10px] text-slate-500">Muted (0%)</span>
-            <span className="text-[10px] text-slate-500">Subtle (20%)</span>
-            <span className="text-[10px] text-slate-500">Loud (50%)</span>
-          </div>
-        </div>
+        <GuideVocalControl guideVolume={guideVolume} onGuideVolumeChange={setGuideVolume} />
       </div>
 
       {/* Bottom Bar: Apply Mix & Custom Instrumental Upload */}
-      <div className="mt-4 pt-4 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={handleApplyAudioMix}
-            disabled={isApplyingMix}
-            aria-label="Apply audio mix settings to playback"
-            className="w-full sm:w-auto min-h-[44px] justify-center px-3.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-medium transition-all flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          >
-            {isApplyingMix ? (
-              <span
-                className="w-3 h-3 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin"
-                role="status"
-                aria-label="Applying mix"
-              ></span>
-            ) : (
-              <Music2 className="w-3.5 h-3.5" aria-hidden="true" />
-            )}
-            Apply Audio Mix
-          </button>
-          <span className="text-slate-500 text-[11px]">
-            Updates pitch & vocal blend in preview player
-          </span>
-        </div>
-
-        <div className="w-full sm:w-auto">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleInstrumentalUpload}
-            accept="audio/*"
-            aria-label="Upload custom instrumental audio file"
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingInst}
-            aria-label="Replace instrumental file"
-            className="w-full sm:w-auto min-h-[44px] justify-center px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          >
-            <Upload className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-            {uploadingInst ? 'Uploading...' : 'Replace Instrumental File'}
-          </button>
-        </div>
-      </div>
+      <AudioMixActionsBar
+        isApplyingMix={isApplyingMix}
+        uploadingInst={uploadingInst}
+        fileInputRef={fileInputRef}
+        onApplyAudioMix={handleApplyAudioMix}
+        onInstrumentalUpload={handleInstrumentalUpload}
+      />
     </div>
   );
 };

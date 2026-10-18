@@ -1,3 +1,10 @@
+/**
+ * Project Deletion Confirmation Modal Component
+ *
+ * Renders an accessible confirmation dialog before permanently removing a project
+ * and its generated stems/artifacts from disk, with focus trapping and error handling.
+ */
+
 import React, { useState, useRef } from 'react';
 import { Trash2, AlertTriangle, X } from 'lucide-react';
 import { apiFetch } from '../api';

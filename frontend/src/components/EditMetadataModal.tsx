@@ -1,3 +1,10 @@
+/**
+ * Edit Project Metadata Modal Component
+ *
+ * Provides a focus-trapped dialog for editing song title and artist information,
+ * syncing modifications via PATCH /api/project/:id with immediate local update.
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Pencil, AlertCircle, X, Check } from 'lucide-react';
 import { apiFetch } from '../api';

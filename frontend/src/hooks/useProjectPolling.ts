@@ -1,3 +1,10 @@
+/**
+ * Project Status Polling Hook
+ *
+ * Encapsulates polling intervals for background audio processing and video rendering,
+ * synchronizing project state between backend API and studio components.
+ */
+
 import { useState, useEffect } from 'react';
 import { ProjectState } from '../types';
 import { apiFetch } from '../api';

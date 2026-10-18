@@ -1,3 +1,10 @@
+/**
+ * Focus Trap & Modal Accessibility Hook
+ *
+ * Implements WAI-ARIA modal dialog focus trapping, cycling focus on Tab/Shift+Tab,
+ * auto-focusing initial controls, handling Escape dismissal, and restoring trigger focus.
+ */
+
 import { useEffect, useRef } from 'react';
 
 export const FOCUSABLE_SELECTOR = [

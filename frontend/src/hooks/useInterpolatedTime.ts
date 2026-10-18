@@ -1,3 +1,10 @@
+/**
+ * Sub-frame Audio Time Interpolation Hook
+ *
+ * Provides high-frequency (60fps/120fps) interpolated playback timestamps anchored
+ * to HTMLMediaElement and performance.now() without polling or idle CPU consumption.
+ */
+
 import { useState, useEffect, useRef } from 'react';
 
 /**

@@ -1,8 +1,14 @@
+/**
+ * Export Modal Component
+ *
+ * Orchestrates video rendering lifecycle (queued, rendering, error, completed),
+ * preview player, video download, YouTube studio launch, and mounts standalone
+ * subtitle export and YouTube metadata kit subcomponents.
+ */
+
 import React, { useState, useEffect } from 'react';
 import {
   Download,
-  Copy,
-  Check,
   ExternalLink,
   X,
   Film,
@@ -11,12 +17,12 @@ import {
   Clock,
   Activity,
   XCircle,
-  FileText,
-  Loader2,
 } from 'lucide-react';
 import { ProjectState, VisualTheme } from '../types';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { apiFetch } from '../api';
+import { ExportSubtitleSection } from './export/ExportSubtitleSection';
+import { ExportYouTubeKit } from './export/ExportYouTubeKit';
+import { Tooltip } from './Tooltip';
 
 export interface ExportModalProps {
   project: ProjectState;
@@ -37,11 +43,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   selectedTheme,
   aspectRatio = '16:9',
 }) => {
-  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [_tick, setTick] = useState(0);
-  const [downloadingLrc, setDownloadingLrc] = useState(false);
-  const [downloadingAss, setDownloadingAss] = useState(false);
-  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const modalRef = useFocusTrap<HTMLDivElement>({
     isOpen,
@@ -61,83 +63,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const isCompleted = project.render_status === 'completed';
   const isError = project.render_status === 'error';
   const isIdle = !isRendering && !isCompleted && !isError;
-
-  const handleDownloadSubtitle = async (format: 'lrc' | 'ass') => {
-    try {
-      if (format === 'lrc') setDownloadingLrc(true);
-      else setDownloadingAss(true);
-      setDownloadError(null);
-
-      const themeId = selectedTheme?.id || 'modern_gold';
-      const url =
-        format === 'lrc'
-          ? `/api/project/${project.id}/export/lrc`
-          : `/api/project/${project.id}/export/ass?aspect_ratio=${encodeURIComponent(
-              aspectRatio
-            )}&theme_id=${encodeURIComponent(themeId)}`;
-
-      const res = await apiFetch(url);
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `Failed to export .${format} subtitles`);
-      }
-
-      const blob = await res.blob();
-      let filename = `${project.artist || 'Karaoke'} - ${project.title || 'Track'}.${format}`;
-      const disposition = res.headers.get('Content-Disposition');
-      if (disposition) {
-        const rfcMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-        if (rfcMatch && rfcMatch[1]) {
-          try {
-            filename = decodeURIComponent(rfcMatch[1]);
-          } catch {
-            filename = rfcMatch[1];
-          }
-        } else {
-          const stdMatch = disposition.match(/filename="?([^";]+)"?/i);
-          if (stdMatch && stdMatch[1]) {
-            filename = stdMatch[1];
-          }
-        }
-      }
-
-      if (
-        typeof window !== 'undefined' &&
-        window.URL &&
-        typeof window.URL.createObjectURL === 'function'
-      ) {
-        const blobUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        if (typeof window.URL.revokeObjectURL === 'function') {
-          window.URL.revokeObjectURL(blobUrl);
-        }
-      } else {
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-    } catch (err: unknown) {
-      console.error(`Download .${format} failed:`, err);
-      setDownloadError(err instanceof Error ? err.message : `Failed to download .${format}`);
-    } finally {
-      if (format === 'lrc') setDownloadingLrc(false);
-      else setDownloadingAss(false);
-    }
-  };
-
-  const copyToClipboard = (text: string, fieldName: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedField(fieldName);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
 
   const formatTimer = (seconds?: number | null) => {
     if (seconds === undefined || seconds === null || seconds < 0) return '--:--';
@@ -166,14 +91,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       aria-describedby="export-modal-desc"
     >
       <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-4 sm:p-6 relative">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close export dialog"
-          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 flex items-center justify-center"
+        <Tooltip
+          content="Close export dialog"
+          position="bottom"
+          className="absolute top-3 right-3 sm:top-5 sm:right-5"
         >
-          <X className="w-5 h-5" aria-hidden="true" />
-        </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close export dialog"
+            className="min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 flex items-center justify-center"
+          >
+            <X className="w-5 h-5" aria-hidden="true" />
+          </button>
+        </Tooltip>
 
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800 pr-12">
           <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shrink-0">
@@ -193,88 +124,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         </div>
 
         {/* Dedicated Standalone Subtitle Export Section (Always Available) */}
-        <div className="p-3.5 sm:p-5 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-6 space-y-3.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <FileText className="w-5 h-5 text-cyan-400 shrink-0" aria-hidden="true" />
-              <h3 className="text-sm sm:text-base font-bold text-white font-['Montserrat'] truncate">
-                Synchronized Subtitles (.LRC & .ASS)
-              </h3>
-            </div>
-            {project.lines && (
-              <span className="text-[11px] font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full shrink-0">
-                {project.lines.length} lines
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-400">
-            Export standalone karaoke subtitle files for media players, video editors, or live
-            performances without waiting for video rendering.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
-            {/* Download .LRC Button */}
-            <button
-              type="button"
-              onClick={() => handleDownloadSubtitle('lrc')}
-              disabled={downloadingLrc || downloadingAss}
-              aria-label="Download .lrc subtitles"
-              className="flex-1 min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 active:bg-slate-700 border border-slate-700 hover:border-cyan-500/50 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-between gap-2.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-            >
-              <div className="flex items-center gap-2 min-w-0 text-left">
-                {downloadingLrc ? (
-                  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />
-                ) : (
-                  <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <span className="font-bold text-xs sm:text-sm text-white block">
-                    Download .LRC
-                  </span>
-                  <span className="text-[10px] text-slate-400 block truncate">
-                    [mm:ss.xx] Timestamps
-                  </span>
-                </div>
-              </div>
-              <Download className="w-4 h-4 text-cyan-400 shrink-0" aria-hidden="true" />
-            </button>
-
-            {/* Download .ASS Button */}
-            <button
-              type="button"
-              onClick={() => handleDownloadSubtitle('ass')}
-              disabled={downloadingLrc || downloadingAss}
-              aria-label="Download .ass subtitles"
-              className="flex-1 min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 active:bg-slate-700 border border-slate-700 hover:border-purple-500/50 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-between gap-2.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
-            >
-              <div className="flex items-center gap-2 min-w-0 text-left">
-                {downloadingAss ? (
-                  <Loader2 className="w-4 h-4 text-purple-400 animate-spin shrink-0" />
-                ) : (
-                  <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
-                )}
-                <div className="min-w-0">
-                  <span className="font-bold text-xs sm:text-sm text-white block">
-                    Download .ASS
-                  </span>
-                  <span className="text-[10px] text-slate-400 block truncate">
-                    Karaoke \kf • {aspectRatio} • {selectedTheme?.name || 'Theme'}
-                  </span>
-                </div>
-              </div>
-              <Download className="w-4 h-4 text-purple-400 shrink-0" aria-hidden="true" />
-            </button>
-          </div>
-
-          {downloadError && (
-            <div
-              role="alert"
-              className="text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-xl font-mono break-words"
-            >
-              {downloadError}
-            </div>
-          )}
-        </div>
+        <ExportSubtitleSection
+          project={project}
+          selectedTheme={selectedTheme}
+          aspectRatio={aspectRatio}
+        />
 
         {/* 1. Idle Video State (Before Video Render Started) */}
         {isIdle && (
@@ -291,15 +145,21 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
             {onStartRender && (
               <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={onStartRender}
-                  aria-label="Start video render"
-                  className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-lg shadow-cyan-500/20 inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+                <Tooltip
+                  content="Render 1080p60 MP4 video"
+                  position="top"
+                  className="w-full sm:w-auto"
                 >
-                  <Film className="w-4 h-4" />
-                  Render 1080p Video
-                </button>
+                  <button
+                    type="button"
+                    onClick={onStartRender}
+                    aria-label="Start video render"
+                    className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-lg shadow-cyan-500/20 inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+                  >
+                    <Film className="w-4 h-4" />
+                    Render 1080p Video
+                  </button>
+                </Tooltip>
               </div>
             )}
           </div>
@@ -433,84 +293,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
 
             {/* YouTube Ready-To-Copy Metadata Kit */}
-            {yt && (
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-cyan-400" />
-                  <h4 className="text-sm font-bold text-white uppercase tracking-wider">
-                    YouTube Metadata & Upload Kit
-                  </h4>
-                </div>
-
-                {/* Title */}
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold text-slate-400">Video Title</span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(yt.title, 'title')}
-                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium min-h-[36px] sm:min-h-[32px] px-2 py-1 rounded-lg hover:bg-slate-800/50 transition-colors"
-                    >
-                      {copiedField === 'title' ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                      {copiedField === 'title' ? 'Copied!' : 'Copy Title'}
-                    </button>
-                  </div>
-                  <p className="text-sm font-medium text-white">{yt.title}</p>
-                </div>
-
-                {/* Description */}
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold text-slate-400">
-                      Description (with Chapters & Lyrics)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(yt.description, 'description')}
-                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium min-h-[36px] sm:min-h-[32px] px-2 py-1 rounded-lg hover:bg-slate-800/50 transition-colors"
-                    >
-                      {copiedField === 'description' ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                      {copiedField === 'description' ? 'Copied!' : 'Copy Description'}
-                    </button>
-                  </div>
-                  <pre className="text-xs font-mono text-slate-300 whitespace-pre-wrap break-words overflow-x-auto max-h-36 overflow-y-auto bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
-                    {yt.description}
-                  </pre>
-                </div>
-
-                {/* Tags */}
-                <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold text-slate-400">
-                      SEO Tags (comma-separated)
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => copyToClipboard(yt.tags.join(', '), 'tags')}
-                      className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-medium min-h-[36px] sm:min-h-[32px] px-2 py-1 rounded-lg hover:bg-slate-800/50 transition-colors"
-                    >
-                      {copiedField === 'tags' ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                      {copiedField === 'tags' ? 'Copied!' : 'Copy Tags'}
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-300 font-mono break-words">
-                    {yt.tags.join(', ')}
-                  </p>
-                </div>
-              </div>
-            )}
+            {yt && <ExportYouTubeKit youtubePackage={yt} />}
           </div>
         )}
       </div>

@@ -1,3 +1,10 @@
+/**
+ * Visual Theme & Aspect Ratio Picker Component
+ *
+ * Configures subtitle color palettes, background presets, custom video/image backgrounds,
+ * and aspect ratio switches (16:9 Landscape vs 9:16 Portrait Shorts).
+ */
+
 import React, { useRef, useState } from 'react';
 import { Palette, Upload, Monitor, Smartphone, Check } from 'lucide-react';
 import { VisualTheme } from '../types';

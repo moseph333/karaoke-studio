@@ -1,3 +1,10 @@
+/**
+ * Frontend Application Root Entry Point
+ *
+ * Mounts the React application tree with StrictMode, top-level ErrorBoundary,
+ * and ToastProvider contexts into the root DOM element.
+ */
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';

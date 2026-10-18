@@ -1,3 +1,10 @@
+/**
+ * Toast Notification Component
+ *
+ * Renders non-intrusive notification toasts (success, error, warning, info)
+ * with auto-dismiss timers, pause-on-hover, and dismiss buttons.
+ */
+
 import React, { useEffect, useState } from 'react';
 import { Toast, ToastType } from '../types';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';

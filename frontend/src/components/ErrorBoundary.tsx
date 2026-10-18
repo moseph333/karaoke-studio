@@ -1,3 +1,10 @@
+/**
+ * React Error Boundary Component
+ *
+ * Catches JavaScript errors anywhere in child component trees, logs error details,
+ * and displays an accessible fallback UI with retry, reload, and error details toggling.
+ */
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RotateCcw, RefreshCw, ChevronDown, ChevronUp, Bug } from 'lucide-react';
 

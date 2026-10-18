@@ -1,3 +1,10 @@
+/**
+ * Authentication Modal Component
+ *
+ * Provides passphrase entry and user alias configuration for studio access.
+ * Manages modal focus trapping, credential validation, and local credential storage.
+ */
+
 import React, { useState, useRef } from 'react';
 import { Lock, User, AlertCircle, ArrowRight, X } from 'lucide-react';
 import { apiFetch, getAuthUser, setAuthToken, setAuthUser } from '../api';

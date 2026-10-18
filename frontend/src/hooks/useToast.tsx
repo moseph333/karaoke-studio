@@ -1,3 +1,10 @@
+/**
+ * Toast Notification Context & Hook
+ *
+ * Provides application-wide toast dispatching methods (success, error, info, warning)
+ * and renders the fixed ToastContainer overlay for reactive alerts.
+ */
+
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 import { Toast, ToastType } from '../types';
 import { ToastContainer } from '../components/Toast';

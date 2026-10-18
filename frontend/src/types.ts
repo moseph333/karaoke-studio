@@ -1,3 +1,10 @@
+/**
+ * Common TypeScript Domain Interfaces & Types
+ *
+ * Defines core data models for lyrics, word timings, project states,
+ * visual themes, and toast notifications across the studio.
+ */
+
 export interface WordTiming {
   word: string;
   start_time: number;

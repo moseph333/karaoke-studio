@@ -1,3 +1,10 @@
+/**
+ * Live Lyric Display & Progressive Karaoke Preview Component
+ *
+ * Renders animated word-by-word progressive karaoke sweeps with sub-frame time
+ * interpolation, supporting both 16:9 landscape and 9:16 portrait viewports.
+ */
+
 import React from 'react';
 import { LyricLine, WordTiming } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
