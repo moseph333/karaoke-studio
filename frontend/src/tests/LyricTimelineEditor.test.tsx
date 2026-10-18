@@ -1,8 +1,8 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent, act } from '@testing-library/react';
+import { render, screen, within, fireEvent, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
+import { LyricTimelineEditor, recalculateWordTimings } from '../components/LyricTimelineEditor';
 import { LyricLine } from '../types';
 
 describe('LyricTimelineEditor', () => {
@@ -969,6 +969,275 @@ describe('LyricTimelineEditor', () => {
 
       // Playback progression at 2.0x must NOT cancel the user's manual scroll pause!
       expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Milestone 3: Lyric Editing, Dirty State & Persistence Suite', () => {
+    const baseLines: LyricLine[] = [
+      {
+        id: 1,
+        text: 'Original first line',
+        start_time: 2.0,
+        end_time: 5.0,
+        words: recalculateWordTimings('Original first line', 2.0, 5.0),
+      },
+      {
+        id: 2,
+        text: 'Original second line',
+        start_time: 6.0,
+        end_time: 9.0,
+        words: recalculateWordTimings('Original second line', 6.0, 9.0),
+      },
+    ];
+
+    const defaultProps = {
+      lines: baseLines,
+      currentTime: 0.0,
+      duration: 60.0,
+      onSeek: vi.fn(),
+      onSaveLines: vi.fn().mockResolvedValue(undefined),
+    };
+
+    beforeEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('shows dirty indicator badge and save button upon inline text edit', async () => {
+      const user = userEvent.setup();
+      const onDirtyChange = vi.fn();
+      render(<LyricTimelineEditor {...defaultProps} onDirtyChange={onDirtyChange} />);
+
+      // Initially clean
+      expect(screen.queryByTestId('dirty-indicator')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('save-lyrics-btn')).not.toBeInTheDocument();
+
+      // Trigger inline edit on line 1
+      const editBtn = screen.getByRole('button', { name: /edit text for line 1/i });
+      await user.click(editBtn);
+
+      const input = screen.getByRole('textbox', { name: /edit text for line 1/i });
+      await user.clear(input);
+      await user.type(input, 'Modified first line{Enter}');
+
+      // Dirty state reflected
+      expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
+      expect(screen.getByText('Unsaved Changes')).toBeInTheDocument();
+      expect(screen.getByTestId('save-lyrics-btn')).toBeInTheDocument();
+      expect(onDirtyChange).toHaveBeenCalledWith(true);
+    });
+
+    it('clears dirty indicator when edited text is manually restored to original', async () => {
+      const user = userEvent.setup();
+      render(<LyricTimelineEditor {...defaultProps} />);
+
+      // Edit line text
+      const editBtn = screen.getByRole('button', { name: /edit text for line 1/i });
+      await user.click(editBtn);
+
+      const input = screen.getByRole('textbox', { name: /edit text for line 1/i });
+      await user.clear(input);
+      await user.type(input, 'Temporary text{Enter}');
+      expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
+
+      // Revert back to original string
+      await user.click(screen.getByRole('button', { name: /edit text for line 1/i }));
+      const input2 = screen.getByRole('textbox', { name: /edit text for line 1/i });
+      await user.clear(input2);
+      await user.type(input2, 'Original first line{Enter}');
+
+      // Deep equality restores clean state
+      expect(screen.queryByTestId('dirty-indicator')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('save-lyrics-btn')).not.toBeInTheDocument();
+    });
+
+    it('triggers dirty state upon inserting a new line', async () => {
+      const user = userEvent.setup();
+      render(<LyricTimelineEditor {...defaultProps} />);
+
+      const insertBtn = screen.getByRole('button', { name: /insert line below line 1/i });
+      await user.click(insertBtn);
+
+      expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
+      expect(screen.getByTestId('save-lyrics-btn')).toBeInTheDocument();
+      // Committing the inserted line ensures all lines are in display mode
+      await user.keyboard('{Enter}');
+      expect(screen.getAllByRole('button', { name: /select line:/i })).toHaveLength(3);
+    });
+
+    it('triggers dirty state upon deleting an existing line', async () => {
+      const user = userEvent.setup();
+      render(<LyricTimelineEditor {...defaultProps} />);
+
+      const deleteBtn = screen.getByRole('button', { name: /delete line 2/i });
+      await user.click(deleteBtn);
+
+      const confirmBtn = screen.getByRole('button', { name: 'Delete Line' });
+      await user.click(confirmBtn);
+
+      expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
+      expect(screen.getByTestId('save-lyrics-btn')).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /select line:/i })).toHaveLength(1);
+    });
+
+    it('successful save persists lines, resets dirty state, and shows toast', async () => {
+      const user = userEvent.setup();
+      const onSaveLines = vi
+        .fn()
+        .mockImplementation(() => new Promise((resolve) => setTimeout(resolve, 50)));
+      render(<LyricTimelineEditor {...defaultProps} onSaveLines={onSaveLines} />);
+
+      // Make dirty
+      const nudgeBtn = screen.getByRole('button', { name: /nudge line 1 0.2s earlier/i });
+      await user.click(nudgeBtn);
+
+      const saveBtn = screen.getByTestId('save-lyrics-btn');
+      await user.click(saveBtn);
+
+      // In-flight state: spinner active, button disabled
+      expect(saveBtn).toBeDisabled();
+      expect(screen.getByText(/Saving.../i)).toBeInTheDocument();
+
+      // Await async save completion
+      await waitFor(() => {
+        expect(onSaveLines).toHaveBeenCalledTimes(1);
+        expect(screen.queryByTestId('dirty-indicator')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('save-lyrics-btn')).not.toBeInTheDocument();
+      });
+    });
+
+    it('failed save retains dirty state and shows error toast', async () => {
+      const user = userEvent.setup();
+      const failingSave = vi.fn().mockRejectedValue(new Error('500 Internal Server Error'));
+      render(<LyricTimelineEditor {...defaultProps} onSaveLines={failingSave} />);
+
+      const nudgeBtn = screen.getByRole('button', { name: /nudge line 1 0.2s earlier/i });
+      await user.click(nudgeBtn);
+
+      const saveBtn = screen.getByTestId('save-lyrics-btn');
+      await user.click(saveBtn);
+
+      await waitFor(() => {
+        expect(failingSave).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId('save-lyrics-btn')).toBeInTheDocument();
+        expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
+      });
+    });
+
+    it('cancelling discard modal leaves edited text and lines intact', async () => {
+      const user = userEvent.setup();
+      render(<LyricTimelineEditor {...defaultProps} />);
+
+      // Modify line text
+      const editBtn = screen.getByRole('button', { name: /edit text for line 1/i });
+      await user.click(editBtn);
+      const input = screen.getByRole('textbox', { name: /edit text for line 1/i });
+      await user.clear(input);
+      await user.type(input, 'Unsaved line draft{Enter}');
+
+      // Open discard modal
+      const discardBtn = screen.getByTestId('discard-changes-btn');
+      await user.click(discardBtn);
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+
+      // Click Keep Editing
+      const keepEditingBtn = screen.getByRole('button', { name: /keep editing/i });
+      await user.click(keepEditingBtn);
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getAllByText(/Unsaved line draft/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
+    });
+
+    it('confirming discard modal reverts all edited lines and timings to baseline', async () => {
+      const user = userEvent.setup();
+      render(<LyricTimelineEditor {...defaultProps} />);
+
+      // Modify line text
+      const editBtn = screen.getByRole('button', { name: /edit text for line 1/i });
+      await user.click(editBtn);
+      const input = screen.getByRole('textbox', { name: /edit text for line 1/i });
+      await user.clear(input);
+      await user.type(input, 'Draft to discard{Enter}');
+
+      // Insert a line
+      const insertBtn = screen.getByRole('button', { name: /insert line below line 1/i });
+      await user.click(insertBtn);
+
+      expect(screen.getAllByTestId(/^timeline-line-/)).toHaveLength(3);
+
+      // Open discard modal
+      await user.click(screen.getByTestId('discard-changes-btn'));
+      const dialog = screen.getByRole('dialog');
+
+      // Confirm discard
+      const confirmBtn = within(dialog).getByRole('button', { name: /discard changes/i });
+      await user.click(confirmBtn);
+
+      // State reverted
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: /select line:/i })).toHaveLength(2);
+      expect(screen.getAllByText('Original first line').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByText('Draft to discard')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('dirty-indicator')).not.toBeInTheDocument();
+    });
+
+    it('cancelling delete line modal leaves line intact', async () => {
+      const user = userEvent.setup();
+      render(<LyricTimelineEditor {...defaultProps} />);
+
+      const deleteBtn = screen.getByRole('button', { name: /delete line 1/i });
+      await user.click(deleteBtn);
+
+      const cancelBtn = screen.getByRole('button', { name: 'Cancel' });
+      await user.click(cancelBtn);
+
+      expect(screen.getAllByRole('button', { name: /select line:/i })).toHaveLength(2);
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('escapes inline text editing without triggering dirty state', async () => {
+      const user = userEvent.setup();
+      render(<LyricTimelineEditor {...defaultProps} />);
+
+      const editBtn = screen.getByRole('button', { name: /edit text for line 1/i });
+      await user.click(editBtn);
+
+      const input = screen.getByRole('textbox', { name: /edit text for line 1/i });
+      await user.clear(input);
+      await user.type(input, 'Cancelled draft');
+      fireEvent.keyDown(input, { key: 'Escape' });
+
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+      expect(screen.getAllByText('Original first line').length).toBeGreaterThanOrEqual(1);
+      expect(screen.queryByTestId('dirty-indicator')).not.toBeInTheDocument();
+    });
+
+    it('allows inserting a line at the end via global Add Lyric Line button', async () => {
+      const user = userEvent.setup();
+      render(<LyricTimelineEditor {...defaultProps} />);
+
+      const addBtn = screen.getByTestId('add-line-btn');
+      await user.click(addBtn);
+
+      expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
+      await user.keyboard('{Enter}');
+      expect(screen.getAllByRole('button', { name: /select line:/i })).toHaveLength(3);
+    });
+
+    it('renders empty state when all lines are deleted and allows adding first line', async () => {
+      const user = userEvent.setup();
+      render(<LyricTimelineEditor {...defaultProps} lines={[]} />);
+
+      expect(screen.getByText(/No lyric lines yet/i)).toBeInTheDocument();
+      const addFirstBtn = screen.getByRole('button', { name: /\+ Add First Lyric Line/i });
+      expect(addFirstBtn).toBeInTheDocument();
+
+      await user.click(addFirstBtn);
+      expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
+      await user.keyboard('{Enter}');
+      expect(screen.getAllByRole('button', { name: /select line:/i })).toHaveLength(1);
     });
   });
 });
