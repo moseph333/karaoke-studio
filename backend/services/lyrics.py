@@ -105,30 +105,75 @@ class LyricsService:
         return None
 
     @staticmethod
-    def parse_lrc(lrc_text: str) -> list[dict[str, Any]]:
-        """Parses LRC format into a list of line dicts."""
-        lines = []
-        pattern = re.compile(r"\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)")
+    def is_lrc(text: str) -> bool:
+        """
+        Checks whether the given lyrics text contains LRC-formatted line timestamps
+        such as [mm:ss.xx] or [mm:ss.xxx]. Safely ignores metadata headers ([ti:...])
+        and section headers ([Verse 1], [Chorus]).
+        """
+        if not text or not isinstance(text, str):
+            return False
+        return bool(re.search(r"\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]", text))
 
+    @staticmethod
+    def parse_lrc(lrc_text: str) -> list[dict[str, Any]]:
+        """Parses LRC format into a list of line dicts with all raw tags stripped."""
+        if not lrc_text or not isinstance(lrc_text, str):
+            return []
+
+        tag_pattern = re.compile(r"\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]")
         raw_lines = lrc_text.strip().split("\n")
-        parsed_entries = []
+        parsed_entries: list[tuple[float, str]] = []
 
         for raw_line in raw_lines:
-            match = pattern.match(raw_line.strip())
-            if match:
-                minutes, seconds, frac, text = match.groups()
-                # If frac is 2 digits, it's centiseconds (0.xx), if 3, it's ms (0.xxx)
-                divisor = 1000 if len(frac) == 3 else 100
-                timestamp = int(minutes) * 60 + int(seconds) + int(frac) / divisor
-                clean_text = text.strip()
-                if clean_text:
-                    parsed_entries.append((timestamp, clean_text))
+            line_str = raw_line.strip()
+            if not line_str:
+                continue
 
+            # Find all leading timestamp tags (handles repeated timestamps like [00:04.20][00:15.50])
+            pos = 0
+            leading_tags = []
+            while pos < len(line_str):
+                while pos < len(line_str) and line_str[pos].isspace():
+                    pos += 1
+                m = tag_pattern.match(line_str, pos)
+                if m:
+                    leading_tags.append(m)
+                    pos = m.end()
+                else:
+                    break
+
+            # If no leading tags, check if there are any timestamp tags anywhere in the line as fallback
+            if not leading_tags:
+                fallback_matches = list(tag_pattern.finditer(line_str))
+                if not fallback_matches:
+                    continue
+                leading_tags = [fallback_matches[0]]
+
+            clean_text = tag_pattern.sub("", line_str)
+            clean_text = re.sub(r"<\d{1,2}:\d{2}(?:\.\d{1,3})?>", "", clean_text)
+            clean_text = re.sub(r"\s+", " ", clean_text).strip()
+            if not clean_text:
+                continue
+
+            for m in leading_tags:
+                minutes, seconds, frac = m.groups()
+                divisor = (10 ** len(frac)) if frac else 1
+                frac_val = (int(frac) / divisor) if frac else 0.0
+                timestamp = int(minutes) * 60 + int(seconds) + frac_val
+                parsed_entries.append((round(timestamp, 3), clean_text))
+
+        # Sort entries chronologically to handle multi-timestamp or out-of-order lines
+        parsed_entries.sort(key=lambda x: x[0])
+
+        lines = []
         for idx, (start_time, text) in enumerate(parsed_entries):
             # Estimate end time based on the start of next line or +4 seconds
             if idx + 1 < len(parsed_entries):
                 end_time = parsed_entries[idx + 1][0]
-                if end_time - start_time > 8.0:
+                if end_time <= start_time:
+                    end_time = start_time + 0.5
+                elif end_time - start_time > 8.0:
                     end_time = start_time + 4.5
             else:
                 end_time = start_time + 4.0
@@ -156,6 +201,36 @@ class LyricsService:
             )
 
         return lines
+
+    def process_custom_lyrics(self, custom_lyrics: str) -> dict[str, Any]:
+        """
+        Processes custom lyrics: auto-detects LRC timestamps vs plain un-timed text.
+        Returns structured dict with source, synced, lines, and plain_lyrics.
+        """
+        clean = custom_lyrics.strip() if custom_lyrics else ""
+        if not clean:
+            return {"source": "none", "synced": False, "lines": [], "plain_lyrics": "", "lrc": ""}
+
+        if self.is_lrc(clean):
+            parsed = self.parse_lrc(clean)
+            if parsed:
+                plain = "\n".join(line["text"] for line in parsed)
+                return {
+                    "source": "custom",
+                    "synced": True,
+                    "lines": parsed,
+                    "plain_lyrics": plain,
+                    "lrc": clean,
+                }
+
+        # Plain text fallback
+        return {
+            "source": "custom",
+            "synced": False,
+            "lines": self.parse_plain_text(clean),
+            "plain_lyrics": clean,
+            "lrc": "",
+        }
 
     @staticmethod
     def parse_plain_text(text: str) -> list[dict[str, Any]]:

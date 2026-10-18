@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Any
 
 import numpy as np
@@ -128,6 +129,10 @@ class AudioAligner:
                     l_end = l_start + 0.5
 
                 text = str(line.get("text", "")).strip()
+                text = re.sub(
+                    r"\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]|<\d{1,2}:\d{2}(?:\.\d{1,3})?>", "", text
+                )
+                text = re.sub(r"\s+", " ", text).strip()
                 words = [w for w in text.split() if w]
 
                 if not words:
@@ -239,6 +244,10 @@ class AudioAligner:
                 l_end = l_start + 1.0
 
             text = str(line.get("text", "")).strip()
+            text = re.sub(
+                r"\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]|<\d{1,2}:\d{2}(?:\.\d{1,3})?>", "", text
+            )
+            text = re.sub(r"\s+", " ", text).strip()
             words = [w for w in text.split() if w]
             aligned_words = []
 

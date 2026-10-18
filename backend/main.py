@@ -565,12 +565,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         # Step 3: Fetch Lyrics
         update_pipe("fetching_lyrics", 72, "Retrieving lyrics from LRCLIB...", 5)
         if custom_lyrics and custom_lyrics.strip():
-            lyric_data = {
-                "source": "custom",
-                "synced": False,
-                "lines": lyrics_service.parse_plain_text(custom_lyrics),
-                "plain_lyrics": custom_lyrics,
-            }
+            lyric_data = lyrics_service.process_custom_lyrics(custom_lyrics)
         else:
             lyric_data = lyrics_service.fetch_lyrics(
                 meta["title"], meta["artist"], meta.get("duration")
