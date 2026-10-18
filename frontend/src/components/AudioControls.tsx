@@ -24,6 +24,8 @@ import { PitchTranspositionControl } from './audio/PitchTranspositionControl';
 import { GuideVocalControl } from './audio/GuideVocalControl';
 import { AudioPlaybackErrorBanner } from './audio/AudioPlaybackErrorBanner';
 import { AudioMixActionsBar } from './audio/AudioMixActionsBar';
+import { WaveformScrubber } from './audio/WaveformScrubber';
+import { PlaybackSpeedControl } from './audio/PlaybackSpeedControl';
 import { Tooltip } from './Tooltip';
 
 export { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY };
@@ -49,6 +51,9 @@ export interface AudioControlsProps {
   initialMuted?: boolean;
   onVolumeChange?: (volume: number) => void;
   onMuteChange?: (isMuted: boolean) => void;
+  // Playback rate controls (Requirement R2)
+  playbackRate?: number;
+  onPlaybackRateChange?: (rate: number) => void;
   // Audio playback bindings & resilience (Dispatch Feature 38)
   audioRef?: React.RefObject<HTMLAudioElement>;
   onTimeUpdate?: () => void;
@@ -74,6 +79,8 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   initialMuted,
   onVolumeChange,
   onMuteChange,
+  playbackRate: propPlaybackRate,
+  onPlaybackRateChange,
   audioRef,
   onTimeUpdate,
   onLoadedMetadata,
@@ -87,28 +94,38 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   const [isApplyingMix, setIsApplyingMix] = useState(false);
   const [uploadingInst, setUploadingInst] = useState(false);
   const [playbackError, setPlaybackError] = useState<AudioPlaybackError | null>(null);
-
-  // Master Volume & Mute State
-  const [volume, setVolume] = useState<number>(() => {
-    if (initialVolume !== undefined && !isNaN(initialVolume)) {
-      return Math.max(0, Math.min(1, initialVolume));
-    }
-    return getStoredMasterVolume(1.0);
-  });
-
-  const [isMuted, setIsMuted] = useState<boolean>(() => {
-    if (initialMuted !== undefined) {
-      return initialMuted;
-    }
-    return getStoredMasterMuted(false);
-  });
-
-  // Preserve last non-zero volume for smart unmute restoration
-  const previousVolumeRef = useRef<number>(volume > 0 ? volume : 1.0);
+  const [playbackRate, setPlaybackRate] = useState<number>(propPlaybackRate ?? 1.0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const internalAudioRef = useRef<HTMLAudioElement | null>(null);
   const resolvedAudioRef = audioRef || internalAudioRef;
+
+  // Master Volume & Mute State
+  const [volume, setVolume] = useState<number>(() =>
+    initialVolume !== undefined && !isNaN(initialVolume)
+      ? Math.max(0, Math.min(1, initialVolume))
+      : getStoredMasterVolume(1.0)
+  );
+  const [isMuted, setIsMuted] = useState<boolean>(() =>
+    initialMuted !== undefined ? initialMuted : getStoredMasterMuted(false)
+  );
+
+  // Preserve last non-zero volume for smart unmute restoration
+  const previousVolumeRef = useRef<number>(volume > 0 ? volume : 1.0);
+
+  useEffect(() => {
+    if (propPlaybackRate !== undefined && !isNaN(propPlaybackRate)) {
+      setPlaybackRate(propPlaybackRate);
+    }
+  }, [propPlaybackRate]);
+
+  const handlePlaybackRateChange = (rate: number) => {
+    setPlaybackRate(rate);
+    if (resolvedAudioRef.current) {
+      resolvedAudioRef.current.playbackRate = rate;
+    }
+    onPlaybackRateChange?.(rate);
+  };
 
   // Sync state when props change
   useEffect(() => {
@@ -125,9 +142,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   }, [initialVolume]);
 
   useEffect(() => {
-    if (initialMuted !== undefined) {
-      setIsMuted(initialMuted);
-    }
+    if (initialMuted !== undefined) setIsMuted(initialMuted);
   }, [initialMuted]);
 
   // Synchronize audio element when it mounts or when audio URL changes
@@ -135,8 +150,9 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
     if (resolvedAudioRef.current) {
       resolvedAudioRef.current.volume = volume;
       resolvedAudioRef.current.muted = isMuted;
+      resolvedAudioRef.current.playbackRate = playbackRate;
     }
-  }, [resolvedAudioRef, masterAudioUrl, volume, isMuted]);
+  }, [resolvedAudioRef, masterAudioUrl, volume, isMuted, playbackRate]);
 
   // Clear error when master audio url changes
   useEffect(() => {
@@ -144,8 +160,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   }, [masterAudioUrl]);
 
   const handleSemitoneChange = (delta: number) => {
-    const nextVal = Math.max(-12, Math.min(12, semitones + delta));
-    setSemitones(nextVal);
+    setSemitones(Math.max(-12, Math.min(12, semitones + delta)));
   };
 
   const handleApplyAudioMix = async () => {
@@ -162,15 +177,8 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
     const mediaError = e.currentTarget.error;
     const parsed = parseMediaError(mediaError);
     setPlaybackError(parsed);
-
-    // Stop playback state if currently playing
-    if (isPlaying) {
-      onTogglePlay();
-    }
-
+    if (isPlaying) onTogglePlay();
     onPlaybackError?.(parsed);
-
-    // Dispatch event for optional listeners
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('karaoke_audio_error', { detail: parsed }));
     }
@@ -181,9 +189,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
     const audioEl = e.currentTarget;
     if (audioEl.volume !== volume) {
       setVolume(audioEl.volume);
-      if (audioEl.volume > 0) {
-        previousVolumeRef.current = audioEl.volume;
-      }
+      if (audioEl.volume > 0) previousVolumeRef.current = audioEl.volume;
       setStoredMasterVolume(audioEl.volume);
       onVolumeChange?.(audioEl.volume);
     }
@@ -197,25 +203,17 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   const handleVolumeSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     const clamped = Math.max(0, Math.min(1, isNaN(val) ? 0 : val));
-
     setVolume(clamped);
     setStoredMasterVolume(clamped);
-    if (clamped > 0) {
-      previousVolumeRef.current = clamped;
-    }
-
-    if (resolvedAudioRef.current) {
-      resolvedAudioRef.current.volume = clamped;
-    }
+    if (clamped > 0) previousVolumeRef.current = clamped;
+    if (resolvedAudioRef.current) resolvedAudioRef.current.volume = clamped;
     onVolumeChange?.(clamped);
 
     // Slider adjustments while muted automatically unmute (if volume > 0)
     if (isMuted && clamped > 0) {
       setIsMuted(false);
       setStoredMasterMuted(false);
-      if (resolvedAudioRef.current) {
-        resolvedAudioRef.current.muted = false;
-      }
+      if (resolvedAudioRef.current) resolvedAudioRef.current.muted = false;
       onMuteChange?.(false);
     }
   };
@@ -267,6 +265,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       resolvedAudioRef.current.load();
       resolvedAudioRef.current.volume = volume;
       resolvedAudioRef.current.muted = isMuted;
+      resolvedAudioRef.current.playbackRate = playbackRate;
       if (currentTime > 0) {
         resolvedAudioRef.current.currentTime = currentTime;
       }
@@ -341,37 +340,29 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
 
       {/* Player Header & Main Scrub Bar */}
       <div className="flex flex-col gap-2 mb-5">
-        <div className="flex items-center justify-between text-[11px] sm:text-xs text-slate-400 font-mono">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs text-slate-400 font-mono">
           <span>{formatTime(currentTime)}</span>
-          <span className="text-slate-500">
-            Master Mix (
-            {semitones !== 0 ? `${semitones > 0 ? '+' : ''}${semitones} st` : 'Original Key'})
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-slate-500 hidden md:inline">
+              Master Mix (
+              {semitones !== 0 ? `${semitones > 0 ? '+' : ''}${semitones} st` : 'Original Key'})
+            </span>
+            <PlaybackSpeedControl
+              playbackRate={playbackRate}
+              onPlaybackRateChange={handlePlaybackRateChange}
+            />
+          </div>
           <span>{formatTime(duration)}</span>
         </div>
 
-        {/* Scrubber */}
-        <Tooltip
-          content="Scrub audio timeline (±5s seek)"
-          hotkey={['←', '→']}
-          position="top"
-          className="w-full"
-        >
-          <input
-            type="range"
-            min={0}
-            max={duration || 100}
-            step={0.1}
-            value={currentTime}
-            onChange={(e) => onSeek(parseFloat(e.target.value))}
-            aria-label="Audio timeline position"
-            aria-valuemin={0}
-            aria-valuemax={Math.round(duration) || 100}
-            aria-valuenow={Math.round(currentTime)}
-            aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
-            className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400 hover:accent-cyan-300 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-500 touch-none py-2"
-          />
-        </Tooltip>
+        {/* Interactive Waveform Scrubber */}
+        <WaveformScrubber
+          currentTime={currentTime}
+          duration={duration}
+          onSeek={onSeek}
+          audioUrl={masterAudioUrl}
+          isPlaying={isPlaying}
+        />
       </div>
 
       {/* Control Buttons & Sliders Grid */}

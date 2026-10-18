@@ -1,6 +1,10 @@
-"""Subtitle export API router providing instant standalone .lrc and .ass file downloads."""
+"""Export API router providing instant standalone .lrc/.ass subtitle and audio stem downloads."""
+
+import os
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi.responses import FileResponse
 
 from backend.export_utils import build_content_disposition
 from backend.project_store import get_project_or_404
@@ -119,5 +123,74 @@ def export_project_ass(
     return Response(
         content=ass_content,
         media_type="text/x-ssa; charset=utf-8",
+        headers=headers,
+    )
+
+
+def _get_audio_media_type(ext: str) -> str:
+    ext_lower = ext.lower()
+    if ext_lower == "wav":
+        return "audio/wav"
+    if ext_lower == "mp3":
+        return "audio/mpeg"
+    if ext_lower == "flac":
+        return "audio/flac"
+    if ext_lower in ("m4a", "aac"):
+        return "audio/mp4"
+    if ext_lower == "ogg":
+        return "audio/ogg"
+    return f"audio/{ext_lower}"
+
+
+@router.get("/api/project/{project_id}/export/audio/{stem_type}")
+def export_project_audio_stem(
+    project_id: str,
+    stem_type: str,
+):
+    """Export audio stem (instrumental, vocals, or master mix) with RFC 6266 attachment header."""
+    proj = get_project_or_404(project_id)
+
+    if proj.get("status") not in ("ready",):
+        raise HTTPException(status_code=400, detail="Project audio is not ready for export")
+
+    if stem_type == "instrumental":
+        file_path = proj.get("instrumental_path")
+        suffix = " (Instrumental)"
+    elif stem_type == "vocals":
+        file_path = proj.get("vocals_path")
+        suffix = " (Vocals)"
+    elif stem_type == "master":
+        file_path = proj.get("master_audio_path")
+        suffix = " (Master Mix)"
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid stem type '{stem_type}'. Allowed: 'instrumental', 'vocals', 'master'",
+        )
+
+    if not file_path or not os.path.isfile(file_path) or os.path.getsize(file_path) == 0:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Audio file for {stem_type} not found on disk",
+        )
+
+    ext = Path(file_path).suffix.lstrip(".").lower() or "wav"
+    media_type = _get_audio_media_type(ext)
+    raw_title = proj.get("title") or "Track"
+    title = f"{raw_title}{suffix}".strip()
+    artist = proj.get("artist", "")
+
+    headers = {
+        "Content-Disposition": build_content_disposition(
+            title=title,
+            artist=artist,
+            ext=ext,
+            fallback=f"{project_id}_{stem_type}",
+        )
+    }
+
+    return FileResponse(
+        path=file_path,
+        media_type=media_type,
         headers=headers,
     )

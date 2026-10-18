@@ -21,6 +21,7 @@ import {
 import { ProjectState, VisualTheme } from '../types';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { ExportSubtitleSection } from './export/ExportSubtitleSection';
+import { ExportAudioSection } from './export/ExportAudioSection';
 import { ExportYouTubeKit } from './export/ExportYouTubeKit';
 import { Tooltip } from './Tooltip';
 
@@ -129,6 +130,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           selectedTheme={selectedTheme}
           aspectRatio={aspectRatio}
         />
+
+        {/* Dedicated Standalone Audio Stem Downloads (Always Available) */}
+        <ExportAudioSection project={project} />
 
         {/* 1. Idle Video State (Before Video Render Started) */}
         {isIdle && (

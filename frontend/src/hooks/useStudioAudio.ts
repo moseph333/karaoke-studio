@@ -14,6 +14,8 @@ export interface UseStudioAudioReturn {
   duration: number;
   isPlaying: boolean;
   isMuted: boolean;
+  playbackRate: number;
+  setPlaybackRate: (rate: number) => void;
   setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   setDuration: React.Dispatch<React.SetStateAction<number>>;
   setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
@@ -30,7 +32,15 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [playbackRate, setPlaybackRateState] = useState(1.0);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  const setPlaybackRate = useCallback((rate: number) => {
+    setPlaybackRateState(rate);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = rate;
+    }
+  }, []);
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
@@ -42,6 +52,7 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
     if (audioRef.current) {
       setDuration(audioRef.current.duration);
       setIsMuted(audioRef.current.muted);
+      audioRef.current.playbackRate = playbackRate;
     }
   };
 
@@ -52,6 +63,7 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
+      audioRef.current.playbackRate = playbackRate;
       audioRef.current
         .play()
         .then(() => setIsPlaying(true))
@@ -60,7 +72,7 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
           setIsPlaying(false);
         });
     }
-  }, [project, isPlaying]);
+  }, [project, isPlaying, playbackRate]);
 
   const handleSeek = useCallback(
     (time: number) => {
@@ -91,6 +103,8 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
     duration,
     isPlaying,
     isMuted,
+    playbackRate,
+    setPlaybackRate,
     setCurrentTime,
     setDuration,
     setIsPlaying,
