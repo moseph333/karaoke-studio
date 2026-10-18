@@ -5,6 +5,8 @@ import { LyricTimelineEditor } from './components/LyricTimelineEditor';
 import { VisualThemePicker, THEMES } from './components/VisualThemePicker';
 import { ExportModal } from './components/ExportModal';
 import { AuthModal } from './components/AuthModal';
+import { DeleteConfirmModal } from './components/DeleteConfirmModal';
+import { EditMetadataModal } from './components/EditMetadataModal';
 import { LyricLine, VisualTheme } from './types';
 import {
   Mic2,
@@ -16,6 +18,8 @@ import {
   Activity,
   XCircle,
   User,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
@@ -35,6 +39,8 @@ export const App: React.FC = () => {
   const [customBgId, setCustomBgId] = useState<string>('');
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isLyricsDirty, setIsLyricsDirty] = useState(false);
+  const [showStudioDeleteModal, setShowStudioDeleteModal] = useState(false);
+  const [showStudioEditModal, setShowStudioEditModal] = useState(false);
 
   // Authentication & Friend Profile State
   const [_authRequired, setAuthRequired] = useState(false);
@@ -354,6 +360,44 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleStudioProjectDeleted = () => {
+    // 1. Clear dirty-state tracking immediately to avoid prompt interference
+    setIsLyricsDirty(false);
+
+    // 2. Halt audio playback and unload audio element
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+    }
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+
+    // 3. Clear URL search query if project param was present
+    if (window.location.search) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // 4. Reset project state to null -> returns directly to TrackSearch library
+    setProject(null);
+    setShowStudioDeleteModal(false);
+    toast.success('Project deleted successfully');
+  };
+
+  const handleStudioMetadataSaved = (updated: { id: string; title: string; artist: string }) => {
+    setProject((prev) =>
+      prev && prev.id === updated.id
+        ? {
+            ...prev,
+            title: updated.title,
+            artist: updated.artist,
+          }
+        : prev
+    );
+    setShowStudioEditModal(false);
+    toast.success('Project details updated');
+  };
+
   return (
     <div className="min-h-screen bg-[#0d0f17] text-slate-100 flex flex-col font-['Inter']">
       {/* Top Navbar */}
@@ -570,20 +614,42 @@ export const App: React.FC = () => {
                   />
                 )}
                 <div className="min-w-0 flex-1">
-                  <h2 className="text-xl font-extrabold text-white font-['Montserrat'] break-words line-clamp-2 sm:line-clamp-none">
-                    {project.title}
-                  </h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-extrabold text-white font-['Montserrat'] break-words line-clamp-2 sm:line-clamp-none">
+                      {project.title}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setShowStudioEditModal(true)}
+                      aria-label="Edit song details"
+                      title="Edit song title and artist"
+                      className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-cyan-300 transition-colors flex items-center justify-center shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    >
+                      <Pencil className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  </div>
                   <p className="text-sm text-slate-400 font-medium truncate">
                     {project.artist} • {project.lines.length} lyric lines detected
                   </p>
                 </div>
               </div>
 
-              <div className="w-full sm:w-auto flex items-center gap-3">
+              <div className="w-full sm:w-auto flex flex-wrap items-center gap-2.5 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowStudioDeleteModal(true)}
+                  aria-label="Delete project"
+                  title="Delete project"
+                  className="min-h-[44px] min-w-[44px] px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-rose-950/60 border border-slate-700/60 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-rose-500"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-400" aria-hidden="true" />
+                  <span>Delete</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={handleStartRender}
-                  className="w-full sm:w-auto justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                  className="flex-1 sm:flex-initial justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
                 >
                   <Film className="w-4 h-4" />
                   Render 1080p Video
@@ -663,6 +729,32 @@ export const App: React.FC = () => {
         isOpen={showAuthModal}
         onSuccess={handleAuthSuccess}
         onClose={() => setShowAuthModal(false)}
+      />
+
+      {/* Studio Project Delete Modal */}
+      <DeleteConfirmModal
+        isOpen={showStudioDeleteModal}
+        projectId={project?.id || ''}
+        projectTitle={project?.title || ''}
+        projectArtist={project?.artist}
+        onClose={() => setShowStudioDeleteModal(false)}
+        onDeleted={handleStudioProjectDeleted}
+      />
+
+      {/* Studio Edit Metadata Modal */}
+      <EditMetadataModal
+        isOpen={showStudioEditModal}
+        project={
+          project
+            ? {
+                id: project.id,
+                title: project.title || '',
+                artist: project.artist || '',
+              }
+            : null
+        }
+        onClose={() => setShowStudioEditModal(false)}
+        onSaved={handleStudioMetadataSaved}
       />
     </div>
   );

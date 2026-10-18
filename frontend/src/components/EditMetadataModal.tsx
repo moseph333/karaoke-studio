@@ -7,8 +7,8 @@ export interface EditMetadataModalProps {
   isOpen: boolean;
   project: {
     id: string;
-    title: string;
-    artist: string;
+    title?: string;
+    artist?: string;
   } | null;
   onClose: () => void;
   onSaved: (updatedProject: { id: string; title: string; artist: string }) => void;
