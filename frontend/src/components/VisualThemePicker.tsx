@@ -84,7 +84,12 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
       onCustomBgUploaded(data.bg_id);
-      toast.success('Custom background image uploaded successfully');
+      const isVideo = file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name);
+      toast.success(
+        isVideo
+          ? 'Custom background video uploaded successfully'
+          : 'Custom background image uploaded successfully'
+      );
     } catch (err) {
       console.error('Background upload error:', err);
       toast.error('Could not upload custom background file.');
@@ -189,7 +194,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
             type="file"
             ref={bgInputRef}
             onChange={handleBgUpload}
-            accept="image/*,video/*"
+            accept="image/*,video/*,.mp4,.webm,.jpg,.jpeg,.png,.webp"
             className="hidden"
           />
           <button

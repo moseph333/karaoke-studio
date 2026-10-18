@@ -894,9 +894,10 @@ def get_youtube_package(project_id: str):
 
 
 # Upload security limits and allowed MIME extensions
-MAX_BACKGROUND_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_BACKGROUND_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+MAX_IMAGE_BACKGROUND_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 MAX_INSTRUMENTAL_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
-ALLOWED_BACKGROUND_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_BACKGROUND_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".webm"}
 ALLOWED_AUDIO_EXTS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
 
 
@@ -909,7 +910,7 @@ def sanitize_upload_filename(filename: str | None, default_stem: str = "upload")
     return cleaned or default_stem
 
 
-def validate_image_header(data: bytes, ext: str) -> bool:
+def validate_background_header(data: bytes, ext: str) -> bool:
     if len(data) < 2:
         return False
     ext = ext.lower()
@@ -919,7 +920,14 @@ def validate_image_header(data: bytes, ext: str) -> bool:
         return data.startswith(b"\x89PNG\r\n\x1a\n")
     elif ext == ".webp":
         return data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WEBP"
+    elif ext == ".mp4":
+        return len(data) >= 8 and data[4:8] == b"ftyp"
+    elif ext == ".webm":
+        return len(data) >= 4 and data.startswith(b"\x1a\x45\xdf\xa3")
     return False
+
+
+validate_image_header = validate_background_header
 
 
 async def save_upload_file_bounded(
@@ -1000,16 +1008,20 @@ async def upload_background(file: UploadFile = File(...)):
     bg_id = f"{uuid.uuid4().hex[:8]}_{safe_name}"
     target_path = BACKGROUNDS_DIR / bg_id
 
-    # 1. Stream write to disk with byte ceiling (returns 413 for oversized, 400 for empty)
-    bytes_written = await save_upload_file_bounded(
-        file, target_path, MAX_BACKGROUND_UPLOAD_BYTES, min_bytes=1
+    upload_limit = (
+        MAX_BACKGROUND_UPLOAD_BYTES
+        if raw_ext in {".mp4", ".webm"}
+        else min(MAX_BACKGROUND_UPLOAD_BYTES, MAX_IMAGE_BACKGROUND_UPLOAD_BYTES)
     )
+
+    # 1. Stream write to disk with byte ceiling (returns 413 for oversized, 400 for empty)
+    bytes_written = await save_upload_file_bounded(file, target_path, upload_limit, min_bytes=1)
 
     # 2. Inspect header of written file for magic bytes
     with open(target_path, "rb") as f:
-        header = f.read(12)
+        header = f.read(64)
 
-    if not validate_image_header(header, raw_ext):
+    if not validate_background_header(header, raw_ext):
         target_path.unlink(missing_ok=True)
         logger.warning(
             f"Rejected background upload with invalid magic bytes for extension {raw_ext}"
@@ -1019,7 +1031,7 @@ async def upload_background(file: UploadFile = File(...)):
             detail=f"File content does not match image format '{raw_ext}' (invalid magic bytes)",
         )
 
-    logger.info(f"Saved background image {bg_id} ({bytes_written} bytes)")
+    logger.info(f"Saved background media {bg_id} ({bytes_written} bytes)")
     return {"status": "ok", "bg_id": bg_id, "bg_url": f"/static/backgrounds/{bg_id}"}
 
 
