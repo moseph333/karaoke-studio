@@ -7,17 +7,18 @@ Local-first audio workstation for stem separation, acoustic word alignment, time
 ## Features
 
 - **Audio intake**: upload local tracks (`.mp3`, `.wav`, `.flac`) or ingest audio streams via `yt-dlp`.
+- **Project library lifecycle & cleanup**: edit project metadata (`title` and `artist`) in the library or studio header, and delete projects with automatic cancellation of in-flight jobs and full disk cleanup across `downloads/`, `stems/`, and `output/`.
 - **Stem separation**: Demucs isolates `vocals.wav` and `instrumental.wav`. Supports direct uploads for official backing tracks.
-- **Lyric sync**: pulls timecoded lyrics from LRCLIB and `syncedlyrics`, or accepts custom text.
+- **Lyric sync**: pulls timecoded lyrics from LRCLIB and `syncedlyrics`, or accepts custom text and `.lrc` timestamps.
 - **Word alignment**: calculates word-level boundaries using acoustic energy and envelope detection.
-- **Timeline editor**: audio scrubbing, boundary trimming, progressive wipe previews, 3-2-1 visual countdown dots, and ±0.2s line nudging.
+- **Timeline editor**: inline lyric text editing, line insertion and deletion with automatic monotonic word-level timing recalculation, audio scrubbing, boundary trimming, progressive wipe previews, 3-2-1 visual countdown dots, ±0.2s line nudging, and dirty-state discard protection.
 - **Studio mixing**: semitone pitch shifting (-12 to +12) without tempo change, master volume and mute controls, and 0% to 50% guide vocal blending.
 - **Keyboard navigation**: transport shortcuts for play/pause, seeking, and mute toggling with modal and text input isolation.
 - **Themes and styling**: four presets (Modern Gold, Cyber Cyan, Neon Sunset, Classic KTV), custom video/image backgrounds, auto-blurred album art, and 16:9 widescreen or 9:16 vertical outputs.
-- **Export kit**: 1080p60 MP4 with 320 kbps AAC audio, plus formatted titles, description timestamps, lyric sheets, and tags ready for YouTube upload.
+- **Export kit & standalone subtitles**: instant standalone `.lrc` and `.ass` synchronized subtitle downloads (including active theme colors, `1920x1080` / `1080x1920` resolution, and progressive `\kf` karaoke tags) without waiting for a video render, plus full 1080p60 MP4 renders with 320 kbps AAC audio and YouTube metadata packages.
 - **Resilience & accessibility**: comprehensive error boundaries with audio auto-recovery, in-app toast alerts, and accessible focus traps for modal dialogs.
-- **Responsive mobile & tablet studio**: adaptive layouts down to 320px–375px viewports with touch-sized (`>=44px`) transport/mixing controls, 2-row mobile lyric timeline nudging, and live 16:9 widescreen / 9:16 vertical Shorts previews.
-- **Access control**: optional password protection for hosted sessions and LAN parties.
+- **Responsive mobile & tablet studio**: adaptive layouts down to 320px–375px viewports with touch-sized (`>=44px`) transport/mixing/library controls, 2-row mobile lyric timeline nudging, and live 16:9 widescreen / 9:16 vertical Shorts previews.
+- **Access control & worker concurrency**: HMAC-SHA256 signed session tokens with `HttpOnly` cookies, sliding-window login rate limiting (`429 Too Many Requests`), and bounded background worker semaphores (`MAX_CONCURRENT_JOBS`) that queue excess pipeline and render jobs without deadlock.
 
 ## Keyboard Shortcuts & Studio Controls
 
@@ -33,8 +34,9 @@ The studio provides keyboard shortcuts for playback navigation and precision edi
 | **Pitch Shift** | Control | Stepper to shift playback pitch from -12 to +12 semitones without altering tempo |
 | **Guide Vocal** | Control | Blend slider from 0% to 50% vocal volume over instrumental backing tracks |
 | **Timeline Nudging** | Control | Stepper buttons to shift line start and end timestamps in ±0.2-second increments |
+| **Inline Line Editing** | Control | Edit lyric line text, insert lines above/below/end, or delete lines with automatic word-token timing recalculation |
 | **Word Sweep** | Control | Progressive sub-line wipe preview tracking acoustic syllable boundaries in real time |
-| **Modal Focus Traps** | Accessibility | Keyboard focus looping (`Tab`, `Shift+Tab`) and `Escape` dismiss for Auth and Export dialogs |
+| **Modal Focus Traps** | Accessibility | Keyboard focus looping (`Tab`, `Shift+Tab`) and `Escape` dismiss for Auth, Metadata, Delete, and Export dialogs |
 
 ## Quick Start
 
@@ -92,7 +94,7 @@ Karaoke Studio maintains strict quality gates across both backend and frontend l
 All backend tests and linters use Python 3.12+ inside the project virtual environment:
 
 ```bash
-# Run pytest with code coverage (430+ unit, integration, and adversarial tests)
+# Run pytest with code coverage (647 unit, integration, E2E, and adversarial tests)
 pytest
 
 # Check code formatting with Ruff
@@ -119,7 +121,7 @@ Frontend quality tools run from the `frontend/` directory:
 ```bash
 cd frontend
 
-# Run Vitest unit, component, and responsive layout tests (440+ tests across 24 test suites)
+# Run Vitest unit, component, and responsive layout tests (639 tests across 31 test suites)
 npm test
 
 # Run Vitest in interactive watch mode
@@ -155,7 +157,10 @@ cp .env.example .env
 | Variable | Default | Purpose |
 | :--- | :--- | :--- |
 | `PORT` | `8000` | Port for the web interface and FastAPI server |
-| `APP_PASSWORD` | *(empty)* | Passphrase required to log in. Leave empty for open access. |
+| `APP_PASSWORD` | *(empty)* | Passphrase required to log in (issues HMAC-SHA256 session tokens & `HttpOnly` cookies). Leave empty for open access. |
+| `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` | `5` | Maximum failed login attempts per client IP within the rate-limit window before returning HTTP `429`. |
+| `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `60.0` | Sliding window duration (in seconds) for failed login attempt rate limiting. |
+| `MAX_CONCURRENT_JOBS` | `2` | Maximum simultaneous background processing/rendering worker slots before queueing additional jobs. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Zero Trust tunnel token for routing a custom domain to Docker. |
 | `KARAOKE_DATA_DIR` | `./workspace_data` | Directory for downloaded audio, stems, and rendered videos. |
 
