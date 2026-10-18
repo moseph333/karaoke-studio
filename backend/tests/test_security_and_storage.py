@@ -12,10 +12,12 @@ from backend.main import (
     load_projects,
     projects,
     save_projects,
+    verify_session_token,
 )
 
 
 def test_static_file_protection_unauthenticated(unauth_client):
+
     test_file = main_mod.DOWNLOADS_DIR / "sample_track.wav"
     test_file.write_bytes(b"RIFF dummy audio data")
 
@@ -53,7 +55,8 @@ def test_cookie_lifecycle_login_logout(unauth_client):
     )
     assert login_res.status_code == 200
     assert "karaoke_token" in login_res.cookies
-    assert login_res.cookies["karaoke_token"] == pwd
+    assert login_res.cookies["karaoke_token"] != pwd
+    assert verify_session_token(login_res.cookies["karaoke_token"], pwd) is True
 
     # Logout
     logout_res = unauth_client.post("/api/auth/logout")

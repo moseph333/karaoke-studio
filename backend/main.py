@@ -1,9 +1,12 @@
+import base64
+import hashlib
 import hmac
 import json
 import logging
 import math
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import threading
@@ -48,6 +51,15 @@ logger = logging.getLogger("karaoke_backend")
 
 active_cancellations: dict[str, threading.Event] = {}
 
+# Bounded worker concurrency semaphore
+WORKER_SEMAPHORE = threading.Semaphore(config.MAX_CONCURRENT_JOBS)
+
+# Client IP login rate limiting state
+LOGIN_RATE_LIMIT_LOCK = threading.Lock()
+_login_failures: dict[str, list[float]] = {}
+_last_rate_limit_cleanup: float = 0.0
+
+
 app = FastAPI(title="YouTube Karaoke Studio API", version="1.0.0")
 
 
@@ -86,26 +98,241 @@ app.add_middleware(
 )
 
 
+def get_client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        first_ip = xff.split(",")[0].strip()
+        if first_ip:
+            if first_ip.startswith("[") and "]" in first_ip:
+                first_ip = first_ip[1 : first_ip.index("]")]
+            elif ":" in first_ip and first_ip.count(":") == 1:
+                first_ip = first_ip.split(":")[0]
+            if first_ip:
+                return first_ip
+    if request.client and request.client.host:
+        return request.client.host.strip()
+    return "127.0.0.1"
+
+
+def _prune_stale_rate_limits_locked(now: float, window: float) -> None:
+    global _last_rate_limit_cleanup
+    if (now - _last_rate_limit_cleanup < 300.0) and len(_login_failures) < 1000:
+        return
+    _last_rate_limit_cleanup = now
+    stale_ips = []
+    for ip, timestamps in _login_failures.items():
+        valid = [t for t in timestamps if (now - t) < window]
+        if valid:
+            _login_failures[ip] = valid
+        else:
+            stale_ips.append(ip)
+    for ip in stale_ips:
+        _login_failures.pop(ip, None)
+
+
+def check_login_rate_limit(client_ip: str, now: float | None = None) -> None:
+    if now is None:
+        now = time.time()
+    window = config.LOGIN_RATE_LIMIT_WINDOW_SECONDS
+    max_attempts = config.LOGIN_RATE_LIMIT_MAX_ATTEMPTS
+
+    with LOGIN_RATE_LIMIT_LOCK:
+        _prune_stale_rate_limits_locked(now, window)
+        timestamps = _login_failures.get(client_ip, [])
+        valid_timestamps = [t for t in timestamps if (now - t) < window]
+
+        if len(valid_timestamps) != len(timestamps):
+            if valid_timestamps:
+                _login_failures[client_ip] = valid_timestamps
+            else:
+                _login_failures.pop(client_ip, None)
+
+        if len(valid_timestamps) >= max_attempts:
+            oldest_ts = valid_timestamps[0]
+            retry_after = max(1, math.ceil(oldest_ts + window - now))
+            logger.warning(
+                f"Rate limit exceeded for client IP: {client_ip} "
+                f"({len(valid_timestamps)} failed attempts). Retry-After: {retry_after}s"
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Too many failed login attempts. Please try again later.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+
+def record_login_failure(client_ip: str, now: float | None = None) -> None:
+    if now is None:
+        now = time.time()
+    window = config.LOGIN_RATE_LIMIT_WINDOW_SECONDS
+
+    with LOGIN_RATE_LIMIT_LOCK:
+        timestamps = _login_failures.get(client_ip, [])
+        valid_timestamps = [t for t in timestamps if (now - t) < window]
+        valid_timestamps.append(now)
+        _login_failures[client_ip] = valid_timestamps
+
+
+def reset_login_failures(client_ip: str) -> None:
+    with LOGIN_RATE_LIMIT_LOCK:
+        _login_failures.pop(client_ip, None)
+
+
+def clear_all_login_failures() -> None:
+    with LOGIN_RATE_LIMIT_LOCK:
+        _login_failures.clear()
+
+
+def create_session_token(app_pwd: str, client_id: str = "user") -> str:
+    """
+    Generate a stateless HMAC-SHA256 signed session token.
+    Token format: <base64_payload>.<base64_sig>
+    Guaranteed to never equal raw app_pwd.
+    """
+    if not app_pwd:
+        return ""
+
+    payload = {
+        "u": str(client_id or "user"),
+        "t": int(time.time()),
+        "s": secrets.token_hex(8),
+    }
+    payload_json = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+    payload_b64 = base64.urlsafe_b64encode(payload_json.encode("utf-8")).decode("utf-8").rstrip("=")
+
+    sig = hmac.new(
+        app_pwd.encode("utf-8"),
+        payload_b64.encode("utf-8"),
+        hashlib.sha256,
+    ).digest()
+    sig_b64 = base64.urlsafe_b64encode(sig).decode("utf-8").rstrip("=")
+
+    token = f"{payload_b64}.{sig_b64}"
+    if token == app_pwd:
+        raise ValueError("Session token must not match raw password")
+    return token
+
+
+def verify_session_token(token: str, app_pwd: str, max_age: int = 86400 * 7) -> bool:
+    """
+    Verify HMAC-SHA256 signed session token:
+    1. Validates string format and extracts payload and signature.
+    2. Performs constant-time signature comparison using hmac.compare_digest.
+    3. Validates payload JSON, timestamp freshness (max_age), and future clock skew.
+    Returns True if valid and unexpired; False otherwise.
+    """
+    if not token or not app_pwd:
+        return False
+    if not isinstance(token, str) or not isinstance(app_pwd, str):
+        return False
+    token = token.strip()
+    if not token:
+        return False
+
+    parts = token.split(".")
+    if len(parts) != 2:
+        return False
+    payload_b64, sig_b64 = parts
+    if not payload_b64 or not sig_b64:
+        return False
+
+    try:
+        # 1. Verify HMAC signature in constant time
+        expected_sig = (
+            base64.urlsafe_b64encode(
+                hmac.new(
+                    app_pwd.encode("utf-8"),
+                    payload_b64.encode("utf-8"),
+                    hashlib.sha256,
+                ).digest()
+            )
+            .decode("utf-8")
+            .rstrip("=")
+        )
+
+        if not hmac.compare_digest(sig_b64, expected_sig):
+            return False
+
+        # 2. Decode payload (restore base64 padding if needed)
+        pad = len(payload_b64) % 4
+        padded = payload_b64 + ("=" * ((4 - pad) % 4))
+        raw_json = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8")
+        payload = json.loads(raw_json)
+
+        # 3. Check timestamp
+        t = payload.get("t")
+        if not isinstance(t, (int, float)):
+            return False
+
+        now = time.time()
+        # Prevent tokens from far future (>300s clock skew)
+        if t > now + 300:
+            return False
+        # Expiry check
+        return not (max_age is not None and (now - t) > max_age)
+
+    except Exception:
+        return False
+
+
 def is_authenticated(request: Request, app_pwd: str) -> bool:
     if not app_pwd:
         return True
-    token = request.headers.get("X-App-Password")
-    if token is not None:
-        token = token.strip()
-    if not token:
-        auth_header = request.headers.get("Authorization") or ""
-        if auth_header.startswith("Bearer "):
-            token = auth_header[7:].strip()
-    if not token:
-        token = request.cookies.get("karaoke_token")
-        if token is not None:
-            token = token.strip()
-    if not token:
+
+    header_candidates: list[str] = []
+
+    # 1. X-Session-Token
+    x_sess = request.headers.get("X-Session-Token")
+    if x_sess is not None:
+        header_candidates.append(x_sess.strip())
+
+    # 2. X-App-Password
+    x_pwd = request.headers.get("X-App-Password")
+    if x_pwd is not None:
+        header_candidates.append(x_pwd.strip())
+
+    # 3. Authorization: Bearer <token>
+    auth_header = request.headers.get("Authorization") or ""
+    if auth_header.startswith("Bearer "):
+        bearer_token = auth_header[7:].strip()
+        if bearer_token:
+            header_candidates.append(bearer_token)
+
+    # If explicit header credentials were provided, evaluate them exclusively
+    if header_candidates:
+        for cand in header_candidates:
+            if not cand:
+                continue
+            try:
+                if verify_session_token(cand, app_pwd):
+                    return True
+                if hmac.compare_digest(cand.encode("utf-8"), app_pwd.encode("utf-8")):
+                    return True
+            except Exception:
+                continue
         return False
-    try:
-        return hmac.compare_digest(token.encode("utf-8"), app_pwd.encode("utf-8"))
-    except Exception:
-        return False
+
+    # Otherwise, check cookie credentials
+    cookie_candidates: list[str] = []
+    cookie_sess = request.cookies.get("session_token")
+    if cookie_sess is not None:
+        cookie_candidates.append(cookie_sess.strip())
+    cookie_karaoke = request.cookies.get("karaoke_token")
+    if cookie_karaoke is not None:
+        cookie_candidates.append(cookie_karaoke.strip())
+
+    for cand in cookie_candidates:
+        if not cand:
+            continue
+        try:
+            if verify_session_token(cand, app_pwd):
+                return True
+            if hmac.compare_digest(cand.encode("utf-8"), app_pwd.encode("utf-8")):
+                return True
+        except Exception:
+            continue
+
+    return False
 
 
 @app.middleware("http")
@@ -563,23 +790,32 @@ def auth_status(request: Request):
 
 @app.post("/api/auth/login")
 def auth_login(req: LoginRequest, request: Request):
+    client_ip = get_client_ip(request)
+    check_login_rate_limit(client_ip)
+
     if config.APP_PASSWORD:
         pwd = (req.password or "").strip()
         if not pwd:
+            record_login_failure(client_ip)
             raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
         try:
             is_valid = hmac.compare_digest(pwd.encode("utf-8"), config.APP_PASSWORD.encode("utf-8"))
         except Exception:
             is_valid = False
         if not is_valid:
-            logger.warning(f"Failed login attempt for user: {req.username}")
+            record_login_failure(client_ip)
+            logger.warning(f"Failed login attempt for user: {req.username} from {client_ip}")
             raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
 
-    token = req.password if config.APP_PASSWORD else "ok"
+        reset_login_failures(client_ip)
+        session_token = create_session_token(config.APP_PASSWORD, client_id=req.username or "user")
+    else:
+        session_token = "ok"
+
     response = JSONResponse(
         content={
             "status": "ok",
-            "token": token,
+            "token": session_token,
             "username": req.username or "Friend",
         }
     )
@@ -587,23 +823,26 @@ def auth_login(req: LoginRequest, request: Request):
         is_https = (
             request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
         )
-        try:
-            response.set_cookie(
-                key="karaoke_token",
-                value=token,
-                httponly=True,
-                samesite="lax",
-                secure=is_https,
-                max_age=60 * 60 * 24 * 30,  # 30 days
-            )
-        except Exception:
-            pass
+        max_age = 60 * 60 * 24 * 7  # 7 days
+        for cookie_name in ["session_token", "karaoke_token"]:
+            try:
+                response.set_cookie(
+                    key=cookie_name,
+                    value=session_token,
+                    httponly=True,
+                    samesite="lax",
+                    secure=is_https,
+                    max_age=max_age,
+                )
+            except Exception:
+                pass
     return response
 
 
 @app.post("/api/auth/logout")
 def auth_logout():
     response = JSONResponse(content={"status": "ok"})
+    response.delete_cookie(key="session_token")
     response.delete_cookie(key="karaoke_token")
     return response
 
@@ -619,8 +858,7 @@ def search_tracks(req: SearchRequest):
 
 
 def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = None):
-    cancel_event = threading.Event()
-    active_cancellations[project_id] = cancel_event
+    cancel_event = active_cancellations.setdefault(project_id, threading.Event())
     pipeline_start = time.time()
     track_id: str | None = None
 
@@ -639,7 +877,41 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             proj["eta_seconds"] = eta_s
         save_projects()
 
+    # Fast pre-acquire check
+    if cancel_event.is_set():
+        proj = find_project(project_id)
+        if proj:
+            proj["status"] = "cancelled"
+            proj["status_detail"] = "Processing was cancelled by user"
+            proj["progress"] = 0
+            save_projects()
+        active_cancellations.pop(project_id, None)
+        return
+
+    if find_project(project_id) is None:
+        active_cancellations.pop(project_id, None)
+        return
+
+    semaphore_acquired = False
     try:
+        WORKER_SEMAPHORE.acquire()
+        semaphore_acquired = True
+
+        # Check if cancelled or deleted while waiting in queue
+        if cancel_event.is_set():
+            logger.info(f"Project {project_id} was cancelled while queued")
+            proj = find_project(project_id)
+            if proj:
+                proj["status"] = "cancelled"
+                proj["status_detail"] = "Processing was cancelled by user"
+                proj["progress"] = 0
+                save_projects()
+            return
+
+        if find_project(project_id) is None:
+            logger.info(f"Project {project_id} was deleted while queued; skipping pipeline")
+            return
+
         # Step 1: Download Audio and Metadata
         update_pipe("downloading", 10, "Fetching audio track and metadata...", 15)
 
@@ -761,6 +1033,8 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
                 f"Project {project_id} was deleted during processing; skipping status update."
             )
     finally:
+        if semaphore_acquired:
+            WORKER_SEMAPHORE.release()
         active_cancellations.pop(project_id, None)
         if track_id:
             active_cancellations.pop(track_id, None)
@@ -780,8 +1054,7 @@ def run_local_pipeline(
     artist: str,
     custom_lyrics: str | None = None,
 ):
-    cancel_event = threading.Event()
-    active_cancellations[project_id] = cancel_event
+    cancel_event = active_cancellations.setdefault(project_id, threading.Event())
     pipeline_start = time.time()
 
     def update_pipe(status: str, progress: int, detail: str, eta_s: int | None = None):
@@ -799,9 +1072,43 @@ def run_local_pipeline(
             proj["eta_seconds"] = eta_s
         save_projects()
 
+    # Fast pre-acquire check
+    if cancel_event.is_set():
+        proj = find_project(project_id)
+        if proj:
+            proj["status"] = "cancelled"
+            proj["status_detail"] = "Processing was cancelled by user"
+            proj["progress"] = 0
+            save_projects()
+        active_cancellations.pop(project_id, None)
+        return
+
+    if find_project(project_id) is None:
+        active_cancellations.pop(project_id, None)
+        return
+
+    semaphore_acquired = False
     try:
+        WORKER_SEMAPHORE.acquire()
+        semaphore_acquired = True
+
+        if cancel_event.is_set():
+            logger.info(f"Local project {project_id} was cancelled while queued")
+            proj = find_project(project_id)
+            if proj:
+                proj["status"] = "cancelled"
+                proj["status_detail"] = "Processing was cancelled by user"
+                proj["progress"] = 0
+                save_projects()
+            return
+
+        if find_project(project_id) is None:
+            logger.info(f"Local project {project_id} was deleted while queued; skipping pipeline")
+            return
+
         # Step 1: Transcode / Normalize raw uploaded audio to standard WAV (pcm_s16le, 44100Hz, 2ch)
-        update_pipe("queued", 5, "Preparing audio track...")
+        update_pipe("processing", 5, "Preparing audio track...")
+
         raw_path = Path(raw_audio_path)
         wav_target = DOWNLOADS_DIR / f"{project_id}.wav"
 
@@ -930,6 +1237,8 @@ def run_local_pipeline(
                 f"Project {project_id} was deleted during processing; skipping status update."
             )
     finally:
+        if semaphore_acquired:
+            WORKER_SEMAPHORE.release()
         active_cancellations.pop(project_id, None)
         if find_project(project_id) is None:
             try:
@@ -986,6 +1295,9 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
         proj_data["track_id"] = video_id
     projects[project_id] = proj_data
     save_projects()
+    cancel_event = active_cancellations.setdefault(project_id, threading.Event())
+    if video_id and video_id != project_id:
+        active_cancellations.setdefault(video_id, cancel_event)
     bg_tasks.add_task(run_pipeline, project_id, req.url_or_id, req.custom_lyrics)
     return {"project_id": project_id, "status": "queued"}
 
@@ -1108,9 +1420,8 @@ def mix_audio(project_id: str, req: MixRequest):
 
 
 def run_video_render(project_id: str, req: RenderRequest):
-    cancel_event = threading.Event()
     render_key = f"{project_id}_render"
-    active_cancellations[render_key] = cancel_event
+    cancel_event = active_cancellations.setdefault(render_key, threading.Event())
     render_start = time.time()
 
     def update_render(progress: int, detail: str, eta_s: int | None = None):
@@ -1128,8 +1439,42 @@ def run_video_render(project_id: str, req: RenderRequest):
             proj["render_eta_seconds"] = eta_s
         save_projects()
 
+    # Fast pre-acquire check
+    if cancel_event.is_set():
+        proj = find_project(project_id)
+        if proj:
+            proj["render_status"] = "idle"
+            proj["render_detail"] = "Rendering cancelled"
+            proj["render_progress"] = 0
+            save_projects()
+        active_cancellations.pop(render_key, None)
+        return
+
+    if find_project(project_id) is None:
+        active_cancellations.pop(render_key, None)
+        return
+
+    semaphore_acquired = False
     try:
+        WORKER_SEMAPHORE.acquire()
+        semaphore_acquired = True
+
+        if cancel_event.is_set():
+            logger.info(f"Render for {project_id} was cancelled while queued")
+            proj = find_project(project_id)
+            if proj:
+                proj["render_status"] = "idle"
+                proj["render_detail"] = "Rendering cancelled"
+                proj["render_progress"] = 0
+                save_projects()
+            return
+
+        if find_project(project_id) is None:
+            logger.info(f"Project {project_id} was deleted while queued for render")
+            return
+
         update_render(5, "Generating progressive karaoke subtitles...", 45)
+
         proj = get_project_or_404(project_id)
 
         track_id = proj.get("track_id") or proj.get("id") or "track"
@@ -1220,6 +1565,8 @@ def run_video_render(project_id: str, req: RenderRequest):
                 f"Project {project_id} was deleted during rendering; skipping status update."
             )
     finally:
+        if semaphore_acquired:
+            WORKER_SEMAPHORE.release()
         active_cancellations.pop(render_key, None)
         if find_project(project_id) is None:
             try:
@@ -1251,7 +1598,10 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
     proj["render_eta_seconds"] = 45
     proj["render_heartbeat"] = int(time.time() * 1000)
     save_projects()
+    render_key = f"{project_id}_render"
+    active_cancellations.setdefault(render_key, threading.Event())
     bg_tasks.add_task(run_video_render, project_id, req)
+
     return {"status": "queued"}
 
 
@@ -1745,6 +2095,7 @@ async def upload_audio_track(
     projects[project_id] = proj_data
     save_projects()
 
+    active_cancellations.setdefault(project_id, threading.Event())
     bg_tasks.add_task(
         run_local_pipeline,
         project_id,

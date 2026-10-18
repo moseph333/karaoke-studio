@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import config
-from backend.main import active_cancellations, app, projects
+from backend.main import active_cancellations, app, clear_all_login_failures, projects
 
 
 @pytest.fixture(autouse=True)
@@ -69,11 +69,13 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
 
     projects.clear()
     active_cancellations.clear()
+    clear_all_login_failures()
 
     yield
 
     projects.clear()
     active_cancellations.clear()
+    clear_all_login_failures()
 
 
 @pytest.fixture

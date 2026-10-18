@@ -29,6 +29,15 @@ for d in [DATA_DIR, DOWNLOADS_DIR, STEMS_DIR, OUTPUT_DIR, ASSETS_DIR, BACKGROUND
 
 # Access Control
 APP_PASSWORD = os.getenv("APP_PASSWORD", "").strip()
+LOGIN_RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("LOGIN_RATE_LIMIT_MAX_ATTEMPTS", "5"))
+LOGIN_RATE_LIMIT_WINDOW_SECONDS = float(os.getenv("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "60.0"))
+
+# Worker Concurrency Configuration
+try:
+    MAX_CONCURRENT_JOBS = max(1, int(os.getenv("MAX_CONCURRENT_JOBS", "2").strip()))
+except (ValueError, TypeError):
+    MAX_CONCURRENT_JOBS = 2
+
 
 # Allowed Origins for CORS (with support for comma-separated ALLOWED_ORIGINS env var)
 raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
