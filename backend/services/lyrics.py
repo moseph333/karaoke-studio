@@ -1,4 +1,5 @@
 import logging
+import math
 import re
 from typing import Any
 
@@ -201,6 +202,89 @@ class LyricsService:
             )
 
         return lines
+
+    @staticmethod
+    def format_lrc_timestamp(seconds: float) -> str:
+        """Format seconds into standard LRC timestamp format [mm:ss.xx].
+
+        Handles negative, NaN, Inf, and rollover boundary conditions safely.
+        """
+        try:
+            val = float(seconds)
+            if not math.isfinite(val) or val < 0.0:
+                val = 0.0
+        except (ValueError, TypeError):
+            val = 0.0
+
+        total_centis = round(val * 100)
+        centis = total_centis % 100
+        total_secs = total_centis // 100
+        secs = total_secs % 60
+        minutes = total_secs // 60
+        return f"[{minutes:02d}:{secs:02d}.{centis:02d}]"
+
+    @staticmethod
+    def generate_lrc(
+        lines: list[dict[str, Any]],
+        title: str = "",
+        artist: str = "",
+    ) -> str:
+        """Generate standard UTF-8 LRC text from a list of project lyric lines.
+
+        Includes metadata header tags [ti:...] and [ar:...] if provided,
+        sorts lines chronologically by start_time, strips raw timestamp tags,
+        and formats timestamps as [mm:ss.xx].
+        """
+        tag_pattern = re.compile(r"\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]")
+        bracket_pattern = re.compile(r"<\d{1,2}:\d{2}(?:\.\d{1,3})?>")
+
+        lrc_lines: list[str] = []
+
+        clean_title = (title or "").strip()
+        clean_artist = (artist or "").strip()
+        if clean_title:
+            lrc_lines.append(f"[ti:{clean_title}]")
+        if clean_artist:
+            lrc_lines.append(f"[ar:{clean_artist}]")
+
+        if not lines or not isinstance(lines, list):
+            return "\n".join(lrc_lines) + ("\n" if lrc_lines else "")
+
+        def _sort_key(item: dict[str, Any]) -> tuple[float, int]:
+            st = item.get("start_time", 0.0) if isinstance(item, dict) else 0.0
+            try:
+                val = float(st)
+                if not math.isfinite(val) or val < 0.0:
+                    val = 0.0
+            except (ValueError, TypeError):
+                val = 0.0
+            lid = item.get("id", 0) if isinstance(item, dict) else 0
+            try:
+                id_val = int(lid)
+            except (ValueError, TypeError):
+                id_val = 0
+            return (val, id_val)
+
+        sorted_lines = sorted(lines, key=_sort_key)
+
+        for item in sorted_lines:
+            if not isinstance(item, dict):
+                continue
+            raw_text = str(item.get("text") or "")
+            clean_text = tag_pattern.sub("", raw_text)
+            clean_text = bracket_pattern.sub("", clean_text)
+            clean_text = re.sub(r"\s+", " ", clean_text).strip()
+            if not clean_text:
+                continue
+
+            st = item.get("start_time", 0.0)
+            timestamp_tag = LyricsService.format_lrc_timestamp(st)
+            lrc_lines.append(f"{timestamp_tag}{clean_text}")
+
+        if not lrc_lines:
+            return ""
+
+        return "\n".join(lrc_lines) + "\n"
 
     def process_custom_lyrics(self, custom_lyrics: str) -> dict[str, Any]:
         """
