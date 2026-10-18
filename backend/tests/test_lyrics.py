@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from backend.services.lyrics import LyricsService
@@ -70,3 +72,142 @@ def test_update_lyrics_endpoint_validation(client):
     invalid_payload = {"lines": [{"id": 1}]}
     bad_res = client.post(f"/api/project/{proj_id}/lyrics", json=invalid_payload)
     assert bad_res.status_code == 422  # Pydantic validation failure
+
+
+def test_is_lrc_standard_and_variations():
+    """is_lrc auto-detects presence of various LRC timestamp formats."""
+    # Standard 2-digit fraction
+    assert LyricsService.is_lrc("[00:04.20] First line") is True
+    # 3-digit millisecond fraction
+    assert LyricsService.is_lrc("[01:23.456] Second line") is True
+    # 1-digit minute
+    assert LyricsService.is_lrc("[1:05.12] Third line") is True
+    # Integer second without fraction
+    assert LyricsService.is_lrc("[02:15] Fourth line") is True
+    # Repeated timestamps on one line
+    assert LyricsService.is_lrc("[00:04.20][00:15.50] Refrain text") is True
+    # Mixed content with surrounding text
+    assert LyricsService.is_lrc("Intro notes...\n[00:05.00] First sung words") is True
+
+
+def test_is_lrc_negative_cases():
+    """is_lrc does not misclassify bracketed section headings, metadata, or plain text."""
+    # Common section headings
+    assert LyricsService.is_lrc("[Verse 1]\nFirst line") is False
+    assert LyricsService.is_lrc("[Chorus]\nSing along") is False
+    assert LyricsService.is_lrc("[Bridge]\nSlow down") is False
+    assert LyricsService.is_lrc("[Intro]\n[Outro]") is False
+    assert LyricsService.is_lrc("[Hook]\nCatchy line") is False
+
+    # Metadata headers
+    assert LyricsService.is_lrc("[ti:Song Title]\n[ar:Artist Name]\n[al:Album Name]") is False
+    assert LyricsService.is_lrc("[by:Creator]\n[offset:0]") is False
+
+    # Other non-timestamp brackets
+    assert LyricsService.is_lrc("[123] Numbered line") is False
+    assert LyricsService.is_lrc("[Track 1] Audio track") is False
+    assert LyricsService.is_lrc("[12:345] Invalid seconds") is False
+
+    # Plain text without brackets
+    assert LyricsService.is_lrc("Just some plain lyrics\nWithout any brackets") is False
+
+    # Empty, whitespace, None, non-string
+    assert LyricsService.is_lrc("") is False
+    assert LyricsService.is_lrc("   \n\t  ") is False
+    assert LyricsService.is_lrc(None) is False  # type: ignore[arg-type]
+    assert LyricsService.is_lrc(12345) is False  # type: ignore[arg-type]
+
+
+def test_parse_lrc_multi_timestamps_and_tag_stripping():
+    """parse_lrc handles multi-timestamp lines and strips all tags from text and words."""
+    lrc = (
+        "[00:04.20][00:16.00] Chorus line repeats\n"
+        "[00:08.50] Middle line with <00:09.50> inline [00:10.00] tags\n"
+    )
+    lines = LyricsService.parse_lrc(lrc)
+    assert len(lines) == 3
+
+    # Check chronological ordering: 4.20, 8.50, 16.00
+    assert lines[0]["start_time"] == 4.2
+    assert lines[0]["text"] == "Chorus line repeats"
+    assert lines[1]["start_time"] == 8.5
+    assert lines[1]["text"] == "Middle line with inline tags"
+    assert lines[2]["start_time"] == 16.0
+    assert lines[2]["text"] == "Chorus line repeats"
+
+    # Verify no raw timestamp tags leak into any line text or word tokens
+    for line in lines:
+        assert not re.search(r"\[\d{1,2}:\d{2}", line["text"])
+        assert not re.search(r"<\d{1,2}:\d{2}", line["text"])
+        for w in line["words"]:
+            assert not re.search(r"\[\d{1,2}:\d{2}", w["word"])
+            assert not re.search(r"<\d{1,2}:\d{2}", w["word"])
+            assert w["start_time"] <= w["end_time"]
+
+
+def test_parse_lrc_out_of_order_sorting():
+    """parse_lrc sorts lines chronologically regardless of original line order."""
+    lrc = "[00:20.00] Outro line\n[00:02.00] Intro line\n[00:10.00] Chorus line\n"
+    lines = LyricsService.parse_lrc(lrc)
+    assert len(lines) == 3
+    assert lines[0]["start_time"] == 2.0
+    assert lines[0]["text"] == "Intro line"
+    assert lines[1]["start_time"] == 10.0
+    assert lines[1]["text"] == "Chorus line"
+    assert lines[2]["start_time"] == 20.0
+    assert lines[2]["text"] == "Outro line"
+
+
+def test_parse_lrc_empty_and_tag_only_lines():
+    """parse_lrc skips empty lines and lines consisting solely of timestamp tags."""
+    lrc = "[00:01.00]\n\n[00:05.00] Real lyrics line\n[00:10.00]   \n"
+    lines = LyricsService.parse_lrc(lrc)
+    assert len(lines) == 1
+    assert lines[0]["start_time"] == 5.0
+    assert lines[0]["text"] == "Real lyrics line"
+
+    # Non-string or empty input
+    assert LyricsService.parse_lrc("") == []
+    assert LyricsService.parse_lrc(None) == []  # type: ignore[arg-type]
+
+
+def test_process_custom_lyrics():
+    """process_custom_lyrics properly differentiates LRC from plain text."""
+    service = LyricsService()
+
+    # 1. Valid LRC
+    lrc_input = "[00:04.20] First line\n[00:08.50] Second line"
+    res_lrc = service.process_custom_lyrics(lrc_input)
+    assert res_lrc["source"] == "custom"
+    assert res_lrc["synced"] is True
+    assert len(res_lrc["lines"]) == 2
+    assert res_lrc["lines"][0]["start_time"] == 4.2
+    assert res_lrc["plain_lyrics"] == "First line\nSecond line"
+    assert res_lrc["lrc"] == lrc_input
+
+    # 2. Plain text without timestamps
+    plain_input = "First line\nSecond line"
+    res_plain = service.process_custom_lyrics(plain_input)
+    assert res_plain["source"] == "custom"
+    assert res_plain["synced"] is False
+    assert len(res_plain["lines"]) == 2
+    assert res_plain["lines"][0]["start_time"] == 0.0
+    assert res_plain["plain_lyrics"] == plain_input
+
+    # 3. Plain text with section headings
+    section_input = "[Verse 1]\nLine one\n[Chorus]\nLine two"
+    res_section = service.process_custom_lyrics(section_input)
+    assert res_section["source"] == "custom"
+    assert res_section["synced"] is False
+    assert len(res_section["lines"]) == 4
+
+    # 4. Empty or whitespace input
+    res_empty = service.process_custom_lyrics("")
+    assert res_empty["source"] == "none"
+    assert res_empty["synced"] is False
+    assert res_empty["lines"] == []
+
+    # 5. LRC tags without text falls back to plain text
+    res_empty_lrc = service.process_custom_lyrics("[00:01.00]\n[00:02.00]")
+    assert res_empty_lrc["source"] == "custom"
+    assert res_empty_lrc["synced"] is False

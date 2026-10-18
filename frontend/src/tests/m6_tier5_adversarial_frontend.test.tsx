@@ -670,6 +670,48 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       });
     });
 
+    it('accepts video extensions and uploads MP4/WebM background video successfully', async () => {
+      const onCustomBgUploaded = vi.fn();
+      const mp4File = new File(['mock-video-binary'], 'animation.mp4', { type: 'video/mp4' });
+
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ bg_id: 'bg-video-mp4-123' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const { container } = render(
+        <ToastProvider>
+          <VisualThemePicker
+            selectedTheme={THEMES[0]}
+            onSelectTheme={vi.fn()}
+            aspectRatio="16:9"
+            onChangeAspectRatio={vi.fn()}
+            onCustomBgUploaded={onCustomBgUploaded}
+          />
+        </ToastProvider>
+      );
+
+      const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+      expect(fileInput).toBeInTheDocument();
+      expect(fileInput.getAttribute('accept')).toContain('.mp4');
+      expect(fileInput.getAttribute('accept')).toContain('.webm');
+
+      fireEvent.change(fileInput, { target: { files: [mp4File] } });
+
+      await waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalledWith(
+          '/api/upload-background',
+          expect.objectContaining({ method: 'POST' })
+        );
+        expect(onCustomBgUploaded).toHaveBeenCalledWith('bg-video-mp4-123');
+        expect(
+          screen.getByText(/Custom background video uploaded successfully/i)
+        ).toBeInTheDocument();
+      });
+    });
+
     it('catches and reports background upload HTTP errors without crashing', async () => {
       const onCustomBgUploaded = vi.fn();
       const file = new File(['bad-binary'], 'corrupt.bmp', { type: 'image/bmp' });

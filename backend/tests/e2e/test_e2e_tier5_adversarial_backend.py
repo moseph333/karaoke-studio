@@ -47,6 +47,7 @@ from backend.main import (
     sanitize_validation_errors,
     save_projects,
     save_upload_file_bounded,
+    validate_background_header,
     validate_image_header,
 )
 from backend.services.aligner import AudioAligner
@@ -295,7 +296,9 @@ def test_save_upload_file_bounded_oserror_during_cleanup(tmp_path):
 
 
 def test_validate_image_header_adversarial_payloads():
-    """Exhaustively tests validate_image_header across short payloads, WebP RIFF variants, JPEG, and PNG."""
+    """Exhaustively tests validate_image_header across short payloads, WebP RIFF variants, JPEG, PNG, MP4, and WebM."""
+    assert validate_background_header == validate_image_header
+
     # Length < 2
     assert validate_image_header(b"", ".jpg") is False
     assert validate_image_header(b"\xff", ".jpg") is False
@@ -318,6 +321,20 @@ def test_validate_image_header_adversarial_payloads():
 
     # WebP: RIFF but tag is WAVE instead of WEBP
     assert validate_image_header(b"RIFF\x20\x00\x00\x00WAVEfmt ", ".webp") is False
+
+    # MP4: valid ftyp at offset 4..8
+    valid_mp4 = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00"
+    assert validate_image_header(valid_mp4, ".mp4") is True
+    assert validate_background_header(valid_mp4, ".mp4") is True
+    assert validate_image_header(b"\x00\x00\x00\x18fty", ".mp4") is False
+    assert validate_image_header(b"\x00\x00\x00\x18moovmp42", ".mp4") is False
+
+    # WebM: valid EBML header \x1a\x45\xdf\xa3
+    valid_webm = b"\x1a\x45\xdf\xa3\x9f\x42\x86"
+    assert validate_image_header(valid_webm, ".webm") is True
+    assert validate_background_header(valid_webm, ".webm") is True
+    assert validate_image_header(b"\x1a\x45\xdf", ".webm") is False
+    assert validate_image_header(b"EBML\x00\x00\x00\x00", ".webm") is False
 
     # Unsupported extension
     assert validate_image_header(b"GIF89a", ".gif") is False

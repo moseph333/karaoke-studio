@@ -657,6 +657,96 @@ class TestRouteUploadValidation:
         assert res.status_code == 400
         assert "invalid magic bytes" in res.json().get("detail", "").lower()
 
+    def test_upload_background_valid_mp4_accepted_200(self, client):
+        """Valid MP4 video background upload is saved and returns bg_id and static bg_url."""
+        valid_mp4 = io.BytesIO(b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00isommp42" + b"\x00" * 32)
+        res = client.post(
+            "/api/upload-background",
+            files={"file": ("clip.mp4", valid_mp4, "video/mp4")},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert "bg_id" in data
+        assert data["bg_id"].endswith("clip.mp4")
+        assert data["bg_url"].startswith("/static/backgrounds/")
+
+        target = main_mod.BACKGROUNDS_DIR / data["bg_id"]
+        assert target.exists()
+
+    def test_upload_background_valid_webm_accepted_200(self, client):
+        """Valid WebM video background upload is saved and returns bg_id and static bg_url."""
+        valid_webm = io.BytesIO(
+            b"\x1a\x45\xdf\xa3\x9f\x42\x86\x81\x01\x42\xf7\x81\x01\x42\x82\x88matroska"
+            + b"\x00" * 32
+        )
+        res = client.post(
+            "/api/upload-background",
+            files={"file": ("visuals.webm", valid_webm, "video/webm")},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "ok"
+        assert "bg_id" in data
+        assert data["bg_id"].endswith("visuals.webm")
+        assert data["bg_url"].startswith("/static/backgrounds/")
+
+        target = main_mod.BACKGROUNDS_DIR / data["bg_id"]
+        assert target.exists()
+
+    def test_upload_background_invalid_magic_bytes_mp4_rejected_400(self, client):
+        """Reject corrupted/spoofed .mp4 payload with HTTP 400 and ensure file deletion."""
+        text_payload = io.BytesIO(b"this is plain text claiming to be an mp4 video")
+        res = client.post(
+            "/api/upload-background",
+            files={"file": ("spoofed.mp4", text_payload, "video/mp4")},
+        )
+        assert res.status_code == 400
+        assert "invalid magic bytes" in res.json().get("detail", "").lower()
+
+        # Verify no orphaned file in BACKGROUNDS_DIR
+        for p in main_mod.BACKGROUNDS_DIR.iterdir():
+            assert not p.name.endswith("spoofed.mp4")
+
+    def test_upload_background_invalid_magic_bytes_webm_rejected_400(self, client):
+        """Reject corrupted/spoofed .webm payload with HTTP 400 and ensure file deletion."""
+        fake_webm = io.BytesIO(b"NOT_EBML_HEADER_FAKE_WEBM_CONTENT")
+        res = client.post(
+            "/api/upload-background",
+            files={"file": ("spoofed.webm", fake_webm, "video/webm")},
+        )
+        assert res.status_code == 400
+        assert "invalid magic bytes" in res.json().get("detail", "").lower()
+
+        # Verify no orphaned file in BACKGROUNDS_DIR
+        for p in main_mod.BACKGROUNDS_DIR.iterdir():
+            assert not p.name.endswith("spoofed.webm")
+
+    def test_validate_background_header_direct_unit(self):
+        """Direct unit testing of validate_background_header and validate_image_header alias."""
+        from backend.main import validate_background_header, validate_image_header
+
+        assert validate_background_header == validate_image_header
+
+        # Valid headers
+        assert validate_background_header(b"\xff\xd8\xff\xe0", ".jpg") is True
+        assert validate_background_header(b"\xff\xd8\xff\xe0", ".jpeg") is True
+        assert validate_background_header(b"\x89PNG\r\n\x1a\n", ".png") is True
+        assert validate_background_header(b"RIFF\x20\x00\x00\x00WEBPVP8 ", ".webp") is True
+        assert validate_background_header(b"\x00\x00\x00\x18ftypmp42", ".mp4") is True
+        assert validate_background_header(b"\x1a\x45\xdf\xa3\x01\x02", ".webm") is True
+
+        # Short payloads
+        assert validate_background_header(b"", ".mp4") is False
+        assert validate_background_header(b"ftyp", ".mp4") is False
+        assert validate_background_header(b"\x1a\x45", ".webm") is False
+        assert validate_background_header(b"", ".webm") is False
+
+        # Corrupt headers
+        assert validate_background_header(b"\x00\x00\x00\x18moovmp42", ".mp4") is False
+        assert validate_background_header(b"EBML\x00\x00\x00\x00", ".webm") is False
+        assert validate_background_header(b"GIF89a", ".gif") is False
+
     # --- Instrumental Stem Upload ---
 
     def test_upload_instrumental_empty_file_handled(self, client, test_project_factory):
@@ -950,3 +1040,164 @@ class TestRouteHappyPaths:
         assert "description" in data
         assert "tags" in data
         assert "Queen" in data["title"]
+
+
+class TestTrackUploadRoutes:
+    """Test suite for local audio track intake (POST /api/upload-track and /api/upload-audio)."""
+
+    def test_validate_audio_header_direct_unit(self):
+        """Direct unit testing of validate_audio_header across all allowed formats and edge cases."""
+        from backend.main import validate_audio_header
+
+        # WAV
+        valid_wav = b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00"
+        assert validate_audio_header(valid_wav, ".wav") is True
+        assert validate_audio_header(b"RIFFshort", ".wav") is False
+        assert validate_audio_header(b"RIFF$\x00\x00\x00NOTW", ".wav") is False
+
+        # MP3 ID3 & Frame Sync
+        valid_mp3_id3 = b"ID3\x03\x00\x00\x00\x00\x00\x00"
+        valid_mp3_sync = b"\xff\xfb\x90d"
+        assert validate_audio_header(valid_mp3_id3, ".mp3") is True
+        assert validate_audio_header(valid_mp3_sync, ".mp3") is True
+        assert validate_audio_header(b"\xff\x00fake", ".mp3") is False
+
+        # FLAC
+        valid_flac = b'fLaC\x00\x00\x00"'
+        assert validate_audio_header(valid_flac, ".flac") is True
+        assert validate_audio_header(b"flac", ".flac") is False
+
+        # OGG
+        valid_ogg = b"OggS\x00\x02\x00\x00"
+        assert validate_audio_header(valid_ogg, ".ogg") is True
+        assert validate_audio_header(b"OGGS", ".ogg") is False
+
+        # M4A & AAC
+        valid_m4a = b"\x00\x00\x00\x20ftypM4A "
+        valid_aac_adts = b"\xff\xf1\x50\x80"
+        assert validate_audio_header(valid_m4a, ".m4a") is True
+        assert validate_audio_header(valid_aac_adts, ".aac") is True
+        assert validate_audio_header(valid_m4a, ".aac") is True
+
+        # Edge cases: short buffers and unsupported extensions
+        assert validate_audio_header(b"", ".wav") is False
+        assert validate_audio_header(b"R", ".wav") is False
+        assert validate_audio_header(valid_wav, ".unknown") is False
+
+    def test_upload_track_empty_file_rejected_400(self, client):
+        """0-byte track upload must be rejected with HTTP 400 Bad Request."""
+        empty_payload = io.BytesIO(b"")
+        res = client.post(
+            "/api/upload-track",
+            files={"file": ("empty.wav", empty_payload, "audio/wav")},
+        )
+        assert res.status_code == 400
+        assert "empty" in res.json().get("detail", "").lower()
+
+    @pytest.mark.parametrize(
+        "bad_ext", ["script.sh", "video.mp4", "app.exe", "image.png", "doc.pdf", "text.txt"]
+    )
+    def test_upload_track_invalid_extension_rejected_400(self, client, bad_ext):
+        """Reject unapproved audio extensions with HTTP 400."""
+        payload = io.BytesIO(b"RIFF$\x00\x00\x00WAVEfmt ")
+        res = client.post(
+            "/api/upload-track",
+            files={"file": (bad_ext, payload, "application/octet-stream")},
+        )
+        assert res.status_code == 400
+        assert "unsupported audio format" in res.json().get("detail", "").lower()
+
+    def test_upload_track_oversized_file_rejected_413(self, client, monkeypatch):
+        """Track upload exceeding maximum permitted byte size returns HTTP 413."""
+        monkeypatch.setattr(main_mod, "MAX_TRACK_UPLOAD_BYTES", 256)
+        oversized = io.BytesIO(b"X" * 512)
+        res = client.post(
+            "/api/upload-track",
+            files={"file": ("huge.wav", oversized, "audio/wav")},
+        )
+        assert res.status_code == 413
+        assert "exceeds maximum permitted size" in res.json().get("detail", "").lower()
+
+    def test_upload_track_spoofed_magic_bytes_rejected_400(self, client):
+        """Reject non-audio payload disguised with audio extension with HTTP 400 and clean up."""
+        fake_wav = io.BytesIO(b"this is plain text claiming to be a wav file")
+        res = client.post(
+            "/api/upload-track",
+            files={"file": ("spoofed.wav", fake_wav, "audio/wav")},
+        )
+        assert res.status_code == 400
+        assert "invalid magic bytes" in res.json().get("detail", "").lower()
+
+        # Verify no orphaned file in DOWNLOADS_DIR
+        for p in main_mod.DOWNLOADS_DIR.iterdir():
+            assert not p.name.endswith("spoofed.wav")
+
+    def test_upload_track_valid_wav_accepted_200(self, client, monkeypatch):
+        """Valid WAV file upload is accepted, queued, and initializes project record."""
+        monkeypatch.setattr(main_mod, "run_local_pipeline", lambda *args, **kwargs: None)
+        valid_wav = io.BytesIO(b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00" + b"\x00" * 32)
+        res = client.post(
+            "/api/upload-track",
+            data={"title": "Custom Anthem", "artist": "Studio Artist", "created_by": "Tester"},
+            files={"file": ("anthem.wav", valid_wav, "audio/wav")},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "queued"
+        assert data["project_id"].startswith("local_")
+
+        proj = projects[data["project_id"]]
+        assert proj["title"] == "Custom Anthem"
+        assert proj["artist"] == "Studio Artist"
+        assert proj["created_by"] == "Tester"
+        assert proj["audio_url"] == f"/static/downloads/{data['project_id']}.wav"
+
+    def test_upload_track_valid_mp3_accepted_200(self, client, monkeypatch):
+        """Valid MP3 file upload with ID3 header is accepted with HTTP 200."""
+        monkeypatch.setattr(main_mod, "run_local_pipeline", lambda *args, **kwargs: None)
+        valid_mp3 = io.BytesIO(b"ID3\x03\x00\x00\x00\x00\x00\x00" + b"\x00" * 32)
+        res = client.post(
+            "/api/upload-track",
+            files={"file": ("track.mp3", valid_mp3, "audio/mpeg")},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "queued"
+        assert data["project_id"].startswith("local_")
+
+    def test_upload_track_valid_flac_accepted_200(self, client, monkeypatch):
+        """Valid FLAC file upload with fLaC header is accepted with HTTP 200."""
+        monkeypatch.setattr(main_mod, "run_local_pipeline", lambda *args, **kwargs: None)
+        valid_flac = io.BytesIO(b'fLaC\x00\x00\x00"' + b"\x00" * 32)
+        res = client.post(
+            "/api/upload-track",
+            files={"file": ("acoustic.flac", valid_flac, "audio/flac")},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "queued"
+
+    def test_upload_track_alias_upload_audio(self, client, monkeypatch):
+        """POST /api/upload-audio works as an alias for /api/upload-track."""
+        monkeypatch.setattr(main_mod, "run_local_pipeline", lambda *args, **kwargs: None)
+        valid_wav = io.BytesIO(b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00" + b"\x00" * 32)
+        res = client.post(
+            "/api/upload-audio",
+            files={"file": ("alias.wav", valid_wav, "audio/wav")},
+        )
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "queued"
+        assert data["project_id"].startswith("local_")
+
+    def test_upload_track_path_traversal_sanitized(self, client, monkeypatch):
+        """Path traversal characters in filename are safely sanitized."""
+        monkeypatch.setattr(main_mod, "run_local_pipeline", lambda *args, **kwargs: None)
+        valid_wav = io.BytesIO(b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00" + b"\x00" * 32)
+        res = client.post(
+            "/api/upload-track",
+            files={"file": ("../../../../etc/malicious.wav", valid_wav, "audio/wav")},
+        )
+        assert res.status_code == 200
+        pid = res.json()["project_id"]
+        assert ".." not in pid

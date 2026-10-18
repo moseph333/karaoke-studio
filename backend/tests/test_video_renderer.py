@@ -511,3 +511,285 @@ def test_aspect_ratio_fallback_consistency(tmp_path, monkeypatch):
     )
     v_cmd = recorded_cmds[-1]
     assert "s=1080x1920" in " ".join(v_cmd)
+
+
+def test_render_video_with_custom_mp4_background_16_9(tmp_path):
+    """
+    Renders 16:9 MP4 video with looped custom MP4 background and burned-in subtitles.
+    Probes output with ffprobe to verify 1920x1080 dimensions, h264/aac codecs, and duration.
+    """
+    renderer = VideoRenderer(output_dir=tmp_path)
+    output_ass = tmp_path / "test_16_9.ass"
+    output_mp4 = tmp_path / "test_16_9.mp4"
+    audio_path = tmp_path / "test_16_9.wav"
+    custom_bg = tmp_path / "bg.mp4"
+
+    # Create 1.0s background MP4 video with an audio stream (verifies bg audio is ignored)
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=duration=1:size=640x360:rate=10",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=1000:duration=1",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            str(custom_bg),
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    # Create 2.0s audio WAV
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=2",
+            str(audio_path),
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    renderer.generate_ass_subtitles(
+        [
+            {
+                "id": 0,
+                "text": "16:9 Looped MP4 Background",
+                "start_time": 0.0,
+                "end_time": 2.0,
+                "words": [{"word": "16:9", "start_time": 0.0, "end_time": 1.0}],
+            }
+        ],
+        output_ass,
+        aspect_ratio="16:9",
+    )
+
+    rendered_path = renderer.render_video(
+        audio_path=str(audio_path),
+        ass_subtitles_path=str(output_ass),
+        output_mp4_path=output_mp4,
+        custom_bg_path=str(custom_bg),
+        aspect_ratio="16:9",
+        duration=2.0,
+    )
+
+    assert os.path.exists(rendered_path)
+
+    # Probe video stream
+    probe_v = (
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height,codec_name",
+                "-of",
+                "csv=p=0",
+                rendered_path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .split(",")
+    )
+    codec, width, height = probe_v[0], int(probe_v[1]), int(probe_v[2])
+    assert codec == "h264"
+    assert width == 1920
+    assert height == 1080
+
+    # Probe audio stream
+    probe_a = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "a:0",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "csv=p=0",
+            rendered_path,
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert probe_a == "aac"
+
+    # Probe duration (should be ~2.0s, showing loop of 1s video)
+    probe_d = float(
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "csv=p=0",
+                rendered_path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    )
+    assert 1.8 <= probe_d <= 2.2
+
+
+def test_render_video_with_custom_webm_background_9_16(tmp_path):
+    """
+    Renders 9:16 vertical video with looped custom WebM background.
+    Probes output with ffprobe to verify 1080x1920 dimensions, h264/aac codecs, and duration.
+    """
+    renderer = VideoRenderer(output_dir=tmp_path)
+    output_ass = tmp_path / "test_9_16.ass"
+    output_mp4 = tmp_path / "test_9_16.mp4"
+    audio_path = tmp_path / "test_9_16.wav"
+    custom_bg = tmp_path / "bg.webm"
+
+    # Create 1.0s background WebM video
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc=duration=1:size=360x640:rate=10",
+            "-c:v",
+            "libvpx",
+            "-b:v",
+            "500k",
+            str(custom_bg),
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    # Create 2.0s audio WAV
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=2",
+            str(audio_path),
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    renderer.generate_ass_subtitles(
+        [
+            {
+                "id": 0,
+                "text": "9:16 Looped WebM Background",
+                "start_time": 0.0,
+                "end_time": 2.0,
+                "words": [{"word": "9:16", "start_time": 0.0, "end_time": 1.0}],
+            }
+        ],
+        output_ass,
+        aspect_ratio="9:16",
+    )
+
+    rendered_path = renderer.render_video(
+        audio_path=str(audio_path),
+        ass_subtitles_path=str(output_ass),
+        output_mp4_path=output_mp4,
+        custom_bg_path=str(custom_bg),
+        aspect_ratio="9:16",
+        duration=2.0,
+    )
+
+    assert os.path.exists(rendered_path)
+
+    # Probe video stream
+    probe_v = (
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height,codec_name",
+                "-of",
+                "csv=p=0",
+                rendered_path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .split(",")
+    )
+    codec, width, height = probe_v[0], int(probe_v[1]), int(probe_v[2])
+    assert codec == "h264"
+    assert width == 1080
+    assert height == 1920
+
+    # Probe audio stream
+    probe_a = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "a:0",
+            "-show_entries",
+            "stream=codec_name",
+            "-of",
+            "csv=p=0",
+            rendered_path,
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    assert probe_a == "aac"
+
+    # Probe duration
+    probe_d = float(
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "csv=p=0",
+                rendered_path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    )
+    assert 1.8 <= probe_d <= 2.2

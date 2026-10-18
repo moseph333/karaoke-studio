@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import App from '../App';
 import { TrackSearch } from '../components/TrackSearch';
 import { AuthModal } from '../components/AuthModal';
@@ -428,6 +428,31 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
 
       const mySongsTab = screen.getByRole('tab', { name: /my songs/i });
       expect(mySongsTab.className).toContain('min-h-[36px]');
+    });
+
+    it('renders local audio upload panel with zero overflow and >=44px touch targets at 320px', () => {
+      setTestViewport(320, 568);
+      const { container } = render(
+        <TrackSearch
+          onSelectTrack={vi.fn()}
+          onOpenProject={vi.fn()}
+          isLoading={false}
+          currentUser="TestUser"
+        />
+      );
+
+      const localToggle = screen.getByRole('button', { name: /Local Audio File/i });
+      fireEvent.click(localToggle);
+
+      assertZeroHorizontalOverflow(container, 320);
+
+      const uploadBtn = screen.getByRole('button', {
+        name: /Upload and process local audio track/i,
+      });
+      expect(uploadBtn.className).toContain('min-h-[44px]');
+
+      const titleInput = screen.getByLabelText(/Track Title/i);
+      expect(titleInput.className).toContain('min-h-[44px]');
     });
   });
 

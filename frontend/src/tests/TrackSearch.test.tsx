@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TrackSearch } from '../components/TrackSearch';
 
@@ -89,5 +89,109 @@ describe('TrackSearch', () => {
     await user.click(lyricsToggle);
 
     expect(screen.getByPlaceholderText(/Paste line-by-line lyrics here/i)).toBeInTheDocument();
+  });
+
+  it('switches to Local Audio File mode and shows file dropzone and metadata inputs', async () => {
+    const user = userEvent.setup();
+    render(<TrackSearch {...defaultProps} />);
+
+    const localToggle = screen.getByRole('button', { name: /Local Audio File/i });
+    await user.click(localToggle);
+
+    expect(screen.getByText(/Click to select audio/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/e\.g\. Bohemian Rhapsody/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/e\.g\. Queen/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Upload and process local audio track/i })
+    ).toBeInTheDocument();
+  });
+
+  it('handles audio file selection and auto-populates title from filename', async () => {
+    const user = userEvent.setup();
+    render(<TrackSearch {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /Local Audio File/i }));
+
+    const file = new File(['fake-audio-bytes'], 'hotel_california.mp3', { type: 'audio/mpeg' });
+    const fileInput = screen.getByLabelText(/Choose local audio file/i);
+
+    await user.upload(fileInput, file);
+
+    expect(screen.getByText('hotel_california.mp3')).toBeInTheDocument();
+    const titleInput = screen.getByLabelText(/Track Title/i) as HTMLInputElement;
+    expect(titleInput.value).toBe('hotel california');
+  });
+
+  it('submits local audio upload with metadata and custom lyrics calling onUploadTrack', async () => {
+    const user = userEvent.setup();
+    const onUploadTrack = vi.fn().mockResolvedValue(undefined);
+    render(<TrackSearch {...defaultProps} onUploadTrack={onUploadTrack} />);
+
+    await user.click(screen.getByRole('button', { name: /Local Audio File/i }));
+
+    // Expand custom lyrics
+    await user.click(screen.getByRole('button', { name: /Provide custom lyrics text/i }));
+    fireEvent.change(screen.getByLabelText(/Custom plain lyrics text/i), {
+      target: { value: '[00:01.00] First lyric' },
+    });
+
+    const file = new File(['wav-data'], 'my_song.wav', { type: 'audio/wav' });
+    await user.upload(screen.getByLabelText(/Choose local audio file/i), file);
+
+    const titleInput = screen.getByLabelText(/Track Title/i);
+    await user.clear(titleInput);
+    await user.type(titleInput, 'Custom Title');
+
+    const artistInput = screen.getByLabelText(/Artist Name/i);
+    await user.type(artistInput, 'Custom Singer');
+
+    const uploadBtn = screen.getByRole('button', { name: /Upload and process local audio track/i });
+    await user.click(uploadBtn);
+
+    expect(onUploadTrack).toHaveBeenCalledTimes(1);
+    expect(onUploadTrack).toHaveBeenCalledWith({
+      file,
+      title: 'Custom Title',
+      artist: 'Custom Singer',
+      customLyrics: '[00:01.00] First lyric',
+      createdBy: 'TestSinger',
+    });
+  });
+
+  it('displays error message when local audio upload fails', async () => {
+    const user = userEvent.setup();
+    const onUploadTrack = vi
+      .fn()
+      .mockRejectedValue(new Error('File exceeds maximum permitted size of 100MB'));
+    render(<TrackSearch {...defaultProps} onUploadTrack={onUploadTrack} />);
+
+    await user.click(screen.getByRole('button', { name: /Local Audio File/i }));
+
+    const file = new File(['huge-data'], 'huge.wav', { type: 'audio/wav' });
+    await user.upload(screen.getByLabelText(/Choose local audio file/i), file);
+
+    const uploadBtn = screen.getByRole('button', { name: /Upload and process local audio track/i });
+    await user.click(uploadBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/File exceeds maximum permitted size of 100MB/i)).toBeInTheDocument();
+    });
+  });
+
+  it('clears selected file when clicking remove button', async () => {
+    const user = userEvent.setup();
+    render(<TrackSearch {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: /Local Audio File/i }));
+
+    const file = new File(['data'], 'remove_me.wav', { type: 'audio/wav' });
+    await user.upload(screen.getByLabelText(/Choose local audio file/i), file);
+    expect(screen.getByText('remove_me.wav')).toBeInTheDocument();
+
+    const removeBtn = screen.getByRole('button', { name: /Remove selected audio file/i });
+    await user.click(removeBtn);
+
+    expect(screen.queryByText('remove_me.wav')).not.toBeInTheDocument();
+    expect(screen.getByText(/Click to select audio/i)).toBeInTheDocument();
   });
 });

@@ -16,6 +16,8 @@ Derives assertions strictly from public API routes and contracts defined in PROJ
 import io
 import json
 import os
+import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -71,8 +73,73 @@ def test_audio_intake_with_custom_lyrics_payload(client):
 
     proj = client.get(f"/api/project/{pid}").json()
     assert proj["lyric_source"] == "custom"
+    assert proj["is_synced"] is False
     assert len(proj["lines"]) >= 2
     assert "Never gonna give you up" in proj["lines"][0]["text"]
+
+
+def test_audio_intake_with_custom_lrc_lyrics_synced(client):
+    """Submitting process request with custom LRC lyrics preserves line timings, sets is_synced=True, and strips tags."""
+    lrc_text = (
+        "[00:04.20] First line of the song\n"
+        "[00:08.50] Second line with more words\n"
+        "[00:14.00] Final chorus line\n"
+    )
+    payload = {"url_or_id": "customlrc11x", "custom_lyrics": lrc_text}
+    response = client.post("/api/process", json=payload)
+    assert response.status_code == 200
+    pid = response.json()["project_id"]
+
+    proj = client.get(f"/api/project/{pid}").json()
+    assert proj["lyric_source"] == "custom"
+    assert proj["is_synced"] is True
+    assert len(proj["lines"]) == 3
+
+    # Line start times must be preserved within tight alignment tolerance
+    assert abs(proj["lines"][0]["start_time"] - 4.20) < 0.05
+    assert abs(proj["lines"][1]["start_time"] - 8.50) < 0.05
+    assert abs(proj["lines"][2]["start_time"] - 14.00) < 0.05
+
+    # Ensure no raw timestamp tags leak into line text or word tokens
+    for line in proj["lines"]:
+        assert not re.search(r"\[\d{1,2}:\d{2}", line["text"])
+        assert not re.search(r"<\d{1,2}:\d{2}", line["text"])
+        assert len(line["words"]) > 0
+        for w in line["words"]:
+            assert not re.search(r"\[\d{1,2}:\d{2}", w["word"])
+            assert not re.search(r"<\d{1,2}:\d{2}", w["word"])
+            assert w["start_time"] <= w["end_time"]
+
+
+def test_audio_intake_with_custom_lrc_multi_timestamp(client):
+    """Submitting process request with repeated timestamps on a line creates chronologically sorted distinct lines."""
+    lrc_text = "[00:02.00] Intro verse\n[00:06.00][00:12.00] Catchy hook phrase\n"
+    payload = {"url_or_id": "multilrc11xx", "custom_lyrics": lrc_text}
+    response = client.post("/api/process", json=payload)
+    assert response.status_code == 200
+    pid = response.json()["project_id"]
+
+    proj = client.get(f"/api/project/{pid}").json()
+    assert proj["is_synced"] is True
+    assert len(proj["lines"]) == 3
+    assert abs(proj["lines"][0]["start_time"] - 2.00) < 0.05
+    assert abs(proj["lines"][1]["start_time"] - 6.00) < 0.05
+    assert abs(proj["lines"][2]["start_time"] - 12.00) < 0.05
+    assert proj["lines"][1]["text"] == "Catchy hook phrase"
+    assert proj["lines"][2]["text"] == "Catchy hook phrase"
+
+
+def test_audio_intake_with_custom_lyrics_section_headings(client):
+    """Submitting plain custom lyrics with bracketed section headers does not falsely trigger LRC detection."""
+    custom_text = "[Verse 1]\nOpening lines of poetry\n[Chorus]\nLoud and clear refrains\n"
+    payload = {"url_or_id": "sectionlyr1x", "custom_lyrics": custom_text}
+    response = client.post("/api/process", json=payload)
+    assert response.status_code == 200
+    pid = response.json()["project_id"]
+
+    proj = client.get(f"/api/project/{pid}").json()
+    assert proj["lyric_source"] == "custom"
+    assert proj["is_synced"] is False
 
 
 def test_audio_intake_creator_attribution(client):
@@ -110,6 +177,154 @@ def test_audio_intake_track_search(client):
     assert "title" in first
     assert "artist" in first
     assert "url" in first
+
+
+def test_audio_intake_local_audio_track_full_pipeline(client, sample_wav):
+    """Uploading a local audio track processes through full pipeline to ready status."""
+    with open(sample_wav, "rb") as f:
+        wav_bytes = f.read()
+
+    response = client.post(
+        "/api/upload-track",
+        data={"title": "Studio Jam", "artist": "Local Heroes", "created_by": "Singer42"},
+        files={"file": ("jam.wav", io.BytesIO(wav_bytes), "audio/wav")},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "project_id" in data
+    pid = data["project_id"]
+    assert pid.startswith("local_")
+
+    # Poll project state
+    proj_resp = client.get(f"/api/project/{pid}")
+    assert proj_resp.status_code == 200
+    proj = proj_resp.json()
+    assert proj["status"] in ["queued", "ready"]
+    assert proj["title"] == "Studio Jam"
+    assert proj["artist"] == "Local Heroes"
+    assert proj["created_by"] == "Singer42"
+    assert proj["audio_url"] == f"/static/downloads/{pid}.wav"
+    assert proj["vocals_url"].startswith("/static/stems/")
+    assert proj["instrumental_url"].startswith("/static/stems/")
+    assert proj["master_audio_url"].startswith("/static/output/")
+
+
+def test_audio_intake_local_audio_track_with_custom_lrc_lyrics(client, sample_wav):
+    """Uploading a local track with custom LRC lyrics preserves timestamps and sets is_synced=True."""
+    with open(sample_wav, "rb") as f:
+        wav_bytes = f.read()
+
+    lrc_text = (
+        "[00:00.20] First local acoustic verse\n"
+        "[00:00.60] Second line of singing\n"
+        "[00:01.10] Final crescendo\n"
+    )
+
+    response = client.post(
+        "/api/upload-track",
+        data={
+            "title": "Local Ballad",
+            "artist": "Acoustic Band",
+            "custom_lyrics": lrc_text,
+        },
+        files={"file": ("ballad.wav", io.BytesIO(wav_bytes), "audio/wav")},
+    )
+    assert response.status_code == 200
+    pid = response.json()["project_id"]
+
+    proj = client.get(f"/api/project/{pid}").json()
+    assert proj["lyric_source"] == "custom"
+    assert proj["is_synced"] is True
+    assert len(proj["lines"]) == 3
+    assert abs(proj["lines"][0]["start_time"] - 0.20) < 0.05
+    assert abs(proj["lines"][1]["start_time"] - 0.60) < 0.05
+    assert abs(proj["lines"][2]["start_time"] - 1.10) < 0.05
+
+    # Ensure no raw timestamp tags leak into line text or words
+    for line in proj["lines"]:
+        assert not re.search(r"\[\d{1,2}:\d{2}", line["text"])
+        assert len(line["words"]) > 0
+        for w in line["words"]:
+            assert not re.search(r"\[\d{1,2}:\d{2}", w["word"])
+
+
+def test_audio_intake_local_audio_rejections_leave_zero_orphans(client):
+    """Rejection conditions (0-byte, unsupported extension, spoofed header) leave zero orphaned files."""
+    downloads_before = set(main_mod.DOWNLOADS_DIR.iterdir())
+
+    # 1. 0-byte file
+    res1 = client.post(
+        "/api/upload-track", files={"file": ("empty.wav", io.BytesIO(b""), "audio/wav")}
+    )
+    assert res1.status_code == 400
+
+    # 2. Unsupported extension
+    res2 = client.post(
+        "/api/upload-track",
+        files={"file": ("script.py", io.BytesIO(b"print('hello')"), "text/plain")},
+    )
+    assert res2.status_code == 400
+
+    # 3. Spoofed magic bytes
+    res3 = client.post(
+        "/api/upload-track",
+        files={"file": ("fake.wav", io.BytesIO(b"not a valid wav file"), "audio/wav")},
+    )
+    assert res3.status_code == 400
+
+    downloads_after = set(main_mod.DOWNLOADS_DIR.iterdir())
+    assert downloads_before == downloads_after
+
+
+def test_audio_intake_local_mp3_transcodes_and_completes_pipeline(client, tmp_path, sample_wav):
+    """Uploading a local MP3 track transcodes via ffmpeg to standard WAV and completes pipeline."""
+    mp3_path = tmp_path / "test_song.mp3"
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", str(sample_wav), "-vn", "-b:a", "128k", str(mp3_path)],
+        check=True,
+        capture_output=True,
+    )
+    with open(mp3_path, "rb") as f:
+        mp3_bytes = f.read()
+
+    response = client.post(
+        "/api/upload-track",
+        data={"title": "MP3 Track", "artist": "Transcode Artist"},
+        files={"file": ("test_song.mp3", io.BytesIO(mp3_bytes), "audio/mpeg")},
+    )
+    assert response.status_code == 200
+    pid = response.json()["project_id"]
+
+    proj = client.get(f"/api/project/{pid}").json()
+    assert proj["status"] in ["queued", "ready"]
+    assert proj["audio_url"] == f"/static/downloads/{pid}.wav"
+    assert proj["vocals_url"].startswith("/static/stems/")
+    assert proj["instrumental_url"].startswith("/static/stems/")
+    assert proj["master_audio_url"].startswith("/static/output/")
+
+
+def test_audio_intake_local_flac_transcodes_and_completes_pipeline(client, tmp_path, sample_wav):
+    """Uploading a local FLAC track transcodes via ffmpeg to standard WAV and completes pipeline."""
+    flac_path = tmp_path / "test_song.flac"
+    subprocess.run(
+        ["ffmpeg", "-y", "-i", str(sample_wav), "-vn", str(flac_path)],
+        check=True,
+        capture_output=True,
+    )
+    with open(flac_path, "rb") as f:
+        flac_bytes = f.read()
+
+    response = client.post(
+        "/api/upload-track",
+        data={"title": "FLAC Track", "artist": "Lossless Artist"},
+        files={"file": ("test_song.flac", io.BytesIO(flac_bytes), "audio/flac")},
+    )
+    assert response.status_code == 200
+    pid = response.json()["project_id"]
+
+    proj = client.get(f"/api/project/{pid}").json()
+    assert proj["status"] in ["queued", "ready"]
+    assert proj["audio_url"] == f"/static/downloads/{pid}.wav"
 
 
 # ==============================================================================

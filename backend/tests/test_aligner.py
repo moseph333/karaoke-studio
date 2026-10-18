@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import soundfile as sf
 
@@ -213,3 +215,64 @@ def test_align_lyrics_high_sample_rate(tmp_path):
     assert len(aligned[0]["words"]) == 4
     for w in aligned[0]["words"]:
         assert w["start_time"] < w["end_time"]
+
+
+def test_align_lyrics_strips_stray_tags_and_preserves_line_timings(tmp_path):
+    """Verifies align_lyrics strips raw timestamp tags and preserves line start/end boundaries."""
+    sr = 44100
+    duration = 8.0
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    vocals = np.zeros_like(t)
+    # Energy burst around 4.5s - 6.5s
+    active_mask = (t >= 4.5) & (t <= 6.5)
+    vocals[active_mask] = 0.5 * np.sin(2 * np.pi * 440 * t[active_mask])
+
+    vocals_file = tmp_path / "vocals_tags.wav"
+    sf.write(str(vocals_file), vocals, sr)
+
+    aligner = AudioAligner()
+    lines_with_tags = [
+        {
+            "id": 0,
+            "text": "[00:04.20] Clean text line <00:05.10> without tags [00:07.00]",
+            "start_time": 4.20,
+            "end_time": 7.00,
+            "words": [],
+        }
+    ]
+
+    aligned = aligner.align_lyrics(str(vocals_file), lines_with_tags)
+    assert len(aligned) == 1
+    line = aligned[0]
+    assert line["start_time"] == 4.20
+    assert line["end_time"] == 7.00
+    assert line["text"] == "Clean text line without tags"
+
+    # Verify no word contains brackets or angle tags
+    assert len(line["words"]) == 5
+    for w in line["words"]:
+        assert not re.search(r"\[\d{1,2}:\d{2}", w["word"])
+        assert not re.search(r"<\d{1,2}:\d{2}", w["word"])
+        assert w["start_time"] >= 4.20
+        assert w["end_time"] <= 7.00
+
+
+def test_fallback_distribute_words_strips_stray_tags():
+    """Verifies _fallback_distribute_words strips tags even when audio analysis is bypassed."""
+    aligner = AudioAligner()
+    lines_with_tags = [
+        {
+            "id": 0,
+            "text": "[00:01.00] Fallback line <00:02.00> testing",
+            "start_time": 1.0,
+            "end_time": 4.0,
+        }
+    ]
+    res = aligner._fallback_distribute_words(lines_with_tags)
+    assert len(res) == 1
+    assert res[0]["text"] == "Fallback line testing"
+    words = res[0]["words"]
+    assert len(words) == 3
+    for w in words:
+        assert not re.search(r"\[\d{1,2}:\d{2}", w["word"])
+        assert not re.search(r"<\d{1,2}:\d{2}", w["word"])
