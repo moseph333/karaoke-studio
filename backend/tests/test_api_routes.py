@@ -1617,6 +1617,57 @@ class TestSubtitleExportLrc:
         assert '"' not in filename
         assert filename.endswith(".lrc")
 
+    def test_export_lrc_non_latin1_cjk_title_content_disposition(
+        self, client, test_project_factory
+    ):
+        """LRC export with CJK characters in title/artist does not crash Starlette header encoding."""
+        proj = test_project_factory(
+            title="夜に駆ける",
+            artist="YOASOBI",
+            lines=[
+                {"id": 0, "text": "沈むように溶けてゆくように", "start_time": 1.0, "end_time": 4.0}
+            ],
+        )
+        res = client.get(f"/api/project/{proj['id']}/export/lrc")
+        assert res.status_code == 200
+        cd = res.headers["content-disposition"]
+        # Header must be strictly encodable in latin-1 (verified by lack of Starlette 500 error)
+        cd.encode("latin-1")
+        # Must contain ASCII fallback
+        assert 'filename="YOASOBI.lrc"' in cd
+        # Must contain RFC 5987 UTF-8 parameter
+        assert "filename*=UTF-8''" in cd
+        assert "YOASOBI" in cd
+        # Content must retain UTF-8 Japanese lyrics
+        assert "[ti:夜に駆ける]" in res.text
+        assert "[ar:YOASOBI]" in res.text
+        assert "沈むように溶けてゆくように" in res.text
+
+    def test_export_lrc_100_plus_minute_track_returns_200(self, client, test_project_factory):
+        """Exporting .lrc for a track >= 100 minutes returns HTTP 200 (not false 400)."""
+        proj = test_project_factory(
+            title="Extended Symphony",
+            artist="Orchestra",
+            lines=[
+                {
+                    "id": 0,
+                    "text": "Movement at 100 minutes",
+                    "start_time": 6000.0,
+                    "end_time": 6005.0,
+                },
+                {
+                    "id": 1,
+                    "text": "Movement at two hours",
+                    "start_time": 7200.0,
+                    "end_time": 7205.0,
+                },
+            ],
+        )
+        res = client.get(f"/api/project/{proj['id']}/export/lrc")
+        assert res.status_code == 200
+        assert "[100:00.00]Movement at 100 minutes" in res.text
+        assert "[120:00.00]Movement at two hours" in res.text
+
 
 class TestExportAssSubtitles:
     """Verifies GET /api/project/{project_id}/export/ass route."""
@@ -1771,3 +1822,79 @@ class TestExportAssSubtitles:
             headers={"X-App-Password": "studio_secret_phrase"},
         )
         assert res_auth.status_code == 200
+
+    def test_export_ass_non_latin1_cjk_title_content_disposition(
+        self, client, test_project_factory
+    ):
+        """ASS export with CJK characters does not crash Starlette header encoding."""
+        proj = test_project_factory(
+            title="夜に駆ける",
+            artist="YOASOBI",
+            lines=[
+                {"id": 0, "text": "沈むように溶けてゆくように", "start_time": 1.0, "end_time": 4.0}
+            ],
+        )
+        res = client.get(f"/api/project/{proj['id']}/export/ass")
+        assert res.status_code == 200
+        cd = res.headers["content-disposition"]
+        cd.encode("latin-1")
+        assert 'filename="YOASOBI.ass"' in cd
+        assert "filename*=UTF-8''" in cd
+        assert "Title: YOASOBI - 夜に駆ける" in res.text
+
+    def test_export_lrc_and_ass_emojis_and_cyrillic(self, client, test_project_factory):
+        """LRC and ASS exports safely handle emojis and Cyrillic script in titles."""
+        proj = test_project_factory(
+            title="Катюша 🎵 🎤",
+            artist="Хор",
+            lines=[
+                {"id": 0, "text": "Расцветали яблони и груши", "start_time": 2.0, "end_time": 5.0}
+            ],
+        )
+        res_lrc = client.get(f"/api/project/{proj['id']}/export/lrc")
+        assert res_lrc.status_code == 200
+        res_lrc.headers["content-disposition"].encode("latin-1")
+
+        res_ass = client.get(f"/api/project/{proj['id']}/export/ass")
+        assert res_ass.status_code == 200
+        res_ass.headers["content-disposition"].encode("latin-1")
+
+    def test_export_ass_100_plus_minute_track_returns_200(self, client, test_project_factory):
+        """Exporting .ass for a track >= 100 minutes returns HTTP 200 with formatted timecodes."""
+        proj = test_project_factory(
+            title="Extended Symphony",
+            artist="Orchestra",
+            lines=[
+                {
+                    "id": 0,
+                    "text": "Movement at 100 minutes",
+                    "start_time": 6000.0,
+                    "end_time": 6005.0,
+                }
+            ],
+        )
+        res = client.get(f"/api/project/{proj['id']}/export/ass")
+        assert res.status_code == 200
+        assert "1:40:00.00" in res.text
+
+    def test_export_ass_malformed_timestamps_in_project_returns_200(
+        self, client, test_project_factory
+    ):
+        """Exporting .ass for a project with None/NaN timestamps returns HTTP 200 (not 500 crash)."""
+        proj = test_project_factory(
+            title="Faulty Timestamps",
+            artist="Tester",
+            lines=[
+                {
+                    "id": 0,
+                    "text": "Corrupted timestamps",
+                    "start_time": None,
+                    "end_time": float("nan"),
+                },
+                {"id": 1, "text": "Negative timestamps", "start_time": -10.0, "end_time": -5.0},
+            ],
+        )
+        res = client.get(f"/api/project/{proj['id']}/export/ass")
+        assert res.status_code == 200
+        assert "Corrupted timestamps" in res.text
+        assert "Negative timestamps" in res.text
