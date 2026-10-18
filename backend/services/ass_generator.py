@@ -162,10 +162,8 @@ def generate_ass_content(
     outline_width = cfg.get("outline_width", 3)
     shadow_width = cfg.get("shadow_width", 2)
 
-    safe_title = (
-        (title or "YouTube Karaoke Generator").replace("\r", " ").replace("\n", " ").strip()
-    )
-    doc_title = safe_title or "YouTube Karaoke Generator"
+    safe_title = (title or "Karaoke Studio").replace("\r", " ").replace("\n", " ").strip()
+    doc_title = safe_title or "Karaoke Studio"
 
     ass_content = [
         "[Script Info]",

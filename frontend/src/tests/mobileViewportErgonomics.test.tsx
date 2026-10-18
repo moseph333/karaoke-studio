@@ -79,12 +79,12 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       // Verify touch target height
       expect(profileButton.className).toMatch(/min-h-\[36px\]/);
 
-      // Verify top brand scaling: "YouTube " is hidden on small viewports
+      // Verify top brand: renders "Karaoke Studio" directly across all viewports
       const header = screen.getByRole('banner');
       const brandHeading = within(header).getByText(/Karaoke Studio/i);
       expect(brandHeading).toBeInTheDocument();
-      const youtubeSpan = brandHeading.querySelector('span');
-      expect(youtubeSpan?.className).toMatch(/hidden sm:inline/);
+      expect(brandHeading.textContent?.trim()).toBe('Karaoke Studio');
+      expect(brandHeading.querySelector('span')).toBeNull();
     });
 
     it('truncates 150-character song titles and artists in Search Results using min-w-0 flex-1', async () => {

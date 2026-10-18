@@ -1,7 +1,7 @@
 """
 backend/tests/test_api_routes.py
 
-Comprehensive route integration test suite for YouTube Karaoke Studio.
+Comprehensive route integration test suite for Karaoke Studio.
 Validates HTTP status codes, Pydantic input schemas (422), route pre-flight checks (400),
 authentication/authorization gates (401), upload validation (400/413), and happy paths.
 """
@@ -831,7 +831,7 @@ class TestRouteHappyPaths:
         assert res.status_code == 200
         data = res.json()
         assert data["status"] == "ok"
-        assert "YouTube Karaoke Studio" in data["service"]
+        assert "Karaoke Studio" in data["service"]
 
     def test_auth_login_logout_lifecycle_happy_path(self, unauth_client, monkeypatch):
         """Login sets authentication cookie; logout removes it."""

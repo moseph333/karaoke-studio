@@ -51,7 +51,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
           </div>
           <div className="truncate">
             <span className="font-extrabold text-sm sm:text-lg tracking-tight font-['Montserrat'] bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent truncate block">
-              <span className="hidden sm:inline">YouTube </span>Karaoke Studio
+              Karaoke Studio
             </span>
           </div>
         </div>

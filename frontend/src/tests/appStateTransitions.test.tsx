@@ -425,11 +425,10 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const brandIcon = brandLogo?.querySelector('svg');
       expect(brandIcon?.getAttribute('class')).toMatch(/w-4 h-4/);
 
-      // Brand title in header has responsive hidden prefix
+      // Brand title in header renders "Karaoke Studio" with no YouTube prefix
       const brandTitle = within(header!).getByText(/Karaoke Studio/i);
-      const ytPrefix = brandTitle.querySelector('span');
-      expect(ytPrefix?.textContent).toBe('YouTube ');
-      expect(ytPrefix?.className).toMatch(/hidden sm:inline/);
+      expect(brandTitle.textContent?.trim()).toBe('Karaoke Studio');
+      expect(brandTitle.querySelector('span')).toBeNull();
 
       // User profile button truncation
       const userBtn = screen.getByRole('button', { name: /Logged in as/i });
