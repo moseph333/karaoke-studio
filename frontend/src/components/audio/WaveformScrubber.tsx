@@ -239,7 +239,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
             aria-valuemax={Math.round(duration) || 100}
             aria-valuenow={Math.round(currentTime)}
             aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
-            className="w-full h-full opacity-0 cursor-pointer z-20"
+            className="w-full h-full opacity-0 cursor-pointer z-20 touch-none py-2"
           />
         </Tooltip>
       </div>

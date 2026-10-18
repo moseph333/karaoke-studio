@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 
 from backend.export_utils import build_content_disposition
 from backend.project_store import get_project_or_404
-from backend.services.ass_generator import VISUAL_THEMES
+from backend.services.ass_generator import VISUAL_THEMES, css_to_ass_color
 
 router = APIRouter(tags=["exports"])
 
@@ -53,16 +53,19 @@ def export_project_ass(
     aspect_ratio: str = Query("16:9", description="Canvas aspect ratio: strictly '16:9' or '9:16'"),
     theme_id: str | None = Query(None, description="Visual theme preset ID"),
     primary_color: str | None = Query(
-        None, description="Optional primary (sung) ASS color override"
+        None, description="Optional primary (sung) ASS or CSS hex color override"
     ),
     secondary_color: str | None = Query(
-        None, description="Optional secondary (unsung) ASS color override"
+        None, description="Optional secondary (unsung) ASS or CSS hex color override"
+    ),
+    font_size_scale: float = Query(
+        1.0, ge=0.5, le=3.0, description="Font size scale factor (0.5 to 3.0)"
     ),
 ):
     """Export synchronized Advanced SubStation Alpha (.ass) subtitles for a project.
 
     Supports aspect ratios ('16:9' or '9:16'), visual theme presets, progressive \\kf tags,
-    and direct color overrides. Does NOT require prior video rendering.
+    font size scaling, and direct color overrides. Does NOT require prior video rendering.
     """
     import backend.main as main_mod
 
@@ -102,13 +105,19 @@ def export_project_ass(
         f"{artist} - {title}" if (artist and title) else (title or artist or "Karaoke Track")
     )
 
+    primary_ass = css_to_ass_color(primary_color) if primary_color else None
+    secondary_ass = (
+        css_to_ass_color(secondary_color, default="&H00FFFFFF") if secondary_color else None
+    )
+
     ass_content = main_mod.video_renderer.generate_ass_content(
         lines=lines,
         aspect_ratio=aspect_ratio,
         theme_id=theme_id,
-        primary_color=primary_color,
-        secondary_color=secondary_color,
+        primary_color=primary_ass,
+        secondary_color=secondary_ass,
         title=track_title,
+        style_config={"font_size_scale": font_size_scale},
     )
 
     headers = {

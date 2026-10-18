@@ -9,37 +9,39 @@ import React, { useState, useEffect } from 'react';
 import { TrackSearch } from './components/TrackSearch';
 import { AudioControls } from './components/AudioControls';
 import { LyricTimelineEditor } from './components/LyricTimelineEditor';
-import { VisualThemePicker, THEMES } from './components/VisualThemePicker';
+import { VisualThemePicker } from './components/VisualThemePicker';
 import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
 import { StudioMetaHeader } from './components/StudioMetaHeader';
 import { StudioModals } from './components/StudioModals';
-import { LyricLine, VisualTheme } from './types';
+import { LyricLine } from './types';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useToast } from './hooks/useToast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStudioAudio } from './hooks/useStudioAudio';
 import { useStudioAuth } from './hooks/useStudioAuth';
+import { useVisualTheme } from './hooks/useVisualTheme';
 
 export const App: React.FC = () => {
   const { toast } = useToast();
   const { project, setProject } = useProjectPolling(null);
   const [loading, setLoading] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState<VisualTheme>(THEMES[0]);
-  const [aspectRatio, setAspectRatio] = useState('16:9');
-  const [customBgId, setCustomBgId] = useState<string>('');
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isLyricsDirty, setIsLyricsDirty] = useState(false);
   const [showStudioDeleteModal, setShowStudioDeleteModal] = useState(false);
   const [showStudioEditModal, setShowStudioEditModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
+  // Theme & Visual Styling Hook
+  const theme = useVisualTheme();
+
   // Authentication & Friend Profile Hook
   const { showAuthModal, setShowAuthModal, currentUser, authToken, handleAuthSuccess } =
     useStudioAuth();
 
   // Audio Playback Hook
+  const audio = useStudioAudio(project);
   const {
     audioRef,
     currentTime,
@@ -47,36 +49,26 @@ export const App: React.FC = () => {
     isPlaying,
     isMuted,
     setCurrentTime,
-    setDuration,
     setIsPlaying,
     setIsMuted,
-    handleTimeUpdate,
-    handleLoadedMetadata,
-    handleTogglePlay,
-    handleSeek,
-    handleToggleMute,
-  } = useStudioAudio(project);
+  } = audio;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const projectId = params.get('project');
     const tParam = params.get('t');
-    if (projectId) {
-      apiFetch(`/api/project/${projectId}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.id) {
-            setProject(data);
-            if (tParam) {
-              const seekTime = parseFloat(tParam);
-              if (!isNaN(seekTime)) {
-                setCurrentTime(seekTime);
-              }
-            }
-          }
-        })
-        .catch((e) => console.error('Failed to load project from URL parameter', e));
-    }
+    if (!projectId) return;
+
+    apiFetch(`/api/project/${projectId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.id) {
+          setProject(data);
+          const seekTime = tParam ? parseFloat(tParam) : NaN;
+          if (!isNaN(seekTime)) setCurrentTime(seekTime);
+        }
+      })
+      .catch((e) => console.error('Failed to load project from URL parameter', e));
   }, [setProject, setCurrentTime]);
 
   const handleCancelProcess = async () => {
@@ -100,13 +92,12 @@ export const App: React.FC = () => {
     setIsExportOpen(false);
   };
 
-  // Feature 41 & Milestone 1: Global Keyboard Shortcuts (Space, Left/Right 5s, M, ?)
   const isStudioReady = Boolean(project && project.status === 'ready');
 
   useKeyboardShortcuts({
-    onTogglePlay: isStudioReady ? handleTogglePlay : undefined,
-    onSeek: isStudioReady ? handleSeek : undefined,
-    onToggleMute: isStudioReady ? handleToggleMute : undefined,
+    onTogglePlay: isStudioReady ? audio.handleTogglePlay : undefined,
+    onSeek: isStudioReady ? audio.handleSeek : undefined,
+    onToggleMute: isStudioReady ? audio.handleToggleMute : undefined,
     onToggleHelp: () => setShowHelpModal((prev) => !prev),
     audioRef,
     currentTime,
@@ -244,7 +235,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Trigger Video Render
+  // Trigger Video Render with custom theme, colors & font size scale
   const handleStartRender = async () => {
     if (!project?.id) return;
     setIsExportOpen(true);
@@ -256,11 +247,13 @@ export const App: React.FC = () => {
         body: JSON.stringify({
           semitones: project.semitones || 0,
           guide_volume: project.guide_volume || 0,
-          aspect_ratio: aspectRatio,
-          custom_bg_id: customBgId || undefined,
+          aspect_ratio: theme.aspectRatio,
+          custom_bg_id: theme.customBgId || undefined,
           style_config: {
-            primary_color: selectedTheme.primary_color,
-            secondary_color: selectedTheme.secondary_color,
+            theme_id: theme.selectedTheme.id,
+            primary_color: theme.customSungColor || theme.selectedTheme.primary_color,
+            secondary_color: theme.customUnsungColor || theme.selectedTheme.secondary_color,
+            font_size_scale: theme.fontSizeScale,
           },
         }),
       });
@@ -281,7 +274,6 @@ export const App: React.FC = () => {
     }
     setIsPlaying(false);
     setCurrentTime(0);
-    setDuration(0);
 
     if (window.location.search) {
       window.history.replaceState({}, '', window.location.pathname);
@@ -293,15 +285,7 @@ export const App: React.FC = () => {
   };
 
   const handleStudioMetadataSaved = (updated: { id: string; title: string; artist: string }) => {
-    setProject((prev) =>
-      prev && prev.id === updated.id
-        ? {
-            ...prev,
-            title: updated.title,
-            artist: updated.artist,
-          }
-        : prev
-    );
+    setProject((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
     setShowStudioEditModal(false);
     toast.success('Project details updated');
   };
@@ -330,15 +314,7 @@ export const App: React.FC = () => {
             currentUser={currentUser}
             authToken={authToken}
           />
-        ) : project.status !== 'ready' &&
-          project.status !== 'error' &&
-          project.status !== 'cancelled' ? (
-          <ProcessingView
-            project={project}
-            onCancelProcess={handleCancelProcess}
-            onResetProject={() => setProject(null)}
-          />
-        ) : project.status === 'cancelled' || project.status === 'error' ? (
+        ) : project.status !== 'ready' ? (
           <ProcessingView
             project={project}
             onCancelProcess={handleCancelProcess}
@@ -365,16 +341,16 @@ export const App: React.FC = () => {
               currentTime={currentTime}
               duration={duration}
               isPlaying={isPlaying}
-              onTogglePlay={handleTogglePlay}
-              onSeek={handleSeek}
+              onTogglePlay={audio.handleTogglePlay}
+              onSeek={audio.handleSeek}
               onMixChange={handleMixChange}
               initialSemitones={project.semitones}
               initialGuideVolume={project.guide_volume}
               initialMuted={isMuted}
               onMuteChange={setIsMuted}
               audioRef={audioRef}
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
+              onTimeUpdate={audio.handleTimeUpdate}
+              onLoadedMetadata={audio.handleLoadedMetadata}
               onEnded={() => setIsPlaying(false)}
               onPlaybackError={(err) => {
                 console.error('Audio playback error:', err);
@@ -391,23 +367,30 @@ export const App: React.FC = () => {
               currentTime={currentTime}
               duration={duration}
               isPlaying={isPlaying}
-              onSeek={handleSeek}
+              onSeek={audio.handleSeek}
               onSaveLines={handleSaveLines}
               albumArtUrl={project.thumbnail_url}
-              themeSungColor={selectedTheme.previewSung}
-              themeUnsungColor={selectedTheme.previewUnsung}
+              themeSungColor={theme.activeSungColor}
+              themeUnsungColor={theme.activeUnsungColor}
               onDirtyChange={setIsLyricsDirty}
-              aspectRatio={aspectRatio}
+              aspectRatio={theme.aspectRatio}
             />
 
             {/* Visual Theme & Aspect Ratio Picker */}
             <VisualThemePicker
-              selectedTheme={selectedTheme}
-              onSelectTheme={setSelectedTheme}
-              aspectRatio={aspectRatio}
-              onChangeAspectRatio={setAspectRatio}
-              onCustomBgUploaded={(bgId) => setCustomBgId(bgId)}
-              customBgId={customBgId}
+              selectedTheme={theme.selectedTheme}
+              onSelectTheme={theme.setSelectedTheme}
+              aspectRatio={theme.aspectRatio}
+              onChangeAspectRatio={theme.setAspectRatio}
+              onCustomBgUploaded={theme.setCustomBgId}
+              customBgId={theme.customBgId}
+              customSungColor={theme.customSungColor}
+              onCustomSungColorChange={theme.setCustomSungColor}
+              customUnsungColor={theme.customUnsungColor}
+              onCustomUnsungColorChange={theme.setCustomUnsungColor}
+              fontSizeScale={theme.fontSizeScale}
+              onFontSizeScaleChange={theme.setFontSizeScale}
+              onResetThemeDefaults={theme.resetThemeDefaults}
             />
           </div>
         )}
@@ -420,8 +403,8 @@ export const App: React.FC = () => {
         onCloseExport={() => setIsExportOpen(false)}
         onCancelRender={handleCancelRender}
         onStartRender={handleStartRender}
-        selectedTheme={selectedTheme}
-        aspectRatio={aspectRatio}
+        selectedTheme={theme.effectiveTheme}
+        aspectRatio={theme.aspectRatio}
         showAuthModal={showAuthModal}
         onAuthSuccess={handleAuthSuccess}
         onCloseAuth={() => setShowAuthModal(false)}

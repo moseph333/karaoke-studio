@@ -15,12 +15,18 @@ export interface ExportSubtitleSectionProps {
   project: ProjectState;
   selectedTheme?: VisualTheme;
   aspectRatio?: '16:9' | '9:16' | string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  fontSizeScale?: number;
 }
 
 export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
   project,
   selectedTheme,
   aspectRatio = '16:9',
+  primaryColor,
+  secondaryColor,
+  fontSizeScale,
 }) => {
   const [downloadingLrc, setDownloadingLrc] = useState(false);
   const [downloadingAss, setDownloadingAss] = useState(false);
@@ -33,12 +39,22 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
       setDownloadError(null);
 
       const themeId = selectedTheme?.id || 'modern_gold';
-      const url =
-        format === 'lrc'
-          ? `/api/project/${project.id}/export/lrc`
-          : `/api/project/${project.id}/export/ass?aspect_ratio=${encodeURIComponent(
-              aspectRatio
-            )}&theme_id=${encodeURIComponent(themeId)}`;
+
+      let assUrl = `/api/project/${project.id}/export/ass?aspect_ratio=${encodeURIComponent(
+        aspectRatio
+      )}&theme_id=${encodeURIComponent(themeId)}`;
+
+      if (primaryColor) {
+        assUrl += `&primary_color=${encodeURIComponent(primaryColor)}`;
+      }
+      if (secondaryColor) {
+        assUrl += `&secondary_color=${encodeURIComponent(secondaryColor)}`;
+      }
+      if (fontSizeScale !== undefined) {
+        assUrl += `&font_size_scale=${encodeURIComponent(fontSizeScale)}`;
+      }
+
+      const url = format === 'lrc' ? `/api/project/${project.id}/export/lrc` : assUrl;
 
       const res = await apiFetch(url);
       if (!res.ok) {

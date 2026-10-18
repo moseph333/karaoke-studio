@@ -1,12 +1,13 @@
 /**
  * Visual Theme & Aspect Ratio Picker Component
  *
- * Configures subtitle color palettes, background presets, custom video/image backgrounds,
- * and aspect ratio switches (16:9 Landscape vs 9:16 Portrait Shorts).
+ * Configures subtitle color palettes, custom sung/unsung colors, font size scaling,
+ * background presets, custom video/image backgrounds, and aspect ratio switches
+ * (16:9 Landscape vs 9:16 Portrait Shorts).
  */
 
 import React, { useRef, useState } from 'react';
-import { Palette, Upload, Monitor, Smartphone, Check } from 'lucide-react';
+import { Palette, Upload, Monitor, Smartphone, Check, Type, RotateCcw } from 'lucide-react';
 import { VisualTheme } from '../types';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
@@ -54,13 +55,20 @@ export const THEMES: VisualTheme[] = [
   },
 ];
 
-interface VisualThemePickerProps {
+export interface VisualThemePickerProps {
   selectedTheme: VisualTheme;
   onSelectTheme: (theme: VisualTheme) => void;
   aspectRatio: string;
   onChangeAspectRatio: (ratio: string) => void;
   onCustomBgUploaded: (bgId: string) => void;
   customBgId?: string;
+  customSungColor?: string | null;
+  onCustomSungColorChange?: (color: string) => void;
+  customUnsungColor?: string | null;
+  onCustomUnsungColorChange?: (color: string) => void;
+  fontSizeScale?: number;
+  onFontSizeScaleChange?: (scale: number) => void;
+  onResetThemeDefaults?: () => void;
 }
 
 export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
@@ -70,10 +78,21 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   onChangeAspectRatio,
   onCustomBgUploaded,
   customBgId,
+  customSungColor,
+  onCustomSungColorChange,
+  customUnsungColor,
+  onCustomUnsungColorChange,
+  fontSizeScale = 1.0,
+  onFontSizeScaleChange,
+  onResetThemeDefaults,
 }) => {
   const { toast } = useToast();
   const [uploadingBg, setUploadingBg] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
+
+  const activeSungColor = customSungColor || selectedTheme.previewSung;
+  const activeUnsungColor = customUnsungColor || selectedTheme.previewUnsung;
+  const activeScale = fontSizeScale || 1.0;
 
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -151,6 +170,8 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {THEMES.map((t) => {
           const isSelected = selectedTheme.id === t.id;
+          const cardSungColor = isSelected ? activeSungColor : t.previewSung;
+          const cardUnsungColor = isSelected ? activeUnsungColor : t.previewUnsung;
           return (
             <div
               key={t.id}
@@ -180,12 +201,117 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
 
               {/* Mini Preview bar */}
               <div className="mt-3 p-2 rounded-lg bg-slate-950/80 flex items-center justify-center font-['Montserrat'] font-extrabold text-sm">
-                <span style={{ color: t.previewSung }}>Ka-ra-</span>
-                <span style={{ color: t.previewUnsung }}>oke</span>
+                <span style={{ color: cardSungColor }}>Ka-ra-</span>
+                <span style={{ color: cardUnsungColor }}>oke</span>
               </div>
             </div>
           );
         })}
+      </div>
+
+      {/* Custom Theme Styling & Typography Scaling */}
+      <div className="pt-2 border-t border-slate-800 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+              <Type className="w-4 h-4 text-cyan-400" />
+              Custom Colors & Font Scaling
+            </h4>
+            <p className="text-xs text-slate-400">
+              Personalize karaoke sung highlights, base text colors, and display scale.
+            </p>
+          </div>
+          {onResetThemeDefaults && (
+            <button
+              type="button"
+              data-testid="reset-theme-defaults-btn"
+              onClick={onResetThemeDefaults}
+              aria-label="Reset colors and font size to theme defaults"
+              className="self-start sm:self-auto px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 min-h-[32px]"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Reset to Defaults
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Sung Highlight Color Picker */}
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+            <label
+              htmlFor="sung-color-picker"
+              className="text-xs font-semibold text-slate-300 flex items-center justify-between"
+            >
+              <span>Sung Highlight</span>
+              <span className="font-mono text-[11px] text-cyan-400">{activeSungColor}</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="sung-color-picker"
+                type="color"
+                data-testid="sung-color-picker"
+                aria-label="Sung highlight color"
+                value={activeSungColor}
+                onChange={(e) => onCustomSungColorChange?.(e.target.value)}
+                className="w-9 h-9 rounded-lg cursor-pointer bg-transparent border border-slate-700 p-0.5"
+              />
+              <span className="text-xs text-slate-400">Word wipe color</span>
+            </div>
+          </div>
+
+          {/* Unsung Text Color Picker */}
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+            <label
+              htmlFor="unsung-color-picker"
+              className="text-xs font-semibold text-slate-300 flex items-center justify-between"
+            >
+              <span>Unsung Text</span>
+              <span className="font-mono text-[11px] text-slate-300">{activeUnsungColor}</span>
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="unsung-color-picker"
+                type="color"
+                data-testid="unsung-color-picker"
+                aria-label="Unsung text color"
+                value={activeUnsungColor}
+                onChange={(e) => onCustomUnsungColorChange?.(e.target.value)}
+                className="w-9 h-9 rounded-lg cursor-pointer bg-transparent border border-slate-700 p-0.5"
+              />
+              <span className="text-xs text-slate-400">Base lyric color</span>
+            </div>
+          </div>
+
+          {/* Font Size Scale Selector */}
+          <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+            <span className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+              <span>Font Size Scale</span>
+              <span className="font-mono text-[11px] text-cyan-400">{activeScale}x</span>
+            </span>
+            <div className="grid grid-cols-4 gap-1">
+              {[0.8, 1.0, 1.2, 1.5].map((scale) => {
+                const isSelected = Math.abs(activeScale - scale) < 0.05;
+                return (
+                  <button
+                    key={scale}
+                    type="button"
+                    data-testid={`font-scale-${scale}x`}
+                    aria-label={`Scale ${scale}x`}
+                    aria-pressed={isSelected}
+                    onClick={() => onFontSizeScaleChange?.(scale)}
+                    className={`min-h-[36px] py-1 text-xs font-bold rounded-lg border transition-all ${
+                      isSelected
+                        ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow'
+                        : 'bg-slate-800/80 text-slate-300 border-slate-700 hover:text-white hover:bg-slate-700'
+                    }`}
+                  >
+                    {scale}x
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Custom Background Video/Image Option */}

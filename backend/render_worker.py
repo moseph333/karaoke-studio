@@ -13,6 +13,7 @@ from backend.project_store import (
     save_projects,
 )
 from backend.schemas import RenderRequest
+from backend.services.ass_generator import css_to_ass_color
 
 logger = logging.getLogger("karaoke_backend")
 
@@ -85,10 +86,18 @@ def run_video_render(project_id: str, req: RenderRequest):
         mp4_path = output_dir / f"{track_id}_karaoke.mp4"
 
         # 1. Generate ASS Subtitles
+        style_cfg = dict(req.style_config or {})
+        if style_cfg.get("primary_color"):
+            style_cfg["primary_color"] = css_to_ass_color(style_cfg["primary_color"])
+        if style_cfg.get("secondary_color"):
+            style_cfg["secondary_color"] = css_to_ass_color(
+                style_cfg["secondary_color"], default="&H00FFFFFF"
+            )
+
         main_mod.video_renderer.generate_ass_subtitles(
             lines=proj.get("lines", []),
             output_ass_path=ass_path,
-            style_config=req.style_config,
+            style_config=style_cfg,
             aspect_ratio=req.aspect_ratio,
         )
 

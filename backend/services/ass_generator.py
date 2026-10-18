@@ -40,6 +40,32 @@ VISUAL_THEMES: dict[str, dict[str, str]] = {
 DEFAULT_THEME_ID = "modern_gold"
 
 
+def css_to_ass_color(color: str, default: str = "&H0000D7FF") -> str:
+    """Converts CSS hex color (#RRGGBB or RRGGBB) to ASS color format (&H00BBGGRR).
+
+    If already in &H format, returns as-is.
+    """
+    if not color:
+        return default
+    c = str(color).strip()
+    if c.startswith("&H") or c.startswith("&h"):
+        return c.upper()
+    if c.startswith("#"):
+        c = c[1:]
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    if len(c) == 6:
+        try:
+            int(c, 16)
+            r = c[0:2].upper()
+            g = c[2:4].upper()
+            b = c[4:6].upper()
+            return f"&H00{b}{g}{r}"
+        except ValueError:
+            return default
+    return default
+
+
 def safe_time(val: Any, default: float = 0.0) -> float:
     """Safely coerce timestamp values to non-negative finite floats.
 
@@ -108,12 +134,13 @@ def generate_ass_content(
     secondary_color: str | None = None,
     title: str = "",
     style_config: dict[str, Any] | None = None,
+    font_size_scale: float = 1.0,
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
     with smooth progressive karaoke sweep tags (\\kf).
     Supports dynamic 16:9 and 9:16 layout adjustments, visual theme presets,
-    direct color overrides, and control character escaping.
+    direct color overrides, font size scaling, and control character escaping.
     """
     # Determine aspect ratio and layout mode
     ar = (style_config or {}).get("aspect_ratio") or aspect_ratio
@@ -133,6 +160,12 @@ def generate_ass_content(
     margin_v_title = 300 if is_vertical else 180
 
     cfg = {**DEFAULT_VIDEO_CONFIG, **(style_config or {})}
+
+    # Read font_size_scale and apply to typography
+    scale = float((style_config or {}).get("font_size_scale", font_size_scale))
+    if scale <= 0.0 or not math.isfinite(scale):
+        scale = 1.0
+
     if is_vertical:
         if not style_config or "width" not in style_config:
             cfg["width"] = default_width
@@ -147,14 +180,20 @@ def generate_ass_content(
         cfg["primary_color"] = theme["primary_color"]
         cfg["secondary_color"] = theme["secondary_color"]
 
-    # Apply direct color overrides if passed
+    # Apply direct color overrides if passed, normalizing CSS hex to ASS BGR
     if primary_color is not None:
-        cfg["primary_color"] = primary_color
+        cfg["primary_color"] = css_to_ass_color(primary_color)
+    elif cfg.get("primary_color"):
+        cfg["primary_color"] = css_to_ass_color(cfg["primary_color"])
+
     if secondary_color is not None:
-        cfg["secondary_color"] = secondary_color
+        cfg["secondary_color"] = css_to_ass_color(secondary_color, default="&H00FFFFFF")
+    elif cfg.get("secondary_color"):
+        cfg["secondary_color"] = css_to_ass_color(cfg["secondary_color"], default="&H00FFFFFF")
 
     font_name = cfg.get("font_name", "DejaVu Sans")
-    font_size = cfg.get("font_size", default_font_size)
+    base_font_size = cfg.get("font_size", default_font_size)
+    font_size = max(12, round(base_font_size * scale))
     primary_color_val = cfg.get("primary_color", "&H0022E5FF")  # Sung color (cyan/gold)
     secondary_color_val = cfg.get("secondary_color", "&H00FFFFFF")  # Unsung text (white)
     outline_color = cfg.get("outline_color", "&H00111111")
@@ -272,11 +311,13 @@ def generate_ass_subtitles(
     primary_color: str | None = None,
     secondary_color: str | None = None,
     title: str = "",
+    font_size_scale: float = 1.0,
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file
 
     with smooth progressive karaoke sweep tags (\\kf).
-    Supports dynamic 16:9 and 9:16 layout adjustments and control character escaping.
+    Supports dynamic 16:9 and 9:16 layout adjustments, custom styling,
+    and control character escaping.
     """
     content = generate_ass_content(
         lines=lines,
@@ -286,6 +327,7 @@ def generate_ass_subtitles(
         secondary_color=secondary_color,
         title=title,
         style_config=style_config,
+        font_size_scale=font_size_scale,
     )
     output_ass_path.write_text(content, encoding="utf-8")
     return str(output_ass_path)
