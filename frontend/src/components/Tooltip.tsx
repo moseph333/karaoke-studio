@@ -146,8 +146,17 @@ export const Tooltip: React.FC<TooltipProps> = ({
     },
   });
 
+  const hasPositionClass =
+    className !== undefined && /\b(absolute|fixed|sticky|static)\b/.test(className);
+
   return (
-    <span className={clsx('relative inline-flex flex-wrap items-center', className)}>
+    <span
+      className={clsx(
+        !hasPositionClass && 'relative',
+        'inline-flex flex-wrap items-center',
+        className
+      )}
+    >
       {trigger}
       {isOpen && (
         <span

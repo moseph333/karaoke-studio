@@ -276,7 +276,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         }`}
       >
         {/* Active Line (Line 1) */}
-        <div className="min-h-[3rem] sm:min-h-[4.5rem] flex items-center justify-center">
+        <div className="min-h-[3rem] sm:min-h-[4.5rem] flex items-center justify-center text-xl sm:text-3xl md:text-5xl">
           {currentLine ? (
             <div
               data-testid="active-lyrics-line"
@@ -330,7 +330,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         </div>
 
         {/* Upcoming Line (Line 2) */}
-        <div className="min-h-[1.5rem] sm:min-h-[2rem] flex items-center justify-center">
+        <div className="min-h-[1.5rem] sm:min-h-[2rem] flex items-center justify-center text-sm sm:text-lg md:text-xl">
           {nextLine ? (
             <p
               style={{ fontSize: `${Math.max(0.7, fontSizeScale * 0.75)}em` }}

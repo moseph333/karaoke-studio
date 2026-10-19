@@ -9,10 +9,20 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { Tooltip } from '../Tooltip';
 
 export interface LyricLine {
+  id?: number;
+  text?: string;
   start?: number;
   end?: number;
-  words?: Array<{ start?: number; end?: number; text?: string }>;
-  [key: string]: unknown;
+  start_time?: number;
+  end_time?: number;
+  words?: Array<{
+    start?: number;
+    end?: number;
+    start_time?: number;
+    end_time?: number;
+    text?: string;
+    word?: string;
+  }>;
 }
 
 export interface WaveformScrubberProps {
@@ -49,10 +59,11 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       const windowWidth = totalDuration / BAR_COUNT;
 
       // Check vocal line activity
-      const hasVocal = lines?.some(
-        (l) =>
-          (l.start ?? 0) <= centerTime + windowWidth && (l.end ?? 0) >= centerTime - windowWidth
-      );
+      const hasVocal = lines?.some((l) => {
+        const lStart = (typeof l.start_time === 'number' ? l.start_time : l.start) ?? 0;
+        const lEnd = (typeof l.end_time === 'number' ? l.end_time : l.end) ?? 0;
+        return lStart <= centerTime + windowWidth && lEnd >= centerTime - windowWidth;
+      });
 
       const baseEnergy = hasVocal ? 0.72 : 0.24;
       // Deterministic harmonics to create natural waveform peaks and valleys
@@ -225,7 +236,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
           content="Scrub audio timeline (±5s seek)"
           hotkey={['←', '→']}
           position="top"
-          className="w-full absolute inset-0 opacity-0 cursor-pointer"
+          className="w-full absolute inset-0 cursor-pointer z-20"
         >
           <input
             type="range"

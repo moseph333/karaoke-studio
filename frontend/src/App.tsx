@@ -338,6 +338,7 @@ export const App: React.FC = () => {
               masterAudioUrl={project.master_audio_url}
               instrumentalUrl={project.instrumental_url}
               vocalsUrl={project.vocals_url}
+              lines={project.lines}
               currentTime={currentTime}
               duration={duration}
               isPlaying={isPlaying}
@@ -374,6 +375,7 @@ export const App: React.FC = () => {
               themeUnsungColor={theme.activeUnsungColor}
               onDirtyChange={setIsLyricsDirty}
               aspectRatio={theme.aspectRatio}
+              fontSizeScale={theme.fontSizeScale}
             />
 
             {/* Visual Theme & Aspect Ratio Picker */}

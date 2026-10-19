@@ -44,6 +44,7 @@ export interface LyricTimelineEditorProps {
   themeUnsungColor?: string;
   onDirtyChange?: (isDirty: boolean) => void;
   aspectRatio?: string;
+  fontSizeScale?: number;
   projectId?: string;
   trackTitle?: string;
   trackArtist?: string;
@@ -61,6 +62,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   themeUnsungColor = '#ffffff',
   onDirtyChange,
   aspectRatio = '16:9',
+  fontSizeScale = 1.0,
   projectId,
   trackTitle = 'Track',
   trackArtist = 'Artist',
@@ -139,6 +141,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
         themeSungColor={themeSungColor}
         themeUnsungColor={themeUnsungColor}
         aspectRatio={aspectRatio}
+        fontSizeScale={fontSizeScale}
       />
 
       {/* 2. Visual Timeline & Power Tools */}

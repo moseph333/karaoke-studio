@@ -5,7 +5,7 @@
  * play/pause transport, seeking, and mute synchronization for the studio dashboard.
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { ProjectState } from '../types';
 
 export interface UseStudioAudioReturn {
@@ -34,6 +34,12 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRateState] = useState(1.0);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    if (project?.duration && project.duration > 0) {
+      setDuration((prev) => (prev > 0 ? prev : project.duration!));
+    }
+  }, [project?.id, project?.duration]);
 
   const setPlaybackRate = useCallback((rate: number) => {
     setPlaybackRateState(rate);

@@ -36,6 +36,14 @@ export interface AudioControlsProps {
   masterAudioUrl?: string;
   instrumentalUrl?: string;
   vocalsUrl?: string;
+  lines?: Array<{
+    id?: number;
+    text?: string;
+    start?: number;
+    end?: number;
+    start_time?: number;
+    end_time?: number;
+  }>;
   currentTime: number;
   duration: number;
   isPlaying: boolean;
@@ -66,6 +74,7 @@ export interface AudioControlsProps {
 export const AudioControls: React.FC<AudioControlsProps> = ({
   projectId,
   masterAudioUrl,
+  lines,
   currentTime,
   duration,
   isPlaying,
@@ -361,6 +370,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           duration={duration}
           onSeek={onSeek}
           audioUrl={masterAudioUrl}
+          lines={lines}
           isPlaying={isPlaying}
         />
       </div>
