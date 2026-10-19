@@ -56,6 +56,24 @@ const SHORTCUTS: ShortcutItem[] = [
     scope: 'Studio Workspace',
   },
   {
+    keys: ['F'],
+    label: 'Fullscreen Stage',
+    description: 'Toggle Fullscreen TV Stage Mode with auto-hiding floating controls',
+    scope: 'Studio Workspace',
+  },
+  {
+    keys: ['T'],
+    label: 'Tap-to-Sync Stamp',
+    description: 'Stamp active line timestamp in real time when Tap-to-Sync is enabled',
+    scope: 'Tap-to-Sync Mode',
+  },
+  {
+    keys: ['Ctrl+Z / Ctrl+Y'],
+    label: 'Undo / Redo Edits',
+    description: 'Step backward or forward through up to 50 lyric timeline edits',
+    scope: 'Timeline Editor',
+  },
+  {
     keys: ['?'],
     label: 'Toggle Help Modal',
     description: 'Toggle this Help & Usage Guide modal from anywhere',
@@ -94,7 +112,7 @@ const STAGES: GuideStage[] = [
     features: [
       'Enter custom metadata (Title, Artist, Creator Name) for clear tracking',
       'Optionally supply custom lyrics as plain text or pre-timed LRC format ([mm:ss.xx])',
-      'Manage saved library projects: open existing songs, edit details, or delete to free disk space',
+      'Search, filter by status, and sort saved library projects across My Songs and Community tabs',
     ],
   },
   {
@@ -106,7 +124,7 @@ const STAGES: GuideStage[] = [
     features: [
       'Demucs AI separates clean vocals from backing instrumental tracks',
       'Synchronized lyrics are fetched automatically from LRCLIB or parsed from your LRC tags',
-      'Forced acoustic alignment calculates high-resolution word-by-word timing tokens',
+      'Hot-swap or re-import custom/LRCLIB lyrics anytime inside the studio without re-separating stems',
     ],
   },
   {
@@ -114,10 +132,10 @@ const STAGES: GuideStage[] = [
     title: '3. Timeline Editing',
     icon: Clock,
     badge: 'Editor',
-    summary: 'Fine-tune line and word timings with live visual feedback.',
+    summary: 'Fine-tune line and word timings with live visual feedback and power tools.',
     features: [
-      'Scrub audio waveform and observe live word-by-word progressive karaoke sweeps',
-      'Nudge timestamps using Coarse (±0.2s) and Fine (±0.05s) buttons for tight sync',
+      'Scrub interactive audio waveform and observe live word-by-word progressive karaoke sweeps',
+      'Use Undo/Redo (Ctrl+Z / Ctrl+Y), Batch Timestamp Offset, and live Tap-to-Sync [T] beat stamping',
       'Edit line text inline, insert new lines above/below, or delete unwanted lyric lines',
       'Dirty state tracking prevents accidental loss of unsaved lyric timings',
     ],
@@ -127,13 +145,12 @@ const STAGES: GuideStage[] = [
     title: '4. Studio Mixing & Themes',
     icon: Sliders,
     badge: 'Mixer',
-    summary: 'Customize playback mix, visual themes, and video orientation.',
+    summary: 'Customize playback mix, speed, visual themes, Fullscreen TV Stage, and aspect ratio.',
     features: [
-      'Pitch shift stepper: transpose key from -12 to +12 semitones without altering tempo',
-      'Guide vocal slider: blend original vocals (0% to 50%) for singing assistance',
-      'Select preset visual themes (Modern Gold, Neon Cyber, Sunset Glow, etc.)',
-      'Upload custom image (.jpg, .png) or video (.mp4, .webm) backgrounds',
-      'Switch between 16:9 Landscape (YouTube) and 9:16 Portrait (Shorts/TikTok)',
+      'Pitch shift (-12 to +12 semitones), guide vocal blend (0%–50%), and playback speed (0.5x–1.5x)',
+      'Toggle Fullscreen TV Stage Mode [F] with auto-hiding floating playback controls',
+      'Select preset visual themes or customize sung/unsung colors and lyric font scaling (0.75x–1.5x)',
+      'Upload custom image/video backgrounds and switch between 16:9 Widescreen and 9:16 Shorts',
     ],
   },
   {
@@ -141,11 +158,11 @@ const STAGES: GuideStage[] = [
     title: '5. Export & Subtitles',
     icon: Download,
     badge: 'Output',
-    summary: 'Instant subtitle file downloads and full 1080p60 video rendering.',
+    summary: 'Instant audio stem & subtitle downloads and full 1080p60 video rendering.',
     features: [
+      'Direct 1-click downloads for isolated instrumental WAV, vocals WAV, and mixed master audio',
       'Instant downloads: export standalone .lrc (line-synced) and .ass (karaoke \\kf sweeps)',
-      'Render full 1080p60 MP4 videos with burned-in animated karaoke subtitles',
-      'Generate ready-to-copy YouTube metadata packages (titles, descriptions, tags)',
+      'Render full 1080p60 MP4 videos and generate ready-to-copy YouTube metadata packages',
     ],
   },
 ];
