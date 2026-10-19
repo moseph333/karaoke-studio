@@ -324,6 +324,63 @@ describe('Lyric Timeline Power Tools', () => {
       fireEvent.click(screen.getByTestId('exit-tap-mode-btn'));
       expect(handleExit).toHaveBeenCalledTimes(1);
     });
+
+    it('toggles between Line Sync and Word Sync modes', () => {
+      const handleModeChange = vi.fn();
+      const { rerender } = render(
+        <TapToSyncBanner
+          isActive={true}
+          targetLine={sampleLines[0]}
+          targetIndex={0}
+          totalLines={2}
+          syncMode="line"
+          onModeChange={handleModeChange}
+          onTap={vi.fn()}
+          onExit={vi.fn()}
+        />
+      );
+
+      const wordModeBtn = screen.getByTestId('tap-mode-word-btn');
+      fireEvent.click(wordModeBtn);
+      expect(handleModeChange).toHaveBeenCalledWith('word');
+
+      rerender(
+        <TapToSyncBanner
+          isActive={true}
+          targetLine={sampleLines[0]}
+          targetIndex={0}
+          totalLines={2}
+          syncMode="word"
+          targetWordIndex={0}
+          onModeChange={handleModeChange}
+          onTap={vi.fn()}
+          onExit={vi.fn()}
+        />
+      );
+
+      const lineModeBtn = screen.getByTestId('tap-mode-line-btn');
+      fireEvent.click(lineModeBtn);
+      expect(handleModeChange).toHaveBeenCalledWith('line');
+    });
+
+    it('highlights target word within line context and displays word progress in Word Sync mode', () => {
+      render(
+        <TapToSyncBanner
+          isActive={true}
+          targetLine={sampleLines[0]}
+          targetIndex={0}
+          totalLines={2}
+          syncMode="word"
+          targetWordIndex={1}
+          onTap={vi.fn()}
+          onExit={vi.fn()}
+        />
+      );
+
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 2 of 5');
+      expect(screen.getByTestId('tap-target-word-active')).toHaveTextContent('line');
+      expect(screen.getByTestId('active-word-label')).toHaveTextContent('"line"');
+    });
   });
 
   // =========================================================================
@@ -522,6 +579,156 @@ describe('Lyric Timeline Power Tools', () => {
 
       fireEvent.click(screen.getByTestId('replace-lyrics-btn'));
       expect(screen.getByText('Replace / Re-align Lyrics')).toBeInTheDocument();
+    });
+
+    it('allows toggling between Line and Word sync modes while resetting target word index to 0', () => {
+      render(<LyricTimelineEditor {...defaultProps} currentTime={2.5} isPlaying={true} />);
+
+      // Activate Tap-to-Sync (starts in line mode)
+      fireEvent.click(screen.getByTestId('tap-to-sync-btn'));
+      expect(screen.getByTestId('tap-to-sync-banner')).toBeInTheDocument();
+      expect(screen.getByTestId('tap-mode-line-btn')).toHaveAttribute('aria-pressed', 'true');
+
+      // Switch to Word mode
+      fireEvent.click(screen.getByTestId('tap-mode-word-btn'));
+      expect(screen.getByTestId('tap-mode-word-btn')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('word-progress-badge')).toBeInTheDocument();
+
+      // Tap first word
+      fireEvent.click(screen.getByTestId('tap-now-btn'));
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 2 of');
+
+      // Switch to Line mode
+      fireEvent.click(screen.getByTestId('tap-mode-line-btn'));
+      expect(screen.getByTestId('tap-mode-line-btn')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.queryByTestId('word-progress-badge')).not.toBeInTheDocument();
+
+      // Switch back to Word mode -> target word index resets to 0 of the current line
+      fireEvent.click(screen.getByTestId('tap-mode-word-btn'));
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 1 of');
+    });
+
+    it('supports Word-Level Tap-to-Sync with cross-line advancement, undo/redo, and completion', () => {
+      const shortLines: LyricLine[] = [
+        {
+          id: 1,
+          text: 'One two',
+          start_time: 1.0,
+          end_time: 3.0,
+          words: [
+            { word: 'One', start_time: 1.0, end_time: 2.0 },
+            { word: 'two', start_time: 2.0, end_time: 3.0 },
+          ],
+        },
+        {
+          id: 2,
+          text: 'Three four',
+          start_time: 4.0,
+          end_time: 6.0,
+          words: [
+            { word: 'Three', start_time: 4.0, end_time: 5.0 },
+            { word: 'four', start_time: 5.0, end_time: 6.0 },
+          ],
+        },
+      ];
+
+      render(
+        <LyricTimelineEditor
+          {...defaultProps}
+          lines={shortLines}
+          currentTime={2.5}
+          isPlaying={true}
+        />
+      );
+
+      // 1. Activate Tap-to-Sync
+      fireEvent.click(screen.getByTestId('tap-to-sync-btn'));
+      expect(screen.getByTestId('tap-to-sync-banner')).toBeInTheDocument();
+
+      // 2. Switch to Word Sync mode
+      fireEvent.click(screen.getByTestId('tap-mode-word-btn'));
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 1 of 2');
+      expect(screen.getByTestId('active-word-label')).toHaveTextContent('"One"');
+
+      // 3. Tap word 1 ('One')
+      fireEvent.click(screen.getByTestId('tap-now-btn'));
+      // Advance to word 2 ('two')
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 2 of 2');
+      expect(screen.getByTestId('active-word-label')).toHaveTextContent('"two"');
+      // Undo button enabled and unsaved changes dirty indicator
+      expect(screen.getByTestId('undo-lyrics-btn')).not.toBeDisabled();
+      expect(screen.getByTestId('save-lyrics-btn')).toBeInTheDocument();
+
+      // Test mid-session Undo: restores target back to word 1 ('One')
+      fireEvent.click(screen.getByTestId('undo-lyrics-btn'));
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 1 of 2');
+      expect(screen.getByTestId('active-word-label')).toHaveTextContent('"One"');
+
+      // Test mid-session Redo: advances target forward back to word 2 ('two')
+      fireEvent.click(screen.getByTestId('redo-lyrics-btn'));
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 2 of 2');
+      expect(screen.getByTestId('active-word-label')).toHaveTextContent('"two"');
+
+      // 4. Tap word 2 ('two') -> crosses line boundary to Line 2, Word 1 ('Three')
+      fireEvent.click(screen.getByTestId('tap-now-btn'));
+      expect(screen.getByText('Line 2 of 2')).toBeInTheDocument();
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 1 of 2');
+      expect(screen.getByTestId('active-word-label')).toHaveTextContent('"Three"');
+
+      // 5. Tap word 1 of line 2 via 'T' keyboard shortcut
+      fireEvent.keyDown(window, { key: 't', code: 'KeyT' });
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 2 of 2');
+      expect(screen.getByTestId('active-word-label')).toHaveTextContent('"four"');
+
+      // 6. Tap final word via 'T' key -> completion and auto-exit
+      fireEvent.keyDown(window, { key: 't', code: 'KeyT' });
+      expect(screen.queryByTestId('tap-to-sync-banner')).not.toBeInTheDocument();
+
+      // 7. Test Undo: reverts the last tap and restores the active Tap-to-Sync banner
+      fireEvent.click(screen.getByTestId('undo-lyrics-btn'));
+      expect(screen.getByTestId('tap-to-sync-banner')).toBeInTheDocument();
+      expect(screen.getByTestId('word-progress-badge')).toHaveTextContent('Word 2 of 2');
+      expect(screen.getByTestId('active-word-label')).toHaveTextContent('"four"');
+
+      // Redo restores completion state
+      expect(screen.getByTestId('redo-lyrics-btn')).not.toBeDisabled();
+      fireEvent.click(screen.getByTestId('redo-lyrics-btn'));
+      expect(screen.queryByTestId('tap-to-sync-banner')).not.toBeInTheDocument();
+    });
+
+    it('isolates T shortcut from input fields and active modals while preserving Spacebar play/pause', () => {
+      render(<LyricTimelineEditor {...defaultProps} isPlaying={false} />);
+
+      // Activate Tap-to-Sync
+      fireEvent.click(screen.getByTestId('tap-to-sync-btn'));
+      expect(screen.getByTestId('tap-to-sync-banner')).toBeInTheDocument();
+
+      // Press Spacebar -> must NOT trigger tap
+      fireEvent.keyDown(window, { code: 'Space', key: ' ' });
+      // Line remains 1 of 2
+      expect(screen.getByText('Line 1 of 2')).toBeInTheDocument();
+
+      // Typing in input ignores 'T'
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+      input.focus();
+
+      fireEvent.keyDown(input, { key: 't', code: 'KeyT' });
+      // Still on Line 1 of 2 (tap was ignored)
+      expect(screen.getByText('Line 1 of 2')).toBeInTheDocument();
+
+      document.body.removeChild(input);
+
+      // Open a modal: 'T' must be ignored
+      const modal = document.createElement('div');
+      modal.setAttribute('role', 'dialog');
+      document.body.appendChild(modal);
+
+      fireEvent.keyDown(window, { key: 't', code: 'KeyT' });
+      // Still on Line 1 of 2 (tap was ignored)
+      expect(screen.getByText('Line 1 of 2')).toBeInTheDocument();
+
+      document.body.removeChild(modal);
     });
   });
 });

@@ -64,7 +64,7 @@ const SHORTCUTS: ShortcutItem[] = [
   {
     keys: ['T'],
     label: 'Tap-to-Sync Stamp',
-    description: 'Stamp active line timestamp in real time when Tap-to-Sync is enabled',
+    description: 'Stamp active line or word timestamp in real time when Tap-to-Sync is enabled',
     scope: 'Tap-to-Sync Mode',
   },
   {

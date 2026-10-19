@@ -585,4 +585,58 @@ describe('useKeyboardShortcuts (Feature 41)', () => {
       input.remove();
     });
   });
+
+  describe('Tap-to-Sync shortcut behavior and isolation (T vs Spacebar)', () => {
+    it('preserves Spacebar as global master play/pause without interfering with T tap hotkey', () => {
+      renderHook(() =>
+        useKeyboardShortcuts({
+          onTogglePlay: playFn,
+          currentTime: 15,
+          duration: 120,
+        })
+      );
+
+      // Space triggers play/pause
+      const spaceEvent = new KeyboardEvent('keydown', {
+        key: ' ',
+        code: 'Space',
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(spaceEvent);
+      expect(playFn).toHaveBeenCalledTimes(1);
+
+      // 'T' hotkey does NOT trigger playFn
+      const tEvent = new KeyboardEvent('keydown', {
+        key: 't',
+        code: 'KeyT',
+        bubbles: true,
+        cancelable: true,
+      });
+      window.dispatchEvent(tEvent);
+      expect(playFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('confirms isInputElement and isModalActive correctly isolate hotkeys for Tap-to-Sync', () => {
+      // Input isolation
+      const textarea = document.createElement('textarea');
+      document.body.appendChild(textarea);
+      expect(isInputElement(textarea)).toBe(true);
+      textarea.remove();
+
+      // Contenteditable isolation
+      const editable = document.createElement('div');
+      editable.setAttribute('contenteditable', 'true');
+      document.body.appendChild(editable);
+      expect(isInputElement(editable)).toBe(true);
+      editable.remove();
+
+      // Modal dialog isolation
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      document.body.appendChild(dialog);
+      expect(isModalActive(dialog)).toBe(true);
+      dialog.remove();
+    });
+  });
 });

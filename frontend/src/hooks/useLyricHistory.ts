@@ -11,7 +11,7 @@ import { LyricLine } from '../types';
 export interface UseLyricHistoryOptions {
   maxHistory?: number;
   currentLines?: LyricLine[];
-  onApplySnapshot?: (lines: LyricLine[]) => void;
+  onApplySnapshot?: (lines: LyricLine[], direction?: 'undo' | 'redo') => void;
 }
 
 const cloneLines = (lines: LyricLine[]): LyricLine[] => {
@@ -44,7 +44,9 @@ export function useLyricHistory({
   const undoStackRef = useRef<LyricLine[][]>([]);
   const redoStackRef = useRef<LyricLine[][]>([]);
   const currentLinesRef = useRef<LyricLine[] | undefined>(currentLines);
-  const onApplySnapshotRef = useRef<((lines: LyricLine[]) => void) | undefined>(onApplySnapshot);
+  const onApplySnapshotRef = useRef<
+    ((lines: LyricLine[], direction?: 'undo' | 'redo') => void) | undefined
+  >(onApplySnapshot);
 
   useEffect(() => {
     currentLinesRef.current = currentLines;
@@ -109,7 +111,7 @@ export function useLyricHistory({
     if (!currentLinesRef.current || !onApplySnapshotRef.current) return;
     const prev = undo(currentLinesRef.current);
     if (prev) {
-      onApplySnapshotRef.current(prev);
+      onApplySnapshotRef.current(prev, 'undo');
     }
   }, [undo]);
 
@@ -117,7 +119,7 @@ export function useLyricHistory({
     if (!currentLinesRef.current || !onApplySnapshotRef.current) return;
     const next = redo(currentLinesRef.current);
     if (next) {
-      onApplySnapshotRef.current(next);
+      onApplySnapshotRef.current(next, 'redo');
     }
   }, [redo]);
 

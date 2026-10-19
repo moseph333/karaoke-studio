@@ -16,6 +16,7 @@ import {
   sanitizeTimestamp,
   applyBatchOffset,
 } from '../utils/lyrics';
+import { useTapCursorHistory } from './useTapCursorHistory';
 
 export interface UseLyricEditorStateOptions {
   lines: LyricLine[];
@@ -41,15 +42,72 @@ export function useLyricEditorState({
   const [editingLineId, setEditingLineId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState<string>('');
   const [lineToDelete, setLineToDelete] = useState<LyricLine | null>(null);
-  const [isTapToSyncActive, setIsTapToSyncActive] = useState(false);
-  const [tapTargetIndex, setTapTargetIndex] = useState(0);
   const editInputRef = useRef<HTMLInputElement>(null);
 
+  const recordTapCursorSnapshotRef = useRef<() => void>(() => {});
+  const restoreTapCursorSnapshotRef = useRef<(direction?: 'undo' | 'redo') => number | null>(
+    () => null
+  );
+
+  const handleApplySnapshot = useCallback((restored: LyricLine[], direction?: 'undo' | 'redo') => {
+    setEditableLines(restored);
+    const restoredTargetIndex = restoreTapCursorSnapshotRef.current(direction);
+    if (restoredTargetIndex !== null) {
+      setSelectedLineId(restored[restoredTargetIndex]?.id ?? null);
+    }
+  }, []);
+
   // Multi-step Undo / Redo history stack hook
-  const { canUndo, canRedo, pushSnapshot, handleUndo, handleRedo, clearHistory } = useLyricHistory({
+  const {
+    canUndo,
+    canRedo,
+    pushSnapshot: pushRawSnapshot,
+    handleUndo,
+    handleRedo,
+    clearHistory: clearRawHistory,
+  } = useLyricHistory({
     currentLines: editableLines,
-    onApplySnapshot: (restored) => setEditableLines(restored),
+    onApplySnapshot: handleApplySnapshot,
   });
+
+  const pushSnapshot = useCallback(
+    (linesToSave: LyricLine[]) => {
+      recordTapCursorSnapshotRef.current();
+      pushRawSnapshot(linesToSave);
+    },
+    [pushRawSnapshot]
+  );
+
+  const {
+    isTapToSyncActive,
+    setIsTapToSyncActive,
+    tapSyncMode,
+    setTapSyncMode,
+    tapTargetIndex,
+    setTapTargetIndex,
+    tapTargetWordIndex,
+    setTapTargetWordIndex,
+    handleTriggerTap,
+    recordTapCursorSnapshot,
+    restoreTapCursorSnapshot,
+    clearTapCursorHistory,
+  } = useTapCursorHistory({
+    editableLines,
+    currentTime,
+    duration,
+    pushSnapshot,
+    setEditableLines,
+    setSelectedLineId,
+    toast,
+  });
+
+  recordTapCursorSnapshotRef.current = recordTapCursorSnapshot;
+  restoreTapCursorSnapshotRef.current = restoreTapCursorSnapshot;
+
+  const clearHistory = useCallback(() => {
+    clearRawHistory();
+    clearTapCursorHistory();
+  }, [clearRawHistory, clearTapCursorHistory]);
 
   useEffect(() => {
     if (editingLineId !== null && editInputRef.current) {
@@ -212,82 +270,8 @@ export function useLyricEditorState({
     setEditableLines(newLines);
     setSelectedLineId(newLines.length > 0 ? newLines[0].id : null);
     setTapTargetIndex(0);
+    setTapTargetWordIndex(0);
   };
-
-  const handleTriggerTap = useCallback(() => {
-    if (tapTargetIndex >= editableLines.length) {
-      setIsTapToSyncActive(false);
-      return;
-    }
-
-    pushSnapshot(editableLines);
-    const tapTime = sanitizeTimestamp(currentTime);
-    const currentTarget = editableLines[tapTargetIndex];
-
-    const updated = editableLines.map((line, idx) => {
-      if (idx === tapTargetIndex - 1 && line.end_time > tapTime) {
-        const safeStart = Math.min(line.start_time, tapTime);
-        return {
-          ...line,
-          start_time: safeStart,
-          end_time: tapTime,
-          words: recalculateWordTimings(line.text, safeStart, tapTime),
-        };
-      }
-      if (idx === tapTargetIndex) {
-        let proposedEnd =
-          line.end_time > tapTime ? line.end_time : sanitizeTimestamp(tapTime + 3.0);
-        if (duration > tapTime + 0.5 && proposedEnd > duration) {
-          proposedEnd = sanitizeTimestamp(duration);
-        }
-        if (proposedEnd <= tapTime) {
-          proposedEnd = sanitizeTimestamp(tapTime + 0.5);
-        }
-        return {
-          ...line,
-          start_time: tapTime,
-          end_time: proposedEnd,
-          words: recalculateWordTimings(line.text, tapTime, proposedEnd),
-        };
-      }
-      return line;
-    });
-
-    setEditableLines(updated);
-
-    const nextIndex = tapTargetIndex + 1;
-    if (nextIndex >= editableLines.length) {
-      setIsTapToSyncActive(false);
-      setTapTargetIndex(0);
-      setSelectedLineId(currentTarget.id);
-      toast.success('Tap sync complete! Review and Save.');
-    } else {
-      setTapTargetIndex(nextIndex);
-      setSelectedLineId(editableLines[nextIndex]?.id ?? null);
-    }
-  }, [tapTargetIndex, editableLines, currentTime, duration, pushSnapshot, toast]);
-
-  useEffect(() => {
-    if (!isTapToSyncActive) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName.toLowerCase() === 'input' ||
-          target.tagName.toLowerCase() === 'textarea' ||
-          target.isContentEditable ||
-          target.getAttribute('contenteditable') === 'true')
-      ) {
-        return;
-      }
-      if (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        e.preventDefault();
-        handleTriggerTap();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isTapToSyncActive, handleTriggerTap]);
 
   const handleSave = async () => {
     if (!hasUnsavedChanges || isSaving) return;
@@ -405,8 +389,12 @@ export function useLyricEditorState({
     handleReplaceLyrics,
     isTapToSyncActive,
     setIsTapToSyncActive,
+    tapSyncMode,
+    setTapSyncMode,
     tapTargetIndex,
     setTapTargetIndex,
+    tapTargetWordIndex,
+    setTapTargetWordIndex,
     handleTriggerTap,
     handleSave,
     handleConfirmDiscard,

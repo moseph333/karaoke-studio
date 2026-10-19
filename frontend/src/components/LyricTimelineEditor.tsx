@@ -227,6 +227,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 onClick={() => {
                   ed.setIsTapToSyncActive(!ed.isTapToSyncActive);
                   ed.setTapTargetIndex(0);
+                  ed.setTapTargetWordIndex(0);
                 }}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all min-h-[36px] ${
                   ed.isTapToSyncActive
@@ -299,8 +300,11 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
         {/* Live Tap-to-Sync Sticky Banner */}
         <TapToSyncBanner
           isActive={ed.isTapToSyncActive}
+          syncMode={ed.tapSyncMode}
+          onModeChange={ed.setTapSyncMode}
           targetLine={ed.editableLines[ed.tapTargetIndex] ?? null}
           targetIndex={ed.tapTargetIndex}
+          targetWordIndex={ed.tapTargetWordIndex}
           totalLines={ed.editableLines.length}
           onTap={ed.handleTriggerTap}
           onExit={() => ed.setIsTapToSyncActive(false)}
