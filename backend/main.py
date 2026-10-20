@@ -170,6 +170,7 @@ async def check_auth_middleware(request: Request, call_next):
         is_api_protected = (
             path.startswith("/api/")
             and not path.startswith("/api/health")
+            and not path.startswith("/api/system/update")
             and not path.startswith("/api/auth")
         )
         is_static_protected = path.startswith("/static/")
@@ -197,12 +198,23 @@ app.mount("/static/backgrounds", StaticFiles(directory=str(BACKGROUNDS_DIR)), na
 
 
 @app.get("/api/health")
-def health_check():
-    return {
-        "status": "ok",
-        "service": "Karaoke Studio",
-        "version": config.get_app_version(),
-    }
+def health_check(check_remote: bool = False):
+    return config.check_for_updates(force_remote=check_remote)
+
+
+@app.post("/api/health")
+@app.post("/api/system/update")
+async def system_update_action(request: Request):
+    action = "check"
+    try:
+        body = await request.json()
+        if isinstance(body, dict) and body.get("action"):
+            action = str(body["action"]).strip().lower()
+    except Exception:
+        pass
+    if action == "update":
+        return config.trigger_system_update()
+    return config.check_for_updates(force_remote=True)
 
 
 # Mount domain routers

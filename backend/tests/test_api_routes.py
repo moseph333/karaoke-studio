@@ -825,8 +825,9 @@ class TestRouteUploadValidation:
 class TestRouteHappyPaths:
     """Validates successful execution of all API routes, lifecycle transitions, and data integrity."""
 
-    def test_health_check_happy_path(self, client, monkeypatch):
-        """GET /api/health returns status ok, service identifier, and running version."""
+    def test_health_check_happy_path(self, client, monkeypatch, tmp_path):
+        """GET and POST /api/health return status, version, update check, and trigger update."""
+        monkeypatch.setattr(config, "DATA_DIR", tmp_path)
         res = client.get("/api/health")
         assert res.status_code == 200
         data = res.json()
@@ -837,6 +838,19 @@ class TestRouteHappyPaths:
         monkeypatch.setenv("APP_VERSION", "v1.6.0-test")
         res_override = client.get("/api/health")
         assert res_override.json()["version"] == "v1.6.0-test"
+
+        # POST check action
+        res_check = client.post("/api/health", json={"action": "check"})
+        assert res_check.status_code == 200
+        assert "update_available" in res_check.json()
+
+        # POST update action writes .update_requested trigger file
+        res_update = client.post("/api/health", json={"action": "update"})
+        assert res_update.status_code == 200
+        upd_data = res_update.json()
+        assert upd_data["updating"] is True
+        assert upd_data["status"] == "updating"
+        assert (tmp_path / ".update_requested").exists()
 
     def test_auth_login_logout_lifecycle_happy_path(self, unauth_client, monkeypatch):
         """Login sets authentication cookie; logout removes it."""
