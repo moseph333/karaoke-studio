@@ -97,11 +97,13 @@ Karaoke Studio combines an asynchronous Python backend built on **FastAPI** with
 │   │   │   ├── useInterpolatedTime # 60fps RAF audio playback time sync (playbackRate-aware)
 │   │   │   ├── useLyricEditorState # Timeline line/word editing, batch offset, tap-to-sync & dirty state
 │   │   │   ├── useLyricHistory.ts  # 50-step bounded Undo/Redo history stack (Ctrl+Z / Ctrl+Y)
+│   │   │   ├── useTapCursorHistory # Line & Word Tap-to-Sync cursor state, 50-step history & T hotkey
 │   │   │   ├── useVisualTheme.ts   # Theme presets, custom sung/unsung color overrides & font scaling
 │   │   │   ├── useStudioAudio.ts   # Audio transport, playback speed, volume, and mute state
 │   │   │   ├── useStudioAuth.ts    # Authentication state & session tokens
 │   │   │   └── useTimelineAutoScroll# Smooth active-word auto-scrolling
-│   │   └── tests/                  # Vitest component & responsive test suites (44 suites)
+│   │   ├── utils/                  # Pure domain utilities (lyrics.ts, tapSync.ts, volumeStorage.ts, audioErrors.ts)
+│   │   └── tests/                  # Vitest component & responsive test suites (46 suites)
 ├── docs/                           # Architectural guides & previews
 └── workspace_data/                 # Local data directory (downloads, stems, output)
 ```
@@ -188,7 +190,7 @@ frontend/src/
 │   │   │   ├── TimelineLineCard (2-row mobile layout, ±0.2s nudge, edit text, delete)
 │   │   │   ├── ExpandedWordEditor (Sub-line word timing editor)
 │   │   │   ├── BatchOffsetModal (Shift all or selected-onward timestamps)
-│   │   │   ├── TapToSyncBanner (Live beat-stamping mode [T])
+│   │   │   ├── TapToSyncBanner (Live line & word beat-stamping mode [T])
 │   │   │   ├── LyricReplacementModal (In-studio LRC/text upload & LRCLIB re-query)
 │   │   │   └── TimelineModals (Insert line modal, discard confirmation)
 │   │   ├── LyricDisplay (Live karaoke lyric sweep & Fullscreen TV Stage Mode [F])
@@ -215,8 +217,9 @@ frontend/src/
 - **`useToast`**: Thread-safe notification system supporting auto-dismiss timers, manual dismissal, and hover-pause timer suspension.
 - **`useInterpolatedTime`**: Runs a `requestAnimationFrame` loop that interpolates audio element `currentTime` (scaled by `playbackRate`) for smooth 60fps lyric sweep highlights without jitter caused by low-frequency `timeupdate` events.
 - **`useTimelineAutoScroll`**: Automatically adjusts `scrollTop` to keep the active highlighted lyric line comfortably visible during continuous playback, yielding cleanly to manual user touch or scroll gestures.
-- **`useLyricEditorState`**: Tracks dirty state (`isDirty`), line insertions, line deletions, timestamp nudging, batch timestamp offsets, live Tap-to-Sync stamping, and automatic word-level timing recalculation.
+- **`useLyricEditorState`**: Tracks dirty state (`isDirty`), line insertions, line deletions, timestamp nudging, batch timestamp offsets, live Line and Word Tap-to-Sync stamping (backed by `utils/tapSync.ts`), and automatic word-level timing recalculation.
 - **`useLyricHistory`**: Maintains a bounded 50-step Undo/Redo snapshot history stack with <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> (<kbd>Cmd+Shift+Z</kbd>) keyboard listener integration.
+- **`useTapCursorHistory`**: Coordinates Line and Word Tap-to-Sync mode selection, active target line and word cursor coordinates, a synchronized 50-step Undo/Redo cursor history stack, and isolated <kbd>T</kbd> hotkey handling.
 - **`useVisualTheme`**: Manages visual theme selection, custom sung/unsung hex color overrides, and lyric font size scaling (`0.75x`–`1.5x`).
 - **`useStudioAudio`**: Coordinates audio playback transport, variable `playbackRate` (`0.5x`–`1.5x`), volume clamping, and mute state persistence in `localStorage`.
 - **`useStudioAuth`**: Manages session token storage, HTTP header injection, and broadcasts unauthorized events (`AUTH_UNAUTHORIZED_EVENT`) to trigger the login modal upon session expiry.
@@ -312,7 +315,7 @@ backend/tests/
 
 ### Frontend Test Architecture
 
-The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 44 test modules (845 total tests):
+The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 46 test modules (877 total tests):
 
 ```
 frontend/src/tests/
@@ -327,7 +330,7 @@ frontend/src/tests/
 ├── HelpModalShortcutsStress.test.tsx       # Rapid hotkey toggling & input isolation stress
 ├── LyricDisplay.test.tsx                   # Synchronized lyric line & syllable rendering
 ├── LyricTimelineEditor.test.tsx            # Inline editing, line nudge, dirty state tracking
-├── LyricTimelinePowerTools.test.tsx        # Undo/redo stack, batch offset, tap-to-sync, lyric re-import
+├── LyricTimelinePowerTools.test.tsx        # Undo/redo stack, batch offset, line/word tap-to-sync, lyric re-import
 ├── PlaybackSpeedControl.test.tsx           # Variable playback speed (0.5x..1.5x) & radio semantics
 ├── ProjectLibrarySearchSort.test.tsx       # Library real-time search, status filtering & sorting
 ├── StudioLifecycle.test.tsx                # App state transitions & project loading
@@ -353,13 +356,15 @@ frontend/src/tests/
 ├── studioControlsTouchErgonomics.test.tsx  # Studio dashboard touch target ergonomics (>=44px)
 ├── subtitleExportAccessibility.test.tsx    # Subtitle download button accessibility & parameters
 ├── subtitleExportDownloads.test.tsx        # Simulated blob anchor downloads & DOM cleanup
+├── tapSync.test.ts                         # Pure line & word tap-sync engine & monotonic boundary tests
 ├── timelineAutoScrollAndTouch.test.tsx     # 2-row mobile line cards & auto-scroll sync
 ├── timelineLineStructureEditing.test.tsx   # Line insertion (above/below) & deletion invariants
 ├── toastAndAuthAdversarial.test.tsx        # Toast hover-pause & 401 unauthorized bus
 ├── tooltipAccessibilitySemantics.test.tsx  # WAI-ARIA tooltip semantics & aria-describedby links
 ├── useFocusTrap.test.tsx                   # Focus loop & restoration unit tests
 ├── useKeyboardShortcuts.test.ts            # Shortcut listener & input isolation unit tests
-└── useProjectPolling.test.ts               # Polling exponential backoff & retry tests
+├── useProjectPolling.test.ts               # Polling exponential backoff & retry tests
+└── useTapCursorHistory.test.ts             # Bounded 50-step tap cursor undo/redo & T hotkey isolation tests
 ```
 
 ### Quality Gates & Verification Commands
@@ -374,7 +379,7 @@ All changes in the repository must pass the full suite of automated quality gate
 
 # 2. Frontend Verification (inside frontend/)
 cd frontend
-npm test -- --run                            # Baseline: >=845 passed across 44 suites, 0 failed
+npm test -- --run                            # Baseline: >=877 passed across 46 suites, 0 failed
 npm run lint                                 # Zero ESLint warnings
 npm run format:check                         # Zero Prettier diffs
 npm run build                                # Zero TypeScript or Vite compilation errors
