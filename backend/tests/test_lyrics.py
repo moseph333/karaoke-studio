@@ -1,7 +1,9 @@
 import re
 
 import pytest
+from pydantic import ValidationError
 
+from backend.schemas import LyricLineSchema
 from backend.services.lyrics import LyricsService
 
 SAMPLE_LRC = """[00:04.20]First line of the song
@@ -388,3 +390,96 @@ def test_process_custom_lyrics_auto_detects_100_min_lrc():
     assert len(res["lines"]) == 2
     assert res["lines"][0]["start_time"] == 6000.0
     assert res["lines"][1]["start_time"] == 6090.0
+
+
+def test_lyric_line_schema_singer_default_and_aliases():
+    """LyricLineSchema defaults to 'singer1' and normalizes aliases cleanly."""
+    # 1. Default fallback
+    line_default = LyricLineSchema(text="Hello", start_time=1.0, end_time=2.0)
+    assert line_default.singer == "singer1"
+
+    # 2. None and whitespace fallback to singer1
+    line_none = LyricLineSchema(text="Hello", start_time=1.0, end_time=2.0, singer=None)
+    assert line_none.singer == "singer1"
+    line_empty = LyricLineSchema(text="Hello", start_time=1.0, end_time=2.0, singer="   ")
+    assert line_empty.singer == "singer1"
+
+    # 3. Canonical roles
+    assert (
+        LyricLineSchema(text="A", start_time=1.0, end_time=2.0, singer="singer1").singer
+        == "singer1"
+    )
+    assert (
+        LyricLineSchema(text="B", start_time=1.0, end_time=2.0, singer="singer2").singer
+        == "singer2"
+    )
+    assert LyricLineSchema(text="C", start_time=1.0, end_time=2.0, singer="both").singer == "both"
+
+    # 4. Singer 1 aliases
+    for alias in ["lead", "LEAD", "singer 1", "Singer 1", "singer_1", "part1", "part 1", "s1"]:
+        line = LyricLineSchema(text="Line", start_time=1.0, end_time=2.0, singer=alias)
+        assert line.singer == "singer1", f"Alias '{alias}' failed to map to 'singer1'"
+
+    # 5. Singer 2 aliases
+    for alias in [
+        "partner",
+        "PARTNER",
+        "singer 2",
+        "Singer 2",
+        "singer_2",
+        "part2",
+        "part 2",
+        "s2",
+    ]:
+        line = LyricLineSchema(text="Line", start_time=1.0, end_time=2.0, singer=alias)
+        assert line.singer == "singer2", f"Alias '{alias}' failed to map to 'singer2'"
+
+    # 6. Both / Unison aliases
+    for alias in ["both", "BOTH", "unison", "Unison", "duet", "DUET", "all", "together"]:
+        line = LyricLineSchema(text="Line", start_time=1.0, end_time=2.0, singer=alias)
+        assert line.singer == "both", f"Alias '{alias}' failed to map to 'both'"
+
+    # 7. Invalid role rejection
+    with pytest.raises(ValidationError):
+        LyricLineSchema(text="Bad", start_time=1.0, end_time=2.0, singer="singer3")
+    with pytest.raises(ValidationError):
+        LyricLineSchema(text="Bad", start_time=1.0, end_time=2.0, singer="alien")
+
+
+def test_update_lyrics_endpoint_multi_singer_persistence(client):
+    """POST /api/project/{id}/lyrics persists multi-singer assignments cleanly into project store."""
+    from backend.main import projects
+
+    proj_id = "test_duet_persistence"
+    projects[proj_id] = {"id": proj_id, "lines": []}
+
+    payload = {
+        "lines": [
+            {"id": 0, "text": "Lead verse", "start_time": 1.0, "end_time": 3.0, "singer": "lead"},
+            {
+                "id": 1,
+                "text": "Partner response",
+                "start_time": 3.5,
+                "end_time": 5.5,
+                "singer": "partner",
+            },
+            {
+                "id": 2,
+                "text": "Unison chorus",
+                "start_time": 6.0,
+                "end_time": 8.0,
+                "singer": "unison",
+            },
+            {"id": 3, "text": "Default line", "start_time": 8.5, "end_time": 10.0},
+        ]
+    }
+
+    res = client.post(f"/api/project/{proj_id}/lyrics", json=payload)
+    assert res.status_code == 200
+    assert res.json()["lines_count"] == 4
+
+    saved_lines = projects[proj_id]["lines"]
+    assert saved_lines[0]["singer"] == "singer1"
+    assert saved_lines[1]["singer"] == "singer2"
+    assert saved_lines[2]["singer"] == "both"
+    assert saved_lines[3]["singer"] == "singer1"

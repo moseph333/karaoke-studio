@@ -199,3 +199,157 @@ class TestExportAssEndpointStyling:
             params={"font_size_scale": 4.5},
         )
         assert res_large.status_code == 422
+
+
+def test_generate_ass_content_multi_singer_styles_and_events():
+    """generate_ass_content defines multi-singer styles and assigns them matching singer roles."""
+    sample_lines = [
+        {
+            "id": 0,
+            "text": "Singer one solo",
+            "start_time": 1.0,
+            "end_time": 3.0,
+            "singer": "singer1",
+            "words": [{"word": "Singer", "start_time": 1.0, "end_time": 2.0}],
+        },
+        {
+            "id": 1,
+            "text": "Singer two solo",
+            "start_time": 4.0,
+            "end_time": 6.0,
+            "singer": "singer2",
+            "words": [{"word": "Singer", "start_time": 4.0, "end_time": 5.0}],
+        },
+        {
+            "id": 2,
+            "text": "Duet harmony",
+            "start_time": 7.0,
+            "end_time": 9.0,
+            "singer": "both",
+            "words": [{"word": "Duet", "start_time": 7.0, "end_time": 8.0}],
+        },
+    ]
+
+    ass = generate_ass_content(sample_lines)
+
+    # 1. Verify all 6 line styles are defined in [V4+ Styles]
+    assert "Style: KaraokeLine1," in ass
+    assert "Style: KaraokeLine2," in ass
+    assert "Style: KaraokeLine1_Singer2," in ass
+    assert "Style: KaraokeLine2_Singer2," in ass
+    assert "Style: KaraokeLine1_Both," in ass
+    assert "Style: KaraokeLine2_Both," in ass
+
+    # 2. Verify default colors (&H00B300FF for Singer 2, &H0050FA7B for Both)
+    assert "&H00B300FF" in ass  # Neon Pink
+    assert "&H0050FA7B" in ass  # Emerald
+
+    # 3. Verify dialogue style mapping
+    assert ",KaraokeLine1," in ass
+    assert ",KaraokeLine2_Singer2," in ass
+    assert ",KaraokeLine1_Both," in ass
+    assert "{\\kf" in ass
+
+
+def test_generate_ass_content_multi_singer_custom_color_overrides():
+    """Custom singer colors override defaults for Singer 2 and Both styles."""
+    sample_lines = [
+        {"id": 0, "text": "Test", "start_time": 1.0, "end_time": 2.0, "singer": "singer2"}
+    ]
+    ass = generate_ass_content(
+        sample_lines,
+        singer2_color="#ff1493",  # DeepPink -> &H009314FF
+        both_color="#00fa9a",  # MediumSpringGreen -> &H009AFA00
+    )
+    assert "&H009314FF" in ass
+    assert "&H009AFA00" in ass
+
+
+def test_generate_ass_content_with_gap_countdown_enabled():
+    """generate_ass_content generates Countdown style and dialogue events for qualifying gaps >= 4.0s."""
+    sample_lines = [
+        {
+            "id": 0,
+            "text": "Intro after long gap",
+            "start_time": 6.0,
+            "end_time": 9.0,
+            "singer": "singer1",
+            "words": [{"word": "Intro", "start_time": 6.0, "end_time": 7.0}],
+        },
+        {
+            "id": 1,
+            "text": "Line after inter-line gap",
+            "start_time": 15.0,
+            "end_time": 18.0,
+            "singer": "singer2",
+            "words": [{"word": "Line", "start_time": 15.0, "end_time": 16.0}],
+        },
+    ]
+
+    ass = generate_ass_content(sample_lines, include_countdown=True)
+    # Countdown style definition
+    assert "Style: Countdown," in ass
+    # Dialogue events using Countdown style
+    assert ",Countdown,,0,0,0,," in ass
+    # Countdown dots with \\kf tags
+    assert "{\\kf100}● {\\kf100}● {\\kf100}●" in ass
+
+
+def test_generate_ass_content_with_gap_countdown_disabled():
+    """generate_ass_content omits countdown dialogue events when include_countdown is False."""
+    sample_lines = [
+        {
+            "id": 0,
+            "text": "Intro after long gap",
+            "start_time": 6.0,
+            "end_time": 9.0,
+            "singer": "singer1",
+            "words": [{"word": "Intro", "start_time": 6.0, "end_time": 7.0}],
+        },
+    ]
+
+    ass = generate_ass_content(sample_lines, include_countdown=False)
+    assert ",Countdown,,0,0,0,," not in ass
+
+
+def test_export_ass_endpoint_include_countdown_query_parameter(client):
+    """GET /api/project/{id}/export/ass respects include_countdown query flag."""
+    pid = f"proj_test_countdown_{uuid.uuid4().hex[:8]}"
+    proj_data = {
+        "id": pid,
+        "track_id": pid,
+        "title": "Countdown Track",
+        "artist": "Timer Master",
+        "duration": 60.0,
+        "status": "ready",
+        "progress": 100,
+        "created_by": "Tester",
+        "lines": [
+            {
+                "start_time": 5.5,
+                "end_time": 8.0,
+                "text": "Singing starts at 5.5s",
+                "words": [{"word": "Singing", "start_time": 5.5, "end_time": 6.5}],
+            }
+        ],
+        "semitones": 0,
+        "guide_volume": 0.0,
+    }
+    projects[pid] = proj_data
+    save_projects()
+
+    try:
+        # 1. Default (or explicitly true) includes countdown dialogue
+        res_true = client.get(f"/api/project/{pid}/export/ass", params={"include_countdown": True})
+        assert res_true.status_code == 200
+        assert ",Countdown,,0,0,0,," in res_true.text
+
+        # 2. Explicitly false excludes countdown dialogue
+        res_false = client.get(
+            f"/api/project/{pid}/export/ass", params={"include_countdown": False}
+        )
+        assert res_false.status_code == 200
+        assert ",Countdown,,0,0,0,," not in res_false.text
+    finally:
+        projects.pop(pid, None)
+        save_projects()

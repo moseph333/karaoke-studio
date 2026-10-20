@@ -17,6 +17,8 @@ from backend.project_store import (
     save_projects,
 )
 from backend.schemas import (
+    KeyRecommendationRequest,
+    KeyRecommendationResponse,
     LyricsUpdateRequest,
     MixRequest,
     ProcessRequest,
@@ -24,6 +26,7 @@ from backend.schemas import (
     RealignLyricsRequest,
     RenderRequest,
     SearchRequest,
+    VocalRangeData,
 )
 
 logger = logging.getLogger("karaoke_backend")
@@ -115,6 +118,147 @@ def list_projects(scope: str | None = "all", user: str | None = None):
 @router.get("/api/project/{project_id}")
 def get_project(project_id: str):
     return get_project_or_404(project_id)
+
+
+@router.get(
+    "/api/project/{project_id}/vocal-range",
+    response_model=VocalRangeData,
+    summary="Get project vocal range analysis with on-demand auto-backfill",
+)
+def get_vocal_range(project_id: str):
+    """Returns cached vocal range analysis for a project.
+
+    If vocal range metadata is not yet present and the isolated vocal stem exists on disk,
+    this endpoint automatically computes the acoustic analysis on demand and updates the
+    project store without requiring full stem re-separation.
+    """
+    import backend.main as main_mod
+
+    proj = get_project_or_404(project_id)
+
+    cached_range = proj.get("vocal_range")
+    if cached_range:
+        return cached_range
+
+    vocals_path = proj.get("vocals_path")
+    if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
+        logger.warning(
+            f"Vocal range analysis rejected for {project_id}: vocals stem missing or empty ({vocals_path})"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot analyze vocal range: isolated vocal stem missing or not ready",
+        )
+
+    try:
+        # Execute CPU-bound acoustic analysis outside PROJECTS_LOCK
+        vocal_range = main_mod.vocal_analyzer.analyze_vocals(vocals_path)
+
+        with PROJECTS_LOCK:
+            target_proj = get_project_or_404(project_id)
+            target_proj["vocal_range"] = vocal_range
+            save_projects()
+
+        return vocal_range
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Vocal range analysis failed for {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze vocal range: {e}") from e
+
+
+@router.post(
+    "/api/project/{project_id}/vocal-range",
+    response_model=VocalRangeData,
+    summary="Force re-analysis of project vocal range",
+)
+def reanalyze_vocal_range(project_id: str):
+    """Forces re-analysis of the project's vocal stem and refreshes cached metadata."""
+    import backend.main as main_mod
+
+    proj = get_project_or_404(project_id)
+
+    vocals_path = proj.get("vocals_path")
+    if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
+        logger.warning(
+            f"Forced vocal range re-analysis rejected for {project_id}: vocals stem missing or empty ({vocals_path})"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot analyze vocal range: isolated vocal stem missing or not ready",
+        )
+
+    try:
+        # Execute CPU-bound acoustic analysis outside PROJECTS_LOCK
+        vocal_range = main_mod.vocal_analyzer.analyze_vocals(vocals_path)
+
+        with PROJECTS_LOCK:
+            target_proj = get_project_or_404(project_id)
+            target_proj["vocal_range"] = vocal_range
+            save_projects()
+
+        return vocal_range
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Vocal range re-analysis failed for {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to re-analyze vocal range: {e}") from e
+
+
+@router.post(
+    "/api/project/{project_id}/recommend-key",
+    response_model=KeyRecommendationResponse,
+    summary="Recommend optimal pitch transposition for a target singer voice profile",
+)
+def recommend_key(project_id: str, req: KeyRecommendationRequest):
+    """Recommends an integer semitone transposition within [-12, +12] that optimizes
+    the song's vocal peaks and median range into the singer's target voice range.
+    """
+    import backend.main as main_mod
+
+    proj = get_project_or_404(project_id)
+    vocal_range = proj.get("vocal_range")
+
+    # On-demand backfill if range missing but stem available
+    if not vocal_range:
+        vocals_path = proj.get("vocals_path")
+        if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot recommend key: vocal range analysis unavailable and vocal stem missing",
+            )
+        vocal_range = main_mod.vocal_analyzer.analyze_vocals(vocals_path)
+        with PROJECTS_LOCK:
+            target_proj = get_project_or_404(project_id)
+            target_proj["vocal_range"] = vocal_range
+            save_projects()
+
+    # Safe handling for unvoiced or silent audio
+    if not vocal_range.get("is_voiced") or not vocal_range.get("lowest_note"):
+        return {
+            "recommended_semitones": 0,
+            "projected_key": vocal_range.get("estimated_key", "Unknown"),
+            "projected_low_note": None,
+            "projected_high_note": None,
+            "cost": 0.0,
+            "is_in_range": True,
+            "target_preset": req.target_voice_preset,
+            "original_key": vocal_range.get("estimated_key", "Unknown"),
+        }
+
+    try:
+        recommendation = main_mod.vocal_analyzer.recommend_key(
+            song_vocal_range=vocal_range,
+            target_voice_preset=req.target_voice_preset,
+            custom_low_note=req.custom_low_note,
+            custom_high_note=req.custom_high_note,
+        )
+        return recommendation
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Key recommendation failed for {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to recommend key: {e}") from e
 
 
 @router.patch("/api/project/{project_id}")

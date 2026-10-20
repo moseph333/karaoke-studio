@@ -1,10 +1,4 @@
-/**
- * Lyric Timeline Editor Component
- *
- * Orchestrates lyric line and word timing adjustments, inline text editing,
- * line addition and deletion, dirty state tracking, multi-step undo/redo,
- * batch offset shifting, live tap-to-sync mode, and lyric re-alignment.
- */
+/** Lyric Timeline Editor: Line/word timing, editing, duet parts, undo/redo, tap sync */
 
 import React, { useMemo, useState } from 'react';
 import { LyricLine, WordTiming } from '../types';
@@ -18,6 +12,7 @@ import {
   Clock,
   Radio,
   FileText,
+  Users,
 } from 'lucide-react';
 import { LyricDisplay } from './LyricDisplay';
 import { recalculateWordTimings, getActiveWordLocation } from '../utils/lyrics';
@@ -28,6 +23,7 @@ import { TimelineModals } from './timeline/TimelineModals';
 import { BatchOffsetModal } from './timeline/BatchOffsetModal';
 import { TapToSyncBanner } from './timeline/TapToSyncBanner';
 import { LyricReplacementModal } from './timeline/LyricReplacementModal';
+import { DuetAssignmentModal } from './timeline/DuetAssignmentModal';
 import { Tooltip } from './Tooltip';
 
 export { recalculateWordTimings };
@@ -69,6 +65,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
 }) => {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [showDuetModal, setShowDuetModal] = useState(false);
 
   const ed = useLyricEditorState({
     lines,
@@ -219,6 +216,19 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 <span className="hidden md:inline">Offset</span>
               </button>
             </Tooltip>
+            <Tooltip content="Assign duet singer parts" position="top">
+              <button
+                type="button"
+                data-testid="duet-assign-btn"
+                aria-label="Assign duet singer parts"
+                onClick={() => setShowDuetModal(true)}
+                disabled={ed.isSaving || ed.editableLines.length === 0}
+                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pink-400 min-h-[44px] min-w-[44px] shrink-0"
+              >
+                <Users className="w-3.5 h-3.5 text-pink-400" />
+                <span className="hidden md:inline">Duet Parts</span>
+              </button>
+            </Tooltip>
             <Tooltip content="Live tap-to-sync mode (T)" position="top">
               <button
                 type="button"
@@ -279,13 +289,11 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                   >
                     {ed.isSaving ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Saving...
+                        <Loader2 className="w-4 h-4 animate-spin" /> Saving...
                       </>
                     ) : (
                       <>
-                        <Check className="w-4 h-4" />
-                        Save Lyrics & Timing Changes
+                        <Check className="w-4 h-4" /> Save Lyrics & Timing Changes
                         <span className="sr-only">Save Timing Changes</span>
                         <span className="sr-only">Save Lyrics</span>
                       </>
@@ -382,6 +390,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                   onNudgeWord={ed.nudgeWord}
                   onNudgeWordBoundary={ed.nudgeWordBoundary}
                   onUpdateWordTiming={ed.updateWordTiming}
+                  onCycleSinger={ed.handleCycleLineSinger}
                 />
               ))}
               <div className="pt-2">
@@ -422,6 +431,13 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
         trackTitle={trackTitle}
         trackArtist={trackArtist}
         onSuccess={ed.handleReplaceLyrics}
+      />
+      <DuetAssignmentModal
+        isOpen={showDuetModal}
+        onClose={() => setShowDuetModal(false)}
+        lines={ed.editableLines}
+        onApply={ed.handleBulkAssignSinger}
+        selectedLineIndex={selectedIndex >= 0 ? selectedIndex : 0}
       />
     </div>
   );

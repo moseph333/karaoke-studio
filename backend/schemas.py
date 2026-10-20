@@ -92,6 +92,29 @@ class WordTimingSchema(BaseModel):
         return self
 
 
+SINGER_ALIASES: dict[str, str] = {
+    "singer1": "singer1",
+    "singer 1": "singer1",
+    "singer_1": "singer1",
+    "lead": "singer1",
+    "s1": "singer1",
+    "part1": "singer1",
+    "part 1": "singer1",
+    "singer2": "singer2",
+    "singer 2": "singer2",
+    "singer_2": "singer2",
+    "partner": "singer2",
+    "s2": "singer2",
+    "part2": "singer2",
+    "part 2": "singer2",
+    "both": "both",
+    "unison": "both",
+    "duet": "both",
+    "all": "both",
+    "together": "both",
+}
+
+
 class LyricLineSchema(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: int | None = Field(default=None, description="Optional line ID")
@@ -114,6 +137,24 @@ class LyricLineSchema(BaseModel):
         default_factory=list,
         description="Word-level timing tokens",
     )
+    singer: str = Field(
+        default="singer1",
+        description="Singer part assignment: 'singer1' (Singer 1 / Lead), 'singer2' (Singer 2 / Partner), or 'both' (Both / Unison)",
+    )
+
+    @field_validator("singer", mode="before")
+    @classmethod
+    def validate_singer_role(cls, v: Any) -> str:
+        if v is None:
+            return "singer1"
+        s = str(v).strip().lower()
+        if not s:
+            return "singer1"
+        if s in SINGER_ALIASES:
+            return SINGER_ALIASES[s]
+        raise ValueError(
+            f"Invalid singer role '{v}'. Expected 'singer1' (lead), 'singer2' (partner), or 'both' (unison)."
+        )
 
     @model_validator(mode="after")
     def validate_line_and_words(self) -> "LyricLineSchema":
@@ -182,6 +223,14 @@ class RenderRequest(BaseModel):
         default=None,
         description="Optional custom background image ID",
     )
+    include_visualizer: bool = Field(
+        default=False,
+        description="Composite beat-reactive audio visualizer into MP4",
+    )
+    include_countdown: bool = Field(
+        default=True,
+        description="Include instrumental gap countdown cues in subtitles",
+    )
 
 
 class ProjectMetadataUpdate(BaseModel):
@@ -208,4 +257,253 @@ class RealignLyricsRequest(BaseModel):
     fetch_lrclib: bool = Field(
         default=False,
         description="Re-query LRCLIB using project title and artist",
+    )
+
+
+# ==============================================================================
+# R1: Vocal Range & Smart Key Recommendation Schemas
+# ==============================================================================
+
+VOICE_PRESETS: set[str] = {
+    "Bass",
+    "Baritone",
+    "Tenor",
+    "Alto",
+    "Mezzo-Soprano",
+    "Soprano",
+}
+
+VOICE_PRESET_ALIASES: dict[str, str] = {
+    "bass": "Bass",
+    "baritone": "Baritone",
+    "tenor": "Tenor",
+    "alto": "Alto",
+    "mezzo-soprano": "Mezzo-Soprano",
+    "mezzosoprano": "Mezzo-Soprano",
+    "mezzo_soprano": "Mezzo-Soprano",
+    "mezzo": "Mezzo-Soprano",
+    "soprano": "Soprano",
+}
+
+SPN_NOTE_REGEX = re.compile(r"^[A-Ga-g][#b]?[0-9]$")
+
+
+class VocalRangeData(BaseModel):
+    """Acoustic vocal range and key estimation metadata for an isolated vocal track."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    is_voiced: bool = Field(
+        default=False,
+        description="Whether voiced singing frames were detected in the vocal track",
+    )
+    lowest_note: str | None = Field(
+        default=None,
+        description="Lowest sung note in Scientific Pitch Notation (e.g. 'C#3')",
+    )
+    highest_note: str | None = Field(
+        default=None,
+        description="Highest sung note in Scientific Pitch Notation (e.g. 'E4')",
+    )
+    lowest_hz: float | None = Field(
+        default=None,
+        description="Fundamental frequency of lowest sung note in Hertz",
+    )
+    highest_hz: float | None = Field(
+        default=None,
+        description="Fundamental frequency of highest sung note in Hertz",
+    )
+    tessitura_low_note: str | None = Field(
+        default=None,
+        description="Comfortable tessitura lower bound note (15th percentile)",
+    )
+    tessitura_high_note: str | None = Field(
+        default=None,
+        description="Comfortable tessitura upper bound note (85th percentile)",
+    )
+    tessitura_low_hz: float | None = Field(
+        default=None,
+        description="Comfortable tessitura lower bound frequency in Hertz",
+    )
+    tessitura_high_hz: float | None = Field(
+        default=None,
+        description="Comfortable tessitura upper bound frequency in Hertz",
+    )
+    median_note: str | None = Field(
+        default=None,
+        description="Median sung note (50th percentile)",
+    )
+    median_hz: float | None = Field(
+        default=None,
+        description="Median fundamental frequency in Hertz",
+    )
+    estimated_key: str = Field(
+        default="Unknown",
+        description="Estimated musical key (e.g. 'G Major', 'C# Minor', or 'Unknown')",
+    )
+    key_confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence score of key estimation between 0.0 and 1.0",
+    )
+    voiced_frames_count: int = Field(
+        default=0,
+        ge=0,
+        description="Total count of voiced audio frames detected",
+    )
+    total_frames_count: int = Field(
+        default=0,
+        ge=0,
+        description="Total count of audio frames evaluated",
+    )
+
+
+class KeyRecommendationRequest(BaseModel):
+    """Request payload for smart key recommendation."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    target_voice_preset: str | None = Field(
+        default=None,
+        description="Target voice type preset ('Bass', 'Baritone', 'Tenor', 'Alto', 'Mezzo-Soprano', 'Soprano')",
+    )
+    custom_low_note: str | None = Field(
+        default=None,
+        description="Optional custom lowest note in Scientific Pitch Notation (e.g. 'C3', 'F#2')",
+    )
+    custom_high_note: str | None = Field(
+        default=None,
+        description="Optional custom highest note in Scientific Pitch Notation (e.g. 'C5', 'A4')",
+    )
+
+    @field_validator("target_voice_preset")
+    @classmethod
+    def validate_preset(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            return None
+        canonical = VOICE_PRESET_ALIASES.get(stripped.lower()) or stripped
+        if canonical not in VOICE_PRESETS:
+            raise ValueError(
+                f"Invalid voice preset '{v}'. Must be one of: {', '.join(sorted(VOICE_PRESETS))}"
+            )
+        return canonical
+
+    @field_validator("custom_low_note", "custom_high_note")
+    @classmethod
+    def validate_spn_note(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            return None
+        if not SPN_NOTE_REGEX.match(stripped):
+            raise ValueError(
+                f"Invalid scientific pitch notation '{v}'. Expected format like 'C3', 'F#4', 'Bb2'."
+            )
+        return stripped[0].upper() + stripped[1:]
+
+    @model_validator(mode="after")
+    def validate_target_range(self) -> "KeyRecommendationRequest":
+        has_preset = bool(self.target_voice_preset)
+        has_custom_low = bool(self.custom_low_note)
+        has_custom_high = bool(self.custom_high_note)
+
+        if not has_preset and not (has_custom_low and has_custom_high):
+            raise ValueError(
+                "Must provide either 'target_voice_preset' or both 'custom_low_note' and 'custom_high_note'"
+            )
+        return self
+
+
+class KeyRecommendationResponse(BaseModel):
+    """Result payload from the smart key recommendation optimizer."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    recommended_semitones: int = Field(
+        ...,
+        ge=-12,
+        le=12,
+        description="Recommended pitch shift in semitones (-12 to +12)",
+    )
+    projected_key: str = Field(
+        ...,
+        description="Projected musical key after semitone transposition",
+    )
+    projected_low_note: str | None = Field(
+        default=None,
+        description="Projected lowest note in SPN after transposition",
+    )
+    projected_high_note: str | None = Field(
+        default=None,
+        description="Projected highest note in SPN after transposition",
+    )
+    cost: float = Field(
+        default=0.0,
+        description="Optimization cost penalty score (lower is better, 0 is ideal fit)",
+    )
+    is_in_range: bool = Field(
+        default=True,
+        description="True if transposed vocal range fits within target singer bounds",
+    )
+    target_preset: str | None = Field(
+        default=None,
+        description="Echoed voice preset used for recommendation, if applicable",
+    )
+    original_key: str | None = Field(
+        default=None,
+        description="Original detected musical key of the vocal track",
+    )
+
+
+class KaraokeProject(BaseModel):
+    """Fully typed project model with backward compatibility for existing projects."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str = Field(..., description="Unique project identifier")
+    track_id: str | None = Field(default=None, description="Audio/video track identifier")
+    status: str = Field(
+        default="queued",
+        description="Lifecycle status: 'queued', 'downloading', 'separating', 'fetching_lyrics', 'aligning', 'mixing', 'ready', 'error', 'cancelled'",
+    )
+    progress: int = Field(default=0, ge=0, le=100, description="Pipeline progress percentage")
+    status_detail: str | None = Field(default=None, description="Human-readable status description")
+    title: str | None = Field(default=None, description="Track title")
+    artist: str | None = Field(default=None, description="Artist name")
+    duration: float | None = Field(default=None, description="Track duration in seconds")
+    semitones: int = Field(default=0, ge=-12, le=12, description="Pitch shift in semitones")
+    guide_volume: float = Field(default=0.0, ge=0.0, le=1.0, description="Guide vocal blend level")
+    audio_path: str | None = Field(default=None, description="Local path to source WAV audio")
+    audio_url: str | None = Field(default=None, description="Static URL to source audio")
+    thumbnail_path: str | None = Field(default=None, description="Local path to thumbnail image")
+    thumbnail_url: str | None = Field(default=None, description="Static URL to thumbnail image")
+    vocals_path: str | None = Field(default=None, description="Local path to isolated vocals stem")
+    instrumental_path: str | None = Field(
+        default=None, description="Local path to isolated instrumental stem"
+    )
+    vocals_url: str | None = Field(default=None, description="Static URL to vocals stem")
+    instrumental_url: str | None = Field(
+        default=None, description="Static URL to instrumental stem"
+    )
+    master_audio_path: str | None = Field(
+        default=None, description="Local path to mixed master audio"
+    )
+    master_audio_url: str | None = Field(
+        default=None, description="Static URL to mixed master audio"
+    )
+    lines: list[LyricLineSchema] = Field(default_factory=list, description="Timed lyric lines")
+    lyric_source: str | None = Field(
+        default=None, description="Source of lyrics ('lrclib', 'custom', etc.)"
+    )
+    is_synced: bool = Field(default=True, description="Whether lyrics are time-synchronized")
+    created_by: str | None = Field(default="Friend", description="Creator username")
+    created_at: int | None = Field(default=None, description="Creation epoch timestamp in seconds")
+    vocal_range: VocalRangeData | None = Field(
+        default=None,
+        description="Acoustic vocal range and key estimation metadata (R1)",
     )

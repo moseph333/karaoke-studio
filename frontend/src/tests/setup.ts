@@ -84,18 +84,20 @@ window.scrollTo = vi.fn();
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
 // Mock ResizeObserver
-window.ResizeObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+class MockResizeObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+window.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
 
 // Mock IntersectionObserver
-window.IntersectionObserver = vi.fn().mockImplementation(() => ({
-  observe: vi.fn(),
-  unobserve: vi.fn(),
-  disconnect: vi.fn(),
-}));
+class MockIntersectionObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+window.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
 
 // Mock requestAnimationFrame and cancelAnimationFrame
 if (!window.requestAnimationFrame) {
@@ -119,3 +121,104 @@ if (!window.matchMedia) {
     })),
   });
 }
+
+// Mock Canvas 2D Context for JSDOM
+if (typeof window !== 'undefined' && window.HTMLCanvasElement) {
+  const originalGetContext = window.HTMLCanvasElement.prototype.getContext;
+  window.HTMLCanvasElement.prototype.getContext = function (
+    this: HTMLCanvasElement,
+    contextId: string,
+    options?: unknown
+  ): unknown {
+    if (contextId === '2d') {
+      return {
+        canvas: this,
+        fillStyle: '#000000',
+        strokeStyle: '#000000',
+        shadowBlur: 0,
+        shadowColor: 'transparent',
+        lineWidth: 1,
+        globalAlpha: 1,
+        clearRect: vi.fn(),
+        fillRect: vi.fn(),
+        strokeRect: vi.fn(),
+        beginPath: vi.fn(),
+        closePath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        arc: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        save: vi.fn(),
+        restore: vi.fn(),
+        scale: vi.fn(),
+        translate: vi.fn(),
+        rotate: vi.fn(),
+        roundRect: vi.fn(),
+        createLinearGradient: vi.fn(() => ({
+          addColorStop: vi.fn(),
+        })),
+        createRadialGradient: vi.fn(() => ({
+          addColorStop: vi.fn(),
+        })),
+        measureText: vi.fn(() => ({ width: 0 })),
+        drawImage: vi.fn(),
+        getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4) })),
+        putImageData: vi.fn(),
+      };
+    }
+    return originalGetContext ? originalGetContext.call(this, contextId, options) : null;
+  } as unknown as typeof HTMLCanvasElement.prototype.getContext;
+}
+
+// Mock Web Audio API for JSDOM
+class MockAudioNode {
+  connect = vi.fn().mockReturnValue(this);
+  disconnect = vi.fn();
+}
+
+class MockAnalyserNode extends MockAudioNode {
+  fftSize = 128;
+  frequencyBinCount = 64;
+  minDecibels = -100;
+  maxDecibels = -30;
+  smoothingTimeConstant = 0.8;
+  getByteFrequencyData = vi.fn((array: Uint8Array) => {
+    for (let i = 0; i < array.length; i++) {
+      array[i] = 128;
+    }
+  });
+  getByteTimeDomainData = vi.fn((array: Uint8Array) => {
+    for (let i = 0; i < array.length; i++) {
+      array[i] = 128;
+    }
+  });
+}
+
+class MockAudioContext {
+  state: AudioContextState = 'suspended';
+  destination = new MockAudioNode();
+  sampleRate = 44100;
+  currentTime = 0;
+
+  resume = vi.fn().mockImplementation(() => {
+    this.state = 'running';
+    return Promise.resolve();
+  });
+
+  suspend = vi.fn().mockImplementation(() => {
+    this.state = 'suspended';
+    return Promise.resolve();
+  });
+
+  close = vi.fn().mockImplementation(() => {
+    this.state = 'closed';
+    return Promise.resolve();
+  });
+
+  createAnalyser = vi.fn().mockImplementation(() => new MockAnalyserNode());
+  createMediaElementSource = vi.fn().mockImplementation(() => new MockAudioNode());
+}
+
+window.AudioContext = MockAudioContext as unknown as typeof AudioContext;
+(window as unknown as { webkitAudioContext: unknown }).webkitAudioContext = MockAudioContext;

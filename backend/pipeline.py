@@ -1,6 +1,7 @@
 """Long-running track intake background workers for YouTube downloads and local audio uploads, coordinating stem separation, lyrics sync, alignment, and initial master mixing."""
 
 import logging
+import os
 import subprocess
 import threading
 import time
@@ -141,6 +142,25 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         proj["vocals_url"] = f"/static/stems/{audio_id}/vocals.wav"
         proj["instrumental_url"] = f"/static/stems/{audio_id}/instrumental.wav"
         save_projects()
+
+        # Step 2b: Analyze Vocal Range & Pitch Bounds
+        if cancel_event.is_set():
+            raise RuntimeError("Processing cancelled by user")
+
+        try:
+            if hasattr(main_mod, "vocal_analyzer") and stems.get("vocals_path"):
+                v_path = stems["vocals_path"]
+                if os.path.isfile(v_path) and os.path.getsize(v_path) > 0:
+                    update_pipe("separating", 70, "Analyzing vocal range and musical key...", 3)
+                    vocal_range = main_mod.vocal_analyzer.analyze_vocals(v_path)
+                    proj = get_project_or_404(project_id)
+                    proj["vocal_range"] = vocal_range
+                    save_projects()
+        except Exception as va_err:
+            logger.warning(
+                f"Vocal range analysis failed during pipeline for {project_id} ({va_err}); continuing pipeline.",
+                exc_info=True,
+            )
 
         # Step 3: Fetch Lyrics
         update_pipe("fetching_lyrics", 72, "Retrieving lyrics from LRCLIB...", 5)
@@ -353,6 +373,25 @@ def run_local_pipeline(
         proj["vocals_url"] = f"/static/stems/{project_id}/vocals.wav"
         proj["instrumental_url"] = f"/static/stems/{project_id}/instrumental.wav"
         save_projects()
+
+        # Step 2b: Analyze Vocal Range & Pitch Bounds
+        if cancel_event.is_set():
+            raise RuntimeError("Processing cancelled by user")
+
+        try:
+            if hasattr(main_mod, "vocal_analyzer") and stems.get("vocals_path"):
+                v_path = stems["vocals_path"]
+                if os.path.isfile(v_path) and os.path.getsize(v_path) > 0:
+                    update_pipe("separating", 70, "Analyzing vocal range and musical key...", 3)
+                    vocal_range = main_mod.vocal_analyzer.analyze_vocals(v_path)
+                    proj = get_project_or_404(project_id)
+                    proj["vocal_range"] = vocal_range
+                    save_projects()
+        except Exception as va_err:
+            logger.warning(
+                f"Vocal range analysis failed during local pipeline for {project_id} ({va_err}); continuing pipeline.",
+                exc_info=True,
+            )
 
         # Step 3: Fetch / Process Lyrics
         update_pipe("fetching_lyrics", 72, "Processing song lyrics...", 5)

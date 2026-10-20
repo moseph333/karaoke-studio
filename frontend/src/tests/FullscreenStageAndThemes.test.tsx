@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act, fireEvent, renderHook } from '@testing-library/react';
+import { render, screen, act, fireEvent, renderHook, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { VisualThemePicker, THEMES } from '../components/VisualThemePicker';
@@ -8,6 +8,12 @@ import { useVisualTheme, cssToAssColor } from '../hooks/useVisualTheme';
 import { ExportSubtitleSection } from '../components/export/ExportSubtitleSection';
 import { LyricLine, ProjectState } from '../types';
 import * as apiModule from '../api';
+import {
+  setTestViewport,
+  resetTestViewport,
+  assertZeroHorizontalOverflow,
+  BREAKPOINTS,
+} from './responsiveTestUtils';
 
 describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () => {
   const sampleLines: LyricLine[] = [
@@ -367,5 +373,118 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
       expect(url).toContain('secondary_color=%26H00FFFFFF');
       expect(url).toContain('font_size_scale=1.5');
     });
+  });
+});
+
+describe('LyricDisplay Fullscreen TV Stage Multi-Singer Integration (Requirement R2)', () => {
+  const multiSingerLines: LyricLine[] = [
+    {
+      id: 101,
+      text: 'Lead singer in Stage Mode',
+      start_time: 1.0,
+      end_time: 4.0,
+      singer: 'singer1',
+      words: [
+        { word: 'Lead', start_time: 1.0, end_time: 2.0 },
+        { word: 'singer', start_time: 2.1, end_time: 4.0 },
+      ],
+    },
+    {
+      id: 102,
+      text: 'Partner singer in Stage Mode',
+      start_time: 5.0,
+      end_time: 8.0,
+      singer: 'singer2',
+      words: [
+        { word: 'Partner', start_time: 5.0, end_time: 6.5 },
+        { word: 'singer', start_time: 6.6, end_time: 8.0 },
+      ],
+    },
+  ];
+
+  afterEach(() => {
+    resetTestViewport();
+  });
+
+  it('scales active singer badge and preserves color treatments in Fullscreen TV Stage Mode', () => {
+    render(
+      <LyricDisplay
+        lines={multiSingerLines}
+        currentTime={2.0}
+        duration={120}
+        themeSungColor="#06b6d4"
+      />
+    );
+
+    // Enter stage mode
+    fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
+
+    const stage = screen.getByTestId('lyric-display-stage');
+    expect(stage).toHaveAttribute('data-fullscreen', 'true');
+
+    // Badge scaled for TV visibility
+    const badge = screen.getByTestId('active-singer-badge');
+    expect(badge).toBeInTheDocument();
+    expect(badge.className).toContain('scale-110');
+    expect(badge).toHaveTextContent('🎤 Singer 1 / Lead');
+
+    // Upcoming cue
+    const nextTag = screen.getByTestId('next-singer-tag');
+    expect(nextTag).toHaveTextContent('[Singer 2]');
+    expect(nextTag).toHaveStyle({ color: '#ec4899' });
+
+    // Floating controls meet >=44px touch targets
+    const playBtn = screen.getByTestId('stage-play-pause-btn');
+    const exitBtn = screen.getByTestId('stage-exit-btn');
+    expect(playBtn.className).toContain('min-h-[44px]');
+    expect(playBtn.className).toContain('min-w-[44px]');
+    expect(exitBtn.className).toContain('min-h-[44px]');
+    expect(exitBtn.className).toContain('min-w-[44px]');
+  });
+
+  it('renders Singer 2 Partner color and countdown in Fullscreen TV Stage Mode', () => {
+    render(<LyricDisplay lines={multiSingerLines} currentTime={6.0} duration={120} />);
+
+    // Enter stage mode
+    fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
+
+    const badge = screen.getByTestId('active-singer-badge');
+    expect(badge).toHaveAttribute('data-singer', 'singer2');
+    expect(badge).toHaveTextContent('🎤 Singer 2 / Partner');
+
+    const sungWord = screen.getByTestId('word-sung-0');
+    expect(sungWord).toHaveStyle({ color: '#ec4899' });
+  });
+
+  it('has zero horizontal overflow in Stage Mode across all breakpoints down to 320px', () => {
+    BREAKPOINTS.forEach((bp) => {
+      setTestViewport(bp.width, bp.height);
+      const { container } = render(
+        <LyricDisplay lines={multiSingerLines} currentTime={2.0} duration={120} />
+      );
+
+      // Enter fullscreen
+      fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
+      assertZeroHorizontalOverflow(container, bp.width);
+      cleanup();
+    });
+  });
+
+  it('renders countdown indicator in Fullscreen TV Stage Mode with zero overflow at 320px', () => {
+    setTestViewport(320, 568);
+    const { container } = render(
+      <LyricDisplay
+        lines={[{ id: 1, text: 'Stage line', start_time: 10.0, end_time: 15.0, words: [] }]}
+        currentTime={4.0}
+        duration={120}
+      />
+    );
+
+    fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
+
+    expect(screen.getByTestId('gap-countdown-progressbar')).toBeInTheDocument();
+    expect(screen.getByTestId('gap-countdown-time')).toHaveTextContent('Next vocals in 6s');
+
+    assertZeroHorizontalOverflow(container, 320);
   });
 });

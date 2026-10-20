@@ -250,4 +250,105 @@ describe('ExportModal', () => {
       ).toBeInTheDocument();
     });
   });
+
+  describe('Video Render Options & Visualizer Toggle', () => {
+    beforeEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('renders visualizer toggle checkbox with min-44px touch target and unchecked by default', () => {
+      const idleProject: ProjectState = {
+        ...baseProject,
+        render_status: 'idle',
+        video_url: undefined,
+      };
+
+      render(<ExportModal project={idleProject} isOpen={true} onClose={vi.fn()} />);
+
+      const toggleCheckbox = screen.getByTestId('toggle-export-visualizer');
+      expect(toggleCheckbox).toBeInTheDocument();
+      expect(toggleCheckbox).not.toBeChecked();
+      expect(toggleCheckbox.className).toContain('min-h-[44px]');
+      expect(toggleCheckbox.className).toContain('min-w-[44px]');
+    });
+
+    it('toggles visualizer checkbox state and invokes onStartRender with includeVisualizer flag', async () => {
+      const user = userEvent.setup();
+      const onStartRender = vi.fn();
+      const idleProject: ProjectState = {
+        ...baseProject,
+        render_status: 'idle',
+        video_url: undefined,
+      };
+
+      render(
+        <ExportModal
+          project={idleProject}
+          isOpen={true}
+          onClose={vi.fn()}
+          onStartRender={onStartRender}
+        />
+      );
+
+      const toggleCheckbox = screen.getByTestId('toggle-export-visualizer');
+      await user.click(toggleCheckbox);
+      expect(toggleCheckbox).toBeChecked();
+
+      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      await user.click(renderBtn);
+
+      expect(onStartRender).toHaveBeenCalledWith({
+        includeVisualizer: true,
+        includeCountdown: true,
+      });
+    });
+
+    it('triggers direct apiFetch POST /api/project/:id/render with visualizer and countdown options', async () => {
+      const user = userEvent.setup();
+      const apiFetchSpy = vi.spyOn(apiModule, 'apiFetch').mockResolvedValue(
+        new Response(JSON.stringify({ status: 'queued' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      const idleProject: ProjectState = {
+        ...baseProject,
+        render_status: 'idle',
+        video_url: undefined,
+        semitones: 2,
+        guide_volume: 0.5,
+      };
+
+      render(
+        <ExportModal
+          project={idleProject}
+          isOpen={true}
+          onClose={vi.fn()}
+          aspectRatio="9:16"
+          selectedTheme={THEMES[1]} // cyber_cyan
+        />
+      );
+
+      const toggleCheckbox = screen.getByTestId('toggle-export-visualizer');
+      await user.click(toggleCheckbox);
+      expect(toggleCheckbox).toBeChecked();
+
+      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      await user.click(renderBtn);
+
+      expect(apiFetchSpy).toHaveBeenCalledWith('/api/project/test-project-export/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          semitones: 2,
+          guide_volume: 0.5,
+          aspect_ratio: '9:16',
+          include_visualizer: true,
+          include_countdown: true,
+          style_config: { theme_id: 'cyber_cyan' },
+        }),
+      });
+    });
+  });
 });

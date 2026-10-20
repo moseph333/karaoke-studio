@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { LyricLine, WordTiming } from '../types';
+import { LyricLine, WordTiming, SingerRole, BulkAssignOptions } from '../types';
 import { useToast } from './useToast';
 import { useLyricHistory } from './useLyricHistory';
 import {
@@ -363,6 +363,93 @@ export function useLyricEditorState({
     toast.info('Lyric line deleted');
   };
 
+  const handleCycleLineSinger = useCallback(
+    (lineId: number) => {
+      pushSnapshot(editableLines);
+      setEditableLines((prev) =>
+        prev.map((line) => {
+          if (line.id !== lineId) return line;
+          const current: SingerRole = line.singer ?? 'singer1';
+          const next: SingerRole =
+            current === 'singer1' ? 'singer2' : current === 'singer2' ? 'both' : 'singer1';
+          return { ...line, singer: next };
+        })
+      );
+    },
+    [editableLines, pushSnapshot]
+  );
+
+  const handleSetLineSinger = useCallback(
+    (lineId: number, singer: SingerRole) => {
+      pushSnapshot(editableLines);
+      setEditableLines((prev) =>
+        prev.map((line) => (line.id === lineId ? { ...line, singer } : line))
+      );
+    },
+    [editableLines, pushSnapshot]
+  );
+
+  const handleBulkAssignSinger = useCallback(
+    (options: BulkAssignOptions) => {
+      pushSnapshot(editableLines);
+      const total = editableLines.length;
+      if (total === 0) return;
+
+      let updated: LyricLine[] = [];
+
+      if (options.mode === 'range') {
+        const start = Math.max(0, Math.min(total - 1, options.startLineIndex ?? 0));
+        const end = Math.max(start, Math.min(total - 1, options.endLineIndex ?? total - 1));
+        const targetSinger = options.singer ?? 'singer1';
+
+        updated = editableLines.map((line, idx) => {
+          if (idx >= start && idx <= end) {
+            return { ...line, singer: targetSinger };
+          }
+          return line;
+        });
+      } else if (options.mode === 'alternating') {
+        const pattern = options.pattern ?? '1x1';
+        const s1 = options.startSinger ?? 'singer1';
+        const s2: SingerRole = s1 === 'singer1' ? 'singer2' : 'singer1';
+
+        updated = editableLines.map((line, idx) => {
+          let assigned: SingerRole;
+          if (pattern === '1x1') {
+            assigned = idx % 2 === 0 ? s1 : s2;
+          } else {
+            const block = Math.floor(idx / 2);
+            assigned = block % 2 === 0 ? s1 : s2;
+          }
+          return { ...line, singer: assigned };
+        });
+      } else if (options.mode === 'auto') {
+        const threshold = options.pauseThreshold ?? 2.5;
+        let currentSinger: SingerRole = options.startSinger ?? 'singer1';
+        const otherSinger: SingerRole = currentSinger === 'singer1' ? 'singer2' : 'singer1';
+
+        updated = editableLines.map((line, idx) => {
+          if (idx === 0) {
+            return { ...line, singer: currentSinger };
+          }
+          const prev = editableLines[idx - 1];
+          const gap = line.start_time - prev.end_time;
+          if (gap < -0.1) {
+            return { ...line, singer: 'both' };
+          }
+          if (gap >= threshold) {
+            currentSinger = currentSinger === 'singer1' ? otherSinger : 'singer1';
+          }
+          return { ...line, singer: currentSinger };
+        });
+      }
+
+      setEditableLines(updated);
+      toast.success('Duet parts assigned');
+    },
+    [editableLines, pushSnapshot, toast]
+  );
+
   return {
     editableLines,
     selectedLineId,
@@ -387,6 +474,9 @@ export function useLyricEditorState({
     updateWordTiming,
     handleApplyBatchOffset,
     handleReplaceLyrics,
+    handleCycleLineSinger,
+    handleSetLineSinger,
+    handleBulkAssignSinger,
     isTapToSyncActive,
     setIsTapToSyncActive,
     tapSyncMode,

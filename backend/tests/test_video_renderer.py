@@ -995,3 +995,243 @@ def test_generate_ass_content_100_plus_minute_track():
     assert "1:39:57.50" in ass
     assert "Century" in ass
     assert "mark" in ass
+
+
+def test_generate_ass_subtitles_multi_singer_file_output(tmp_path):
+    """VideoRenderer.generate_ass_subtitles writes multi-singer styles and progressive kf tags."""
+    renderer = VideoRenderer(output_dir=tmp_path)
+    out_ass = tmp_path / "duet.ass"
+
+    lines = [
+        {
+            "id": 0,
+            "text": "Part one",
+            "start_time": 1.0,
+            "end_time": 3.0,
+            "singer": "lead",
+            "words": [{"word": "Part", "start_time": 1.0, "end_time": 2.0}],
+        },
+        {
+            "id": 1,
+            "text": "Part two",
+            "start_time": 4.0,
+            "end_time": 6.0,
+            "singer": "partner",
+            "words": [{"word": "Part", "start_time": 4.0, "end_time": 5.0}],
+        },
+        {
+            "id": 2,
+            "text": "Part three",
+            "start_time": 7.0,
+            "end_time": 9.0,
+            "singer": "both",
+            "words": [{"word": "Part", "start_time": 7.0, "end_time": 8.0}],
+        },
+    ]
+
+    res = renderer.generate_ass_subtitles(lines, out_ass)
+    assert os.path.exists(res)
+    content = out_ass.read_text(encoding="utf-8")
+
+    assert "Style: KaraokeLine1_Singer2" in content
+    assert "Style: KaraokeLine1_Both" in content
+    assert ",KaraokeLine1," in content
+    assert ",KaraokeLine2_Singer2," in content
+    assert ",KaraokeLine1_Both," in content
+    assert "{\\kf" in content
+
+
+def test_render_video_with_audio_visualizer_16_9(tmp_path):
+    """Renders 16:9 MP4 video with beat-reactive visualizer and burnt-in subtitles.
+
+    Verifies output exists with 1920x1080 dimensions, h264/aac codecs via ffprobe.
+    """
+    renderer = VideoRenderer(output_dir=tmp_path)
+    output_ass = tmp_path / "vis_16_9.ass"
+    output_mp4 = tmp_path / "vis_16_9.mp4"
+    audio_path = tmp_path / "vis_16_9.wav"
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            "-c:a",
+            "pcm_s16le",
+            str(audio_path),
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    renderer.generate_ass_subtitles(
+        [
+            {
+                "id": 0,
+                "text": "Visualizer 16:9 Test",
+                "start_time": 0.0,
+                "end_time": 1.0,
+                "words": [{"word": "Visualizer", "start_time": 0.0, "end_time": 0.8}],
+            }
+        ],
+        output_ass,
+        aspect_ratio="16:9",
+    )
+
+    rendered_path = renderer.render_video(
+        audio_path=str(audio_path),
+        ass_subtitles_path=str(output_ass),
+        output_mp4_path=output_mp4,
+        aspect_ratio="16:9",
+        duration=1.0,
+        include_visualizer=True,
+    )
+
+    assert os.path.exists(rendered_path)
+
+    probe_v = (
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height,codec_name",
+                "-of",
+                "csv=p=0",
+                rendered_path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .split(",")
+    )
+    codec, width, height = probe_v[0], int(probe_v[1]), int(probe_v[2])
+    assert codec == "h264"
+    assert width == 1920
+    assert height == 1080
+
+
+def test_render_video_with_audio_visualizer_9_16(tmp_path):
+    """Renders 9:16 vertical MP4 video with beat-reactive visualizer and burnt-in subtitles.
+
+    Verifies output exists with 1080x1920 dimensions, h264/aac codecs via ffprobe.
+    """
+    renderer = VideoRenderer(output_dir=tmp_path)
+    output_ass = tmp_path / "vis_9_16.ass"
+    output_mp4 = tmp_path / "vis_9_16.mp4"
+    audio_path = tmp_path / "vis_9_16.wav"
+
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "sine=frequency=440:duration=1",
+            "-c:a",
+            "pcm_s16le",
+            str(audio_path),
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+    renderer.generate_ass_subtitles(
+        [
+            {
+                "id": 0,
+                "text": "Visualizer 9:16 Test",
+                "start_time": 0.0,
+                "end_time": 1.0,
+                "words": [{"word": "Visualizer", "start_time": 0.0, "end_time": 0.8}],
+            }
+        ],
+        output_ass,
+        aspect_ratio="9:16",
+    )
+
+    rendered_path = renderer.render_video(
+        audio_path=str(audio_path),
+        ass_subtitles_path=str(output_ass),
+        output_mp4_path=output_mp4,
+        aspect_ratio="9:16",
+        duration=1.0,
+        include_visualizer=True,
+    )
+
+    assert os.path.exists(rendered_path)
+
+    probe_v = (
+        subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-select_streams",
+                "v:0",
+                "-show_entries",
+                "stream=width,height,codec_name",
+                "-of",
+                "csv=p=0",
+                rendered_path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        .stdout.strip()
+        .split(",")
+    )
+    codec, width, height = probe_v[0], int(probe_v[1]), int(probe_v[2])
+    assert codec == "h264"
+    assert width == 1080
+    assert height == 1920
+
+
+def test_generate_ass_subtitles_include_countdown_flag(tmp_path):
+    """VideoRenderer.generate_ass_subtitles respects include_countdown flag."""
+    renderer = VideoRenderer(output_dir=tmp_path)
+    ass_enabled = tmp_path / "countdown_enabled.ass"
+    ass_disabled = tmp_path / "countdown_disabled.ass"
+
+    sample_lines = [
+        {
+            "id": 0,
+            "text": "First line after long intro",
+            "start_time": 5.0,
+            "end_time": 8.0,
+            "words": [{"word": "First", "start_time": 5.0, "end_time": 6.0}],
+        }
+    ]
+
+    renderer.generate_ass_subtitles(sample_lines, ass_enabled, include_countdown=True)
+    content_enabled = ass_enabled.read_text(encoding="utf-8")
+    assert ",Countdown,,0,0,0,," in content_enabled
+
+    renderer.generate_ass_subtitles(sample_lines, ass_disabled, include_countdown=False)
+    content_disabled = ass_disabled.read_text(encoding="utf-8")
+    assert ",Countdown,,0,0,0,," not in content_disabled
+
+
+def test_render_request_schema_visualizer_and_countdown():
+    """RenderRequest schema provides default values and accepts overrides."""
+    from backend.schemas import RenderRequest
+
+    # Default values
+    req_default = RenderRequest()
+    assert req_default.include_visualizer is False
+    assert req_default.include_countdown is True
+
+    # Custom overrides
+    req_custom = RenderRequest(include_visualizer=True, include_countdown=False)
+    assert req_custom.include_visualizer is True
+    assert req_custom.include_countdown is False

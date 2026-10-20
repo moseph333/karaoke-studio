@@ -61,6 +61,9 @@ def export_project_ass(
     font_size_scale: float = Query(
         1.0, ge=0.5, le=3.0, description="Font size scale factor (0.5 to 3.0)"
     ),
+    include_countdown: bool = Query(
+        True, description="Include instrumental gap countdown cues in generated .ass script"
+    ),
 ):
     """Export synchronized Advanced SubStation Alpha (.ass) subtitles for a project.
 
@@ -117,7 +120,8 @@ def export_project_ass(
         primary_color=primary_ass,
         secondary_color=secondary_ass,
         title=track_title,
-        style_config={"font_size_scale": font_size_scale},
+        style_config={"font_size_scale": font_size_scale, "include_countdown": include_countdown},
+        include_countdown=include_countdown,
     )
 
     headers = {

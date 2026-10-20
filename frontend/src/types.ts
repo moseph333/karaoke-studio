@@ -11,12 +11,34 @@ export interface WordTiming {
   end_time: number;
 }
 
+export type SingerRole = 'singer1' | 'singer2' | 'both';
+
+export interface BulkAssignOptions {
+  mode: 'range' | 'alternating' | 'auto';
+  startLineIndex?: number;
+  endLineIndex?: number;
+  singer?: SingerRole;
+  pattern?: '1x1' | '2x2';
+  startSinger?: SingerRole;
+  pauseThreshold?: number;
+}
+
 export interface LyricLine {
   id: number;
   text: string;
   start_time: number;
   end_time: number;
   words: WordTiming[];
+  singer?: SingerRole;
+}
+
+export interface LyricLineDraft {
+  id?: number;
+  text: string;
+  start_time: number;
+  end_time: number;
+  words?: WordTiming[];
+  singer?: SingerRole;
 }
 
 export interface ProjectState {
@@ -47,6 +69,7 @@ export interface ProjectState {
   lines: LyricLine[];
   semitones: number;
   guide_volume: number;
+  vocal_range?: VocalRangeData;
   created_by?: string;
   created_at?: number;
   error?: string;
@@ -96,4 +119,43 @@ export interface Toast {
   type: ToastType;
   duration?: number; // Duration in ms; 0 or undefined for default (4000ms)
   createdAt: number;
+}
+
+// ==========================================
+// R1: Vocal Range & Smart Key Recommender Types
+// ==========================================
+
+export type VoicePreset = 'Bass' | 'Baritone' | 'Tenor' | 'Alto' | 'Mezzo-Soprano' | 'Soprano';
+
+export interface VocalRangeData {
+  lowest_note: string | null; // e.g., "C#3"
+  highest_note: string | null; // e.g., "E4"
+  lowest_hz: number | null; // e.g., 140.6
+  highest_hz: number | null; // e.g., 332.7
+  tessitura_low_note: string | null; // e.g., "B3"
+  tessitura_high_note: string | null; // e.g., "D#4"
+  tessitura_low_hz: number | null; // e.g., 246.9
+  tessitura_high_hz: number | null; // e.g., 311.1
+  median_note: string | null; // e.g., "C#4"
+  median_hz: number | null; // e.g., 279.9
+  estimated_key: string; // e.g., "C# Minor" or "Unknown"
+  key_confidence: number; // 0.0 to 1.0
+  is_voiced: boolean; // False if silent, noise, or unvoiced
+  voiced_frames_count?: number;
+  total_frames_count?: number;
+}
+
+export interface KeyRecommendation {
+  recommended_semitones: number; // Integer in [-12, +12]
+  projected_key: string; // e.g., "B Minor"
+  projected_low_note: string; // e.g., "B2"
+  projected_high_note: string; // e.g., "D4"
+  cost: number; // Objective function score
+  is_in_range?: boolean; // True if all song notes fit within target bounds
+}
+
+export interface KeyRecommendationRequest {
+  target_voice_preset?: VoicePreset | null;
+  custom_low_note?: string | null;
+  custom_high_note?: string | null;
 }

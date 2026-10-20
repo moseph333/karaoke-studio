@@ -7,7 +7,7 @@
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Play, Pause, RotateCcw } from 'lucide-react';
+import { Play, Pause, RotateCcw, Activity } from 'lucide-react';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
 import {
@@ -27,6 +27,8 @@ import { AudioMixActionsBar } from './audio/AudioMixActionsBar';
 import { WaveformScrubber } from './audio/WaveformScrubber';
 import { PlaybackSpeedControl } from './audio/PlaybackSpeedControl';
 import { Tooltip } from './Tooltip';
+import { VocalRangeData } from '../types';
+import { VocalRangeRecommenderModal } from './audio/VocalRangeRecommenderModal';
 
 export { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY };
 export { parseMediaError, type AudioPlaybackError };
@@ -69,6 +71,13 @@ export interface AudioControlsProps {
   onEnded?: () => void;
   onPlaybackError?: (error: AudioPlaybackError) => void;
   onRetryPlayback?: () => void;
+  // Vocal range & Smart key recommender (Requirement R1)
+  vocalRange?: VocalRangeData | null;
+  onAnalyzeVocalRange?: () => void | Promise<void>;
+  isAnalyzingRange?: boolean;
+  // Beat-reactive audio visualizer (Requirement R3)
+  showVisualizer?: boolean;
+  onToggleVisualizer?: () => void;
 }
 
 export const AudioControls: React.FC<AudioControlsProps> = ({
@@ -96,6 +105,11 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   onEnded,
   onPlaybackError,
   onRetryPlayback,
+  vocalRange: propVocalRange,
+  onAnalyzeVocalRange: propOnAnalyze,
+  isAnalyzingRange: propIsAnalyzing,
+  showVisualizer,
+  onToggleVisualizer,
 }) => {
   const { toast } = useToast();
   const [semitones, setSemitones] = useState(initialSemitones);
@@ -121,6 +135,57 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
 
   // Preserve last non-zero volume for smart unmute restoration
   const previousVolumeRef = useRef<number>(volume > 0 ? volume : 1.0);
+
+  // Vocal Range Recommender & Analysis State (R1)
+  const [isRecommenderOpen, setIsRecommenderOpen] = useState(false);
+  const [internalVocalRange, setInternalVocalRange] = useState<VocalRangeData | null>(
+    propVocalRange ?? null
+  );
+  const [internalIsAnalyzing, setInternalIsAnalyzing] = useState(false);
+
+  useEffect(() => {
+    if (propVocalRange !== undefined) {
+      setInternalVocalRange(propVocalRange);
+    }
+  }, [propVocalRange]);
+
+  const activeVocalRange = propVocalRange !== undefined ? propVocalRange : internalVocalRange;
+  const activeIsAnalyzing = propIsAnalyzing !== undefined ? propIsAnalyzing : internalIsAnalyzing;
+
+  const handleAnalyzeVocalRange = useCallback(async () => {
+    if (propOnAnalyze) {
+      await propOnAnalyze();
+      return;
+    }
+    if (!projectId) return;
+    setInternalIsAnalyzing(true);
+    try {
+      const res = await apiFetch(`/api/project/${projectId}/vocal-range`, { method: 'POST' });
+      if (!res.ok) throw new Error('Vocal range analysis failed');
+      const data: VocalRangeData = await res.json();
+      setInternalVocalRange(data);
+      toast.success('Vocal range analysis complete');
+    } catch (err) {
+      console.error('Error analyzing vocal range:', err);
+      toast.error('Could not analyze vocal range.');
+    } finally {
+      setInternalIsAnalyzing(false);
+    }
+  }, [propOnAnalyze, projectId, toast]);
+
+  const handleApplyTransposition = async (newSemitones: number) => {
+    const clamped = Math.max(-12, Math.min(12, newSemitones));
+    setSemitones(clamped);
+    try {
+      await onMixChange(clamped, guideVolume);
+      toast.success(
+        `Transposition applied: ${clamped === 0 ? 'Original Key' : (clamped > 0 ? '+' : '') + clamped + ' semitones'}`
+      );
+    } catch (err) {
+      console.error('Failed to apply key transposition mix:', err);
+      toast.error('Failed to apply key transposition mix.');
+    }
+  };
 
   useEffect(() => {
     if (propPlaybackRate !== undefined && !isNaN(propPlaybackRate)) {
@@ -409,6 +474,27 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             </button>
           </Tooltip>
 
+          <Tooltip
+            content={showVisualizer ? 'Disable Beat Visualizer (V)' : 'Enable Beat Visualizer (V)'}
+            hotkey="V"
+            position="top"
+          >
+            <button
+              type="button"
+              data-testid="toggle-visualizer-btn"
+              aria-label={showVisualizer ? 'Disable Beat Visualizer' : 'Enable Beat Visualizer'}
+              aria-pressed={Boolean(showVisualizer)}
+              onClick={onToggleVisualizer}
+              className={`min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                showVisualizer
+                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-500/20'
+                  : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border-slate-700/80'
+              }`}
+            >
+              <Activity className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </Tooltip>
+
           <div className="text-xs text-slate-400">
             <p className="font-semibold text-white">Karaoke Playback</p>
             <p className="text-[11px] text-slate-500">Sync with video timeline</p>
@@ -428,6 +514,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           semitones={semitones}
           onSemitoneChange={handleSemitoneChange}
           onResetPitch={() => setSemitones(0)}
+          vocalRange={activeVocalRange}
+          onOpenRecommender={() => setIsRecommenderOpen(true)}
+          onAnalyzeVocalRange={handleAnalyzeVocalRange}
+          isAnalyzingRange={activeIsAnalyzing}
         />
 
         {/* Guide Vocal Level & Custom Track */}
@@ -441,6 +531,17 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         fileInputRef={fileInputRef}
         onApplyAudioMix={handleApplyAudioMix}
         onInstrumentalUpload={handleInstrumentalUpload}
+      />
+
+      {/* Vocal Range Recommender Modal */}
+      <VocalRangeRecommenderModal
+        isOpen={isRecommenderOpen}
+        onClose={() => setIsRecommenderOpen(false)}
+        vocalRange={activeVocalRange}
+        currentSemitones={semitones}
+        onApplyTransposition={handleApplyTransposition}
+        onAnalyzeVocalRange={handleAnalyzeVocalRange}
+        isAnalyzing={activeIsAnalyzing}
       />
     </div>
   );

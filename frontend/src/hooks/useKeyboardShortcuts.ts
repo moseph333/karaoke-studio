@@ -14,6 +14,7 @@ export interface UseKeyboardShortcutsOptions {
   onSeek?: (time: number) => void;
   onToggleMute?: () => void;
   onToggleHelp?: () => void;
+  onToggleVisualizer?: () => void;
   audioRef?: React.RefObject<HTMLAudioElement | null>;
   currentTime?: number;
   duration?: number;
@@ -72,11 +73,13 @@ export function isInputElement(element?: EventTarget | null): boolean {
  */
 export function isModalActive(element?: EventTarget | null): boolean {
   if (typeof document !== 'undefined') {
-    const openDialog = document.querySelector('[role="dialog"], [aria-modal="true"]');
+    const openDialog = document.querySelector(
+      'dialog[open], dialog, [role="dialog"], [aria-modal="true"]'
+    );
     if (openDialog) return true;
   }
   if (element && element instanceof HTMLElement) {
-    if (element.closest?.('[role="dialog"], [aria-modal="true"]')) return true;
+    if (element.closest?.('dialog, [role="dialog"], [aria-modal="true"]')) return true;
   }
   return false;
 }
@@ -97,6 +100,7 @@ export function useKeyboardShortcuts({
   onSeek,
   onToggleMute,
   onToggleHelp,
+  onToggleVisualizer,
   audioRef,
   currentTime = 0,
   duration = 0,
@@ -108,6 +112,7 @@ export function useKeyboardShortcuts({
     onSeek,
     onToggleMute,
     onToggleHelp,
+    onToggleVisualizer,
     audioRef,
     currentTime,
     duration,
@@ -120,6 +125,7 @@ export function useKeyboardShortcuts({
       onSeek,
       onToggleMute,
       onToggleHelp,
+      onToggleVisualizer,
       audioRef,
       currentTime,
       duration,
@@ -207,6 +213,15 @@ export function useKeyboardShortcuts({
         e.preventDefault();
         if (e.repeat) return;
         muteFn?.();
+        return;
+      }
+
+      // Feature R3: 'V' / 'v' toggle beat-reactive audio visualizer
+      if (e.key === 'v' || e.key === 'V') {
+        if (e.shiftKey) return;
+        e.preventDefault();
+        if (e.repeat) return;
+        optionsRef.current.onToggleVisualizer?.();
         return;
       }
     };

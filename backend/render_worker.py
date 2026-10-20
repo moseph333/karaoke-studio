@@ -99,6 +99,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             output_ass_path=ass_path,
             style_config=style_cfg,
             aspect_ratio=req.aspect_ratio,
+            include_countdown=req.include_countdown,
         )
 
         update_render(15, "Mixing master audio with pitch adjustment...", 40)
@@ -139,6 +140,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             duration=proj.get("duration"),
             progress_callback=ffmpeg_cb,
             cancel_event=cancel_event,
+            include_visualizer=req.include_visualizer,
         )
 
         proj = get_project_or_404(project_id)

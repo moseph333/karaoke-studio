@@ -71,6 +71,9 @@ from backend.routers.uploads import (
     router as uploads_router,
 )
 from backend.schemas import (
+    KaraokeProject,
+    KeyRecommendationRequest,
+    KeyRecommendationResponse,
     LoginRequest,
     LyricLineSchema,
     LyricsUpdateRequest,
@@ -79,6 +82,7 @@ from backend.schemas import (
     ProjectMetadataUpdate,
     RenderRequest,
     SearchRequest,
+    VocalRangeData,
     WordTimingSchema,
 )
 from backend.services.aligner import AudioAligner
@@ -87,6 +91,7 @@ from backend.services.downloader import TrackDownloader
 from backend.services.lyrics import LyricsService
 from backend.services.separator import AudioSeparator
 from backend.services.video_renderer import VideoRenderer
+from backend.services.vocal_analyzer import VocalRangeAnalyzer
 from backend.services.youtube_uploader import YouTubeMetadataService
 from backend.upload_utils import (
     ALLOWED_AUDIO_EXTS,
@@ -117,6 +122,7 @@ aligner = AudioAligner()
 audio_mixer = AudioMixer()
 video_renderer = VideoRenderer()
 youtube_service = YouTubeMetadataService()
+vocal_analyzer = VocalRangeAnalyzer()
 
 app = FastAPI(title="Karaoke Studio API", version="1.0.0")
 
@@ -223,6 +229,9 @@ __all__ = [
     "PROJECTS_STORE_FILE",
     "STEMS_DIR",
     "WORKER_SEMAPHORE",
+    "KaraokeProject",
+    "KeyRecommendationRequest",
+    "KeyRecommendationResponse",
     "LoginRequest",
     "LyricLineSchema",
     "LyricsUpdateRequest",
@@ -231,6 +240,7 @@ __all__ = [
     "ProjectMetadataUpdate",
     "RenderRequest",
     "SearchRequest",
+    "VocalRangeData",
     "WordTimingSchema",
     "_last_rate_limit_cleanup",
     "_login_failures",
@@ -273,5 +283,6 @@ __all__ = [
     "validate_image_header",
     "verify_session_token",
     "video_renderer",
+    "vocal_analyzer",
     "youtube_service",
 ]

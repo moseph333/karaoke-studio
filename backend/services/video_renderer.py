@@ -39,6 +39,7 @@ class VideoRenderer:
         secondary_color: str | None = None,
         title: str = "",
         style_config: dict[str, Any] | None = None,
+        include_countdown: bool = True,
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
@@ -52,6 +53,7 @@ class VideoRenderer:
             secondary_color=secondary_color,
             title=title,
             style_config=style_config,
+            include_countdown=include_countdown,
         )
 
     def generate_ass_subtitles(
@@ -64,6 +66,7 @@ class VideoRenderer:
         primary_color: str | None = None,
         secondary_color: str | None = None,
         title: str = "",
+        include_countdown: bool = True,
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file
 
@@ -78,6 +81,7 @@ class VideoRenderer:
             primary_color=primary_color,
             secondary_color=secondary_color,
             title=title,
+            include_countdown=include_countdown,
         )
 
     def render_video(
@@ -93,11 +97,12 @@ class VideoRenderer:
         duration: float | None = None,
         progress_callback: Any | None = None,
         cancel_event: Any | None = None,
+        include_visualizer: bool = False,
     ) -> str:
         """Synthesizes final karaoke video using FFmpeg and libass.
 
         Streams FFmpeg output with -progress pipe:1 to calculate real-time percentage and ETA.
-        Supports cancellation via cancel_event.
+        Supports cancellation via cancel_event and optional beat-reactive audio visualizer.
         """
         import time
 
@@ -134,8 +139,17 @@ class VideoRenderer:
             bg_input = ["-f", "lavfi", "-i", f"color=c=0x0f111a:s={width}x{height}"]
             filter_bg = "[0:v]null[bg];"
 
-        # Combined filter: background + ASS subtitles
-        filter_complex = f"{filter_bg}[bg]subtitles='{escaped_ass}'[v]"
+        # Combined filter: background + optional audio visualizer + ASS subtitles
+        if include_visualizer:
+            vis_h = 240
+            filter_complex = (
+                f"{filter_bg}"
+                f"[1:a]showfreqs=s={width}x{vis_h}:mode=bar:fscale=log:colors=cyan|magenta[vis];"
+                f"[bg][vis]overlay=0:H-{vis_h}:format=auto[bgvis];"
+                f"[bgvis]subtitles='{escaped_ass}'[v]"
+            )
+        else:
+            filter_complex = f"{filter_bg}[bg]subtitles='{escaped_ass}'[v]"
 
         cmd = [
             "ffmpeg",
@@ -157,7 +171,10 @@ class VideoRenderer:
             "-c:v",
             "libx264",
             "-preset",
-            "fast",
+            os.environ.get(
+                "FFMPEG_PRESET",
+                "ultrafast" if "PYTEST_CURRENT_TEST" in os.environ else "fast",
+            ),
             "-crf",
             "18",
             "-r",

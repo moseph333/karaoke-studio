@@ -1,8 +1,18 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, fireEvent, act, waitFor } from '@testing-library/react';
+import {
+  render,
+  screen,
+  within,
+  fireEvent,
+  act,
+  waitFor,
+  renderHook,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricTimelineEditor, recalculateWordTimings } from '../components/LyricTimelineEditor';
+import { DuetAssignmentModal } from '../components/timeline/DuetAssignmentModal';
+import { useLyricEditorState } from '../hooks/useLyricEditorState';
 import { LyricLine } from '../types';
 
 describe('LyricTimelineEditor', () => {
@@ -1238,6 +1248,495 @@ describe('LyricTimelineEditor', () => {
       expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
       await user.keyboard('{Enter}');
       expect(screen.getAllByRole('button', { name: /select line:/i })).toHaveLength(1);
+    });
+  });
+});
+
+describe('Duet / Multi-Singer Part Assignment (Requirement R2)', () => {
+  const sampleLines: LyricLine[] = [
+    {
+      id: 1,
+      text: 'Lead verse begins here',
+      start_time: 1.0,
+      end_time: 4.0,
+      words: [
+        { word: 'Lead', start_time: 1.0, end_time: 1.8 },
+        { word: 'verse', start_time: 1.8, end_time: 2.6 },
+        { word: 'begins', start_time: 2.6, end_time: 3.2 },
+        { word: 'here', start_time: 3.2, end_time: 4.0 },
+      ],
+      singer: 'singer1',
+    },
+    {
+      id: 2,
+      text: 'Partner responds to call',
+      start_time: 7.0, // 3.0s gap from line 1 (> 2.5s)
+      end_time: 10.0,
+      words: [
+        { word: 'Partner', start_time: 7.0, end_time: 7.8 },
+        { word: 'responds', start_time: 7.8, end_time: 8.5 },
+        { word: 'to', start_time: 8.5, end_time: 9.0 },
+        { word: 'call', start_time: 9.0, end_time: 10.0 },
+      ],
+      singer: 'singer2',
+    },
+    {
+      id: 3,
+      text: 'Both singing together now',
+      start_time: 10.5, // 0.5s gap from line 2 (< 2.5s)
+      end_time: 14.0,
+      words: [
+        { word: 'Both', start_time: 10.5, end_time: 11.2 },
+        { word: 'singing', start_time: 11.2, end_time: 12.0 },
+        { word: 'together', start_time: 12.0, end_time: 13.0 },
+        { word: 'now', start_time: 13.0, end_time: 14.0 },
+      ],
+      singer: 'both',
+    },
+    {
+      id: 4,
+      text: 'Fourth line continuation',
+      start_time: 17.0, // 3.0s gap from line 3 (> 2.5s)
+      end_time: 20.0,
+      words: [
+        { word: 'Fourth', start_time: 17.0, end_time: 17.8 },
+        { word: 'line', start_time: 17.8, end_time: 18.5 },
+        { word: 'continuation', start_time: 18.5, end_time: 20.0 },
+      ],
+    },
+  ];
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // =========================================================================
+  // 1. DuetAssignmentModal Component Tests
+  // =========================================================================
+  describe('DuetAssignmentModal Component', () => {
+    it('renders modal dialog with tabs when isOpen is true', () => {
+      render(
+        <DuetAssignmentModal
+          isOpen={true}
+          onClose={vi.fn()}
+          lines={sampleLines}
+          onApply={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Duet & Multi-Singer Assignment')).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Alternating/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Range/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /Auto-Suggest/i })).toBeInTheDocument();
+      expect(screen.getByTestId('duet-preview-summary')).toBeInTheDocument();
+    });
+
+    it('does not render modal when isOpen is false', () => {
+      render(
+        <DuetAssignmentModal
+          isOpen={false}
+          onClose={vi.fn()}
+          lines={sampleLines}
+          onApply={vi.fn()}
+        />
+      );
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('submits alternating pattern (1x1 and 2x2) and calls onApply', () => {
+      const handleApply = vi.fn();
+      const handleClose = vi.fn();
+      render(
+        <DuetAssignmentModal
+          isOpen={true}
+          onClose={handleClose}
+          lines={sampleLines}
+          onApply={handleApply}
+        />
+      );
+
+      // Select 2-by-2 pattern
+      fireEvent.click(screen.getByText(/2-by-2/i));
+      // Select start with Singer 2
+      fireEvent.click(screen.getByText(/Start with Singer 2/i));
+
+      fireEvent.click(screen.getByTestId('apply-duet-btn'));
+
+      expect(handleApply).toHaveBeenCalledWith({
+        mode: 'alternating',
+        pattern: '2x2',
+        startSinger: 'singer2',
+      });
+      expect(handleClose).toHaveBeenCalled();
+    });
+
+    it('submits range assignment for all lines or custom line range', () => {
+      const handleApply = vi.fn();
+      const handleClose = vi.fn();
+      render(
+        <DuetAssignmentModal
+          isOpen={true}
+          onClose={handleClose}
+          lines={sampleLines}
+          onApply={handleApply}
+        />
+      );
+
+      // Switch to Range tab
+      fireEvent.click(screen.getByRole('tab', { name: /Range/i }));
+
+      // Select Custom Range
+      fireEvent.click(screen.getByText(/Custom Range/i));
+      const startInput = screen.getByLabelText(/From Line #/i);
+      const endInput = screen.getByLabelText(/To Line #/i);
+      fireEvent.change(startInput, { target: { value: '2' } });
+      fireEvent.change(endInput, { target: { value: '3' } });
+
+      // Select Both role
+      fireEvent.click(screen.getByRole('button', { name: /👥 Both/i }));
+
+      fireEvent.click(screen.getByTestId('apply-duet-btn'));
+
+      expect(handleApply).toHaveBeenCalledWith({
+        mode: 'range',
+        startLineIndex: 1, // 0-indexed
+        endLineIndex: 2, // 0-indexed
+        singer: 'both',
+      });
+      expect(handleClose).toHaveBeenCalled();
+    });
+
+    it('submits auto-suggest duet split with pause threshold', () => {
+      const handleApply = vi.fn();
+      const handleClose = vi.fn();
+      render(
+        <DuetAssignmentModal
+          isOpen={true}
+          onClose={handleClose}
+          lines={sampleLines}
+          onApply={handleApply}
+        />
+      );
+
+      // Switch to Auto-Suggest tab
+      fireEvent.click(screen.getByRole('tab', { name: /Auto-Suggest/i }));
+
+      // Adjust threshold slider
+      const slider = screen.getByLabelText(/Inter-Line Pause Threshold/i);
+      fireEvent.change(slider, { target: { value: '3.0' } });
+
+      // Select Singer 2 Starts
+      fireEvent.click(screen.getByText(/Singer 2 Starts/i));
+
+      fireEvent.click(screen.getByTestId('apply-duet-btn'));
+
+      expect(handleApply).toHaveBeenCalledWith({
+        mode: 'auto',
+        pauseThreshold: 3.0,
+        startSinger: 'singer2',
+      });
+      expect(handleClose).toHaveBeenCalled();
+    });
+
+    it('computes and updates live preview distribution summary across modes', () => {
+      render(
+        <DuetAssignmentModal
+          isOpen={true}
+          onClose={vi.fn()}
+          lines={sampleLines}
+          onApply={vi.fn()}
+        />
+      );
+
+      const summary = screen.getByTestId('duet-preview-summary');
+      expect(summary).toBeInTheDocument();
+      // Initially alternating 1x1: 4 lines -> 2 S1 (50%), 2 S2 (50%)
+      expect(within(summary).getByText(/Singer 1/i)).toBeInTheDocument();
+      expect(within(summary).getByText(/Singer 2/i)).toBeInTheDocument();
+    });
+
+    it('closes modal on cancel button and escape key press', async () => {
+      const handleClose = vi.fn();
+      render(
+        <DuetAssignmentModal
+          isOpen={true}
+          onClose={handleClose}
+          lines={sampleLines}
+          onApply={vi.fn()}
+        />
+      );
+
+      // Press Escape
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(handleClose).toHaveBeenCalledTimes(1);
+
+      // Click Cancel
+      fireEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+      expect(handleClose).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // =========================================================================
+  // 2. TimelineLineCard Singer Pill & Cycle Tests
+  // =========================================================================
+  describe('TimelineLineCard Singer Pill & Cycle Controls', () => {
+    it('renders singer cycle pill button for each line with accessible ARIA label and min 44px target', () => {
+      render(
+        <LyricTimelineEditor
+          lines={sampleLines}
+          currentTime={0.0}
+          duration={60.0}
+          onSeek={vi.fn()}
+          onSaveLines={vi.fn()}
+        />
+      );
+
+      const pill1 = screen.getByTestId('toggle-singer-1');
+      expect(pill1).toBeInTheDocument();
+      expect(pill1).toHaveTextContent('🎤 S1');
+      expect(pill1).toHaveAttribute('aria-label', expect.stringContaining('Singer 1'));
+
+      const pill2 = screen.getByTestId('toggle-singer-2');
+      expect(pill2).toBeInTheDocument();
+      expect(pill2).toHaveTextContent('🎤 S2');
+      expect(pill2).toHaveAttribute('aria-label', expect.stringContaining('Singer 2'));
+
+      const pill3 = screen.getByTestId('toggle-singer-3');
+      expect(pill3).toBeInTheDocument();
+      expect(pill3).toHaveTextContent('👥 Both');
+      expect(pill3).toHaveAttribute('aria-label', expect.stringContaining('Both'));
+    });
+
+    it('cycles singer role S1 -> S2 -> Both -> S1 when clicked', () => {
+      render(
+        <LyricTimelineEditor
+          lines={sampleLines}
+          currentTime={0.0}
+          duration={60.0}
+          onSeek={vi.fn()}
+          onSaveLines={vi.fn()}
+        />
+      );
+
+      const pill1 = screen.getByTestId('toggle-singer-1');
+      expect(pill1).toHaveTextContent('🎤 S1');
+
+      // Click 1: S1 -> S2
+      fireEvent.click(pill1);
+      expect(pill1).toHaveTextContent('🎤 S2');
+
+      // Click 2: S2 -> Both
+      fireEvent.click(pill1);
+      expect(pill1).toHaveTextContent('👥 Both');
+
+      // Click 3: Both -> S1
+      fireEvent.click(pill1);
+      expect(pill1).toHaveTextContent('🎤 S1');
+    });
+
+    it('isolates click event from line selection and audio seek', () => {
+      const handleSeek = vi.fn();
+      render(
+        <LyricTimelineEditor
+          lines={sampleLines}
+          currentTime={0.0}
+          duration={60.0}
+          onSeek={handleSeek}
+          onSaveLines={vi.fn()}
+        />
+      );
+
+      const pill1 = screen.getByTestId('toggle-singer-1');
+      fireEvent.click(pill1);
+
+      // onSeek should not be called when clicking the singer pill
+      expect(handleSeek).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // 3. LyricTimelineEditor Duet Integration & Undo/Redo Tests
+  // =========================================================================
+  describe('LyricTimelineEditor Duet Integration & History', () => {
+    it('renders Duet Parts button in the power tools toolbar', () => {
+      render(
+        <LyricTimelineEditor
+          lines={sampleLines}
+          currentTime={0.0}
+          duration={60.0}
+          onSeek={vi.fn()}
+          onSaveLines={vi.fn()}
+        />
+      );
+
+      const duetBtn = screen.getByTestId('duet-assign-btn');
+      expect(duetBtn).toBeInTheDocument();
+      expect(duetBtn).not.toBeDisabled();
+    });
+
+    it('opens DuetAssignmentModal when clicking Duet Parts button', () => {
+      render(
+        <LyricTimelineEditor
+          lines={sampleLines}
+          currentTime={0.0}
+          duration={60.0}
+          onSeek={vi.fn()}
+          onSaveLines={vi.fn()}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('duet-assign-btn'));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Duet & Multi-Singer Assignment')).toBeInTheDocument();
+    });
+
+    it('reverts singer cycle via Undo (Ctrl+Z) and restores on Redo (Ctrl+Y)', () => {
+      render(
+        <LyricTimelineEditor
+          lines={sampleLines}
+          currentTime={0.0}
+          duration={60.0}
+          onSeek={vi.fn()}
+          onSaveLines={vi.fn()}
+        />
+      );
+
+      const pill1 = screen.getByTestId('toggle-singer-1');
+      expect(pill1).toHaveTextContent('🎤 S1');
+
+      // Cycle S1 -> S2
+      fireEvent.click(pill1);
+      expect(pill1).toHaveTextContent('🎤 S2');
+      expect(screen.getByTestId('undo-lyrics-btn')).not.toBeDisabled();
+      expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
+
+      // Undo -> restores S1
+      fireEvent.click(screen.getByTestId('undo-lyrics-btn'));
+      expect(pill1).toHaveTextContent('🎤 S1');
+
+      // Redo -> restores S2
+      fireEvent.click(screen.getByTestId('redo-lyrics-btn'));
+      expect(pill1).toHaveTextContent('🎤 S2');
+    });
+
+    it('reverts bulk duet assignment in a single Undo step', () => {
+      render(
+        <LyricTimelineEditor
+          lines={sampleLines}
+          currentTime={0.0}
+          duration={60.0}
+          onSeek={vi.fn()}
+          onSaveLines={vi.fn()}
+        />
+      );
+
+      // Open Duet Modal
+      fireEvent.click(screen.getByTestId('duet-assign-btn'));
+
+      // Apply alternating 1x1
+      fireEvent.click(screen.getByTestId('apply-duet-btn'));
+
+      // Check lines are now S1, S2, S1, S2
+      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('🎤 S1');
+      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('🎤 S2');
+      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('🎤 S1');
+      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('🎤 S2');
+
+      // Single Undo reverts line 3 back to original 'both' and line 4 to undefined/S1
+      fireEvent.click(screen.getByTestId('undo-lyrics-btn'));
+      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('👥 Both');
+    });
+  });
+
+  // =========================================================================
+  // 4. useLyricEditorState Hook Direct Tests
+  // =========================================================================
+  describe('useLyricEditorState Singer Role State Management', () => {
+    it('cycles singer role across singer1, singer2, both', () => {
+      const { result } = renderHook(() =>
+        useLyricEditorState({
+          lines: sampleLines,
+          currentTime: 0.0,
+          duration: 60.0,
+          onSaveLines: vi.fn(),
+        })
+      );
+
+      expect(result.current.editableLines[0].singer).toBe('singer1');
+
+      act(() => {
+        result.current.handleCycleLineSinger(1);
+      });
+      expect(result.current.editableLines[0].singer).toBe('singer2');
+
+      act(() => {
+        result.current.handleCycleLineSinger(1);
+      });
+      expect(result.current.editableLines[0].singer).toBe('both');
+
+      act(() => {
+        result.current.handleCycleLineSinger(1);
+      });
+      expect(result.current.editableLines[0].singer).toBe('singer1');
+    });
+
+    it('sets line singer directly via handleSetLineSinger', () => {
+      const { result } = renderHook(() =>
+        useLyricEditorState({
+          lines: sampleLines,
+          currentTime: 0.0,
+          duration: 60.0,
+          onSaveLines: vi.fn(),
+        })
+      );
+
+      act(() => {
+        result.current.handleSetLineSinger(1, 'both');
+      });
+      expect(result.current.editableLines[0].singer).toBe('both');
+    });
+
+    it('performs bulk assignment in range, alternating, and auto modes', () => {
+      const { result } = renderHook(() =>
+        useLyricEditorState({
+          lines: sampleLines,
+          currentTime: 0.0,
+          duration: 60.0,
+          onSaveLines: vi.fn(),
+        })
+      );
+
+      // Alternating 2x2
+      act(() => {
+        result.current.handleBulkAssignSinger({
+          mode: 'alternating',
+          pattern: '2x2',
+          startSinger: 'singer1',
+        });
+      });
+      expect(result.current.editableLines[0].singer).toBe('singer1');
+      expect(result.current.editableLines[1].singer).toBe('singer1');
+      expect(result.current.editableLines[2].singer).toBe('singer2');
+      expect(result.current.editableLines[3].singer).toBe('singer2');
+
+      // Auto-suggest with 2.5s threshold:
+      // Line 1: start_time=1, end_time=4
+      // Line 2: start_time=7 (gap = 3.0s >= 2.5s -> switches to S2)
+      // Line 3: start_time=10.5 (gap = 0.5s < 2.5s -> remains S2)
+      // Line 4: start_time=17 (gap = 3.0s >= 2.5s -> switches to S1)
+      act(() => {
+        result.current.handleBulkAssignSinger({
+          mode: 'auto',
+          pauseThreshold: 2.5,
+          startSinger: 'singer1',
+        });
+      });
+      expect(result.current.editableLines[0].singer).toBe('singer1');
+      expect(result.current.editableLines[1].singer).toBe('singer2');
+      expect(result.current.editableLines[2].singer).toBe('singer2');
+      expect(result.current.editableLines[3].singer).toBe('singer1');
     });
   });
 });

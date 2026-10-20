@@ -4,6 +4,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AudioControls, parseMediaError } from '../components/AudioControls';
 import * as apiModule from '../api';
+import { VocalRangeData } from '../types';
 
 describe('AudioControls', () => {
   const defaultProps = {
@@ -447,5 +448,67 @@ describe('AudioControls', () => {
     const updatedAudio = screen.getByTestId('audio-element') as HTMLAudioElement;
     expect(updatedAudio.volume).toBe(0.4);
     expect(updatedAudio.muted).toBe(true);
+  });
+
+  describe('Vocal Range & Smart Recommender Integration (R1)', () => {
+    const mockVocalRange: VocalRangeData = {
+      lowest_note: 'C#3',
+      highest_note: 'E4',
+      lowest_hz: 140.6,
+      highest_hz: 332.7,
+      tessitura_low_note: 'B3',
+      tessitura_high_note: 'D#4',
+      tessitura_low_hz: 246.9,
+      tessitura_high_hz: 311.1,
+      median_note: 'C#4',
+      median_hz: 279.9,
+      estimated_key: 'C# Minor',
+      key_confidence: 0.88,
+      is_voiced: true,
+    };
+
+    it('displays detected vocal range badge when vocalRange is passed', () => {
+      render(<AudioControls {...defaultProps} vocalRange={mockVocalRange} />);
+
+      expect(screen.getByText(/C#3–E4/i)).toBeInTheDocument();
+      expect(screen.getByText(/C# Minor/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /open smart key recommender/i })
+      ).toBeInTheDocument();
+    });
+
+    it('opens Smart Key Recommender modal when button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<AudioControls {...defaultProps} vocalRange={mockVocalRange} />);
+
+      const button = screen.getByRole('button', { name: /open smart key recommender/i });
+      await user.click(button);
+
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      expect(screen.getByText('Smart Key Recommender')).toBeInTheDocument();
+    });
+
+    it('applies transposition from modal and calls onMixChange', async () => {
+      const user = userEvent.setup();
+      const onMixChange = vi.fn().mockResolvedValue(undefined);
+      render(
+        <AudioControls {...defaultProps} vocalRange={mockVocalRange} onMixChange={onMixChange} />
+      );
+
+      // Open modal
+      await user.click(screen.getByRole('button', { name: /open smart key recommender/i }));
+
+      // Select Soprano preset (requires transposition)
+      const sopranoRadio = screen.getByRole('radio', { name: /^soprano$/i });
+      await user.click(sopranoRadio);
+
+      // Apply transposition
+      const applyBtn = screen.getByRole('button', { name: /apply transposition/i });
+      await user.click(applyBtn);
+
+      // Modal closes and mix change is invoked
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(onMixChange).toHaveBeenCalled();
+    });
   });
 });

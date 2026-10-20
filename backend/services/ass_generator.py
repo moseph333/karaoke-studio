@@ -132,9 +132,12 @@ def generate_ass_content(
     theme_id: str | None = None,
     primary_color: str | None = None,
     secondary_color: str | None = None,
+    singer2_color: str | None = None,
+    both_color: str | None = None,
     title: str = "",
     style_config: dict[str, Any] | None = None,
     font_size_scale: float = 1.0,
+    include_countdown: bool = True,
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
@@ -142,6 +145,13 @@ def generate_ass_content(
     Supports dynamic 16:9 and 9:16 layout adjustments, visual theme presets,
     direct color overrides, font size scaling, and control character escaping.
     """
+    # Resolve countdown enabled flag
+    countdown_enabled = include_countdown
+    if style_config and "include_countdown" in style_config:
+        countdown_enabled = bool(style_config["include_countdown"])
+    elif style_config and "enable_gap_countdown" in style_config:
+        countdown_enabled = bool(style_config["enable_gap_countdown"])
+
     # Determine aspect ratio and layout mode
     ar = (style_config or {}).get("aspect_ratio") or aspect_ratio
     is_vertical = ar == "9:16"
@@ -191,6 +201,13 @@ def generate_ass_content(
     elif cfg.get("secondary_color"):
         cfg["secondary_color"] = css_to_ass_color(cfg["secondary_color"], default="&H00FFFFFF")
 
+    # Resolve Singer 2 and Both sung colors with robust defaults
+    s2_raw = singer2_color or (style_config or {}).get("singer2_color")
+    singer2_color_val = css_to_ass_color(s2_raw, default="&H00B300FF") if s2_raw else "&H00B300FF"
+
+    both_raw = both_color or (style_config or {}).get("both_color")
+    both_color_val = css_to_ass_color(both_raw, default="&H0050FA7B") if both_raw else "&H0050FA7B"
+
     font_name = cfg.get("font_name", "DejaVu Sans")
     base_font_size = cfg.get("font_size", default_font_size)
     font_size = max(12, round(base_font_size * scale))
@@ -219,6 +236,10 @@ def generate_ass_content(
         # Alignment 2 = Bottom Center, 5 = Top Center
         f"Style: KaraokeLine1,{font_name},{font_size},{primary_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line1},1",
         f"Style: KaraokeLine2,{font_name},{font_size},{primary_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line2},1",
+        f"Style: KaraokeLine1_Singer2,{font_name},{font_size},{singer2_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line1},1",
+        f"Style: KaraokeLine2_Singer2,{font_name},{font_size},{singer2_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line2},1",
+        f"Style: KaraokeLine1_Both,{font_name},{font_size},{both_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line1},1",
+        f"Style: KaraokeLine2_Both,{font_name},{font_size},{both_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line2},1",
         f"Style: Countdown,{font_name},{font_size + 10},{primary_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,2,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_countdown},1",
         f"Style: TitleCard,{font_name},64,&H00FFFFFF,&H00FFFFFF,{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,3,3,5,{margin_lr},{margin_lr},{margin_v_title},1",
         "",
@@ -240,8 +261,15 @@ def generate_ass_content(
         raw_words = line.get("words", [])
         words = raw_words if isinstance(raw_words, list) else []
 
-        # Alternate between Line1 and Line2 styles for natural dual-line reading
-        style_name = "KaraokeLine1" if (i % 2 == 0) else "KaraokeLine2"
+        # Select line style matching singer part assignment while alternating Line1 and Line2
+        base_line = "KaraokeLine1" if (i % 2 == 0) else "KaraokeLine2"
+        raw_singer = str(line.get("singer") or "singer1").strip().lower()
+        if raw_singer in ("singer2", "partner", "singer 2", "singer_2", "part2", "part 2", "s2"):
+            style_name = f"{base_line}_Singer2"
+        elif raw_singer in ("both", "unison", "duet", "all", "together"):
+            style_name = f"{base_line}_Both"
+        else:
+            style_name = base_line
 
         # Show line early on screen so the singer can prepare
         if i == 0:
@@ -254,11 +282,27 @@ def generate_ass_content(
         display_start = max(0.0, min(l_start, display_start))
         display_end = max(display_start + 0.5, l_end + 1.2)
 
-        # Visual countdown cue if there's a significant break (> 3 seconds)
+        # Visual countdown cue for qualifying non-vocal intervals (>= 4.0 seconds)
         gap = l_start - prev_end_time
-        if (i == 0 and l_start >= 3.0) or (i > 0 and gap >= 3.5):
+        has_gap = (i == 0 and l_start >= 4.0) or (i > 0 and gap >= 4.0)
+        if countdown_enabled and has_gap:
             countdown_start = max(0.0, l_start - 3.0)
-            dots_text = "{\\kf100}● {\\kf100}● {\\kf100}● "
+            if raw_singer in (
+                "singer2",
+                "partner",
+                "singer 2",
+                "singer_2",
+                "part2",
+                "part 2",
+                "s2",
+            ):
+                dots_color_tag = f"{{\\c{singer2_color_val}&}}"
+            elif raw_singer in ("both", "unison", "duet", "all", "together"):
+                dots_color_tag = f"{{\\c{both_color_val}&}}"
+            else:
+                dots_color_tag = ""
+
+            dots_text = f"{dots_color_tag}{{\\kf100}}● {{\\kf100}}● {{\\kf100}}● "
             ass_content.append(
                 f"Dialogue: 1,{format_ass_time(countdown_start)},{format_ass_time(l_start)},Countdown,,0,0,0,,{dots_text}"
             )
@@ -310,8 +354,11 @@ def generate_ass_subtitles(
     theme_id: str | None = None,
     primary_color: str | None = None,
     secondary_color: str | None = None,
+    singer2_color: str | None = None,
+    both_color: str | None = None,
     title: str = "",
     font_size_scale: float = 1.0,
+    include_countdown: bool = True,
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file
 
@@ -325,9 +372,12 @@ def generate_ass_subtitles(
         theme_id=theme_id,
         primary_color=primary_color,
         secondary_color=secondary_color,
+        singer2_color=singer2_color,
+        both_color=both_color,
         title=title,
         style_config=style_config,
         font_size_scale=font_size_scale,
+        include_countdown=include_countdown,
     )
     output_ass_path.write_text(content, encoding="utf-8")
     return str(output_ass_path)

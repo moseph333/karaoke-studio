@@ -145,6 +145,7 @@ class AudioAligner:
                             "start_time": round(l_start, 3),
                             "end_time": round(l_end, 3),
                             "words": [],
+                            "singer": line.get("singer", "singer1"),
                         }
                     )
                     continue
@@ -225,6 +226,7 @@ class AudioAligner:
                         "start_time": round(l_start, 3),
                         "end_time": round(l_end, 3),
                         "words": aligned_words,
+                        "singer": line.get("singer", "singer1"),
                     }
                 )
 
@@ -269,6 +271,7 @@ class AudioAligner:
                     "start_time": round(l_start, 3),
                     "end_time": round(l_end, 3),
                     "words": aligned_words,
+                    "singer": line.get("singer", "singer1"),
                 }
             )
         return fallback_lines

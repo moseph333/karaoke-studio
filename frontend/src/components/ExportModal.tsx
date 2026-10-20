@@ -24,13 +24,14 @@ import { ExportSubtitleSection } from './export/ExportSubtitleSection';
 import { ExportAudioSection } from './export/ExportAudioSection';
 import { ExportYouTubeKit } from './export/ExportYouTubeKit';
 import { Tooltip } from './Tooltip';
+import { apiFetch } from '../api';
 
 export interface ExportModalProps {
   project: ProjectState;
   isOpen: boolean;
   onClose: () => void;
   onCancelRender?: () => void;
-  onStartRender?: () => void;
+  onStartRender?: (options?: { includeVisualizer?: boolean; includeCountdown?: boolean }) => void;
   selectedTheme?: VisualTheme;
   aspectRatio?: '16:9' | '9:16' | string;
 }
@@ -45,6 +46,32 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   aspectRatio = '16:9',
 }) => {
   const [_tick, setTick] = useState(0);
+  const [includeVisualizer, setIncludeVisualizer] = useState(false);
+  const [includeCountdown] = useState(true);
+
+  const handleStartRenderClick = async () => {
+    if (onStartRender) {
+      onStartRender({ includeVisualizer, includeCountdown });
+      return;
+    }
+
+    try {
+      await apiFetch(`/api/project/${project.id}/render`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          semitones: project.semitones || 0,
+          guide_volume: project.guide_volume || 0,
+          aspect_ratio: aspectRatio,
+          include_visualizer: includeVisualizer,
+          include_countdown: includeCountdown,
+          style_config: selectedTheme ? { theme_id: selectedTheme.id } : undefined,
+        }),
+      });
+    } catch (err) {
+      console.error('Render request failed:', err);
+    }
+  };
 
   const modalRef = useFocusTrap<HTMLDivElement>({
     isOpen,
@@ -136,7 +163,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         {/* 1. Idle Video State (Before Video Render Started) */}
         {isIdle && (
-          <div className="p-5 rounded-2xl bg-slate-950/40 border border-slate-800/60 text-center space-y-3">
+          <div className="p-5 rounded-2xl bg-slate-950/40 border border-slate-800/60 text-center space-y-4">
             <div className="p-3 w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 mx-auto flex items-center justify-center">
               <Film className="w-6 h-6" aria-hidden="true" />
             </div>
@@ -147,25 +174,44 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 visual theme, and high-fidelity audio.
               </p>
             </div>
-            {onStartRender && (
-              <div className="pt-2">
-                <Tooltip
-                  content="Render 1080p60 MP4 video"
-                  position="top"
-                  className="w-full sm:w-auto"
+
+            {/* Render Option Toggles */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
+              <label
+                data-testid="toggle-export-visualizer-container"
+                className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors w-full sm:w-auto justify-center sm:justify-start"
+              >
+                <input
+                  type="checkbox"
+                  data-testid="toggle-export-visualizer"
+                  checked={includeVisualizer}
+                  onChange={(e) => setIncludeVisualizer(e.target.checked)}
+                  className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-400 focus:ring-offset-slate-900 cursor-pointer"
+                  aria-label="Include Audio Visualizer"
+                />
+                <span className="text-xs sm:text-sm font-medium text-slate-300">
+                  Include Audio Visualizer
+                </span>
+              </label>
+            </div>
+
+            <div className="pt-2">
+              <Tooltip
+                content="Render 1080p60 MP4 video"
+                position="top"
+                className="w-full sm:w-auto"
+              >
+                <button
+                  type="button"
+                  onClick={handleStartRenderClick}
+                  aria-label="Start video render"
+                  className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-lg shadow-cyan-500/20 inline-flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
-                  <button
-                    type="button"
-                    onClick={onStartRender}
-                    aria-label="Start video render"
-                    className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-lg shadow-cyan-500/20 inline-flex items-center justify-center gap-2 w-full sm:w-auto"
-                  >
-                    <Film className="w-4 h-4" />
-                    Render 1080p Video
-                  </button>
-                </Tooltip>
-              </div>
-            )}
+                  <Film className="w-4 h-4" />
+                  Render 1080p Video
+                </button>
+              </Tooltip>
+            </div>
           </div>
         )}
 

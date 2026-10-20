@@ -1,24 +1,33 @@
 /**
  * Pitch Transposition Control Component
  *
- * Provides semitone pitch shifting steppers (-12 to +12 semitones) and an instant
- * key reset control to restore the original song key.
+ * Provides semitone pitch shifting steppers (-12 to +12 semitones), instant key reset,
+ * vocal range analysis summary badge, and launcher for the Smart Key Recommender modal.
  */
 
 import React from 'react';
-import { Sliders } from 'lucide-react';
+import { Sliders, Sparkles, Mic } from 'lucide-react';
 import { Tooltip } from '../Tooltip';
+import { VocalRangeData } from '../../types';
 
 export interface PitchTranspositionControlProps {
   semitones: number;
   onSemitoneChange: (delta: number) => void;
   onResetPitch: () => void;
+  vocalRange?: VocalRangeData | null;
+  onOpenRecommender?: () => void;
+  onAnalyzeVocalRange?: () => void;
+  isAnalyzingRange?: boolean;
 }
 
 export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps> = ({
   semitones,
   onSemitoneChange,
   onResetPitch,
+  vocalRange,
+  onOpenRecommender,
+  onAnalyzeVocalRange,
+  isAnalyzingRange = false,
 }) => {
   return (
     <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
@@ -33,6 +42,8 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
           {semitones === 0 ? '0 (Original)' : `${semitones > 0 ? '+' : ''}${semitones} semitones`}
         </span>
       </div>
+
+      {/* Steppers */}
       <div className="flex items-center gap-2 mt-1">
         <Tooltip content="Lower key by 1 semitone (-12 min)" position="top" className="flex-1">
           <button
@@ -66,6 +77,40 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
             +1
           </button>
         </Tooltip>
+      </div>
+
+      {/* Vocal Range Summary Badge & Recommender Launcher (>=44px touch target) */}
+      <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 mt-1 border-t border-slate-800/60 text-xs">
+        {vocalRange && vocalRange.is_voiced && vocalRange.lowest_note && vocalRange.highest_note ? (
+          <div
+            className="flex items-center gap-1.5 text-slate-300 text-[11px] min-w-0"
+            title={`Sung range: ${vocalRange.lowest_note} to ${vocalRange.highest_note}, Estimated Key: ${vocalRange.estimated_key}`}
+          >
+            <Mic className="w-3.5 h-3.5 text-cyan-400 shrink-0" aria-hidden="true" />
+            <span className="font-mono text-cyan-300 font-semibold truncate">
+              {vocalRange.lowest_note}–{vocalRange.highest_note}
+            </span>
+            <span className="text-slate-600">•</span>
+            <span className="text-slate-400 truncate">{vocalRange.estimated_key}</span>
+          </div>
+        ) : vocalRange && !vocalRange.is_voiced ? (
+          <span className="text-slate-500 italic text-[11px]">No vocals detected</span>
+        ) : (
+          <span className="text-slate-500 text-[11px]">Range unanalyzed</span>
+        )}
+
+        <button
+          type="button"
+          onClick={onOpenRecommender || onAnalyzeVocalRange}
+          disabled={isAnalyzingRange}
+          aria-label={
+            vocalRange ? 'Open Smart Key Recommender' : 'Analyze vocal range or open recommender'
+          }
+          className="min-h-[44px] px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[11px] font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 disabled:opacity-50"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
+          <span>{isAnalyzingRange ? 'Analyzing...' : 'Smart Recommender'}</span>
+        </button>
       </div>
     </div>
   );

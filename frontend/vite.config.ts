@@ -25,5 +25,7 @@ export default defineConfig({
     css: false,
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     testTimeout: 15000,
+    minWorkers: 1,
+    maxWorkers: 2,
   },
 });

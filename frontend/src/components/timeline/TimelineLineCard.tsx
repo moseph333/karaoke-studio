@@ -48,6 +48,7 @@ export interface TimelineLineCardProps {
     field: 'start_time' | 'end_time',
     value: number
   ) => void;
+  onCycleSinger?: (lineId: number) => void;
 }
 
 export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
@@ -73,7 +74,32 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
   onNudgeWord,
   onNudgeWordBoundary,
   onUpdateWordTiming,
+  onCycleSinger,
 }) => {
+  const singerRole = line.singer ?? 'singer1';
+  const singerMeta = {
+    singer1: {
+      label: '🎤 S1',
+      fullLabel: 'Singer 1 / Lead',
+      ariaLabel: 'Singer: Singer 1 / Lead. Click to cycle to Singer 2',
+      badgeClass:
+        'bg-amber-500/15 hover:bg-amber-500/25 border-amber-500/40 text-amber-300 focus:ring-amber-400',
+    },
+    singer2: {
+      label: '🎤 S2',
+      fullLabel: 'Singer 2 / Partner',
+      ariaLabel: 'Singer: Singer 2 / Partner. Click to cycle to Both / Duet',
+      badgeClass:
+        'bg-pink-500/15 hover:bg-pink-500/25 border-pink-500/40 text-pink-300 focus:ring-pink-400',
+    },
+    both: {
+      label: '👥 Both',
+      fullLabel: 'Both / Duet',
+      ariaLabel: 'Singer: Both / Duet. Click to cycle to Singer 1 / Lead',
+      badgeClass:
+        'bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/40 text-emerald-300 focus:ring-emerald-400',
+    },
+  }[singerRole];
   return (
     <div
       data-testid={`timeline-line-${line.id}`}
@@ -134,6 +160,23 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
           </div>
         ) : (
           <div className="flex items-center gap-1.5 w-full sm:flex-1 overflow-hidden min-h-[40px]">
+            <Tooltip
+              content={`Current part: ${singerMeta.fullLabel}. Click to cycle role`}
+              position="top"
+            >
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCycleSinger?.(line.id);
+                }}
+                aria-label={singerMeta.ariaLabel}
+                data-testid={`toggle-singer-${line.id}`}
+                className={`min-h-[44px] min-w-[44px] px-2.5 py-1.5 rounded-lg border text-xs font-bold font-mono inline-flex items-center justify-center shrink-0 transition-all focus:outline-none focus:ring-2 ${singerMeta.badgeClass}`}
+              >
+                {singerMeta.label}
+              </button>
+            </Tooltip>
             <button
               type="button"
               onClick={() => onLineClick(line, isExpanded)}
