@@ -825,13 +825,18 @@ class TestRouteUploadValidation:
 class TestRouteHappyPaths:
     """Validates successful execution of all API routes, lifecycle transitions, and data integrity."""
 
-    def test_health_check_happy_path(self, client):
-        """GET /api/health returns status ok and service identifier."""
+    def test_health_check_happy_path(self, client, monkeypatch):
+        """GET /api/health returns status ok, service identifier, and running version."""
         res = client.get("/api/health")
         assert res.status_code == 200
         data = res.json()
         assert data["status"] == "ok"
         assert "Karaoke Studio" in data["service"]
+        assert isinstance(data.get("version"), str) and len(data["version"]) > 0
+
+        monkeypatch.setenv("APP_VERSION", "v1.6.0-test")
+        res_override = client.get("/api/health")
+        assert res_override.json()["version"] == "v1.6.0-test"
 
     def test_auth_login_logout_lifecycle_happy_path(self, unauth_client, monkeypatch):
         """Login sets authentication cookie; logout removes it."""

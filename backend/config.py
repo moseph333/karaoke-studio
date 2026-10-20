@@ -1,10 +1,38 @@
 """Central configuration for directory paths, authentication secrets, rate limits, worker concurrency limits, default video/audio specifications, and allowed CORS origins."""
 
 import os
+import subprocess
 from pathlib import Path
 
 # Base Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_APP_VERSION = "v1.6.0"
+
+
+def get_app_version() -> str:
+    """Resolve the running Karaoke Studio version from APP_VERSION env, git metadata, or default."""
+    env_version = os.getenv("APP_VERSION", "").strip()
+    if env_version:
+        return env_version
+    git_dir = BASE_DIR / ".git"
+    if git_dir.exists():
+        try:
+            res = subprocess.run(
+                ["git", "-c", f"safe.directory={BASE_DIR}", "describe", "--tags", "--always"],
+                cwd=str(BASE_DIR),
+                capture_output=True,
+                text=True,
+                timeout=2.0,
+                check=False,
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                return res.stdout.strip()
+        except Exception:
+            pass
+    return DEFAULT_APP_VERSION
+
+
+APP_VERSION = get_app_version()
 
 # Automatically load local .env if present
 env_file = BASE_DIR / ".env"

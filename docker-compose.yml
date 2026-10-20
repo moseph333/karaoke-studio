@@ -13,6 +13,7 @@ services:
       - KARAOKE_DATA_DIR=/app/workspace_data
     volumes:
       - ${KARAOKE_DATA_DIR:-./workspace_data}:/app/workspace_data
+      - ./.git:/app/.git:ro
       - demucs-models:/root/.cache/torch
 
   # Cloudflare Tunnel Sidecar (Optional)

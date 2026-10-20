@@ -124,7 +124,7 @@ video_renderer = VideoRenderer()
 youtube_service = YouTubeMetadataService()
 vocal_analyzer = VocalRangeAnalyzer()
 
-app = FastAPI(title="Karaoke Studio API", version="1.0.0")
+app = FastAPI(title="Karaoke Studio API", version=config.APP_VERSION.lstrip("v"))
 
 
 def sanitize_validation_errors(obj: Any) -> Any:
@@ -198,7 +198,11 @@ app.mount("/static/backgrounds", StaticFiles(directory=str(BACKGROUNDS_DIR)), na
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "service": "Karaoke Studio"}
+    return {
+        "status": "ok",
+        "service": "Karaoke Studio",
+        "version": config.get_app_version(),
+    }
 
 
 # Mount domain routers
