@@ -319,7 +319,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
           isPlaying={isPlaying}
           themeSungColor={activeSungColor}
           themeUnsungColor={themeUnsungColor}
-          className="absolute inset-0 z-0 pointer-events-none"
+          className="absolute inset-0 z-[1] pointer-events-none"
         />
       )}
 

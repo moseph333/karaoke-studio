@@ -32,6 +32,7 @@ export const App: React.FC = () => {
   const [showStudioDeleteModal, setShowStudioDeleteModal] = useState(false);
   const [showStudioEditModal, setShowStudioEditModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showVisualizer, setShowVisualizer] = useState(false);
 
   // Theme & Visual Styling Hook
   const theme = useVisualTheme();
@@ -93,11 +94,13 @@ export const App: React.FC = () => {
   };
 
   const isStudioReady = Boolean(project && project.status === 'ready');
+  const handleToggleVisualizer = () => setShowVisualizer((prev) => !prev);
 
   useKeyboardShortcuts({
     onTogglePlay: isStudioReady ? audio.handleTogglePlay : undefined,
     onSeek: isStudioReady ? audio.handleSeek : undefined,
     onToggleMute: isStudioReady ? audio.handleToggleMute : undefined,
+    onToggleVisualizer: isStudioReady ? handleToggleVisualizer : undefined,
     onToggleHelp: () => setShowHelpModal((prev) => !prev),
     audioRef,
     currentTime,
@@ -249,6 +252,7 @@ export const App: React.FC = () => {
           guide_volume: project.guide_volume || 0,
           aspect_ratio: theme.aspectRatio,
           custom_bg_id: theme.customBgId || undefined,
+          include_visualizer: showVisualizer,
           style_config: {
             theme_id: theme.selectedTheme.id,
             primary_color: theme.customSungColor || theme.selectedTheme.primary_color,
@@ -349,6 +353,8 @@ export const App: React.FC = () => {
               initialGuideVolume={project.guide_volume}
               initialMuted={isMuted}
               onMuteChange={setIsMuted}
+              playbackRate={audio.playbackRate}
+              onPlaybackRateChange={audio.setPlaybackRate}
               audioRef={audioRef}
               onTimeUpdate={audio.handleTimeUpdate}
               onLoadedMetadata={audio.handleLoadedMetadata}
@@ -360,6 +366,9 @@ export const App: React.FC = () => {
               onCustomInstrumentalUploaded={(url) =>
                 setProject({ ...project, instrumental_url: url })
               }
+              vocalRange={project.vocal_range}
+              showVisualizer={showVisualizer}
+              onToggleVisualizer={handleToggleVisualizer}
             />
 
             {/* Lyric Sweep Live Preview & Timeline Editor */}
@@ -368,6 +377,9 @@ export const App: React.FC = () => {
               currentTime={currentTime}
               duration={duration}
               isPlaying={isPlaying}
+              playbackRate={audio.playbackRate}
+              audioRef={audioRef}
+              onTogglePlay={audio.handleTogglePlay}
               onSeek={audio.handleSeek}
               onSaveLines={handleSaveLines}
               albumArtUrl={project.thumbnail_url}
@@ -376,6 +388,12 @@ export const App: React.FC = () => {
               onDirtyChange={setIsLyricsDirty}
               aspectRatio={theme.aspectRatio}
               fontSizeScale={theme.fontSizeScale}
+              projectId={project.id}
+              trackTitle={project.title}
+              trackArtist={project.artist}
+              showVisualizer={showVisualizer}
+              onToggleVisualizer={handleToggleVisualizer}
+              analyserNode={audio.analyserNode}
             />
 
             {/* Visual Theme & Aspect Ratio Picker */}

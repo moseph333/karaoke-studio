@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { BeatVisualizer } from '../components/BeatVisualizer';
 import { LyricDisplay } from '../components/LyricDisplay';
+import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
 import { AudioControls } from '../components/AudioControls';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import {
@@ -47,6 +48,19 @@ describe('Beat-Reactive Audio Visualizer & Hotkeys (Requirement R3 / M3)', () =>
       expect(container).toBeInTheDocument();
       expect(container).toHaveAttribute('aria-hidden', 'true');
       expect(container.querySelector('canvas')).toBeInTheDocument();
+    });
+
+    it('preserves absolute positioning class without conflicting relative class', () => {
+      render(
+        <BeatVisualizer
+          analyserNode={mockAnalyser}
+          isPlaying={false}
+          className="absolute inset-0 z-[1] pointer-events-none"
+        />
+      );
+      const container = screen.getByTestId('beat-visualizer');
+      expect(container.className).toContain('absolute');
+      expect(container.className).not.toContain('relative');
     });
 
     it('draws resting frame when paused without leaking requestAnimationFrame loop', () => {
@@ -134,6 +148,34 @@ describe('Beat-Reactive Audio Visualizer & Hotkeys (Requirement R3 / M3)', () =>
 
       rerender(<LyricDisplay lines={mockLines} currentTime={3.0} showVisualizer={true} />);
       expect(screen.getByTestId('beat-visualizer')).toBeInTheDocument();
+    });
+
+    it('forwards showVisualizer, onToggleVisualizer, and analyserNode through LyricTimelineEditor to Live Visual Preview', () => {
+      const onToggle = vi.fn();
+      render(
+        <LyricTimelineEditor
+          projectId="test-viz-project"
+          lines={mockLines}
+          currentTime={3.0}
+          duration={120}
+          isPlaying={true}
+          onSaveLines={vi.fn()}
+          onSeek={vi.fn()}
+          showVisualizer={true}
+          onToggleVisualizer={onToggle}
+          analyserNode={mockAnalyser}
+        />
+      );
+
+      const visualizer = screen.getByTestId('beat-visualizer');
+      expect(visualizer).toBeInTheDocument();
+      expect(visualizer.className).toContain('absolute');
+      expect(visualizer.className).not.toContain('relative');
+
+      const previewToggleBtn = screen.getByTestId('toggle-visualizer-btn');
+      expect(previewToggleBtn).toHaveAttribute('aria-pressed', 'true');
+      fireEvent.click(previewToggleBtn);
+      expect(onToggle).toHaveBeenCalledTimes(1);
     });
   });
 

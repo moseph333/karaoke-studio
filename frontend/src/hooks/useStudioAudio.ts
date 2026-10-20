@@ -98,7 +98,7 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
     if (audioRef.current) {
       initWebAudio();
     }
-  }, [initWebAudio, project?.master_audio_url]);
+  }, [initWebAudio, project?.id, project?.status, project?.master_audio_url]);
 
   useEffect(() => {
     if (project?.duration && project.duration > 0) {
@@ -132,8 +132,10 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
     if (!project || project.status !== 'ready') return;
     if (!audioRef.current) return;
 
+    initWebAudio();
+
     // Handle browser autoplay policy by resuming suspended AudioContext
-    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+    if (audioContextRef.current && audioContextRef.current.state !== 'running') {
       audioContextRef.current.resume().catch((err) => {
         console.warn('AudioContext resume deferred:', err);
       });
@@ -152,7 +154,7 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
           setIsPlaying(false);
         });
     }
-  }, [project, isPlaying, playbackRate]);
+  }, [project, isPlaying, playbackRate, initWebAudio]);
 
   const handleSeek = useCallback(
     (time: number) => {

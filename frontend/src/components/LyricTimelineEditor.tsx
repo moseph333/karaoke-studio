@@ -33,6 +33,9 @@ export interface LyricTimelineEditorProps {
   currentTime: number;
   duration: number;
   isPlaying?: boolean;
+  playbackRate?: number;
+  audioRef?: React.RefObject<HTMLAudioElement>;
+  onTogglePlay?: () => void;
   onSeek: (time: number) => void;
   onSaveLines: (updatedLines: LyricLine[]) => Promise<void | boolean> | void;
   albumArtUrl?: string;
@@ -44,6 +47,9 @@ export interface LyricTimelineEditorProps {
   projectId?: string;
   trackTitle?: string;
   trackArtist?: string;
+  showVisualizer?: boolean;
+  onToggleVisualizer?: () => void;
+  analyserNode?: AnalyserNode | null;
 }
 
 export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
@@ -51,6 +57,9 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   currentTime,
   duration,
   isPlaying = false,
+  playbackRate = 1.0,
+  audioRef,
+  onTogglePlay,
   onSeek,
   onSaveLines,
   albumArtUrl,
@@ -62,24 +71,17 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   projectId,
   trackTitle = 'Track',
   trackArtist = 'Artist',
+  showVisualizer,
+  onToggleVisualizer,
+  analyserNode,
 }) => {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [showDuetModal, setShowDuetModal] = useState(false);
 
-  const ed = useLyricEditorState({
-    lines,
-    currentTime,
-    duration,
-    onSaveLines,
-    onDirtyChange,
-  });
-
+  const ed = useLyricEditorState({ lines, currentTime, duration, onSaveLines, onDirtyChange });
   const effectiveProjectId =
-    projectId ||
-    (typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('project') || ''
-      : '');
+    projectId || new URLSearchParams(window.location.search).get('project') || '';
 
   const activeLineIndex = ed.editableLines.findIndex(
     (l) => currentTime >= l.start_time - 1.5 && currentTime <= l.end_time + 1.0
@@ -133,12 +135,18 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
         currentTime={currentTime}
         duration={duration}
         isPlaying={isPlaying}
+        playbackRate={playbackRate}
+        audioRef={audioRef}
+        onTogglePlay={onTogglePlay}
         onSeek={onSeek}
         albumArtUrl={albumArtUrl}
         themeSungColor={themeSungColor}
         themeUnsungColor={themeUnsungColor}
         aspectRatio={aspectRatio}
         fontSizeScale={fontSizeScale}
+        showVisualizer={showVisualizer}
+        onToggleVisualizer={onToggleVisualizer}
+        analyserNode={analyserNode}
       />
 
       {/* 2. Visual Timeline & Power Tools */}
@@ -327,24 +335,19 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
           onWheel={handleUserScrollInteraction}
           onTouchMove={handleUserScrollInteraction}
           onPointerDown={(e) => {
-            const targetEl = e.target as HTMLElement | null;
-            if (targetEl?.closest('button, input, select, textarea, [role="button"]')) return;
-            if (containerRef.current && e.target === containerRef.current) {
+            if (
+              (e.target as HTMLElement)?.closest('button, input, select, textarea, [role="button"]')
+            )
+              return;
+            if (containerRef.current && e.target === containerRef.current)
               handleUserScrollInteraction();
-            }
           }}
           onKeyDown={(e) => {
-            const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-            if (
-              targetTag === 'input' ||
-              targetTag === 'textarea' ||
-              (e.target as HTMLElement)?.isContentEditable
-            ) {
-              return;
-            }
-            if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
+            const el = e.target as HTMLElement | null;
+            const tag = el?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || el?.isContentEditable) return;
+            if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key))
               handleUserScrollInteraction();
-            }
           }}
           className="max-h-[300px] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 scroll-smooth focus:outline-none touch-pan-y overscroll-contain"
         >
