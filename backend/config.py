@@ -95,7 +95,9 @@ def check_for_updates(force_remote: bool = False) -> dict[str, Any]:
     if force_remote or (
         _UPDATE_CACHE["latest_version"] is None and now - _UPDATE_CACHE["checked_at"] > 60
     ):
-        remote_out = _git_cmd(["ls-remote", "origin", "refs/heads/main", "refs/tags/*"], timeout=6.0)
+        remote_out = _git_cmd(
+            ["ls-remote", "origin", "refs/heads/main", "refs/tags/*"], timeout=6.0
+        )
         if not remote_out:
             remote_out = _git_cmd(
                 [
@@ -166,7 +168,8 @@ def check_for_updates(force_remote: bool = False) -> dict[str, Any]:
         "service": "Karaoke Studio",
         "version": current_version,
         "latest_version": latest_version,
-        "local_commit": _UPDATE_CACHE.get("local_commit") or (local_commit[:7] if local_commit else ""),
+        "local_commit": _UPDATE_CACHE.get("local_commit")
+        or (local_commit[:7] if local_commit else ""),
         "remote_commit": _UPDATE_CACHE.get("remote_commit") or "",
         "update_available": update_available,
         "updating": updating,
@@ -189,6 +192,7 @@ def trigger_system_update() -> dict[str, Any]:
     info["status"] = "updating"
     info["message"] = f"Updating to {info['latest_version']}..."
     return info
+
 
 # Automatically load local .env if present
 env_file = BASE_DIR / ".env"
