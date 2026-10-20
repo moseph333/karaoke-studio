@@ -207,9 +207,13 @@ def health_check(check_remote: bool = False):
 async def system_update_action(request: Request):
     action = "check"
     try:
-        body = await request.json()
-        if isinstance(body, dict) and body.get("action"):
-            action = str(body["action"]).strip().lower()
+        raw = await request.body()
+        if raw:
+            import json as _json
+
+            body = _json.loads(raw.decode("utf-8"))
+            if isinstance(body, dict) and body.get("action"):
+                action = str(body["action"]).strip().lower()
     except Exception:
         pass
     if action == "update":

@@ -96,6 +96,16 @@ def check_for_updates(force_remote: bool = False) -> dict[str, Any]:
         _UPDATE_CACHE["latest_version"] is None and now - _UPDATE_CACHE["checked_at"] > 60
     ):
         remote_out = _git_cmd(["ls-remote", "origin", "refs/heads/main", "refs/tags/*"], timeout=6.0)
+        if not remote_out:
+            remote_out = _git_cmd(
+                [
+                    "ls-remote",
+                    "https://github.com/moseph333/karaoke-studio.git",
+                    "refs/heads/main",
+                    "refs/tags/*",
+                ],
+                timeout=6.0,
+            )
         remote_main_sha = ""
         tag_shas: dict[str, str] = {}
         if remote_out:
