@@ -8,14 +8,14 @@ Local-first audio workstation for stem separation, acoustic word alignment, time
 
 - **Audio intake**: upload local tracks (`.mp3`, `.wav`, `.flac`) or ingest audio streams via `yt-dlp`.
 - **Project library search, filter, sort & lifecycle**: instant client-side search (by title, artist, or creator), status filtering (`All`, `Ready`, `In Progress / Error`), sorting (`Recent`, `Title A–Z`, `Artist A–Z`), metadata editing (`title` and `artist`), and project deletion with automatic cancellation of in-flight jobs and full disk cleanup across `downloads/`, `stems/`, and `output/`.
-- **Stem separation**: Demucs isolates `vocals.wav` and `instrumental.wav`. Supports direct uploads for official backing tracks.
+- **Stem separation & vocal range analysis**: Demucs isolates `vocals.wav` and `instrumental.wav` (supporting direct uploads for official backing tracks), while the **Vocal Range Analyzer & Smart Key Recommender** extracts $F_0$ pitch bounds (`Hz` and scientific pitch notation like `G3`–`C5`), comfortable tessitura, and estimated musical key to recommend and apply an optimal semitone shift (`-12` to `+12`) for standard voice types (Bass to Soprano) or custom note ranges.
 - **Lyric sync & in-studio hot-swapping**: pulls timecoded lyrics from LRCLIB and `syncedlyrics`, accepts custom text and `.lrc` timestamps, and supports in-studio lyric replacement and acoustic realignment without re-running stem separation.
 - **Word alignment**: calculates word-level boundaries using acoustic energy and envelope detection.
-- **Timeline editor & power tools**: 50-step Undo/Redo history (`Ctrl+Z` / `Ctrl+Y`), batch timestamp offset shifting (across all lines or from the selected line onward), live Line and Word Tap-to-Sync (`T`) beat stamping during playback, inline lyric text editing, line insertion and deletion with automatic monotonic word-level timing recalculation, interactive waveform scrubbing, ±0.2s line nudging, and dirty-state discard protection.
+- **Timeline editor, duet part assignment & power tools**: 50-step Undo/Redo history (`Ctrl+Z` / `Ctrl+Y`), **Duet / Multi-Singer Part Assignment** (`Singer 1 / Lead`, `Singer 2 / Partner`, `Both / Unison`) with per-line cycling, bulk range/alternating patterns, and pause-clustering auto-split, batch timestamp offset shifting (across all lines or from the selected line onward), live Line and Word Tap-to-Sync (`T`) beat stamping during playback, inline lyric text editing, line insertion and deletion with automatic monotonic word-level timing recalculation, interactive waveform scrubbing, ±0.2s line nudging, and dirty-state discard protection.
 - **Studio mixing & playback speed**: interactive audio/vocal waveform scrubber, variable playback speed (`0.5x`–`1.5x`) for practicing or fine-tuning sync, semitone pitch shifting (-12 to +12) without tempo change, master volume and mute controls, and 0% to 50% guide vocal blending.
-- **Fullscreen TV Stage Mode & custom styling**: Fullscreen stage mode (`F`) with auto-hiding floating playback controls, four visual theme presets (Modern Gold, Cyber Cyan, Neon Sunset, Classic KTV), custom sung/unsung color pickers, adjustable lyric font scaling (`0.75x`–`1.5x`), custom video/image backgrounds, auto-blurred album art, and 16:9 widescreen or 9:16 vertical outputs.
-- **Keyboard navigation & in-app help**: transport and studio shortcuts (`Space`, `←`, `→`, `M`, `F`, `T`, `Ctrl+Z`, `Ctrl+Y`) and `?` hotkey for the accessible In-App Help & Studio Usage Guide modal, plus styled contextual tooltips with hotkey badges across studio controls.
-- **Export kit, direct audio stems & standalone subtitles**: direct 1-click downloads for isolated audio stems (`instrumental.wav`, `vocals.wav`, and pitch-shifted `master.wav`), instant standalone `.lrc` and `.ass` synchronized subtitle downloads (including custom colors, font scaling, `1920x1080` / `1080x1920` resolution, and progressive `\kf` karaoke tags) without waiting for a video render, plus full 1080p60 MP4 renders with 320 kbps AAC audio and YouTube metadata packages.
+- **Fullscreen TV Stage Mode, beat visualizer, gap countdowns & custom styling**: Fullscreen stage mode (`F`) with auto-hiding floating playback controls, toggleable 60fps canvas **Beat-Reactive Audio Visualizer** (`V`), automatic **Instrumental Gap Countdown** progress bars and upcoming-singer lead-in cues during intros and bridges ($\ge 4.0\text{s}$), distinct multi-singer duet colors and badges, four visual theme presets (Modern Gold, Cyber Cyan, Neon Sunset, Classic KTV), custom sung/unsung color pickers, adjustable lyric font scaling (`0.75x`–`1.5x`), custom video/image backgrounds, auto-blurred album art, and 16:9 widescreen or 9:16 vertical outputs.
+- **Keyboard navigation & in-app help**: transport and studio shortcuts (`Space`, `←`, `→`, `M`, `F`, `V`, `T`, `Ctrl+Z`, `Ctrl+Y`) and `?` hotkey for the accessible In-App Help & Studio Usage Guide modal, plus styled contextual tooltips with hotkey badges across studio controls.
+- **Export kit, direct audio stems & standalone subtitles**: direct 1-click downloads for isolated audio stems (`instrumental.wav`, `vocals.wav`, and pitch-shifted `master.wav`), instant standalone `.lrc` and `.ass` synchronized subtitle downloads (including multi-singer duet styles, instrumental gap countdown cues, custom colors, font scaling, `1920x1080` / `1080x1920` resolution, and progressive `\kf` karaoke tags) without waiting for a video render, plus full 1080p60 MP4 renders with optional composited beat-reactive audio visualizers, 320 kbps AAC audio, and YouTube metadata packages.
 - **Resilience & accessibility**: comprehensive error boundaries with audio auto-recovery, in-app toast alerts, and accessible focus traps for modal dialogs.
 - **Responsive mobile & tablet studio**: adaptive layouts down to 320px–375px viewports with touch-sized (`>=44px`) transport/mixing/library controls, 2-row mobile lyric timeline nudging, and live 16:9 widescreen / 9:16 vertical Shorts previews.
 - **Access control & worker concurrency**: HMAC-SHA256 signed session tokens with `HttpOnly` cookies, sliding-window login rate limiting (`429 Too Many Requests`), and bounded background worker semaphores (`MAX_CONCURRENT_JOBS`) that queue excess pipeline and render jobs without deadlock.
@@ -31,6 +31,7 @@ The studio provides keyboard shortcuts for playback navigation and precision edi
 | <kbd>→</kbd> (Right Arrow) | Shortcut | Seek forward 5 seconds in timeline playback |
 | <kbd>M</kbd> / <kbd>m</kbd> | Shortcut | Toggle audio mute / unmute |
 | <kbd>F</kbd> / <kbd>f</kbd> | Shortcut | Toggle Fullscreen TV Stage Mode with auto-hiding floating controls |
+| <kbd>V</kbd> / <kbd>v</kbd> | Shortcut | Toggle 60fps Beat-Reactive Audio Visualizer in Studio and TV Stage Mode |
 | <kbd>T</kbd> / <kbd>t</kbd> | Shortcut | Stamp current playback timestamp onto target line or word during Tap-to-Sync mode |
 | <kbd>Ctrl+Z</kbd> / <kbd>Cmd+Z</kbd> | Shortcut | Undo most recent lyric timeline edit (up to 50 steps) |
 | <kbd>Ctrl+Y</kbd> / <kbd>Cmd+Shift+Z</kbd> | Shortcut | Redo previously undone lyric timeline edit |
@@ -38,13 +39,14 @@ The studio provides keyboard shortcuts for playback navigation and precision edi
 | **Waveform Scrubber** | Control | Interactive audio/vocal energy waveform with click-and-drag seeking |
 | **Playback Speed** | Control | Variable speed selector (`0.5x`, `0.75x`, `1.0x`, `1.25x`, `1.5x`) synchronized with lyric sweeps |
 | **Master Volume** | Control | Linear volume slider (0%–100%) and mute toggle for studio monitoring |
-| **Pitch Shift** | Control | Stepper to shift playback pitch from -12 to +12 semitones without altering tempo |
+| **Pitch Shift & Smart Key** | Control | Stepper (-12 to +12 semitones) and Vocal Range / Smart Key Recommender for voice presets or custom note ranges |
 | **Guide Vocal** | Control | Blend slider from 0% to 50% vocal volume over instrumental backing tracks |
+| **Duet / Multi-Singer Split** | Control | Per-line singer role cycling (`Singer 1`, `Singer 2`, `Both`) and bulk/auto duet split modal |
 | **Batch Offset & Tap-to-Sync** | Control | Shift all or selected-onward lyric timestamps by a custom delta, or tap live with the beat in Line or Word sync mode |
 | **In-Studio Lyric Re-Import** | Control | Replace lyrics via custom text/LRC or re-query LRCLIB and realign word timings in-place |
 | **Timeline Nudging** | Control | Stepper buttons to shift line start and end timestamps in ±0.2-second increments |
 | **Inline Line Editing** | Control | Edit lyric line text, insert lines above/below/end, or delete lines with automatic word-token timing recalculation |
-| **Word Sweep & Custom Styling** | Control | Progressive sub-line wipe preview with customizable sung/unsung colors and font scaling (`0.75x`–`1.5x`) |
+| **Word Sweep, Gap Countdown & Styling** | Control | Progressive sub-line wipe preview with $\ge 4.0\text{s}$ instrumental gap countdowns, customizable sung/unsung colors, and font scaling (`0.75x`–`1.5x`) |
 | **Modal Focus Traps** | Accessibility | Keyboard focus looping (`Tab`, `Shift+Tab`) and `Escape` dismiss for Auth, Metadata, Delete, Export, and Help dialogs |
 
 ## Quick Start
@@ -103,7 +105,7 @@ Karaoke Studio maintains strict quality gates across both backend and frontend l
 All backend tests and linters use Python 3.12+ inside the project virtual environment:
 
 ```bash
-# Run pytest with code coverage (789 unit, integration, E2E, and adversarial tests)
+# Run pytest with code coverage (1,043 unit, integration, E2E, and adversarial tests)
 pytest
 
 # Check code formatting with Ruff
@@ -130,7 +132,7 @@ Frontend quality tools run from the `frontend/` directory:
 ```bash
 cd frontend
 
-# Run Vitest unit, component, and responsive layout tests (877 tests across 46 test suites)
+# Run Vitest unit, component, and responsive layout tests (1,039 tests across 55 test suites)
 npm test
 
 # Run Vitest in interactive watch mode
@@ -185,10 +187,10 @@ cp .env.example .env
 
 Karaoke Studio was engineered as a high-concurrency, local-first media workstation:
 
-- **Modular Backend Architecture**: FastAPI backend decomposed into single-responsibility routers (`routers/auth`, `routers/projects`, `routers/uploads`, `routers/exports`) and service layers (`services/separator`, `services/lyrics`, `services/aligner`, `services/audio_mixer`, `services/video_renderer`, `services/ass_generator`), backed by bounded worker semaphores (`MAX_CONCURRENT_JOBS`) and cancelable thread execution.
-- **Modular Frontend Architecture**: React 18 single-page application structured into focused subcomponent hierarchies (`components/audio/`, `components/export/`, `components/timeline/`, `components/track-search/`) and custom hooks (`useKeyboardShortcuts`, `useFocusTrap`, `useInterpolatedTime`, `useLyricEditorState`, `useTapCursorHistory`, `useTimelineAutoScroll`).
-- **Audio DSP Pipeline**: Demucs v4 (Hybrid Transformer) stem isolation combined with acoustic energy envelope detection to calculate fine-grained syllable and word boundaries.
-- **Video Rendering Engine**: Native FFmpeg filtergraphs with `libass` compositing to burn dynamic progressive wipe karaoke styles directly into 1080p60 MP4 with 320 kbps AAC audio.
+- **Modular Backend Architecture**: FastAPI backend decomposed into single-responsibility routers (`routers/auth`, `routers/projects`, `routers/uploads`, `routers/exports`) and service layers (`services/separator`, `services/vocal_analyzer`, `services/lyrics`, `services/aligner`, `services/audio_mixer`, `services/video_renderer`, `services/ass_generator`), backed by bounded worker semaphores (`MAX_CONCURRENT_JOBS`) and cancelable thread execution.
+- **Modular Frontend Architecture**: React 18 single-page application structured into focused subcomponent hierarchies (`components/audio/`, `components/export/`, `components/timeline/`, `components/track-search/`, `BeatVisualizer`) and custom hooks (`useKeyboardShortcuts`, `useFocusTrap`, `useInterpolatedTime`, `useLyricEditorState`, `useTapCursorHistory`, `useTimelineAutoScroll`, `useStudioAudio`).
+- **Audio DSP Pipeline**: Demucs v4 (Hybrid Transformer) stem isolation combined with acoustic energy envelope detection for word boundaries, plus FFT-accelerated YIN $F_0$ pitch tracking and Krumhansl-Schmuckler chroma key detection for vocal range analysis and smart key transposition.
+- **Video Rendering Engine**: Native FFmpeg filtergraphs with `libass` compositing to burn dynamic progressive wipe karaoke styles, multi-singer duet themes, $\ge 4.0\text{s}$ instrumental gap countdowns, and optional beat-reactive audio visualizers directly into 1080p60 MP4 with 320 kbps AAC audio.
 - **Fault-Tolerant Storage**: Atomic JSON persistence with automated backup recovery to guard against state corruption during sudden shutdowns.
 - **Modern Interface**: React 18, Tailwind CSS, Lucide icons, contextual tooltips with hotkey badges, and Wavesurfer.js audio scrubbers for interactive timeline editing.
 

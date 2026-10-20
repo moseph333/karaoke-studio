@@ -62,6 +62,12 @@ const SHORTCUTS: ShortcutItem[] = [
     scope: 'Studio Workspace',
   },
   {
+    keys: ['V'],
+    label: 'Beat Visualizer',
+    description: 'Toggle beat-reactive audio visualizer on / off in Studio and TV Stage Mode',
+    scope: 'Studio Workspace',
+  },
+  {
     keys: ['T'],
     label: 'Tap-to-Sync Stamp',
     description: 'Stamp active line or word timestamp in real time when Tap-to-Sync is enabled',
@@ -120,9 +126,9 @@ const STAGES: GuideStage[] = [
     title: '2. Stem Separation & Lyric Sync',
     icon: Sparkles,
     badge: 'AI Engine',
-    summary: 'Automated vocal isolation and acoustic word-level timing alignment.',
+    summary: 'Automated vocal isolation, vocal range/key detection, and acoustic word alignment.',
     features: [
-      'Demucs AI separates clean vocals from backing instrumental tracks',
+      'Demucs AI separates clean vocals from backing instrumental tracks and detects vocal range & key',
       'Synchronized lyrics are fetched automatically from LRCLIB or parsed from your LRC tags',
       'Hot-swap or re-import custom/LRCLIB lyrics anytime inside the studio without re-separating stems',
     ],
@@ -132,12 +138,12 @@ const STAGES: GuideStage[] = [
     title: '3. Timeline Editing',
     icon: Clock,
     badge: 'Editor',
-    summary: 'Fine-tune line and word timings with live visual feedback and power tools.',
+    summary: 'Fine-tune line and word timings, assign duet parts, and use power tools.',
     features: [
       'Scrub interactive audio waveform and observe live word-by-word progressive karaoke sweeps',
+      'Assign Duet / Multi-Singer roles (Singer 1, Singer 2, Both) per line or via bulk/auto-split',
       'Use Undo/Redo (Ctrl+Z / Ctrl+Y), Batch Timestamp Offset, and live Tap-to-Sync [T] beat stamping',
       'Edit line text inline, insert new lines above/below, or delete unwanted lyric lines',
-      'Dirty state tracking prevents accidental loss of unsaved lyric timings',
     ],
   },
   {
@@ -145,10 +151,10 @@ const STAGES: GuideStage[] = [
     title: '4. Studio Mixing & Themes',
     icon: Sliders,
     badge: 'Mixer',
-    summary: 'Customize playback mix, speed, visual themes, Fullscreen TV Stage, and aspect ratio.',
+    summary: 'Customize playback mix, Smart Key shift, visualizer, TV Stage, and aspect ratio.',
     features: [
-      'Pitch shift (-12 to +12 semitones), guide vocal blend (0%–50%), and playback speed (0.5x–1.5x)',
-      'Toggle Fullscreen TV Stage Mode [F] with auto-hiding floating playback controls',
+      'Pitch shift (-12 to +12 semitones), Smart Key Recommender, guide vocal (0%–50%), and speed (0.5x–1.5x)',
+      'Toggle Fullscreen TV Stage Mode [F], Beat-Reactive Visualizer [V], and >=4.0s gap countdowns',
       'Select preset visual themes or customize sung/unsung colors and lyric font scaling (0.75x–1.5x)',
       'Upload custom image/video backgrounds and switch between 16:9 Widescreen and 9:16 Shorts',
     ],
@@ -161,8 +167,8 @@ const STAGES: GuideStage[] = [
     summary: 'Instant audio stem & subtitle downloads and full 1080p60 video rendering.',
     features: [
       'Direct 1-click downloads for isolated instrumental WAV, vocals WAV, and mixed master audio',
-      'Instant downloads: export standalone .lrc (line-synced) and .ass (karaoke \\kf sweeps)',
-      'Render full 1080p60 MP4 videos and generate ready-to-copy YouTube metadata packages',
+      'Instant downloads: export standalone .lrc and .ass (with multi-singer duet styles & gap countdowns)',
+      'Render 1080p60 MP4 videos (with optional beat visualizer) and generate YouTube metadata packages',
     ],
   },
 ];
