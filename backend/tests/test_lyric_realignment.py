@@ -246,3 +246,58 @@ def test_realign_lyrics_updates_duration_and_youtube_package(
     updated_proj = main_mod.projects[proj["id"]]
     assert updated_proj["duration"] >= 15.0
     assert "youtube_package" in updated_proj
+
+
+def test_realign_lyrics_with_plain_text_avoids_instrumental_gap(
+    client: TestClient, test_project_factory
+):
+    """
+    Verifies that realigning plain text lyrics (synced: False) uses acoustic phrase
+    segmentation to avoid placing words in an instrumental gap between singing sections.
+    """
+    proj = test_project_factory(with_stems=False)
+    # Write custom vocals stem with 2 phrases separated by a 3-second gap
+    stem_dir = main_mod.STEMS_DIR / proj["id"]
+    stem_dir.mkdir(parents=True, exist_ok=True)
+    vocal_path = stem_dir / "vocals.wav"
+
+    sr = 44100
+    duration = 12.0
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    vocals = np.zeros_like(t)
+    # Phrase 0: 1.0s to 4.0s (3s singing)
+    vocals[(t >= 1.0) & (t <= 4.0)] = 0.5 * np.sin(2 * np.pi * 440 * t[(t >= 1.0) & (t <= 4.0)])
+    # Instrumental break: 4.0s to 7.0s (3s silence >= 1.5s)
+    # Phrase 1: 7.0s to 10.0s (3s singing)
+    vocals[(t >= 7.0) & (t <= 10.0)] = 0.5 * np.sin(2 * np.pi * 550 * t[(t >= 7.0) & (t <= 10.0)])
+
+    stereo = np.column_stack((vocals, vocals))
+    sf.write(str(vocal_path), stereo, sr)
+    proj["vocals_path"] = str(vocal_path)
+    proj["duration"] = 12.0
+    main_mod.projects[proj["id"]] = proj
+    main_mod.save_projects()
+
+    plain_lyrics = "First verse before the solo\nSecond verse after the break"
+    res = client.post(
+        f"/api/project/{proj['id']}/realign-lyrics",
+        json={"custom_lyrics": plain_lyrics, "fetch_lrclib": False},
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "ok"
+    lines = data["lines"]
+    assert len(lines) == 2
+
+    # Line 0 should be confined to Phrase 0 (1.0s to 4.0s)
+    assert lines[0]["start_time"] >= 0.8
+    assert lines[0]["end_time"] <= 4.2
+    # Line 1 should be confined to Phrase 1 (7.0s to 10.0s)
+    assert lines[1]["start_time"] >= 6.8
+    assert lines[1]["end_time"] <= 10.2
+
+    # Words in Line 0 and Line 1 must not fall inside the 4.2s - 6.8s instrumental gap
+    for line in lines:
+        for w in line.get("words", []):
+            assert not (4.2 < w["start_time"] < 6.8), f"Word {w} started inside instrumental gap"
+            assert not (4.2 < w["end_time"] < 6.8), f"Word {w} ended inside instrumental gap"

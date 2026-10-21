@@ -1,10 +1,14 @@
 import re
+from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
+import soundfile as sf
 from pydantic import ValidationError
 
 from backend.schemas import LyricLineSchema
-from backend.services.lyrics import LyricsService
+from backend.services.aligner import AudioAligner
+from backend.services.lyrics import LyricsNormalizer, LyricsService
 
 SAMPLE_LRC = """[00:04.20]First line of the song
 [00:08.50]Second line with more words
@@ -483,3 +487,355 @@ def test_update_lyrics_endpoint_multi_singer_persistence(client):
     assert saved_lines[1]["singer"] == "singer2"
     assert saved_lines[2]["singer"] == "both"
     assert saved_lines[3]["singer"] == "singer1"
+
+
+# ==============================================================================
+# Milestone 1: Requirement R1 (Normalization, Ranking, Enhanced LRC, and Offsets)
+# ==============================================================================
+
+
+def test_lyrics_normalizer_bracketed_noise():
+    """LyricsNormalizer removes diverse bracketed media suffixes while preserving title content."""
+    assert (
+        LyricsNormalizer.clean_title("Bohemian Rhapsody (Official Music Video)")
+        == "Bohemian Rhapsody"
+    )
+    assert LyricsNormalizer.clean_title("Song Name [Official Video]") == "Song Name"
+    assert LyricsNormalizer.clean_title("Another Track (Official Audio)") == "Another Track"
+    assert LyricsNormalizer.clean_title("Visual Track {Official Visualizer}") == "Visual Track"
+    assert LyricsNormalizer.clean_title("Lyric Song (Lyric Video)") == "Lyric Song"
+    assert LyricsNormalizer.clean_title("Remastered Hit [Remastered 2021]") == "Remastered Hit"
+    assert LyricsNormalizer.clean_title("High Res Track (Official 4K Video)") == "High Res Track"
+    assert LyricsNormalizer.clean_title("Live Track (Live from Wembley)") == "Live Track"
+    assert LyricsNormalizer.clean_title("French Track (Clip Officiel)") == "French Track"
+    assert LyricsNormalizer.clean_title("Spanish Track (Video Oficial)") == "Spanish Track"
+    assert LyricsNormalizer.clean_title("Music Video [MV]") == "Music Video"
+    assert LyricsNormalizer.clean_title("Clean Title (Audio)") == "Clean Title"
+    assert (
+        LyricsNormalizer.clean_title("Track With Multiple [HD] (Official Audio) [2024]")
+        == "Track With Multiple [2024]"
+    )
+
+
+def test_lyrics_normalizer_featured_artists():
+    """LyricsNormalizer strips featured artist clauses and extracts guest artists."""
+    clean_t = LyricsNormalizer.clean_title("Song Name ft. Guest Artist")
+    feat = LyricsNormalizer.extract_featured("Song Name ft. Guest Artist")
+    assert clean_t == "Song Name"
+    assert feat == "Guest Artist"
+
+    assert LyricsNormalizer.clean_title("Song Name feat. Co-Singer") == "Song Name"
+    assert LyricsNormalizer.clean_title("Song Name featuring Famous Star") == "Song Name"
+    assert LyricsNormalizer.clean_title("Song Name with Guest Artist") == "Song Name"
+
+    # Bracketed variations
+    assert LyricsNormalizer.clean_title("Song Name (feat. Guest Artist)") == "Song Name"
+    assert LyricsNormalizer.clean_title("Song Name [ft. Guest Artist]") == "Song Name"
+    assert LyricsNormalizer.clean_title("Song Name (with Guest Artist)") == "Song Name"
+
+    # Titles with standard 'with' + pronoun should be preserved
+    assert LyricsNormalizer.clean_title("Stay With Me") == "Stay With Me"
+    assert LyricsNormalizer.clean_title("Dancing with Myself") == "Dancing with Myself"
+
+    # Artist string featuring clause removal
+    assert LyricsNormalizer.clean_artist("Primary Artist feat. Guest") == "Primary Artist"
+    assert LyricsNormalizer.clean_artist("Primary Artist ft. Second Singer") == "Primary Artist"
+
+
+def test_lyrics_normalizer_topic_and_vevo():
+    """LyricsNormalizer cleans YouTube Topic channels and VEVO suffixes from artist names."""
+    assert LyricsNormalizer.clean_artist("Coldplay - Topic") == "Coldplay"
+    assert LyricsNormalizer.clean_artist("Daft Punk - topic") == "Daft Punk"
+    assert LyricsNormalizer.clean_artist("QueenVEVO") == "Queen"
+    assert LyricsNormalizer.clean_artist("Queen VEVO") == "Queen"
+    assert LyricsNormalizer.clean_artist("TaylorSwiftVEVO") == "TaylorSwift"
+    assert LyricsNormalizer.clean_artist("Artist - Official Channel") == "Artist"
+    assert LyricsNormalizer.clean_artist("Artist Official") == "Artist"
+
+
+def test_lyrics_normalizer_delimiter_noise():
+    """LyricsNormalizer cleans unbracketed delimiter noise (| // - :) from titles."""
+    assert (
+        LyricsNormalizer.clean_title("Bohemian Rhapsody | Official Music Video")
+        == "Bohemian Rhapsody"
+    )
+    assert LyricsNormalizer.clean_title("Song Name // Official Audio") == "Song Name"
+    assert LyricsNormalizer.clean_title("Song Name - Lyric Video") == "Song Name"
+    assert LyricsNormalizer.clean_title("Song Name : Visualizer") == "Song Name"
+    assert LyricsNormalizer.clean_title("Song Name | HD") == "Song Name"
+
+
+def test_lyrics_normalizer_canonical_split_and_edge_cases():
+    """LyricsNormalizer handles combined Artist - Title titles and edge inputs safely."""
+    # When title contains ' - ' and artist is unknown/empty
+    title, artist = LyricsNormalizer.normalize_track_metadata(
+        "Queen - Bohemian Rhapsody (Official Video)", "Unknown Artist"
+    )
+    assert title == "Bohemian Rhapsody"
+    assert artist == "Queen"
+
+    title2, artist2 = LyricsNormalizer.normalize_track_metadata("Coldplay - Yellow [HD]", "")
+    assert title2 == "Yellow"
+    assert artist2 == "Coldplay"
+
+    # Robustness against None, empty, whitespace
+    assert LyricsNormalizer.clean_title("") == ""
+    assert LyricsNormalizer.clean_title("   ") == ""
+    assert LyricsNormalizer.clean_title(None) == ""
+    assert LyricsNormalizer.clean_artist("") == "Unknown Artist"
+    assert LyricsNormalizer.clean_artist("   ") == "Unknown Artist"
+    assert LyricsNormalizer.clean_artist(None) == "Unknown Artist"
+
+
+def test_candidate_ranking_synced_priority_over_plain():
+    """rank_candidates prefers candidates with syncedLyrics over plainLyrics even if plain is first."""
+    candidates = [
+        {
+            "id": 1,
+            "trackName": "Song",
+            "artistName": "Artist",
+            "duration": 200,
+            "plainLyrics": "Just plain text lyrics",
+            "syncedLyrics": "",
+        },
+        {
+            "id": 2,
+            "trackName": "Song",
+            "artistName": "Artist",
+            "duration": 202,
+            "plainLyrics": "Plain text lyrics",
+            "syncedLyrics": "[00:02.00] Synced line\n[00:05.00] Second synced line",
+        },
+    ]
+    best = LyricsService.rank_candidates(
+        candidates, target_title="Song", target_artist="Artist", target_duration=200.0
+    )
+    assert best is not None
+    assert best["id"] == 2
+    assert best["syncedLyrics"] != ""
+
+
+def test_candidate_ranking_duration_proximity_and_penalty():
+    """rank_candidates prefers duration-matched candidates over long extended or preview cuts."""
+    candidates = [
+        {
+            "id": 10,
+            "trackName": "My Song",
+            "artistName": "My Artist",
+            "duration": 480,  # 8 minute extended/live cut (diff = 270s)
+            "syncedLyrics": "[00:01.00] Synced line",
+        },
+        {
+            "id": 20,
+            "trackName": "My Song",
+            "artistName": "My Artist",
+            "duration": 211,  # Exact 3.5-minute album cut (diff = 1s)
+            "syncedLyrics": "[00:01.00] Synced line",
+        },
+    ]
+    best = LyricsService.rank_candidates(
+        candidates, target_title="My Song", target_artist="My Artist", target_duration=210.0
+    )
+    assert best is not None
+    assert best["id"] == 20
+
+
+def test_candidate_ranking_string_similarity():
+    """rank_candidates uses difflib sequence matching to select closest title and artist matches."""
+    candidates = [
+        {
+            "id": 100,
+            "trackName": "Bohemian Rhapsody Tribute",
+            "artistName": "Various Artists",
+            "duration": 355,
+            "syncedLyrics": "[00:01.00] Is this the real life",
+        },
+        {
+            "id": 200,
+            "trackName": "Bohemian Rhapsody",
+            "artistName": "Queen",
+            "duration": 354,
+            "syncedLyrics": "[00:01.00] Is this the real life",
+        },
+    ]
+    best = LyricsService.rank_candidates(
+        candidates, target_title="Bohemian Rhapsody", target_artist="Queen", target_duration=354.0
+    )
+    assert best is not None
+    assert best["id"] == 200
+
+
+def test_candidate_ranking_empty_and_invalid_inputs():
+    """rank_candidates handles empty, non-dict, or lyrics-free candidate items safely."""
+    assert LyricsService.rank_candidates([], "Title", "Artist") is None
+    assert LyricsService.rank_candidates(None, "Title", "Artist") is None
+    assert LyricsService.rank_candidates([{"trackName": "No lyrics"}], "Title", "Artist") is None
+    assert LyricsService.rank_candidates(["not a dict"], "Title", "Artist") is None
+
+
+def test_parse_lrc_enhanced_word_timestamps():
+    """parse_lrc extracts explicit <mm:ss.xx> word-level timestamps and sets has_word_sync."""
+    enhanced_lrc = (
+        "[00:10.00] <00:10.04> When <00:10.16> the <00:10.82> truth <00:11.29> is <00:11.63> found <00:12.50>\n"
+        "[00:14.00] <00:14.20> And <00:14.50> all <00:15.00> hope\n"
+    )
+    lines = LyricsService.parse_lrc(enhanced_lrc)
+    assert len(lines) == 2
+
+    # Line 0 assertions
+    assert lines[0]["has_word_sync"] is True
+    assert lines[0]["text"] == "When the truth is found"
+    assert lines[0]["start_time"] == 10.0
+    assert lines[0]["end_time"] == 14.0
+
+    words0 = lines[0]["words"]
+    assert len(words0) == 5
+    assert words0[0] == {"word": "When", "start_time": 10.04, "end_time": 10.16}
+    assert words0[1] == {"word": "the", "start_time": 10.16, "end_time": 10.82}
+    assert words0[2] == {"word": "truth", "start_time": 10.82, "end_time": 11.29}
+    assert words0[3] == {"word": "is", "start_time": 11.29, "end_time": 11.63}
+    assert words0[4] == {"word": "found", "start_time": 11.63, "end_time": 12.50}
+
+    # Verify monotonicity: start_time < end_time and non-decreasing
+    for w in words0:
+        assert w["start_time"] <= w["end_time"]
+    for i in range(1, len(words0)):
+        assert words0[i]["start_time"] >= words0[i - 1]["start_time"]
+
+    # Line 1 assertions
+    assert lines[1]["has_word_sync"] is True
+    assert lines[1]["text"] == "And all hope"
+    assert len(lines[1]["words"]) == 3
+    assert lines[1]["words"][0]["word"] == "And"
+    assert lines[1]["words"][0]["start_time"] == 14.20
+
+
+def test_parse_lrc_enhanced_word_timestamps_tag_free_text_and_words():
+    """parse_lrc guarantees raw <...> and [...] tags are purged from both line and word texts."""
+    lrc = "[00:05.00] <00:05.10> Hello <00:05.50> [chorus] world <00:06.00>\n"
+    lines = LyricsService.parse_lrc(lrc)
+    assert len(lines) == 1
+    assert lines[0]["has_word_sync"] is True
+    assert "<" not in lines[0]["text"]
+    assert ">" not in lines[0]["text"]
+    assert "[" not in lines[0]["text"]
+    assert "]" not in lines[0]["text"]
+    for w in lines[0]["words"]:
+        assert "<" not in w["word"]
+        assert ">" not in w["word"]
+        assert "[" not in w["word"]
+        assert "]" not in w["word"]
+
+
+def test_parse_lrc_offset_header_positive_and_negative():
+    """parse_lrc accurately adjusts line and word timestamps by [offset:+/-ms] header."""
+    # Positive offset: +500ms -> +0.5s
+    pos_lrc = "[offset:500]\n[00:04.00] Line one\n[00:10.00] <00:10.20> First <00:10.80> Second\n"
+    pos_lines = LyricsService.parse_lrc(pos_lrc)
+    assert len(pos_lines) == 2
+    assert pos_lines[0]["start_time"] == 4.5  # 4.0 + 0.5
+    assert pos_lines[1]["start_time"] == 10.5  # 10.0 + 0.5
+    assert pos_lines[1]["words"][0]["word"] == "First"
+    assert pos_lines[1]["words"][0]["start_time"] == 10.7  # 10.2 + 0.5
+    assert pos_lines[1]["words"][1]["word"] == "Second"
+    assert pos_lines[1]["words"][1]["start_time"] == 11.3  # 10.8 + 0.5
+
+    # Negative offset: -500ms -> -0.5s
+    neg_lrc = "[offset:-500]\n[00:04.00] Line one\n[00:10.00] <00:10.20> First <00:10.80> Second\n"
+    neg_lines = LyricsService.parse_lrc(neg_lrc)
+    assert len(neg_lines) == 2
+    assert neg_lines[0]["start_time"] == 3.5  # 4.0 - 0.5
+    assert neg_lines[1]["start_time"] == 9.5  # 10.0 - 0.5
+    assert neg_lines[1]["words"][0]["word"] == "First"
+    assert neg_lines[1]["words"][0]["start_time"] == 9.7  # 10.2 - 0.5
+    assert neg_lines[1]["words"][1]["word"] == "Second"
+    assert neg_lines[1]["words"][1]["start_time"] == 10.3  # 10.8 - 0.5
+
+
+def test_parse_lrc_offset_clamping_at_zero():
+    """parse_lrc clamps shifted timestamps safely at 0.0 when negative offset exceeds timestamp."""
+    lrc = (
+        "[offset:-10000]\n"  # -10 seconds
+        "[00:04.00] <00:04.20> Word one <00:04.80> Word two\n"
+    )
+    lines = LyricsService.parse_lrc(lrc)
+    assert len(lines) == 1
+    assert lines[0]["start_time"] == 0.0  # max(0.0, 4.0 - 10.0)
+    for w in lines[0]["words"]:
+        assert w["start_time"] >= 0.0
+        assert w["end_time"] >= 0.0
+
+
+def test_aligner_preserves_explicit_word_sync(tmp_path):
+    """AudioAligner preserves pre-existing explicit word timings when line has has_word_sync=True."""
+    sr = 44100
+    duration = 5.0
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    vocals = 0.5 * np.sin(2 * np.pi * 440 * t)
+    wav_file = tmp_path / "vocals_align.wav"
+    sf.write(str(wav_file), vocals, sr)
+
+    aligner = AudioAligner()
+    explicit_words = [
+        {"word": "Explicit", "start_time": 1.123, "end_time": 1.850},
+        {"word": "Timings", "start_time": 1.850, "end_time": 2.650},
+    ]
+    raw_lines = [
+        {
+            "id": 0,
+            "text": "Explicit Timings",
+            "start_time": 1.0,
+            "end_time": 3.0,
+            "words": explicit_words,
+            "has_word_sync": True,
+        }
+    ]
+
+    aligned = aligner.align_lyrics(str(wav_file), raw_lines)
+    assert len(aligned) == 1
+    assert aligned[0]["has_word_sync"] is True
+    assert len(aligned[0]["words"]) == 2
+    # Timings should be preserved verbatim rather than overwritten by energy envelope
+    assert aligned[0]["words"][0]["word"] == "Explicit"
+    assert aligned[0]["words"][0]["start_time"] == 1.123
+    assert aligned[0]["words"][0]["end_time"] == 1.850
+    assert aligned[0]["words"][1]["word"] == "Timings"
+    assert aligned[0]["words"][1]["start_time"] == 1.850
+    assert aligned[0]["words"][1]["end_time"] == 2.650
+
+
+def test_fetch_lyrics_lrclib_candidate_ranking_integration():
+    """LyricsService.fetch_lyrics invokes candidate ranking when search results are returned."""
+    svc = LyricsService()
+
+    def mock_requests_get(url, params=None, timeout=5):
+        mock_r = MagicMock()
+        if "/get" in url:
+            mock_r.status_code = 404
+        elif "/search" in url:
+            mock_r.status_code = 200
+            mock_r.json.return_value = [
+                {
+                    "id": 1,
+                    "trackName": "Yellow",
+                    "artistName": "Coldplay",
+                    "duration": 480,  # 8 min live cut
+                    "syncedLyrics": "[00:01.00] Look at the stars",
+                },
+                {
+                    "id": 2,
+                    "trackName": "Yellow",
+                    "artistName": "Coldplay",
+                    "duration": 269,  # 4.5 min studio cut matching 268s
+                    "syncedLyrics": "[00:02.00] Look at the stars\n[00:06.00] Look how they shine",
+                },
+            ]
+        return mock_r
+
+    with patch("requests.get", side_effect=mock_requests_get):
+        res = svc.fetch_lyrics("Yellow (Official Video) [HD]", "Coldplay - Topic", duration=268.0)
+        assert res["source"] == "lrclib_search"
+        assert res["synced"] is True
+        assert len(res["lines"]) == 2
+        # Selected candidate 2 based on duration matching
+        assert res["lines"][0]["start_time"] == 2.0

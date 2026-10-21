@@ -10,6 +10,7 @@ import requests
 import yt_dlp
 
 from backend.config import DOWNLOADS_DIR
+from backend.services.lyrics import LyricsNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -204,17 +205,7 @@ class TrackDownloader:
                     f"Could not refresh metadata online for cached track {video_id}, using fallback: {e}"
                 )
 
-            clean_title = title
-            clean_artist = artist
-            if " - " in title:
-                parts = title.split(" - ", 1)
-                clean_artist = parts[0].strip()
-                clean_title = re.sub(
-                    r"[\(\[\{].*?(official|audio|video|lyrics|hd|4k|hq).*?[\)\]\}]",
-                    "",
-                    parts[1],
-                    flags=re.I,
-                ).strip()
+            clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(title, artist)
 
             return {
                 "id": video_id,
@@ -314,17 +305,7 @@ class TrackDownloader:
             except Exception as e:
                 logger.warning(f"Could not download thumbnail directly: {e}")
 
-        clean_title = title
-        clean_artist = artist
-        if " - " in title:
-            parts = title.split(" - ", 1)
-            clean_artist = parts[0].strip()
-            clean_title = re.sub(
-                r"[\(\[\{].*?(official|audio|video|lyrics|hd|4k|hq).*?[\)\]\}]",
-                "",
-                parts[1],
-                flags=re.I,
-            ).strip()
+        clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(title, artist)
 
         return {
             "id": v_id,
