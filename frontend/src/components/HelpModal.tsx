@@ -68,6 +68,12 @@ const SHORTCUTS: ShortcutItem[] = [
     scope: 'Studio Workspace',
   },
   {
+    keys: ['C'],
+    label: 'Toggle Chord Bar',
+    description: 'Toggle real-time harmonic chord progression bar in Studio and TV Stage Mode',
+    scope: 'Studio Workspace',
+  },
+  {
     keys: ['T'],
     label: 'Tap-to-Sync Stamp',
     description: 'Stamp active line or word timestamp in real time when Tap-to-Sync is enabled',
@@ -144,6 +150,7 @@ const STAGES: GuideStage[] = [
       'Assign Duet / Multi-Singer roles (Singer 1, Singer 2, Both) per line or via bulk/auto-split',
       'Use Undo/Redo (Ctrl+Z / Ctrl+Y), Batch Timestamp Offset, and live Tap-to-Sync [T] beat stamping',
       'Edit line text inline, insert new lines above/below, or delete unwanted lyric lines',
+      'Edit chord cues inline with 50-step Undo/Redo (Ctrl+Z / Ctrl+Y) and persistence',
     ],
   },
   {
@@ -154,7 +161,7 @@ const STAGES: GuideStage[] = [
     summary: 'Customize playback mix, Smart Key shift, visualizer, TV Stage, and aspect ratio.',
     features: [
       'Pitch shift (-12 to +12 semitones), Smart Key Recommender, guide vocal (0%–50%), and speed (0.5x–1.5x)',
-      'Toggle Fullscreen TV Stage Mode [F], Beat-Reactive Visualizer [V], and >=4.0s gap countdowns',
+      'Toggle Live Chord Bar [C], Fullscreen TV Stage Mode [F], Beat-Reactive Visualizer [V], and >=4.0s gap countdowns',
       'Select preset visual themes or customize sung/unsung colors and lyric font scaling (0.75x–1.5x)',
       'Upload custom image/video backgrounds and switch between 16:9 Widescreen and 9:16 Shorts',
     ],
@@ -349,6 +356,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                     ,{' '}
                     <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
                       M
+                    </kbd>
+                    ,{' '}
+                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                      C
                     </kbd>
                     ,{' '}
                     <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">

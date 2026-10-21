@@ -7,7 +7,7 @@
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Play, Pause, RotateCcw, Activity } from 'lucide-react';
+import { Play, Pause, RotateCcw, Activity, Music2 } from 'lucide-react';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
 import {
@@ -78,6 +78,10 @@ export interface AudioControlsProps {
   // Beat-reactive audio visualizer (Requirement R3)
   showVisualizer?: boolean;
   onToggleVisualizer?: () => void;
+  // Harmonic Chord Bar (Requirement R2)
+  showChordBar?: boolean;
+  onToggleChordBar?: () => void;
+  onSemitonesChange?: (semitones: number) => void;
 }
 
 export const AudioControls: React.FC<AudioControlsProps> = ({
@@ -110,6 +114,9 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   isAnalyzingRange: propIsAnalyzing,
   showVisualizer,
   onToggleVisualizer,
+  showChordBar,
+  onToggleChordBar,
+  onSemitonesChange,
 }) => {
   const { toast } = useToast();
   const [semitones, setSemitones] = useState(initialSemitones);
@@ -176,6 +183,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   const handleApplyTransposition = async (newSemitones: number) => {
     const clamped = Math.max(-12, Math.min(12, newSemitones));
     setSemitones(clamped);
+    onSemitonesChange?.(clamped);
     try {
       await onMixChange(clamped, guideVolume);
       toast.success(
@@ -234,7 +242,9 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   }, [masterAudioUrl]);
 
   const handleSemitoneChange = (delta: number) => {
-    setSemitones(Math.max(-12, Math.min(12, semitones + delta)));
+    const next = Math.max(-12, Math.min(12, semitones + delta));
+    setSemitones(next);
+    onSemitonesChange?.(next);
   };
 
   const handleApplyAudioMix = async () => {
@@ -495,6 +505,27 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
             </button>
           </Tooltip>
 
+          <Tooltip
+            content={showChordBar ? 'Hide Live Chord Bar (C)' : 'Show Live Chord Bar (C)'}
+            hotkey="C"
+            position="top"
+          >
+            <button
+              type="button"
+              data-testid="chord-bar-toggle"
+              aria-label={showChordBar ? 'Hide Live Chord Bar' : 'Show Live Chord Bar'}
+              aria-pressed={Boolean(showChordBar)}
+              onClick={onToggleChordBar}
+              className={`min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                showChordBar
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-md shadow-amber-500/20'
+                  : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border-slate-700/80'
+              }`}
+            >
+              <Music2 className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </Tooltip>
+
           <div className="text-xs text-slate-400">
             <p className="font-semibold text-white">Karaoke Playback</p>
             <p className="text-[11px] text-slate-500">Sync with video timeline</p>
@@ -513,7 +544,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         <PitchTranspositionControl
           semitones={semitones}
           onSemitoneChange={handleSemitoneChange}
-          onResetPitch={() => setSemitones(0)}
+          onResetPitch={() => {
+            setSemitones(0);
+            onSemitonesChange?.(0);
+          }}
           vocalRange={activeVocalRange}
           onOpenRecommender={() => setIsRecommenderOpen(true)}
           onAnalyzeVocalRange={handleAnalyzeVocalRange}

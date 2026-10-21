@@ -179,6 +179,109 @@ class LyricsUpdateRequest(BaseModel):
     lines: list[LyricLineSchema] = Field(..., description="List of lyric line timing models")
 
 
+class ChordSegmentSchema(BaseModel):
+    """Timecoded musical chord segment with interval boundary validation."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str | None = Field(
+        default=None,
+        description="Optional unique identifier for the chord cue (e.g. 'c1', 'chord-0')",
+    )
+    start: float = Field(
+        ...,
+        ge=0.0,
+        le=86400.0,
+        allow_inf_nan=False,
+        description="Chord segment start time in seconds (non-negative finite float)",
+    )
+    end: float = Field(
+        ...,
+        ge=0.0,
+        le=86400.0,
+        allow_inf_nan=False,
+        description="Chord segment end time in seconds (strictly greater than start)",
+    )
+    chord: str = Field(
+        ...,
+        min_length=1,
+        max_length=32,
+        description="Chord symbol: root + quality (e.g. 'C', 'Am', 'G7', 'Cmaj7', 'Dm7', 'N', 'C/G')",
+    )
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        allow_inf_nan=False,
+        description="Optional detection confidence score between 0.0 and 1.0",
+    )
+
+    @field_validator("chord")
+    @classmethod
+    def validate_chord_symbol(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Chord symbol cannot be empty or whitespace")
+        return v.strip()
+
+    @model_validator(mode="after")
+    def validate_segment_bounds(self) -> "ChordSegmentSchema":
+        if not math.isfinite(self.start) or not math.isfinite(self.end):
+            raise ValueError("Chord timestamps must be finite numbers")
+        if self.start >= self.end:
+            raise ValueError(
+                f"Invalid chord interval: start ({self.start}s) must be strictly less than end ({self.end}s)"
+            )
+        return self
+
+
+class ChordsUpdateRequest(BaseModel):
+    """Request payload for updating project chord progression segments."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    chords: list[ChordSegmentSchema] = Field(
+        default_factory=list,
+        description="List of timecoded chord segments to persist",
+    )
+
+    @field_validator("chords")
+    @classmethod
+    def validate_monotonicity_and_intervals(
+        cls, chords: list[ChordSegmentSchema]
+    ) -> list[ChordSegmentSchema]:
+        """Enforces strict monotonicity (start < end) and non-overlapping intervals (end_i <= start_{i+1})."""
+        for i in range(len(chords) - 1):
+            curr = chords[i]
+            nxt = chords[i + 1]
+            if nxt.start < curr.end:
+                raise ValueError(
+                    f"Overlapping or non-monotonic chord intervals at indices {i} and {i + 1}: "
+                    f"chord '{curr.chord}' ends at {curr.end}s, but next chord '{nxt.chord}' starts at {nxt.start}s "
+                    f"(requires end_{i} <= start_{i + 1})"
+                )
+        return chords
+
+
+class ProjectChordsResponse(BaseModel):
+    """Result payload for project chord queries."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    project_id: str = Field(..., description="Unique project identifier")
+    chords: list[ChordSegmentSchema] = Field(
+        default_factory=list,
+        description="Timecoded harmonic chord segments",
+    )
+    estimated_key: str | None = Field(
+        default=None,
+        description="Estimated musical key of the track",
+    )
+    detected: bool = Field(
+        default=True,
+        description="Whether chords were successfully detected or populated",
+    )
+
+
 class MixRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     semitones: int = Field(
@@ -230,6 +333,10 @@ class RenderRequest(BaseModel):
     include_countdown: bool = Field(
         default=True,
         description="Include instrumental gap countdown cues in subtitles",
+    )
+    include_chords: bool = Field(
+        default=False,
+        description="Include transposed chord progression cues in subtitles/video overlay",
     )
 
 
@@ -506,4 +613,8 @@ class KaraokeProject(BaseModel):
     vocal_range: VocalRangeData | None = Field(
         default=None,
         description="Acoustic vocal range and key estimation metadata (R1)",
+    )
+    chords: list[ChordSegmentSchema] | None = Field(
+        default=None,
+        description="Timecoded harmonic chord segments (Milestone 1)",
     )

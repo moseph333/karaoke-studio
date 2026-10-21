@@ -138,12 +138,17 @@ def generate_ass_content(
     style_config: dict[str, Any] | None = None,
     font_size_scale: float = 1.0,
     include_countdown: bool = True,
+    chords: list[dict[str, Any]] | None = None,
+    include_chords: bool = False,
+    semitones: int = 0,
+    key: str | None = None,
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
     with smooth progressive karaoke sweep tags (\\kf).
     Supports dynamic 16:9 and 9:16 layout adjustments, visual theme presets,
-    direct color overrides, font size scaling, and control character escaping.
+    direct color overrides, font size scaling, control character escaping,
+    and optional transposed musical chords on Layer 2.
     """
     # Resolve countdown enabled flag
     countdown_enabled = include_countdown
@@ -151,6 +156,23 @@ def generate_ass_content(
         countdown_enabled = bool(style_config["include_countdown"])
     elif style_config and "enable_gap_countdown" in style_config:
         countdown_enabled = bool(style_config["enable_gap_countdown"])
+
+    # Resolve chords enabled and transposition settings
+    chords_enabled = include_chords
+    if style_config and "include_chords" in style_config:
+        chords_enabled = bool(style_config["include_chords"])
+
+    eff_semitones = semitones
+    if style_config and "semitones" in style_config:
+        eff_semitones = int(style_config["semitones"])
+
+    eff_chords = chords
+    if eff_chords is None and style_config and "chords" in style_config:
+        eff_chords = style_config["chords"]
+
+    eff_key = key
+    if eff_key is None and style_config and "key" in style_config:
+        eff_key = style_config["key"]
 
     # Determine aspect ratio and layout mode
     ar = (style_config or {}).get("aspect_ratio") or aspect_ratio
@@ -218,6 +240,23 @@ def generate_ass_content(
     outline_width = cfg.get("outline_width", 3)
     shadow_width = cfg.get("shadow_width", 2)
 
+    # Chord typography and placement
+    chord_font_size = max(12, round(font_size * 0.70))
+    chord_color_raw = (style_config or {}).get("chord_color")
+    chord_color_val = (
+        css_to_ass_color(chord_color_raw, default="&H0000D7FF") if chord_color_raw else "&H0000D7FF"
+    )
+    chord_alignment = int((style_config or {}).get("chord_alignment", 8))
+    if chord_alignment == 8:
+        margin_v_chord = (style_config or {}).get("margin_v_chord", 120 if is_vertical else 80)
+        align_tag = "{\\an8}"
+    elif chord_alignment == 2:
+        margin_v_chord = (style_config or {}).get("margin_v_chord", 720 if is_vertical else 270)
+        align_tag = "{\\an2}"
+    else:
+        margin_v_chord = (style_config or {}).get("margin_v_chord", 80)
+        align_tag = f"{{\\an{chord_alignment}}}"
+
     safe_title = (title or "Karaoke Studio").replace("\r", " ").replace("\n", " ").strip()
     doc_title = safe_title or "Karaoke Studio"
 
@@ -242,51 +281,36 @@ def generate_ass_content(
         f"Style: KaraokeLine2_Both,{font_name},{font_size},{both_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_line2},1",
         f"Style: Countdown,{font_name},{font_size + 10},{primary_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,2,0,1,{outline_width},{shadow_width},2,{margin_lr},{margin_lr},{margin_v_countdown},1",
         f"Style: TitleCard,{font_name},64,&H00FFFFFF,&H00FFFFFF,{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,3,3,5,{margin_lr},{margin_lr},{margin_v_title},1",
-        "",
-        "[Events]",
-        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
+
+    if chords_enabled:
+        ass_content.append(
+            f"Style: Chord,{font_name},{chord_font_size},{chord_color_val},{secondary_color_val},{outline_color},{shadow_color},-1,0,0,0,100,100,1,0,1,{max(1, outline_width - 1)},{shadow_width},{chord_alignment},{margin_lr},{margin_lr},{margin_v_chord},1"
+        )
+
+    ass_content.extend(
+        [
+            "",
+            "[Events]",
+            "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+        ]
+    )
 
     prev_end_time = 0.0
 
-    if not lines or not isinstance(lines, list):
-        return "\n".join(ass_content) + "\n"
+    if lines and isinstance(lines, list):
+        for i, line in enumerate(lines):
+            if not isinstance(line, dict):
+                continue
+            l_start = safe_time(line.get("start_time"), 0.0)
+            l_end = safe_time(line.get("end_time"), l_start + 4.0)
+            l_end = max(l_start, l_end)
+            raw_words = line.get("words", [])
+            words = raw_words if isinstance(raw_words, list) else []
 
-    for i, line in enumerate(lines):
-        if not isinstance(line, dict):
-            continue
-        l_start = safe_time(line.get("start_time"), 0.0)
-        l_end = safe_time(line.get("end_time"), l_start + 4.0)
-        l_end = max(l_start, l_end)
-        raw_words = line.get("words", [])
-        words = raw_words if isinstance(raw_words, list) else []
-
-        # Select line style matching singer part assignment while alternating Line1 and Line2
-        base_line = "KaraokeLine1" if (i % 2 == 0) else "KaraokeLine2"
-        raw_singer = str(line.get("singer") or "singer1").strip().lower()
-        if raw_singer in ("singer2", "partner", "singer 2", "singer_2", "part2", "part 2", "s2"):
-            style_name = f"{base_line}_Singer2"
-        elif raw_singer in ("both", "unison", "duet", "all", "together"):
-            style_name = f"{base_line}_Both"
-        else:
-            style_name = base_line
-
-        # Show line early on screen so the singer can prepare
-        if i == 0:
-            display_start = max(0.0, l_start - 2.5)
-        elif l_start > prev_end_time:
-            display_start = max(prev_end_time, l_start - 2.0)
-        else:
-            display_start = max(0.0, l_start - 2.0)
-
-        display_start = max(0.0, min(l_start, display_start))
-        display_end = max(display_start + 0.5, l_end + 1.2)
-
-        # Visual countdown cue for qualifying non-vocal intervals (>= 4.0 seconds)
-        gap = l_start - prev_end_time
-        has_gap = (i == 0 and l_start >= 4.0) or (i > 0 and gap >= 4.0)
-        if countdown_enabled and has_gap:
-            countdown_start = max(0.0, l_start - 3.0)
+            # Select line style matching singer part assignment while alternating Line1 and Line2
+            base_line = "KaraokeLine1" if (i % 2 == 0) else "KaraokeLine2"
+            raw_singer = str(line.get("singer") or "singer1").strip().lower()
             if raw_singer in (
                 "singer2",
                 "partner",
@@ -296,52 +320,114 @@ def generate_ass_content(
                 "part 2",
                 "s2",
             ):
-                dots_color_tag = f"{{\\c{singer2_color_val}&}}"
+                style_name = f"{base_line}_Singer2"
             elif raw_singer in ("both", "unison", "duet", "all", "together"):
-                dots_color_tag = f"{{\\c{both_color_val}&}}"
+                style_name = f"{base_line}_Both"
             else:
-                dots_color_tag = ""
+                style_name = base_line
 
-            dots_text = f"{dots_color_tag}{{\\kf100}}● {{\\kf100}}● {{\\kf100}}● "
+            # Show line early on screen so the singer can prepare
+            if i == 0:
+                display_start = max(0.0, l_start - 2.5)
+            elif l_start > prev_end_time:
+                display_start = max(prev_end_time, l_start - 2.0)
+            else:
+                display_start = max(0.0, l_start - 2.0)
+
+            display_start = max(0.0, min(l_start, display_start))
+            display_end = max(display_start + 0.5, l_end + 1.2)
+
+            # Visual countdown cue for qualifying non-vocal intervals (>= 4.0 seconds)
+            gap = l_start - prev_end_time
+            has_gap = (i == 0 and l_start >= 4.0) or (i > 0 and gap >= 4.0)
+            if countdown_enabled and has_gap:
+                countdown_start = max(0.0, l_start - 3.0)
+                if raw_singer in (
+                    "singer2",
+                    "partner",
+                    "singer 2",
+                    "singer_2",
+                    "part2",
+                    "part 2",
+                    "s2",
+                ):
+                    dots_color_tag = f"{{\\c{singer2_color_val}&}}"
+                elif raw_singer in ("both", "unison", "duet", "all", "together"):
+                    dots_color_tag = f"{{\\c{both_color_val}&}}"
+                else:
+                    dots_color_tag = ""
+
+                dots_text = f"{dots_color_tag}{{\\kf100}}● {{\\kf100}}● {{\\kf100}}● "
+                ass_content.append(
+                    f"Dialogue: 1,{format_ass_time(countdown_start)},{format_ass_time(l_start)},Countdown,,0,0,0,,{dots_text}"
+                )
+
+            # Build line text with \\kf (progressive fill) tags
+            karaoke_text_parts = []
+
+            # Initial lead-in delay tag if display starts before line starts
+            lead_in_cs = max(0, round((l_start - display_start) * 100))
+            if lead_in_cs > 0:
+                karaoke_text_parts.append(f"{{\\k{lead_in_cs}}}")
+
+            if words:
+                cur_word_time = l_start
+                for w in words:
+                    if not isinstance(w, dict):
+                        continue
+                    w_start = safe_time(w.get("start_time"), cur_word_time)
+                    w_end = safe_time(w.get("end_time"), w_start + 0.4)
+                    w_end = max(w_start, w_end)
+                    dur_cs = max(1, round((w_end - w_start) * 100))
+                    raw_word = str(w.get("word", ""))
+                    word_text = escape_ass_text(raw_word)
+
+                    # Use \\kf for smooth progressive sweep
+                    karaoke_text_parts.append(f"{{\\kf{dur_cs}}}{word_text} ")
+                    cur_word_time = w_end
+            elif line.get("text"):
+                line_dur_cs = max(1, round((l_end - l_start) * 100))
+                escaped_text = escape_ass_text(str(line.get("text", "")))
+                karaoke_text_parts.append(f"{{\\kf{line_dur_cs}}}{escaped_text}")
+
+            full_line_text = "".join(karaoke_text_parts).strip()
+
             ass_content.append(
-                f"Dialogue: 1,{format_ass_time(countdown_start)},{format_ass_time(l_start)},Countdown,,0,0,0,,{dots_text}"
+                f"Dialogue: 0,{format_ass_time(display_start)},{format_ass_time(display_end)},{style_name},,0,0,0,,{full_line_text}"
             )
 
-        # Build line text with \\kf (progressive fill) tags
-        karaoke_text_parts = []
+            prev_end_time = max(prev_end_time, l_end)
 
-        # Initial lead-in delay tag if display starts before line starts
-        lead_in_cs = max(0, round((l_start - display_start) * 100))
-        if lead_in_cs > 0:
-            karaoke_text_parts.append(f"{{\\k{lead_in_cs}}}")
+    # Emit chord events on Layer 2 if enabled
+    if chords_enabled and eff_chords and isinstance(eff_chords, list):
+        from backend.services.chord_detector import NO_CHORD_VALUES, transpose_chord
 
-        if words:
-            cur_word_time = l_start
-            for w in words:
-                if not isinstance(w, dict):
-                    continue
-                w_start = safe_time(w.get("start_time"), cur_word_time)
-                w_end = safe_time(w.get("end_time"), w_start + 0.4)
-                w_end = max(w_start, w_end)
-                dur_cs = max(1, round((w_end - w_start) * 100))
-                raw_word = str(w.get("word", ""))
-                word_text = escape_ass_text(raw_word)
+        for seg in eff_chords:
+            if not isinstance(seg, dict):
+                continue
+            raw_chord = str(seg.get("chord", "")).strip()
+            if not raw_chord or raw_chord.upper() in NO_CHORD_VALUES:
+                continue
 
-                # Use \\kf for smooth progressive sweep
-                karaoke_text_parts.append(f"{{\\kf{dur_cs}}}{word_text} ")
-                cur_word_time = w_end
-        elif line.get("text"):
-            line_dur_cs = max(1, round((l_end - l_start) * 100))
-            escaped_text = escape_ass_text(str(line.get("text", "")))
-            karaoke_text_parts.append(f"{{\\kf{line_dur_cs}}}{escaped_text}")
+            c_start = safe_time(seg.get("start") if "start" in seg else seg.get("start_time"), 0.0)
+            c_end = safe_time(
+                seg.get("end") if "end" in seg else seg.get("end_time"), c_start + 1.0
+            )
+            if c_end <= c_start:
+                c_end = c_start + 0.1
 
-        full_line_text = "".join(karaoke_text_parts).strip()
+            if eff_semitones != 0:
+                try:
+                    transposed = transpose_chord(raw_chord, eff_semitones, key=eff_key)
+                except Exception:
+                    transposed = raw_chord
+            else:
+                transposed = raw_chord
 
-        ass_content.append(
-            f"Dialogue: 0,{format_ass_time(display_start)},{format_ass_time(display_end)},{style_name},,0,0,0,,{full_line_text}"
-        )
-
-        prev_end_time = max(prev_end_time, l_end)
+            escaped = escape_ass_text(transposed)
+            ass_content.append(
+                f"Dialogue: 2,{format_ass_time(c_start)},{format_ass_time(c_end)},Chord,,0,0,0,,{align_tag}{escaped}"
+            )
 
     return "\n".join(ass_content) + "\n"
 
@@ -359,12 +445,16 @@ def generate_ass_subtitles(
     title: str = "",
     font_size_scale: float = 1.0,
     include_countdown: bool = True,
+    chords: list[dict[str, Any]] | None = None,
+    include_chords: bool = False,
+    semitones: int = 0,
+    key: str | None = None,
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file
 
     with smooth progressive karaoke sweep tags (\\kf).
     Supports dynamic 16:9 and 9:16 layout adjustments, custom styling,
-    and control character escaping.
+    control character escaping, and optional musical chord cues.
     """
     content = generate_ass_content(
         lines=lines,
@@ -378,6 +468,15 @@ def generate_ass_subtitles(
         style_config=style_config,
         font_size_scale=font_size_scale,
         include_countdown=include_countdown,
+        chords=chords,
+        include_chords=include_chords,
+        semitones=semitones,
+        key=key,
     )
     output_ass_path.write_text(content, encoding="utf-8")
     return str(output_ass_path)
+
+
+# Backward-compatible aliases
+generate_ass = generate_ass_subtitles
+generate_karaoke_ass = generate_ass_content

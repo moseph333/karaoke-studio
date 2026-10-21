@@ -55,6 +55,7 @@ from backend.project_store import (
     load_projects,
     projects,
     save_projects,
+    update_project_chords,
 )
 from backend.render_worker import run_video_render
 from backend.routers.auth import router as auth_router
@@ -71,6 +72,8 @@ from backend.routers.uploads import (
     router as uploads_router,
 )
 from backend.schemas import (
+    ChordSegmentSchema,
+    ChordsUpdateRequest,
     KaraokeProject,
     KeyRecommendationRequest,
     KeyRecommendationResponse,
@@ -79,6 +82,7 @@ from backend.schemas import (
     LyricsUpdateRequest,
     MixRequest,
     ProcessRequest,
+    ProjectChordsResponse,
     ProjectMetadataUpdate,
     RenderRequest,
     SearchRequest,
@@ -87,6 +91,11 @@ from backend.schemas import (
 )
 from backend.services.aligner import AudioAligner
 from backend.services.audio_mixer import AudioMixer
+from backend.services.chord_detector import (
+    ChordDetector,
+    transpose_chord,
+    transpose_chord_progression,
+)
 from backend.services.downloader import TrackDownloader
 from backend.services.lyrics import LyricsService
 from backend.services.separator import AudioSeparator
@@ -123,6 +132,7 @@ audio_mixer = AudioMixer()
 video_renderer = VideoRenderer()
 youtube_service = YouTubeMetadataService()
 vocal_analyzer = VocalRangeAnalyzer()
+chord_detector = ChordDetector()
 
 app = FastAPI(title="Karaoke Studio API", version=config.APP_VERSION.lstrip("v"))
 
@@ -249,6 +259,9 @@ __all__ = [
     "PROJECTS_STORE_FILE",
     "STEMS_DIR",
     "WORKER_SEMAPHORE",
+    "ChordDetector",
+    "ChordSegmentSchema",
+    "ChordsUpdateRequest",
     "KaraokeProject",
     "KeyRecommendationRequest",
     "KeyRecommendationResponse",
@@ -257,6 +270,7 @@ __all__ = [
     "LyricsUpdateRequest",
     "MixRequest",
     "ProcessRequest",
+    "ProjectChordsResponse",
     "ProjectMetadataUpdate",
     "RenderRequest",
     "SearchRequest",
@@ -273,6 +287,7 @@ __all__ = [
     "cancel_project",
     "cancel_render",
     "check_login_rate_limit",
+    "chord_detector",
     "cleanup_project_disk_artifacts",
     "clear_all_login_failures",
     "create_session_token",
@@ -298,6 +313,9 @@ __all__ = [
     "separator",
     "sf",
     "subprocess",
+    "transpose_chord",
+    "transpose_chord_progression",
+    "update_project_chords",
     "validate_audio_header",
     "validate_background_header",
     "validate_image_header",

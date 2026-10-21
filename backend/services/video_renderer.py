@@ -40,6 +40,10 @@ class VideoRenderer:
         title: str = "",
         style_config: dict[str, Any] | None = None,
         include_countdown: bool = True,
+        chords: list[dict[str, Any]] | None = None,
+        include_chords: bool = False,
+        semitones: int = 0,
+        key: str | None = None,
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
@@ -54,6 +58,10 @@ class VideoRenderer:
             title=title,
             style_config=style_config,
             include_countdown=include_countdown,
+            chords=chords,
+            include_chords=include_chords,
+            semitones=semitones,
+            key=key,
         )
 
     def generate_ass_subtitles(
@@ -67,6 +75,10 @@ class VideoRenderer:
         secondary_color: str | None = None,
         title: str = "",
         include_countdown: bool = True,
+        chords: list[dict[str, Any]] | None = None,
+        include_chords: bool = False,
+        semitones: int = 0,
+        key: str | None = None,
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file
 
@@ -82,6 +94,10 @@ class VideoRenderer:
             secondary_color=secondary_color,
             title=title,
             include_countdown=include_countdown,
+            chords=chords,
+            include_chords=include_chords,
+            semitones=semitones,
+            key=key,
         )
 
     def render_video(
@@ -98,6 +114,9 @@ class VideoRenderer:
         progress_callback: Any | None = None,
         cancel_event: Any | None = None,
         include_visualizer: bool = False,
+        include_chords: bool = False,
+        semitones: int = 0,
+        **kwargs: Any,
     ) -> str:
         """Synthesizes final karaoke video using FFmpeg and libass.
 

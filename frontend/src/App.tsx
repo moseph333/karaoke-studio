@@ -5,7 +5,7 @@
  * state transitions, active studio dashboard, global keyboard shortcuts, and dialog modals.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TrackSearch } from './components/TrackSearch';
 import { AudioControls } from './components/AudioControls';
 import { LyricTimelineEditor } from './components/LyricTimelineEditor';
@@ -14,7 +14,8 @@ import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
 import { StudioMetaHeader } from './components/StudioMetaHeader';
 import { StudioModals } from './components/StudioModals';
-import { LyricLine } from './types';
+import { LyricLine, ChordSegment } from './types';
+import { useChordHistory } from './hooks/useChordHistory';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useToast } from './hooks/useToast';
@@ -85,7 +86,9 @@ export const App: React.FC = () => {
   const handleCancelRender = async () => {
     if (!project?.id) return;
     try {
-      await apiFetch(`/api/project/${project.id}/cancel-render`, { method: 'POST' });
+      await apiFetch(`/api/project/${project.id}/cancel-render`, {
+        method: 'POST',
+      });
     } catch (e) {
       console.error('Cancel render failed', e);
     }
@@ -94,13 +97,128 @@ export const App: React.FC = () => {
   };
 
   const isStudioReady = Boolean(project && project.status === 'ready');
+  const [showChordBar, setShowChordBar] = useState(true);
+  const [activeSemitones, setActiveSemitones] = useState(0);
+  const [initialChords, setInitialChords] = useState<ChordSegment[]>([]);
+
+  const handleToggleChordBar = () => setShowChordBar((prev) => !prev);
   const handleToggleVisualizer = () => setShowVisualizer((prev) => !prev);
+  const handleSemitonesChange = (semi: number) => setActiveSemitones(semi);
+
+  useEffect(() => {
+    if (project?.semitones !== undefined) {
+      setActiveSemitones(project.semitones);
+    }
+  }, [project?.semitones]);
+
+  // Load chords for project when ready
+  useEffect(() => {
+    if (!project?.id || project.status !== 'ready') return;
+    if (project.chords && project.chords.length > 0) return;
+
+    apiFetch(`/api/project/${project.id}/chords`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.chords && Array.isArray(data.chords)) {
+          setInitialChords(data.chords);
+          setProject((prev) =>
+            prev && prev.id === data.project_id ? { ...prev, chords: data.chords } : prev
+          );
+        }
+      })
+      .catch((e) => console.error('Failed to load project chords', e));
+  }, [project?.id, project?.status, project?.chords, setProject]);
+
+  // Sync initial baseline chords when project changes or chords arrive
+  const prevProjectIdRef = useRef<string | undefined>(project?.id);
+  useEffect(() => {
+    if (!project?.id) {
+      setInitialChords([]);
+      prevProjectIdRef.current = undefined;
+    } else if (prevProjectIdRef.current !== project.id) {
+      prevProjectIdRef.current = project.id;
+      setInitialChords(project.chords && project.chords.length > 0 ? project.chords : []);
+    } else if (project.chords && project.chords.length > 0 && initialChords.length === 0) {
+      setInitialChords(project.chords);
+    }
+  }, [project?.id, project?.chords, initialChords.length]);
+
+  const chordHistoryRef = useRef<ReturnType<typeof useChordHistory> | null>(null);
+
+  // Save edited chord progression to backend
+  const handleSaveChords = useCallback(
+    async (updatedChords?: ChordSegment[]): Promise<boolean> => {
+      if (!project?.id) return false;
+      const chordsToSave = updatedChords ?? project.chords ?? [];
+      try {
+        const res = await apiFetch(`/api/project/${project.id}/chords`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chords: chordsToSave }),
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          const savedChords = (data?.chords as ChordSegment[]) || chordsToSave;
+          setProject((prev) => (prev ? { ...prev, chords: savedChords } : null));
+          chordHistoryRef.current?.updateBaseline(savedChords);
+          toast.success('Chord progression saved');
+          return true;
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || 'Failed to save chords');
+        }
+      } catch (err: unknown) {
+        console.error('Failed to save chords:', err);
+        toast.error(err instanceof Error ? err.message : 'Error saving chords');
+        throw err;
+      }
+    },
+    [project?.id, project?.chords, setProject, toast]
+  );
+
+  // 50-step bounded Undo / Redo history stack hook
+  const chordHistory = useChordHistory({
+    projectId: project?.id,
+    initialChords,
+    currentChords: project?.chords,
+    enabled: isStudioReady,
+    onApplySnapshot: (restoredChords) => {
+      setProject((prev) => (prev ? { ...prev, chords: restoredChords } : null));
+      handleSaveChords(restoredChords).catch((e) =>
+        console.error('Failed to persist snapshot chords', e)
+      );
+    },
+    onSaveSuccess: (savedChords) => {
+      setProject((prev) => (prev ? { ...prev, chords: savedChords } : null));
+    },
+  });
+  chordHistoryRef.current = chordHistory;
+
+  // Inline chord cue modification handler
+  const handleEditChord = useCallback(
+    async (index: number, newChord: string) => {
+      if (!project?.chords || index < 0 || index >= project.chords.length) return;
+      const current = project.chords;
+      chordHistory.pushSnapshot(current);
+
+      const updated = current.map((c, i) => (i === index ? { ...c, chord: newChord } : c));
+      setProject((prev) => (prev ? { ...prev, chords: updated } : null));
+
+      try {
+        await handleSaveChords(updated);
+      } catch (e) {
+        console.error('Failed to persist edited chord', e);
+      }
+    },
+    [project?.chords, chordHistory, handleSaveChords, setProject]
+  );
 
   useKeyboardShortcuts({
     onTogglePlay: isStudioReady ? audio.handleTogglePlay : undefined,
     onSeek: isStudioReady ? audio.handleSeek : undefined,
     onToggleMute: isStudioReady ? audio.handleToggleMute : undefined,
     onToggleVisualizer: isStudioReady ? handleToggleVisualizer : undefined,
+    onToggleChordBar: isStudioReady ? handleToggleChordBar : undefined,
     onToggleHelp: () => setShowHelpModal((prev) => !prev),
     audioRef,
     currentTime,
@@ -239,7 +357,11 @@ export const App: React.FC = () => {
   };
 
   // Trigger Video Render with custom theme, colors & font size scale
-  const handleStartRender = async () => {
+  const handleStartRender = async (options?: {
+    includeVisualizer?: boolean;
+    includeCountdown?: boolean;
+    includeChords?: boolean;
+  }) => {
     if (!project?.id) return;
     setIsExportOpen(true);
 
@@ -248,11 +370,13 @@ export const App: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          semitones: project.semitones || 0,
+          semitones: activeSemitones ?? project.semitones ?? 0,
           guide_volume: project.guide_volume || 0,
           aspect_ratio: theme.aspectRatio,
           custom_bg_id: theme.customBgId || undefined,
-          include_visualizer: showVisualizer,
+          include_visualizer: options?.includeVisualizer ?? showVisualizer,
+          include_countdown: options?.includeCountdown ?? true,
+          include_chords: options?.includeChords ?? false,
           style_config: {
             theme_id: theme.selectedTheme.id,
             primary_color: theme.customSungColor || theme.selectedTheme.primary_color,
@@ -300,7 +424,7 @@ export const App: React.FC = () => {
       <StudioHeader
         currentUser={currentUser}
         project={project}
-        isLyricsDirty={isLyricsDirty}
+        isLyricsDirty={isLyricsDirty || chordHistory.isDirty}
         onOpenHelp={() => setShowHelpModal((prev) => !prev)}
         onOpenAuth={() => setShowAuthModal(true)}
         onNewSong={() => setProject(null)}
@@ -349,7 +473,8 @@ export const App: React.FC = () => {
               onTogglePlay={audio.handleTogglePlay}
               onSeek={audio.handleSeek}
               onMixChange={handleMixChange}
-              initialSemitones={project.semitones}
+              initialSemitones={activeSemitones}
+              onSemitonesChange={handleSemitonesChange}
               initialGuideVolume={project.guide_volume}
               initialMuted={isMuted}
               onMuteChange={setIsMuted}
@@ -369,6 +494,8 @@ export const App: React.FC = () => {
               vocalRange={project.vocal_range}
               showVisualizer={showVisualizer}
               onToggleVisualizer={handleToggleVisualizer}
+              showChordBar={showChordBar}
+              onToggleChordBar={handleToggleChordBar}
             />
 
             {/* Lyric Sweep Live Preview & Timeline Editor */}
@@ -394,6 +521,12 @@ export const App: React.FC = () => {
               showVisualizer={showVisualizer}
               onToggleVisualizer={handleToggleVisualizer}
               analyserNode={audio.analyserNode}
+              chords={project.chords}
+              showChordBar={showChordBar}
+              onToggleChordBar={handleToggleChordBar}
+              semitones={activeSemitones}
+              keyHint={project.vocal_range?.estimated_key}
+              onEditChord={handleEditChord}
             />
 
             {/* Visual Theme & Aspect Ratio Picker */}
@@ -425,6 +558,7 @@ export const App: React.FC = () => {
         onStartRender={handleStartRender}
         selectedTheme={theme.effectiveTheme}
         aspectRatio={theme.aspectRatio}
+        activeSemitones={activeSemitones}
         showAuthModal={showAuthModal}
         onAuthSuccess={handleAuthSuccess}
         onCloseAuth={() => setShowAuthModal(false)}

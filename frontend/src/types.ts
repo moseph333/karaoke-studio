@@ -70,6 +70,7 @@ export interface ProjectState {
   semitones: number;
   guide_volume: number;
   vocal_range?: VocalRangeData;
+  chords?: ChordSegment[];
   created_by?: string;
   created_at?: number;
   error?: string;
@@ -158,4 +159,27 @@ export interface KeyRecommendationRequest {
   target_voice_preset?: VoicePreset | null;
   custom_low_note?: string | null;
   custom_high_note?: string | null;
+}
+
+// ==========================================
+// R1: Harmonic Chords & Live Chord Bar Types
+// ==========================================
+
+export interface ChordSegment {
+  id?: string;
+  start: number;
+  end: number;
+  chord: string;
+  confidence?: number;
+}
+
+export interface ProjectChordsResponse {
+  project_id: string;
+  chords: ChordSegment[];
+  estimated_key?: string | null;
+  detected: boolean;
+}
+
+export interface ChordsUpdateRequest {
+  chords: ChordSegment[];
 }

@@ -94,12 +94,45 @@ def run_video_render(project_id: str, req: RenderRequest):
                 style_cfg["secondary_color"], default="&H00FFFFFF"
             )
 
+        # Resolve chords for subtitle burning with on-demand backfill if necessary
+        chords = proj.get("chords")
+        if chords is None and req.include_chords:
+            inst_path = proj.get("instrumental_path") or proj.get("audio_path")
+            if inst_path and Path(inst_path).is_file() and Path(inst_path).stat().st_size > 0:
+                try:
+                    detector = getattr(main_mod, "chord_detector", None)
+                    if detector is None:
+                        from backend.services.chord_detector import ChordDetector
+
+                        detector = ChordDetector()
+                    detected = detector.detect_chords(inst_path)
+                    chords = [c.to_dict() if hasattr(c, "to_dict") else dict(c) for c in detected]
+                    proj["chords"] = chords
+                    save_projects()
+                except Exception as exc:
+                    logger.warning(f"Failed to auto-detect chords for render: {exc}")
+                    chords = []
+            else:
+                chords = []
+        elif chords is None:
+            chords = []
+
+        eff_key = proj.get("estimated_key") or (
+            proj.get("vocal_range", {}).get("estimated_key")
+            if isinstance(proj.get("vocal_range"), dict)
+            else None
+        )
+
         main_mod.video_renderer.generate_ass_subtitles(
             lines=proj.get("lines", []),
             output_ass_path=ass_path,
             style_config=style_cfg,
             aspect_ratio=req.aspect_ratio,
             include_countdown=req.include_countdown,
+            chords=chords,
+            include_chords=req.include_chords,
+            semitones=req.semitones,
+            key=eff_key,
         )
 
         update_render(15, "Mixing master audio with pitch adjustment...", 40)
@@ -141,6 +174,8 @@ def run_video_render(project_id: str, req: RenderRequest):
             progress_callback=ffmpeg_cb,
             cancel_event=cancel_event,
             include_visualizer=req.include_visualizer,
+            include_chords=req.include_chords,
+            semitones=req.semitones,
         )
 
         proj = get_project_or_404(project_id)

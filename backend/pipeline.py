@@ -162,6 +162,29 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
                 exc_info=True,
             )
 
+        # Step 2c: Detect Harmonic Chords from Instrumental Accompaniment
+        if cancel_event.is_set():
+            raise RuntimeError("Processing cancelled by user")
+
+        try:
+            inst_path = stems.get("instrumental_path")
+            if (
+                hasattr(main_mod, "chord_detector")
+                and inst_path
+                and os.path.isfile(inst_path)
+                and os.path.getsize(inst_path) > 0
+            ):
+                update_pipe("separating", 71, "Detecting musical chord progression...", 3)
+                detected_chords = main_mod.chord_detector.detect_chords(inst_path)
+                proj = get_project_or_404(project_id)
+                proj["chords"] = detected_chords
+                save_projects()
+        except Exception as cd_err:
+            logger.warning(
+                f"Chord detection failed during pipeline for {project_id} ({cd_err}); continuing pipeline.",
+                exc_info=True,
+            )
+
         # Step 3: Fetch Lyrics
         update_pipe("fetching_lyrics", 72, "Retrieving lyrics from LRCLIB...", 5)
         if custom_lyrics and custom_lyrics.strip():
@@ -390,6 +413,29 @@ def run_local_pipeline(
         except Exception as va_err:
             logger.warning(
                 f"Vocal range analysis failed during local pipeline for {project_id} ({va_err}); continuing pipeline.",
+                exc_info=True,
+            )
+
+        # Step 2c: Detect Harmonic Chords from Instrumental Accompaniment
+        if cancel_event.is_set():
+            raise RuntimeError("Processing cancelled by user")
+
+        try:
+            inst_path = stems.get("instrumental_path")
+            if (
+                hasattr(main_mod, "chord_detector")
+                and inst_path
+                and os.path.isfile(inst_path)
+                and os.path.getsize(inst_path) > 0
+            ):
+                update_pipe("separating", 71, "Detecting musical chord progression...", 3)
+                detected_chords = main_mod.chord_detector.detect_chords(inst_path)
+                proj = get_project_or_404(project_id)
+                proj["chords"] = detected_chords
+                save_projects()
+        except Exception as cd_err:
+            logger.warning(
+                f"Chord detection failed during local pipeline for {project_id} ({cd_err}); continuing pipeline.",
                 exc_info=True,
             )
 

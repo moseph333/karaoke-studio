@@ -9,11 +9,12 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Maximize, Minimize, Play, Pause, Activity } from 'lucide-react';
-import { LyricLine, WordTiming } from '../types';
+import { Maximize, Minimize, Play, Pause, Activity, Music2 } from 'lucide-react';
+import { LyricLine, WordTiming, ChordSegment } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
 import { detectInstrumentalGaps, getCountdownState } from '../utils/gapDetection';
 import { BeatVisualizer } from './BeatVisualizer';
+import { ChordBar } from './ChordBar';
 
 type NormalizedSinger = 'singer1' | 'singer2' | 'both';
 
@@ -69,6 +70,14 @@ export interface LyricDisplayProps {
   showVisualizer?: boolean;
   onToggleVisualizer?: () => void;
   analyserNode?: AnalyserNode | null;
+  // Harmonic Chord Bar (Requirement R2)
+  chords?: ChordSegment[];
+  showChords?: boolean;
+  showChordBar?: boolean;
+  onToggleChordBar?: () => void;
+  semitones?: number;
+  keyHint?: string | null;
+  onEditChord?: (index: number, newChord: string) => void;
 }
 
 function formatStageTime(seconds?: number): string {
@@ -98,10 +107,26 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   showVisualizer,
   onToggleVisualizer,
   analyserNode,
+  chords,
+  showChords,
+  showChordBar,
+  onToggleChordBar,
+  semitones = 0,
+  keyHint,
+  onEditChord,
 }) => {
   const [internalShowViz, setInternalShowViz] = useState(false);
   const isVisualizerActive = showVisualizer !== undefined ? showVisualizer : internalShowViz;
   const handleToggleVisualizer = onToggleVisualizer || (() => setInternalShowViz((v) => !v));
+
+  const [internalShowChordBar, setInternalShowChordBar] = useState(true);
+  const isChordBarVisible =
+    showChords !== undefined
+      ? showChords
+      : showChordBar !== undefined
+        ? showChordBar
+        : internalShowChordBar;
+  const handleToggleChordBar = onToggleChordBar || (() => setInternalShowChordBar((v) => !v));
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
@@ -405,6 +430,22 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
           isFullscreen ? 'my-auto' : ''
         }`}
       >
+        {/* Live Synchronized Chord Bar in Studio & TV Stage Mode */}
+        {isChordBarVisible && chords && chords.length > 0 && (
+          <div className="flex justify-center w-full px-2 mb-1.5 sm:mb-3">
+            <ChordBar
+              chords={chords}
+              currentTime={effectiveTime}
+              semitones={semitones}
+              keyHint={keyHint}
+              visible={isChordBarVisible}
+              onSeek={onSeek}
+              onEditChord={onEditChord}
+              className="max-w-xl mx-auto"
+            />
+          </div>
+        )}
+
         {/* Active Singer Badge: Color-blind accessible indicator (Icon + Explicit Text) */}
         {currentLine && (
           <div className="flex justify-center mb-1 sm:mb-2">
@@ -622,6 +663,23 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
             }
           >
             <Activity className="w-4 h-4" />
+          </button>
+
+          {/* Chord Bar Toggle Button in TV Stage Mode */}
+          <button
+            type="button"
+            data-testid="chord-bar-toggle"
+            aria-label={isChordBarVisible ? 'Hide Live Chord Bar (C)' : 'Show Live Chord Bar (C)'}
+            aria-pressed={isChordBarVisible}
+            onClick={handleToggleChordBar}
+            className={`p-2.5 rounded-xl border transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${
+              isChordBarVisible
+                ? 'bg-amber-500/30 border-amber-400 text-amber-300'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-slate-700'
+            }`}
+            title={isChordBarVisible ? 'Hide Live Chord Bar (C)' : 'Show Live Chord Bar (C)'}
+          >
+            <Music2 className="w-4 h-4" />
           </button>
 
           {/* Exit Fullscreen Button */}

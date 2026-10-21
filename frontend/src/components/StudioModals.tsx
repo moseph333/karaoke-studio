@@ -18,9 +18,14 @@ export interface StudioModalsProps {
   isExportOpen: boolean;
   onCloseExport: () => void;
   onCancelRender: () => void;
-  onStartRender: () => void;
+  onStartRender: (options?: {
+    includeVisualizer?: boolean;
+    includeCountdown?: boolean;
+    includeChords?: boolean;
+  }) => void;
   selectedTheme: VisualTheme;
   aspectRatio: string;
+  activeSemitones?: number;
   showAuthModal: boolean;
   onAuthSuccess: (username: string, token: string) => void;
   onCloseAuth: () => void;
@@ -42,6 +47,7 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   onStartRender,
   selectedTheme,
   aspectRatio,
+  activeSemitones,
   showAuthModal,
   onAuthSuccess,
   onCloseAuth,
@@ -66,6 +72,7 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
           onStartRender={onStartRender}
           selectedTheme={selectedTheme}
           aspectRatio={aspectRatio}
+          activeSemitones={activeSemitones}
         />
       )}
 

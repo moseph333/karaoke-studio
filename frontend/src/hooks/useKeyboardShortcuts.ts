@@ -15,6 +15,7 @@ export interface UseKeyboardShortcutsOptions {
   onToggleMute?: () => void;
   onToggleHelp?: () => void;
   onToggleVisualizer?: () => void;
+  onToggleChordBar?: () => void;
   audioRef?: React.RefObject<HTMLAudioElement | null>;
   currentTime?: number;
   duration?: number;
@@ -101,6 +102,7 @@ export function useKeyboardShortcuts({
   onToggleMute,
   onToggleHelp,
   onToggleVisualizer,
+  onToggleChordBar,
   audioRef,
   currentTime = 0,
   duration = 0,
@@ -113,6 +115,7 @@ export function useKeyboardShortcuts({
     onToggleMute,
     onToggleHelp,
     onToggleVisualizer,
+    onToggleChordBar,
     audioRef,
     currentTime,
     duration,
@@ -126,6 +129,7 @@ export function useKeyboardShortcuts({
       onToggleMute,
       onToggleHelp,
       onToggleVisualizer,
+      onToggleChordBar,
       audioRef,
       currentTime,
       duration,
@@ -222,6 +226,15 @@ export function useKeyboardShortcuts({
         e.preventDefault();
         if (e.repeat) return;
         optionsRef.current.onToggleVisualizer?.();
+        return;
+      }
+
+      // Feature F8 / R2: 'C' / 'c' toggle Live Chord Bar
+      if (e.key === 'c' || e.key === 'C') {
+        if (e.shiftKey) return;
+        e.preventDefault();
+        if (e.repeat) return;
+        optionsRef.current.onToggleChordBar?.();
         return;
       }
     };

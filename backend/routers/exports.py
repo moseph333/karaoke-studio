@@ -1,16 +1,262 @@
 """Export API router providing instant standalone .lrc/.ass subtitle and audio stem downloads."""
 
 import os
+import re
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 
 from backend.export_utils import build_content_disposition
-from backend.project_store import get_project_or_404
+from backend.project_store import PROJECTS_LOCK, get_project_or_404, save_projects
 from backend.services.ass_generator import VISUAL_THEMES, css_to_ass_color
+from backend.services.chord_detector import (
+    NO_CHORD_VALUES,
+    ChordDetector,
+    project_key_signature,
+    transpose_chord_progression,
+)
 
 router = APIRouter(tags=["exports"])
+
+
+def format_timestamp(seconds: float) -> str:
+    """Formats seconds into [mm:ss.xx] timestamp tag."""
+    s = max(0.0, float(seconds))
+    m = int(s // 60)
+    sec = s % 60
+    return f"[{m:02d}:{sec:05.2f}]"
+
+
+def generate_chord_sheet(
+    lines: list[dict[str, Any]],
+    chords: list[dict[str, Any]],
+    title: str = "",
+    artist: str = "",
+    estimated_key: str | None = None,
+    semitones: int = 0,
+) -> str:
+    """Generates a standalone monospaced Chord & Lyric Lead Sheet in Markdown.
+
+    Args:
+        lines: Project lyric lines with timestamps and optional word-level tokens.
+        chords: Timecoded chord progression segments.
+        title: Track title.
+        artist: Track artist.
+        estimated_key: Detected musical key signature.
+        semitones: Semitone transposition offset in [-12, +12].
+
+    Returns:
+        Formatted UTF-8 Markdown chord sheet with lead sheet alignment and RFC metadata.
+    """
+    # 1. Transpose chords if semitones != 0
+    eff_key = estimated_key
+    transposed_chords = chords
+    if semitones != 0 and chords:
+        target_key = project_key_signature(estimated_key, semitones) if estimated_key else None
+        transposed_chords = transpose_chord_progression(chords, semitones=semitones, key=target_key)
+        if target_key:
+            eff_key = target_key
+
+    # 2. Build metadata header
+    header_lines = []
+    clean_title = title.strip() or "Untitled Track"
+    header_lines.append(f"# {clean_title}")
+    if artist.strip():
+        header_lines.append(f"**Artist:** {artist.strip()}")
+
+    if eff_key:
+        if semitones != 0 and estimated_key and estimated_key != eff_key:
+            header_lines.append(f"**Key:** {eff_key} (Transposed from {estimated_key})")
+        else:
+            header_lines.append(f"**Key:** {eff_key}")
+    else:
+        if semitones != 0:
+            shift_note = f"+{semitones}" if semitones > 0 else f"{semitones}"
+            header_lines.append(f"**Key:** Standard ({shift_note} semitones)")
+        else:
+            header_lines.append("**Key:** Standard / Not specified")
+
+    if semitones > 0:
+        header_lines.append(f"**Pitch Shift:** +{semitones} semitones")
+    elif semitones < 0:
+        header_lines.append(f"**Pitch Shift:** {semitones} semitones")
+    else:
+        header_lines.append("**Pitch Shift:** Original key (0 semitones)")
+
+    header_lines.append("")
+    header_lines.append("---")
+    header_lines.append("")
+
+    # 3. Sort lines and chords chronologically
+    sorted_lines = sorted(lines, key=lambda ln: float(ln.get("start_time", 0.0))) if lines else []
+    sorted_chords = (
+        sorted(transposed_chords, key=lambda c: float(c.get("start", 0.0)))
+        if transposed_chords
+        else []
+    )
+
+    body_lines: list[str] = []
+
+    def format_instrumental_block(gap_start: float, gap_chords: list[dict[str, Any]]) -> list[str]:
+        cleaned_symbols = []
+        for c in gap_chords:
+            sym = str(c.get("chord", "")).strip()
+            if (
+                sym
+                and sym not in NO_CHORD_VALUES
+                and (not cleaned_symbols or cleaned_symbols[-1] != sym)
+            ):
+                cleaned_symbols.append(sym)
+        ts = format_timestamp(gap_start)
+        if cleaned_symbols:
+            prog_str = " - ".join(cleaned_symbols)
+            return [f"{ts}  [Instrumental]", f"            Chords: {prog_str}"]
+        else:
+            return [f"{ts}  [Instrumental]"]
+
+    # 4. Handle pure instrumental track (no lyric lines)
+    if not sorted_lines:
+        if sorted_chords:
+            chunk: list[dict[str, Any]] = []
+            chunk_start = float(sorted_chords[0].get("start", 0.0))
+            last_end = chunk_start
+            for c in sorted_chords:
+                c_start = float(c.get("start", 0.0))
+                c_end = float(c.get("end", c_start + 1.0))
+                if c_start - last_end > 4.0 or len(chunk) >= 8:
+                    if chunk:
+                        body_lines.extend(format_instrumental_block(chunk_start, chunk))
+                        body_lines.append("")
+                    chunk = [c]
+                    chunk_start = c_start
+                else:
+                    chunk.append(c)
+                last_end = c_end
+            if chunk:
+                body_lines.extend(format_instrumental_block(chunk_start, chunk))
+        else:
+            body_lines.append("[No lyric lines or chords available]")
+    else:
+        # 5. Check Intro chords before first lyric line
+        first_line_start = float(sorted_lines[0].get("start_time", 0.0))
+        intro_chords = [c for c in sorted_chords if float(c.get("end", 0.0)) <= first_line_start]
+        if intro_chords:
+            body_lines.extend(
+                format_instrumental_block(float(intro_chords[0].get("start", 0.0)), intro_chords)
+            )
+            body_lines.append("")
+
+        # 6. Iterate through lyric lines and inter-line gaps
+        for i, line in enumerate(sorted_lines):
+            l_start = float(line.get("start_time", 0.0))
+            l_end = float(line.get("end_time", l_start + 1.0))
+
+            # Inter-line instrumental gap check
+            if i > 0:
+                prev_end = float(sorted_lines[i - 1].get("end_time", 0.0))
+                if l_start - prev_end >= 2.0:
+                    gap_chords = [
+                        c
+                        for c in sorted_chords
+                        if float(c.get("start", 0.0)) >= prev_end - 0.1
+                        and float(c.get("end", 0.0)) <= l_start + 0.1
+                    ]
+                    if gap_chords:
+                        body_lines.extend(
+                            format_instrumental_block(
+                                float(gap_chords[0].get("start", 0.0)), gap_chords
+                            )
+                        )
+                        body_lines.append("")
+
+            # Find chords active during this lyric line
+            line_chords = [
+                c
+                for c in sorted_chords
+                if float(c.get("start", 0.0)) < l_end and float(c.get("end", 0.0)) > l_start
+            ]
+            text = str(line.get("text", "")).strip()
+            raw_words = line.get("words", [])
+            words = raw_words if isinstance(raw_words, list) else []
+            valid_chords = [
+                c
+                for c in line_chords
+                if c.get("chord") and str(c.get("chord")).strip() not in NO_CHORD_VALUES
+            ]
+
+            ts = format_timestamp(l_start)
+            prefix_spaces = " " * (len(ts) + 2)
+
+            if not valid_chords:
+                body_lines.append(f"{ts}  {text}")
+            else:
+                # Word character span mapping
+                word_spans = []
+                curr = 0
+                for w in words:
+                    if not isinstance(w, dict):
+                        continue
+                    w_text = str(w.get("word", ""))
+                    if not w_text:
+                        continue
+                    idx = text.find(w_text, curr)
+                    if idx != -1:
+                        word_spans.append(
+                            {
+                                "word": w_text,
+                                "char_start": idx,
+                                "start_time": float(w.get("start_time", l_start)),
+                            }
+                        )
+                        curr = idx + len(w_text)
+
+                chord_placements = []
+                for c in valid_chords:
+                    c_sym = str(c.get("chord", "")).strip()
+                    c_start = float(c.get("start", 0.0))
+                    target_char = 0
+                    if word_spans and c_start > l_start:
+                        best_w = min(word_spans, key=lambda w: abs(w["start_time"] - c_start))
+                        target_char = best_w["char_start"]
+                    elif not word_spans and c_start > l_start:
+                        dur = max(0.1, l_end - l_start)
+                        ratio = min(1.0, max(0.0, (c_start - l_start) / dur))
+                        target_char = int(ratio * len(text))
+                        m = re.search(r"\S+", text[target_char:])
+                        if m:
+                            target_char += m.start()
+                    chord_placements.append((target_char, c_sym))
+
+                chord_placements.sort(key=lambda x: x[0])
+                buf: list[str] = []
+                for pos, sym in chord_placements:
+                    if len(buf) < pos:
+                        buf.extend([" "] * (pos - len(buf)))
+                    elif len(buf) > pos:
+                        buf.append(" ")
+                    buf.extend(list(sym))
+
+                chord_str = "".join(buf)
+                body_lines.append(f"{ts}  {chord_str}")
+                body_lines.append(f"{prefix_spaces}{text}")
+
+            body_lines.append("")
+
+        # 7. Check Outro chords after final lyric line
+        last_line_end = float(sorted_lines[-1].get("end_time", 0.0))
+        outro_chords = [
+            c for c in sorted_chords if float(c.get("start", 0.0)) >= last_line_end - 0.2
+        ]
+        if outro_chords:
+            body_lines.extend(
+                format_instrumental_block(float(outro_chords[0].get("start", 0.0)), outro_chords)
+            )
+            body_lines.append("")
+
+    full_md = "\n".join(header_lines) + "```\n" + "\n".join(body_lines).rstrip() + "\n```\n"
+    return full_md
 
 
 @router.get("/api/project/{project_id}/export/lrc")
@@ -64,11 +310,21 @@ def export_project_ass(
     include_countdown: bool = Query(
         True, description="Include instrumental gap countdown cues in generated .ass script"
     ),
+    include_chords: bool = Query(
+        False, description="Include transposed chord progression cues in generated .ass script"
+    ),
+    semitones: int = Query(
+        0,
+        ge=-12,
+        le=12,
+        description="Pitch shift in semitones for chord transposition (-12 to +12)",
+    ),
 ):
     """Export synchronized Advanced SubStation Alpha (.ass) subtitles for a project.
 
     Supports aspect ratios ('16:9' or '9:16'), visual theme presets, progressive \\kf tags,
-    font size scaling, and direct color overrides. Does NOT require prior video rendering.
+    font size scaling, direct color overrides, and optional transposed chords on Layer 2.
+    Does NOT require prior video rendering.
     """
     import backend.main as main_mod
 
@@ -99,7 +355,31 @@ def export_project_ass(
         )
 
     lines = proj.get("lines")
-    if not lines or not isinstance(lines, list):
+    chords = proj.get("chords")
+
+    # Auto-backfill chords if missing and requested
+    if chords is None and include_chords:
+        inst_path = proj.get("instrumental_path") or proj.get("audio_path")
+        if inst_path and os.path.isfile(inst_path) and os.path.getsize(inst_path) > 0:
+            try:
+                detector = getattr(main_mod, "chord_detector", None) or ChordDetector()
+                detected = detector.detect_chords(inst_path)
+                with PROJECTS_LOCK:
+                    target_proj = get_project_or_404(project_id)
+                    if target_proj.get("chords") is None:
+                        target_proj["chords"] = detected
+                        save_projects()
+                        chords = detected
+                    else:
+                        chords = target_proj["chords"]
+            except Exception:
+                chords = []
+        else:
+            chords = []
+    elif chords is None:
+        chords = []
+
+    if (not lines or not isinstance(lines, list)) and (not include_chords or not chords):
         raise HTTPException(status_code=400, detail="Project has no lyric lines to export")
 
     title = proj.get("title", "").strip()
@@ -113,15 +393,32 @@ def export_project_ass(
         css_to_ass_color(secondary_color, default="&H00FFFFFF") if secondary_color else None
     )
 
+    eff_key = proj.get("estimated_key") or (
+        proj.get("vocal_range", {}).get("estimated_key")
+        if isinstance(proj.get("vocal_range"), dict)
+        else None
+    )
+
+    style_cfg = {
+        "font_size_scale": font_size_scale,
+        "include_countdown": include_countdown,
+        "include_chords": include_chords,
+        "semitones": semitones,
+    }
+
     ass_content = main_mod.video_renderer.generate_ass_content(
-        lines=lines,
+        lines=lines or [],
         aspect_ratio=aspect_ratio,
         theme_id=theme_id,
         primary_color=primary_ass,
         secondary_color=secondary_ass,
         title=track_title,
-        style_config={"font_size_scale": font_size_scale, "include_countdown": include_countdown},
+        style_config=style_cfg,
         include_countdown=include_countdown,
+        chords=chords,
+        include_chords=include_chords,
+        semitones=semitones,
+        key=eff_key,
     )
 
     headers = {
@@ -136,6 +433,96 @@ def export_project_ass(
     return Response(
         content=ass_content,
         media_type="text/x-ssa; charset=utf-8",
+        headers=headers,
+    )
+
+
+@router.get("/api/project/{project_id}/export/chord-sheet")
+def export_project_chord_sheet(
+    project_id: str,
+    semitones: int = Query(
+        0,
+        ge=-12,
+        le=12,
+        description="Semitone transposition offset in [-12, +12]",
+    ),
+):
+    """Export project lyric lines and chords as a downloadable Chord & Lyric Sheet in Markdown.
+
+    Transposes chords across [-12, +12] with circle-of-fifths key projection,
+    aligns chord symbols above corresponding lyric lines and words, emits clean
+    [Instrumental] blocks for non-vocal sections, and encodes compliant RFC 5987 /
+    RFC 6266 Content-Disposition headers.
+    """
+    import backend.main as main_mod
+
+    proj = get_project_or_404(project_id)
+
+    lines = proj.get("lines")
+    chords = proj.get("chords")
+
+    # 1. On-demand auto-backfill chords if missing from project store
+    if chords is None:
+        inst_path = proj.get("instrumental_path")
+        audio_stem = inst_path
+        if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
+            audio_stem = proj.get("audio_path")
+
+        if audio_stem and os.path.isfile(audio_stem) and os.path.getsize(audio_stem) > 0:
+            detector = getattr(main_mod, "chord_detector", None) or ChordDetector()
+            detected = detector.detect_chords(audio_stem)
+            with PROJECTS_LOCK:
+                target_proj = get_project_or_404(project_id)
+                if target_proj.get("chords") is None:
+                    target_proj["chords"] = detected
+                    save_projects()
+                    chords = detected
+                else:
+                    chords = target_proj["chords"]
+        else:
+            chords = []
+
+    # 2. Reject export if neither lyrics nor chords exist
+    if (not lines or not isinstance(lines, list)) and (not chords):
+        raise HTTPException(
+            status_code=400,
+            detail="Project has no lyric lines or chords to export",
+        )
+
+    title = proj.get("title", "").strip()
+    artist = proj.get("artist", "").strip()
+    estimated_key = (
+        proj.get("vocal_range", {}).get("estimated_key")
+        if isinstance(proj.get("vocal_range"), dict)
+        else proj.get("estimated_key")
+    )
+
+    # 3. Generate lead sheet content
+    sheet_content = generate_chord_sheet(
+        lines=lines or [],
+        chords=chords or [],
+        title=title,
+        artist=artist,
+        estimated_key=estimated_key,
+        semitones=semitones,
+    )
+
+    # 4. Formulate RFC 5987 / RFC 6266 filename header
+    raw_title = title or "Track"
+    chord_title = f"{raw_title} (Chords)".strip() if "chord" not in raw_title.lower() else raw_title
+
+    headers = {
+        "Content-Disposition": build_content_disposition(
+            title=chord_title,
+            artist=artist,
+            ext="md",
+            fallback=f"{project_id}_chords",
+        )
+    }
+
+    return Response(
+        content=sheet_content,
+        media_type="text/markdown; charset=utf-8",
         headers=headers,
     )
 

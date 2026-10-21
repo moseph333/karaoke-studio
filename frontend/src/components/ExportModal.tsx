@@ -17,6 +17,8 @@ import {
   Clock,
   Activity,
   XCircle,
+  Music,
+  Loader2,
 } from 'lucide-react';
 import { ProjectState, VisualTheme } from '../types';
 import { useFocusTrap } from '../hooks/useFocusTrap';
@@ -31,9 +33,14 @@ export interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCancelRender?: () => void;
-  onStartRender?: (options?: { includeVisualizer?: boolean; includeCountdown?: boolean }) => void;
+  onStartRender?: (options?: {
+    includeVisualizer?: boolean;
+    includeCountdown?: boolean;
+    includeChords?: boolean;
+  }) => void;
   selectedTheme?: VisualTheme;
   aspectRatio?: '16:9' | '9:16' | string;
+  activeSemitones?: number;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -44,32 +51,117 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onStartRender,
   selectedTheme,
   aspectRatio = '16:9',
+  activeSemitones,
 }) => {
   const [_tick, setTick] = useState(0);
   const [includeVisualizer, setIncludeVisualizer] = useState(false);
   const [includeCountdown] = useState(true);
+  const [includeChords, setIncludeChords] = useState(false);
+  const [downloadingChordSheet, setDownloadingChordSheet] = useState(false);
+  const [chordSheetError, setChordSheetError] = useState<string | null>(null);
+
+  const semitones = activeSemitones ?? project?.semitones ?? 0;
 
   const handleStartRenderClick = async () => {
     if (onStartRender) {
-      onStartRender({ includeVisualizer, includeCountdown });
+      const renderOptions: {
+        includeVisualizer?: boolean;
+        includeCountdown?: boolean;
+        includeChords?: boolean;
+      } = {
+        includeVisualizer,
+        includeCountdown,
+      };
+      if (includeChords) {
+        renderOptions.includeChords = true;
+      }
+      onStartRender(renderOptions);
       return;
     }
 
     try {
+      const renderPayload: Record<string, unknown> = {
+        semitones: semitones,
+        guide_volume: project.guide_volume || 0,
+        aspect_ratio: aspectRatio,
+        include_visualizer: includeVisualizer,
+        include_countdown: includeCountdown,
+        ...(includeChords ? { include_chords: true } : {}),
+        style_config: selectedTheme ? { theme_id: selectedTheme.id } : undefined,
+      };
+
       await apiFetch(`/api/project/${project.id}/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          semitones: project.semitones || 0,
-          guide_volume: project.guide_volume || 0,
-          aspect_ratio: aspectRatio,
-          include_visualizer: includeVisualizer,
-          include_countdown: includeCountdown,
-          style_config: selectedTheme ? { theme_id: selectedTheme.id } : undefined,
-        }),
+        body: JSON.stringify(renderPayload),
       });
     } catch (err) {
       console.error('Render request failed:', err);
+    }
+  };
+
+  const handleDownloadChordSheet = async () => {
+    try {
+      setDownloadingChordSheet(true);
+      setChordSheetError(null);
+
+      const url = `/api/project/${project.id}/export/chord-sheet?semitones=${encodeURIComponent(
+        semitones
+      )}`;
+      const res = await apiFetch(url);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || 'Failed to download chord sheet');
+      }
+
+      const blob = await res.blob();
+      let filename = `${project.artist || 'Karaoke'} - ${project.title || 'Track'} (Chord Sheet).txt`;
+      const disposition = res.headers.get('Content-Disposition');
+      if (disposition) {
+        const rfcMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+        if (rfcMatch && rfcMatch[1]) {
+          try {
+            filename = decodeURIComponent(rfcMatch[1]);
+          } catch {
+            filename = rfcMatch[1];
+          }
+        } else {
+          const stdMatch = disposition.match(/filename="?([^";]+)"?/i);
+          if (stdMatch && stdMatch[1]) {
+            filename = stdMatch[1];
+          }
+        }
+      }
+
+      if (
+        typeof window !== 'undefined' &&
+        window.URL &&
+        typeof window.URL.createObjectURL === 'function'
+      ) {
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        if (typeof window.URL.revokeObjectURL === 'function') {
+          window.URL.revokeObjectURL(blobUrl);
+        }
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch (err: unknown) {
+      console.error('Download chord sheet failed:', err);
+      setChordSheetError(err instanceof Error ? err.message : 'Failed to download chord sheet');
+    } finally {
+      setDownloadingChordSheet(false);
     }
   };
 
@@ -156,7 +248,73 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           project={project}
           selectedTheme={selectedTheme}
           aspectRatio={aspectRatio}
+          activeSemitones={semitones}
         />
+
+        {/* Dedicated Standalone Chord & Lyric Sheet Download Section */}
+        <div className="p-3.5 sm:p-5 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-6 space-y-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Music className="w-5 h-5 text-amber-400 shrink-0" aria-hidden="true" />
+              <h3 className="text-sm sm:text-base font-bold text-white font-['Montserrat'] truncate">
+                Musician Chord & Lyric Sheet
+              </h3>
+            </div>
+            {project?.chords && project.chords.length > 0 && (
+              <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full shrink-0">
+                {project.chords.length} chords
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">
+            Export an aligned, plain-text/Markdown chord and lyric lead sheet transposed to your
+            active key ({semitones >= 0 ? `+${semitones}` : semitones} st) for guitar, piano, and
+            live performance.
+          </p>
+
+          <div>
+            <Tooltip
+              content="Download transposed chord & lyric sheet"
+              position="top"
+              className="w-full sm:w-auto"
+            >
+              <button
+                type="button"
+                data-testid="download-chord-sheet-btn"
+                onClick={handleDownloadChordSheet}
+                disabled={downloadingChordSheet}
+                aria-label="Download Chord & Lyric Sheet"
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 active:bg-slate-700 border border-slate-700 hover:border-amber-500/50 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-between sm:justify-start gap-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center gap-2.5 min-w-0 text-left">
+                  {downloadingChordSheet ? (
+                    <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+                  ) : (
+                    <Music className="w-4 h-4 text-amber-400 shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <span className="font-bold text-xs sm:text-sm text-white block">
+                      Download Chord & Lyric Sheet
+                    </span>
+                    <span className="text-[10px] text-slate-400 block truncate">
+                      Aligned Chords • {semitones >= 0 ? `+${semitones}` : semitones} st • UTF-8
+                    </span>
+                  </div>
+                </div>
+                <Download className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
+              </button>
+            </Tooltip>
+          </div>
+
+          {chordSheetError && (
+            <div
+              role="alert"
+              className="text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-xl font-mono break-words"
+            >
+              {chordSheetError}
+            </div>
+          )}
+        </div>
 
         {/* Dedicated Standalone Audio Stem Downloads (Always Available) */}
         <ExportAudioSection project={project} />
@@ -191,6 +349,23 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 />
                 <span className="text-xs sm:text-sm font-medium text-slate-300">
                   Include Audio Visualizer
+                </span>
+              </label>
+
+              <label
+                data-testid="include-chords-video-container"
+                className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors w-full sm:w-auto justify-center sm:justify-start"
+              >
+                <input
+                  type="checkbox"
+                  data-testid="include-chords-video-checkbox"
+                  checked={includeChords}
+                  onChange={(e) => setIncludeChords(e.target.checked)}
+                  className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-slate-700 bg-slate-800 text-purple-500 focus:ring-purple-400 focus:ring-offset-slate-900 cursor-pointer"
+                  aria-label="Burn Chords into Video"
+                />
+                <span className="text-xs sm:text-sm font-medium text-slate-300">
+                  Burn Chords into Video
                 </span>
               </label>
             </div>

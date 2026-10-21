@@ -123,6 +123,19 @@ def get_project_or_404(project_id: str) -> dict[str, Any]:
     return proj
 
 
+def update_project_chords(project_id: str, chords: list[dict[str, Any]]) -> dict[str, Any]:
+    """Atomically updates and persists chord progression segments for a project.
+
+    Acquires PROJECTS_LOCK, updates the project state, and persists to disk
+    using an atomic temporary file swap.
+    """
+    with PROJECTS_LOCK:
+        proj = get_project_or_404(project_id)
+        proj["chords"] = chords
+        save_projects()
+        return proj
+
+
 def cleanup_project_disk_artifacts(
     project_id: str,
     track_id: str | None = None,

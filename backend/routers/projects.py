@@ -17,11 +17,13 @@ from backend.project_store import (
     save_projects,
 )
 from backend.schemas import (
+    ChordsUpdateRequest,
     KeyRecommendationRequest,
     KeyRecommendationResponse,
     LyricsUpdateRequest,
     MixRequest,
     ProcessRequest,
+    ProjectChordsResponse,
     ProjectMetadataUpdate,
     RealignLyricsRequest,
     RenderRequest,
@@ -259,6 +261,207 @@ def recommend_key(project_id: str, req: KeyRecommendationRequest):
     except Exception as e:
         logger.error(f"Key recommendation failed for {project_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to recommend key: {e}") from e
+
+
+@router.get(
+    "/api/project/{project_id}/chords",
+    response_model=ProjectChordsResponse,
+    summary="Get project harmonic chord progression with on-demand auto-backfill",
+)
+def get_project_chords(project_id: str, semitones: int = 0):
+    """Returns cached harmonic chord progression segments for a project.
+
+    If chords are not yet stored and the isolated instrumental stem exists on disk,
+    this endpoint automatically detects the chord progression on-demand from
+    instrumental_path without re-running Demucs stem separation, persisting the result atomically.
+    Optionally transposes chords if semitones != 0 is specified.
+    """
+    import backend.main as main_mod
+    from backend.services.chord_detector import project_key_signature, transpose_chord_progression
+
+    if not (-12 <= semitones <= 12):
+        raise HTTPException(
+            status_code=422,
+            detail=f"semitones must be in range [-12, 12], got {semitones}",
+        )
+
+    proj = get_project_or_404(project_id)
+    estimated_key = (
+        proj.get("vocal_range", {}).get("estimated_key")
+        if isinstance(proj.get("vocal_range"), dict)
+        else None
+    )
+
+    # 1. Fast path: cached chords already present in project store
+    cached_chords = proj.get("chords")
+    if cached_chords is not None:
+        chords_to_return = cached_chords
+        if semitones != 0:
+            target_key = project_key_signature(estimated_key, semitones) if estimated_key else None
+            chords_to_return = transpose_chord_progression(
+                cached_chords, semitones=semitones, key=target_key
+            )
+        return ProjectChordsResponse(
+            project_id=proj.get("id", project_id),
+            chords=chords_to_return,
+            estimated_key=estimated_key,
+            detected=True,
+        )
+
+    # 2. On-demand auto-backfill: verify audio stem availability
+    inst_path = proj.get("instrumental_path")
+    audio_stem = inst_path
+    if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
+        audio_stem = proj.get("audio_path")
+        if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
+            if cached_chords is not None:
+                return ProjectChordsResponse(
+                    project_id=proj.get("id", project_id),
+                    chords=[],
+                    estimated_key=estimated_key,
+                    detected=False,
+                )
+            logger.warning(
+                f"Chord detection rejected for project {project_id}: instrumental stem missing or empty ({inst_path})"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot detect chords: instrumental stem missing or not ready",
+            )
+
+    try:
+        # 3. Execute CPU-bound STFT and chroma extraction OUTSIDE PROJECTS_LOCK
+        detector = getattr(main_mod, "chord_detector", None)
+        if detector is None:
+            from backend.services.chord_detector import ChordDetector
+
+            detector = ChordDetector()
+
+        detected_chords = detector.detect_chords(audio_stem)
+
+        # 4. Atomically persist detected chords under PROJECTS_LOCK
+        with PROJECTS_LOCK:
+            target_proj = get_project_or_404(project_id)
+            if target_proj.get("chords") is None:
+                target_proj["chords"] = detected_chords
+                save_projects()
+            else:
+                detected_chords = target_proj["chords"]
+
+        chords_to_return = detected_chords
+        if semitones != 0:
+            target_key = project_key_signature(estimated_key, semitones) if estimated_key else None
+            chords_to_return = transpose_chord_progression(
+                detected_chords, semitones=semitones, key=target_key
+            )
+
+        return ProjectChordsResponse(
+            project_id=target_proj.get("id", project_id),
+            chords=chords_to_return,
+            estimated_key=estimated_key,
+            detected=True,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chord detection failed for {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to detect chords: {e}") from e
+
+
+@router.post(
+    "/api/project/{project_id}/chords",
+    summary="Update project chord progression segments atomically with strict validation",
+)
+def update_project_chords_endpoint(project_id: str, req: ChordsUpdateRequest):
+    """Atomically updates a project's chord progression segments.
+
+    Enforces strict interval monotonicity: start < end for each chord,
+    and end_i <= start_{i+1} across all consecutive segments. Non-overlapping
+    intervals are strictly enforced; violations reject with HTTP 422.
+    Persists atomically to projects.json under PROJECTS_LOCK.
+    """
+    proj = find_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    serialized_chords = [chord.model_dump() for chord in req.chords]
+
+    with PROJECTS_LOCK:
+        target_proj = get_project_or_404(project_id)
+        target_proj["chords"] = serialized_chords
+        save_projects()
+
+    return {
+        "status": "ok",
+        "project_id": target_proj.get("id", project_id),
+        "chords_count": len(serialized_chords),
+        "chords": target_proj["chords"],
+    }
+
+
+@router.post(
+    "/api/project/{project_id}/chords/detect",
+    response_model=ProjectChordsResponse,
+    summary="Force re-detection of project harmonic chord progression",
+)
+def force_redetect_chords(project_id: str):
+    """Forces re-detection of the project's harmonic chord progression from the instrumental stem,
+
+    overwriting any existing or cached chord progression and persisting atomically.
+    """
+    import backend.main as main_mod
+
+    proj = get_project_or_404(project_id)
+    if proj.get("status") in ("processing", "queued", "downloading", "separating"):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot detect chords: project processing is not complete",
+        )
+
+    inst_path = proj.get("instrumental_path")
+    audio_stem = inst_path
+    if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
+        audio_stem = proj.get("audio_path")
+        if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
+            logger.warning(
+                f"Forced chord detection rejected for project {project_id}: instrumental stem missing or empty ({inst_path})"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot detect chords: instrumental stem missing or not ready",
+            )
+
+    try:
+        detector = getattr(main_mod, "chord_detector", None)
+        if detector is None:
+            from backend.services.chord_detector import ChordDetector
+
+            detector = ChordDetector()
+
+        detected_chords = detector.detect_chords(audio_stem)
+
+        with PROJECTS_LOCK:
+            target_proj = get_project_or_404(project_id)
+            target_proj["chords"] = detected_chords
+            save_projects()
+
+        estimated_key = (
+            target_proj.get("vocal_range", {}).get("estimated_key")
+            if isinstance(target_proj.get("vocal_range"), dict)
+            else None
+        )
+
+        return ProjectChordsResponse(
+            project_id=target_proj.get("id", project_id),
+            chords=detected_chords,
+            estimated_key=estimated_key,
+            detected=True,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Forced chord re-detection failed for {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to detect chords: {e}") from e
 
 
 @router.patch("/api/project/{project_id}")

@@ -14,7 +14,7 @@ import {
   FileText,
   Users,
 } from 'lucide-react';
-import { LyricDisplay } from './LyricDisplay';
+import { LyricDisplay, LyricDisplayProps } from './LyricDisplay';
 import { recalculateWordTimings, getActiveWordLocation } from '../utils/lyrics';
 import { useTimelineAutoScroll } from '../hooks/useTimelineAutoScroll';
 import { useLyricEditorState } from '../hooks/useLyricEditorState';
@@ -28,58 +28,59 @@ import { Tooltip } from './Tooltip';
 
 export { recalculateWordTimings };
 
-export interface LyricTimelineEditorProps {
-  lines: LyricLine[];
-  currentTime: number;
+const S_RESUME_BTN =
+  'px-2.5 py-0.5 rounded-full bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 ' +
+  'text-cyan-300 text-[10px] font-medium flex items-center gap-1.5 transition-all shadow-md';
+const S_ICON_BTN =
+  'p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white ' +
+  'disabled:opacity-40 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 min-h-[36px]';
+const S_ACTION_BTN =
+  'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white ' +
+  'text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 min-h-[36px]';
+const S_DUET_BTN =
+  'px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white ' +
+  'text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ' +
+  'focus:outline-none focus:ring-2 focus:ring-pink-400 min-h-[44px] min-w-[44px] shrink-0';
+const S_DISCARD_BTN =
+  'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white ' +
+  'text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none ' +
+  'focus:ring-2 focus:ring-slate-500 disabled:opacity-50 min-h-[36px]';
+const S_SAVE_BTN =
+  'px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold ' +
+  'text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all ' +
+  'focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50 min-h-[36px]';
+const S_ADD_FIRST_BTN =
+  'min-h-[44px] px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold ' +
+  'text-xs inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-400';
+const S_ADD_LINE_BTN =
+  'w-full min-h-[44px] py-2 px-3 rounded-xl border border-dashed border-slate-700 ' +
+  'hover:border-cyan-500/70 bg-slate-950/30 hover:bg-cyan-950/20 text-slate-400 hover:text-cyan-300 ' +
+  'text-xs font-semibold flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400';
+
+export interface LyricTimelineEditorProps extends LyricDisplayProps {
   duration: number;
-  isPlaying?: boolean;
-  playbackRate?: number;
-  audioRef?: React.RefObject<HTMLAudioElement>;
-  onTogglePlay?: () => void;
   onSeek: (time: number) => void;
   onSaveLines: (updatedLines: LyricLine[]) => Promise<void | boolean> | void;
-  albumArtUrl?: string;
-  themeSungColor?: string;
-  themeUnsungColor?: string;
   onDirtyChange?: (isDirty: boolean) => void;
-  aspectRatio?: string;
-  fontSizeScale?: number;
   projectId?: string;
   trackTitle?: string;
   trackArtist?: string;
-  showVisualizer?: boolean;
-  onToggleVisualizer?: () => void;
-  analyserNode?: AnalyserNode | null;
 }
 
-export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
-  lines,
-  currentTime,
-  duration,
-  isPlaying = false,
-  playbackRate = 1.0,
-  audioRef,
-  onTogglePlay,
-  onSeek,
-  onSaveLines,
-  albumArtUrl,
-  themeSungColor = '#facc15',
-  themeUnsungColor = '#ffffff',
-  onDirtyChange,
-  aspectRatio = '16:9',
-  fontSizeScale = 1.0,
-  projectId,
-  trackTitle = 'Track',
-  trackArtist = 'Artist',
-  showVisualizer,
-  onToggleVisualizer,
-  analyserNode,
-}) => {
+export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) => {
+  const {
+    currentTime,
+    isPlaying = false,
+    onSeek,
+    projectId,
+    trackTitle = 'Track',
+    trackArtist = 'Artist',
+  } = props;
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [showDuetModal, setShowDuetModal] = useState(false);
 
-  const ed = useLyricEditorState({ lines, currentTime, duration, onSaveLines, onDirtyChange });
+  const ed = useLyricEditorState(props);
   const effectiveProjectId =
     projectId || new URLSearchParams(window.location.search).get('project') || '';
 
@@ -126,28 +127,12 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
   };
 
   const selectedIndex = ed.editableLines.findIndex((l) => l.id === ed.selectedLineId);
+  const activeLineIdx = selectedIndex >= 0 ? selectedIndex : 0;
 
   return (
     <div className="space-y-6">
       {/* 1. Live Karaoke Stage Preview */}
-      <LyricDisplay
-        lines={ed.editableLines}
-        currentTime={currentTime}
-        duration={duration}
-        isPlaying={isPlaying}
-        playbackRate={playbackRate}
-        audioRef={audioRef}
-        onTogglePlay={onTogglePlay}
-        onSeek={onSeek}
-        albumArtUrl={albumArtUrl}
-        themeSungColor={themeSungColor}
-        themeUnsungColor={themeUnsungColor}
-        aspectRatio={aspectRatio}
-        fontSizeScale={fontSizeScale}
-        showVisualizer={showVisualizer}
-        onToggleVisualizer={onToggleVisualizer}
-        analyserNode={analyserNode}
-      />
+      <LyricDisplay {...props} lines={ed.editableLines} />
 
       {/* 2. Visual Timeline & Power Tools */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-5 shadow-xl space-y-3">
@@ -172,7 +157,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 <button
                   type="button"
                   onClick={resumeAutoScroll}
-                  className="px-2.5 py-0.5 rounded-full bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 text-[10px] font-medium flex items-center gap-1.5 transition-all shadow-md"
+                  className={S_RESUME_BTN}
                   title="Auto-scroll is paused. Click to resume."
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
@@ -194,7 +179,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 aria-label="Undo lyric change (Ctrl+Z)"
                 onClick={ed.handleUndo}
                 disabled={!ed.canUndo || ed.isSaving}
-                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 min-h-[36px]"
+                className={S_ICON_BTN}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -206,7 +191,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 aria-label="Redo lyric change (Ctrl+Y)"
                 onClick={ed.handleRedo}
                 disabled={!ed.canRedo || ed.isSaving}
-                className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white disabled:opacity-40 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 min-h-[36px]"
+                className={S_ICON_BTN}
               >
                 <RotateCw className="w-3.5 h-3.5" />
               </button>
@@ -218,7 +203,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 aria-label="Batch shift timestamps"
                 onClick={() => setShowBatchModal(true)}
                 disabled={ed.isSaving || ed.editableLines.length === 0}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 min-h-[36px]"
+                className={S_ACTION_BTN}
               >
                 <Clock className="w-3.5 h-3.5 text-cyan-400" />
                 <span className="hidden md:inline">Offset</span>
@@ -231,7 +216,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 aria-label="Assign duet singer parts"
                 onClick={() => setShowDuetModal(true)}
                 disabled={ed.isSaving || ed.editableLines.length === 0}
-                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-pink-400 min-h-[44px] min-w-[44px] shrink-0"
+                className={S_DUET_BTN}
               >
                 <Users className="w-3.5 h-3.5 text-pink-400" />
                 <span className="hidden md:inline">Duet Parts</span>
@@ -266,7 +251,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 aria-label="Replace or re-align lyrics"
                 onClick={() => setShowReplaceModal(true)}
                 disabled={ed.isSaving}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 min-h-[36px]"
+                className={S_ACTION_BTN}
               >
                 <FileText className="w-3.5 h-3.5 text-cyan-400" />
                 <span className="hidden md:inline">Re-import</span>
@@ -280,7 +265,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                     data-testid="discard-changes-btn"
                     onClick={() => ed.setShowDiscardModal(true)}
                     disabled={ed.isSaving}
-                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50 min-h-[36px]"
+                    className={S_DISCARD_BTN}
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Discard Changes
@@ -293,7 +278,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                     aria-label="Save Timing Changes - Save Lyrics & Timing Changes"
                     onClick={ed.handleSave}
                     disabled={ed.isSaving}
-                    className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50 min-h-[36px]"
+                    className={S_SAVE_BTN}
                   >
                     {ed.isSaving ? (
                       <>
@@ -359,7 +344,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                 onClick={ed.handleInsertLineAtEnd}
                 aria-label="+ Add First Lyric Line"
                 data-testid="add-line-btn"
-                className="min-h-[44px] px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className={S_ADD_FIRST_BTN}
               >
                 <Plus className="w-4 h-4" />+ Add First Lyric Line
               </button>
@@ -402,7 +387,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
                   onClick={ed.handleInsertLineAtEnd}
                   aria-label="Add new lyric line"
                   data-testid="add-line-btn"
-                  className="w-full min-h-[44px] py-2 px-3 rounded-xl border border-dashed border-slate-700 hover:border-cyan-500/70 bg-slate-950/30 hover:bg-cyan-950/20 text-slate-400 hover:text-cyan-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  className={S_ADD_LINE_BTN}
                 >
                   <Plus className="w-4 h-4" /> Add Lyric Line
                 </button>
@@ -424,7 +409,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
         isOpen={showBatchModal}
         onClose={() => setShowBatchModal(false)}
         onApplyOffset={ed.handleApplyBatchOffset}
-        selectedLineIndex={selectedIndex >= 0 ? selectedIndex : 0}
+        selectedLineIndex={activeLineIdx}
         totalLines={ed.editableLines.length}
       />
       <LyricReplacementModal
@@ -440,7 +425,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = ({
         onClose={() => setShowDuetModal(false)}
         lines={ed.editableLines}
         onApply={ed.handleBulkAssignSinger}
-        selectedLineIndex={selectedIndex >= 0 ? selectedIndex : 0}
+        selectedLineIndex={activeLineIdx}
       />
     </div>
   );

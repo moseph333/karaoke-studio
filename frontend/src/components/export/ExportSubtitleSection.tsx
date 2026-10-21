@@ -18,6 +18,7 @@ export interface ExportSubtitleSectionProps {
   primaryColor?: string;
   secondaryColor?: string;
   fontSizeScale?: number;
+  activeSemitones?: number;
 }
 
 export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
@@ -27,10 +28,14 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
   primaryColor,
   secondaryColor,
   fontSizeScale,
+  activeSemitones,
 }) => {
   const [downloadingLrc, setDownloadingLrc] = useState(false);
   const [downloadingAss, setDownloadingAss] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [includeChords, setIncludeChords] = useState(false);
+
+  const semitones = activeSemitones ?? project?.semitones ?? 0;
 
   const handleDownloadSubtitle = async (format: 'lrc' | 'ass') => {
     try {
@@ -40,7 +45,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
 
       const themeId = selectedTheme?.id || 'modern_gold';
 
-      let assUrl = `/api/project/${project.id}/export/ass?aspect_ratio=${encodeURIComponent(
+      let assUrl = `/api/project/${project?.id}/export/ass?aspect_ratio=${encodeURIComponent(
         aspectRatio
       )}&theme_id=${encodeURIComponent(themeId)}`;
 
@@ -52,6 +57,9 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
       }
       if (fontSizeScale !== undefined) {
         assUrl += `&font_size_scale=${encodeURIComponent(fontSizeScale)}`;
+      }
+      if (includeChords) {
+        assUrl += `&include_chords=true&semitones=${encodeURIComponent(semitones)}`;
       }
 
       const url = format === 'lrc' ? `/api/project/${project.id}/export/lrc` : assUrl;
@@ -122,7 +130,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
             Synchronized Subtitles (.LRC & .ASS)
           </h3>
         </div>
-        {project.lines && (
+        {project?.lines && (
           <span className="text-[11px] font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full shrink-0">
             {project.lines.length} lines
           </span>
@@ -132,6 +140,26 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
         Export standalone karaoke subtitle files for media players, video editors, or live
         performances without waiting for video rendering.
       </p>
+
+      {/* Chords in Subtitles Option Toggle */}
+      <div className="pt-1">
+        <label
+          data-testid="include-chords-subtitle-container"
+          className="flex items-center gap-2.5 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors w-full sm:w-auto"
+        >
+          <input
+            type="checkbox"
+            data-testid="include-chords-subtitle-checkbox"
+            checked={includeChords}
+            onChange={(e) => setIncludeChords(e.target.checked)}
+            className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-slate-700 bg-slate-800 text-purple-500 focus:ring-purple-400 focus:ring-offset-slate-900 cursor-pointer"
+            aria-label="Include Harmonic Chords in Subtitles (.ass)"
+          />
+          <span className="text-xs sm:text-sm font-medium text-slate-300">
+            Include Harmonic Chords in Subtitles (.ass)
+          </span>
+        </label>
+      </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
         {/* Download .LRC Button */}
@@ -186,7 +214,10 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
               <div className="min-w-0">
                 <span className="font-bold text-xs sm:text-sm text-white block">Download .ASS</span>
                 <span className="text-[10px] text-slate-400 block truncate">
-                  Karaoke \kf • {aspectRatio} • {selectedTheme?.name || 'Theme'}
+                  Karaoke \kf • {aspectRatio} •{' '}
+                  {includeChords
+                    ? `Chords (${semitones >= 0 ? `+${semitones}` : semitones}st)`
+                    : selectedTheme?.name || 'Theme'}
                 </span>
               </div>
             </div>
