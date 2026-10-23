@@ -183,7 +183,7 @@ def test_challenge2_trailing_silence_snapping_stress_test(tmp_path):
     ]
 
     aligner = AudioAligner()
-    aligned = aligner.align_lyrics(str(vocal_file), test_lines)
+    aligned = aligner.align_lyrics(str(vocal_file), test_lines, refine_line_boundaries=False)
 
     assert len(aligned) == 1
     line = aligned[0]

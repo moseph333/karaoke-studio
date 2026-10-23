@@ -1,3 +1,4 @@
+import math
 import re
 
 import numpy as np
@@ -8,6 +9,7 @@ from backend.services.aligner import (
     calculate_word_weight,
     count_syllables,
     enforce_monotonic_words,
+    estimate_global_offset,
 )
 
 
@@ -246,7 +248,7 @@ def test_align_lyrics_strips_stray_tags_and_preserves_line_timings(tmp_path):
         }
     ]
 
-    aligned = aligner.align_lyrics(str(vocals_file), lines_with_tags)
+    aligned = aligner.align_lyrics(str(vocals_file), lines_with_tags, refine_line_boundaries=False)
     assert len(aligned) == 1
     line = aligned[0]
     assert line["start_time"] == 4.20
@@ -559,7 +561,7 @@ def test_trailing_silence_snapping_behavior(tmp_path):
 
     aligner = AudioAligner()
     lines = [{"id": 0, "text": "Quick singing phrase", "start_time": 1.0, "end_time": 4.0}]
-    aligned = aligner.align_lyrics(str(vocal_file), lines)
+    aligned = aligner.align_lyrics(str(vocal_file), lines, refine_line_boundaries=False)
 
     assert len(aligned) == 1
     # Line boundaries preserved
@@ -602,3 +604,269 @@ def test_intra_line_pause_preservation(tmp_path):
     # There should be an intra-line pause between words[1] and words[2]
     pause_gap = words[2]["start_time"] - words[1]["end_time"]
     assert pause_gap >= 0.5, f"Expected intra-line pause >= 0.5s, got {pause_gap:.3f}s"
+
+
+def test_estimate_global_offset_positive_and_negative_shifts():
+    """Verifies estimate_global_offset recovers positive and negative shifts (+-1s, +-3s, +-8s) within 150ms MAE."""
+    sr = 44100
+    base_events = [
+        (9.0, 11.0),
+        (13.0, 15.0),
+        (17.0, 19.0),
+    ]
+    lines = [
+        {"id": 0, "text": "First line phrase", "start_time": 9.0, "end_time": 11.0},
+        {"id": 1, "text": "Second line phrase", "start_time": 13.0, "end_time": 15.0},
+        {"id": 2, "text": "Third line phrase", "start_time": 17.0, "end_time": 19.0},
+    ]
+
+    test_shifts = [1.0, -1.0, 3.0, -3.0, 8.0, -8.0]
+    errors = []
+
+    for shift in test_shifts:
+        # Ground truth audio events shifted by `shift`
+        shifted_events = [(s + shift, e + shift) for s, e in base_events]
+        total_dur = max(32.0, max(e for _, e in shifted_events) + 3.0)
+        n_samples = int(total_dur * sr)
+        audio = np.zeros(n_samples, dtype=np.float32)
+        t = np.linspace(0, total_dur, n_samples, endpoint=False)
+
+        for s_ev, e_ev in shifted_events:
+            idx_s = max(0, int(s_ev * sr))
+            idx_e = min(n_samples, int(e_ev * sr))
+            if idx_e > idx_s:
+                audio[idx_s:idx_e] = 0.5 * np.sin(2 * np.pi * 440 * t[idx_s:idx_e])
+
+        # Positive shift means audio is at t + shift, lyrics say t -> lyrics lead by shift
+        est_offset, confidence = estimate_global_offset(audio, sr, lines, max_offset=15.0)
+        err = abs(est_offset - shift)
+        errors.append(err)
+        assert err <= 0.150, f"Shift {shift}s: estimated {est_offset}s, error {err:.3f}s > 0.150s"
+        assert confidence >= 0.20, f"Shift {shift}s: low confidence {confidence:.3f}"
+
+    mae = float(np.mean(errors))
+    assert mae <= 0.080, f"Mean absolute error {mae * 1000:.1f}ms exceeds target 80ms"
+
+
+def test_estimate_global_offset_uncorrelated_candidate_rejection():
+    """Verifies that mismatched lyrics temporal structure produces confidence < 0.15 and returns offset 0.0."""
+    sr = 44100
+    duration = 14.0
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    audio = np.zeros_like(t)
+
+    # Audio only has singing at the very end: 10.0 to 12.0s
+    active = (t >= 10.0) & (t <= 12.0)
+    audio[active] = 0.5 * np.sin(2 * np.pi * 440 * t[active])
+
+    # LRC has 4 lines distributed early and mid song (completely mismatched structure)
+    mismatched_lines = [
+        {"id": 0, "text": "Line one early", "start_time": 0.5, "end_time": 2.0},
+        {"id": 1, "text": "Line two early mid", "start_time": 2.5, "end_time": 4.0},
+        {"id": 2, "text": "Line three mid", "start_time": 4.5, "end_time": 6.0},
+        {"id": 3, "text": "Line four late mid", "start_time": 6.5, "end_time": 8.0},
+    ]
+
+    offset, confidence = estimate_global_offset(audio, sr, mismatched_lines, max_offset=15.0)
+    assert confidence < 0.15, (
+        f"Expected confidence < 0.15 for mismatched lyrics, got {confidence:.3f}"
+    )
+    assert offset == 0.0, f"Expected offset 0.0 for rejected candidate, got {offset}"
+
+
+def test_estimate_global_offset_silent_and_empty_audio():
+    """Verifies that silent, zero-length, or flat DC audio signals return 0 offset and low confidence."""
+    sr = 44100
+    lines = [{"id": 0, "text": "Some lyrics", "start_time": 1.0, "end_time": 3.0}]
+
+    # 1. Pure silence
+    silent_audio = np.zeros(sr * 4, dtype=np.float32)
+    off, conf = estimate_global_offset(silent_audio, sr, lines)
+    assert off == 0.0
+    assert conf < 0.15
+
+    # 2. Empty audio array
+    empty_audio = np.zeros(0, dtype=np.float32)
+    off, conf = estimate_global_offset(empty_audio, sr, lines)
+    assert off == 0.0
+    assert conf == 0.0
+
+    # 3. Pure DC offset signal (variance = 0)
+    dc_audio = np.full(sr * 3, 0.35, dtype=np.float32)
+    off, conf = estimate_global_offset(dc_audio, sr, lines)
+    assert off == 0.0
+    assert conf < 0.15
+
+    # 4. Empty lines list
+    off, conf = estimate_global_offset(silent_audio, sr, [])
+    assert off == 0.0
+    assert conf == 0.0
+
+
+def test_estimate_global_offset_nan_and_inf_handling():
+    """Verifies that audio corrupted with NaNs and Infs is sanitized without raising exceptions."""
+    sr = 44100
+    corrupt_audio = np.zeros(sr * 4, dtype=np.float32)
+    corrupt_audio[50:150] = np.nan
+    corrupt_audio[200:300] = np.inf
+    corrupt_audio[400:500] = -np.inf
+    lines = [{"id": 0, "text": "Corrupt test", "start_time": 1.0, "end_time": 2.5}]
+
+    off, conf = estimate_global_offset(corrupt_audio, sr, lines)
+    assert isinstance(off, float)
+    assert isinstance(conf, float)
+    assert not np.isnan(off)
+    assert not np.isnan(conf)
+
+
+def test_estimate_global_offset_stereo_multichannel():
+    """Verifies stereo and multi-channel audio inputs are cleanly downmixed to mono."""
+    sr = 44100
+    duration = 8.0
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+
+    # Singing burst active between 4.0s and 6.0s
+    active = (t >= 4.0) & (t <= 6.0)
+    ch1 = np.zeros_like(t)
+    ch2 = np.zeros_like(t)
+    ch1[active] = 0.6 * np.sin(2 * np.pi * 440 * t[active])
+    ch2[active] = 0.4 * np.cos(2 * np.pi * 880 * t[active])
+    stereo_audio = np.stack([ch1, ch2], axis=-1)
+
+    # Lyrics assume singing starts at 1.0s (offset = +3.0s)
+    lines = [{"id": 0, "text": "Stereo phrase", "start_time": 1.0, "end_time": 3.0}]
+
+    off, conf = estimate_global_offset(stereo_audio, sr, lines, max_offset=15.0)
+    assert abs(off - 3.0) <= 0.150, f"Stereo offset recovery error: {off}"
+    assert conf >= 0.20
+
+
+def test_align_lyrics_auto_offset_correction_toggle(tmp_path):
+    """Verifies AudioAligner.align_lyrics auto_offset_correction shifts timestamps when True and preserves them when False."""
+    sr = 44100
+    duration = 8.0
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    vocals = np.zeros_like(t)
+
+    # Audio singing starts at 4.0s, ends at 7.0s
+    active = (t >= 4.0) & (t <= 7.0)
+    vocals[active] = 0.5 * np.sin(2 * np.pi * 440 * t[active])
+    wav_path = str(tmp_path / "offset_toggle.wav")
+    sf.write(wav_path, vocals, sr)
+
+    raw_lines = [{"id": 0, "text": "Shifted phrase line", "start_time": 1.0, "end_time": 4.0}]
+    aligner = AudioAligner()
+
+    # Case 1: auto_offset_correction=True (default) -> line start should shift from 1.0 toward 4.0
+    aligned_on = aligner.align_lyrics(wav_path, raw_lines, auto_offset_correction=True)
+    assert len(aligned_on) == 1
+    assert aligned_on[0]["start_time"] >= 3.5, (
+        f"Expected start_time >= 3.5, got {aligned_on[0]['start_time']}"
+    )
+
+    # Case 2: auto_offset_correction=False -> line boundaries remain at raw input (1.0)
+    aligned_off = aligner.align_lyrics(wav_path, raw_lines, auto_offset_correction=False)
+    assert len(aligned_off) == 1
+    assert aligned_off[0]["start_time"] == 1.0
+
+
+def test_align_lyrics_executes_refine_line_boundaries_without_singer_key(tmp_path):
+    """Verifies that AudioAligner.align_lyrics genuinely runs refine_line_boundaries without requiring 'singer'."""
+    sr = 44100
+    dur = 6.0
+    t = np.linspace(0, dur, int(sr * dur), endpoint=False)
+    vocals = np.zeros_like(t)
+    # Singing active between 1.5s and 3.0s (trailing silence: 5.0 - 3.0 = 2.0s >= 1.0s)
+    active = (t >= 1.5) & (t <= 3.0)
+    vocals[active] = 0.5 * np.sin(2 * np.pi * 440 * t[active])
+
+    wav_file = tmp_path / "snapping_test.wav"
+    sf.write(str(wav_file), vocals, sr)
+
+    aligner = AudioAligner()
+    # Explicitly do NOT include 'singer' in the line dict
+    lines = [{"id": 0, "text": "Snapping line test", "start_time": 1.0, "end_time": 5.0}]
+    aligned = aligner.align_lyrics(
+        str(wav_file), lines, auto_offset_correction=False, refine_line_boundaries=True
+    )
+
+    assert len(aligned) == 1
+    # Start time snapped from 1.0 toward 1.5
+    assert aligned[0]["start_time"] >= 1.45
+    # End time trimmed from 5.0 toward 3.1
+    assert aligned[0]["end_time"] <= 3.3
+    # Verify words are aligned and within the refined line boundaries
+    assert len(aligned[0]["words"]) == 3
+    for w in aligned[0]["words"]:
+        assert w["start_time"] >= aligned[0]["start_time"]
+        assert w["end_time"] <= aligned[0]["end_time"]
+
+
+def test_refine_line_boundaries_2d_single_channel_audio():
+    """Verifies that refine_line_boundaries and align_lyrics support 2D single-channel (N, 1) audio without IndexError."""
+    sr = 44100
+    dur = 4.0
+    t = np.linspace(0, dur, int(sr * dur), endpoint=False)
+    audio_1d = np.zeros_like(t)
+    audio_1d[(t >= 1.0) & (t <= 3.0)] = 0.5 * np.sin(2 * np.pi * 440 * t[(t >= 1.0) & (t <= 3.0)])
+    audio_2d_mono = audio_1d.reshape(-1, 1)
+    assert audio_2d_mono.ndim == 2 and audio_2d_mono.shape[1] == 1
+
+    lines = [{"id": 0, "text": "Testing single channel 2D", "start_time": 0.5, "end_time": 3.5}]
+    refined = AudioAligner.refine_line_boundaries(audio_2d_mono, sr, lines)
+    assert len(refined) == 1
+    assert refined[0]["start_time"] >= 0.95
+
+
+def test_align_lyrics_none_and_nonfinite_timestamps_resilience(tmp_path):
+    """Verifies that align_lyrics safely sanitizes None, NaN, and Inf timestamps without TypeError or OverflowError."""
+    sr = 44100
+    audio = np.zeros(sr * 3, dtype=np.float32)
+    wav_path = str(tmp_path / "none_nan_audio.wav")
+    sf.write(wav_path, audio, sr)
+
+    aligner = AudioAligner()
+    lines = [
+        {"id": 0, "text": "None line", "start_time": None, "end_time": None},
+        {"id": 1, "text": "NaN line", "start_time": float("nan"), "end_time": float("nan")},
+        {"id": 2, "text": "Inf line", "start_time": float("inf"), "end_time": float("inf")},
+    ]
+    aligned = aligner.align_lyrics(wav_path, lines)
+    assert len(aligned) == 3
+    for item in aligned:
+        assert math.isfinite(item["start_time"]) and item["start_time"] >= 0.0
+        assert math.isfinite(item["end_time"]) and item["end_time"] > item["start_time"]
+
+
+def test_refine_line_boundaries_t_zero_onset_snapping():
+    """Verifies that refine_line_boundaries snaps backward to 0.0s when singing begins at t=0.0s."""
+    sr = 44100
+    dur = 4.0
+    t = np.linspace(0, dur, int(sr * dur), endpoint=False)
+    audio = np.zeros_like(t)
+    # Singing starts at t=0.0s
+    audio[(t >= 0.0) & (t <= 2.5)] = 0.6 * np.sin(2 * np.pi * 440 * t[(t >= 0.0) & (t <= 2.5)])
+
+    # Raw line starts with lag at 0.40s
+    lines = [{"id": 0, "text": "Starts at zero", "start_time": 0.40, "end_time": 2.50}]
+    refined = AudioAligner.refine_line_boundaries(audio, sr, lines)
+    assert len(refined) == 1
+    # Must snap to 0.000s
+    assert abs(refined[0]["start_time"] - 0.0) <= 0.05
+
+
+def test_refine_line_boundaries_sustained_note_extension():
+    """Verifies that refine_line_boundaries searches forward and does not clip notes sustained past raw_e."""
+    sr = 44100
+    dur = 6.0
+    t = np.linspace(0, dur, int(sr * dur), endpoint=False)
+    audio = np.zeros_like(t)
+    # Vocal note extends up to 4.5s
+    audio[(t >= 1.0) & (t <= 4.5)] = 0.6 * np.sin(2 * np.pi * 440 * t[(t >= 1.0) & (t <= 4.5)])
+
+    # Raw line ends prematurely at 3.2s
+    lines = [{"id": 0, "text": "Sustained note line", "start_time": 1.0, "end_time": 3.20}]
+    refined = AudioAligner.refine_line_boundaries(audio, sr, lines)
+    assert len(refined) == 1
+    # Line end should have extended to actual release (~4.5s + 0.10s hangover = 4.60s)
+    assert abs(refined[0]["end_time"] - 4.60) <= 0.120

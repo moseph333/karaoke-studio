@@ -839,3 +839,430 @@ def test_fetch_lyrics_lrclib_candidate_ranking_integration():
         assert len(res["lines"]) == 2
         # Selected candidate 2 based on duration matching
         assert res["lines"][0]["start_time"] == 2.0
+
+
+def test_lyrics_normalizer_ost_and_soundtrack_tags():
+    """LyricsNormalizer strips OST, soundtrack, and motion picture clauses."""
+    assert (
+        LyricsNormalizer.clean_title('A Million Dreams (From "The Greatest Showman" Soundtrack)')
+        == "A Million Dreams"
+    )
+    assert (
+        LyricsNormalizer.clean_title("Ghostbusters (Original Motion Picture Soundtrack)")
+        == "Ghostbusters"
+    )
+    assert LyricsNormalizer.clean_title("Into the Unknown [OST]") == "Into the Unknown"
+    assert LyricsNormalizer.clean_title("Barbie World (From Barbie The Album)") == "Barbie World"
+    assert LyricsNormalizer.clean_title('Sing (From "Sing 2")') == "Sing"
+    assert LyricsNormalizer.clean_title("Hero (Official Soundtrack)") == "Hero"
+    assert LyricsNormalizer.clean_title("Theme Song - OST") == "Theme Song"
+    assert (
+        LyricsNormalizer.clean_title("Main Titles - Original Motion Picture Soundtrack")
+        == "Main Titles"
+    )
+
+
+def test_lyrics_normalizer_delimiter_remaster_and_version_tags():
+    """LyricsNormalizer strips unbracketed delimiter version and remaster tags."""
+    assert LyricsNormalizer.clean_title("Hotel California - 2011 Remaster") == "Hotel California"
+    assert LyricsNormalizer.clean_title("Song Name - 2020 Remastered") == "Song Name"
+    assert (
+        LyricsNormalizer.clean_title("Bohemian Rhapsody - Live at Wembley '86")
+        == "Bohemian Rhapsody"
+    )
+    assert LyricsNormalizer.clean_title("Track Title - Live") == "Track Title"
+    assert LyricsNormalizer.clean_title("Stayin Alive - Radio Edit") == "Stayin Alive"
+    assert LyricsNormalizer.clean_title("Album Cut - Deluxe Edition") == "Album Cut"
+    assert LyricsNormalizer.clean_title("Acoustic Song - Acoustic Version") == "Acoustic Song"
+    assert LyricsNormalizer.clean_title("Single Cut - Single Version") == "Single Cut"
+
+
+def test_lyrics_normalizer_extract_primary_artist():
+    """LyricsNormalizer.extract_primary_artist parses collaboration conjunctions correctly."""
+    assert LyricsNormalizer.extract_primary_artist("Queen & David Bowie") == "Queen"
+    assert LyricsNormalizer.extract_primary_artist("David Guetta feat. Sia") == "David Guetta"
+    assert LyricsNormalizer.extract_primary_artist("Calvin Harris ft. Rihanna") == "Calvin Harris"
+    assert LyricsNormalizer.extract_primary_artist("Marshmello x Khalid") == "Marshmello"
+    assert LyricsNormalizer.extract_primary_artist("Lady Gaga, Bradley Cooper") == "Lady Gaga"
+    assert LyricsNormalizer.extract_primary_artist("Artist A vs. Artist B") == "Artist A"
+    assert LyricsNormalizer.extract_primary_artist("Artist A / Artist B") == "Artist A"
+    assert LyricsNormalizer.extract_primary_artist("The xx") == "The xx"
+    assert LyricsNormalizer.extract_primary_artist("Lil Nas X feat. Billy Ray Cyrus") == "Lil Nas X"
+    assert LyricsNormalizer.extract_primary_artist("") == "Unknown Artist"
+    assert LyricsNormalizer.extract_primary_artist(None) == "Unknown Artist"
+
+
+def test_lyrics_normalizer_extract_base_title():
+    """LyricsNormalizer.extract_base_title strips subtitle clauses and delimiters."""
+    assert LyricsNormalizer.extract_base_title("Star Wars - Main Theme") == "Star Wars"
+    assert (
+        LyricsNormalizer.extract_base_title("Mission: Impossible - Fallout")
+        == "Mission: Impossible"
+    )
+    assert LyricsNormalizer.extract_base_title("Bohemian Rhapsody") == "Bohemian Rhapsody"
+    assert LyricsNormalizer.extract_base_title("Under Pressure (2011 Remaster)") == "Under Pressure"
+    assert (
+        LyricsNormalizer.extract_base_title('A Million Dreams (From "The Greatest Showman")')
+        == "A Million Dreams"
+    )
+    assert LyricsNormalizer.extract_base_title("Track : Subtitle Clause") == "Track"
+    assert LyricsNormalizer.extract_base_title("") == ""
+    assert LyricsNormalizer.extract_base_title(None) == ""
+
+
+def test_lyrics_normalizer_swapped_canonical_splits():
+    """extract_canonical handles inverted Title - Artist and Artist - Title correctly."""
+    # When title contains Title - Artist and artist matches second part
+    t1, a1 = LyricsNormalizer.extract_canonical("Bohemian Rhapsody - Queen", "Queen")
+    assert t1 == "Bohemian Rhapsody"
+    assert a1 == "Queen"
+
+    # When title contains Artist - Title and artist is unknown
+    t2, a2 = LyricsNormalizer.extract_canonical("Queen - Bohemian Rhapsody", "Unknown Artist")
+    assert t2 == "Bohemian Rhapsody"
+    assert a2 == "Queen"
+
+
+def test_generate_query_ladder_order_and_filtering():
+    """generate_query_ladder constructs all 7 sequential fallback stages properly."""
+    ladder = LyricsService.generate_query_ladder(
+        "Star Wars - Main Theme - From The Album",
+        "John Williams & London Symphony Orchestra",
+        duration=320.0,
+    )
+    # Must produce sequential stages
+    stages = [s["stage"] for s in ladder]
+    assert stages == [1, 2, 3, 4, 5, 6, 7]
+
+    # Verify stage types and endpoints
+    assert ladder[0]["type"] == "get"
+    assert ladder[0]["params"]["duration"] == 320
+    assert ladder[1]["type"] == "get"
+    assert "duration" not in ladder[1]["params"]
+
+    # Verify search queries
+    assert (
+        ladder[2]["params"]["q"]
+        == "Star Wars - Main Theme John Williams & London Symphony Orchestra"
+    )
+    assert ladder[3]["params"]["q"] == "Star Wars - Main Theme John Williams"
+    assert ladder[4]["params"]["q"] == "Star Wars John Williams"
+    assert (
+        ladder[5]["params"]["q"]
+        == "John Williams & London Symphony Orchestra Star Wars - Main Theme"
+    )
+    assert ladder[6]["params"]["q"] == "Star Wars"
+
+    # When duration is omitted, Stage 1 with duration should not appear
+    ladder_no_dur = LyricsService.generate_query_ladder("Yellow", "Coldplay", duration=None)
+    assert all("duration" not in s["params"] for s in ladder_no_dur if s["type"] == "get")
+
+
+def test_candidate_ranking_line_count_completeness_and_penalties():
+    """Candidate ranking awards line count points and penalizes stubs with <6 lines on long songs."""
+    # Complete 30-line plain text candidate
+    plain_30 = "\n".join([f"Line {i} of the complete lyrics" for i in range(30)])
+    cand_complete_plain = {
+        "id": "complete_plain",
+        "trackName": "Song",
+        "artistName": "Artist",
+        "duration": 200,
+        "plainLyrics": plain_30,
+        "syncedLyrics": "",
+    }
+    # 2-line synced stub candidate
+    cand_synced_stub = {
+        "id": "synced_stub",
+        "trackName": "Song",
+        "artistName": "Artist",
+        "duration": 200,
+        "plainLyrics": "Line 1\nLine 2",
+        "syncedLyrics": "[00:01.00] Line 1\n[00:05.00] Line 2",
+    }
+    # Complete plain lyrics must defeat 2-line synced stub
+    winner = LyricsService.rank_candidates(
+        [cand_synced_stub, cand_complete_plain],
+        target_title="Song",
+        target_artist="Artist",
+        target_duration=200.0,
+    )
+    assert winner["id"] == "complete_plain"
+
+
+def test_candidate_ranking_truncated_snippet_penalty():
+    """Candidate ranking penalizes synced candidates whose timestamp span cuts off before 0.5 * duration."""
+    # Candidate lasting only 20s on a 240s song (latest ts < 120s)
+    truncated_cand = {
+        "id": "truncated",
+        "trackName": "Song",
+        "artistName": "Artist",
+        "duration": 240,
+        "syncedLyrics": "\n".join(
+            [f"[00:{i:02d}.00] Line {i}" for i in range(1, 10)]
+        ),  # max ts = 9.0s
+    }
+    # Full candidate with 10 lines spanning up to 200s on a 240s song
+    full_cand = {
+        "id": "full",
+        "trackName": "Song",
+        "artistName": "Artist",
+        "duration": 240,
+        "syncedLyrics": "\n".join(
+            [f"[{i * 20 // 60:02d}:{i * 20 % 60:02d}.00] Line {i}" for i in range(1, 11)]
+        ),  # max ts = 200s (03:20)
+    }
+    score_trunc = LyricsService.score_candidate(truncated_cand, "Song", "Artist", 240.0)
+    score_full = LyricsService.score_candidate(full_cand, "Song", "Artist", 240.0)
+    assert score_full > score_trunc + 60.0  # At least 60 points higher due to truncated penalty
+
+
+def test_candidate_ranking_escalated_duration_penalty():
+    """Duration mismatch differences > 30s incur escalating penalties preventing live cuts from winning."""
+    studio_cut = {
+        "id": "studio",
+        "trackName": "Song",
+        "artistName": "Artist",
+        "duration": 210,
+        "syncedLyrics": "\n".join([f"[{i:02d}:00.00] Line {i}" for i in range(1, 4)]),
+    }
+    live_cut_60s_off = {
+        "id": "live",
+        "trackName": "Song",
+        "artistName": "Artist",
+        "duration": 280,  # 70s mismatch
+        "syncedLyrics": "\n".join([f"[{i:02d}:00.00] Line {i}" for i in range(1, 4)]),
+    }
+    winner = LyricsService.rank_candidates(
+        [live_cut_60s_off, studio_cut],
+        target_title="Song",
+        target_artist="Artist",
+        target_duration=210.0,
+    )
+    assert winner["id"] == "studio"
+
+
+def test_candidate_ranking_token_set_and_swapped_similarity():
+    """Candidate ranking handles reordered tokens and swapped metadata."""
+    cand_reordered = {
+        "id": "reordered",
+        "trackName": "Imagine Dragons - Radioactive",
+        "artistName": "Imagine Dragons",
+        "duration": 180,
+        "syncedLyrics": "\n".join([f"[{i:02d}:00.00] Line {i}" for i in range(1, 4)]),
+    }
+    cand_irrelevant = {
+        "id": "irrelevant",
+        "trackName": "Completely Different Song",
+        "artistName": "Someone Else",
+        "duration": 180,
+        "syncedLyrics": "\n".join([f"[{i:02d}:00.00] Line {i}" for i in range(1, 4)]),
+    }
+    winner = LyricsService.rank_candidates(
+        [cand_irrelevant, cand_reordered],
+        target_title="Radioactive",
+        target_artist="Imagine Dragons",
+        target_duration=180.0,
+    )
+    assert winner["id"] == "reordered"
+
+    # Swapped metadata recovery: target has artist in title and title in artist
+    cand_standard = {
+        "id": "canonical_queen",
+        "trackName": "Bohemian Rhapsody",
+        "artistName": "Queen",
+        "duration": 354,
+        "syncedLyrics": "\n".join([f"[{i:02d}:00.00] Line {i}" for i in range(1, 6)]),
+    }
+    swapped_winner = LyricsService.rank_candidates(
+        [cand_irrelevant, cand_standard],
+        target_title="Queen",
+        target_artist="Bohemian Rhapsody",
+        target_duration=354.0,
+    )
+    assert swapped_winner["id"] == "canonical_queen"
+
+
+def test_module_level_interface_contracts():
+    """Module-level functions match the PROJECT.md interface contract."""
+    from backend.services.lyrics import (
+        extract_base_title,
+        extract_canonical,
+        extract_primary_artist,
+        generate_query_ladder,
+    )
+
+    t, a = extract_canonical("Queen - Bohemian Rhapsody", "Unknown")
+    assert t == "Bohemian Rhapsody"
+    assert a == "Queen"
+
+    primary = extract_primary_artist("David Guetta feat. Sia")
+    assert primary == "David Guetta"
+
+    base = extract_base_title("Star Wars - Main Theme")
+    assert base == "Star Wars"
+
+    ladder = generate_query_ladder("Song", "Artist", duration=200.0)
+    assert len(ladder) >= 2
+    assert ladder[0]["type"] == "get"
+
+
+def test_lyrics_normalizer_nested_brackets_and_smart_quotes():
+    """Verify clean_title resolves nested brackets, dangling orphaned brackets, and unicode smart quotes."""
+    # Nested brackets stripping
+    assert LyricsNormalizer.clean_title("Numb [Official Video (HD)]") == "Numb"
+    assert (
+        LyricsNormalizer.clean_title("Bohemian Rhapsody ((Official Video))") == "Bohemian Rhapsody"
+    )
+    assert LyricsNormalizer.clean_title("Title [Remastered (2020)]") == "Title"
+    assert LyricsNormalizer.clean_title("Track (Official Video [HD])") == "Track"
+
+    # Unicode smart quotes
+    assert LyricsNormalizer.clean_title("“Hello”") == "Hello"
+    assert LyricsNormalizer.clean_title("‘Yesterday’") == "Yesterday"
+    assert LyricsNormalizer.clean_title("«Track»") == "Track"
+
+    # Residual unbalanced edge brackets
+    assert LyricsNormalizer.clean_title("Song )") == "Song"
+    assert LyricsNormalizer.clean_title("Song ]") == "Song"
+    assert LyricsNormalizer.clean_title("Song }") == "Song"
+    assert LyricsNormalizer.clean_title("( Song") == "Song"
+
+    # Balanced non-noise brackets preserved
+    assert LyricsNormalizer.clean_title("Track (Part 1)") == "Track (Part 1)"
+    assert (
+        LyricsNormalizer.clean_title("(I Can't Get No) Satisfaction")
+        == "(I Can't Get No) Satisfaction"
+    )
+
+
+def test_generate_query_ladder_safe_duration_anomalies():
+    """Verify generate_query_ladder safely handles non-finite or non-positive durations."""
+    # Infinite duration
+    ladder_inf = LyricsService.generate_query_ladder("Track", "Artist", float("inf"))
+    assert 1 not in [s["stage"] for s in ladder_inf]
+    assert 2 in [s["stage"] for s in ladder_inf]
+
+    # NaN duration
+    ladder_nan = LyricsService.generate_query_ladder("Track", "Artist", float("nan"))
+    assert 1 not in [s["stage"] for s in ladder_nan]
+    assert 2 in [s["stage"] for s in ladder_nan]
+
+    # None duration
+    ladder_none = LyricsService.generate_query_ladder("Track", "Artist", None)
+    assert 1 not in [s["stage"] for s in ladder_none]
+    assert 2 in [s["stage"] for s in ladder_none]
+
+    # Zero & negative duration
+    assert 1 not in [
+        s["stage"] for s in LyricsService.generate_query_ladder("Track", "Artist", 0.0)
+    ]
+    assert 1 not in [
+        s["stage"] for s in LyricsService.generate_query_ladder("Track", "Artist", -10.0)
+    ]
+
+    # Valid duration
+    ladder_valid = LyricsService.generate_query_ladder("Track", "Artist", 210.6)
+    assert ladder_valid[0]["stage"] == 1
+    assert ladder_valid[0]["duration"] == 210
+
+
+def test_candidate_ranking_spread_stubs_vs_complete_plain():
+    """Candidate ranking guarantees complete plain lyrics defeat 1-line to 5-line synced stubs."""
+    target_dur = 210.0
+    full_plain = "\n".join([f"Verse line {i} of full song text" for i in range(40)])
+    cand_plain = {
+        "id": "complete_plain",
+        "trackName": "Song Title",
+        "artistName": "Artist Name",
+        "duration": target_dur,
+        "plainLyrics": full_plain,
+        "syncedLyrics": "",
+    }
+    cand_2line = {
+        "id": "stub_2line",
+        "trackName": "Song Title",
+        "artistName": "Artist Name",
+        "duration": target_dur,
+        "syncedLyrics": "[00:05.00] Hello\n[03:20.00] Goodbye",
+        "plainLyrics": "Hello\nGoodbye",
+    }
+    winner = LyricsService.rank_candidates(
+        [cand_2line, cand_plain], "Song Title", "Artist Name", target_dur
+    )
+    assert winner["id"] == "complete_plain"
+
+
+def test_candidate_ranking_truncated_snippets_vs_complete_plain():
+    """Candidate ranking guarantees complete plain lyrics defeat preview snippets cutting off < 50% of track."""
+    target_dur = 240.0
+    full_plain = "\n".join([f"Verse line {i} of full song text" for i in range(40)])
+    cand_plain = {
+        "id": "complete_plain",
+        "trackName": "Song Title",
+        "artistName": "Artist Name",
+        "duration": target_dur,
+        "plainLyrics": full_plain,
+        "syncedLyrics": "",
+    }
+    cand_snippet = {
+        "id": "snippet_6line",
+        "trackName": "Song Title",
+        "artistName": "Artist Name",
+        "duration": target_dur,
+        "syncedLyrics": "\n".join([f"[00:{i * 5:02d}.00] Preview line {i}" for i in range(1, 7)]),
+        "plainLyrics": "\n".join([f"Preview line {i}" for i in range(1, 7)]),
+    }
+    winner = LyricsService.rank_candidates(
+        [cand_snippet, cand_plain], "Song Title", "Artist Name", target_dur
+    )
+    assert winner["id"] == "complete_plain"
+
+
+def test_candidate_ranking_unrelated_synced_candidate_gating():
+    """Candidate ranking gates synced bonus so an unrelated song cannot beat an exact match plain lyrics."""
+    cand_correct_plain = {
+        "id": "correct_plain",
+        "trackName": "Bohemian Rhapsody",
+        "artistName": "Queen",
+        "duration": 354,
+        "plainLyrics": "\n".join([f"Line {i} of bohemian rhapsody" for i in range(40)]),
+        "syncedLyrics": "",
+    }
+    cand_wrong_synced = {
+        "id": "wrong_synced",
+        "trackName": "Hotel California",
+        "artistName": "Eagles",
+        "duration": 354,
+        "syncedLyrics": "\n".join(
+            [f"[{i * 8 // 60:02d}:{i * 8 % 60:02d}.00] Line {i}" for i in range(40)]
+        ),
+        "plainLyrics": "\n".join([f"Line {i}" for i in range(40)]),
+    }
+    winner = LyricsService.rank_candidates(
+        [cand_wrong_synced, cand_correct_plain], "Bohemian Rhapsody", "Queen", target_duration=354.0
+    )
+    assert winner["id"] == "correct_plain"
+
+
+def test_candidate_ranking_target_duration_none_fallback():
+    """Candidate ranking evaluates completeness using candidate duration when target_duration is None."""
+    cand_plain = {
+        "id": "complete_plain",
+        "trackName": "Song Title",
+        "artistName": "Artist Name",
+        "duration": 210,
+        "plainLyrics": "\n".join([f"Verse line {i} of full song text" for i in range(40)]),
+        "syncedLyrics": "",
+    }
+    cand_stub = {
+        "id": "stub_1line",
+        "trackName": "Song Title",
+        "artistName": "Artist Name",
+        "duration": 210,
+        "syncedLyrics": "[00:01.00] (Instrumental)",
+        "plainLyrics": "(Instrumental)",
+    }
+    winner = LyricsService.rank_candidates(
+        [cand_stub, cand_plain], "Song Title", "Artist Name", target_duration=None
+    )
+    assert winner["id"] == "complete_plain"

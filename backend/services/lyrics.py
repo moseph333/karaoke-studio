@@ -15,24 +15,34 @@ logger = logging.getLogger(__name__)
 class LyricsNormalizer:
     """Normalizes noisy track titles and artist names to canonical search queries."""
 
-    # 1. Bracketed media noise patterns: (Official Music Video), [HD], {Audio}, etc.
+    # 1. Bracketed media & soundtrack noise patterns: (Official Music Video), [HD], [OST], (From "..."), etc.
     BRACKETED_NOISE_RE = re.compile(
         r"[\(\[\{][^)\]\}]*?\b(?:"
         r"official\s+(?:music\s+)?video|official\s+audio|official\s+lyric\s+video|official\s+visualizer|official\s+stream|"
         r"music\s+video|lyric\s+video|lyrics?|visualizer|audio|"
-        r"hd|4k|8k|1080p|hq|remaster(?:ed)?|extended(?:\s+mix)?|original\s+mix|"
+        r"hd|4k|8k|1080p|hq|(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|extended(?:\s+mix)?|original\s+mix|"
         r"live(?:\s+(?:at|from)[^)\]}]*)?|clip\s+officiel|video\s+oficial|mv|"
-        r"deluxe|bonus\s+track"
-        r")\b[^)\]\}]*?[\)\]\}]",
+        r"deluxe(?:\s+edition)?|bonus\s+track|"
+        r"soundtrack|ost|original\s+(?:motion\s+picture\s+)?soundtrack|motion\s+picture\s+soundtrack|"
+        r"from\s+[\"'\x27\x22].*?[\"'\x27\x22]|from\s+[^)\]\}]+?(?:\s+(?:soundtrack|album|movie|film|series|score|ost))\b|"
+        r"from\s+(?:the\s+)?(?:motion\s+picture|movie|film|netflix|series)\b|"
+        r"radio\s+edit|single\s+version|album\s+version|acoustic(?:\s+version)?"
+        r")[^)\]\}]*?[\)\]\}]",
         flags=re.IGNORECASE,
     )
 
-    # 2. Unbracketed trailing delimiter noise: " | Official Video", " // Audio", " - Lyric Video"
+    # 2. Unbracketed trailing delimiter noise: " | Official Video", " - 2011 Remaster", " - Live", etc.
     DELIMITER_NOISE_RE = re.compile(
         r"\s*(?:\||//|-|\u2013|\u2014|:)\s*(?:"
         r"official\s+(?:music\s+)?video|official\s+audio|official\s+lyric\s+video|official\s+visualizer|"
-        r"music\s+video|lyric\s+video|lyrics?|visualizer|audio|hd|4k|8k|1080p|hq|mv|clip\s+officiel|video\s+oficial"
-        r")\b.*$",
+        r"music\s+video|lyric\s+video|lyrics?|visualizer|audio|hd|4k|8k|1080p|hq|mv|clip\s+officiel|video\s+oficial|"
+        r"(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|live(?:\s+(?:at|from)[^|\-\/]*)?|"
+        r"radio\s+edit|single\s+version|album\s+version|acoustic(?:\s+version)?|"
+        r"deluxe(?:\s+edition)?|extended(?:\s+mix)?|original\s+mix|bonus\s+track|"
+        r"ost|soundtrack|original\s+(?:motion\s+picture\s+)?soundtrack|motion\s+picture\s+soundtrack|"
+        r"from\s+[\"'\x27\x22].*?[\"'\x27\x22]|from\s+(?:the\s+)?[^|\-\/]+(?:\s+(?:soundtrack|album|movie|film|series|score|ost))\b|"
+        r"from\s+(?:the\s+)?(?:motion\s+picture|movie|film|netflix|series|album)\b"
+        r").*$",
         flags=re.IGNORECASE,
     )
 
@@ -57,6 +67,41 @@ class LyricsNormalizer:
         r"\s*(?:-\s*)?official(?:\s+channel|\s+music\s+video|\s+page)?$", flags=re.IGNORECASE
     )
 
+    # 5. Unicode smart quotes translation table
+    SMART_QUOTES = str.maketrans(
+        {
+            "\u201c": '"',  # Left double quotation mark
+            "\u201d": '"',  # Right double quotation mark
+            "\u2018": "'",  # Left single quotation mark
+            "\u2019": "'",  # Right single quotation mark
+            "\u00ab": '"',  # Left-pointing double angle quotation mark
+            "\u00bb": '"',  # Right-pointing double angle quotation mark
+        }
+    )
+
+    @classmethod
+    def _strip_unbalanced_brackets(cls, s: str) -> str:
+        """Strip orphaned/unbalanced closing or opening brackets from edges of a string."""
+        s = s.strip()
+        bracket_pairs = (("(", ")"), ("[", "]"), ("{", "}"))
+        changed = True
+        while changed and s:
+            changed = False
+            for open_b, close_b in bracket_pairs:
+                # Check trailing unbalanced closing or opening brackets
+                if (s.endswith(close_b) and s.count(close_b) > s.count(open_b)) or (
+                    s.endswith(open_b) and s.count(open_b) > s.count(close_b)
+                ):
+                    s = s[:-1].strip()
+                    changed = True
+                # Check leading unbalanced closing or opening brackets
+                elif (s.startswith(close_b) and s.count(close_b) > s.count(open_b)) or (
+                    s.startswith(open_b) and s.count(open_b) > s.count(close_b)
+                ):
+                    s = s[1:].strip()
+                    changed = True
+        return s
+
     @classmethod
     def extract_featured(cls, text: str) -> str | None:
         if not text:
@@ -70,32 +115,83 @@ class LyricsNormalizer:
         return None
 
     @classmethod
+    def extract_primary_artist(cls, artist_name: str) -> str:
+        """Extract primary artist from collaboration strings containing &, feat., ft., x, ,, etc."""
+        if not artist_name or not isinstance(artist_name, str):
+            return "Unknown Artist"
+        a = cls.clean_artist(artist_name)
+        if a == "Unknown Artist":
+            return "Unknown Artist"
+        # First strip trailing feat./ft./featuring/with clause
+        feat_pat = r"(?i)\s+(?:feat\.?|ft\.?|featuring|with)\s+.*$"
+        a = re.sub(feat_pat, "", a).strip()
+        # Split on collaboration conjunctions: &, and, vs., /, comma, or spaced x
+        parts = re.split(r"(?i)\s+(?:&|and|vs\.?|\/)\s+|\s*,\s*|\s+[xX]\s+", a)
+        if parts and parts[0].strip():
+            primary = parts[0].strip()
+            primary = re.sub(r"\s*(?:\||//|-|\u2013|\u2014|:)\s*$", "", primary).strip()
+            return primary or "Unknown Artist"
+        return a or "Unknown Artist"
+
+    @classmethod
+    def extract_base_title(cls, track_name: str) -> str:
+        """Extract core/base title by stripping subtitle clauses and version suffixes."""
+        if not track_name or not isinstance(track_name, str):
+            return ""
+        clean = cls.clean_title(track_name)
+        if not clean:
+            return ""
+        # Strip any remaining bracketed or parenthetical clauses
+        t = re.sub(r"[\(\[\{].*?[\)\]\}]", "", clean).strip()
+        # Split on subtitle delimiters: " - ", en-dash, em-dash, colon
+        parts = re.split(r"\s*(?: - | \u2013 | \u2014 | : )\s*", t)
+        if parts and parts[0].strip():
+            base = parts[0].strip()
+            base = re.sub(r"^[\"']+|[\"']+$", "", base).strip()
+            base = re.sub(r"\s+", " ", base).strip()
+            if len(base) >= 2:
+                return base
+        return clean
+
+    @classmethod
     def clean_title(cls, title: str) -> str:
         if not title or not isinstance(title, str):
             return ""
-        t = title.strip()
-        # 1. Strip bracketed media noise
-        t = cls.BRACKETED_NOISE_RE.sub("", t)
-        # 2. Strip delimiter noise
-        t = cls.DELIMITER_NOISE_RE.sub("", t)
-        # 3. Strip bracketed featured artist clauses
-        t = cls.FEAT_BRACKET_RE.sub("", t)
-        # 4. Strip unbracketed featured artist clauses
-        t = cls.FEAT_UNBRACKETED_RE.sub("", t)
-        # 5. Remove any leftover empty brackets
-        t = re.sub(r"[\(\[\{]\s*[\)\]\}]", "", t)
-        # 6. Clean trailing delimiters
-        t = re.sub(r"\s*(?:\||//|-|\u2013|\u2014|:)\s*$", "", t)
-        # 7. Clean quotes and extra whitespace
-        t = re.sub(r"^[\"']|[\"']$", "", t)
-        t = re.sub(r"\s+", " ", t).strip()
+        t = title.strip().translate(cls.SMART_QUOTES)
+
+        # Iteratively apply stripping until string stabilizes (max 5 iterations)
+        for _ in range(5):
+            old_t = t
+            # 1. Strip bracketed media & soundtrack noise
+            t = cls.BRACKETED_NOISE_RE.sub("", t)
+            # 2. Strip delimiter noise
+            t = cls.DELIMITER_NOISE_RE.sub("", t)
+            # 3. Strip bracketed featured artist clauses
+            t = cls.FEAT_BRACKET_RE.sub("", t)
+            # 4. Strip unbracketed featured artist clauses
+            t = cls.FEAT_UNBRACKETED_RE.sub("", t)
+            # 5. Remove any leftover empty brackets
+            t = re.sub(r"[\(\[\{]\s*[\)\]\}]", "", t)
+            # 6. Clean trailing delimiters
+            t = re.sub(r"\s*(?:\||//|-|\u2013|\u2014|:)\s*$", "", t)
+            # 7. Clean residual unbalanced/orphaned brackets at boundaries
+            t = cls._strip_unbalanced_brackets(t)
+            # 8. Clean trailing delimiters again if bracket stripping exposed one
+            t = re.sub(r"\s*(?:\||//|-|\u2013|\u2014|:)\s*$", "", t)
+            # 9. Clean quotes and extra whitespace
+            t = re.sub(r"^[\"']+|[\"']+$", "", t)
+            t = re.sub(r"\s+", " ", t).strip()
+
+            if t == old_t:
+                break
+
         return t
 
     @classmethod
     def clean_artist(cls, artist: str) -> str:
         if not artist or not isinstance(artist, str):
             return "Unknown Artist"
-        a = artist.strip()
+        a = artist.strip().translate(cls.SMART_QUOTES)
         a = cls.TOPIC_SUFFIX_RE.sub("", a)
         a = cls.VEVO_SUFFIX_RE.sub("", a)
         a = cls.OFFICIAL_CHANNEL_RE.sub("", a)
@@ -104,40 +200,54 @@ class LyricsNormalizer:
         a = cls.FEAT_UNBRACKETED_RE.sub("", a)
         # Strip generic brackets
         a = re.sub(r"[\(\[\{].*?[\)\]\}]", "", a)
+        a = cls._strip_unbalanced_brackets(a)
         a = re.sub(r"\s*(?:\||//|-|\u2013|\u2014|:)\s*$", "", a)
+        a = re.sub(r"^[\"']+|[\"']+$", "", a)
         a = re.sub(r"\s+", " ", a).strip()
         return a or "Unknown Artist"
 
     @classmethod
-    def extract_canonical(cls, track_title: str, artist_name: str) -> tuple[str, str, str | None]:
+    def extract_canonical(cls, track_title: str, artist_name: str) -> tuple[str, str]:
         title = (track_title or "").strip()
         artist = (artist_name or "").strip()
 
-        if " - " in title:
-            parts = title.split(" - ", 1)
+        # Check for delimiters: " - ", en-dash, em-dash
+        split_delim = None
+        for d in (" - ", " \u2013 ", " \u2014 "):
+            if d in title:
+                split_delim = d
+                break
+
+        if split_delim:
+            parts = title.split(split_delim, 1)
             clean_part0 = cls.clean_artist(parts[0])
+            clean_part1 = cls.clean_artist(parts[1])
             clean_existing_a = cls.clean_artist(artist)
+
+            # Case 1: Title is "Title - Artist" and artist matches parts[1]
             if (
+                clean_existing_a != "Unknown Artist"
+                and clean_part1.lower() == clean_existing_a.lower()
+            ):
+                title = parts[0].strip()
+                artist = parts[1].strip()
+            # Case 2: Title is "Artist - Title" (parts[0] matches artist or artist is unknown/generic)
+            elif (
                 not artist
-                or artist in ("Unknown Artist", "Unknown")
-                or clean_existing_a == "Unknown Artist"
+                or artist in ("Unknown Artist", "Unknown", "Various Artists")
+                or clean_existing_a in ("Unknown Artist", "Unknown", "Various Artists")
                 or clean_part0.lower() == clean_existing_a.lower()
             ):
                 artist = parts[0].strip()
                 title = parts[1].strip()
 
-        featured = cls.extract_featured(track_title or "") or (
-            cls.extract_featured(artist_name or "") if artist_name else None
-        )
-
         clean_t = cls.clean_title(title)
         clean_a = cls.clean_artist(artist)
-        return (clean_t, clean_a, featured)
+        return (clean_t, clean_a)
 
     @classmethod
     def normalize_track_metadata(cls, title: str, artist: str) -> tuple[str, str]:
-        clean_t, clean_a, _ = cls.extract_canonical(title, artist)
-        return (clean_t, clean_a)
+        return cls.extract_canonical(title, artist)
 
 
 class LyricsService:
@@ -187,21 +297,196 @@ class LyricsService:
 
         return {"source": "none", "synced": False, "plain_lyrics": "", "lrc": "", "lines": []}
 
-    @staticmethod
-    def rank_candidates(
+    @classmethod
+    def calculate_similarity(cls, str1: str, str2: str) -> float:
+        """
+        Calculate string similarity combining SequenceMatcher ratio, token-set intersection,
+        and token-sort ratio for resilience against extra words and token reordering.
+        """
+        if not str1 and not str2:
+            return 1.0
+        if not str1 or not str2:
+            return 0.0
+
+        s1 = str(str1).lower().strip()
+        s2 = str(str2).lower().strip()
+        if s1 == s2:
+            return 1.0
+
+        seq_ratio = difflib.SequenceMatcher(None, s1, s2).ratio()
+
+        # Token-level similarity
+        t1 = set(re.findall(r"\w+", s1))
+        t2 = set(re.findall(r"\w+", s2))
+
+        if not t1 or not t2:
+            return seq_ratio
+
+        common = t1 & t2
+        coverage1 = len(common) / len(t1)
+        coverage2 = len(common) / len(t2)
+        jaccard = len(common) / len(t1 | t2)
+
+        sorted_s1 = " ".join(sorted(t1))
+        sorted_s2 = " ".join(sorted(t2))
+        sort_ratio = difflib.SequenceMatcher(None, sorted_s1, sorted_s2).ratio()
+
+        subset_bonus = (
+            0.9 * max(coverage1, coverage2) if (t1.issubset(t2) or t2.issubset(t1)) else 0.0
+        )
+        best_token_sim = max(jaccard, sort_ratio, subset_bonus)
+        combined = (0.4 * seq_ratio) + (0.6 * best_token_sim)
+        return max(seq_ratio, combined)
+
+    @classmethod
+    def score_candidate(
+        cls,
+        cand: dict[str, Any],
+        target_title: str,
+        target_artist: str,
+        target_duration: float | None = None,
+    ) -> float:
+        """
+        Score a single candidate using multi-objective metrics:
+          - Synced lyrics preference (+100.0 bonus / -10.0 penalty)
+          - Line count completeness (+1.0 per line up to +20.0; penalty -140.0 if < 6 lines when duration > 60s or duration is None)
+          - Truncated snippet penalty (-130.0 if latest timestamp < 0.5 * duration)
+          - Synced bonus gating: revoke +100.0 bonus if candidate is a stub, truncated snippet, or unrelated song (< 35/70 similarity or title < 0.40)
+          - Unrelated metadata mismatch penalty (-60.0)
+          - Duration proximity & escalated mismatch penalty for differences > 30s
+          - Token-set / fuzzy string similarity with swapped artist/title tolerance
+        """
+        synced_lrc = (cand.get("syncedLyrics") or "").strip()
+        plain_lrc = (cand.get("plainLyrics") or "").strip()
+        if not synced_lrc and not plain_lrc:
+            return -1000.0
+
+        is_synced = bool(synced_lrc and cls.is_lrc(synced_lrc))
+
+        # Parse line count
+        if is_synced:
+            parsed_lines = cls.parse_lrc(synced_lrc)
+            line_count = len(parsed_lines)
+        else:
+            line_count = len([line for line in plain_lrc.splitlines() if line.strip()])
+
+        # Safe duration extraction
+        valid_target_dur: float | None = None
+        if target_duration is not None:
+            try:
+                t_dur = float(target_duration)
+                if math.isfinite(t_dur) and t_dur > 0:
+                    valid_target_dur = t_dur
+            except (ValueError, TypeError):
+                pass
+
+        cand_dur: float | None = None
+        try:
+            c_dur = float(cand.get("duration", 0) or 0)
+            if math.isfinite(c_dur) and c_dur > 0:
+                cand_dur = c_dur
+        except (ValueError, TypeError):
+            pass
+
+        # Effective duration: fallback to cand_dur when target_duration is None
+        effective_duration = valid_target_dur if valid_target_dur is not None else cand_dur
+
+        # 1. Title & Artist Similarity (Token-set, SequenceMatcher, and Swapped check)
+        c_title = str(cand.get("trackName") or cand.get("name") or cand.get("title") or "")
+        c_artist = str(cand.get("artistName") or cand.get("artist") or "")
+
+        title_sim = cls.calculate_similarity(target_title, c_title)
+        artist_sim = cls.calculate_similarity(target_artist, c_artist)
+
+        swapped_title_sim = cls.calculate_similarity(target_title, c_artist)
+        swapped_artist_sim = cls.calculate_similarity(target_artist, c_title)
+
+        direct_sim = (40.0 * title_sim) + (30.0 * artist_sim)
+        swapped_sim = (40.0 * swapped_title_sim) + (30.0 * swapped_artist_sim)
+        meta_sim = max(direct_sim, max(0.0, swapped_sim - 5.0))
+
+        best_title_sim = max(title_sim, swapped_title_sim)
+
+        # Unrelated check: title similarity < 0.40 or combined similarity < 35.0 (out of 70.0)
+        is_unrelated = bool(best_title_sim < 0.40 or meta_sim < 35.0)
+
+        # Completeness / Stub check:
+        # If target duration > 60s, or cand duration > 60s, or target_duration is None
+        is_long_or_unknown = bool(
+            valid_target_dur is None
+            or (effective_duration is not None and effective_duration > 60.0)
+        )
+        is_stub = bool(is_long_or_unknown and line_count < 6)
+
+        # Truncated snippet check (for synced lyrics):
+        is_truncated = False
+        if is_synced and effective_duration and effective_duration > 60.0:
+            ts_matches = re.findall(r"\[(\d{1,4}):(\d{2})(?:\.(\d{1,3}))?\]", synced_lrc)
+            if ts_matches:
+                max_ts = 0.0
+                for m in ts_matches:
+                    mins = int(m[0])
+                    secs = int(m[1])
+                    frac = float(f"0.{m[2]}") if m[2] else 0.0
+                    ts = mins * 60 + secs + frac
+                    if ts > max_ts:
+                        max_ts = ts
+                if max_ts < 0.5 * effective_duration:
+                    is_truncated = True
+
+        score = 0.0
+
+        # 2. Synced Lyrics Preference & Gating:
+        # Gate the +100.0 bonus on not being a stub, not being a truncated snippet, and not being unrelated
+        if is_synced:
+            if not is_stub and not is_truncated and not is_unrelated:
+                score += 100.0
+        else:
+            score -= 10.0
+
+        # 3. Line count completeness scoring
+        if is_stub:
+            score -= 140.0
+        else:
+            score += min(20.0, float(line_count) * 1.0)
+
+        # 4. Truncated snippet penalty
+        if is_truncated and not is_stub:
+            score -= 130.0
+
+        # 5. Unrelated song mismatch penalty
+        if is_unrelated:
+            score -= 60.0
+
+        # 6. Duration Proximity & Escalated Mismatch Penalty (>30s)
+        if valid_target_dur is not None and cand_dur is not None:
+            diff = abs(cand_dur - valid_target_dur)
+            if diff <= 3.0:
+                score += 50.0 - (diff * 2.0)
+            elif diff <= 8.0:
+                score += 35.0 - ((diff - 3.0) * 2.0)
+            elif diff <= 20.0:
+                score += 15.0 - ((diff - 8.0) * 1.0)
+            elif diff <= 30.0:
+                score -= 10.0 + ((diff - 20.0) * 1.5)
+            else:
+                score -= min(120.0, 25.0 + ((diff - 30.0) * 2.5))
+
+        # 7. Add metadata similarity
+        score += meta_sim
+
+        return score
+
+    @classmethod
+    def rank_candidates_with_score(
+        cls,
         candidates: list[dict[str, Any]],
         target_title: str,
         target_artist: str,
         target_duration: float | None = None,
-    ) -> dict[str, Any] | None:
-        """
-        Rank search candidates from LRCLIB using a multi-objective scoring formula:
-          - Synced lyrics bonus (+100.0) / unsynced penalty (-10.0)
-          - Duration proximity bonus (<=3s: +44..+50) and mismatch penalty (>20s)
-          - Title and artist string similarity using SequenceMatcher (up to +70.0)
-        """
+    ) -> tuple[dict[str, Any] | None, float]:
         if not candidates or not isinstance(candidates, list):
-            return None
+            return None, -float("inf")
 
         scored: list[tuple[float, dict[str, Any]]] = []
         for cand in candidates:
@@ -212,108 +497,299 @@ class LyricsService:
             if not synced_lrc and not plain_lrc:
                 continue
 
-            score = 0.0
-            # 1. Synced Lyrics Preference (+100.0 bonus)
-            if synced_lrc and LyricsService.is_lrc(synced_lrc):
-                score += 100.0
-            else:
-                score -= 10.0
-
-            # 2. Duration Proximity
-            if target_duration and target_duration > 0:
-                try:
-                    c_dur = float(cand.get("duration", 0) or 0)
-                    if c_dur > 0:
-                        diff = abs(c_dur - target_duration)
-                        if diff <= 3.0:
-                            score += 50.0 - (diff * 2.0)
-                        elif diff <= 8.0:
-                            score += 35.0 - ((diff - 3.0) * 2.0)
-                        elif diff <= 20.0:
-                            score += 15.0 - ((diff - 8.0) * 1.0)
-                        else:
-                            score -= min(60.0, 10.0 + (diff - 20.0) * 1.5)
-                except (ValueError, TypeError):
-                    pass
-
-            # 3. Title & Artist Similarity
-            c_title = str(cand.get("trackName") or cand.get("name") or cand.get("title") or "")
-            c_artist = str(cand.get("artistName") or cand.get("artist") or "")
-            t_sim = difflib.SequenceMatcher(
-                None, (target_title or "").lower(), c_title.lower()
-            ).ratio()
-            a_sim = difflib.SequenceMatcher(
-                None, (target_artist or "").lower(), c_artist.lower()
-            ).ratio()
-            score += (40.0 * t_sim) + (30.0 * a_sim)
-
+            score = cls.score_candidate(cand, target_title, target_artist, target_duration)
             scored.append((score, cand))
 
         if not scored:
-            return None
+            return None, -float("inf")
 
+        # Stable sort preserving original candidate order for ties
         scored.sort(key=lambda x: x[0], reverse=True)
-        return scored[0][1]
+        return scored[0][1], scored[0][0]
+
+    @classmethod
+    def rank_candidates(
+        cls,
+        candidates: list[dict[str, Any]],
+        target_title: str,
+        target_artist: str,
+        target_duration: float | None = None,
+    ) -> dict[str, Any] | None:
+        """
+        Rank search candidates from LRCLIB using a multi-objective scoring formula.
+        Returns the top-ranked candidate dict or None.
+        """
+        best_cand, _ = cls.rank_candidates_with_score(
+            candidates, target_title, target_artist, target_duration
+        )
+        return best_cand
+
+    @classmethod
+    def generate_query_ladder(
+        cls, track_name: str, artist_name: str, duration: float | None = None
+    ) -> list[dict[str, Any]]:
+        """
+        Generate multi-stage LRCLIB query fallback ladder:
+          Stage 1: Exact /api/get with duration (if duration > 0)
+          Stage 2: Exact /api/get without duration
+          Stage 3: Search q = f"{clean_title} {clean_artist}"
+          Stage 4: Search q = f"{clean_title} {primary_artist}" (if different)
+          Stage 5: Search q = f"{base_title} {primary_artist}" (if different)
+          Stage 6: Search swapped q = f"{clean_artist} {clean_title}"
+          Stage 7: Search q = f"{base_title}" (title-only)
+        """
+        clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(
+            track_name, artist_name
+        )
+        primary_artist = LyricsNormalizer.extract_primary_artist(clean_artist)
+        base_title = LyricsNormalizer.extract_base_title(clean_title)
+
+        ladder: list[dict[str, Any]] = []
+
+        is_valid_duration = (
+            duration is not None
+            and isinstance(duration, (int, float))
+            and math.isfinite(duration)
+            and duration > 0
+        )
+        safe_duration = int(duration) if is_valid_duration else None
+
+        # Stage 1: Exact /api/get with duration (only if valid, finite, > 0)
+        if safe_duration is not None:
+            ladder.append(
+                {
+                    "stage": 1,
+                    "type": "get",
+                    "endpoint": "/get",
+                    "track_name": clean_title,
+                    "artist_name": clean_artist,
+                    "duration": safe_duration,
+                    "params": {
+                        "track_name": clean_title,
+                        "artist_name": clean_artist,
+                        "duration": safe_duration,
+                    },
+                    "description": "Exact GET with duration",
+                }
+            )
+
+        # Stage 2: Exact /api/get without duration
+        ladder.append(
+            {
+                "stage": 2,
+                "type": "get",
+                "endpoint": "/get",
+                "track_name": clean_title,
+                "artist_name": clean_artist,
+                "params": {
+                    "track_name": clean_title,
+                    "artist_name": clean_artist,
+                },
+                "description": "Exact GET without duration",
+            }
+        )
+
+        # Stage 3: Search q = f"{clean_title} {clean_artist}"
+        q3 = f"{clean_title} {clean_artist}".strip()
+        ladder.append(
+            {
+                "stage": 3,
+                "type": "search",
+                "endpoint": "/search",
+                "q": q3,
+                "params": {"q": q3},
+                "description": "Search clean title and clean artist",
+            }
+        )
+
+        # Stage 4: Search q = f"{clean_title} {primary_artist}" (if different)
+        q4 = f"{clean_title} {primary_artist}".strip()
+        if (
+            primary_artist
+            and primary_artist.lower() != clean_artist.lower()
+            and q4.lower() != q3.lower()
+        ):
+            ladder.append(
+                {
+                    "stage": 4,
+                    "type": "search",
+                    "endpoint": "/search",
+                    "q": q4,
+                    "params": {"q": q4},
+                    "description": "Search clean title and primary artist",
+                }
+            )
+
+        # Stage 5: Search q = f"{base_title} {primary_artist}" (if different)
+        q5 = f"{base_title} {primary_artist}".strip()
+        if base_title and q5.lower() not in (q3.lower(), q4.lower()):
+            ladder.append(
+                {
+                    "stage": 5,
+                    "type": "search",
+                    "endpoint": "/search",
+                    "q": q5,
+                    "params": {"q": q5},
+                    "description": "Search base title and primary artist",
+                }
+            )
+
+        # Stage 6: Search swapped q = f"{clean_artist} {clean_title}"
+        q6 = f"{clean_artist} {clean_title}".strip()
+        if clean_artist and clean_artist != "Unknown Artist" and q6.lower() != q3.lower():
+            ladder.append(
+                {
+                    "stage": 6,
+                    "type": "search",
+                    "endpoint": "/search",
+                    "q": q6,
+                    "params": {"q": q6},
+                    "description": "Search swapped artist and title",
+                }
+            )
+
+        # Stage 7: Search q = f"{base_title}" (title-only)
+        q7 = base_title.strip()
+        seen_queries = {q3.lower(), q4.lower(), q5.lower(), q6.lower()}
+        if q7 and q7.lower() not in seen_queries:
+            ladder.append(
+                {
+                    "stage": 7,
+                    "type": "search",
+                    "endpoint": "/search",
+                    "q": q7,
+                    "params": {"q": q7},
+                    "description": "Search base title only",
+                }
+            )
+
+        return ladder
 
     def _fetch_from_lrclib(
         self, track_name: str, artist_name: str, duration: float | None
     ) -> dict[str, Any] | None:
         try:
-            params = {
-                "track_name": track_name,
-                "artist_name": artist_name,
-            }
-            if duration:
-                params["duration"] = int(duration)
+            safe_duration = (
+                float(duration)
+                if (
+                    duration is not None
+                    and isinstance(duration, (int, float))
+                    and math.isfinite(duration)
+                    and duration > 0
+                )
+                else None
+            )
+            ladder = self.generate_query_ladder(track_name, artist_name, safe_duration)
+            clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(
+                track_name, artist_name
+            )
 
             exact_plain = ""
-            resp = requests.get(f"{self.lrclib_url}/get", params=params, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                synced = bool(data.get("syncedLyrics"))
-                lrc = data.get("syncedLyrics") or ""
-                exact_plain = data.get("plainLyrics") or ""
+            exact_synced_cand: dict[str, Any] | None = None
+            best_candidate_overall: dict[str, Any] | None = None
+            best_score_overall: float = -float("inf")
 
-                if synced:
-                    lines = self.parse_lrc(lrc)
-                    return {
-                        "source": "lrclib",
-                        "synced": True,
-                        "plain_lyrics": exact_plain,
-                        "lrc": lrc,
-                        "lines": lines,
-                    }
+            for step in ladder:
+                stype = step["type"]
+                endpoint = step["endpoint"]
+                params = step["params"]
 
-            # If exact match fails or only had plain lyrics, try search endpoint
-            search_query = f"{track_name} {artist_name}".strip()
-            if search_query:
-                search_resp = requests.get(
-                    f"{self.lrclib_url}/search", params={"q": search_query}, timeout=5
+                if stype == "get":
+                    resp = requests.get(f"{self.lrclib_url}{endpoint}", params=params, timeout=5)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        if isinstance(data, list) and data:
+                            data = data[0]
+                        if not isinstance(data, dict):
+                            continue
+                        data.setdefault("trackName", clean_title)
+                        data.setdefault("artistName", clean_artist)
+                        if safe_duration is not None:
+                            data.setdefault("duration", safe_duration)
+                        synced = bool(data.get("syncedLyrics"))
+                        lrc = data.get("syncedLyrics") or ""
+                        plain = data.get("plainLyrics") or ""
+                        if plain and not exact_plain:
+                            exact_plain = plain
+
+                        if synced and self.is_lrc(lrc):
+                            if exact_synced_cand is None:
+                                exact_synced_cand = data
+                            score = self.score_candidate(
+                                data, clean_title, clean_artist, safe_duration
+                            )
+                            if score > 0:
+                                lines = self.parse_lrc(lrc)
+                                return {
+                                    "source": "lrclib",
+                                    "synced": True,
+                                    "plain_lyrics": plain,
+                                    "lrc": lrc,
+                                    "lines": lines,
+                                }
+                    # If 404 or plain-only or invalid synced, proceed to next stage
+
+                elif stype == "search":
+                    resp = requests.get(f"{self.lrclib_url}{endpoint}", params=params, timeout=5)
+                    if resp.status_code == 200:
+                        results = resp.json()
+                        if results and isinstance(results, list):
+                            best_cand, cand_score = self.rank_candidates_with_score(
+                                results,
+                                target_title=clean_title,
+                                target_artist=clean_artist,
+                                target_duration=safe_duration,
+                            )
+                            if best_cand and cand_score > best_score_overall:
+                                best_score_overall = cand_score
+                                best_candidate_overall = best_cand
+
+                                # If we found a high quality synced candidate in search:
+                                has_synced = bool(best_cand.get("syncedLyrics")) and self.is_lrc(
+                                    best_cand["syncedLyrics"]
+                                )
+                                if has_synced and cand_score >= 50.0:
+                                    lrc = best_cand["syncedLyrics"]
+                                    plain = best_cand.get("plainLyrics") or ""
+                                    return {
+                                        "source": "lrclib_search",
+                                        "synced": True,
+                                        "plain_lyrics": plain,
+                                        "lrc": lrc,
+                                        "lines": self.parse_lrc(lrc),
+                                    }
+
+            # If all stages completed and we found a search candidate
+            if best_candidate_overall:
+                has_synced = bool(best_candidate_overall.get("syncedLyrics")) and self.is_lrc(
+                    best_candidate_overall["syncedLyrics"]
                 )
-                if search_resp.status_code == 200:
-                    results = search_resp.json()
-                    if results and isinstance(results, list):
-                        best_cand = self.rank_candidates(
-                            results,
-                            target_title=track_name,
-                            target_artist=artist_name,
-                            target_duration=duration,
-                        )
-                        if best_cand:
-                            synced = bool(best_cand.get("syncedLyrics"))
-                            lrc = best_cand.get("syncedLyrics") or ""
-                            plain = best_cand.get("plainLyrics") or ""
-                            lines = self.parse_lrc(lrc) if synced else self.parse_plain_text(plain)
-                            return {
-                                "source": "lrclib_search",
-                                "synced": synced,
-                                "plain_lyrics": plain,
-                                "lrc": lrc,
-                                "lines": lines,
-                            }
+                lrc = best_candidate_overall.get("syncedLyrics") or ""
+                plain = best_candidate_overall.get("plainLyrics") or ""
+                lines = self.parse_lrc(lrc) if has_synced else self.parse_plain_text(plain)
+                return {
+                    "source": "lrclib_search",
+                    "synced": has_synced,
+                    "plain_lyrics": plain,
+                    "lrc": lrc,
+                    "lines": lines,
+                }
+
+            # Fallback to exact match synced lyrics if search found no candidate
+            if exact_synced_cand:
+                lrc = exact_synced_cand.get("syncedLyrics") or ""
+                plain = exact_synced_cand.get("plainLyrics") or ""
+                lines = self.parse_lrc(lrc)
+                return {
+                    "source": "lrclib",
+                    "synced": True,
+                    "plain_lyrics": plain,
+                    "lrc": lrc,
+                    "lines": lines,
+                }
 
             # Fallback to exact match plain lyrics if search found no candidate
-            if resp.status_code == 200 and exact_plain:
+            if exact_plain:
                 return {
                     "source": "lrclib",
                     "synced": False,
@@ -645,3 +1121,25 @@ class LyricsService:
                 }
             )
         return lines
+
+
+def extract_canonical(track_name: str, artist_name: str) -> tuple[str, str]:
+    """Extract canonical track title and artist name."""
+    return LyricsNormalizer.extract_canonical(track_name, artist_name)
+
+
+def extract_primary_artist(artist_name: str) -> str:
+    """Extract primary artist name from collaborative or multi-artist strings."""
+    return LyricsNormalizer.extract_primary_artist(artist_name)
+
+
+def extract_base_title(track_name: str) -> str:
+    """Extract base track title by stripping subtitle clauses and version tags."""
+    return LyricsNormalizer.extract_base_title(track_name)
+
+
+def generate_query_ladder(
+    track_name: str, artist_name: str, duration: float | None = None
+) -> list[dict[str, Any]]:
+    """Generate multi-stage LRCLIB query fallback ladder."""
+    return LyricsService.generate_query_ladder(track_name, artist_name, duration)

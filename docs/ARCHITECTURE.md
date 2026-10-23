@@ -60,8 +60,9 @@ Karaoke Studio combines an asynchronous Python backend built on **FastAPI** with
 │   ├── services/                   # Media processing & domain services
 │   │   ├── separator.py            # Demucs v4 stem isolation & pipe buffering
 │   │   ├── vocal_analyzer.py       # YIN F0 pitch tracking, chroma key detection & smart key recommender
-│   │   ├── lyrics.py               # LRCLIB scraping, LRC parsing, tokenization
-│   │   ├── aligner.py              # Acoustic envelope analysis & word boundary detection
+│   │   ├── chord_detector.py       # Harmonic chord progression extraction & transposition
+│   │   ├── lyrics.py               # Multi-stage query normalization, candidate scoring, LRCLIB & LRC parsing
+│   │   ├── aligner.py              # FFT offset recovery, phrase boundary snapping, spectral flux & harmonic DP word alignment
 │   │   ├── audio_mixer.py          # FFmpeg pitch transposition & guide vocal blend
 │   │   ├── video_renderer.py       # FFmpeg video muxing, visualizer compositing & background loop
 │   │   ├── ass_generator.py        # SubStation Alpha (\kf, multi-singer duet, gap countdown) script generation
@@ -106,7 +107,7 @@ Karaoke Studio combines an asynchronous Python backend built on **FastAPI** with
 │   │   │   ├── useStudioAuth.ts    # Authentication state & session tokens
 │   │   │   └── useTimelineAutoScroll# Smooth active-word auto-scrolling
 │   │   ├── utils/                  # Pure domain utilities (lyrics.ts, tapSync.ts, vocalRange.ts, gapDetection.ts, volumeStorage.ts, audioErrors.ts)
-│   │   └── tests/                  # Vitest component & responsive test suites (55 suites)
+│   │   └── tests/                  # Vitest component & responsive test suites (63 suites)
 ├── docs/                           # Architectural guides & previews
 └── workspace_data/                 # Local data directory (downloads, stems, output)
 ```
@@ -161,8 +162,8 @@ The backend was refactored from a monolithic entry point into modular, single-re
 - **`backend/render_worker.py`**: Dispatches video rendering jobs guarded by `MAX_CONCURRENT_JOBS` concurrency semaphores.
 - **`services/separator.py` (`AudioSeparator`)**: Wraps Demucs v4 CLI with non-blocking pipe draining to avoid OS subprocess buffer deadlocks. Cleans up intermediate model artifacts (`htdemucs/`) on exit or failure.
 - **`services/vocal_analyzer.py` (`VocalAnalyzer`)**: Performs FFT-accelerated YIN $F_0$ pitch detection with cumulative mean normalization and parabolic interpolation to extract lowest/highest notes, median note, 10th–90th percentile tessitura, and Krumhansl-Schmuckler 12-bin chroma key correlation, plus cost-minimizing semitone transposition recommendations for voice presets (`bass` through `soprano`) or custom note ranges.
-- **`services/lyrics.py` (`LyricsService`)**: Scrapes synchronized lyrics from LRCLIB. Autodetects and parses LRC line timestamps (`[mm:ss.xx]`), cleans plain text tokens, and provides fallback distribution for unsynced tracks.
-- **`services/aligner.py` (`AudioAligner`)**: Analyzes vocal track acoustic energy and spectral flux to map word tokens to exact timestamps, enforcing monotonic non-overlapping invariants while preserving multi-singer line metadata.
+- **`services/lyrics.py` (`LyricsNormalizer`, `LyricsService`)**: Normalizes noisy track/artist metadata (soundtrack/remaster tags, featured artists, unbalanced brackets, swapped `Artist - Title`), executes a 6-stage query fallback ladder against LRCLIB and `syncedlyrics`, ranks candidates by token-set/sequence similarity, line completeness, and duration proximity, and parses LRC timestamps (`[mm:ss.xx]`) and plain text tokens.
+- **`services/aligner.py` (`AudioAligner`)**: Verifies LRC candidates and recovers global timing offsets via zero-mean Pearson FFT cross-correlation with 3-point parabolic interpolation, snaps synced line starts and releases to vocal phrase boundaries while trimming $\ge 1.0\text{s}$ trailing instrumental gaps, partitions untimed plain lyrics across detected vocal phrases (preserving $\ge 1.5\text{s}$ interludes), and computes sub-line word boundaries via vocal-band ($200\text{--}4500\text{Hz}$) STFT log-magnitude spectral flux, voiced harmonic autocorrelation gating, and syllable-aware dynamic programming while enforcing strict monotonic non-overlapping invariants.
 - **`services/audio_mixer.py` (`AudioMixer`)**: Uses FFmpeg `asetrate` / `aresample` filters to shift pitch by semitones without modifying playback tempo, and blends guide vocals over backing tracks.
 - **`services/ass_generator.py`**: Formats Advanced SubStation Alpha scripts with progressive `\kf` syllable wipes, 6 multi-singer duet styles (`KaraokeLineX_Singer1`, `KaraokeLineX_Singer2`, `KaraokeLineX_Both`), `KaraokeCountdown` cues for intro and inter-line gaps ($\ge 4.0\text{s}$), visual color themes, CSS-to-ASS color conversion, font size scaling, and aspect ratio scaling (`1920x1080` for 16:9, `1080x1920` for 9:16).
 - **`services/video_renderer.py` (`VideoRenderer`)**: Executes FFmpeg filtergraphs burning ASS subtitles and optional beat-reactive frequency visualizers onto looped background videos or scaled images, encoding 1080p60 MP4 with 320 kbps AAC audio.
@@ -244,8 +245,8 @@ frontend/src/
 2. **Validation**: The backend validates URL format or verifies container magic bytes (e.g. `RIFF` for WAV, `ID3` for MP3, `fLaC` for FLAC) and enforces size ceilings (HTTP 413).
 3. **Queueing**: Project record is created in `projects.json` with status `"queued"`. A background worker acquires a slot in `MAX_CONCURRENT_JOBS`.
 4. **Stem Separation**: Demucs v4 runs in a subprocess to separate audio into `vocals.wav` and `instrumental.wav`. Non-blocking pipe buffering prevents OS deadlock.
-5. **Lyric Ingestion**: LRCLIB is queried for synchronized lyrics. If custom lyrics were supplied, LRC timestamps are parsed or plain text lines are distributed across vocal segments.
-6. **Acoustic Alignment & Vocal Range Analysis**: `AudioAligner` computes acoustic energy envelopes to assign syllable boundaries to each word, while `VocalAnalyzer` computes $F_0$ pitch bounds, tessitura, and estimated musical key from `vocals.wav`.
+5. **Lyric Ingestion & Candidate Verification**: `LyricsService` normalizes metadata and queries LRCLIB / `syncedlyrics` across a 6-stage fallback ladder, ranking candidates by similarity, completeness, and duration proximity.
+6. **Acoustic Alignment, Vocal Range & Chord Analysis**: `AudioAligner` cross-checks LRC timestamps via FFT cross-correlation to recover global timing offsets, snaps line boundaries to vocal phrase onsets/releases (or partitions untimed lines across detected phrases), and aligns sub-line words via spectral flux, voiced harmonic gating, and syllable-aware dynamic programming, while `VocalAnalyzer` and `ChordDetector` extract $F_0$ pitch bounds, tessitura, musical key, and time-aligned chord progressions.
 7. **Master Mix**: Initial master audio is synthesized, and project status transitions to `"ready"`.
 
 ### 4.2 Interactive Editing, Duet Assignment, Smart Key & Subtitle Export
@@ -276,13 +277,17 @@ Karaoke Studio employs an **opaque-box, requirements-driven testing philosophy**
 
 ### Backend Test Architecture
 
-The backend test suite is organized into domain unit/integration suites and a 5-tier E2E testing framework (1,043 total tests):
+The backend test suite is organized into domain unit/integration suites and a 5-tier E2E testing framework (3,956 total tests):
 
 ```
 backend/tests/
 ├── conftest.py                             # Root fixtures, client setup, synthetic assets
 ├── test_adversarial_ass_countdown.py       # Adversarial ASS gap countdown & boundary tests
-├── test_aligner.py                         # Acoustic energy & envelope boundary tests
+├── test_adversarial_r1_lyrics.py           # Adversarial multi-stage lyric query & scoring tests
+├── test_aligner.py                         # Acoustic phrase snapping & spectral word alignment tests
+├── test_aligner_benchmark.py               # Global offset, phrase boundary & syllable MAE benchmarks
+├── test_aligner_m3_adversarial.py          # Line boundary snapping & untimed phrase adversarial tests
+├── test_aligner_m4_adversarial.py          # Spectral flux & voiced harmonic gating adversarial tests
 ├── test_api_boundary_fuzzing.py            # HTTP boundary input fuzzing (mix, intake, lyrics)
 ├── test_api_routes.py                      # Comprehensive API route contract tests
 ├── test_api_vocal_range.py                 # Vocal range API, auto-backfill & key recommender tests
@@ -292,8 +297,9 @@ backend/tests/
 ├── test_backend_adversarial_stress.py      # Adversarial stress for stem exports, realignment & ASS
 ├── test_challenger2_stress.py              # Adversarial stress for vocal range & key recommendation
 ├── test_downloader.py                      # yt-dlp wrapper & metadata extraction tests
+├── test_e2e_lyrics_aligner_sync.py         # 4-tier E2E lyric retrieval & acoustic sync benchmark suite
 ├── test_lyric_realignment.py               # In-studio lyric replacement & realignment tests
-├── test_lyrics.py                          # LRCLIB scraping, LRC parsing, tokenization tests
+├── test_lyrics.py                          # Multi-stage LRCLIB fallback, candidate ranking & LRC tests
 ├── test_m2_adversarial.py                  # Multi-singer duet schema, aligner & ASS adversarial tests
 ├── test_m3_challenger_video_matrix.py      # 16:9 & 9:16 FFmpeg visualizer & countdown matrix tests
 ├── test_media_subprocess_stress.py         # Subprocess pipe deadlock, timeout & zombie tests
@@ -303,6 +309,8 @@ backend/tests/
 ├── test_separator.py                       # Demucs isolation & cache reuse tests
 ├── test_subtitle_export_adversarial.py     # RFC 5987 headers, centisecond rollover, & export tests
 ├── test_theme_styling.py                   # Custom hex-to-ASS color, duet styles & font scaling tests
+├── test_tier5_adversarial_final_1.py       # Tier 5 adversarial stress for lyric normalization & aligner
+├── test_tier5_adversarial_final_2.py       # Tier 5 adversarial stress for spectral DP & boundary invariants
 ├── test_video_renderer.py                  # FFmpeg video muxing, visualizer & ASS burning tests
 ├── test_vocal_analyzer.py                  # YIN F0 pitch tracking, chroma key & preset unit tests
 ├── test_vocal_analyzer_adversarial.py      # Silent, unvoiced, NaN/Inf & extreme pitch boundary tests
@@ -333,7 +341,7 @@ backend/tests/
 
 ### Frontend Test Architecture
 
-The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 55 test modules (1,039 total tests):
+The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 63 test modules (1,221 total tests):
 
 ```
 frontend/src/tests/
@@ -400,13 +408,13 @@ All changes in the repository must pass the full suite of automated quality gate
 
 ```bash
 # 1. Backend Verification
-./venv/bin/pytest                            # Baseline: >=1,043 passed, 0 failed, >90% coverage
+./venv/bin/pytest                            # Baseline: >=3,956 passed, 0 failed, >90% coverage
 ./venv/bin/ruff check backend                # Zero lint violations
 ./venv/bin/ruff format --check backend       # Zero formatting diffs
 
 # 2. Frontend Verification (inside frontend/)
 cd frontend
-npm test -- --run                            # Baseline: >=1,039 passed across 55 suites, 0 failed
+npm test -- --run                            # Baseline: >=1,221 passed across 63 suites, 0 failed
 npm run lint                                 # Zero ESLint warnings
 npm run format:check                         # Zero Prettier diffs
 npm run build                                # Zero TypeScript or Vite compilation errors

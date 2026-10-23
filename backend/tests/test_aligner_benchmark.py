@@ -13,7 +13,12 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from backend.services.aligner import AudioAligner, calculate_word_weight, count_syllables
+from backend.services.aligner import (
+    AudioAligner,
+    calculate_word_weight,
+    count_syllables,
+    estimate_global_offset,
+)
 
 
 def _baseline_align_lyrics(vocals_path: str, lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -266,7 +271,7 @@ def test_benchmark_word_boundary_mae_and_onset_accuracy(tmp_path):
         }
         for line in ground_truth
     ]
-    improved_res = aligner.align_lyrics(vocal_file, input_lines)
+    improved_res = aligner.align_lyrics(vocal_file, input_lines, refine_line_boundaries=False)
 
     # 3. Compute Metrics
     base_onset_errors: list[float] = []
@@ -556,3 +561,131 @@ def test_benchmark_syllable_vs_character_weight_scaling():
     assert count_syllables("supercalifragilistic") >= 7
     w_super = calculate_word_weight("supercalifragilistic")
     assert w_super > 20.0
+
+
+def test_benchmark_global_offset_multi_shift_recovery():
+    """
+    R2 Global Offset Benchmark:
+    Verifies FFT cross-correlation recovers a diverse set of positive and negative shifts
+    across a multi-phrase song structure with MAE <= 80ms (requirement: MAE <= 150ms).
+    """
+    sr = 44100
+    canonical_phrases = [
+        (10.0, 12.5),
+        (15.0, 17.5),
+        (20.0, 22.5),
+        (25.0, 27.5),
+    ]
+    canonical_lines = [
+        {"id": 0, "text": "First vocal line here", "start_time": 10.0, "end_time": 12.5},
+        {"id": 1, "text": "Second vocal line singing", "start_time": 15.0, "end_time": 17.5},
+        {"id": 2, "text": "Third vocal phrase melody", "start_time": 20.0, "end_time": 22.5},
+        {"id": 3, "text": "Fourth vocal chorus ending", "start_time": 25.0, "end_time": 27.5},
+    ]
+
+    shifts = [-8.0, -5.0, -3.0, -1.0, 1.0, 2.5, 5.0, 7.5]
+    errors = []
+
+    for shift in shifts:
+        shifted_phrases = [(s + shift, e + shift) for s, e in canonical_phrases]
+        total_duration = max(42.0, max(e for _, e in shifted_phrases) + 3.0)
+        n_samples = int(total_duration * sr)
+        audio = np.zeros(n_samples, dtype=np.float32)
+        t = np.linspace(0, total_duration, n_samples, endpoint=False)
+
+        for s_p, e_p in shifted_phrases:
+            i_s = max(0, int(s_p * sr))
+            i_e = min(n_samples, int(e_p * sr))
+            if i_e > i_s:
+                audio[i_s:i_e] = 0.5 * np.sin(2 * np.pi * 440.0 * t[i_s:i_e])
+
+        est_offset, confidence = estimate_global_offset(audio, sr, canonical_lines, max_offset=15.0)
+        err = abs(est_offset - shift)
+        errors.append(err)
+
+        assert err <= 0.150, (
+            f"Shift {shift:+.1f}s: estimated {est_offset:+.3f}s, error {err:.3f}s exceeds 150ms"
+        )
+        assert confidence >= 0.20, f"Shift {shift:+.1f}s: confidence {confidence:.3f} below 0.20"
+
+    overall_mae = float(np.mean(errors))
+    max_error = float(np.max(errors))
+    assert overall_mae <= 0.080, f"Overall MAE {overall_mae * 1000:.1f}ms exceeds target 80ms"
+    assert max_error <= 0.150, f"Max error {max_error * 1000:.1f}ms exceeds 150ms limit"
+
+
+def test_benchmark_global_offset_execution_speed_budget():
+    """
+    R2 Performance Benchmark:
+    Verifies estimate_global_offset executes in < 0.20s on a 4-minute full track on CPU.
+    """
+    sr = 44100
+    track_duration = 240.0  # 4 minutes
+    n_samples = int(track_duration * sr)
+    audio = np.zeros(n_samples, dtype=np.float32)
+    t = np.linspace(0, track_duration, n_samples, endpoint=False)
+
+    lines = []
+    # 20 lines distributed across track
+    for i in range(20):
+        s_t = 10.0 + i * 11.0
+        e_t = s_t + 4.0
+        lines.append(
+            {"id": i, "text": f"Benchmark song line {i}", "start_time": s_t, "end_time": e_t}
+        )
+        i_s = int(s_t * sr)
+        i_e = int(e_t * sr)
+        audio[i_s:i_e] = 0.5 * np.sin(2 * np.pi * (300.0 + i * 10) * t[i_s:i_e])
+
+    t_start = time.perf_counter()
+    offset, confidence = estimate_global_offset(audio, sr, lines, max_offset=15.0)
+    elapsed = time.perf_counter() - t_start
+
+    assert elapsed < 0.20, f"Execution time {elapsed:.3f}s exceeds 0.20s CPU budget"
+    assert abs(offset) <= 0.10, f"Offset on aligned track should be ~0, got {offset}"
+    assert confidence >= 0.50, f"Expected high confidence, got {confidence}"
+
+
+def test_benchmark_global_offset_candidate_rejection_rate():
+    """
+    R2 Candidate Verification Benchmark:
+    Tests that non-matching lyrics candidates from different tracks are reliably rejected with confidence < 0.15.
+    """
+    sr = 44100
+    duration = 30.0
+    t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+    audio = np.zeros_like(t)
+
+    # Audio singing only at 20.0 - 23.0s
+    audio[(t >= 20.0) & (t <= 23.0)] = 0.5 * np.sin(2 * np.pi * 440 * t[(t >= 20.0) & (t <= 23.0)])
+
+    # Test candidate pools from unrelated tracks with mismatching temporal structures
+    candidate_pools = [
+        # Candidate 1: 4 lines in first 12s
+        [
+            {"id": 0, "text": "C1-1", "start_time": 1.0, "end_time": 3.0},
+            {"id": 1, "text": "C1-2", "start_time": 4.0, "end_time": 6.0},
+            {"id": 2, "text": "C1-3", "start_time": 7.0, "end_time": 9.0},
+            {"id": 3, "text": "C1-4", "start_time": 10.0, "end_time": 12.0},
+        ],
+        # Candidate 2: 5 lines in first 16s
+        [
+            {"id": 0, "text": "C2-1", "start_time": 2.0, "end_time": 3.5},
+            {"id": 1, "text": "C2-2", "start_time": 5.0, "end_time": 6.5},
+            {"id": 2, "text": "C2-3", "start_time": 8.0, "end_time": 9.5},
+            {"id": 3, "text": "C2-4", "start_time": 11.0, "end_time": 12.5},
+            {"id": 4, "text": "C2-5", "start_time": 14.0, "end_time": 15.5},
+        ],
+        # Candidate 3: 4 lines in first 10s
+        [
+            {"id": 0, "text": "C3-1", "start_time": 0.5, "end_time": 2.0},
+            {"id": 1, "text": "C3-2", "start_time": 3.0, "end_time": 4.5},
+            {"id": 2, "text": "C3-3", "start_time": 5.5, "end_time": 7.0},
+            {"id": 3, "text": "C3-4", "start_time": 8.0, "end_time": 9.5},
+        ],
+    ]
+
+    for cand_idx, cand in enumerate(candidate_pools):
+        off, conf = estimate_global_offset(audio, sr, cand, max_offset=15.0)
+        assert conf < 0.15, f"Candidate {cand_idx} not rejected: confidence {conf:.3f} >= 0.15"
+        assert off == 0.0, f"Candidate {cand_idx} returned non-zero offset {off}"

@@ -10,6 +10,7 @@ Covers:
 import os
 import re
 import tempfile
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import soundfile as sf
@@ -345,3 +346,216 @@ def test_align_lyrics_mixed_explicit_and_untimed_lines():
         # Line 2 explicit words preserved
         assert aligned[2]["has_word_sync"] is True
         assert aligned[2]["words"] == lines[2]["words"]
+
+
+# ==============================================================================
+# Challenge 5: Multi-Stage Fallback Ladder & Ranking Adversarial Hardening
+# ==============================================================================
+
+
+def test_multi_stage_fallback_ladder_recovers_at_each_stage():
+    """Verify that _fetch_from_lrclib falls back across each stage until a matching candidate is found."""
+    svc = LyricsService()
+
+    # Case A: Stage 1 exact GET with duration succeeds
+    def mock_stage1(url, params=None, timeout=5):
+        m = MagicMock()
+        if "/get" in url and "duration" in params:
+            m.status_code = 200
+            m.json.return_value = {
+                "syncedLyrics": "\n".join(
+                    [f"[{i * 20 // 60:02d}:{i * 20 % 60:02d}.00] Line {i}" for i in range(1, 10)]
+                ),
+                "plainLyrics": "Complete lyrics",
+            }
+        else:
+            m.status_code = 404
+        return m
+
+    with patch("requests.get", side_effect=mock_stage1):
+        res1 = svc.fetch_lyrics("Yellow", "Coldplay", duration=268.0)
+        assert res1["source"] == "lrclib"
+        assert res1["synced"] is True
+
+    # Case B: Stage 1 fails (404 due to duration shift), Stage 2 exact GET without duration succeeds
+    def mock_stage2(url, params=None, timeout=5):
+        m = MagicMock()
+        if "/get" in url and "duration" in params:
+            m.status_code = 404
+        elif "/get" in url and "duration" not in params:
+            m.status_code = 200
+            m.json.return_value = {
+                "syncedLyrics": "\n".join(
+                    [f"[{i * 20 // 60:02d}:{i * 20 % 60:02d}.00] Line {i}" for i in range(1, 10)]
+                ),
+                "plainLyrics": "Complete lyrics",
+            }
+        else:
+            m.status_code = 404
+        return m
+
+    with patch("requests.get", side_effect=mock_stage2):
+        res2 = svc.fetch_lyrics("Yellow", "Coldplay", duration=275.0)
+        assert res2["source"] == "lrclib"
+        assert res2["synced"] is True
+
+    # Case C: Stage 1 & 2 fail, Stage 4 (primary artist search) succeeds when collaborative artist string used
+    def mock_stage4(url, params=None, timeout=5):
+        m = MagicMock()
+        if "/get" in url:
+            m.status_code = 404
+        elif "/search" in url:
+            q = params.get("q", "")
+            # Stage 3 has "Under Pressure Queen & David Bowie" -> 0 results
+            if "David Bowie" in q:
+                m.status_code = 200
+                m.json.return_value = []
+            # Stage 4 has "Under Pressure Queen" -> returns canonical synced cut
+            elif q == "Under Pressure Queen":
+                m.status_code = 200
+                m.json.return_value = [
+                    {
+                        "id": "queen_under_pressure",
+                        "trackName": "Under Pressure",
+                        "artistName": "Queen",
+                        "duration": 248,
+                        "syncedLyrics": "\n".join(
+                            [
+                                f"[{i * 20 // 60:02d}:{i * 20 % 60:02d}.00] Line {i}"
+                                for i in range(1, 12)
+                            ]
+                        ),
+                        "plainLyrics": "Under pressure...",
+                    }
+                ]
+            else:
+                m.status_code = 200
+                m.json.return_value = []
+        return m
+
+    with patch("requests.get", side_effect=mock_stage4):
+        res4 = svc.fetch_lyrics("Under Pressure", "Queen & David Bowie", duration=248.0)
+        assert res4["source"] == "lrclib_search"
+        assert res4["synced"] is True
+        assert len(res4["lines"]) == 11
+
+    # Case D: Swapped metadata recovery in Stage 6: title="Queen", artist="Bohemian Rhapsody"
+    def mock_stage6(url, params=None, timeout=5):
+        m = MagicMock()
+        if "/get" in url:
+            m.status_code = 404
+        elif "/search" in url:
+            q = params.get("q", "")
+            # Stage 6 query has swapped: "Bohemian Rhapsody Queen"
+            if q == "Bohemian Rhapsody Queen":
+                m.status_code = 200
+                m.json.return_value = [
+                    {
+                        "id": "canonical_queen_rhapsody",
+                        "trackName": "Bohemian Rhapsody",
+                        "artistName": "Queen",
+                        "duration": 354,
+                        "syncedLyrics": "\n".join(
+                            [
+                                f"[{i * 30 // 60:02d}:{i * 30 % 60:02d}.00] Line {i}"
+                                for i in range(1, 10)
+                            ]
+                        ),
+                        "plainLyrics": "Is this the real life...",
+                    }
+                ]
+            else:
+                m.status_code = 200
+                m.json.return_value = []
+        return m
+
+    with patch("requests.get", side_effect=mock_stage6):
+        res6 = svc.fetch_lyrics("Queen", "Bohemian Rhapsody", duration=354.0)
+        assert res6["source"] == "lrclib_search"
+        assert res6["synced"] is True
+        assert len(res6["lines"]) == 9
+
+
+def test_adversarial_candidate_ranking_complete_plain_defeats_short_synced_stubs():
+    """Verify that a 40-line plain lyric candidate decisively beats a 1-line or 2-line synced stub."""
+    full_plain = "\n".join([f"Complete lyric verse line {i}" for i in range(40)])
+    cand_plain = {
+        "id": "full_plain",
+        "trackName": "Song Title",
+        "artistName": "Artist Name",
+        "duration": 210,
+        "plainLyrics": full_plain,
+        "syncedLyrics": "",
+    }
+    cand_stub = {
+        "id": "one_line_stub",
+        "trackName": "Song Title",
+        "artistName": "Artist Name",
+        "duration": 210,
+        "plainLyrics": "(Instrumental)",
+        "syncedLyrics": "[00:01.00] (Instrumental)",
+    }
+    # Ranking must pick full plain lyrics
+    best = LyricsService.rank_candidates(
+        [cand_stub, cand_plain],
+        target_title="Song Title",
+        target_artist="Artist Name",
+        target_duration=210.0,
+    )
+    assert best["id"] == "full_plain"
+
+    # Verify score difference
+    score_plain = LyricsService.score_candidate(cand_plain, "Song Title", "Artist Name", 210.0)
+    score_stub = LyricsService.score_candidate(cand_stub, "Song Title", "Artist Name", 210.0)
+    assert score_plain > score_stub
+
+
+def test_adversarial_candidate_ranking_extreme_duration_drift_rejection():
+    """Verify that an 11-minute live jam session cannot beat a studio cut with matching duration."""
+    target_dur = 210.0
+    studio_candidate = {
+        "id": "studio_cut",
+        "trackName": "Song",
+        "artistName": "Artist",
+        "duration": 211,
+        "plainLyrics": "\n".join([f"Line {i}" for i in range(25)]),
+        "syncedLyrics": "",
+    }
+    live_11min_candidate = {
+        "id": "live_11min",
+        "trackName": "Song",
+        "artistName": "Artist",
+        "duration": 660,  # 11 minutes (450s difference)
+        "syncedLyrics": "\n".join([f"[{i:02d}:00.00] Line {i}" for i in range(1, 10)]),
+        "plainLyrics": "\n".join([f"Line {i}" for i in range(1, 10)]),
+    }
+    winner = LyricsService.rank_candidates(
+        [live_11min_candidate, studio_candidate],
+        target_title="Song",
+        target_artist="Artist",
+        target_duration=target_dur,
+    )
+    assert winner["id"] == "studio_cut"
+
+
+def test_adversarial_noisy_real_world_metadata_matrix():
+    """Verify that a diverse matrix of complex real-world track titles clean to canonical titles."""
+    test_cases = [
+        ("Coldplay - Viva La Vida (Official Video) [4K Remastered] // HQ Audio", "Viva La Vida"),
+        ("David Guetta & Sia - Titanium (Official Music Video) [HD]", "Titanium"),
+        (
+            "Billie Eilish - What Was I Made For? (From The Motion Picture Barbie)",
+            "What Was I Made For?",
+        ),
+        (
+            "Queen + Adam Lambert - Somebody to Love (Live at the Isle of Wight Festival 2016)",
+            "Somebody to Love",
+        ),
+        ("The Weeknd feat. Daft Punk - Starboy (Official Visualizer)", "Starboy"),
+        ("Eminem, Dr. Dre - Forgot About Dre - 2001 Remaster", "Forgot About Dre"),
+    ]
+    for raw_title, expected_clean in test_cases:
+        clean_t, _ = LyricsNormalizer.normalize_track_metadata(raw_title, "Unknown")
+        assert clean_t == expected_clean, (
+            f"Failed for {raw_title}: got {clean_t!r}, expected {expected_clean!r}"
+        )
