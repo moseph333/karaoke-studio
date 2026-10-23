@@ -338,6 +338,10 @@ class RenderRequest(BaseModel):
         default=False,
         description="Include transposed chord progression cues in subtitles/video overlay",
     )
+    sync_mode: Literal["word", "line"] = Field(
+        default="word",
+        description="Lyric synchronization display mode: 'word' (progressive \\kf sweep) or 'line' (instant solid line highlight)",
+    )
 
 
 class ProjectMetadataUpdate(BaseModel):

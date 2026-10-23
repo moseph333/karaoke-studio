@@ -6,7 +6,7 @@
  */
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { VisualTheme } from '../types';
+import { VisualTheme, SyncDisplayMode } from '../types';
 import { THEMES } from '../components/VisualThemePicker';
 
 /**
@@ -47,10 +47,12 @@ export interface UseVisualThemeReturn {
   setAspectRatio: (ratio: string) => void;
   customBgId: string;
   setCustomBgId: (id: string) => void;
+  syncMode: SyncDisplayMode;
+  setSyncMode: (mode: SyncDisplayMode) => void;
   resetThemeDefaults: () => void;
   activeSungColor: string;
   activeUnsungColor: string;
-  effectiveTheme: VisualTheme & { font_size_scale: number };
+  effectiveTheme: VisualTheme & { font_size_scale: number; sync_mode?: SyncDisplayMode };
 }
 
 export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisualThemeReturn {
@@ -60,6 +62,7 @@ export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisual
   const [fontSizeScale, setFontSizeScale] = useState<number>(1.0);
   const [aspectRatio, setAspectRatio] = useState<string>('16:9');
   const [customBgId, setCustomBgId] = useState<string>('');
+  const [syncMode, setSyncMode] = useState<SyncDisplayMode>('word');
 
   const activeSungColor = customSungColor || selectedTheme.previewSung;
   const activeUnsungColor = customUnsungColor || selectedTheme.previewUnsung;
@@ -68,6 +71,7 @@ export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisual
     setCustomSungColor(null);
     setCustomUnsungColor(null);
     setFontSizeScale(1.0);
+    setSyncMode('word');
   }, []);
 
   const effectiveTheme = useMemo(
@@ -82,6 +86,7 @@ export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisual
       previewSung: activeSungColor,
       previewUnsung: activeUnsungColor,
       font_size_scale: fontSizeScale,
+      sync_mode: syncMode,
     }),
     [
       selectedTheme,
@@ -90,6 +95,7 @@ export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisual
       activeSungColor,
       activeUnsungColor,
       fontSizeScale,
+      syncMode,
     ]
   );
 
@@ -99,8 +105,9 @@ export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisual
       document.documentElement.style.setProperty('--karaoke-font-scale', String(fontSizeScale));
       document.documentElement.style.setProperty('--karaoke-sung-color', activeSungColor);
       document.documentElement.style.setProperty('--karaoke-unsung-color', activeUnsungColor);
+      document.documentElement.setAttribute('data-sync-mode', syncMode);
     }
-  }, [fontSizeScale, activeSungColor, activeUnsungColor]);
+  }, [fontSizeScale, activeSungColor, activeUnsungColor, syncMode]);
 
   return {
     selectedTheme,
@@ -115,6 +122,8 @@ export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisual
     setAspectRatio,
     customBgId,
     setCustomBgId,
+    syncMode,
+    setSyncMode,
     resetThemeDefaults,
     activeSungColor,
     activeUnsungColor,

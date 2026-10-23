@@ -13,6 +13,8 @@ export interface WordTiming {
 
 export type SingerRole = 'singer1' | 'singer2' | 'both';
 
+export type SyncDisplayMode = 'word' | 'line';
+
 export interface BulkAssignOptions {
   mode: 'range' | 'alternating' | 'auto';
   startLineIndex?: number;
@@ -110,6 +112,7 @@ export interface VisualTheme {
   previewBg: string;
   previewSung: string;
   previewUnsung: string;
+  sync_mode?: SyncDisplayMode;
 }
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';

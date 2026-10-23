@@ -5,9 +5,9 @@
  * for media players and video editors without requiring a full video render.
  */
 
-import React, { useState } from 'react';
-import { Download, Sparkles, FileText, Loader2 } from 'lucide-react';
-import { ProjectState, VisualTheme } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Download, Sparkles, FileText, Loader2, AlignLeft } from 'lucide-react';
+import { ProjectState, VisualTheme, SyncDisplayMode } from '../../types';
 import { apiFetch } from '../../api';
 import { Tooltip } from '../Tooltip';
 
@@ -19,6 +19,9 @@ export interface ExportSubtitleSectionProps {
   secondaryColor?: string;
   fontSizeScale?: number;
   activeSemitones?: number;
+  syncMode?: SyncDisplayMode;
+  onSyncModeChange?: (mode: SyncDisplayMode) => void;
+  onChangeSyncMode?: (mode: SyncDisplayMode) => void;
 }
 
 export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
@@ -29,11 +32,28 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
   secondaryColor,
   fontSizeScale,
   activeSemitones,
+  syncMode,
+  onSyncModeChange,
+  onChangeSyncMode,
 }) => {
   const [downloadingLrc, setDownloadingLrc] = useState(false);
   const [downloadingAss, setDownloadingAss] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [includeChords, setIncludeChords] = useState(false);
+  const [internalSyncMode, setInternalSyncMode] = useState<SyncDisplayMode>(syncMode || 'word');
+  const activeSyncMode = syncMode !== undefined ? syncMode : internalSyncMode;
+
+  useEffect(() => {
+    if (syncMode) {
+      setInternalSyncMode(syncMode);
+    }
+  }, [syncMode]);
+
+  const handleSyncModeChange = (mode: SyncDisplayMode) => {
+    setInternalSyncMode(mode);
+    onSyncModeChange?.(mode);
+    onChangeSyncMode?.(mode);
+  };
 
   const semitones = activeSemitones ?? project?.semitones ?? 0;
 
@@ -57,6 +77,9 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
       }
       if (fontSizeScale !== undefined) {
         assUrl += `&font_size_scale=${encodeURIComponent(fontSizeScale)}`;
+      }
+      if (syncMode || activeSyncMode !== 'word') {
+        assUrl += `&sync_mode=${encodeURIComponent(activeSyncMode)}`;
       }
       if (includeChords) {
         assUrl += `&include_chords=true&semitones=${encodeURIComponent(semitones)}`;
@@ -141,8 +164,8 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
         performances without waiting for video rendering.
       </p>
 
-      {/* Chords in Subtitles Option Toggle */}
-      <div className="pt-1">
+      {/* Options Row: Chords in Subtitles & Sync Mode */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
         <label
           data-testid="include-chords-subtitle-container"
           className="flex items-center gap-2.5 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors w-full sm:w-auto"
@@ -159,6 +182,45 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
             Include Harmonic Chords in Subtitles (.ass)
           </span>
         </label>
+
+        {/* Subtitle Sync Mode Selector */}
+        <div
+          data-testid="subtitle-sync-mode-selector"
+          role="group"
+          aria-label="Subtitle synchronization mode"
+          className="inline-flex p-1 rounded-xl bg-slate-900/90 border border-slate-800"
+        >
+          <button
+            type="button"
+            data-testid="subtitle-sync-mode-word"
+            aria-pressed={activeSyncMode !== 'line'}
+            aria-label="Word Sweep progressive karaoke subtitles"
+            onClick={() => handleSyncModeChange('word')}
+            className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+              activeSyncMode !== 'line'
+                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+            Word Sweep (\kf)
+          </button>
+          <button
+            type="button"
+            data-testid="subtitle-sync-mode-line"
+            aria-pressed={activeSyncMode === 'line'}
+            aria-label="Line-by-Line solid highlight subtitles"
+            onClick={() => handleSyncModeChange('line')}
+            className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+              activeSyncMode === 'line'
+                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <AlignLeft className="w-3.5 h-3.5" aria-hidden="true" />
+            Line-by-Line
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
@@ -214,7 +276,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
               <div className="min-w-0">
                 <span className="font-bold text-xs sm:text-sm text-white block">Download .ASS</span>
                 <span className="text-[10px] text-slate-400 block truncate">
-                  Karaoke \kf • {aspectRatio} •{' '}
+                  {activeSyncMode === 'line' ? 'Line-by-Line' : 'Karaoke \\kf'} • {aspectRatio} •{' '}
                   {includeChords
                     ? `Chords (${semitones >= 0 ? `+${semitones}` : semitones}st)`
                     : selectedTheme?.name || 'Theme'}

@@ -19,8 +19,9 @@ import {
   XCircle,
   Music,
   Loader2,
+  AlignLeft,
 } from 'lucide-react';
-import { ProjectState, VisualTheme } from '../types';
+import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { ExportSubtitleSection } from './export/ExportSubtitleSection';
 import { ExportAudioSection } from './export/ExportAudioSection';
@@ -37,10 +38,14 @@ export interface ExportModalProps {
     includeVisualizer?: boolean;
     includeCountdown?: boolean;
     includeChords?: boolean;
+    syncMode?: SyncDisplayMode;
   }) => void;
   selectedTheme?: VisualTheme;
   aspectRatio?: '16:9' | '9:16' | string;
   activeSemitones?: number;
+  syncMode?: SyncDisplayMode;
+  onSyncModeChange?: (mode: SyncDisplayMode) => void;
+  onChangeSyncMode?: (mode: SyncDisplayMode) => void;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -52,6 +57,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   selectedTheme,
   aspectRatio = '16:9',
   activeSemitones,
+  syncMode,
+  onSyncModeChange,
+  onChangeSyncMode,
 }) => {
   const [_tick, setTick] = useState(0);
   const [includeVisualizer, setIncludeVisualizer] = useState(false);
@@ -59,6 +67,19 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [includeChords, setIncludeChords] = useState(false);
   const [downloadingChordSheet, setDownloadingChordSheet] = useState(false);
   const [chordSheetError, setChordSheetError] = useState<string | null>(null);
+  const [renderSyncMode, setRenderSyncMode] = useState<SyncDisplayMode>(syncMode || 'word');
+
+  useEffect(() => {
+    if (syncMode) {
+      setRenderSyncMode(syncMode);
+    }
+  }, [syncMode]);
+
+  const handleSyncModeChange = (mode: SyncDisplayMode) => {
+    setRenderSyncMode(mode);
+    onSyncModeChange?.(mode);
+    onChangeSyncMode?.(mode);
+  };
 
   const semitones = activeSemitones ?? project?.semitones ?? 0;
 
@@ -68,12 +89,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         includeVisualizer?: boolean;
         includeCountdown?: boolean;
         includeChords?: boolean;
+        syncMode?: SyncDisplayMode;
       } = {
         includeVisualizer,
         includeCountdown,
       };
       if (includeChords) {
         renderOptions.includeChords = true;
+      }
+      if (syncMode || renderSyncMode !== 'word') {
+        renderOptions.syncMode = renderSyncMode;
       }
       onStartRender(renderOptions);
       return;
@@ -87,8 +112,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         include_visualizer: includeVisualizer,
         include_countdown: includeCountdown,
         ...(includeChords ? { include_chords: true } : {}),
-        style_config: selectedTheme ? { theme_id: selectedTheme.id } : undefined,
+        style_config: {
+          ...(selectedTheme ? { theme_id: selectedTheme.id } : {}),
+          ...(syncMode || renderSyncMode !== 'word' ? { sync_mode: renderSyncMode } : {}),
+        },
       };
+      if (syncMode || renderSyncMode !== 'word') {
+        renderPayload.sync_mode = renderSyncMode;
+      }
 
       await apiFetch(`/api/project/${project.id}/render`, {
         method: 'POST',
@@ -249,6 +280,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           selectedTheme={selectedTheme}
           aspectRatio={aspectRatio}
           activeSemitones={semitones}
+          syncMode={
+            syncMode !== undefined || renderSyncMode !== 'word' ? renderSyncMode : undefined
+          }
+          onSyncModeChange={handleSyncModeChange}
         />
 
         {/* Dedicated Standalone Chord & Lyric Sheet Download Section */}
@@ -368,6 +403,48 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   Burn Chords into Video
                 </span>
               </label>
+            </div>
+
+            {/* Video Render Sync Mode Selector */}
+            <div className="flex items-center justify-center gap-2 pt-1">
+              <span className="text-xs text-slate-400 font-medium">Sync Display:</span>
+              <div
+                data-testid="export-sync-mode-selector"
+                role="group"
+                aria-label="Video render synchronization mode"
+                className="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-800"
+              >
+                <button
+                  type="button"
+                  data-testid="export-sync-mode-word"
+                  aria-pressed={renderSyncMode === 'word'}
+                  aria-label="Word Sweep video render"
+                  onClick={() => handleSyncModeChange('word')}
+                  className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                    renderSyncMode === 'word'
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                  Word Sweep (\kf)
+                </button>
+                <button
+                  type="button"
+                  data-testid="export-sync-mode-line"
+                  aria-pressed={renderSyncMode === 'line'}
+                  aria-label="Line-by-Line video render"
+                  onClick={() => handleSyncModeChange('line')}
+                  className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                    renderSyncMode === 'line'
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <AlignLeft className="w-3.5 h-3.5" aria-hidden="true" />
+                  Line-by-Line (Solid)
+                </button>
+              </div>
             </div>
 
             <div className="pt-2">

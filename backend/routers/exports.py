@@ -319,25 +319,38 @@ def export_project_ass(
         le=12,
         description="Pitch shift in semitones for chord transposition (-12 to +12)",
     ),
+    sync_mode: str = Query(
+        "word",
+        description="Lyric synchronization mode: 'word' or 'line'",
+    ),
 ):
     """Export synchronized Advanced SubStation Alpha (.ass) subtitles for a project.
 
     Supports aspect ratios ('16:9' or '9:16'), visual theme presets, progressive \\kf tags,
-    font size scaling, direct color overrides, and optional transposed chords on Layer 2.
+    line-by-line illumination mode, font size scaling, direct color overrides,
+    and optional transposed chords on Layer 2.
     Does NOT require prior video rendering.
     """
     import backend.main as main_mod
 
     proj = get_project_or_404(project_id)
 
-    # 1. Validate aspect_ratio
+    # 1. Validate sync_mode
+    clean_sync_mode = str(sync_mode or "word").strip().lower()
+    if clean_sync_mode not in ("word", "line"):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid sync_mode. Must be 'word' or 'line'",
+        )
+
+    # 2. Validate aspect_ratio
     if aspect_ratio not in ("16:9", "9:16"):
         raise HTTPException(
             status_code=400,
             detail="Invalid aspect ratio. Must be '16:9' or '9:16'",
         )
 
-    # 2. Validate theme_id if provided
+    # 3. Validate theme_id if provided
     if theme_id is not None and theme_id not in VISUAL_THEMES:
         allowed_themes = list(VISUAL_THEMES.keys())
         raise HTTPException(
@@ -345,7 +358,7 @@ def export_project_ass(
             detail=f"Invalid theme_id '{theme_id}'. Must be one of: {allowed_themes}",
         )
 
-    # 3. Pre-flight check: Active processing without lyrics cannot export
+    # 4. Pre-flight check: Active processing without lyrics cannot export
     if proj.get("status") in ("queued", "downloading", "separating", "aligning") and not proj.get(
         "lines"
     ):
@@ -404,6 +417,7 @@ def export_project_ass(
         "include_countdown": include_countdown,
         "include_chords": include_chords,
         "semitones": semitones,
+        "sync_mode": clean_sync_mode,
     }
 
     ass_content = main_mod.video_renderer.generate_ass_content(
@@ -414,11 +428,13 @@ def export_project_ass(
         secondary_color=secondary_ass,
         title=track_title,
         style_config=style_cfg,
+        font_size_scale=font_size_scale,
         include_countdown=include_countdown,
         chords=chords,
         include_chords=include_chords,
         semitones=semitones,
         key=eff_key,
+        sync_mode=clean_sync_mode,
     )
 
     headers = {

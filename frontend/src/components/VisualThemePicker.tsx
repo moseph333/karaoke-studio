@@ -7,8 +7,18 @@
  */
 
 import React, { useRef, useState } from 'react';
-import { Palette, Upload, Monitor, Smartphone, Check, Type, RotateCcw } from 'lucide-react';
-import { VisualTheme } from '../types';
+import {
+  Palette,
+  Upload,
+  Monitor,
+  Smartphone,
+  Check,
+  Type,
+  RotateCcw,
+  Sparkles,
+  AlignLeft,
+} from 'lucide-react';
+import { VisualTheme, SyncDisplayMode } from '../types';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
 
@@ -69,6 +79,9 @@ export interface VisualThemePickerProps {
   fontSizeScale?: number;
   onFontSizeScaleChange?: (scale: number) => void;
   onResetThemeDefaults?: () => void;
+  syncMode?: SyncDisplayMode;
+  onSyncModeChange?: (mode: SyncDisplayMode) => void;
+  onChangeSyncMode?: (mode: SyncDisplayMode) => void;
 }
 
 export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
@@ -85,10 +98,18 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   fontSizeScale = 1.0,
   onFontSizeScaleChange,
   onResetThemeDefaults,
+  syncMode = 'word',
+  onSyncModeChange,
+  onChangeSyncMode,
 }) => {
   const { toast } = useToast();
   const [uploadingBg, setUploadingBg] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSyncModeChange = (mode: SyncDisplayMode) => {
+    onSyncModeChange?.(mode);
+    onChangeSyncMode?.(mode);
+  };
 
   const activeSungColor = customSungColor || selectedTheme.previewSung;
   const activeUnsungColor = customUnsungColor || selectedTheme.previewUnsung;
@@ -126,43 +147,84 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
 
   return (
     <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-800">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pb-3 border-b border-slate-800">
         <div>
           <h3 className="text-base font-bold text-white flex items-center gap-2">
             <Palette className="w-4 h-4 text-cyan-400" />
             Visual Themes & Video Format
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            Configure lyrics styling and aspect ratio for YouTube upload.
+            Configure lyrics styling, sync display mode, and aspect ratio.
           </p>
         </div>
 
-        {/* Aspect Ratio Selector */}
-        <div className="w-full sm:w-auto flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
-          <button
-            type="button"
-            onClick={() => onChangeAspectRatio('16:9')}
-            className={`flex-1 sm:flex-initial min-h-[40px] justify-center flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-              aspectRatio === '16:9'
-                ? 'bg-cyan-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {/* Sync Display Mode Selector */}
+          <div
+            data-testid="sync-mode-selector"
+            role="group"
+            aria-label="Lyric synchronization display mode"
+            className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800"
           >
-            <Monitor className="w-3.5 h-3.5" />
-            16:9 Widescreen
-          </button>
-          <button
-            type="button"
-            onClick={() => onChangeAspectRatio('9:16')}
-            className={`flex-1 sm:flex-initial min-h-[40px] justify-center flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-              aspectRatio === '9:16'
-                ? 'bg-cyan-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-            9:16 Shorts
-          </button>
+            <button
+              type="button"
+              data-testid="sync-mode-word"
+              aria-label="Word Sweep Mode (progressive karaoke wipe)"
+              aria-pressed={syncMode === 'word'}
+              onClick={() => handleSyncModeChange('word')}
+              className={`min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                syncMode === 'word'
+                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+              Word Sweep
+            </button>
+            <button
+              type="button"
+              data-testid="sync-mode-line"
+              aria-label="Line-by-Line Mode (solid line illumination)"
+              aria-pressed={syncMode === 'line'}
+              onClick={() => handleSyncModeChange('line')}
+              className={`min-h-[44px] min-w-[44px] px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                syncMode === 'line'
+                  ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <AlignLeft className="w-3.5 h-3.5" aria-hidden="true" />
+              Line-by-Line
+            </button>
+          </div>
+
+          {/* Aspect Ratio Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => onChangeAspectRatio('16:9')}
+              className={`flex-1 sm:flex-initial min-h-[40px] justify-center flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                aspectRatio === '16:9'
+                  ? 'bg-cyan-500 text-slate-950 shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              16:9 Widescreen
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeAspectRatio('9:16')}
+              className={`flex-1 sm:flex-initial min-h-[40px] justify-center flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                aspectRatio === '9:16'
+                  ? 'bg-cyan-500 text-slate-950 shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              9:16 Shorts
+            </button>
+          </div>
         </div>
       </div>
 

@@ -11,7 +11,7 @@ import { AuthModal } from './AuthModal';
 import { HelpModal } from './HelpModal';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { EditMetadataModal } from './EditMetadataModal';
-import { ProjectState, VisualTheme } from '../types';
+import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 
 export interface StudioModalsProps {
   project: ProjectState | null;
@@ -22,10 +22,13 @@ export interface StudioModalsProps {
     includeVisualizer?: boolean;
     includeCountdown?: boolean;
     includeChords?: boolean;
+    syncMode?: SyncDisplayMode;
   }) => void;
   selectedTheme: VisualTheme;
   aspectRatio: string;
   activeSemitones?: number;
+  syncMode?: SyncDisplayMode;
+  onSyncModeChange?: (mode: SyncDisplayMode) => void;
   showAuthModal: boolean;
   onAuthSuccess: (username: string, token: string) => void;
   onCloseAuth: () => void;
@@ -48,6 +51,8 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   selectedTheme,
   aspectRatio,
   activeSemitones,
+  syncMode,
+  onSyncModeChange,
   showAuthModal,
   onAuthSuccess,
   onCloseAuth,
@@ -73,6 +78,8 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
           selectedTheme={selectedTheme}
           aspectRatio={aspectRatio}
           activeSemitones={activeSemitones}
+          syncMode={syncMode}
+          onSyncModeChange={onSyncModeChange}
         />
       )}
 

@@ -14,7 +14,7 @@ import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
 import { StudioMetaHeader } from './components/StudioMetaHeader';
 import { StudioModals } from './components/StudioModals';
-import { LyricLine, ChordSegment } from './types';
+import { LyricLine, ChordSegment, SyncDisplayMode } from './types';
 import { useChordHistory } from './hooks/useChordHistory';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
@@ -361,9 +361,11 @@ export const App: React.FC = () => {
     includeVisualizer?: boolean;
     includeCountdown?: boolean;
     includeChords?: boolean;
+    syncMode?: SyncDisplayMode;
   }) => {
     if (!project?.id) return;
     setIsExportOpen(true);
+    const effectiveSyncMode = options?.syncMode ?? theme.syncMode;
 
     try {
       await apiFetch(`/api/project/${project.id}/render`, {
@@ -374,6 +376,7 @@ export const App: React.FC = () => {
           guide_volume: project.guide_volume || 0,
           aspect_ratio: theme.aspectRatio,
           custom_bg_id: theme.customBgId || undefined,
+          sync_mode: effectiveSyncMode,
           include_visualizer: options?.includeVisualizer ?? showVisualizer,
           include_countdown: options?.includeCountdown ?? true,
           include_chords: options?.includeChords ?? false,
@@ -382,6 +385,7 @@ export const App: React.FC = () => {
             primary_color: theme.customSungColor || theme.selectedTheme.primary_color,
             secondary_color: theme.customUnsungColor || theme.selectedTheme.secondary_color,
             font_size_scale: theme.fontSizeScale,
+            sync_mode: effectiveSyncMode,
           },
         }),
       });
@@ -527,6 +531,8 @@ export const App: React.FC = () => {
               semitones={activeSemitones}
               keyHint={project.vocal_range?.estimated_key}
               onEditChord={handleEditChord}
+              syncMode={theme.syncMode}
+              onSyncModeChange={theme.setSyncMode}
             />
 
             {/* Visual Theme & Aspect Ratio Picker */}
@@ -544,6 +550,8 @@ export const App: React.FC = () => {
               fontSizeScale={theme.fontSizeScale}
               onFontSizeScaleChange={theme.setFontSizeScale}
               onResetThemeDefaults={theme.resetThemeDefaults}
+              syncMode={theme.syncMode}
+              onSyncModeChange={theme.setSyncMode}
             />
           </div>
         )}
@@ -559,6 +567,8 @@ export const App: React.FC = () => {
         selectedTheme={theme.effectiveTheme}
         aspectRatio={theme.aspectRatio}
         activeSemitones={activeSemitones}
+        syncMode={theme.syncMode}
+        onSyncModeChange={theme.setSyncMode}
         showAuthModal={showAuthModal}
         onAuthSuccess={handleAuthSuccess}
         onCloseAuth={() => setShowAuthModal(false)}

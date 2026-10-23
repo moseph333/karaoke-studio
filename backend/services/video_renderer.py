@@ -39,15 +39,17 @@ class VideoRenderer:
         secondary_color: str | None = None,
         title: str = "",
         style_config: dict[str, Any] | None = None,
+        font_size_scale: float = 1.0,
         include_countdown: bool = True,
         chords: list[dict[str, Any]] | None = None,
         include_chords: bool = False,
         semitones: int = 0,
         key: str | None = None,
+        sync_mode: str = "word",
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
-        with smooth progressive karaoke sweep tags (\\kf).
+        with smooth progressive karaoke sweep tags (\\kf) or instant line illumination.
         """
         return generate_ass_content(
             lines=lines,
@@ -57,11 +59,13 @@ class VideoRenderer:
             secondary_color=secondary_color,
             title=title,
             style_config=style_config,
+            font_size_scale=font_size_scale,
             include_countdown=include_countdown,
             chords=chords,
             include_chords=include_chords,
             semitones=semitones,
             key=key,
+            sync_mode=sync_mode,
         )
 
     def generate_ass_subtitles(
@@ -79,10 +83,11 @@ class VideoRenderer:
         include_chords: bool = False,
         semitones: int = 0,
         key: str | None = None,
+        sync_mode: str = "word",
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file
 
-        with smooth progressive karaoke sweep tags (\\kf).
+        with smooth progressive karaoke sweep tags (\\kf) or instant line illumination.
         """
         return generate_ass_subtitles(
             lines=lines,
@@ -98,6 +103,7 @@ class VideoRenderer:
             include_chords=include_chords,
             semitones=semitones,
             key=key,
+            sync_mode=sync_mode,
         )
 
     def render_video(

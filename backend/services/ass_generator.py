@@ -142,14 +142,27 @@ def generate_ass_content(
     include_chords: bool = False,
     semitones: int = 0,
     key: str | None = None,
+    sync_mode: str = "word",
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
-    with smooth progressive karaoke sweep tags (\\kf).
+    with smooth progressive karaoke sweep tags (\\kf) or instant line illumination.
     Supports dynamic 16:9 and 9:16 layout adjustments, visual theme presets,
     direct color overrides, font size scaling, control character escaping,
     and optional transposed musical chords on Layer 2.
     """
+    # Resolve synchronization mode ('word' progressive \kf sweep vs 'line' instant highlight)
+    eff_sync_mode = sync_mode
+    if (
+        (eff_sync_mode is None or eff_sync_mode == "word")
+        and style_config
+        and "sync_mode" in style_config
+    ):
+        eff_sync_mode = style_config["sync_mode"]
+    eff_sync_mode = str(eff_sync_mode or "word").strip().lower()
+    if eff_sync_mode not in ("word", "line"):
+        eff_sync_mode = "word"
+
     # Resolve countdown enabled flag
     countdown_enabled = include_countdown
     if style_config and "include_countdown" in style_config:
@@ -362,38 +375,52 @@ def generate_ass_content(
                     f"Dialogue: 1,{format_ass_time(countdown_start)},{format_ass_time(l_start)},Countdown,,0,0,0,,{dots_text}"
                 )
 
-            # Build line text with \\kf (progressive fill) tags
-            karaoke_text_parts = []
-
-            # Initial lead-in delay tag if display starts before line starts
             lead_in_cs = max(0, round((l_start - display_start) * 100))
-            if lead_in_cs > 0:
-                karaoke_text_parts.append(f"{{\\k{lead_in_cs}}}")
 
-            if words:
-                cur_word_time = l_start
-                for w in words:
-                    if not isinstance(w, dict):
-                        continue
-                    w_start = safe_time(w.get("start_time"), cur_word_time)
-                    w_end = safe_time(w.get("end_time"), w_start + 0.4)
-                    w_end = max(w_start, w_end)
-                    dur_cs = max(1, round((w_end - w_start) * 100))
-                    raw_word = str(w.get("word", ""))
-                    word_text = escape_ass_text(raw_word)
+            if eff_sync_mode == "line":
+                raw_text = str(line.get("text") or "").strip()
+                if not raw_text and words:
+                    raw_text = " ".join(
+                        str(w.get("word") or "").strip()
+                        for w in words
+                        if isinstance(w, dict) and str(w.get("word") or "").strip()
+                    )
+                clean_line_text = escape_ass_text(raw_text)
 
-                    # Use \\kf for smooth progressive sweep
-                    karaoke_text_parts.append(f"{{\\kf{dur_cs}}}{word_text} ")
-                    cur_word_time = w_end
-            elif line.get("text"):
-                line_dur_cs = max(1, round((l_end - l_start) * 100))
-                escaped_text = escape_ass_text(str(line.get("text", "")))
-                karaoke_text_parts.append(f"{{\\kf{line_dur_cs}}}{escaped_text}")
+                if lead_in_cs > 0:
+                    line_karaoke_text = f"{{\\k{lead_in_cs}}}{{\\k0}}{clean_line_text}"
+                else:
+                    line_karaoke_text = clean_line_text
+            else:
+                # Build line text with \\kf (progressive fill) tags
+                karaoke_text_parts = []
+                if lead_in_cs > 0:
+                    karaoke_text_parts.append(f"{{\\k{lead_in_cs}}}")
 
-            full_line_text = "".join(karaoke_text_parts).strip()
+                if words:
+                    cur_word_time = l_start
+                    for w in words:
+                        if not isinstance(w, dict):
+                            continue
+                        w_start = safe_time(w.get("start_time"), cur_word_time)
+                        w_end = safe_time(w.get("end_time"), w_start + 0.4)
+                        w_end = max(w_start, w_end)
+                        dur_cs = max(1, round((w_end - w_start) * 100))
+                        raw_word = str(w.get("word") or "")
+                        word_text = escape_ass_text(raw_word)
+
+                        # Use \\kf for smooth progressive sweep
+                        karaoke_text_parts.append(f"{{\\kf{dur_cs}}}{word_text} ")
+                        cur_word_time = w_end
+                elif line.get("text"):
+                    line_dur_cs = max(1, round((l_end - l_start) * 100))
+                    escaped_text = escape_ass_text(str(line.get("text") or ""))
+                    karaoke_text_parts.append(f"{{\\kf{line_dur_cs}}}{escaped_text}")
+
+                line_karaoke_text = "".join(karaoke_text_parts).strip()
 
             ass_content.append(
-                f"Dialogue: 0,{format_ass_time(display_start)},{format_ass_time(display_end)},{style_name},,0,0,0,,{full_line_text}"
+                f"Dialogue: 0,{format_ass_time(display_start)},{format_ass_time(display_end)},{style_name},,0,0,0,,{line_karaoke_text}"
             )
 
             prev_end_time = max(prev_end_time, l_end)
@@ -449,10 +476,11 @@ def generate_ass_subtitles(
     include_chords: bool = False,
     semitones: int = 0,
     key: str | None = None,
+    sync_mode: str = "word",
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file
 
-    with smooth progressive karaoke sweep tags (\\kf).
+    with smooth progressive karaoke sweep tags (\\kf) or instant line illumination.
     Supports dynamic 16:9 and 9:16 layout adjustments, custom styling,
     control character escaping, and optional musical chord cues.
     """
@@ -472,6 +500,7 @@ def generate_ass_subtitles(
         include_chords=include_chords,
         semitones=semitones,
         key=key,
+        sync_mode=sync_mode,
     )
     output_ass_path.write_text(content, encoding="utf-8")
     return str(output_ass_path)

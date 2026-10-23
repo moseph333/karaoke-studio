@@ -10,7 +10,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Maximize, Minimize, Play, Pause, Activity, Music2 } from 'lucide-react';
-import { LyricLine, WordTiming, ChordSegment } from '../types';
+import { LyricLine, WordTiming, ChordSegment, SyncDisplayMode } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
 import { detectInstrumentalGaps, getCountdownState } from '../utils/gapDetection';
 import { BeatVisualizer } from './BeatVisualizer';
@@ -78,6 +78,10 @@ export interface LyricDisplayProps {
   semitones?: number;
   keyHint?: string | null;
   onEditChord?: (index: number, newChord: string) => void;
+  // Sync Display Mode (Requirements R1, R2)
+  syncMode?: SyncDisplayMode;
+  onToggleSyncMode?: () => void;
+  onSyncModeChange?: (mode: SyncDisplayMode) => void;
 }
 
 function formatStageTime(seconds?: number): string {
@@ -114,7 +118,24 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   semitones = 0,
   keyHint,
   onEditChord,
+  syncMode = 'word',
+  onToggleSyncMode,
+  onSyncModeChange,
 }) => {
+  const [internalSyncMode, setInternalSyncMode] = useState<SyncDisplayMode>(syncMode);
+  const activeSyncMode = syncMode !== undefined ? syncMode : internalSyncMode;
+
+  const handleToggleSyncMode = useCallback(() => {
+    const nextMode: SyncDisplayMode = activeSyncMode === 'word' ? 'line' : 'word';
+    if (onSyncModeChange) {
+      onSyncModeChange(nextMode);
+    } else if (onToggleSyncMode) {
+      onToggleSyncMode();
+    } else {
+      setInternalSyncMode(nextMode);
+    }
+  }, [activeSyncMode, onSyncModeChange, onToggleSyncMode]);
+
   const [internalShowViz, setInternalShowViz] = useState(false);
   const isVisualizerActive = showVisualizer !== undefined ? showVisualizer : internalShowViz;
   const handleToggleVisualizer = onToggleVisualizer || (() => setInternalShowViz((v) => !v));
@@ -287,6 +308,12 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
 
   // Word sweep progression calculation (0 to 100%)
   const getWordProgress = (word: WordTiming) => {
+    if (activeSyncMode === 'line') {
+      if (!currentLine || effectiveTime < currentLine.start_time) {
+        return 0;
+      }
+      return 100;
+    }
     if (effectiveTime < word.start_time) return 0;
     if (effectiveTime >= word.end_time) return 100;
     const dur = word.end_time - word.start_time;
@@ -323,6 +350,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       ref={stageRef}
       data-testid="lyric-display-stage"
       data-fullscreen={isFullscreen ? 'true' : 'false'}
+      data-sync-mode={activeSyncMode}
       onMouseMove={resetIdleTimer}
       onClick={resetIdleTimer}
       className={containerClasses}
@@ -358,6 +386,30 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       </div>
 
       <div className="absolute top-2.5 right-2.5 flex items-center gap-2 z-20">
+        <button
+          type="button"
+          data-testid="sync-mode-toggle"
+          aria-label={
+            activeSyncMode === 'line' ? 'Switch to Word Sweep mode' : 'Switch to Line-by-Line mode'
+          }
+          aria-pressed={activeSyncMode === 'line'}
+          onClick={handleToggleSyncMode}
+          className={`px-2.5 py-1.5 rounded-xl border backdrop-blur text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 min-h-[44px] min-w-[44px] flex items-center justify-center gap-1.5 shadow-lg ${
+            activeSyncMode === 'line'
+              ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-amber-500/20'
+              : 'bg-slate-900/80 hover:bg-slate-800 border-slate-700/60 text-slate-400 hover:text-slate-200'
+          }`}
+          title={
+            activeSyncMode === 'line'
+              ? 'Active: Line-by-Line Mode (Click for Word Sweep)'
+              : 'Active: Word Sweep Mode (Click for Line-by-Line)'
+          }
+        >
+          <span className="font-mono text-[11px] uppercase tracking-wider font-bold">
+            {activeSyncMode === 'line' ? 'Line' : 'Word'}
+          </span>
+        </button>
+
         <button
           type="button"
           data-testid="toggle-visualizer-btn"
@@ -478,42 +530,69 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
             <div
               data-testid="active-lyrics-line"
               data-font-scale={fontSizeScale}
+              data-sync-mode={activeSyncMode}
               style={{ fontSize: `${fontSizeScale}em` }}
               className="text-xl sm:text-3xl md:text-5xl font-extrabold font-['Montserrat'] tracking-tight flex flex-wrap justify-center gap-x-2 sm:gap-x-3 gap-y-1 transition-all"
             >
-              {currentLine.words.map((w, idx) => {
-                const progress = getWordProgress(w);
-                return (
-                  <button
-                    type="button"
-                    key={idx}
-                    onClick={() => onSeek?.(w.start_time)}
-                    aria-label={`Jump playback to word ${w.word} at ${w.start_time.toFixed(2)} seconds`}
-                    className="relative cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded p-0.5 bg-transparent border-0 inline-block text-inherit font-inherit"
-                    title={`${w.word} (${w.start_time.toFixed(2)}s - ${w.end_time.toFixed(2)}s)`}
-                  >
-                    {/* Unsung text */}
-                    <span style={{ color: themeUnsungColor }} className="drop-shadow-md">
-                      {w.word}
-                    </span>
-                    {/* Progressive Sung overlay clip with sub-frame fluid precision */}
-                    <span
-                      aria-hidden="true"
-                      data-testid={`word-sung-${idx}`}
-                      className="absolute inset-0 overflow-hidden whitespace-nowrap"
-                      style={{
-                        width: `${progress.toFixed(2)}%`,
-                        clipPath: `inset(0 ${(100 - progress).toFixed(2)}% 0 0)`,
-                        color: activeSungColor,
-                        filter: `drop-shadow(0 0 12px ${activeSungColor}99)`,
-                        transition: 'none',
-                      }}
+              {currentLine.words && currentLine.words.length > 0 ? (
+                currentLine.words.map((w, idx) => {
+                  const progress = getWordProgress(w);
+                  return (
+                    <button
+                      type="button"
+                      key={idx}
+                      onClick={() => onSeek?.(w.start_time)}
+                      aria-label={`Jump playback to word ${w.word} at ${w.start_time.toFixed(2)} seconds`}
+                      className="relative cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded p-0.5 bg-transparent border-0 inline-block text-inherit font-inherit"
+                      title={`${w.word} (${w.start_time.toFixed(2)}s - ${w.end_time.toFixed(2)}s)`}
                     >
-                      {w.word}
-                    </span>
-                  </button>
-                );
-              })}
+                      {/* Unsung text */}
+                      <span style={{ color: themeUnsungColor }} className="drop-shadow-md">
+                        {w.word}
+                      </span>
+                      {/* Progressive Sung overlay clip with sub-frame fluid precision */}
+                      <span
+                        aria-hidden="true"
+                        data-testid={`word-sung-${idx}`}
+                        className="absolute inset-0 overflow-hidden whitespace-nowrap"
+                        style={{
+                          width: `${progress.toFixed(2)}%`,
+                          clipPath: `inset(0 ${(100 - progress).toFixed(2)}% 0 0)`,
+                          color: activeSungColor,
+                          filter: `drop-shadow(0 0 12px ${activeSungColor}99)`,
+                          transition: 'none',
+                        }}
+                      >
+                        {w.word}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onSeek?.(currentLine.start_time)}
+                  aria-label={`Jump playback to line at ${currentLine.start_time.toFixed(2)} seconds`}
+                  className="relative cursor-pointer transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded p-0.5 bg-transparent border-0 inline-block text-inherit font-inherit"
+                  title={`${currentLine.text} (${currentLine.start_time.toFixed(2)}s - ${currentLine.end_time.toFixed(2)}s)`}
+                >
+                  <span
+                    style={{
+                      color:
+                        effectiveTime >= currentLine.start_time
+                          ? activeSungColor
+                          : themeUnsungColor,
+                      filter:
+                        effectiveTime >= currentLine.start_time
+                          ? `drop-shadow(0 0 12px ${activeSungColor}99)`
+                          : undefined,
+                    }}
+                    className="drop-shadow-md"
+                  >
+                    {currentLine.text}
+                  </span>
+                </button>
+              )}
             </div>
           ) : countdownState.hasGap && countdownState.gap ? (
             <div
@@ -573,6 +652,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         <div className="min-h-[1.5rem] sm:min-h-[2rem] flex items-center justify-center text-sm sm:text-lg md:text-xl">
           {nextLine ? (
             <p
+              data-testid="upcoming-lyrics-line"
               style={{ fontSize: `${Math.max(0.7, fontSizeScale * 0.75)}em` }}
               className="text-sm sm:text-lg md:text-xl font-bold font-['Montserrat'] text-slate-400/80 drop-shadow flex items-center justify-center gap-2 flex-wrap"
             >
@@ -602,7 +682,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       {isFullscreen && (
         <div
           data-testid="stage-floating-controls"
-          className={`relative z-30 max-w-3xl mx-auto w-full bg-slate-900/90 border border-slate-700/70 backdrop-blur-lg px-3 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-2xl flex items-center gap-2 sm:gap-4 transition-opacity duration-500 ${
+          className={`relative z-30 max-w-3xl mx-auto w-full bg-slate-900/90 border border-slate-700/70 backdrop-blur-lg px-3 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-2xl flex items-center gap-2 sm:gap-4 overflow-x-auto transition-opacity duration-500 ${
             showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
@@ -643,6 +723,31 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
           >
             {formatStageTime(effectiveTime)} / {formatStageTime(duration)}
           </div>
+
+          {/* Sync Mode Toggle Button in TV Stage Mode */}
+          <button
+            type="button"
+            data-testid="stage-sync-mode-toggle"
+            aria-label={
+              activeSyncMode === 'line'
+                ? 'Switch to Word Sweep mode'
+                : 'Switch to Line-by-Line mode'
+            }
+            aria-pressed={activeSyncMode === 'line'}
+            onClick={handleToggleSyncMode}
+            className={`p-2.5 rounded-xl border transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center text-xs font-bold font-mono ${
+              activeSyncMode === 'line'
+                ? 'bg-amber-500/30 border-amber-400 text-amber-300'
+                : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border-slate-700'
+            }`}
+            title={
+              activeSyncMode === 'line'
+                ? 'Line-by-Line Mode (Click for Word Sweep)'
+                : 'Word Sweep Mode (Click for Line-by-Line)'
+            }
+          >
+            {activeSyncMode === 'line' ? 'LINE' : 'WORD'}
+          </button>
 
           {/* Visualizer Toggle Button */}
           <button

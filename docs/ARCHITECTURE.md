@@ -277,7 +277,7 @@ Karaoke Studio employs an **opaque-box, requirements-driven testing philosophy**
 
 ### Backend Test Architecture
 
-The backend test suite is organized into domain unit/integration suites and a 5-tier E2E testing framework (3,956 total tests):
+The backend test suite is organized into domain unit/integration suites and a 5-tier E2E testing framework (4,308 total tests):
 
 ```
 backend/tests/
@@ -297,7 +297,9 @@ backend/tests/
 ├── test_backend_adversarial_stress.py      # Adversarial stress for stem exports, realignment & ASS
 ├── test_challenger2_stress.py              # Adversarial stress for vocal range & key recommendation
 ├── test_downloader.py                      # yt-dlp wrapper & metadata extraction tests
+├── test_e2e_linesync_integration.py        # Cross-layer E2E line-by-line vs word sweep export & render tests
 ├── test_e2e_lyrics_aligner_sync.py         # 4-tier E2E lyric retrieval & acoustic sync benchmark suite
+├── test_line_sync_ass.py                   # Line-by-line vs word sweep ASS generator & export endpoint tests
 ├── test_lyric_realignment.py               # In-studio lyric replacement & realignment tests
 ├── test_lyrics.py                          # Multi-stage LRCLIB fallback, candidate ranking & LRC tests
 ├── test_m2_adversarial.py                  # Multi-singer duet schema, aligner & ASS adversarial tests
@@ -341,7 +343,7 @@ backend/tests/
 
 ### Frontend Test Architecture
 
-The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 63 test modules (1,221 total tests):
+The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 66 test modules (1,307 total tests):
 
 ```
 frontend/src/tests/
@@ -356,6 +358,7 @@ frontend/src/tests/
 ├── HelpDialogAccessibility.test.tsx        # Help modal ARIA attributes, focus trap, dismiss
 ├── HelpModal.test.tsx                      # Help modal sections, shortcuts table, usage guide
 ├── HelpModalShortcutsStress.test.tsx       # Rapid hotkey toggling & input isolation stress
+├── LineSyncMode.test.tsx                   # Line-by-line vs word sweep preview, stage & export tests
 ├── LyricDisplay.test.tsx                   # Synchronized lyric line, duet badges & gap countdown rendering
 ├── LyricTimelineEditor.test.tsx            # Inline editing, line nudge, singer cycle, dirty state tracking
 ├── LyricTimelinePowerTools.test.tsx        # Undo/redo stack, batch offset, line/word tap-to-sync, lyric re-import
@@ -408,13 +411,13 @@ All changes in the repository must pass the full suite of automated quality gate
 
 ```bash
 # 1. Backend Verification
-./venv/bin/pytest                            # Baseline: >=3,956 passed, 0 failed, >90% coverage
+./venv/bin/pytest                            # Baseline: >=4,308 passed, 0 failed, >90% coverage
 ./venv/bin/ruff check backend                # Zero lint violations
 ./venv/bin/ruff format --check backend       # Zero formatting diffs
 
 # 2. Frontend Verification (inside frontend/)
 cd frontend
-npm test -- --run                            # Baseline: >=1,221 passed across 63 suites, 0 failed
+npm test -- --run                            # Baseline: >=1,307 passed across 66 suites, 0 failed
 npm run lint                                 # Zero ESLint warnings
 npm run format:check                         # Zero Prettier diffs
 npm run build                                # Zero TypeScript or Vite compilation errors
