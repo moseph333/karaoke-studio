@@ -17,8 +17,32 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  localStorage.clear();
-  sessionStorage.clear();
+  try {
+    if (
+      typeof localStorage !== 'undefined' &&
+      localStorage &&
+      typeof localStorage.clear === 'function'
+    ) {
+      localStorage.clear();
+    }
+  } catch {
+    // Safely ignore if storage is restricted or inaccessible
+  }
+  try {
+    if (
+      typeof sessionStorage !== 'undefined' &&
+      sessionStorage &&
+      typeof sessionStorage.clear === 'function'
+    ) {
+      sessionStorage.clear();
+    }
+  } catch {
+    // Safely ignore if storage is restricted or inaccessible
+  }
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.removeAttribute('data-theme');
+    document.documentElement.removeAttribute('data-stage-preset');
+  }
 });
 
 // Mock HTMLMediaElement prototype (audio & video elements in jsdom)

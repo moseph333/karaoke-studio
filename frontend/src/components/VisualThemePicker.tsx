@@ -32,6 +32,7 @@ export const THEMES: VisualTheme[] = [
     previewBg: 'from-amber-950/40 to-slate-950',
     previewSung: '#fbbf24',
     previewUnsung: '#ffffff',
+    fontFamily: 'Montserrat, sans-serif',
   },
   {
     id: 'cyber_cyan',
@@ -42,6 +43,7 @@ export const THEMES: VisualTheme[] = [
     previewBg: 'from-cyan-950/40 to-slate-950',
     previewSung: '#06b6d4',
     previewUnsung: '#ffffff',
+    fontFamily: 'Montserrat, sans-serif',
   },
   {
     id: 'neon_pink',
@@ -52,6 +54,7 @@ export const THEMES: VisualTheme[] = [
     previewBg: 'from-pink-950/40 to-slate-950',
     previewSung: '#ec4899',
     previewUnsung: '#ffffff',
+    fontFamily: 'Montserrat, sans-serif',
   },
   {
     id: 'classic_ktv',
@@ -62,6 +65,51 @@ export const THEMES: VisualTheme[] = [
     previewBg: 'from-blue-950/40 to-slate-950',
     previewSung: '#facc15',
     previewUnsung: '#ffffff',
+    fontFamily: 'Montserrat, sans-serif',
+  },
+  {
+    id: 'punk_diy',
+    name: 'Punk DIY Flyer',
+    description: 'Gritty Xerox black with raw flyer-yellow wipe and bold typography',
+    primary_color: '&H0015CCFA',
+    secondary_color: '&H00F5F5F5',
+    previewBg: '#0d0d0f',
+    previewSung: '#facc15',
+    previewUnsung: '#f5f5f5',
+    fontFamily: "'Impact', 'Arial Black', sans-serif",
+  },
+  {
+    id: 'tape_70s',
+    name: 'Analog 70s Studio',
+    description: 'Teak console with warm amber VU meter glow and sepia cream',
+    primary_color: '&H000B9EF5',
+    secondary_color: '&H00C7F3FE',
+    previewBg: '#1c140e',
+    previewSung: '#f59e0b',
+    previewUnsung: '#fef3c7',
+    fontFamily: "'Georgia', serif",
+  },
+  {
+    id: 'crt_ktv',
+    name: 'Dive Bar CRT KTV',
+    description: 'Phosphor green scanline CRT glow with retro arcade raster font',
+    primary_color: '&H005EC522',
+    secondary_color: '&H00ACEF86',
+    previewBg: '#061309',
+    previewSung: '#22c55e',
+    previewUnsung: '#86efac',
+    fontFamily: "'VT323', monospace",
+  },
+  {
+    id: 'clean_paper',
+    name: 'Clean Paper Studio',
+    description: 'Brutalist Swiss drafting paper with razor-sharp editorial red and black ink',
+    primary_color: '&H002626DC',
+    secondary_color: '&H00111111',
+    previewBg: '#f4f4f0',
+    previewSung: '#dc2626',
+    previewUnsung: '#111111',
+    fontFamily: "'Space Grotesk', 'Helvetica Neue', sans-serif",
   },
 ];
 
@@ -234,6 +282,8 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
           const isSelected = selectedTheme.id === t.id;
           const cardSungColor = isSelected ? activeSungColor : t.previewSung;
           const cardUnsungColor = isSelected ? activeUnsungColor : t.previewUnsung;
+          const isHexBg = t.previewBg.startsWith('#');
+          const isLightPreset = t.id === 'clean_paper';
           return (
             <div
               key={t.id}
@@ -247,10 +297,15 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   onSelectTheme(t);
                 }
               }}
-              className={`p-4 rounded-xl border cursor-pointer transition-all relative overflow-hidden bg-gradient-to-b ${t.previewBg} ${
+              style={isHexBg ? { backgroundColor: t.previewBg } : undefined}
+              className={`p-4 rounded-xl border cursor-pointer transition-all relative overflow-hidden ${
+                isHexBg ? '' : `bg-gradient-to-b ${t.previewBg}`
+              } ${
                 isSelected
                   ? 'border-cyan-400 ring-2 ring-cyan-500/20 shadow-lg shadow-cyan-500/10'
-                  : 'border-slate-800/80 hover:border-slate-700'
+                  : isLightPreset
+                    ? 'border-stone-300 hover:border-stone-400'
+                    : 'border-slate-800/80 hover:border-slate-700'
               }`}
             >
               {isSelected && (
@@ -258,11 +313,26 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   <Check className="w-3 h-3 stroke-[3]" />
                 </span>
               )}
-              <h4 className="text-sm font-bold text-white">{t.name}</h4>
-              <p className="text-[11px] text-slate-400 mt-1">{t.description}</p>
+              <h4
+                className={`text-sm font-bold ${isLightPreset ? 'text-neutral-900' : 'text-white'}`}
+              >
+                {t.name}
+              </h4>
+              <p
+                className={`text-[11px] mt-1 ${isLightPreset ? 'text-neutral-700' : 'text-slate-400'}`}
+              >
+                {t.description}
+              </p>
 
               {/* Mini Preview bar */}
-              <div className="mt-3 p-2 rounded-lg bg-slate-950/80 flex items-center justify-center font-['Montserrat'] font-extrabold text-sm">
+              <div
+                className={`mt-3 p-2 rounded-lg flex items-center justify-center font-extrabold text-sm ${
+                  isLightPreset
+                    ? 'bg-[#f4f4f0] border border-stone-400 text-neutral-900'
+                    : 'bg-slate-950/80'
+                }`}
+                style={{ fontFamily: t.fontFamily || 'Montserrat, sans-serif' }}
+              >
                 <span style={{ color: cardSungColor }}>Ka-ra-</span>
                 <span style={{ color: cardUnsungColor }}>oke</span>
               </div>

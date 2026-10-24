@@ -3,6 +3,7 @@
  *
  * Primary intake screen offering YouTube URL/title search, local audio intake,
  * optional custom lyrics input, search results browsing, and project library management.
+ * Fully adapted to application-wide semantic theme tokens across 4 visual dimensions.
  */
 
 import React, { useState } from 'react';
@@ -76,17 +77,17 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-2 sm:py-8 px-0 sm:px-4 space-y-6 sm:space-y-8">
+    <div className="max-w-3xl mx-auto py-2 sm:py-8 px-0 sm:px-4 space-y-6 sm:space-y-8 font-theme-body text-theme-text">
       {/* Header */}
       <div className="text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-800/40 text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-4">
-          <Sparkles className="w-3.5 h-3.5" />
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-theme-pill bg-theme-surface-subtle border-theme border-theme-border-subtle text-theme-accent text-xs font-semibold uppercase tracking-wider mb-4 shadow-theme-sm font-theme-heading">
+          <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
           AI-Powered Karaoke Studio
         </div>
-        <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight font-['Montserrat']">
+        <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-theme-text tracking-tight font-theme-heading">
           Turn Any YouTube Song Into Karaoke
         </h1>
-        <p className="mt-3 text-sm text-slate-400 max-w-xl mx-auto">
+        <p className="mt-3 text-sm text-theme-text-muted max-w-xl mx-auto font-theme-body">
           Word-by-word synchronized highlighting, isolated instrumentals, pitch control, and 1080p60
           YouTube exports.
         </p>
@@ -94,7 +95,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
 
       {/* Intake Mode Switcher */}
       <div
-        className="flex rounded-xl bg-slate-900/80 p-1 border border-slate-800/80 max-w-sm sm:max-w-md mx-auto"
+        className="flex rounded-theme-lg bg-theme-surface p-1 border-theme border-theme-border-subtle max-w-sm sm:max-w-md mx-auto shadow-theme-sm"
         role="group"
         aria-label="Track intake mode"
       >
@@ -107,10 +108,10 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
             setIntakeMode('youtube');
             setError(null);
           }}
-          className={`flex-1 min-h-[44px] py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+          className={`flex-1 min-h-[44px] py-2 px-3 sm:px-4 rounded-theme-md text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 font-theme-heading ${
             intakeMode === 'youtube'
-              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'bg-theme-accent text-theme-accent-text shadow-theme-sm border-theme border-theme-border'
+              : 'text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-subtle/60 border-theme border-transparent'
           }`}
         >
           <Search className="w-4 h-4" aria-hidden="true" />
@@ -125,10 +126,10 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
             setIntakeMode('local');
             setError(null);
           }}
-          className={`flex-1 min-h-[44px] py-2 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+          className={`flex-1 min-h-[44px] py-2 px-3 sm:px-4 rounded-theme-md text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-2 font-theme-heading ${
             intakeMode === 'local'
-              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md'
-              : 'text-slate-400 hover:text-slate-200'
+              ? 'bg-theme-accent text-theme-accent-text shadow-theme-sm border-theme border-theme-border'
+              : 'text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-subtle/60 border-theme border-transparent'
           }`}
         >
           <Upload className="w-4 h-4" aria-hidden="true" />
@@ -142,7 +143,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
           <form onSubmit={handleSearch} className="relative" role="search">
             <div className="relative flex items-center">
               <Search
-                className="absolute left-3.5 sm:left-4 w-4 h-4 sm:w-5 sm:h-5 text-slate-400"
+                className="absolute left-3.5 sm:left-4 w-4 h-4 sm:w-5 sm:h-5 text-theme-text-muted pointer-events-none"
                 aria-hidden="true"
               />
               <input
@@ -151,18 +152,18 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 onChange={(e) => setQuery(e.target.value)}
                 aria-label="Paste YouTube or YouTube Music URL or search song title"
                 placeholder="Paste YouTube / YouTube Music URL or search song title..."
-                className="w-full pl-10 sm:pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-xl bg-slate-900/90 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm sm:text-base shadow-xl min-h-[48px]"
+                className="w-full pl-10 sm:pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-theme-md bg-theme-surface border-theme border-theme-border-subtle text-theme-text placeholder:text-theme-text-muted focus:outline-none focus:ring-2 focus:ring-theme-accent focus:border-theme-border text-sm sm:text-base shadow-theme-md min-h-[48px] font-theme-body"
                 disabled={isLoading || searching}
               />
               <button
                 type="submit"
                 disabled={isLoading || searching || !query.trim()}
                 aria-label={searching ? 'Searching YouTube...' : 'Search YouTube or load track'}
-                className="absolute right-1.5 sm:right-2.5 min-h-[36px] sm:min-h-[44px] px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-xs sm:text-sm transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2"
+                className="absolute right-1.5 sm:right-2.5 min-h-[36px] sm:min-h-[44px] px-3 sm:px-5 py-2 sm:py-2.5 rounded-theme-sm bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-semibold text-xs sm:text-sm transition-all shadow-theme-sm border-theme border-theme-border disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 sm:gap-2 font-theme-heading"
               >
                 {searching ? (
                   <span
-                    className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"
+                    className="inline-block w-4 h-4 border-2 border-theme-accent-text border-t-transparent rounded-full animate-spin"
                     role="status"
                     aria-label="Loading"
                   ></span>
@@ -189,16 +190,16 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
       )}
 
       {/* Optional Custom Lyrics Toggle */}
-      <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl overflow-hidden">
+      <div className="bg-theme-surface-subtle/50 border-theme border-theme-border-subtle rounded-theme-md overflow-hidden shadow-theme-sm">
         <button
           type="button"
           onClick={() => setShowCustomLyrics(!showCustomLyrics)}
           aria-expanded={showCustomLyrics}
           aria-controls="custom-lyrics-panel"
-          className="w-full flex items-center justify-between px-4 py-3 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          className="w-full flex items-center justify-between px-4 py-3 text-xs text-theme-text-muted hover:text-theme-text transition-colors min-h-[44px] font-theme-body"
         >
           <span className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+            <FileText className="w-4 h-4 text-theme-accent" aria-hidden="true" />
             (Optional) Provide custom lyrics text
           </span>
           {showCustomLyrics ? (
@@ -208,7 +209,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
           )}
         </button>
         {showCustomLyrics && (
-          <div id="custom-lyrics-panel" className="p-4 pt-1 border-t border-slate-800/50">
+          <div id="custom-lyrics-panel" className="p-4 pt-1 border-t border-theme-border-subtle">
             <textarea
               id="custom-lyrics-textarea"
               aria-label="Custom plain lyrics text"
@@ -216,14 +217,14 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
               onChange={(e) => setCustomLyrics(e.target.value)}
               placeholder="Paste line-by-line lyrics here. If left blank, synchronized lyrics are queried automatically from LRCLIB."
               rows={4}
-              className="w-full p-3 rounded-lg bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
+              className="w-full p-3 rounded-theme-sm bg-theme-bg border-theme border-theme-border-subtle text-theme-text placeholder:text-theme-text-muted text-xs focus:outline-none focus:ring-1 focus:ring-theme-accent font-mono shadow-inner"
             />
           </div>
         )}
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-red-950/40 border border-red-800/50 text-red-300 text-sm">
+        <div className="p-4 rounded-theme-md bg-red-950/40 border-theme border-red-800/60 text-red-300 text-sm shadow-theme-sm font-theme-body">
           {error}
         </div>
       )}
@@ -231,32 +232,32 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
       {/* Search Results */}
       {results.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 px-1">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-theme-text-muted px-1 font-theme-heading">
             Search Results
           </h3>
           {results.map((track) => (
             <div
               key={track.id}
               onClick={() => onSelectTrack(track.url, customLyrics.trim() || undefined)}
-              className="group flex items-center justify-between p-2.5 sm:p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-cyan-500/50 hover:bg-slate-800/60 transition-all cursor-pointer shadow-md gap-2"
+              className="group flex items-center justify-between p-2.5 sm:p-3.5 rounded-theme-md bg-theme-surface border-theme border-theme-border-subtle hover:border-theme-border hover:bg-theme-surface-subtle transition-all cursor-pointer shadow-theme-md gap-2"
             >
               <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
                 {track.thumbnail ? (
                   <img
                     src={track.thumbnail}
                     alt={track.title}
-                    className="w-12 h-10 sm:w-16 sm:h-12 object-cover rounded-lg shrink-0 shadow"
+                    className="w-12 h-10 sm:w-16 sm:h-12 object-cover rounded-theme-sm shrink-0 shadow-theme-sm border-theme border-theme-border-subtle"
                   />
                 ) : (
-                  <div className="w-12 h-10 sm:w-16 sm:h-12 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                    <Music className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
+                  <div className="w-12 h-10 sm:w-16 sm:h-12 rounded-theme-sm bg-theme-surface-subtle border-theme border-theme-border-subtle flex items-center justify-center shrink-0">
+                    <Music className="w-4 h-4 sm:w-5 sm:h-5 text-theme-text-muted" />
                   </div>
                 )}
                 <div className="truncate flex-1 min-w-0">
-                  <h4 className="text-xs sm:text-sm font-semibold text-white group-hover:text-cyan-300 truncate transition-colors">
+                  <h4 className="text-xs sm:text-sm font-semibold text-theme-text group-hover:text-theme-accent truncate transition-colors font-theme-heading">
                     {track.title}
                   </h4>
-                  <p className="text-[11px] sm:text-xs text-slate-400 truncate mt-0.5">
+                  <p className="text-[11px] sm:text-xs text-theme-text-muted truncate mt-0.5 font-theme-body">
                     {track.artist} {track.duration ? `• ${formatDuration(track.duration)}` : ''}
                   </p>
                 </div>
@@ -264,7 +265,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
               <button
                 type="button"
                 aria-label="Create Karaoke"
-                className="shrink-0 ml-2 sm:ml-4 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500 group-hover:text-slate-950 font-medium text-[11px] sm:text-xs transition-all border border-cyan-500/30 min-h-[36px] flex items-center justify-center"
+                className="shrink-0 ml-2 sm:ml-4 px-2.5 sm:px-3.5 py-1.5 rounded-theme-sm bg-theme-accent/15 text-theme-accent group-hover:bg-theme-accent group-hover:text-theme-accent-text font-semibold text-[11px] sm:text-xs transition-all border-theme border-theme-accent/40 group-hover:border-theme-border min-h-[36px] flex items-center justify-center shadow-theme-sm font-theme-heading"
               >
                 <span className="sm:hidden">Create</span>
                 <span className="hidden sm:inline">Create Karaoke</span>

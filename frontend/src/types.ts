@@ -113,6 +113,7 @@ export interface VisualTheme {
   previewSung: string;
   previewUnsung: string;
   sync_mode?: SyncDisplayMode;
+  fontFamily?: string;
 }
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -185,4 +186,81 @@ export interface ProjectChordsResponse {
 
 export interface ChordsUpdateRequest {
   chords: ChordSegment[];
+}
+
+// ==========================================
+// Application Theme Engine Types
+// ==========================================
+
+export type AppThemeId = 'punk_diy' | 'tape_studio_70s' | 'dive_bar_crt' | 'clean_paper';
+
+export interface AppThemeColors {
+  bg: string;
+  surface: string;
+  surfaceSubtle: string;
+  surfaceRaised: string;
+  border: string;
+  borderSubtle: string;
+  text: string;
+  textMuted: string;
+  textInverse: string;
+  accent: string;
+  accentHover: string;
+  accentText: string;
+  secondary: string;
+  highlight: string;
+  sung: string;
+  unsung: string;
+}
+
+export interface AppThemeTypography {
+  heading: string;
+  body: string;
+  mono: string;
+  karaoke: string;
+}
+
+export interface AppThemeGeometry {
+  radiusSm: string;
+  radiusMd: string;
+  radiusLg: string;
+  radiusXl: string;
+  radiusPill: string;
+  borderWidth: string;
+  borderWidthThick: string;
+}
+
+export interface AppThemeShadows {
+  sm: string;
+  md: string;
+  lg: string;
+  glow: string;
+  card?: string;
+}
+
+export interface AppThemeSwatches {
+  primary: string;
+  accent: string;
+  bg: string;
+}
+
+export interface AppThemeBorders {
+  radius: string;
+  width: string;
+  style?: string;
+}
+
+export interface AppTheme {
+  id: AppThemeId;
+  name: string;
+  tagline: string;
+  stagePresetId: 'punk_diy' | 'tape_70s' | 'crt_ktv' | 'clean_paper';
+  swatches: AppThemeSwatches;
+  colors: AppThemeColors;
+  typography: AppThemeTypography;
+  fonts?: AppThemeTypography;
+  geometry: AppThemeGeometry;
+  borders?: AppThemeBorders;
+  shadows: AppThemeShadows;
+  cssVariables: Record<string, string>;
 }

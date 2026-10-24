@@ -5,7 +5,7 @@
  * state transitions, active studio dashboard, global keyboard shortcuts, and dialog modals.
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { TrackSearch } from './components/TrackSearch';
 import { AudioControls } from './components/AudioControls';
 import { LyricTimelineEditor } from './components/LyricTimelineEditor';
@@ -23,9 +23,11 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStudioAudio } from './hooks/useStudioAudio';
 import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
+import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
 
-export const App: React.FC = () => {
+export const AppContent: React.FC = () => {
   const { toast } = useToast();
+  useAppTheme();
   const { project, setProject } = useProjectPolling(null);
   const [loading, setLoading] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -569,6 +571,9 @@ export const App: React.FC = () => {
         activeSemitones={activeSemitones}
         syncMode={theme.syncMode}
         onSyncModeChange={theme.setSyncMode}
+        primaryColor={theme.customSungColor || undefined}
+        secondaryColor={theme.customUnsungColor || undefined}
+        fontSizeScale={theme.fontSizeScale}
         showAuthModal={showAuthModal}
         onAuthSuccess={handleAuthSuccess}
         onCloseAuth={() => setShowAuthModal(false)}
@@ -582,6 +587,18 @@ export const App: React.FC = () => {
         onStudioMetadataSaved={handleStudioMetadataSaved}
       />
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  const existingContext = useContext(AppThemeContext);
+  if (existingContext) {
+    return <AppContent />;
+  }
+  return (
+    <AppThemeProvider>
+      <AppContent />
+    </AppThemeProvider>
   );
 };
 

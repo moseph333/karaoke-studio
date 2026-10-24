@@ -6,7 +6,7 @@ from typing import Any
 
 from backend.config import DEFAULT_VIDEO_CONFIG
 
-VISUAL_THEMES: dict[str, dict[str, str]] = {
+VISUAL_THEMES: dict[str, dict[str, Any]] = {
     "modern_gold": {
         "id": "modern_gold",
         "name": "Modern Gold",
@@ -34,6 +34,54 @@ VISUAL_THEMES: dict[str, dict[str, str]] = {
         "description": "Traditional karaoke blue-to-yellow karaoke look",
         "primary_color": "&H0000FFFF",
         "secondary_color": "&H00FFFFFF",
+    },
+    "punk_diy": {
+        "id": "punk_diy",
+        "name": "Punk DIY Flyer",
+        "description": "Gritty Xerox black with raw flyer-yellow wipe and bold typography",
+        "primary_color": "&H0015CCFA",  # #facc15 (Flyer Yellow) -> BGR &H0015CCFA
+        "secondary_color": "&H00F5F5F5",  # #f5f5f5 (Paper Off-White) -> BGR &H00F5F5F5
+        "outline_color": "&H00000000",  # Solid Ink Black outline
+        "shadow_color": "&H00000000",  # Hard offset drop shadow
+        "outline_width": 3,
+        "shadow_width": 3,
+        "font_name": "Impact",
+    },
+    "tape_70s": {
+        "id": "tape_70s",
+        "name": "Analog 70s Studio",
+        "description": "Teak console with warm amber VU meter glow and sepia cream",
+        "primary_color": "&H000B9EF5",  # #f59e0b (Warm Amber VU) -> BGR &H000B9EF5
+        "secondary_color": "&H00C7F3FE",  # #fef3c7 (Sepia Cream) -> BGR &H00C7F3FE
+        "outline_color": "&H00000000",  # Deep walnut/black outline
+        "shadow_color": "&H80000000",  # Warm tape shadow
+        "outline_width": 3,
+        "shadow_width": 2,
+        "font_name": "Georgia",
+    },
+    "crt_ktv": {
+        "id": "crt_ktv",
+        "name": "Dive Bar CRT KTV",
+        "description": "Phosphor green scanline CRT glow with retro arcade raster font",
+        "primary_color": "&H005EC522",  # #22c55e (Phosphor Green) -> BGR &H005EC522
+        "secondary_color": "&H00ACEF86",  # #86efac (Dim Phosphor Mint) -> BGR &H00ACEF86
+        "outline_color": "&H00000000",  # Deep cathode black
+        "shadow_color": "&H80000000",  # CRT scanline shadow
+        "outline_width": 3,
+        "shadow_width": 2,
+        "font_name": "VT323",
+    },
+    "clean_paper": {
+        "id": "clean_paper",
+        "name": "Clean Paper Studio",
+        "description": "Brutalist Swiss drafting paper with razor-sharp editorial red and black ink",
+        "primary_color": "&H002626DC",  # #dc2626 (Editorial Red) -> BGR &H002626DC
+        "secondary_color": "&H00111111",  # #111111 (Monochrome Ink) -> BGR &H00111111
+        "outline_color": "&H00FFFFFF",  # Paper white contrast outline
+        "shadow_color": "&H00000000",  # Sharp brutalist offset shadow
+        "outline_width": 2,
+        "shadow_width": 2,
+        "font_name": "Arial",
     },
 }
 
@@ -220,10 +268,25 @@ def generate_ass_content(
             cfg["font_size"] = default_font_size
 
     # Apply visual theme preset if specified
-    if theme_id and theme_id in VISUAL_THEMES:
-        theme = VISUAL_THEMES[theme_id]
-        cfg["primary_color"] = theme["primary_color"]
-        cfg["secondary_color"] = theme["secondary_color"]
+    eff_theme_id = theme_id or (style_config or {}).get("theme_id")
+    if eff_theme_id and eff_theme_id in VISUAL_THEMES:
+        theme = VISUAL_THEMES[eff_theme_id]
+        if "primary_color" in theme and (not style_config or "primary_color" not in style_config):
+            cfg["primary_color"] = theme["primary_color"]
+        if "secondary_color" in theme and (
+            not style_config or "secondary_color" not in style_config
+        ):
+            cfg["secondary_color"] = theme["secondary_color"]
+        if "font_name" in theme and (not style_config or "font_name" not in style_config):
+            cfg["font_name"] = theme["font_name"]
+        if "outline_color" in theme and (not style_config or "outline_color" not in style_config):
+            cfg["outline_color"] = theme["outline_color"]
+        if "shadow_color" in theme and (not style_config or "shadow_color" not in style_config):
+            cfg["shadow_color"] = theme["shadow_color"]
+        if "outline_width" in theme and (not style_config or "outline_width" not in style_config):
+            cfg["outline_width"] = theme["outline_width"]
+        if "shadow_width" in theme and (not style_config or "shadow_width" not in style_config):
+            cfg["shadow_width"] = theme["shadow_width"]
 
     # Apply direct color overrides if passed, normalizing CSS hex to ASS BGR
     if primary_color is not None:

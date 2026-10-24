@@ -277,7 +277,7 @@ Karaoke Studio employs an **opaque-box, requirements-driven testing philosophy**
 
 ### Backend Test Architecture
 
-The backend test suite is organized into domain unit/integration suites and a 5-tier E2E testing framework (4,308 total tests):
+The backend test suite is organized into domain unit/integration suites and a 5-tier E2E testing framework (4,528 total tests):
 
 ```
 backend/tests/
@@ -310,6 +310,8 @@ backend/tests/
 ├── test_security_and_storage.py            # Security headers & project store recovery tests
 ├── test_separator.py                       # Demucs isolation & cache reuse tests
 ├── test_subtitle_export_adversarial.py     # RFC 5987 headers, centisecond rollover, & export tests
+├── test_theme_ass_fuzz.py                  # Fuzzing & boundary stress for theme presets & ASS styles
+├── test_theme_export_parity.py             # Stage theme preset & ASS export parity tests
 ├── test_theme_styling.py                   # Custom hex-to-ASS color, duet styles & font scaling tests
 ├── test_tier5_adversarial_final_1.py       # Tier 5 adversarial stress for lyric normalization & aligner
 ├── test_tier5_adversarial_final_2.py       # Tier 5 adversarial stress for spectral DP & boundary invariants
@@ -343,10 +345,13 @@ backend/tests/
 
 ### Frontend Test Architecture
 
-The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 66 test modules (1,307 total tests):
+The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 78 test modules (1,649 total tests):
 
 ```
 frontend/src/tests/
+├── AppThemeEngine.test.tsx                 # Theme engine tokens, CSS variables, zero-FOUC & persistence
+├── AppThemePicker.test.tsx                 # Accessible header theme picker listbox & keyboard navigation
+├── AppThemeSystem.test.tsx                 # 4-tier E2E theme system, 4D rubric & stage sync suite
 ├── AudioControls.test.tsx                  # Transport, pitch stepper, vocal range & guide vocal blend
 ├── AuthModal.test.tsx                      # Login modal form, error state, password submission
 ├── BeatVisualizer.test.tsx                 # 60fps canvas visualizer, AnalyserNode & V hotkey tests
@@ -365,10 +370,12 @@ frontend/src/tests/
 ├── PlaybackSpeedControl.test.tsx           # Variable playback speed (0.5x..1.5x) & radio semantics
 ├── ProjectLibrarySearchSort.test.tsx       # Library real-time search, status filtering & sorting
 ├── StudioLifecycle.test.tsx                # App state transitions & project loading
+├── ThemePickerAndViews.test.tsx            # Multi-view theme styling across Library, Studio & Modals
 ├── Toast.test.tsx                          # Toast notification rendering & timers
 ├── Tooltip.test.tsx                        # Tooltip hover/focus, Escape dismiss, hotkey badges
 ├── TooltipStress.test.tsx                  # Rapid hover/focus churn & disabled state sync
 ├── TrackSearch.test.tsx                    # YouTube search, local audio intake, library cards
+├── VisualThemeSync.test.tsx                # Bidirectional app-to-stage theme sync & custom overrides
 ├── VocalRangeRecommenderModal.test.tsx     # Voice presets, custom range & 1-click transposition modal
 ├── WaveformScrubber.test.tsx               # Interactive waveform rendering & drag seek scrubbing
 ├── adversarialDuetStress.test.tsx          # Duet bulk/auto-split, undo/redo & 320px touch target stress
@@ -411,13 +418,13 @@ All changes in the repository must pass the full suite of automated quality gate
 
 ```bash
 # 1. Backend Verification
-./venv/bin/pytest                            # Baseline: >=4,308 passed, 0 failed, >90% coverage
+./venv/bin/pytest                            # Baseline: >=4,528 passed, 0 failed, >90% coverage
 ./venv/bin/ruff check backend                # Zero lint violations
 ./venv/bin/ruff format --check backend       # Zero formatting diffs
 
 # 2. Frontend Verification (inside frontend/)
 cd frontend
-npm test -- --run                            # Baseline: >=1,307 passed across 66 suites, 0 failed
+npm test -- --run                            # Baseline: >=1,649 passed across 78 suites, 0 failed
 npm run lint                                 # Zero ESLint warnings
 npm run format:check                         # Zero Prettier diffs
 npm run build                                # Zero TypeScript or Vite compilation errors

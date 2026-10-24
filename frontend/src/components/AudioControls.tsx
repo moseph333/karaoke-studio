@@ -395,7 +395,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   };
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-2xl backdrop-blur-md">
+    <div className="bg-theme-surface border border-theme-border rounded-theme-xl p-5 shadow-theme-lg backdrop-blur-md">
       {/* Native Master Audio Element */}
       {masterAudioUrl && (
         <audio
@@ -424,10 +424,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
 
       {/* Player Header & Main Scrub Bar */}
       <div className="flex flex-col gap-2 mb-5">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs text-slate-400 font-mono">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs text-theme-text-muted font-mono">
           <span>{formatTime(currentTime)}</span>
           <div className="flex items-center gap-3">
-            <span className="text-slate-500 hidden md:inline">
+            <span className="text-theme-text-muted hidden md:inline">
               Master Mix (
               {semitones !== 0 ? `${semitones > 0 ? '+' : ''}${semitones} st` : 'Original Key'})
             </span>
@@ -463,12 +463,12 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               type="button"
               onClick={onTogglePlay}
               aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
-              className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 flex items-center justify-center shadow-lg transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              className="w-12 h-12 rounded-theme-pill bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text border border-theme-border flex items-center justify-center shadow-theme-md transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-theme-accent"
             >
               {isPlaying ? (
-                <Pause className="w-5 h-5 fill-slate-950" aria-hidden="true" />
+                <Pause className="w-5 h-5 fill-current" aria-hidden="true" />
               ) : (
-                <Play className="w-5 h-5 fill-slate-950 ml-0.5" aria-hidden="true" />
+                <Play className="w-5 h-5 fill-current ml-0.5" aria-hidden="true" />
               )}
             </button>
           </Tooltip>
@@ -478,7 +478,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               type="button"
               onClick={() => onSeek(0)}
               aria-label="Restart track from beginning"
-              className="min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-lg bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              className="min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-theme-md bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent"
             >
               <RotateCcw className="w-4 h-4" aria-hidden="true" />
             </button>
@@ -495,10 +495,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               aria-label={showVisualizer ? 'Disable Beat Visualizer' : 'Enable Beat Visualizer'}
               aria-pressed={Boolean(showVisualizer)}
               onClick={onToggleVisualizer}
-              className={`min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+              className={`min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-theme-md border transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent ${
                 showVisualizer
-                  ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300 shadow-md shadow-cyan-500/20'
-                  : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border-slate-700/80'
+                  ? 'bg-theme-accent/20 border-theme-accent text-theme-accent shadow-theme-sm'
+                  : 'bg-theme-surface-subtle hover:bg-theme-surface-raised text-theme-text-muted border-theme-border-subtle'
               }`}
             >
               <Activity className="w-4 h-4" aria-hidden="true" />
@@ -516,19 +516,21 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
               aria-label={showChordBar ? 'Hide Live Chord Bar' : 'Show Live Chord Bar'}
               aria-pressed={Boolean(showChordBar)}
               onClick={onToggleChordBar}
-              className={`min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+              className={`min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-theme-md border transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent ${
                 showChordBar
-                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-md shadow-amber-500/20'
-                  : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border-slate-700/80'
+                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-theme-sm'
+                  : 'bg-theme-surface-subtle hover:bg-theme-surface-raised text-theme-text-muted border-theme-border-subtle'
               }`}
             >
               <Music2 className="w-4 h-4" aria-hidden="true" />
             </button>
           </Tooltip>
 
-          <div className="text-xs text-slate-400">
-            <p className="font-semibold text-white">Karaoke Playback</p>
-            <p className="text-[11px] text-slate-500">Sync with video timeline</p>
+          <div className="text-xs text-theme-text-muted">
+            <p className="font-semibold text-theme-text font-theme-heading">Karaoke Playback</p>
+            <p className="text-[11px] text-theme-text-muted font-theme-body">
+              Sync with video timeline
+            </p>
           </div>
         </div>
 

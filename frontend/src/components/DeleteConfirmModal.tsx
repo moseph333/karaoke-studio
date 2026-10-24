@@ -70,37 +70,48 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
       aria-labelledby="delete-confirm-title"
       aria-describedby="delete-confirm-desc"
     >
-      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl space-y-4 sm:space-y-5">
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-theme-surface border border-theme-border rounded-theme-xl shadow-theme-lg space-y-4 sm:space-y-5">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close delete confirmation dialog"
-          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 flex items-center justify-center"
+          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-theme-pill bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text-muted hover:text-theme-text transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center"
         >
           <X className="w-5 h-5" aria-hidden="true" />
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0">
+          <div className="p-3 rounded-theme-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 shrink-0">
             <Trash2 className="w-6 h-6" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <h2
               id="delete-confirm-title"
-              className="text-lg sm:text-xl font-bold text-white font-['Montserrat'] truncate"
+              className="text-lg sm:text-xl font-bold text-theme-text font-theme-heading truncate"
             >
               Delete Project?
             </h2>
-            <p className="text-xs text-slate-400 truncate mt-0.5">Permanent removal from studio</p>
+            <p className="text-xs text-theme-text-muted font-theme-body truncate mt-0.5">
+              Permanent removal from studio
+            </p>
           </div>
         </div>
 
-        <div className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1">
-          <p className="text-xs font-semibold text-white truncate">{projectTitle}</p>
-          {projectArtist && <p className="text-[11px] text-slate-400 truncate">{projectArtist}</p>}
+        <div className="p-3 bg-theme-bg border border-theme-border-subtle rounded-theme-md space-y-1 shadow-theme-sm">
+          <p className="text-xs font-semibold text-theme-text font-theme-heading truncate">
+            {projectTitle}
+          </p>
+          {projectArtist && (
+            <p className="text-[11px] text-theme-text-muted font-theme-body truncate">
+              {projectArtist}
+            </p>
+          )}
         </div>
 
-        <p id="delete-confirm-desc" className="text-xs text-slate-300 leading-relaxed">
+        <p
+          id="delete-confirm-desc"
+          className="text-xs text-theme-text font-theme-body leading-relaxed"
+        >
           Are you sure you want to permanently delete this project? All associated media files
           (vocal/instrumental stems, master audio, and rendered karaoke videos) will be wiped from
           disk. This action cannot be undone.
@@ -108,7 +119,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
 
         {error && (
           <div
-            className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2.5 text-rose-300 text-xs"
+            className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-theme-md flex items-center gap-2.5 text-rose-300 text-xs"
             role="alert"
           >
             <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" aria-hidden="true" />
@@ -122,7 +133,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 flex items-center justify-center disabled:opacity-50"
+            className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-4 py-2.5 rounded-theme-md bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text hover:text-theme-text text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center disabled:opacity-50"
           >
             Cancel
           </button>
@@ -130,7 +141,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
             type="button"
             onClick={handleConfirmDelete}
             disabled={loading}
-            className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 focus:outline-none focus:ring-2 focus:ring-rose-400 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-5 py-2.5 rounded-theme-md bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-theme-sm focus:outline-none focus:ring-2 focus:ring-rose-400 disabled:opacity-50 flex items-center justify-center gap-2 border border-rose-700"
           >
             {loading ? (
               <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

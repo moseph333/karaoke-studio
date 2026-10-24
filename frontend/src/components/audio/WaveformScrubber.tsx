@@ -204,7 +204,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
-        className="relative h-14 w-full bg-slate-950/80 border border-slate-800/90 rounded-xl overflow-hidden cursor-pointer flex items-end px-1 gap-[2px] group"
+        className="relative h-14 w-full bg-theme-bg border border-theme-border-subtle rounded-theme-lg overflow-hidden cursor-pointer flex items-end px-1 gap-[2px] group"
       >
         {/* Waveform Bars */}
         {bars.map((height, i) => {
@@ -214,10 +214,10 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
             <div
               key={i}
               data-testid="waveform-bar"
-              className={`flex-1 rounded-full transition-colors duration-75 ${
+              className={`flex-1 rounded-theme-pill transition-colors duration-75 ${
                 isPlayed
-                  ? 'bg-gradient-to-t from-cyan-500 to-blue-400'
-                  : 'bg-slate-700/60 group-hover:bg-slate-600/70'
+                  ? 'from-cyan-500 bg-theme-sung'
+                  : 'bg-slate-700 bg-theme-surface-raised group-hover:bg-theme-border'
               }`}
               style={{ height: `${Math.max(12, Math.round(height * 100))}%` }}
             />
@@ -227,7 +227,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
         {/* Playhead Progress Needle */}
         <div
           data-testid="waveform-playhead"
-          className="absolute top-0 bottom-0 w-0.5 bg-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.9)] pointer-events-none z-10"
+          className="absolute top-0 bottom-0 w-0.5 bg-theme-accent shadow-theme-glow pointer-events-none z-10"
           style={{ left: `${progressPercent}%` }}
         />
 

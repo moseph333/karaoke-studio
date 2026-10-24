@@ -2,6 +2,254 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   THEME 1: PUNK ROCK / UNDERGROUND / DIY (Signature Default)
+   Vibe: Cut-and-paste zine, Xerox photocopy toner, typewriter monospace,
+         sharp cut edges, hard offset drop shadows, flyer yellow & safety red.
+   ========================================================================== */
+:root,
+[data-theme='punk_diy'] {
+  /* Colors */
+  --theme-bg: #0d0d0f;
+  --theme-surface: #17171a;
+  --theme-surface-subtle: #202024;
+  --theme-surface-raised: #28282d;
+  --theme-border: #facc15; /* Flyer neon yellow */
+  --theme-border-subtle: #3f3f46; /* Gritty toner ink */
+  --theme-text: #f5f5f5; /* Bleached zine white */
+  --theme-text-muted: #a1a1aa; /* Newsprint halftone gray */
+  --theme-text-inverse: #000000;
+  --theme-accent: #facc15; /* Flyer yellow */
+  --theme-accent-hover: #fde047;
+  --theme-accent-text: #000000;
+  --theme-secondary: #ef4444; /* Safety red */
+  --theme-highlight: #ec4899; /* Xerox magenta */
+  --theme-sung: #facc15;
+  --theme-unsung: #f5f5f5;
+
+  /* Typography */
+  --theme-font-heading: 'Impact', 'Arial Black', sans-serif;
+  --theme-font-body: 'Courier Prime', 'Courier New', monospace;
+  --theme-font-mono: 'Courier Prime', 'Courier New', monospace;
+  --theme-font-karaoke: 'Impact', 'Arial Black', sans-serif;
+  --karaoke-font-family: 'Impact', 'Arial Black', sans-serif;
+
+  /* Geometry: Non-pill, sharp cut edges, heavy visible borders */
+  --theme-radius-sm: 0px;
+  --theme-radius-md: 0px;
+  --theme-radius-lg: 0px;
+  --theme-radius-xl: 0px;
+  --theme-radius-pill: 0px;
+  --theme-border-width: 2px;
+  --theme-border-width-thick: 3px;
+
+  /* Shadows: Hard-edged offset shadows (zero diffuse blur) */
+  --theme-shadow-sm: 2px 2px 0px #000000;
+  --theme-shadow-md: 4px 4px 0px #000000;
+  --theme-shadow-lg: 5px 5px 0px #facc15;
+  --theme-shadow-glow: 4px 4px 0px #ef4444;
+
+  /* Aliases */
+  --app-bg: #0d0d0f;
+  --app-surface: #17171a;
+  --app-border-color: #facc15;
+  --app-text: #f5f5f5;
+  --app-text-muted: #a1a1aa;
+  --app-accent: #facc15;
+  --app-font-heading: 'Impact', 'Arial Black', sans-serif;
+  --app-font-body: 'Courier Prime', 'Courier New', monospace;
+  --app-font-mono: 'Courier Prime', 'Courier New', monospace;
+  --app-radius: 0px;
+  --app-border-width: 2px;
+  --app-shadow-card: 4px 4px 0px #000000;
+}
+
+/* ==========================================================================
+   THEME 2: ANALOG 70s TAPE STUDIO
+   Vibe: Teak wood console, reel-to-reel tape deck, warm amber VU meter glow,
+         curved Bakelite chassis, vintage display serif typography.
+   ========================================================================== */
+[data-theme='tape_studio_70s'] {
+  /* Colors */
+  --theme-bg: #1a1410; /* Dark walnut woodgrain */
+  --theme-surface: #271e18; /* Teak console chassis */
+  --theme-surface-subtle: #362a22; /* Warm dark brass */
+  --theme-surface-raised: #44352b; /* Console meter bridge */
+  --theme-border: #d97706; /* Amber brass bezel */
+  --theme-border-subtle: #574334; /* Engraved chassis line */
+  --theme-text: #fef3c7; /* Warm cream parchment */
+  --theme-text-muted: #b59f84; /* Faded tape box label */
+  --theme-text-inverse: #1a1410;
+  --theme-accent: #f59e0b; /* Incandescent VU amber */
+  --theme-accent-hover: #fbbf24;
+  --theme-accent-text: #1a1410;
+  --theme-secondary: #b45309; /* Terracotta reel flange */
+  --theme-highlight: #d97706;
+  --theme-sung: #f59e0b;
+  --theme-unsung: #fef3c7;
+
+  /* Typography */
+  --theme-font-heading: 'Fraunces', 'Cooper Black', 'Georgia', serif;
+  --theme-font-body: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+  --theme-font-mono: 'Courier Prime', monospace;
+  --theme-font-karaoke: 'Fraunces', 'Cooper Black', serif;
+  --karaoke-font-family: 'Fraunces', 'Cooper Black', serif;
+
+  /* Geometry: Softly curved vintage console chassis */
+  --theme-radius-sm: 6px;
+  --theme-radius-md: 10px;
+  --theme-radius-lg: 16px;
+  --theme-radius-xl: 22px;
+  --theme-radius-pill: 9999px;
+  --theme-border-width: 1.5px;
+  --theme-border-width-thick: 2.5px;
+
+  /* Shadows: Soft warm incandescent drop shadows */
+  --theme-shadow-sm: 0 2px 4px rgba(26, 20, 16, 0.4);
+  --theme-shadow-md: 0 4px 12px rgba(26, 20, 16, 0.6), 0 0 4px rgba(217, 119, 6, 0.15);
+  --theme-shadow-lg: 0 10px 24px rgba(26, 20, 16, 0.8), 0 0 16px rgba(245, 158, 11, 0.2);
+  --theme-shadow-glow: 0 0 20px rgba(245, 158, 11, 0.35);
+
+  /* Aliases */
+  --app-bg: #1a1410;
+  --app-surface: #271e18;
+  --app-border-color: #d97706;
+  --app-text: #fef3c7;
+  --app-text-muted: #b59f84;
+  --app-accent: #f59e0b;
+  --app-font-heading: 'Fraunces', 'Cooper Black', 'Georgia', serif;
+  --app-font-body: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
+  --app-font-mono: 'Courier Prime', monospace;
+  --app-radius: 10px;
+  --app-border-width: 1.5px;
+  --app-shadow-card: 0 4px 12px rgba(26, 20, 16, 0.6);
+}
+
+/* ==========================================================================
+   THEME 3: DIVE BAR CRT KTV
+   Vibe: Grimy karaoke private booth, cathode-ray tube television, glowing
+         neon cyan/magenta tube signs, arcade scanline phosphor display.
+   ========================================================================== */
+[data-theme='dive_bar_crt'] {
+  /* Colors */
+  --theme-bg: #09080f; /* Smoked glass booth */
+  --theme-surface: #13101f; /* Heavy CRT television plastic */
+  --theme-surface-subtle: #1c182e; /* Tinted acrylic screen */
+  --theme-surface-raised: #26203d;
+  --theme-border: #06b6d4; /* Buzzing neon cyan */
+  --theme-border-subtle: #3a2b5e; /* Interlaced cathode grid */
+  --theme-text: #e0e7ff; /* Phosphor cool white */
+  --theme-text-muted: #8c7aa8; /* Phosphor decay lavender */
+  --theme-text-inverse: #09080f;
+  --theme-accent: #06b6d4; /* Neon cyan */
+  --theme-accent-hover: #22d3ee;
+  --theme-accent-text: #09080f;
+  --theme-secondary: #f43f5e; /* Neon sign hot red */
+  --theme-highlight: #d946ef; /* Neon sign electric magenta */
+  --theme-sung: #06b6d4;
+  --theme-unsung: #e0e7ff;
+
+  /* Typography */
+  --theme-font-heading: 'VT323', 'Press Start 2P', monospace;
+  --theme-font-body: 'Share Tech Mono', 'Courier New', monospace;
+  --theme-font-mono: 'VT323', monospace;
+  --theme-font-karaoke: 'VT323', monospace;
+  --karaoke-font-family: 'VT323', monospace;
+
+  /* Geometry: Curved TV glass screen bezels */
+  --theme-radius-sm: 4px;
+  --theme-radius-md: 8px;
+  --theme-radius-lg: 14px;
+  --theme-radius-xl: 18px;
+  --theme-radius-pill: 9999px;
+  --theme-border-width: 1.5px;
+  --theme-border-width-thick: 2px;
+
+  /* Shadows: Phosphor neon glow */
+  --theme-shadow-sm: 0 0 6px rgba(6, 182, 212, 0.3);
+  --theme-shadow-md: 0 0 14px rgba(6, 182, 212, 0.4), 0 0 2px rgba(217, 70, 239, 0.3);
+  --theme-shadow-lg: 0 0 24px rgba(6, 182, 212, 0.5), 0 0 8px rgba(217, 70, 239, 0.4);
+  --theme-shadow-glow: 0 0 24px #06b6d4;
+
+  /* Aliases */
+  --app-bg: #09080f;
+  --app-surface: #13101f;
+  --app-border-color: #06b6d4;
+  --app-text: #e0e7ff;
+  --app-text-muted: #8c7aa8;
+  --app-accent: #06b6d4;
+  --app-font-heading: 'VT323', 'Press Start 2P', monospace;
+  --app-font-body: 'Share Tech Mono', 'Courier New', monospace;
+  --app-font-mono: 'VT323', monospace;
+  --app-radius: 8px;
+  --app-border-width: 1.5px;
+  --app-shadow-card: 0 0 14px rgba(6, 182, 212, 0.4);
+}
+
+/* ==========================================================================
+   THEME 4: BRUTALIST / CLEAN PAPER STUDIO
+   Vibe: Swiss International style, unbleached drafting newsprint, razor-sharp
+         ink lines, zero gradients, ultra-minimal architectural layout.
+   ========================================================================== */
+[data-theme='clean_paper'] {
+  /* Colors */
+  --theme-bg: #f4f4f0; /* Drafting vellum / newsprint */
+  --theme-surface: #ffffff; /* Pure white paper block */
+  --theme-surface-subtle: #eaeae4; /* Shaded drawing board */
+  --theme-surface-raised: #ffffff;
+  --theme-border: #111111; /* Heavy technical drawing ink */
+  --theme-border-subtle: #737373; /* 0.5mm graphite pencil rule */
+  --theme-text: #111111; /* Deep black typography */
+  --theme-text-muted: #525252; /* Medium graphite note */
+  --theme-text-inverse: #ffffff;
+  --theme-accent: #111111; /* Stark monochrome focus */
+  --theme-accent-hover: #000000;
+  --theme-accent-text: #ffffff;
+  --theme-secondary: #dc2626; /* Red proof wax stamp */
+  --theme-highlight: #2563eb; /* Blueprint cyan */
+  --theme-sung: #111111;
+  --theme-unsung: #525252;
+
+  /* Typography */
+  --theme-font-heading: 'Space Grotesk', 'Helvetica Neue', 'Arial', sans-serif;
+  --theme-font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --theme-font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --theme-font-karaoke: 'Space Grotesk', 'Helvetica Neue', sans-serif;
+  --karaoke-font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif;
+
+  /* Geometry: Razor-sharp 0px brutalist edges */
+  --theme-radius-sm: 0px;
+  --theme-radius-md: 0px;
+  --theme-radius-lg: 0px;
+  --theme-radius-xl: 0px;
+  --theme-radius-pill: 0px;
+  --theme-border-width: 1.5px;
+  --theme-border-width-thick: 3px;
+
+  /* Shadows: Stark high-contrast hard offset stamp */
+  --theme-shadow-sm: 2px 2px 0px #111111;
+  --theme-shadow-md: 4px 4px 0px #111111;
+  --theme-shadow-lg: 6px 6px 0px #111111;
+  --theme-shadow-glow: 4px 4px 0px #dc2626;
+
+  /* Aliases */
+  --app-bg: #f4f4f0;
+  --app-surface: #ffffff;
+  --app-border-color: #111111;
+  --app-text: #111111;
+  --app-text-muted: #525252;
+  --app-accent: #111111;
+  --app-font-heading: 'Space Grotesk', 'Helvetica Neue', 'Arial', sans-serif;
+  --app-font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --app-font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --app-radius: 0px;
+  --app-border-width: 1.5px;
+  --app-shadow-card: 4px 4px 0px #111111;
+}
+
+/* ==========================================================================
+   BASE & RESET RULES
+   ========================================================================== */
 @layer base {
   html,
   body {
@@ -9,37 +257,284 @@
     max-width: 100vw;
   }
   body {
-    font-family:
-      'Inter',
-      system-ui,
-      -apple-system,
-      sans-serif;
-    color: #f1f5f9;
-    background-color: #0d0f17;
+    font-family: var(--theme-font-body, 'Inter', system-ui, sans-serif);
+    color: var(--theme-text, #f1f5f9);
+    background-color: var(--theme-bg, #0d0f17);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--theme-font-heading, inherit);
   }
 }
 
-/* Custom scrollbars */
+/* Custom scrollbars driven by theme tokens */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #111420;
+  background: var(--theme-bg, #111420);
 }
 ::-webkit-scrollbar-thumb {
-  background: #252a3d;
-  border-radius: 4px;
+  background: var(--theme-border-subtle, #252a3d);
+  border-radius: var(--theme-radius-sm, 4px);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3b425f;
+  background: var(--theme-border, #3b425f);
+}
+
+/* Text selection highlights driven by theme accent */
+::selection {
+  background-color: var(--theme-accent, #06b6d4);
+  color: var(--theme-accent-text, #000000);
 }
 
 /* Karaoke Preview Styling */
 .karaoke-font {
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--theme-font-karaoke, 'Montserrat', sans-serif);
   font-weight: 800;
   text-shadow:
     0 4px 12px rgba(0, 0, 0, 0.9),
     0 0 2px rgba(0, 0, 0, 1);
+}
+
+[data-theme='punk_diy'] .karaoke-font {
+  text-shadow:
+    3px 3px 0px #000000,
+    -1px -1px 0px #000000;
+  letter-spacing: -0.02em;
+}
+
+[data-theme='dive_bar_crt'] .karaoke-font {
+  text-shadow:
+    0 0 8px rgba(6, 182, 212, 0.8),
+    0 0 16px rgba(217, 70, 239, 0.6);
+  letter-spacing: 0.05em;
+}
+
+[data-theme='clean_paper'] .karaoke-font {
+  text-shadow: 2px 2px 0px #111111;
+  letter-spacing: -0.01em;
+}
+
+/* ==========================================================================
+   SCOPED UTILITY OVERRIDES FOR AUTOMATIC COMPONENT ADAPTATION
+   Higher specificity rules (0, 2, 0) override legacy Tailwind classes
+   without modifying existing component JSX.
+   ========================================================================== */
+
+/* 1. App Shell & Monolithic Container Overrides */
+[data-theme] .bg-\[\#0d0f17\],
+[data-theme].bg-\[\#0d0f17\] {
+  background-color: var(--theme-bg) !important;
+}
+
+[data-theme] .font-\[\'Montserrat\'\],
+[data-theme].font-\[\'Montserrat\'\] {
+  font-family: var(--theme-font-heading);
+}
+
+[data-theme] .font-\[\'Inter\'\],
+[data-theme].font-\[\'Inter\'\] {
+  font-family: var(--theme-font-body);
+}
+
+/* 2. Background Overrides */
+[data-theme] .bg-slate-950,
+[data-theme] .bg-slate-950\/40,
+[data-theme] .bg-slate-950\/60,
+[data-theme] .bg-slate-950\/70 {
+  background-color: var(--theme-bg);
+}
+
+/* Modal Backdrops with Comfortable Dimming */
+[data-theme] .bg-slate-950\/80,
+[data-theme] .bg-slate-950\/90 {
+  background-color: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme] .bg-slate-900,
+[data-theme] .bg-slate-900\/40,
+[data-theme] .bg-slate-900\/50,
+[data-theme] .bg-slate-900\/60,
+[data-theme] .bg-slate-900\/70,
+[data-theme] .bg-slate-900\/80,
+[data-theme] .bg-slate-900\/90 {
+  background-color: var(--theme-surface);
+}
+
+[data-theme] .bg-slate-800,
+[data-theme] .bg-slate-800\/40,
+[data-theme] .bg-slate-800\/50,
+[data-theme] .bg-slate-800\/60,
+[data-theme] .bg-slate-800\/70,
+[data-theme] .bg-slate-800\/80,
+[data-theme] .bg-slate-800\/90 {
+  background-color: var(--theme-surface-subtle);
+}
+
+[data-theme] .bg-slate-700,
+[data-theme] .bg-slate-700\/40,
+[data-theme] .bg-slate-700\/50,
+[data-theme] .bg-slate-700\/60,
+[data-theme] .bg-slate-700\/70,
+[data-theme] .bg-slate-700\/80,
+[data-theme] .bg-slate-700\/90 {
+  background-color: var(--theme-surface-raised);
+}
+
+/* Hover Backgrounds */
+[data-theme] .hover\:bg-slate-800:hover,
+[data-theme] .hover\:bg-slate-800\/50:hover,
+[data-theme] .hover\:bg-slate-800\/80:hover {
+  background-color: var(--theme-surface-subtle);
+}
+
+[data-theme] .hover\:bg-slate-700:hover,
+[data-theme] .hover\:bg-slate-700\/80:hover {
+  background-color: var(--theme-surface-raised);
+}
+
+[data-theme] .hover\:bg-slate-600:hover {
+  background-color: var(--theme-surface-raised);
+}
+
+/* 3. Border Color Overrides */
+[data-theme] .border-slate-800,
+[data-theme] .border-slate-800\/40,
+[data-theme] .border-slate-800\/60,
+[data-theme] .border-slate-800\/80,
+[data-theme] .border-slate-800\/90 {
+  border-color: var(--theme-border-subtle);
+}
+
+[data-theme] .border-slate-700,
+[data-theme] .border-slate-700\/40,
+[data-theme] .border-slate-700\/50,
+[data-theme] .border-slate-700\/60,
+[data-theme] .border-slate-700\/80,
+[data-theme] .border-slate-600 {
+  border-color: var(--theme-border);
+}
+
+[data-theme] .hover\:border-slate-700:hover,
+[data-theme] .hover\:border-slate-700\/80:hover,
+[data-theme] .hover\:border-cyan-500\/50:hover,
+[data-theme] .hover\:border-cyan-500\/70:hover {
+  border-color: var(--theme-accent);
+}
+
+/* 4. Text Color Overrides */
+[data-theme] .text-slate-100,
+[data-theme] .text-slate-200 {
+  color: var(--theme-text);
+}
+
+[data-theme] .text-slate-300,
+[data-theme] .text-slate-400 {
+  color: var(--theme-text-muted);
+}
+
+[data-theme] .text-slate-500 {
+  color: var(--theme-text-muted);
+  opacity: 0.85;
+}
+
+/* Light Theme (Clean Paper) Text Contrast Safeguard */
+[data-theme='clean_paper']
+  .text-white:not([data-theme-inverted] *):not(.theme-inverted *):not(button.bg-slate-950 *):not(
+    button.bg-slate-900 *
+  ) {
+  color: var(--theme-text);
+}
+
+/* 5. Accent Buttons & Brand Overrides */
+[data-theme] .bg-cyan-500 {
+  background-color: var(--theme-accent);
+  color: var(--theme-accent-text);
+}
+
+[data-theme] .text-cyan-400,
+[data-theme] .text-cyan-300 {
+  color: var(--theme-accent);
+}
+
+[data-theme] .border-cyan-500,
+[data-theme] .border-cyan-400,
+[data-theme] .border-cyan-500\/70,
+[data-theme] .border-cyan-500\/50,
+[data-theme] .border-cyan-500\/30 {
+  border-color: var(--theme-accent);
+}
+
+[data-theme] .bg-cyan-950,
+[data-theme] .bg-cyan-950\/20,
+[data-theme] .bg-cyan-950\/30,
+[data-theme] .bg-cyan-950\/40,
+[data-theme] .bg-cyan-950\/60 {
+  background-color: var(--theme-surface-subtle);
+}
+
+/* Gradient Buttons Adapted to Theme Accent */
+[data-theme] .bg-gradient-to-r.from-cyan-500.to-blue-600,
+[data-theme] .bg-gradient-to-tr.from-cyan-500.to-blue-600 {
+  background-image: none !important;
+  background-color: var(--theme-accent) !important;
+  color: var(--theme-accent-text) !important;
+}
+
+/* 6. Corner Geometry / Radius Overrides */
+[data-theme] .rounded-3xl,
+[data-theme] .rounded-2xl {
+  border-radius: var(--theme-radius-xl);
+}
+
+[data-theme] .rounded-xl {
+  border-radius: var(--theme-radius-lg);
+}
+
+[data-theme] .rounded-lg {
+  border-radius: var(--theme-radius-md);
+}
+
+[data-theme] .rounded-md {
+  border-radius: var(--theme-radius-sm);
+}
+
+/* Interactive Pill Controls Adapt to Theme Pill Geometry */
+[data-theme] button.rounded-full,
+[data-theme] .badge.rounded-full {
+  border-radius: var(--theme-radius-pill);
+}
+
+/* 7. Box Shadow Overrides */
+[data-theme] .shadow-2xl,
+[data-theme] .shadow-xl {
+  box-shadow: var(--theme-shadow-lg);
+}
+
+[data-theme] .shadow-lg,
+[data-theme] .shadow-md,
+[data-theme] .shadow {
+  box-shadow: var(--theme-shadow-md);
+}
+
+[data-theme] .shadow-sm {
+  box-shadow: var(--theme-shadow-sm);
+}
+
+/* 8. Punk DIY Rubric: Bold Heavy Borders */
+[data-theme='punk_diy'] .border,
+[data-theme='punk_diy'] .border-t,
+[data-theme='punk_diy'] .border-b,
+[data-theme='punk_diy'] .border-l,
+[data-theme='punk_diy'] .border-r {
+  border-width: var(--theme-border-width);
 }

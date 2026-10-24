@@ -10,7 +10,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Maximize, Minimize, Play, Pause, Activity, Music2 } from 'lucide-react';
-import { LyricLine, WordTiming, ChordSegment, SyncDisplayMode } from '../types';
+import { LyricLine, WordTiming, ChordSegment, SyncDisplayMode, VisualTheme } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
 import { detectInstrumentalGaps, getCountdownState } from '../utils/gapDetection';
 import { BeatVisualizer } from './BeatVisualizer';
@@ -82,6 +82,8 @@ export interface LyricDisplayProps {
   syncMode?: SyncDisplayMode;
   onToggleSyncMode?: () => void;
   onSyncModeChange?: (mode: SyncDisplayMode) => void;
+  fontFamily?: string;
+  selectedTheme?: VisualTheme;
 }
 
 function formatStageTime(seconds?: number): string {
@@ -121,7 +123,12 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   syncMode = 'word',
   onToggleSyncMode,
   onSyncModeChange,
+  fontFamily,
+  selectedTheme,
 }) => {
+  const stageFontFamily =
+    fontFamily || selectedTheme?.fontFamily || 'var(--karaoke-font-family, sans-serif)';
+
   const [internalSyncMode, setInternalSyncMode] = useState<SyncDisplayMode>(syncMode);
   const activeSyncMode = syncMode !== undefined ? syncMode : internalSyncMode;
 
@@ -448,8 +455,8 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       {showCountdown && (
         <div
           data-testid="countdown-cue"
-          className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-3 font-extrabold text-3xl font-['Montserrat'] motion-safe:animate-bounce motion-reduce:animate-none z-20"
-          style={{ color: cueColor }}
+          className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-3 font-extrabold text-3xl motion-safe:animate-bounce motion-reduce:animate-none z-20"
+          style={{ color: cueColor, fontFamily: stageFontFamily }}
           aria-label={`Starting in ${countdownSeconds} seconds`}
         >
           <span
@@ -531,8 +538,8 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
               data-testid="active-lyrics-line"
               data-font-scale={fontSizeScale}
               data-sync-mode={activeSyncMode}
-              style={{ fontSize: `${fontSizeScale}em` }}
-              className="text-xl sm:text-3xl md:text-5xl font-extrabold font-['Montserrat'] tracking-tight flex flex-wrap justify-center gap-x-2 sm:gap-x-3 gap-y-1 transition-all"
+              style={{ fontSize: `${fontSizeScale}em`, fontFamily: stageFontFamily }}
+              className="text-xl sm:text-3xl md:text-5xl font-extrabold tracking-tight flex flex-wrap justify-center gap-x-2 sm:gap-x-3 gap-y-1 transition-all"
             >
               {currentLine.words && currentLine.words.length > 0 ? (
                 currentLine.words.map((w, idx) => {
@@ -601,8 +608,12 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
             >
               {/* Gap Title */}
               <p
-                style={{ fontSize: `${fontSizeScale}em`, color: upcomingSingerColor }}
-                className="text-base sm:text-xl md:text-2xl font-bold font-['Montserrat'] tracking-wide transition-colors"
+                style={{
+                  fontSize: `${fontSizeScale}em`,
+                  color: upcomingSingerColor,
+                  fontFamily: stageFontFamily,
+                }}
+                className="text-base sm:text-xl md:text-2xl font-bold tracking-wide transition-colors"
               >
                 {countdownState.gap.isIntro ? '♪ Instrumental Intro ♪' : '♪ Instrumental Solo ♪'}
               </p>
@@ -653,8 +664,11 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
           {nextLine ? (
             <p
               data-testid="upcoming-lyrics-line"
-              style={{ fontSize: `${Math.max(0.7, fontSizeScale * 0.75)}em` }}
-              className="text-sm sm:text-lg md:text-xl font-bold font-['Montserrat'] text-slate-400/80 drop-shadow flex items-center justify-center gap-2 flex-wrap"
+              style={{
+                fontSize: `${Math.max(0.7, fontSizeScale * 0.75)}em`,
+                fontFamily: stageFontFamily,
+              }}
+              className="text-sm sm:text-lg md:text-xl font-bold text-slate-400/80 drop-shadow flex items-center justify-center gap-2 flex-wrap"
             >
               {nextSingerConfig && (
                 <span

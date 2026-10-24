@@ -10,6 +10,7 @@ import { Mic2, Film, ArrowLeft, User, HelpCircle } from 'lucide-react';
 import { ProjectState } from '../types';
 
 import { Tooltip } from './Tooltip';
+import { AppThemePicker } from './AppThemePicker';
 
 export interface StudioHeaderProps {
   currentUser: string;
@@ -43,45 +44,49 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   };
 
   return (
-    <header className="border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md sticky top-0 z-40">
+    <header className="border-b border-theme-border/60 bg-theme-bg/90 backdrop-blur-md sticky top-0 z-40 transition-colors">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 min-h-[3.5rem] sm:min-h-[4rem] h-auto py-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="p-1.5 sm:p-2 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-slate-950 shadow-md shrink-0">
+          <div className="p-1.5 sm:p-2 rounded-theme-md bg-gradient-to-tr from-theme-accent to-theme-secondary text-theme-accent-text shadow-theme-sm shrink-0">
             <Mic2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
           </div>
           <div className="truncate">
-            <span className="font-extrabold text-sm sm:text-lg tracking-tight font-['Montserrat'] bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent truncate block">
+            <span className="font-extrabold text-sm sm:text-lg tracking-tight font-theme-heading text-theme-text truncate block">
               Karaoke Studio
             </span>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Accessible Application Theme Picker */}
+          <AppThemePicker />
+
           {/* Help & Usage Guide Trigger */}
           <Tooltip content="Help & Studio Guide" hotkey="?" position="bottom">
             <button
               type="button"
               onClick={onOpenHelp}
-              className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-slate-300 hover:text-white text-xs font-medium transition-all flex items-center gap-1.5 shadow min-h-[36px] focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+              className="px-2 sm:px-2.5 py-1.5 rounded-theme-md bg-theme-surface border border-theme-border/60 hover:border-theme-accent/50 text-theme-text-muted hover:text-theme-text text-xs font-medium transition-all flex items-center gap-1.5 shadow-theme-sm min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent"
               aria-label="Help and Studio Usage Guide (?)"
             >
-              <HelpCircle className="w-3.5 h-3.5 text-cyan-400 shrink-0" aria-hidden="true" />
+              <HelpCircle className="w-3.5 h-3.5 text-theme-accent shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline font-semibold">Help</span>
-              <kbd className="hidden sm:inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-mono font-semibold text-slate-400 bg-slate-800 border border-slate-700 rounded shadow-xs">
+              <kbd className="hidden sm:inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-mono font-semibold text-theme-text-muted bg-theme-surface-subtle border border-theme-border-subtle rounded-theme-sm shadow-xs">
                 ?
               </kbd>
             </button>
           </Tooltip>
 
+          {/* Manage User Profile Trigger */}
           <Tooltip content="Manage user profile" position="bottom">
             <button
               type="button"
               onClick={onOpenAuth}
-              className="px-2 sm:px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/50 text-slate-300 text-xs font-medium transition-all flex items-center gap-1.5 shadow min-h-[36px]"
+              className="px-2 sm:px-2.5 py-1.5 rounded-theme-md bg-theme-surface border border-theme-border/60 hover:border-theme-accent/50 text-theme-text-muted text-xs font-medium transition-all flex items-center gap-1.5 shadow-theme-sm min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent"
               aria-label={`Logged in as ${currentUser}. Click to change profile.`}
             >
-              <User className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-              <span className="font-semibold text-white max-w-[65px] sm:max-w-[120px] truncate">
+              <User className="w-3.5 h-3.5 text-theme-accent shrink-0" />
+              <span className="font-semibold text-theme-text max-w-[65px] sm:max-w-[120px] truncate">
                 {currentUser}
               </span>
             </button>
@@ -93,7 +98,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
                 <button
                   type="button"
                   onClick={handleNewSongClick}
-                  className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 min-h-[36px]"
+                  className="px-2.5 sm:px-3 py-1.5 rounded-theme-md bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text text-xs font-medium transition-colors flex items-center gap-1.5 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent"
                   aria-label="New Song"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
@@ -110,7 +115,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
                   <button
                     type="button"
                     onClick={onStartRender}
-                    className="hidden md:flex px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs transition-all shadow-lg shadow-cyan-500/20 items-center gap-2 min-h-[36px]"
+                    className="hidden md:flex px-4 py-2 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-bold text-xs transition-all shadow-theme-md items-center gap-2 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent"
                   >
                     <Film className="w-4 h-4" />
                     Render & Export Video

@@ -3,11 +3,14 @@
  *
  * Encapsulates visual themes, custom sung/unsung colors, font size scaling,
  * aspect ratio switching, and custom background state.
+ * Reactively synchronizes with application theme when mounted within AppThemeProvider,
+ * while maintaining resilient fallback for isolated unit tests.
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useContext, useRef } from 'react';
 import { VisualTheme, SyncDisplayMode } from '../types';
 import { THEMES } from '../components/VisualThemePicker';
+import { AppThemeContext } from '../context/AppThemeContext';
 
 /**
  * Converts CSS hex color (#RRGGBB or RRGGBB) to ASS color format (&H00BBGGRR).
@@ -55,8 +58,23 @@ export interface UseVisualThemeReturn {
   effectiveTheme: VisualTheme & { font_size_scale: number; sync_mode?: SyncDisplayMode };
 }
 
-export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisualThemeReturn {
-  const [selectedTheme, setSelectedTheme] = useState<VisualTheme>(initialTheme);
+export function useVisualTheme(initialTheme?: VisualTheme): UseVisualThemeReturn {
+  const appThemeContext = useContext(AppThemeContext);
+  const activePresetId = appThemeContext?.theme?.stagePresetId;
+
+  const [selectedTheme, setSelectedTheme] = useState<VisualTheme>(() => {
+    if (initialTheme) return initialTheme;
+    if (appThemeContext && activePresetId) {
+      const match = THEMES.find((t) => t.id === activePresetId);
+      if (match) return match;
+    }
+    if (appThemeContext) {
+      const punk = THEMES.find((t) => t.id === 'punk_diy');
+      if (punk) return punk;
+    }
+    return THEMES[0];
+  });
+
   const [customSungColor, setCustomSungColor] = useState<string | null>(null);
   const [customUnsungColor, setCustomUnsungColor] = useState<string | null>(null);
   const [fontSizeScale, setFontSizeScale] = useState<number>(1.0);
@@ -64,8 +82,23 @@ export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisual
   const [customBgId, setCustomBgId] = useState<string>('');
   const [syncMode, setSyncMode] = useState<SyncDisplayMode>('word');
 
-  const activeSungColor = customSungColor || selectedTheme.previewSung;
-  const activeUnsungColor = customUnsungColor || selectedTheme.previewUnsung;
+  const prevPresetIdRef = useRef<string | undefined>(activePresetId);
+
+  // Reactively synchronize stage preset when application theme changes
+  // STRICTLY PRESERVES customSungColor and customUnsungColor
+  useEffect(() => {
+    if (!appThemeContext || !activePresetId) return;
+    if (activePresetId !== prevPresetIdRef.current) {
+      prevPresetIdRef.current = activePresetId;
+      const match = THEMES.find((t) => t.id === activePresetId);
+      if (match && match.id !== selectedTheme.id) {
+        setSelectedTheme(match);
+      }
+    }
+  }, [appThemeContext, activePresetId, selectedTheme.id]);
+
+  const activeSungColor = customSungColor ?? selectedTheme.previewSung;
+  const activeUnsungColor = customUnsungColor ?? selectedTheme.previewUnsung;
 
   const resetThemeDefaults = useCallback(() => {
     setCustomSungColor(null);
@@ -78,10 +111,10 @@ export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisual
     () => ({
       ...selectedTheme,
       primary_color: customSungColor
-        ? cssToAssColor(customSungColor, selectedTheme.primary_color)
+        ? cssToAssColor(activeSungColor, selectedTheme.primary_color)
         : selectedTheme.primary_color,
       secondary_color: customUnsungColor
-        ? cssToAssColor(customUnsungColor, selectedTheme.secondary_color)
+        ? cssToAssColor(activeUnsungColor, selectedTheme.secondary_color)
         : selectedTheme.secondary_color,
       previewSung: activeSungColor,
       previewUnsung: activeUnsungColor,
@@ -105,9 +138,16 @@ export function useVisualTheme(initialTheme: VisualTheme = THEMES[0]): UseVisual
       document.documentElement.style.setProperty('--karaoke-font-scale', String(fontSizeScale));
       document.documentElement.style.setProperty('--karaoke-sung-color', activeSungColor);
       document.documentElement.style.setProperty('--karaoke-unsung-color', activeUnsungColor);
+      if (selectedTheme.fontFamily) {
+        document.documentElement.style.setProperty(
+          '--karaoke-font-family',
+          selectedTheme.fontFamily
+        );
+      }
       document.documentElement.setAttribute('data-sync-mode', syncMode);
+      document.documentElement.setAttribute('data-stage-preset', selectedTheme.id);
     }
-  }, [fontSizeScale, activeSungColor, activeUnsungColor, syncMode]);
+  }, [fontSizeScale, activeSungColor, activeUnsungColor, selectedTheme, syncMode]);
 
   return {
     selectedTheme,

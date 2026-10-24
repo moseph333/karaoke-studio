@@ -29,6 +29,9 @@ export interface StudioModalsProps {
   activeSemitones?: number;
   syncMode?: SyncDisplayMode;
   onSyncModeChange?: (mode: SyncDisplayMode) => void;
+  primaryColor?: string;
+  secondaryColor?: string;
+  fontSizeScale?: number;
   showAuthModal: boolean;
   onAuthSuccess: (username: string, token: string) => void;
   onCloseAuth: () => void;
@@ -53,6 +56,9 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   activeSemitones,
   syncMode,
   onSyncModeChange,
+  primaryColor,
+  secondaryColor,
+  fontSizeScale,
   showAuthModal,
   onAuthSuccess,
   onCloseAuth,
@@ -80,6 +86,9 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
           activeSemitones={activeSemitones}
           syncMode={syncMode}
           onSyncModeChange={onSyncModeChange}
+          primaryColor={primaryColor}
+          secondaryColor={secondaryColor}
+          fontSizeScale={fontSizeScale}
         />
       )}
 

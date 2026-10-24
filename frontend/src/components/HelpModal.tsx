@@ -217,31 +217,34 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         }
       }}
     >
-      <div className="relative w-full max-w-2xl sm:max-w-3xl max-h-[88vh] flex flex-col bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-2xl sm:max-w-3xl max-h-[88vh] flex flex-col bg-theme-surface border border-theme-border rounded-theme-xl shadow-theme-lg overflow-hidden">
         {/* Close Button (>=44px touch target) */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close help and usage guide"
-          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 flex items-center justify-center z-10"
+          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-theme-pill bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text-muted hover:text-theme-text transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center z-10"
         >
           <X className="w-5 h-5" aria-hidden="true" />
         </button>
 
         {/* Modal Header */}
-        <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-slate-800/80 pr-14">
+        <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-theme-border-subtle pr-14">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 sm:p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
+            <div className="p-2.5 sm:p-3 rounded-theme-lg bg-theme-accent/10 border border-theme-accent/20 text-theme-accent shrink-0">
               <HelpCircle className="w-6 h-6" aria-hidden="true" />
             </div>
             <div className="min-w-0 flex-1">
               <h2
                 id="help-modal-title"
-                className="text-lg sm:text-xl font-bold text-white font-['Montserrat'] truncate"
+                className="text-lg sm:text-xl font-bold text-theme-text font-theme-heading truncate"
               >
                 Karaoke Studio Help & Usage Guide
               </h2>
-              <p id="help-modal-desc" className="text-xs text-slate-400 mt-0.5 truncate">
+              <p
+                id="help-modal-desc"
+                className="text-xs text-theme-text-muted font-theme-body mt-0.5 truncate"
+              >
                 Keyboard shortcuts reference and studio workflow guide
               </p>
             </div>
@@ -249,7 +252,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
           {/* Tab Navigation */}
           <div
-            className="flex items-center gap-2 mt-4 border-b border-slate-800 overflow-x-auto no-scrollbar"
+            className="flex items-center gap-2 mt-4 border-b border-theme-border-subtle overflow-x-auto no-scrollbar"
             role="tablist"
             aria-label="Help topics"
           >
@@ -260,10 +263,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               aria-controls="tabpanel-shortcuts"
               aria-selected={activeTab === 'shortcuts'}
               onClick={() => setActiveTab('shortcuts')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 text-xs sm:text-sm font-semibold transition-colors min-h-[44px] focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded-t-lg whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 text-xs sm:text-sm font-semibold transition-colors min-h-[44px] focus:outline-none focus:ring-2 focus:ring-theme-accent rounded-t-theme-sm whitespace-nowrap shrink-0 font-theme-heading ${
                 activeTab === 'shortcuts'
-                  ? 'border-cyan-400 text-cyan-300 bg-cyan-500/5'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  ? 'border-theme-accent text-theme-accent bg-theme-accent/5'
+                  : 'border-transparent text-theme-text-muted hover:text-theme-text hover:border-theme-border-subtle'
               }`}
             >
               <Keyboard className="w-4 h-4" aria-hidden="true" />
@@ -277,10 +280,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               aria-controls="tabpanel-guide"
               aria-selected={activeTab === 'guide'}
               onClick={() => setActiveTab('guide')}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 text-xs sm:text-sm font-semibold transition-colors min-h-[44px] focus:outline-none focus:ring-2 focus:ring-cyan-400 rounded-t-lg whitespace-nowrap shrink-0 ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 border-b-2 text-xs sm:text-sm font-semibold transition-colors min-h-[44px] focus:outline-none focus:ring-2 focus:ring-theme-accent rounded-t-theme-sm whitespace-nowrap shrink-0 font-theme-heading ${
                 activeTab === 'guide'
-                  ? 'border-cyan-400 text-cyan-300 bg-cyan-500/5'
-                  : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  ? 'border-theme-accent text-theme-accent bg-theme-accent/5'
+                  : 'border-transparent text-theme-text-muted hover:text-theme-text hover:border-theme-border-subtle'
               }`}
             >
               <BookOpen className="w-4 h-4" aria-hidden="true" />
@@ -304,29 +307,29 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 {SHORTCUTS.map((item) => (
                   <div
                     key={item.label}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 gap-2 hover:border-slate-700/80 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-theme-md bg-theme-bg border border-theme-border-subtle gap-2 hover:border-theme-border transition-colors shadow-theme-sm"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="flex items-center gap-1.5 shrink-0">
                         {item.keys.map((k) => (
                           <kbd
                             key={k}
-                            className="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-cyan-300 font-mono text-xs font-semibold shadow-inner"
+                            className="px-2 py-1 rounded-theme-sm bg-theme-surface-subtle border border-theme-border-subtle text-theme-accent font-mono text-xs font-semibold shadow-inner"
                           >
                             {k}
                           </kbd>
                         ))}
                       </div>
                       <div className="min-w-0">
-                        <span className="text-xs sm:text-sm font-semibold text-white block truncate">
+                        <span className="text-xs sm:text-sm font-semibold text-theme-text font-theme-heading block truncate">
                           {item.label}
                         </span>
-                        <span className="text-[11px] sm:text-xs text-slate-400 block truncate">
+                        <span className="text-[11px] sm:text-xs text-theme-text-muted font-theme-body block truncate">
                           {item.description}
                         </span>
                       </div>
                     </div>
-                    <span className="self-start sm:self-center text-[10px] sm:text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-800/80 text-slate-400 border border-slate-700/50 shrink-0">
+                    <span className="self-start sm:self-center text-[10px] sm:text-[11px] font-medium px-2 py-0.5 rounded-theme-pill bg-theme-surface-subtle text-theme-text-muted border border-theme-border-subtle shrink-0">
                       {item.scope}
                     </span>
                   </div>
@@ -334,35 +337,35 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               </div>
 
               {/* Isolation Callout Note */}
-              <div className="p-3.5 sm:p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-200 text-xs flex items-start gap-3">
-                <Info className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="p-3.5 sm:p-4 rounded-theme-md bg-theme-surface-subtle border border-theme-border-subtle text-theme-text text-xs flex items-start gap-3 shadow-theme-sm">
+                <Info className="w-5 h-5 text-theme-accent shrink-0 mt-0.5" aria-hidden="true" />
                 <div className="space-y-1">
-                  <span className="font-semibold text-cyan-300 block">
+                  <span className="font-semibold text-theme-text font-theme-heading block">
                     Keyboard Shortcut Isolation
                   </span>
-                  <p className="text-slate-300 text-[11px] sm:text-xs leading-relaxed">
+                  <p className="text-theme-text-muted font-theme-body text-[11px] sm:text-xs leading-relaxed">
                     Single-key shortcuts (
-                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                    <kbd className="px-1.5 py-0.5 bg-theme-bg rounded-theme-sm font-mono text-theme-accent border border-theme-border-subtle">
                       Space
                     </kbd>
                     ,{' '}
-                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                    <kbd className="px-1.5 py-0.5 bg-theme-bg rounded-theme-sm font-mono text-theme-accent border border-theme-border-subtle">
                       ←
                     </kbd>
                     /
-                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                    <kbd className="px-1.5 py-0.5 bg-theme-bg rounded-theme-sm font-mono text-theme-accent border border-theme-border-subtle">
                       →
                     </kbd>
                     ,{' '}
-                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                    <kbd className="px-1.5 py-0.5 bg-theme-bg rounded-theme-sm font-mono text-theme-accent border border-theme-border-subtle">
                       M
                     </kbd>
                     ,{' '}
-                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                    <kbd className="px-1.5 py-0.5 bg-theme-bg rounded-theme-sm font-mono text-theme-accent border border-theme-border-subtle">
                       C
                     </kbd>
                     ,{' '}
-                    <kbd className="px-1.5 py-0.5 bg-slate-800 rounded font-mono text-cyan-300">
+                    <kbd className="px-1.5 py-0.5 bg-theme-bg rounded-theme-sm font-mono text-theme-accent border border-theme-border-subtle">
                       ?
                     </kbd>
                     ) are automatically disabled while typing in text inputs, textareas, search
@@ -385,32 +388,32 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 return (
                   <div
                     key={stg.step}
-                    className="p-3.5 sm:p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2.5 hover:border-slate-700/80 transition-colors"
+                    className="p-3.5 sm:p-4 rounded-theme-lg bg-theme-bg border border-theme-border-subtle space-y-2.5 hover:border-theme-border transition-colors shadow-theme-sm"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">
+                        <div className="p-2 rounded-theme-md bg-theme-accent/10 text-theme-accent border border-theme-accent/20 shrink-0">
                           <IconComponent className="w-4 h-4" aria-hidden="true" />
                         </div>
-                        <h3 className="text-xs sm:text-sm font-bold text-white font-['Montserrat'] truncate">
+                        <h3 className="text-xs sm:text-sm font-bold text-theme-text font-theme-heading truncate">
                           {stg.title}
                         </h3>
                       </div>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 uppercase tracking-wider shrink-0">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-theme-pill bg-theme-accent/15 text-theme-accent border border-theme-accent/30 uppercase tracking-wider shrink-0">
                         {stg.badge}
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-300">{stg.summary}</p>
+                    <p className="text-xs text-theme-text font-theme-body">{stg.summary}</p>
 
-                    <ul className="space-y-1.5 pt-1 border-t border-slate-800/60">
+                    <ul className="space-y-1.5 pt-1 border-t border-theme-border-subtle">
                       {stg.features.map((feat, idx) => (
                         <li
                           key={idx}
-                          className="flex items-start gap-2 text-[11px] sm:text-xs text-slate-400"
+                          className="flex items-start gap-2 text-[11px] sm:text-xs text-theme-text-muted font-theme-body"
                         >
                           <Check
-                            className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5"
+                            className="w-3.5 h-3.5 text-theme-accent shrink-0 mt-0.5"
                             aria-hidden="true"
                           />
                           <span>{feat}</span>
@@ -425,11 +428,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         </div>
 
         {/* Modal Footer with Dismiss Action */}
-        <div className="p-3 sm:p-4 border-t border-slate-800/80 bg-slate-950/40 flex justify-end">
+        <div className="p-3 sm:p-4 border-t border-theme-border-subtle bg-theme-surface-subtle/40 flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 flex items-center justify-center"
+            className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-5 py-2.5 rounded-theme-md bg-theme-surface hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center shadow-theme-sm"
           >
             Got it, close
           </button>

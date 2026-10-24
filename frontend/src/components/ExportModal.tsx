@@ -46,6 +46,9 @@ export interface ExportModalProps {
   syncMode?: SyncDisplayMode;
   onSyncModeChange?: (mode: SyncDisplayMode) => void;
   onChangeSyncMode?: (mode: SyncDisplayMode) => void;
+  primaryColor?: string;
+  secondaryColor?: string;
+  fontSizeScale?: number;
 }
 
 export const ExportModal: React.FC<ExportModalProps> = ({
@@ -60,6 +63,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   syncMode,
   onSyncModeChange,
   onChangeSyncMode,
+  primaryColor,
+  secondaryColor,
+  fontSizeScale,
 }) => {
   const [_tick, setTick] = useState(0);
   const [includeVisualizer, setIncludeVisualizer] = useState(false);
@@ -114,6 +120,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         ...(includeChords ? { include_chords: true } : {}),
         style_config: {
           ...(selectedTheme ? { theme_id: selectedTheme.id } : {}),
+          ...(primaryColor ? { primary_color: primaryColor } : {}),
+          ...(secondaryColor ? { secondary_color: secondaryColor } : {}),
+          ...(fontSizeScale !== undefined ? { font_size_scale: fontSizeScale } : {}),
           ...(syncMode || renderSyncMode !== 'word' ? { sync_mode: renderSyncMode } : {}),
         },
       };
@@ -241,7 +250,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       aria-labelledby="export-modal-title"
       aria-describedby="export-modal-desc"
     >
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-4 sm:p-6 relative">
+      <div className="bg-theme-surface border border-theme-border rounded-theme-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-theme-lg p-4 sm:p-6 relative">
         <Tooltip
           content="Close export dialog"
           position="bottom"
@@ -251,24 +260,27 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close export dialog"
-            className="min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 flex items-center justify-center"
+            className="min-w-[44px] min-h-[44px] p-2.5 rounded-theme-pill bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text-muted hover:text-theme-text transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center"
           >
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </Tooltip>
 
-        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-800 pr-12">
-          <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shrink-0">
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-theme-border-subtle pr-12">
+          <div className="p-2.5 rounded-theme-md bg-theme-accent/10 text-theme-accent border border-theme-accent/30 shrink-0">
             <Film className="w-6 h-6" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <h2
               id="export-modal-title"
-              className="text-lg sm:text-xl font-bold text-white truncate sm:whitespace-normal"
+              className="text-lg sm:text-xl font-bold text-theme-text font-theme-heading truncate sm:whitespace-normal"
             >
               Export & YouTube Package
             </h2>
-            <p id="export-modal-desc" className="text-xs text-slate-400 truncate">
+            <p
+              id="export-modal-desc"
+              className="text-xs text-theme-text-muted font-theme-body truncate"
+            >
               {project.title} • {project.artist}
             </p>
           </div>
@@ -279,6 +291,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           project={project}
           selectedTheme={selectedTheme}
           aspectRatio={aspectRatio}
+          primaryColor={primaryColor}
+          secondaryColor={secondaryColor}
+          fontSizeScale={fontSizeScale}
           activeSemitones={semitones}
           syncMode={
             syncMode !== undefined || renderSyncMode !== 'word' ? renderSyncMode : undefined
@@ -287,21 +302,21 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         />
 
         {/* Dedicated Standalone Chord & Lyric Sheet Download Section */}
-        <div className="p-3.5 sm:p-5 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-6 space-y-3.5">
+        <div className="p-3.5 sm:p-5 rounded-theme-lg bg-theme-bg border border-theme-border-subtle mb-6 space-y-3.5 shadow-theme-sm">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <Music className="w-5 h-5 text-amber-400 shrink-0" aria-hidden="true" />
-              <h3 className="text-sm sm:text-base font-bold text-white font-['Montserrat'] truncate">
+              <h3 className="text-sm sm:text-base font-bold text-theme-text font-theme-heading truncate">
                 Musician Chord & Lyric Sheet
               </h3>
             </div>
             {project?.chords && project.chords.length > 0 && (
-              <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full shrink-0">
+              <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-theme-pill shrink-0">
                 {project.chords.length} chords
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-theme-text-muted font-theme-body">
             Export an aligned, plain-text/Markdown chord and lyric lead sheet transposed to your
             active key ({semitones >= 0 ? `+${semitones}` : semitones} st) for guitar, piano, and
             live performance.
@@ -319,7 +334,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 onClick={handleDownloadChordSheet}
                 disabled={downloadingChordSheet}
                 aria-label="Download Chord & Lyric Sheet"
-                className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 active:bg-slate-700 border border-slate-700 hover:border-amber-500/50 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-between sm:justify-start gap-3 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-theme-md bg-theme-surface-subtle hover:bg-theme-surface-raised active:bg-theme-surface border border-theme-border-subtle hover:border-amber-500/50 text-theme-text font-semibold text-xs sm:text-sm transition-all flex items-center justify-between sm:justify-start gap-3 shadow-theme-sm disabled:opacity-50 disabled:cursor-not-allowed font-theme-heading"
               >
                 <div className="flex items-center gap-2.5 min-w-0 text-left">
                   {downloadingChordSheet ? (
@@ -328,10 +343,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <Music className="w-4 h-4 text-amber-400 shrink-0" />
                   )}
                   <div className="min-w-0">
-                    <span className="font-bold text-xs sm:text-sm text-white block">
+                    <span className="font-bold text-xs sm:text-sm text-theme-text block">
                       Download Chord & Lyric Sheet
                     </span>
-                    <span className="text-[10px] text-slate-400 block truncate">
+                    <span className="text-[10px] text-theme-text-muted block truncate font-theme-body">
                       Aligned Chords • {semitones >= 0 ? `+${semitones}` : semitones} st • UTF-8
                     </span>
                   </div>
@@ -344,7 +359,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           {chordSheetError && (
             <div
               role="alert"
-              className="text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-xl font-mono break-words"
+              className="text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-theme-md font-mono break-words"
             >
               {chordSheetError}
             </div>
@@ -356,13 +371,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         {/* 1. Idle Video State (Before Video Render Started) */}
         {isIdle && (
-          <div className="p-5 rounded-2xl bg-slate-950/40 border border-slate-800/60 text-center space-y-4">
-            <div className="p-3 w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 mx-auto flex items-center justify-center">
+          <div className="p-5 rounded-theme-lg bg-theme-bg border border-theme-border-subtle text-center space-y-4 shadow-theme-sm">
+            <div className="p-3 w-12 h-12 rounded-theme-pill bg-theme-accent/10 border border-theme-accent/30 text-theme-accent mx-auto flex items-center justify-center shadow-theme-sm">
               <Film className="w-6 h-6" aria-hidden="true" />
             </div>
             <div className="max-w-md mx-auto">
-              <h3 className="text-base font-bold text-white">Full Video Render</h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <h3 className="text-base font-bold text-theme-text font-theme-heading">
+                Full Video Render
+              </h3>
+              <p className="text-xs text-theme-text-muted font-theme-body mt-1">
                 Synthesize a 1080p60 MP4 karaoke video with progressive subtitle wipe animations,
                 visual theme, and high-fidelity audio.
               </p>
@@ -372,34 +389,34 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
               <label
                 data-testid="toggle-export-visualizer-container"
-                className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors w-full sm:w-auto justify-center sm:justify-start"
+                className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-theme-md bg-theme-surface border border-theme-border-subtle hover:border-theme-border transition-colors w-full sm:w-auto justify-center sm:justify-start shadow-theme-sm"
               >
                 <input
                   type="checkbox"
                   data-testid="toggle-export-visualizer"
                   checked={includeVisualizer}
                   onChange={(e) => setIncludeVisualizer(e.target.checked)}
-                  className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-slate-700 bg-slate-800 text-cyan-500 focus:ring-cyan-400 focus:ring-offset-slate-900 cursor-pointer"
+                  className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-theme-border-subtle bg-theme-surface-subtle text-theme-accent focus:ring-theme-accent cursor-pointer"
                   aria-label="Include Audio Visualizer"
                 />
-                <span className="text-xs sm:text-sm font-medium text-slate-300">
+                <span className="text-xs sm:text-sm font-medium text-theme-text font-theme-body">
                   Include Audio Visualizer
                 </span>
               </label>
 
               <label
                 data-testid="include-chords-video-container"
-                className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors w-full sm:w-auto justify-center sm:justify-start"
+                className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-theme-md bg-theme-surface border border-theme-border-subtle hover:border-theme-border transition-colors w-full sm:w-auto justify-center sm:justify-start shadow-theme-sm"
               >
                 <input
                   type="checkbox"
                   data-testid="include-chords-video-checkbox"
                   checked={includeChords}
                   onChange={(e) => setIncludeChords(e.target.checked)}
-                  className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-slate-700 bg-slate-800 text-purple-500 focus:ring-purple-400 focus:ring-offset-slate-900 cursor-pointer"
+                  className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-theme-border-subtle bg-theme-surface-subtle text-purple-500 focus:ring-purple-400 cursor-pointer"
                   aria-label="Burn Chords into Video"
                 />
-                <span className="text-xs sm:text-sm font-medium text-slate-300">
+                <span className="text-xs sm:text-sm font-medium text-theme-text font-theme-body">
                   Burn Chords into Video
                 </span>
               </label>
@@ -407,12 +424,14 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
             {/* Video Render Sync Mode Selector */}
             <div className="flex items-center justify-center gap-2 pt-1">
-              <span className="text-xs text-slate-400 font-medium">Sync Display:</span>
+              <span className="text-xs text-theme-text-muted font-medium font-theme-body">
+                Sync Display:
+              </span>
               <div
                 data-testid="export-sync-mode-selector"
                 role="group"
                 aria-label="Video render synchronization mode"
-                className="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-800"
+                className="inline-flex p-1 rounded-theme-md bg-theme-surface border border-theme-border-subtle shadow-theme-sm"
               >
                 <button
                   type="button"
@@ -420,10 +439,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   aria-pressed={renderSyncMode === 'word'}
                   aria-label="Word Sweep video render"
                   onClick={() => handleSyncModeChange('word')}
-                  className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                  className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-theme-sm text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent font-theme-heading ${
                     renderSyncMode === 'word'
-                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-theme-accent text-theme-accent-text font-bold shadow-theme-sm'
+                      : 'text-theme-text-muted hover:text-theme-text'
                   }`}
                 >
                   <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
@@ -435,10 +454,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   aria-pressed={renderSyncMode === 'line'}
                   aria-label="Line-by-Line video render"
                   onClick={() => handleSyncModeChange('line')}
-                  className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                  className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-theme-sm text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent font-theme-heading ${
                     renderSyncMode === 'line'
-                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-theme-accent text-theme-accent-text font-bold shadow-theme-sm'
+                      : 'text-theme-text-muted hover:text-theme-text'
                   }`}
                 >
                   <AlignLeft className="w-3.5 h-3.5" aria-hidden="true" />
@@ -457,7 +476,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   type="button"
                   onClick={handleStartRenderClick}
                   aria-label="Start video render"
-                  className="min-h-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-lg shadow-cyan-500/20 inline-flex items-center justify-center gap-2 w-full sm:w-auto"
+                  className="min-h-[44px] px-5 py-2.5 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-bold text-xs sm:text-sm transition-all shadow-theme-sm border border-theme-border inline-flex items-center justify-center gap-2 w-full sm:w-auto font-theme-heading"
                 >
                   <Film className="w-4 h-4" />
                   Render 1080p Video

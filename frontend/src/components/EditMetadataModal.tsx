@@ -108,28 +108,31 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       aria-labelledby="edit-metadata-title"
       aria-describedby="edit-metadata-desc"
     >
-      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl space-y-4 sm:space-y-5">
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-theme-surface border border-theme-border rounded-theme-xl shadow-theme-lg space-y-4 sm:space-y-5">
         <button
           type="button"
           onClick={onClose}
           aria-label="Close edit metadata dialog"
-          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 flex items-center justify-center"
+          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-theme-pill bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text-muted hover:text-theme-text transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center"
         >
           <X className="w-5 h-5" aria-hidden="true" />
         </button>
 
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
+          <div className="p-3 rounded-theme-lg bg-theme-accent/10 border border-theme-accent/20 text-theme-accent shrink-0">
             <Pencil className="w-6 h-6" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
             <h2
               id="edit-metadata-title"
-              className="text-lg sm:text-xl font-bold text-white font-['Montserrat'] truncate"
+              className="text-lg sm:text-xl font-bold text-theme-text font-theme-heading truncate"
             >
               Edit Track Details
             </h2>
-            <p id="edit-metadata-desc" className="text-xs text-slate-400 truncate mt-0.5">
+            <p
+              id="edit-metadata-desc"
+              className="text-xs text-theme-text-muted font-theme-body truncate mt-0.5"
+            >
               Update title, artist, and karaoke metadata
             </p>
           </div>
@@ -137,7 +140,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
 
         {error && (
           <div
-            className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2.5 text-rose-300 text-xs"
+            className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-theme-md flex items-center gap-2.5 text-rose-300 text-xs"
             role="alert"
           >
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" aria-hidden="true" />
@@ -149,7 +152,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
           <div className="space-y-1.5">
             <label
               htmlFor="edit-project-title"
-              className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"
+              className="text-xs font-semibold text-theme-text font-theme-heading flex items-center gap-1.5"
             >
               Track Title
             </label>
@@ -161,14 +164,14 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Bohemian Rhapsody"
               required
-              className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              className="w-full min-h-[44px] px-3.5 py-2.5 bg-theme-bg border border-theme-border-subtle rounded-theme-md text-theme-text placeholder:text-theme-text-muted text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-theme-accent focus:border-theme-border font-theme-body"
             />
           </div>
 
           <div className="space-y-1.5">
             <label
               htmlFor="edit-project-artist"
-              className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"
+              className="text-xs font-semibold text-theme-text font-theme-heading flex items-center gap-1.5"
             >
               Artist Name
             </label>
@@ -179,7 +182,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               onChange={(e) => setArtist(e.target.value)}
               placeholder="e.g. Queen"
               required
-              className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              className="w-full min-h-[44px] px-3.5 py-2.5 bg-theme-bg border border-theme-border-subtle rounded-theme-md text-theme-text placeholder:text-theme-text-muted text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-theme-accent focus:border-theme-border font-theme-body"
             />
           </div>
 
@@ -188,17 +191,17 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 flex items-center justify-center disabled:opacity-50"
+              className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-4 py-2.5 rounded-theme-md bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !title.trim() || !artist.trim()}
-              className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs transition-all shadow-lg shadow-cyan-500/20 focus:outline-none focus:ring-2 focus:ring-cyan-400 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-5 py-2.5 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-bold text-xs transition-all shadow-theme-sm border border-theme-border focus:outline-none focus:ring-2 focus:ring-theme-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-theme-heading"
             >
               {loading ? (
-                <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                <span className="w-4 h-4 border-2 border-theme-accent-text border-t-transparent rounded-full animate-spin" />
               ) : (
                 <Check className="w-4 h-4" />
               )}

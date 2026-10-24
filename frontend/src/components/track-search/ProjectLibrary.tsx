@@ -3,6 +3,7 @@
  *
  * Displays the recent projects library grid with tab filtering ("My Songs" vs
  * "Community Library"), status indicators, metadata editing, and project deletion.
+ * Fully adapted to application-wide semantic theme tokens across 4 visual dimensions.
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -133,7 +134,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
   }, [baseProjects, statusFilter, searchQuery, sortBy]);
 
   return (
-    <div className="pt-4 border-t border-slate-800/80 space-y-4">
+    <div className="pt-4 border-t border-theme-border-subtle space-y-4 font-theme-body">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div
           className="flex items-center gap-1.5 sm:gap-2 flex-wrap"
@@ -146,10 +147,10 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
             aria-selected={activeTab === 'my'}
             aria-label={`My Songs (${myProjects.length})`}
             onClick={() => setActiveTab('my')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[36px] ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-theme-sm text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[36px] font-theme-heading ${
               activeTab === 'my'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent'
+                ? 'bg-theme-accent/20 text-theme-accent border-theme border-theme-border shadow-theme-sm'
+                : 'bg-theme-surface text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-subtle border-theme border-transparent'
             }`}
           >
             <FolderHeart className="w-3.5 h-3.5" aria-hidden="true" />
@@ -161,10 +162,10 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
             aria-selected={activeTab === 'community'}
             aria-label={`Community Library (${libraryProjects.length})`}
             onClick={() => setActiveTab('community')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[36px] ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-theme-sm text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[36px] font-theme-heading ${
               activeTab === 'community'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                : 'bg-slate-900/60 text-slate-400 hover:text-slate-200 border border-transparent'
+                ? 'bg-theme-accent/20 text-theme-accent border-theme border-theme-border shadow-theme-sm'
+                : 'bg-theme-surface text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-subtle border-theme border-transparent'
             }`}
           >
             <Globe className="w-3.5 h-3.5" aria-hidden="true" />
@@ -175,7 +176,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
         <button
           type="button"
           onClick={fetchLibrary}
-          className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors py-1 px-2 min-h-[36px] flex items-center"
+          className="text-[11px] text-theme-text-muted hover:text-theme-text transition-colors py-1 px-2 min-h-[36px] flex items-center rounded-theme-sm hover:bg-theme-surface-subtle"
         >
           Refresh
         </button>
@@ -185,7 +186,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <div className="relative flex-1 min-w-0">
           <Search
-            className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+            className="w-4 h-4 text-theme-text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
             aria-hidden="true"
           />
           <input
@@ -194,14 +195,14 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search library by title, artist, or creator..."
             aria-label="Search project library"
-            className="w-full bg-slate-900/80 border border-slate-800 text-slate-200 placeholder-slate-500 text-xs rounded-xl pl-9 pr-8 py-2 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all"
+            className="w-full bg-theme-surface border-theme border-theme-border-subtle text-theme-text placeholder:text-theme-text-muted text-xs rounded-theme-sm pl-9 pr-8 py-2 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent/50 focus:border-theme-border shadow-theme-sm transition-all font-theme-body"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
               aria-label="Clear search query"
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white rounded-md min-h-[28px] min-w-[28px] flex items-center justify-center"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-theme-text-muted hover:text-theme-text rounded-theme-sm min-h-[28px] min-w-[28px] flex items-center justify-center transition-colors"
             >
               <X className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
@@ -215,7 +216,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
               setStatusFilter(e.target.value as 'all' | 'ready' | 'in_progress_error')
             }
             aria-label="Filter projects by status"
-            className="bg-slate-900/80 border border-slate-800 text-slate-300 text-xs rounded-xl px-2.5 py-1.5 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 cursor-pointer flex-1 sm:flex-initial"
+            className="bg-theme-surface border-theme border-theme-border-subtle text-theme-text text-xs rounded-theme-sm px-2.5 py-1.5 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent/50 focus:border-theme-border shadow-theme-sm cursor-pointer flex-1 sm:flex-initial font-theme-body"
           >
             <option value="all">All Statuses</option>
             <option value="ready">Ready</option>
@@ -226,7 +227,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'recent' | 'title_asc' | 'artist_asc')}
             aria-label="Sort projects"
-            className="bg-slate-900/80 border border-slate-800 text-slate-300 text-xs rounded-xl px-2.5 py-1.5 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 cursor-pointer flex-1 sm:flex-initial"
+            className="bg-theme-surface border-theme border-theme-border-subtle text-theme-text text-xs rounded-theme-sm px-2.5 py-1.5 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent/50 focus:border-theme-border shadow-theme-sm cursor-pointer flex-1 sm:flex-initial font-theme-body"
           >
             <option value="recent">Recent (Newest)</option>
             <option value="title_asc">Title (A–Z)</option>
@@ -241,7 +242,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                 setStatusFilter('all');
               }}
               aria-label="Reset filters"
-              className="text-[11px] text-cyan-400 hover:text-cyan-300 py-1.5 px-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 hover:bg-cyan-500/20 min-h-[36px] transition-colors"
+              className="text-[11px] text-theme-accent hover:text-theme-accent-hover py-1.5 px-2.5 rounded-theme-sm bg-theme-accent/15 border-theme border-theme-accent/30 hover:bg-theme-accent/25 min-h-[36px] transition-colors shadow-theme-sm font-theme-heading font-semibold"
             >
               Clear Filters
             </button>
@@ -250,18 +251,20 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
       </div>
 
       {loadingLibrary ? (
-        <div className="py-8 text-center text-xs text-slate-500">Loading library tracks...</div>
+        <div className="py-8 text-center text-xs text-theme-text-muted font-theme-body">
+          Loading library tracks...
+        </div>
       ) : baseProjects.length === 0 ? (
-        <div className="py-8 text-center rounded-xl bg-slate-900/30 border border-slate-800/50 p-6 space-y-1">
-          <p className="text-xs text-slate-400">
+        <div className="py-8 text-center rounded-theme-md bg-theme-surface/50 border-theme border-theme-border-subtle p-6 space-y-1 shadow-theme-sm">
+          <p className="text-xs text-theme-text-muted font-theme-body">
             {activeTab === 'my'
               ? `No songs created yet by "${currentUser}". Search a song above to generate your first track!`
               : 'No tracks in the studio library yet.'}
           </p>
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="py-8 text-center rounded-xl bg-slate-900/30 border border-slate-800/50 p-6 space-y-3">
-          <p className="text-xs text-slate-400">
+        <div className="py-8 text-center rounded-theme-md bg-theme-surface/50 border-theme border-theme-border-subtle p-6 space-y-3 shadow-theme-sm">
+          <p className="text-xs text-theme-text-muted font-theme-body">
             No matching songs found for your search or filter.
           </p>
           <button
@@ -271,7 +274,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
               setStatusFilter('all');
             }}
             aria-label="Clear filters and restore tracks"
-            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-medium transition-colors min-h-[36px]"
+            className="px-3 py-1.5 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border-theme border-theme-border-subtle text-theme-accent text-xs font-semibold transition-colors min-h-[36px] shadow-theme-sm font-theme-heading"
           >
             Clear Filters
           </button>
@@ -284,34 +287,34 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
               <div
                 key={p.id}
                 onClick={() => onOpenProject && onOpenProject(p)}
-                className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 hover:border-cyan-500/50 hover:bg-slate-800/50 transition-all cursor-pointer shadow min-h-[64px]"
+                className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-theme-md bg-theme-surface border-theme border-theme-border-subtle hover:border-theme-border hover:bg-theme-surface-subtle transition-all cursor-pointer shadow-theme-md min-h-[64px]"
               >
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                   {p.thumbnail_url ? (
                     <img
                       src={p.thumbnail_url}
                       alt={p.title || 'Track'}
-                      className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg shrink-0 shadow"
+                      className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-theme-sm shrink-0 shadow-theme-sm border-theme border-theme-border-subtle"
                     />
                   ) : (
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-slate-800 flex items-center justify-center shrink-0">
-                      <Music className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500" />
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-theme-sm bg-theme-surface-subtle bg-slate-800 border-theme border-theme-border-subtle flex items-center justify-center shrink-0">
+                      <Music className="w-4 h-4 sm:w-5 sm:h-5 text-theme-text-muted" />
                     </div>
                   )}
 
                   <div className="truncate flex-1 min-w-0">
-                    <h4 className="text-xs font-semibold text-white group-hover:text-cyan-300 truncate transition-colors">
+                    <h4 className="text-xs font-semibold text-theme-text group-hover:text-theme-accent truncate transition-colors font-theme-heading">
                       {p.title || `Track ${p.id}`}
                     </h4>
-                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                    <p className="text-[11px] text-theme-text-muted truncate mt-0.5 font-theme-body">
                       {p.artist || 'Karaoke'}
                     </p>
                     <div className="flex items-center gap-2 mt-1.5">
                       <span
-                        className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                        className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-theme-sm font-medium border-theme font-theme-body ${
                           isReady
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                            : 'bg-theme-accent/15 text-theme-accent border-theme-accent/30'
                         }`}
                       >
                         {isReady ? (
@@ -322,7 +325,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                         {isReady ? 'Ready' : p.status}
                       </span>
                       {p.created_by && (
-                        <span className="text-[10px] text-slate-500 truncate">
+                        <span className="text-[10px] text-theme-text-muted truncate font-theme-body">
                           by {p.created_by}
                         </span>
                       )}
@@ -339,7 +342,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                         setEditingProject(p);
                       }}
                       aria-label={`Edit metadata for ${p.title || p.id}`}
-                      className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-slate-400 hover:text-cyan-300 transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                      className="min-h-[44px] min-w-[44px] p-2.5 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border-theme border-theme-border-subtle hover:border-theme-border text-theme-text-muted hover:text-theme-accent transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent shadow-theme-sm"
                     >
                       <Pencil className="w-4 h-4" aria-hidden="true" />
                     </button>
@@ -352,14 +355,14 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                         setDeletingProject(p);
                       }}
                       aria-label={`Delete project ${p.title || p.id}`}
-                      className="min-h-[44px] min-w-[44px] p-2.5 rounded-xl bg-slate-800/70 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-rose-500"
+                      className="min-h-[44px] min-w-[44px] p-2.5 rounded-theme-sm bg-theme-surface-subtle hover:bg-red-950/60 border-theme border-theme-border-subtle hover:border-red-600 text-theme-text-muted hover:text-red-400 transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-red-500 shadow-theme-sm"
                     >
                       <Trash2 className="w-4 h-4" aria-hidden="true" />
                     </button>
                   </Tooltip>
                   <div
                     aria-hidden="true"
-                    className="shrink-0 p-2 rounded-xl bg-slate-800/60 text-slate-400 group-hover:bg-cyan-500 group-hover:text-slate-950 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                    className="shrink-0 p-2 rounded-theme-sm bg-theme-surface-subtle border-theme border-theme-border-subtle text-theme-text-muted group-hover:bg-theme-accent group-hover:text-theme-accent-text group-hover:border-theme-border transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center shadow-theme-sm"
                   >
                     <Play className="w-4 h-4 fill-current" />
                   </div>

@@ -29,33 +29,33 @@ import { Tooltip } from './Tooltip';
 export { recalculateWordTimings };
 
 const S_RESUME_BTN =
-  'px-2.5 py-0.5 rounded-full bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 ' +
-  'text-cyan-300 text-[10px] font-medium flex items-center gap-1.5 transition-all shadow-md';
+  'px-2.5 py-0.5 rounded-theme-pill bg-theme-accent/20 hover:bg-theme-accent/30 border border-theme-accent/50 ' +
+  'text-theme-accent text-[10px] font-medium flex items-center gap-1.5 transition-all shadow-theme-sm';
 const S_ICON_BTN =
-  'p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white ' +
-  'disabled:opacity-40 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 min-h-[36px]';
+  'p-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised text-theme-text-muted hover:text-theme-text ' +
+  'disabled:opacity-40 transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent min-h-[36px]';
 const S_ACTION_BTN =
-  'px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white ' +
-  'text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 min-h-[36px]';
+  'px-2.5 py-1.5 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text ' +
+  'text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent min-h-[36px]';
 const S_DUET_BTN =
-  'px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white ' +
+  'px-3 py-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text ' +
   'text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ' +
-  'focus:outline-none focus:ring-2 focus:ring-pink-400 min-h-[44px] min-w-[44px] shrink-0';
+  'focus:outline-none focus:ring-2 focus:ring-theme-secondary min-h-[44px] min-w-[44px] shrink-0';
 const S_DISCARD_BTN =
-  'px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white ' +
+  'px-3 py-1.5 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text ' +
   'text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none ' +
-  'focus:ring-2 focus:ring-slate-500 disabled:opacity-50 min-h-[36px]';
+  'focus:ring-2 focus:ring-theme-secondary disabled:opacity-50 min-h-[36px]';
 const S_SAVE_BTN =
-  'px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold ' +
-  'text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition-all ' +
+  'px-4 py-2 rounded-theme-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold ' +
+  'text-xs flex items-center gap-1.5 shadow-theme-sm transition-all ' +
   'focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:opacity-50 min-h-[36px]';
 const S_ADD_FIRST_BTN =
-  'min-h-[44px] px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold ' +
-  'text-xs inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-400';
+  'min-h-[44px] px-4 py-2 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-semibold ' +
+  'text-xs inline-flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-theme-accent';
 const S_ADD_LINE_BTN =
-  'w-full min-h-[44px] py-2 px-3 rounded-xl border border-dashed border-slate-700 ' +
-  'hover:border-cyan-500/70 bg-slate-950/30 hover:bg-cyan-950/20 text-slate-400 hover:text-cyan-300 ' +
-  'text-xs font-semibold flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400';
+  'w-full min-h-[44px] py-2 px-3 rounded-theme-md border border-dashed border-theme-border-subtle ' +
+  'hover:border-theme-border bg-theme-surface-subtle hover:bg-theme-surface-raised text-theme-text-muted hover:text-theme-text ' +
+  'text-xs font-semibold flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent';
 
 export interface LyricTimelineEditorProps extends LyricDisplayProps {
   duration: number;
@@ -135,18 +135,18 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
       <LyricDisplay {...props} lines={ed.editableLines} />
 
       {/* 2. Visual Timeline & Power Tools */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-5 shadow-xl space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-800">
+      <div className="bg-theme-surface border border-theme-border rounded-theme-xl p-3 sm:p-5 shadow-theme-lg space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-theme-border-subtle">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-cyan-400" />
+              <h3 className="text-base font-bold text-theme-text font-theme-heading flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-theme-accent" />
                 Word-by-Word Timeline Editor
               </h3>
               {ed.hasUnsavedChanges && (
                 <span
                   data-testid="dirty-indicator"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-theme-pill bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold"
                   title="You have unsaved lyric or timing changes"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
@@ -160,12 +160,12 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                   className={S_RESUME_BTN}
                   title="Auto-scroll is paused. Click to resume."
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-theme-accent animate-pulse" />
                   Auto-scroll paused • Click to resume
                 </button>
               )}
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-theme-text-muted font-theme-body mt-0.5">
               Click any line to jump audio. Nudge words or lines to fine-tune sync with the beat.
             </p>
           </div>
@@ -205,7 +205,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                 disabled={ed.isSaving || ed.editableLines.length === 0}
                 className={S_ACTION_BTN}
               >
-                <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                <Clock className="w-3.5 h-3.5 text-theme-accent" />
                 <span className="hidden md:inline">Offset</span>
               </button>
             </Tooltip>
@@ -232,14 +232,14 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                   ed.setTapTargetIndex(0);
                   ed.setTapTargetWordIndex(0);
                 }}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition-all min-h-[36px] ${
+                className={`px-2.5 py-1.5 rounded-theme-sm text-xs font-semibold flex items-center gap-1.5 border transition-all min-h-[36px] ${
                   ed.isTapToSyncActive
-                    ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow'
-                    : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300 hover:text-white'
+                    ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-theme-sm'
+                    : 'bg-theme-surface-subtle hover:bg-theme-surface-raised border-theme-border-subtle text-theme-text-muted hover:text-theme-text'
                 }`}
               >
                 <Radio
-                  className={`w-3.5 h-3.5 ${ed.isTapToSyncActive ? 'animate-pulse text-amber-400' : 'text-slate-400'}`}
+                  className={`w-3.5 h-3.5 ${ed.isTapToSyncActive ? 'animate-pulse text-amber-400' : 'text-theme-text-muted'}`}
                 />
                 <span className="hidden md:inline">Tap Sync</span>
               </button>
@@ -253,7 +253,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                 disabled={ed.isSaving}
                 className={S_ACTION_BTN}
               >
-                <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                <FileText className="w-3.5 h-3.5 text-theme-accent" />
                 <span className="hidden md:inline">Re-import</span>
               </button>
             </Tooltip>
@@ -337,8 +337,10 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
           className="max-h-[300px] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 scroll-smooth focus:outline-none touch-pan-y overscroll-contain"
         >
           {ed.editableLines.length === 0 ? (
-            <div className="text-center py-8 px-4 bg-slate-950/40 rounded-xl border border-slate-800/80">
-              <p className="text-sm text-slate-400 mb-3">No lyric lines yet.</p>
+            <div className="text-center py-8 px-4 bg-theme-surface-subtle/50 rounded-theme-lg border border-theme-border-subtle shadow-theme-sm">
+              <p className="text-sm text-theme-text-muted font-theme-body mb-3">
+                No lyric lines yet.
+              </p>
               <button
                 type="button"
                 onClick={ed.handleInsertLineAtEnd}
