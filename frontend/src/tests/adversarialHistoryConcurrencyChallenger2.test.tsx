@@ -480,10 +480,11 @@ describe('Empirical Challenger 2: History Bounds, Deep Immutability & Concurrenc
         </ToastProvider>
       );
 
-      // Wait for project and active chord badge to load
+      // Wait for project to load, then toggle chord bar visible (since it defaults to hidden)
       await waitFor(() => {
         expect(screen.getByText('Adversarial History Song')).toBeInTheDocument();
       });
+      fireEvent.keyDown(window, { key: 'c' });
       await waitFor(() => {
         expect(screen.getByTestId('active-chord-badge')).toHaveTextContent('C');
       });
@@ -653,8 +654,8 @@ describe('Empirical Challenger 2: History Bounds, Deep Immutability & Concurrenc
         expect(screen.getByText('Concurrency Stress Song')).toBeInTheDocument();
       });
 
-      // Initially ChordBar is visible
-      expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
+      // Initially ChordBar defaults to hidden
+      expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
 
       // Rapidly alternate 'C' keypresses (30 rapid toggles)
       for (let i = 0; i < 30; i++) {
@@ -662,16 +663,16 @@ describe('Empirical Challenger 2: History Bounds, Deep Immutability & Concurrenc
           fireEvent.keyDown(window, { key: i % 2 === 0 ? 'c' : 'C' });
         });
         if (i % 2 === 0) {
-          // Toggled OFF
-          expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
-        } else {
-          // Toggled back ON
+          // Toggled ON
           expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
+        } else {
+          // Toggled back OFF
+          expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
         }
       }
 
-      // Final state: 30 iterations (even number) -> ON
-      expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
+      // Final state: 30 iterations (even number) -> OFF (matches initial default)
+      expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
     });
 
     it('4.3: Keyboard shortcut isolation: "c" key in inputs does NOT toggle chord bar', async () => {
@@ -700,6 +701,9 @@ describe('Empirical Challenger 2: History Bounds, Deep Immutability & Concurrenc
       await waitFor(() => {
         expect(screen.getByText('Concurrency Stress Song')).toBeInTheDocument();
       });
+      // Initially hidden by default; press 'c' to open ChordBar first
+      expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
+      fireEvent.keyDown(window, { key: 'c' });
       expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
 
       // Open inline chord edit input

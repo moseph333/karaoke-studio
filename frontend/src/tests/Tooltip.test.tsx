@@ -334,4 +334,30 @@ describe('Tooltip Component', () => {
     tooltip = screen.getByRole('tooltip');
     expect(tooltip).toHaveClass('right-full');
   });
+
+  it('applies high-contrast theme surface and text tokens in Brutalist Clean Paper theme (never black-on-black)', () => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme', 'clean_paper');
+    root.style.setProperty('--theme-surface', '#ffffff');
+    root.style.setProperty('--theme-text', '#111111');
+    root.style.setProperty('--theme-border', '#111111');
+    root.style.setProperty('--theme-surface-subtle', '#eaeae4');
+    root.style.setProperty('--theme-accent', '#111111');
+
+    render(
+      <Tooltip content="Readable paper tooltip" hotkey="Space" delayMs={0}>
+        <button type="button">Paper Button</button>
+      </Tooltip>
+    );
+
+    fireEvent.focus(screen.getByRole('button', { name: 'Paper Button' }));
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip.style.backgroundColor).toBe('var(--theme-surface, #020617)');
+    expect(tooltip.style.color).toBe('var(--theme-text, #f1f5f9)');
+    expect(tooltip.style.borderColor).toBe('var(--theme-border, #334155)');
+
+    const kbd = tooltip.querySelector('kbd') as HTMLElement;
+    expect(kbd.style.backgroundColor).toBe('var(--theme-surface-subtle, #1e293b)');
+    expect(kbd.style.color).toBe('var(--theme-accent, #67e8f9)');
+  });
 });

@@ -131,8 +131,8 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
       const trigger = screen.getByRole('button', { name: /select theme/i });
       fireEvent.click(trigger);
 
-      // Select 'tape_studio_70s' ("Analog 70s Tape")
-      const tapeOption = screen.getByRole('option', { name: /analog 70s tape/i });
+      // Select 'tape_studio_70s' ("Reel-to-Reel '74")
+      const tapeOption = screen.getByRole('option', { name: /reel-to-reel '74/i });
       fireEvent.click(tapeOption);
 
       // Dropdown closed

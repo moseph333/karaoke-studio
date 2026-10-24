@@ -159,7 +159,7 @@ const PUNK_SHADOWS: AppThemeShadows = {
 
 export const PUNK_DIY_THEME: AppTheme = {
   id: 'punk_diy',
-  name: 'Punk Rock DIY',
+  name: 'Basement Flyer',
   tagline: 'Raw zine Xerox stencil, flyer yellow & hard offset shadows',
   stagePresetId: 'punk_diy',
   swatches: {
@@ -231,7 +231,7 @@ const TAPE_SHADOWS: AppThemeShadows = {
 
 export const TAPE_STUDIO_70S_THEME: AppTheme = {
   id: 'tape_studio_70s',
-  name: 'Analog 70s Tape',
+  name: "Reel-to-Reel '74",
   tagline: 'Warm walnut chassis, incandescent amber VU & display serif',
   stagePresetId: 'tape_70s',
   swatches: {
@@ -303,7 +303,7 @@ const CRT_SHADOWS: AppThemeShadows = {
 
 export const DIVE_BAR_CRT_THEME: AppTheme = {
   id: 'dive_bar_crt',
-  name: 'Dive Bar CRT KTV',
+  name: 'Midnight KTV Booth',
   tagline: 'Grimy neon cyan wipe & arcade pixel scanline CRT monitor',
   stagePresetId: 'crt_ktv',
   swatches: {
@@ -375,7 +375,7 @@ const PAPER_SHADOWS: AppThemeShadows = {
 
 export const CLEAN_PAPER_THEME: AppTheme = {
   id: 'clean_paper',
-  name: 'Brutalist Clean Paper',
+  name: 'Monolith Press',
   tagline: 'High-contrast monochrome newsprint & sharp Swiss geometry',
   stagePresetId: 'clean_paper',
   swatches: {

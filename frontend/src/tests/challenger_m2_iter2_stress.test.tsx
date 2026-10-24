@@ -121,9 +121,8 @@ describe('Challenger M2 Iteration 2: Stage Mode & UI Persistence Empirical Tests
       const stage = screen.getByTestId('lyric-display-stage');
       expect(stage).toHaveAttribute('data-fullscreen', 'true');
 
-      // Verify ChordBar is present in TV Stage Mode
-      expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
-      expect(screen.getByTestId('active-chord-badge')).toHaveTextContent('Am');
+      // Verify ChordBar defaults to hidden in TV Stage Mode (uncontrolled mode)
+      expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
 
       // Verify floating controls container exists with floating chord toggle button
       const floatingControls = screen.getByTestId('stage-floating-controls');
@@ -131,21 +130,22 @@ describe('Challenger M2 Iteration 2: Stage Mode & UI Persistence Empirical Tests
 
       const chordToggle = screen.getByTestId('chord-bar-toggle');
       expect(chordToggle).toBeInTheDocument();
-      expect(chordToggle).toHaveAttribute('aria-pressed', 'true');
+      expect(chordToggle).toHaveAttribute('aria-pressed', 'false');
 
       // Verify >=44px touch targets for TV Stage floating chord toggle
       expect(chordToggle.className).toContain('min-h-[44px]');
       expect(chordToggle.className).toContain('min-w-[44px]');
 
-      // Click floating chord toggle to hide chord bar (using internal state fallback)
+      // Click floating chord toggle to show chord bar (using internal state fallback)
+      fireEvent.click(chordToggle);
+      expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
+      expect(screen.getByTestId('active-chord-badge')).toHaveTextContent('Am');
+      expect(chordToggle).toHaveAttribute('aria-pressed', 'true');
+
+      // Click again to hide chord bar
       fireEvent.click(chordToggle);
       expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
       expect(chordToggle).toHaveAttribute('aria-pressed', 'false');
-
-      // Click again to re-enable chord bar
-      fireEvent.click(chordToggle);
-      expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
-      expect(chordToggle).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('toggles chord bar visibility in TV Stage Mode when controlled by parent state', () => {
@@ -285,10 +285,11 @@ describe('Challenger M2 Iteration 2: Stage Mode & UI Persistence Empirical Tests
         </ToastProvider>
       );
 
-      // Wait for project to load
+      // Wait for project to load, then toggle chord bar visible (defaults to hidden)
       await waitFor(() => {
         expect(screen.getByText('Harmonic Ballad')).toBeInTheDocument();
       });
+      fireEvent.keyDown(window, { key: 'c' });
 
       // At currentTime 0, active chord is 'C' (sampleChords[0])
       await waitFor(() => {
@@ -362,6 +363,7 @@ describe('Challenger M2 Iteration 2: Stage Mode & UI Persistence Empirical Tests
       await waitFor(() => {
         expect(screen.getByText('Harmonic Ballad')).toBeInTheDocument();
       });
+      fireEvent.keyDown(window, { key: 'c' });
 
       const editBtn = screen.getByTestId('edit-active-chord-btn');
       fireEvent.click(editBtn);
@@ -413,6 +415,7 @@ describe('Challenger M2 Iteration 2: Stage Mode & UI Persistence Empirical Tests
       await waitFor(() => {
         expect(screen.getByText('Harmonic Ballad')).toBeInTheDocument();
       });
+      fireEvent.keyDown(window, { key: 'c' });
 
       const editBtn = screen.getByTestId('edit-active-chord-btn');
       fireEvent.click(editBtn);
@@ -468,6 +471,7 @@ describe('Challenger M2 Iteration 2: Stage Mode & UI Persistence Empirical Tests
       await waitFor(() => {
         expect(screen.getByText('Harmonic Ballad')).toBeInTheDocument();
       });
+      fireEvent.keyDown(window, { key: 'c' });
 
       // 1. Edit C -> Cmaj7
       const editBtn = screen.getByTestId('edit-active-chord-btn');

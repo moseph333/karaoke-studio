@@ -99,7 +99,7 @@ export const AppContent: React.FC = () => {
   };
 
   const isStudioReady = Boolean(project && project.status === 'ready');
-  const [showChordBar, setShowChordBar] = useState(true);
+  const [showChordBar, setShowChordBar] = useState(false);
   const [activeSemitones, setActiveSemitones] = useState(0);
   const [initialChords, setInitialChords] = useState<ChordSegment[]>([]);
 

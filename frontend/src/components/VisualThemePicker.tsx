@@ -69,7 +69,7 @@ export const THEMES: VisualTheme[] = [
   },
   {
     id: 'punk_diy',
-    name: 'Punk DIY Flyer',
+    name: 'Basement Flyer',
     description: 'Gritty Xerox black with raw flyer-yellow wipe and bold typography',
     primary_color: '&H0015CCFA',
     secondary_color: '&H00F5F5F5',
@@ -80,7 +80,7 @@ export const THEMES: VisualTheme[] = [
   },
   {
     id: 'tape_70s',
-    name: 'Analog 70s Studio',
+    name: "Reel-to-Reel '74",
     description: 'Teak console with warm amber VU meter glow and sepia cream',
     primary_color: '&H000B9EF5',
     secondary_color: '&H00C7F3FE',
@@ -91,7 +91,7 @@ export const THEMES: VisualTheme[] = [
   },
   {
     id: 'crt_ktv',
-    name: 'Dive Bar CRT KTV',
+    name: 'Midnight KTV Booth',
     description: 'Phosphor green scanline CRT glow with retro arcade raster font',
     primary_color: '&H005EC522',
     secondary_color: '&H00ACEF86',
@@ -102,7 +102,7 @@ export const THEMES: VisualTheme[] = [
   },
   {
     id: 'clean_paper',
-    name: 'Clean Paper Studio',
+    name: 'Monolith Press',
     description: 'Brutalist Swiss drafting paper with razor-sharp editorial red and black ink',
     primary_color: '&H002626DC',
     secondary_color: '&H00111111',

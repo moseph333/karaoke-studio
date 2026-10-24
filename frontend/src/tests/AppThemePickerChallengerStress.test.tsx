@@ -234,7 +234,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
       const trigger = screen.getByRole('button', { name: /select theme/i });
       fireEvent.click(trigger);
 
-      const tapeOption = screen.getByRole('option', { name: /Analog 70s Tape/i });
+      const tapeOption = screen.getByRole('option', { name: /Reel-to-Reel '74/i });
 
       // Should not throw and should still update DOM and state
       expect(() => {
@@ -306,7 +306,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
       const trigger = screen.getByRole('button', { name: /select theme/i });
       fireEvent.click(trigger);
 
-      const paperOption = screen.getByRole('option', { name: /Brutalist Clean Paper/i });
+      const paperOption = screen.getByRole('option', { name: /Monolith Press/i });
 
       expect(() => {
         fireEvent.click(paperOption);

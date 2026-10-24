@@ -163,6 +163,14 @@ export const Tooltip: React.FC<TooltipProps> = ({
           id={tooltipId}
           role="tooltip"
           aria-hidden={!isOpen}
+          style={{
+            backgroundColor: 'var(--theme-surface, #020617)',
+            color: 'var(--theme-text, #f1f5f9)',
+            borderColor: 'var(--theme-border, #334155)',
+            borderRadius: 'var(--theme-radius-md, 8px)',
+            boxShadow: 'var(--theme-shadow-lg, 0 25px 50px -12px rgba(0, 0, 0, 0.25))',
+            fontFamily: 'var(--theme-font-body, inherit)',
+          }}
           className={clsx(
             'absolute z-50 pointer-events-none px-2.5 py-1.5 rounded-lg text-xs font-medium',
             'bg-slate-950/95 text-slate-100 border border-slate-700/80 shadow-2xl backdrop-blur-md',
@@ -177,6 +185,13 @@ export const Tooltip: React.FC<TooltipProps> = ({
               {hotkeys.map((k, idx) => (
                 <kbd
                   key={idx}
+                  style={{
+                    backgroundColor: 'var(--theme-surface-subtle, #1e293b)',
+                    color: 'var(--theme-accent, #67e8f9)',
+                    borderColor: 'var(--theme-border-subtle, #334155)',
+                    borderRadius: 'var(--theme-radius-sm, 4px)',
+                    fontFamily: 'var(--theme-font-mono, monospace)',
+                  }}
                   className="inline-flex items-center justify-center min-w-[16px] px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-cyan-300 border border-slate-700 shadow-sm"
                 >
                   {k}

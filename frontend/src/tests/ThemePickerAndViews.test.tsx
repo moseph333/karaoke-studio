@@ -108,7 +108,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
       expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
       // Default theme name must be visible
-      expect(trigger).toHaveTextContent(/Punk/i);
+      expect(trigger).toHaveTextContent(/Basement Flyer/i);
     });
 
     it('opens listbox dropdown listing all 4 distinct human-crafted themes with WAI-ARIA roles', () => {
@@ -141,10 +141,10 @@ describe('ThemePickerAndViews Integration Suite', () => {
 
       // Verify all 4 themes are listed
       const expectedThemes = [
-        { id: 'punk_diy', name: 'Punk Rock DIY' },
-        { id: 'tape_studio_70s', name: 'Analog 70s Tape' },
-        { id: 'dive_bar_crt', name: 'Dive Bar CRT KTV' },
-        { id: 'clean_paper', name: 'Brutalist Clean Paper' },
+        { id: 'punk_diy', name: 'Basement Flyer' },
+        { id: 'tape_studio_70s', name: "Reel-to-Reel '74" },
+        { id: 'dive_bar_crt', name: 'Midnight KTV Booth' },
+        { id: 'clean_paper', name: 'Monolith Press' },
       ];
 
       expectedThemes.forEach(({ name }) => {
@@ -152,7 +152,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
       });
 
       // Default option has aria-selected="true"
-      const defaultOption = screen.getByRole('option', { name: /Punk Rock DIY/i });
+      const defaultOption = screen.getByRole('option', { name: /Basement Flyer/i });
       expect(defaultOption).toHaveAttribute('aria-selected', 'true');
     });
   });
@@ -218,7 +218,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
 
       // ArrowDown to second option (tape_studio_70s)
       fireEvent.keyDown(listbox, { key: 'ArrowDown', code: 'ArrowDown' });
-      const tapeOption = screen.getByRole('option', { name: /Analog 70s Tape/i });
+      const tapeOption = screen.getByRole('option', { name: /Reel-to-Reel '74/i });
 
       // Press Enter to select
       fireEvent.keyDown(tapeOption, { key: 'Enter', code: 'Enter' });
@@ -255,7 +255,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
 
       // End key moves focus to last item (clean_paper)
       fireEvent.keyDown(listbox, { key: 'End', code: 'End' });
-      const paperOption = screen.getByRole('option', { name: /Brutalist Clean Paper/i });
+      const paperOption = screen.getByRole('option', { name: /Monolith Press/i });
       fireEvent.keyDown(paperOption, { key: 'Enter', code: 'Enter' });
 
       expect(document.documentElement.getAttribute('data-theme')).toBe('clean_paper');

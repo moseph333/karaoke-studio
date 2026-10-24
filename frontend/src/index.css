@@ -350,24 +350,34 @@
 [data-theme] .bg-slate-950,
 [data-theme] .bg-slate-950\/40,
 [data-theme] .bg-slate-950\/60,
-[data-theme] .bg-slate-950\/70 {
+[data-theme] .bg-slate-950\/70,
+[data-theme] .bg-slate-950\/80:not(.fixed),
+[data-theme] .bg-slate-950\/90:not(.fixed) {
   background-color: var(--theme-bg);
 }
 
 /* Modal Backdrops with Comfortable Dimming */
-[data-theme] .bg-slate-950\/80,
-[data-theme] .bg-slate-950\/90 {
+[data-theme] .fixed.bg-slate-950\/80,
+[data-theme] .fixed.bg-slate-950\/90 {
   background-color: rgba(0, 0, 0, 0.75);
 }
 
+[data-theme] .bg-slate-950\/95,
 [data-theme] .bg-slate-900,
 [data-theme] .bg-slate-900\/40,
 [data-theme] .bg-slate-900\/50,
 [data-theme] .bg-slate-900\/60,
 [data-theme] .bg-slate-900\/70,
 [data-theme] .bg-slate-900\/80,
-[data-theme] .bg-slate-900\/90 {
+[data-theme] .bg-slate-900\/90,
+[data-theme] .bg-slate-900\/95 {
   background-color: var(--theme-surface);
+}
+
+[data-theme] [role='tooltip'] {
+  background-color: var(--theme-surface);
+  color: var(--theme-text);
+  border-color: var(--theme-border);
 }
 
 [data-theme] .bg-slate-800,

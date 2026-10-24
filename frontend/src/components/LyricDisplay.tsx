@@ -147,7 +147,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   const isVisualizerActive = showVisualizer !== undefined ? showVisualizer : internalShowViz;
   const handleToggleVisualizer = onToggleVisualizer || (() => setInternalShowViz((v) => !v));
 
-  const [internalShowChordBar, setInternalShowChordBar] = useState(true);
+  const [internalShowChordBar, setInternalShowChordBar] = useState(false);
   const isChordBarVisible =
     showChords !== undefined
       ? showChords
@@ -297,6 +297,11 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       }
     },
     [singer2SungColor, bothSungColor, themeSungColor]
+  );
+
+  const hasMultipleSingers = useMemo(
+    () => lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1'),
+    [lines]
   );
 
   const activeSinger = normalizeSingerRole(currentLine?.singer);
@@ -506,7 +511,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         )}
 
         {/* Active Singer Badge: Color-blind accessible indicator (Icon + Explicit Text) */}
-        {currentLine && (
+        {currentLine && hasMultipleSingers && (
           <div className="flex justify-center mb-1 sm:mb-2">
             <div
               data-testid="active-singer-badge"
@@ -670,7 +675,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
               }}
               className="text-sm sm:text-lg md:text-xl font-bold text-slate-400/80 drop-shadow flex items-center justify-center gap-2 flex-wrap"
             >
-              {nextSingerConfig && (
+              {hasMultipleSingers && nextSingerConfig && (
                 <span
                   data-testid="next-singer-tag"
                   data-singer={nextSinger}

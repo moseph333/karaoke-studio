@@ -109,7 +109,7 @@ describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
     it('correctly defines punk_diy matching stage preset', () => {
       const punk = THEMES[4];
       expect(punk.id).toBe('punk_diy');
-      expect(punk.name).toBe('Punk DIY Flyer');
+      expect(punk.name).toBe('Basement Flyer');
       expect(punk.previewSung).toBe('#facc15');
       expect(punk.previewUnsung).toBe('#f5f5f5');
       expect(punk.previewBg).toBe('#0d0d0f');
@@ -121,7 +121,7 @@ describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
     it('correctly defines tape_70s matching stage preset', () => {
       const tape = THEMES[5];
       expect(tape.id).toBe('tape_70s');
-      expect(tape.name).toBe('Analog 70s Studio');
+      expect(tape.name).toBe("Reel-to-Reel '74");
       expect(tape.previewSung).toBe('#f59e0b');
       expect(tape.previewUnsung).toBe('#fef3c7');
       expect(tape.previewBg).toBe('#1c140e');
@@ -133,7 +133,7 @@ describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
     it('correctly defines crt_ktv matching stage preset', () => {
       const crt = THEMES[6];
       expect(crt.id).toBe('crt_ktv');
-      expect(crt.name).toBe('Dive Bar CRT KTV');
+      expect(crt.name).toBe('Midnight KTV Booth');
       expect(crt.previewSung).toBe('#22c55e');
       expect(crt.previewUnsung).toBe('#86efac');
       expect(crt.previewBg).toBe('#061309');
@@ -145,7 +145,7 @@ describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
     it('correctly defines clean_paper matching stage preset', () => {
       const paper = THEMES[7];
       expect(paper.id).toBe('clean_paper');
-      expect(paper.name).toBe('Clean Paper Studio');
+      expect(paper.name).toBe('Monolith Press');
       expect(paper.previewSung).toBe('#dc2626');
       expect(paper.previewUnsung).toBe('#111111');
       expect(paper.previewBg).toBe('#f4f4f0');

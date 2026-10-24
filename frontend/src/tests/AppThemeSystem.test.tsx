@@ -964,7 +964,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           />
         );
 
-        const tapeCard = screen.getByText('Analog 70s Studio');
+        const tapeCard = screen.getByText("Reel-to-Reel '74");
         fireEvent.click(tapeCard);
         expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 'tape_70s' }));
       });
@@ -1893,7 +1893,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
 
       // Verify trigger swatch preview shows flyer yellow and safety red
       const trigger = screen.getByTestId('app-theme-picker-trigger');
-      expect(trigger).toHaveTextContent('Punk Rock DIY');
+      expect(trigger).toHaveTextContent('Basement Flyer');
 
       // Verify stage preset defaulted to matching punk_diy preset
       expect(visualThemeHook.selectedTheme.id).toBe('punk_diy');
@@ -1939,9 +1939,9 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
 
       const trigger = screen.getByTestId('app-theme-picker-trigger');
 
-      // 1. Switch to Analog 70s Tape
+      // 1. Switch to Reel-to-Reel '74
       fireEvent.click(trigger);
-      const tapeOption = screen.getByRole('option', { name: /analog 70s tape/i });
+      const tapeOption = screen.getByRole('option', { name: /reel-to-reel '74/i });
       fireEvent.click(tapeOption);
 
       expect(themeContext.themeId).toBe('tape_studio_70s');
@@ -1949,9 +1949,9 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
       expect(document.documentElement.style.getPropertyValue('--theme-bg')).toBe('#1a1410');
       expect(document.documentElement.style.getPropertyValue('--theme-radius-md')).toBe('10px');
 
-      // 2. Switch to Dive Bar CRT
+      // 2. Switch to Midnight KTV Booth
       fireEvent.click(trigger);
-      const crtOption = screen.getByRole('option', { name: /dive bar crt ktv/i });
+      const crtOption = screen.getByRole('option', { name: /midnight ktv booth/i });
       fireEvent.click(crtOption);
 
       expect(themeContext.themeId).toBe('dive_bar_crt');
@@ -1959,9 +1959,9 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
       expect(document.documentElement.style.getPropertyValue('--theme-bg')).toBe('#09080f');
       expect(document.documentElement.style.getPropertyValue('--theme-accent')).toBe('#06b6d4');
 
-      // 3. Switch to Brutalist Clean Paper
+      // 3. Switch to Monolith Press
       fireEvent.click(trigger);
-      const paperOption = screen.getByRole('option', { name: /brutalist clean paper/i });
+      const paperOption = screen.getByRole('option', { name: /monolith press/i });
       fireEvent.click(paperOption);
 
       expect(themeContext.themeId).toBe('clean_paper');

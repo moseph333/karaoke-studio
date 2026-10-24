@@ -267,6 +267,48 @@ describe('LyricDisplay Multi-Singer Duet Presentations (Requirement R2)', () => 
     expect(nextTag).toHaveTextContent('[Singer 1]');
   });
 
+  it('hides the Singer 1 / Lead pill and [Singer 1] up next cue when a song only has one singer', () => {
+    const singleSingerLines: LyricLine[] = [
+      {
+        id: 1,
+        text: 'Solo opening line',
+        start_time: 2.0,
+        end_time: 5.0,
+        singer: 'singer1',
+        words: [
+          { word: 'Solo', start_time: 2.0, end_time: 3.0 },
+          { word: 'opening', start_time: 3.0, end_time: 4.0 },
+          { word: 'line', start_time: 4.0, end_time: 5.0 },
+        ],
+      },
+      {
+        id: 2,
+        text: 'Solo second line without explicit singer prop',
+        start_time: 6.0,
+        end_time: 9.0,
+        words: [
+          { word: 'Solo', start_time: 6.0, end_time: 7.0 },
+          { word: 'second', start_time: 7.0, end_time: 8.0 },
+          { word: 'line', start_time: 8.0, end_time: 9.0 },
+        ],
+      },
+    ];
+
+    const { rerender } = render(<LyricDisplay lines={singleSingerLines} currentTime={0.2} />);
+    expect(screen.getByText('♪ Instrumental Intro ♪')).toBeInTheDocument();
+    expect(screen.getByTestId('upcoming-lyrics-line')).toHaveTextContent('Solo opening line');
+    expect(screen.queryByTestId('active-singer-badge')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('next-singer-tag')).not.toBeInTheDocument();
+
+    rerender(<LyricDisplay lines={singleSingerLines} currentTime={3.0} />);
+    expect(screen.getByTestId('active-lyrics-line')).toBeInTheDocument();
+    expect(screen.getByTestId('upcoming-lyrics-line')).toHaveTextContent(
+      'Solo second line without explicit singer prop'
+    );
+    expect(screen.queryByTestId('active-singer-badge')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('next-singer-tag')).not.toBeInTheDocument();
+  });
+
   it('maintains >=44px touch targets on fullscreen toggle and zero overflow at 320px viewport', () => {
     setTestViewport(320, 568);
     const { container } = render(<LyricDisplay lines={duetLines} currentTime={3.0} />);

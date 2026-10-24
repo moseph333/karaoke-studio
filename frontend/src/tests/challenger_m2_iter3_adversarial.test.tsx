@@ -186,29 +186,29 @@ describe('Empirical Challenger: Milestone 2 Iteration 3 Scope', () => {
       // Locate floating chord toggle button
       const chordToggleBtn = screen.getByTestId('chord-bar-toggle');
       expect(chordToggleBtn).toBeInTheDocument();
-      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Hide Live Chord Bar (C)');
-      expect(chordToggleBtn).toHaveAttribute('aria-pressed', 'true');
+      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Show Live Chord Bar (C)');
+      expect(chordToggleBtn).toHaveAttribute('aria-pressed', 'false');
 
       // Verify touch target dimension classes (min-h-[44px] min-w-[44px])
       expect(chordToggleBtn.className).toContain('min-h-[44px]');
       expect(chordToggleBtn.className).toContain('min-w-[44px]');
 
-      // Initially ChordBar is visible
-      expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
-
-      // Click to hide ChordBar
-      fireEvent.click(chordToggleBtn);
-
+      // Initially ChordBar is hidden by default
       expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
-      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Show Live Chord Bar (C)');
-      expect(chordToggleBtn).toHaveAttribute('aria-pressed', 'false');
 
-      // Click again to restore ChordBar
+      // Click to show ChordBar
       fireEvent.click(chordToggleBtn);
 
       expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
       expect(chordToggleBtn).toHaveAttribute('aria-label', 'Hide Live Chord Bar (C)');
       expect(chordToggleBtn).toHaveAttribute('aria-pressed', 'true');
+
+      // Click again to hide ChordBar
+      fireEvent.click(chordToggleBtn);
+
+      expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
+      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Show Live Chord Bar (C)');
+      expect(chordToggleBtn).toHaveAttribute('aria-pressed', 'false');
     });
 
     it('respects controlled onToggleChordBar and showChordBar props in Stage Mode', () => {
@@ -316,6 +316,7 @@ describe('Empirical Challenger: Milestone 2 Iteration 3 Scope', () => {
       await waitFor(() => {
         expect(screen.getByText('Challenger Harmonic Symphony')).toBeInTheDocument();
       });
+      fireEvent.keyDown(window, { key: 'c' });
 
       // Enter Fullscreen TV Stage Mode
       const stageToggle = screen.getByTestId('stage-fullscreen-toggle');
@@ -408,6 +409,7 @@ describe('Empirical Challenger: Milestone 2 Iteration 3 Scope', () => {
       await waitFor(() => {
         expect(screen.getByText('Challenger Harmonic Symphony')).toBeInTheDocument();
       });
+      fireEvent.keyDown(window, { key: 'c' });
 
       // Enter Fullscreen TV Stage Mode
       fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
@@ -463,6 +465,7 @@ describe('Empirical Challenger: Milestone 2 Iteration 3 Scope', () => {
       await waitFor(() => {
         expect(screen.getByText('Challenger Harmonic Symphony')).toBeInTheDocument();
       });
+      fireEvent.keyDown(window, { key: 'c' });
 
       // Edit C -> G#dim
       fireEvent.click(screen.getByTestId('edit-active-chord-btn'));
