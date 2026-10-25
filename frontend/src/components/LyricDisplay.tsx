@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Maximize, Minimize, Play, Pause, Activity, Music2 } from 'lucide-react';
+import { Maximize, Minimize, Play, Pause, Activity, Music2, Volume2, VolumeX } from 'lucide-react';
 import { LyricLine, WordTiming, ChordSegment, SyncDisplayMode, VisualTheme } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
 import { detectInstrumentalGaps, getCountdownState } from '../utils/gapDetection';
@@ -84,6 +84,13 @@ export interface LyricDisplayProps {
   onSyncModeChange?: (mode: SyncDisplayMode) => void;
   fontFamily?: string;
   selectedTheme?: VisualTheme;
+  // Stage Controls (Requirement UX-5)
+  onSemitonesChange?: (semitones: number) => void;
+  onPitchStep?: (delta: number) => void;
+  volume?: number;
+  onVolumeChange?: (volume: number) => void;
+  isMuted?: boolean;
+  onToggleMute?: () => void;
 }
 
 function formatStageTime(seconds?: number): string {
@@ -125,9 +132,74 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   onSyncModeChange,
   fontFamily,
   selectedTheme,
+  onSemitonesChange,
+  onPitchStep,
+  volume,
+  onVolumeChange,
+  isMuted,
+  onToggleMute,
 }) => {
   const stageFontFamily =
     fontFamily || selectedTheme?.fontFamily || 'var(--karaoke-font-family, sans-serif)';
+
+  const [internalSemitones, setInternalSemitones] = useState(semitones);
+  useEffect(() => {
+    setInternalSemitones(semitones);
+  }, [semitones]);
+  const effectiveSemitones = semitones !== undefined ? semitones : internalSemitones;
+
+  const handleStagePitchDown = useCallback(() => {
+    const next = Math.max(-12, effectiveSemitones - 1);
+    setInternalSemitones(next);
+    onSemitonesChange?.(next);
+    onPitchStep?.(-1);
+  }, [effectiveSemitones, onSemitonesChange, onPitchStep]);
+
+  const handleStagePitchUp = useCallback(() => {
+    const next = Math.min(12, effectiveSemitones + 1);
+    setInternalSemitones(next);
+    onSemitonesChange?.(next);
+    onPitchStep?.(1);
+  }, [effectiveSemitones, onSemitonesChange, onPitchStep]);
+
+  const [internalVolume, setInternalVolume] = useState<number>(volume ?? 1);
+  const [internalMuted, setInternalMuted] = useState<boolean>(isMuted ?? false);
+
+  useEffect(() => {
+    if (volume !== undefined) setInternalVolume(volume);
+  }, [volume]);
+
+  useEffect(() => {
+    if (isMuted !== undefined) setInternalMuted(isMuted);
+  }, [isMuted]);
+
+  const effectiveVolume = volume !== undefined ? volume : internalVolume;
+  const effectiveMuted = isMuted !== undefined ? isMuted : internalMuted;
+
+  const handleToggleStageMute = useCallback(() => {
+    const nextMuted = !effectiveMuted;
+    setInternalMuted(nextMuted);
+    if (audioRef?.current) {
+      audioRef.current.muted = nextMuted;
+    }
+    onToggleMute?.();
+  }, [effectiveMuted, audioRef, onToggleMute]);
+
+  const handleStageVolumeChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const val = parseFloat(e.target.value);
+      setInternalVolume(val);
+      if (effectiveMuted && val > 0) {
+        setInternalMuted(false);
+        if (audioRef?.current) audioRef.current.muted = false;
+      }
+      if (audioRef?.current) {
+        audioRef.current.volume = val;
+      }
+      onVolumeChange?.(val);
+    },
+    [effectiveMuted, audioRef, onVolumeChange]
+  );
 
   const [internalSyncMode, setInternalSyncMode] = useState<SyncDisplayMode>(syncMode);
   const activeSyncMode = syncMode !== undefined ? syncMode : internalSyncMode;
@@ -350,12 +422,12 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
 
   // Fullscreen vs normal styling container classes
   const containerClasses = isFullscreen
-    ? `fixed inset-0 z-50 bg-slate-950 w-screen h-screen flex flex-col justify-between p-4 sm:p-8 md:p-12 overflow-hidden ${
+    ? `fixed inset-0 z-50 bg-slate-950 w-screen h-screen bg-theme-bg text-theme-text font-theme-heading font-theme-body flex flex-col justify-between p-4 sm:p-8 md:p-12 overflow-hidden ${
         !showControls ? 'cursor-none' : ''
       }`
     : `relative ${
         aspectRatio === '9:16' ? 'aspect-[9/16] max-w-xs mx-auto' : 'aspect-video w-full'
-      } rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-950 flex flex-col justify-end p-3 sm:p-6 md:p-8 select-none ${className}`;
+      } rounded-2xl overflow-hidden shadow-2xl border border-theme-border bg-theme-bg text-theme-text font-theme-heading font-theme-body flex flex-col justify-end p-3 sm:p-6 md:p-8 select-none ${className}`;
 
   return (
     <div
@@ -366,6 +438,10 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       onMouseMove={resetIdleTimer}
       onClick={resetIdleTimer}
       className={containerClasses}
+      style={{
+        backgroundColor: selectedTheme?.previewBg || undefined,
+        fontFamily: stageFontFamily,
+      }}
     >
       {/* Dynamic blurred album background */}
       {albumArtUrl && (
@@ -456,38 +532,6 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         </button>
       </div>
 
-      {/* Countdown Cue Display */}
-      {showCountdown && (
-        <div
-          data-testid="countdown-cue"
-          className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-3 font-extrabold text-3xl motion-safe:animate-bounce motion-reduce:animate-none z-20"
-          style={{ color: cueColor, fontFamily: stageFontFamily }}
-          aria-label={`Starting in ${countdownSeconds} seconds`}
-        >
-          <span
-            className={countdownSeconds >= 3 ? 'scale-125' : 'text-slate-600'}
-            style={{ color: countdownSeconds >= 3 ? cueColor : undefined }}
-            aria-hidden="true"
-          >
-            ●
-          </span>
-          <span
-            className={countdownSeconds >= 2 ? 'scale-125' : 'text-slate-600'}
-            style={{ color: countdownSeconds >= 2 ? cueColor : undefined }}
-            aria-hidden="true"
-          >
-            ●
-          </span>
-          <span
-            className={countdownSeconds >= 1 ? 'scale-125' : 'text-slate-600'}
-            style={{ color: countdownSeconds >= 1 ? cueColor : undefined }}
-            aria-hidden="true"
-          >
-            ●
-          </span>
-        </div>
-      )}
-
       {/* Lyrics Display */}
       <div
         className={`relative z-10 space-y-3 sm:space-y-4 text-center max-w-5xl mx-auto w-full ${
@@ -500,13 +544,47 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
             <ChordBar
               chords={chords}
               currentTime={effectiveTime}
-              semitones={semitones}
+              semitones={effectiveSemitones}
               keyHint={keyHint}
               visible={isChordBarVisible}
               onSeek={onSeek}
               onEditChord={onEditChord}
               className="max-w-xl mx-auto"
             />
+          </div>
+        )}
+
+        {/* Dedicated Non-Colliding Countdown Badge above active lyric line */}
+        {showCountdown && (
+          <div className="flex justify-center mb-1 sm:mb-2">
+            <div
+              data-testid="countdown-cue"
+              className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-slate-700/80 shadow-lg text-sm sm:text-base font-extrabold z-20"
+              style={{ color: cueColor, fontFamily: stageFontFamily }}
+              aria-label={`Starting in ${countdownSeconds} seconds`}
+            >
+              <span className="font-mono text-base sm:text-lg font-black">{countdownSeconds}</span>
+              <div className="flex items-center gap-1.5" aria-hidden="true">
+                <span
+                  className={countdownSeconds >= 3 ? 'scale-125' : 'text-slate-600'}
+                  style={{ color: countdownSeconds >= 3 ? cueColor : undefined }}
+                >
+                  ●
+                </span>
+                <span
+                  className={countdownSeconds >= 2 ? 'scale-125' : 'text-slate-600'}
+                  style={{ color: countdownSeconds >= 2 ? cueColor : undefined }}
+                >
+                  ●
+                </span>
+                <span
+                  className={countdownSeconds >= 1 ? 'scale-125' : 'text-slate-600'}
+                  style={{ color: countdownSeconds >= 1 ? cueColor : undefined }}
+                >
+                  ●
+                </span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -741,6 +819,71 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
             className="font-mono text-xs sm:text-sm text-slate-300 font-semibold shrink-0"
           >
             {formatStageTime(effectiveTime)} / {formatStageTime(duration)}
+          </div>
+
+          {/* Compact Pitch Transposition Steppers (TV Stage Mode) */}
+          <div
+            className="flex items-center gap-1 bg-slate-800/90 border border-slate-700/80 rounded-xl px-1.5 py-1 shrink-0"
+            title="Pitch Transposition"
+          >
+            <button
+              type="button"
+              data-testid="stage-pitch-down"
+              aria-label="Lower pitch by 1 semitone"
+              onClick={handleStagePitchDown}
+              className="w-7 h-7 rounded-lg bg-slate-700/80 hover:bg-slate-600 text-white font-mono text-xs font-bold flex items-center justify-center transition-colors min-h-[28px] min-w-[28px]"
+              title="Lower key (-1 semitone)"
+            >
+              -1
+            </button>
+            <span
+              data-testid="stage-pitch-display"
+              className="font-mono text-xs font-bold text-cyan-300 px-1 min-w-[36px] text-center select-none"
+              title="Current pitch transpose"
+            >
+              {effectiveSemitones === 0
+                ? '0 st'
+                : `${effectiveSemitones > 0 ? '+' : ''}${effectiveSemitones} st`}
+            </span>
+            <button
+              type="button"
+              data-testid="stage-pitch-up"
+              aria-label="Raise pitch by 1 semitone"
+              onClick={handleStagePitchUp}
+              className="w-7 h-7 rounded-lg bg-slate-700/80 hover:bg-slate-600 text-white font-mono text-xs font-bold flex items-center justify-center transition-colors min-h-[28px] min-w-[28px]"
+              title="Raise key (+1 semitone)"
+            >
+              +1
+            </button>
+          </div>
+
+          {/* Master Volume & Mute Control (TV Stage Mode) */}
+          <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 rounded-xl px-2 py-1 shrink-0">
+            <button
+              type="button"
+              data-testid="stage-volume-btn"
+              aria-label={effectiveMuted ? 'Unmute master audio' : 'Mute master audio'}
+              onClick={handleToggleStageMute}
+              className="text-slate-300 hover:text-white p-1 rounded transition-colors focus:outline-none focus:ring-1 focus:ring-cyan-400"
+              title={effectiveMuted ? 'Unmute' : 'Mute'}
+            >
+              {effectiveMuted || effectiveVolume === 0 ? (
+                <VolumeX className="w-4 h-4 text-red-400" />
+              ) : (
+                <Volume2 className="w-4 h-4 text-cyan-400" />
+              )}
+            </button>
+            <input
+              type="range"
+              data-testid="stage-volume-slider"
+              aria-label="Stage master volume"
+              min={0}
+              max={1}
+              step={0.05}
+              value={effectiveMuted ? 0 : effectiveVolume}
+              onChange={handleStageVolumeChange}
+              className="w-14 sm:w-20 h-1.5 rounded-lg bg-slate-700 accent-cyan-400 cursor-pointer"
+            />
           </div>
 
           {/* Sync Mode Toggle Button in TV Stage Mode */}

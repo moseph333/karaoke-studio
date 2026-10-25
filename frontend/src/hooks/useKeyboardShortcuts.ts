@@ -5,9 +5,16 @@
  * for seeking, 'M' for mute/unmute, and '?' for toggling Help & Usage Guide).
  * Enforces strict input isolation (inputs, textareas, contenteditable, ARIA text controls)
  * and modal isolation (blocking transport shortcuts when dialogs are active).
+ *
+ * Milestone 3 Precision Shortcuts:
+ * - Shift + ArrowLeft / Shift + ArrowRight: fine 1-second seeking (standard is 5s)
+ * - Alt + ArrowLeft / Alt + ArrowRight: coarse 15-second seeking
+ * - '[' and ']': jump to previous / next lyric line in the project
+ * - 'R': replay current active line from its start time
  */
 
 import { useEffect, useRef } from 'react';
+import { LyricLine } from '../types';
 
 export interface UseKeyboardShortcutsOptions {
   onTogglePlay?: () => void;
@@ -16,11 +23,18 @@ export interface UseKeyboardShortcutsOptions {
   onToggleHelp?: () => void;
   onToggleVisualizer?: () => void;
   onToggleChordBar?: () => void;
+  onNextLine?: () => void;
+  onPrevLine?: () => void;
+  onReplayLine?: () => void;
+  lines?: LyricLine[];
   audioRef?: React.RefObject<HTMLAudioElement | null>;
   currentTime?: number;
   duration?: number;
   enabled?: boolean;
   seekStep?: number;
+  fineSeekStep?: number;
+  coarseSeekStep?: number;
+  precisionSeeking?: boolean;
 }
 
 /**
@@ -96,6 +110,26 @@ export function isOtherModalActive(): boolean {
   return Boolean(otherDialog);
 }
 
+/**
+ * Helper to locate active lyric line index by current playhead timestamp.
+ */
+export function findActiveLineIndex(lines: LyricLine[], time: number): number {
+  if (!lines || lines.length === 0) return -1;
+  if (time < lines[0].start_time) return 0;
+  if (time >= lines[lines.length - 1].start_time) return lines.length - 1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (time >= line.start_time && time <= line.end_time) {
+      return i;
+    }
+    if (i < lines.length - 1 && time > line.end_time && time < lines[i + 1].start_time) {
+      return i;
+    }
+  }
+  return 0;
+}
+
 export function useKeyboardShortcuts({
   onTogglePlay,
   onSeek,
@@ -103,11 +137,18 @@ export function useKeyboardShortcuts({
   onToggleHelp,
   onToggleVisualizer,
   onToggleChordBar,
+  onNextLine,
+  onPrevLine,
+  onReplayLine,
+  lines,
   audioRef,
   currentTime = 0,
   duration = 0,
   enabled = true,
   seekStep = 5,
+  fineSeekStep,
+  coarseSeekStep,
+  precisionSeeking,
 }: UseKeyboardShortcutsOptions): void {
   const optionsRef = useRef({
     onTogglePlay,
@@ -116,10 +157,17 @@ export function useKeyboardShortcuts({
     onToggleHelp,
     onToggleVisualizer,
     onToggleChordBar,
+    onNextLine,
+    onPrevLine,
+    onReplayLine,
+    lines,
     audioRef,
     currentTime,
     duration,
     seekStep,
+    fineSeekStep,
+    coarseSeekStep,
+    precisionSeeking,
   });
 
   useEffect(() => {
@@ -130,10 +178,17 @@ export function useKeyboardShortcuts({
       onToggleHelp,
       onToggleVisualizer,
       onToggleChordBar,
+      onNextLine,
+      onPrevLine,
+      onReplayLine,
+      lines,
       audioRef,
       currentTime,
       duration,
       seekStep,
+      fineSeekStep,
+      coarseSeekStep,
+      precisionSeeking,
     };
   });
 
@@ -141,8 +196,21 @@ export function useKeyboardShortcuts({
     if (!enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // 1. Ignore if any modifier key (Ctrl, Meta/Command, Alt) is held
-      if (e.ctrlKey || e.metaKey || e.altKey) {
+      const isPrecisionActive = Boolean(
+        optionsRef.current.precisionSeeking ||
+        optionsRef.current.fineSeekStep !== undefined ||
+        optionsRef.current.coarseSeekStep !== undefined
+      );
+
+      // 1. Ignore if Ctrl or Meta/Command is held (system hotkeys)
+      if (e.ctrlKey || e.metaKey) {
+        return;
+      }
+
+      // If Alt is held:
+      // When precision seeking is not active, Alt suppresses shortcuts across all keys.
+      // When precision seeking is active, Alt is permitted solely for coarse seeking via ArrowLeft/ArrowRight.
+      if (e.altKey && (!isPrecisionActive || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight'))) {
         return;
       }
 
@@ -176,6 +244,9 @@ export function useKeyboardShortcuts({
         currentTime: curTime,
         duration: totalDur,
         seekStep: step,
+        fineSeekStep: fineStep = 1,
+        coarseSeekStep: coarseStep = 15,
+        lines: projectLines,
       } = optionsRef.current;
 
       const current =
@@ -188,32 +259,36 @@ export function useKeyboardShortcuts({
 
       // Feature 41.1: Spacebar toggle master play/pause
       if (e.code === 'Space' || e.key === ' ') {
+        if (e.altKey) return;
         e.preventDefault();
         if (e.repeat) return;
         playFn?.();
         return;
       }
 
-      // Feature 41.2: ArrowLeft seek backward by 5 seconds
+      // Feature 41.2 & UX-6: ArrowLeft seeking (Standard 5s, Shift 1s fine, Alt 15s coarse)
       if (e.key === 'ArrowLeft') {
-        if (e.shiftKey) return;
+        if (e.shiftKey && !isPrecisionActive) return;
         e.preventDefault();
-        const target = Math.max(0, current - step);
+        const stepSize = e.shiftKey ? fineStep : e.altKey ? coarseStep : step;
+        const target = Math.max(0, current - stepSize);
         seekFn?.(target);
         return;
       }
 
-      // Feature 41.3: ArrowRight seek forward by 5 seconds
+      // Feature 41.3 & UX-6: ArrowRight seeking (Standard 5s, Shift 1s fine, Alt 15s coarse)
       if (e.key === 'ArrowRight') {
-        if (e.shiftKey) return;
+        if (e.shiftKey && !isPrecisionActive) return;
         e.preventDefault();
-        const target = Math.min(maxDuration, current + step);
+        const stepSize = e.shiftKey ? fineStep : e.altKey ? coarseStep : step;
+        const target = Math.min(maxDuration, current + stepSize);
         seekFn?.(target);
         return;
       }
 
       // Feature 41.4: 'M' / 'm' toggle master mute/unmute
       if (e.key === 'm' || e.key === 'M') {
+        if (e.altKey) return;
         e.preventDefault();
         if (e.repeat) return;
         muteFn?.();
@@ -222,7 +297,7 @@ export function useKeyboardShortcuts({
 
       // Feature R3: 'V' / 'v' toggle beat-reactive audio visualizer
       if (e.key === 'v' || e.key === 'V') {
-        if (e.shiftKey) return;
+        if (e.altKey || e.shiftKey) return;
         e.preventDefault();
         if (e.repeat) return;
         optionsRef.current.onToggleVisualizer?.();
@@ -231,10 +306,64 @@ export function useKeyboardShortcuts({
 
       // Feature F8 / R2: 'C' / 'c' toggle Live Chord Bar
       if (e.key === 'c' || e.key === 'C') {
-        if (e.shiftKey) return;
+        if (e.altKey || e.shiftKey) return;
         e.preventDefault();
         if (e.repeat) return;
         optionsRef.current.onToggleChordBar?.();
+        return;
+      }
+
+      // UX-6: '[' jump to previous lyric line in project
+      if (e.key === '[') {
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+        if (e.repeat) return;
+        if (optionsRef.current.onPrevLine) {
+          optionsRef.current.onPrevLine();
+          return;
+        }
+        if (projectLines && projectLines.length > 0 && seekFn) {
+          const activeIdx = findActiveLineIndex(projectLines, current);
+          const targetIdx = Math.max(0, activeIdx - 1);
+          seekFn(projectLines[targetIdx].start_time);
+        }
+        return;
+      }
+
+      // UX-6: ']' jump to next lyric line in project
+      if (e.key === ']') {
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+        if (e.repeat) return;
+        if (optionsRef.current.onNextLine) {
+          optionsRef.current.onNextLine();
+          return;
+        }
+        if (projectLines && projectLines.length > 0 && seekFn) {
+          const activeIdx = findActiveLineIndex(projectLines, current);
+          const targetIdx = Math.min(projectLines.length - 1, activeIdx + 1);
+          seekFn(projectLines[targetIdx].start_time);
+        }
+        return;
+      }
+
+      // UX-6: 'R' / 'r' replay current active lyric line from start time
+      if (e.key === 'r' || e.key === 'R') {
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        e.preventDefault();
+        if (e.repeat) return;
+        if (optionsRef.current.onReplayLine) {
+          optionsRef.current.onReplayLine();
+          return;
+        }
+        if (projectLines && projectLines.length > 0 && seekFn) {
+          const activeIdx = findActiveLineIndex(projectLines, current);
+          if (activeIdx >= 0 && activeIdx < projectLines.length) {
+            seekFn(projectLines[activeIdx].start_time);
+          } else {
+            seekFn(0);
+          }
+        }
         return;
       }
     };

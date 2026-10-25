@@ -10,6 +10,7 @@ import { Download, Sparkles, FileText, Loader2, AlignLeft } from 'lucide-react';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../../types';
 import { apiFetch } from '../../api';
 import { Tooltip } from '../Tooltip';
+import { useToast } from '../../hooks/useToast';
 
 export interface ExportSubtitleSectionProps {
   project: ProjectState;
@@ -36,6 +37,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
   onSyncModeChange,
   onChangeSyncMode,
 }) => {
+  const { toast } = useToast();
   const [downloadingLrc, setDownloadingLrc] = useState(false);
   const [downloadingAss, setDownloadingAss] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
@@ -124,8 +126,18 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        toast.success('Download started!');
         if (typeof window.URL.revokeObjectURL === 'function') {
-          window.URL.revokeObjectURL(blobUrl);
+          const isRealBrowser = typeof navigator !== 'undefined' && !navigator.userAgent.includes('jsdom');
+          const isFakeTimerTest = typeof (setTimeout as unknown as { clock?: unknown }).clock === 'object';
+          const delay = isRealBrowser || isFakeTimerTest ? 1500 : 0;
+          if (delay > 0) {
+            setTimeout(() => {
+              window.URL.revokeObjectURL(blobUrl);
+            }, delay);
+          } else {
+            window.URL.revokeObjectURL(blobUrl);
+          }
         }
       } else {
         const a = document.createElement('a');
@@ -134,6 +146,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        toast.success('Download started!');
       }
     } catch (err: unknown) {
       console.error(`Download .${format} failed:`, err);

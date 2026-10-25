@@ -7,7 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import { Search, Music, Sparkles, FileText, ChevronDown, ChevronUp, Upload } from 'lucide-react';
+import { Search, Music, Sparkles, FileText, ChevronDown, ChevronUp, Upload, X } from 'lucide-react';
 import { SearchResult, ProjectState } from '../types';
 import { apiFetch } from '../api';
 import { LocalAudioUploader, type UploadTrackParams } from './track-search/LocalAudioUploader';
@@ -42,10 +42,25 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    const trimmed = query.trim();
+    if (!trimmed) return;
 
-    if (query.includes('youtube.com/') || query.includes('youtu.be/')) {
-      onSelectTrack(query.trim(), customLyrics.trim() || undefined);
+    if (trimmed.includes('youtube.com/') || trimmed.includes('youtu.be/')) {
+      onSelectTrack(trimmed, customLyrics.trim() || undefined);
+      return;
+    }
+
+    const isNonYoutubeUrl =
+      /^https?:\/\//i.test(trimmed) ||
+      /^www\./i.test(trimmed) ||
+      /(?:soundcloud\.com|spotify\.com|vimeo\.com|bandcamp\.com|apple\.com|deezer\.com|audiomack\.com|tidal\.com|music\.apple\.com)/i.test(
+        trimmed
+      );
+
+    if (isNonYoutubeUrl) {
+      setError(
+        'Direct URL import currently supports YouTube and YouTube Music links. For other platforms, please download the audio file and use the Local Audio File tab.'
+      );
       return;
     }
 
@@ -155,6 +170,19 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 className="w-full pl-10 sm:pl-12 pr-24 sm:pr-32 py-3.5 sm:py-4 rounded-theme-md bg-theme-surface border-theme border-theme-border-subtle text-theme-text placeholder:text-theme-text-muted focus:outline-none focus:ring-2 focus:ring-theme-accent focus:border-theme-border text-sm sm:text-base shadow-theme-md min-h-[48px] font-theme-body"
                 disabled={isLoading || searching}
               />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuery('');
+                    setError(null);
+                  }}
+                  aria-label="Clear search query"
+                  className="absolute right-14 sm:right-28 min-h-[32px] min-w-[32px] p-1.5 rounded-full text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-subtle transition-colors flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-theme-accent"
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              ) : null}
               <button
                 type="submit"
                 disabled={isLoading || searching || !query.trim()}
@@ -232,9 +260,23 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
       {/* Search Results */}
       {results.length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-theme-text-muted px-1 font-theme-heading">
-            Search Results
-          </h3>
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-theme-text-muted font-theme-heading">
+              Search Results
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                setResults([]);
+                setError(null);
+              }}
+              aria-label="Clear search results"
+              className="text-xs text-theme-text-muted hover:text-theme-text hover:underline transition-colors font-theme-body flex items-center gap-1 cursor-pointer min-h-[32px] px-2 py-1 rounded-theme-sm hover:bg-theme-surface-subtle"
+            >
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Clear Results</span>
+            </button>
+          </div>
           {results.map((track) => (
             <div
               key={track.id}

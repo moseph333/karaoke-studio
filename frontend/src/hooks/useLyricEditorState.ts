@@ -157,13 +157,17 @@ export function useLyricEditorState({
     const targetWord = words[wordIndex];
     if (!targetWord) return;
     if (field === 'start_time') {
-      const prevStart = wordIndex > 0 ? words[wordIndex - 1].start_time : 0;
+      const prevEnd = wordIndex > 0 ? words[wordIndex - 1].end_time : 0;
       const nextStart = wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
       targetWord.start_time = sanitizeTimestamp(
-        Math.min(targetWord.end_time, nextStart, Math.max(prevStart, value))
+        Math.min(targetWord.end_time, nextStart, Math.max(prevEnd, value))
       );
     } else {
-      targetWord.end_time = sanitizeTimestamp(Math.max(targetWord.start_time, value));
+      const prevStart = targetWord.start_time;
+      const nextStart = wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
+      targetWord.end_time = sanitizeTimestamp(
+        Math.min(nextStart, Math.max(prevStart, value))
+      );
     }
   };
 
@@ -313,13 +317,25 @@ export function useLyricEditorState({
     }
     if (trimmed && trimmed !== target.text) {
       pushSnapshot(editableLines);
+      const newTokens = trimmed.split(/\s+/).filter(Boolean);
+      const existingWords = target.words || [];
+      const canPreserveTimings =
+        existingWords.length > 0 && existingWords.length === newTokens.length;
+
+      const words = canPreserveTimings
+        ? existingWords.map((w, idx) => ({
+            ...w,
+            word: newTokens[idx],
+          }))
+        : recalculateWordTimings(trimmed, target.start_time, target.end_time);
+
       setEditableLines(
         editableLines.map((l) =>
           l.id === lineId
             ? {
                 ...l,
                 text: trimmed,
-                words: recalculateWordTimings(trimmed, target.start_time, target.end_time),
+                words,
               }
             : l
         )

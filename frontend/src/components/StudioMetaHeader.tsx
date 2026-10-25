@@ -19,6 +19,50 @@ export interface StudioMetaHeaderProps {
   onStartRender: () => void;
 }
 
+function getLyricSyncFidelity(project: ProjectState): {
+  label: 'Synced Words' | 'Line Synced' | 'Plain Lyrics';
+  badgeClass: string;
+  tooltipText: string;
+} {
+  const lines = project.lines || [];
+  if (lines.length === 0) {
+    return {
+      label: 'Plain Lyrics',
+      badgeClass: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
+      tooltipText: 'No synchronized timing data detected',
+    };
+  }
+
+  // Check if explicit is_synced is false or if all lines have 0 timestamps
+  const hasLineTimings = lines.some((l) => (l.start_time || 0) > 0 || (l.end_time || 0) > 0);
+  if (project.is_synced === false || !hasLineTimings) {
+    return {
+      label: 'Plain Lyrics',
+      badgeClass: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
+      tooltipText: 'Lyrics have untimed lines (requires audio alignment)',
+    };
+  }
+
+  // Check if lines have sub-line word timings
+  const hasWordTimings = lines.some(
+    (l) => l.words && l.words.length > 0 && l.words.some((w) => w.end_time > w.start_time)
+  );
+
+  if (hasWordTimings) {
+    return {
+      label: 'Synced Words',
+      badgeClass: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+      tooltipText: 'High-fidelity word-level karaoke synchronization active',
+    };
+  }
+
+  return {
+    label: 'Line Synced',
+    badgeClass: 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300',
+    tooltipText: 'Line-level timestamp synchronization active',
+  };
+}
+
 export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
   project,
   onOpenEditModal,
@@ -26,6 +70,8 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
   onOpenExportModal,
   onStartRender,
 }) => {
+  const syncFidelity = getLyricSyncFidelity(project);
+
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-theme-xl bg-theme-surface border border-theme-border shadow-theme-md">
       <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
@@ -52,9 +98,19 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
               </button>
             </Tooltip>
           </div>
-          <p className="text-sm text-theme-text-muted font-theme-body font-medium truncate">
-            {project.artist} • {project.lines.length} lyric lines detected
-          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+            <p className="text-sm text-theme-text-muted font-theme-body font-medium truncate">
+              {project.artist} • {project.lines.length} lyric lines detected
+            </p>
+            <Tooltip content={syncFidelity.tooltipText} position="top">
+              <span
+                data-testid="sync-status-badge"
+                className={`inline-flex items-center px-2 py-0.5 rounded-theme-sm border text-[11px] font-bold font-mono tracking-wider ${syncFidelity.badgeClass}`}
+              >
+                {syncFidelity.label}
+              </span>
+            </Tooltip>
+          </div>
         </div>
       </div>
 

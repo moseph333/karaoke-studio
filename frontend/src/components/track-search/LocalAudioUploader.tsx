@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Local Audio Uploader Component
  *
@@ -28,6 +29,46 @@ export interface LocalAudioUploaderProps {
   onError: (error: string | null) => void;
 }
 
+export const MAX_AUDIO_SIZE = 100 * 1024 * 1024; // 100MB
+export const ALLOWED_AUDIO_EXTENSIONS = ['wav', 'mp3', 'flac', 'm4a', 'ogg', 'aac', 'opus'];
+
+export const validateAudioFile = (file: File): string | null => {
+  if (file.size === 0) {
+    return 'Selected file is empty (0 bytes).';
+  }
+  if (file.size > MAX_AUDIO_SIZE) {
+    return 'Audio file exceeds 100MB limit. Please choose a smaller file.';
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (!ext || !ALLOWED_AUDIO_EXTENSIONS.includes(ext)) {
+    return 'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, AAC.';
+  }
+  return null;
+};
+
+export const parseAudioFilename = (filename: string): { artist?: string; title: string } => {
+  const baseName = filename.replace(/\.[^/.]+$/, '').trim();
+  // Normalize underscores to spaces before checking artist - title delimiter
+  const normalized = baseName.replace(/_+/g, ' ').trim();
+  // Check if filename matches Artist - Title or Artist – Title or Artist — Title
+  const delimiterMatch = normalized.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  if (delimiterMatch) {
+    const rawArtist = delimiterMatch[1];
+    const rawTitle = delimiterMatch[2];
+    const cleanArtist = rawArtist.replace(/\s+/g, ' ').trim();
+    const cleanTitle = rawTitle.replace(/\s+/g, ' ').trim();
+    return {
+      artist: cleanArtist || undefined,
+      title: cleanTitle || baseName,
+    };
+  }
+  // Single title: collapse multiple whitespace, preserve single hyphens
+  const cleanTitle = normalized.replace(/\s+/g, ' ').trim();
+  return {
+    title: cleanTitle || baseName,
+  };
+};
+
 export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
   isLoading,
   currentUser = 'Friend',
@@ -48,15 +89,35 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  const processFile = (file: File, resetInput?: () => void) => {
+    const validationError = validateAudioFile(file);
+    if (validationError) {
+      setSelectedFile(null);
+      onError(validationError);
+      if (resetInput) {
+        resetInput();
+      }
+      return;
+    }
+
+    setSelectedFile(file);
+    onError(null);
+
+    const parsed = parseAudioFilename(file.name);
+    if (!trackTitle.trim() && parsed.title) {
+      setTrackTitle(parsed.title);
+    }
+    if (!trackArtist.trim() && parsed.artist) {
+      setTrackArtist(parsed.artist);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
-      onError(null);
-      if (!trackTitle.trim()) {
-        const defaultTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-        setTrackTitle(defaultTitle);
-      }
+      processFile(file, () => {
+        e.target.value = '';
+      });
     }
   };
 
@@ -65,12 +126,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      setSelectedFile(file);
-      onError(null);
-      if (!trackTitle.trim()) {
-        const defaultTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
-        setTrackTitle(defaultTitle);
-      }
+      processFile(file);
     }
   };
 
@@ -190,6 +246,8 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
                   onClick={() => {
                     setSelectedFile(null);
                     setTrackTitle('');
+                    setTrackArtist('');
+                    onError(null);
                   }}
                   aria-label="Remove selected audio file"
                   className="min-h-[44px] min-w-[44px] p-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-red-950/60 hover:text-red-300 border-theme border-theme-border-subtle hover:border-red-600 text-theme-text-muted flex items-center justify-center transition-colors shadow-theme-sm"

@@ -211,6 +211,7 @@ class VideoRenderer:
             "-b:a",
             "320k",
             "-shortest",
+            *(["-t", str(duration)] if duration and duration > 0 else []),
             str(output_mp4_path),
         ]
 

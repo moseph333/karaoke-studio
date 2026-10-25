@@ -32,6 +32,28 @@ def _is_zero(val: Any) -> bool:
         return True
 
 
+_DSP_CACHE: dict[tuple[int, int, int], tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+
+
+def _get_dsp_windows(
+    frame_length: int, n_fft: int, sample_rate: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Caches FFT window, vocal mask, and HF noise mask across lines."""
+    key = (frame_length, n_fft, sample_rate)
+    cached = _DSP_CACHE.get(key)
+    if cached is not None:
+        return cached
+    win = np.hanning(frame_length).astype(np.float32)
+    freqs = np.fft.rfftfreq(n_fft, 1.0 / sample_rate)
+    vocal_mask = (freqs >= 200.0) & (freqs <= 4500.0)
+    hf_mask = freqs > 3000.0
+    val = (win, vocal_mask, hf_mask)
+    if len(_DSP_CACHE) > 32:
+        _DSP_CACHE.clear()
+    _DSP_CACHE[key] = val
+    return val
+
+
 def count_syllables(word: str) -> int:
     """
     Estimates the number of syllables in an English/Western word using phonetic regex rules.
@@ -163,20 +185,22 @@ def estimate_global_offset(
     if not lines or sample_rate <= 0:
         return 0.0, 0.0
 
-    # Resilient stereo / multichannel to mono conversion
-    if audio.ndim == 2:
-        mono = audio[:, 0] if audio.shape[1] == 1 else np.mean(audio, axis=-1)
-    elif audio.ndim > 2:
-        mono = np.mean(audio, axis=-1)
-    else:
+    # Resilient stereo / multichannel to mono conversion & sanitization
+    if audio.dtype == np.float32 and audio.ndim == 1:
         mono = audio
+    else:
+        if audio.ndim == 2:
+            mono = audio[:, 0] if audio.shape[1] == 1 else np.mean(audio, axis=-1)
+        elif audio.ndim > 2:
+            mono = np.mean(audio, axis=-1)
+        else:
+            mono = audio
+        mono = np.nan_to_num(mono, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
 
-    # Sanitize NaN / Inf
-    mono = np.nan_to_num(mono, nan=0.0, posinf=0.0, neginf=0.0)
     if len(mono) == 0:
         return 0.0, 0.0
 
-    mono_max = float(np.max(np.abs(mono))) if len(mono) > 0 else 0.0
+    mono_max = max(float(np.max(mono)), abs(float(np.min(mono)))) if len(mono) > 0 else 0.0
     if mono_max > 1.0:
         mono = mono / mono_max
 
@@ -358,13 +382,16 @@ def refine_line_boundaries(
         return []
 
     # 1. Sanitize & convert multichannel to mono
-    if audio.ndim == 2:
-        mono = audio[:, 0] if audio.shape[1] == 1 else np.mean(audio, axis=-1)
-    elif audio.ndim > 2:
-        mono = np.mean(audio, axis=-1)
-    else:
+    if audio.dtype == np.float32 and audio.ndim == 1:
         mono = audio
-    mono = np.nan_to_num(mono, nan=0.0, posinf=0.0, neginf=0.0)
+    else:
+        if audio.ndim == 2:
+            mono = audio[:, 0] if audio.shape[1] == 1 else np.mean(audio, axis=-1)
+        elif audio.ndim > 2:
+            mono = np.mean(audio, axis=-1)
+        else:
+            mono = audio
+        mono = np.nan_to_num(mono, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
 
     # Pure silence or invalid sample rate fallback
     if len(mono) == 0 or sample_rate <= 0 or float(np.var(mono)) < 1e-7:
@@ -648,14 +675,16 @@ def align_words_spectral(
         t_offset = l_start
 
     # Downmix & Sanitize
-    if raw_seg.ndim == 2:
-        mono = raw_seg[:, 0] if raw_seg.shape[1] == 1 else np.mean(raw_seg, axis=-1)
-    elif raw_seg.ndim > 2:
-        mono = np.mean(raw_seg, axis=-1)
-    else:
+    if raw_seg.dtype == np.float32 and raw_seg.ndim == 1:
         mono = raw_seg
-
-    mono = np.nan_to_num(mono, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
+    else:
+        if raw_seg.ndim == 2:
+            mono = raw_seg[:, 0] if raw_seg.shape[1] == 1 else np.mean(raw_seg, axis=-1)
+        elif raw_seg.ndim > 2:
+            mono = np.mean(raw_seg, axis=-1)
+        else:
+            mono = raw_seg
+        mono = np.nan_to_num(mono, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
 
     if len(mono) == 0 or float(np.var(mono)) < 1e-7:
         return _proportional_fallback()
@@ -685,13 +714,11 @@ def align_words_spectral(
     max_lag = int(sample_rate / 80)
     n_fft = max(1024, 1 << int(np.ceil(np.log2(frame_length + max_lag))))
 
-    win = np.hanning(frame_length).astype(np.float32)
+    win, vocal_mask, hf_mask = _get_dsp_windows(frame_length, n_fft, sample_rate)
     spec = np.fft.rfft(frames * win, n=n_fft, axis=-1)
     mag = np.abs(spec)
-    freqs = np.fft.rfftfreq(n_fft, 1.0 / sample_rate)
 
     # Spectral flux in vocal band 200-4500Hz
-    vocal_mask = (freqs >= 200.0) & (freqs <= 4500.0)
     vocal_mag = mag[:, vocal_mask]
     gamma = 20.0
     log_mag = np.log1p(gamma * vocal_mag)
@@ -711,7 +738,6 @@ def align_words_spectral(
 
     # High frequency noise ratio (>3000Hz)
     tot_pow = np.sum(mag**2, axis=-1) + 1e-9
-    hf_mask = freqs > 3000.0
     hf_ratio = np.sum(mag[:, hf_mask] ** 2, axis=-1) / tot_pow
 
     is_voiced = (periodicity >= 0.28) & (hf_ratio < 0.60) & (norm_rms > 0.05)
@@ -853,16 +879,18 @@ def align_words_spectral(
             dp_sub[0, 0] = 0.0
             for j in range(1, K_w + 1):
                 target_d = target_durs[j - 1]
+                inv_target_d = 1.0 / max(0.05, target_d)
+                bonus_mult = 0.8 if j < K_w else 0.0
                 for p in range(j, P - (K_w - j)):
                     t_p = cand_times[p]
                     sal = peak_dict.get(t_p, 0.0) / max_sal
+                    onset_bonus = bonus_mult * sal
                     for q in range(j - 1, p):
                         t_q = cand_times[q]
                         dur = t_p - t_q
                         if dur < 0.02:
                             continue
-                        dur_cost = ((dur - target_d) / max(0.05, target_d)) ** 2
-                        onset_bonus = 0.8 * sal if j < K_w else 0.0
+                        dur_cost = ((dur - target_d) * inv_target_d) ** 2
                         cost = dp_sub[j - 1, q] + dur_cost - onset_bonus
                         if cost < dp_sub[j, p]:
                             dp_sub[j, p] = cost
@@ -932,7 +960,9 @@ class AudioAligner:
                 mono_audio = audio_data
 
             # Sanitize any NaN or Inf values from corrupted decodes
-            mono_audio = np.nan_to_num(mono_audio, nan=0.0, posinf=0.0, neginf=0.0)
+            mono_audio = np.nan_to_num(mono_audio, nan=0.0, posinf=0.0, neginf=0.0).astype(
+                np.float32
+            )
             duration = float(len(mono_audio) / sample_rate) if len(mono_audio) > 0 else 0.0
 
             logger.info(

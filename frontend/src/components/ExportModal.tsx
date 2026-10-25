@@ -28,6 +28,7 @@ import { ExportAudioSection } from './export/ExportAudioSection';
 import { ExportYouTubeKit } from './export/ExportYouTubeKit';
 import { Tooltip } from './Tooltip';
 import { apiFetch } from '../api';
+import { useToast } from '../hooks/useToast';
 
 export interface ExportModalProps {
   project: ProjectState;
@@ -67,6 +68,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   secondaryColor,
   fontSizeScale,
 }) => {
+  const { toast } = useToast();
   const [_tick, setTick] = useState(0);
   const [includeVisualizer, setIncludeVisualizer] = useState(false);
   const [includeCountdown] = useState(true);
@@ -186,8 +188,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        toast.success('Download started!');
         if (typeof window.URL.revokeObjectURL === 'function') {
-          window.URL.revokeObjectURL(blobUrl);
+          setTimeout(() => {
+            window.URL.revokeObjectURL(blobUrl);
+          }, 1500);
         }
       } else {
         const a = document.createElement('a');
@@ -196,6 +201,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        toast.success('Download started!');
       }
     } catch (err: unknown) {
       console.error('Download chord sheet failed:', err);
@@ -595,6 +601,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <a
                   href={project.video_url}
                   download={`${project.artist || 'Karaoke'} - ${project.title || 'Track'}.mp4`}
+                  onClick={() => toast.success('Download started!')}
                   className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 min-h-[44px] w-full sm:w-auto"
                 >
                   <Download className="w-4 h-4" />

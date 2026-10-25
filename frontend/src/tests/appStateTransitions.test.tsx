@@ -371,7 +371,10 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const cancelBtn = screen.getByRole('button', { name: /Cancel & Return to Search/i });
       await user.click(cancelBtn);
 
-      // Confirms immediate return to search view and cancel endpoint was hit
+      const confirmBtn = await screen.findByRole('button', { name: /Confirm Cancel/i });
+      await user.click(confirmBtn);
+
+      // Confirms return to search view and cancel endpoint was hit
       expect(cancelCalled).toBe(true);
       await waitFor(() => {
         expect(screen.getByRole('search')).toBeInTheDocument();

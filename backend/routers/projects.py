@@ -96,11 +96,12 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
     }
     if video_id:
         proj_data["track_id"] = video_id
+    cancel_event = threading.Event()
+    main_mod.active_cancellations[project_id] = cancel_event
+    if video_id and video_id != project_id:
+        main_mod.active_cancellations[video_id] = cancel_event
     main_mod.projects[project_id] = proj_data
     save_projects()
-    cancel_event = main_mod.active_cancellations.setdefault(project_id, threading.Event())
-    if video_id and video_id != project_id:
-        main_mod.active_cancellations.setdefault(video_id, cancel_event)
     bg_tasks.add_task(main_mod.run_pipeline, project_id, req.url_or_id, req.custom_lyrics)
     return {"project_id": project_id, "status": "queued"}
 
@@ -540,6 +541,109 @@ def update_lyrics(project_id: str, req: LyricsUpdateRequest):
     return {"status": "ok", "lines_count": len(req.lines)}
 
 
+def _search_lyrics(self, track_name: str, artist_name: str | None = None) -> list[dict]:
+    import requests
+
+    clean_title = (track_name or "").strip()
+    clean_artist = (artist_name or "").strip()
+    results = []
+
+    # 1. Try structured search by track_name and artist_name
+    params = {}
+    if clean_title:
+        params["track_name"] = clean_title
+    if clean_artist:
+        params["artist_name"] = clean_artist
+    try:
+        resp = requests.get(f"{self.lrclib_url}/search", params=params, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, list):
+                results = data
+    except Exception as e:
+        logger.warning(f"LRCLIB structured search failed: {e}")
+
+    # 2. If no results, fallback to general q search
+    if not results and (clean_title or clean_artist):
+        q = f"{clean_title} {clean_artist}".strip()
+        try:
+            resp = requests.get(f"{self.lrclib_url}/search", params={"q": q}, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    results = data
+        except Exception as e:
+            logger.warning(f"LRCLIB query search failed: {e}")
+
+    candidates = []
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        candidates.append(
+            {
+                "id": item.get("id"),
+                "track_name": item.get("trackName")
+                or item.get("name")
+                or item.get("track_name")
+                or "",
+                "artist_name": item.get("artistName") or item.get("artist_name") or "",
+                "album_name": item.get("albumName") or item.get("album_name") or "",
+                "duration": float(item.get("duration", 0.0) or 0.0),
+                "instrumental": bool(item.get("instrumental", False)),
+                "plain_lyrics": item.get("plainLyrics") or item.get("plain_lyrics") or "",
+                "synced_lyrics": item.get("syncedLyrics") or item.get("synced_lyrics") or "",
+            }
+        )
+    return candidates
+
+
+@router.get("/api/project/{project_id}/lyrics/candidates")
+def get_lyric_candidates(
+    project_id: str,
+    track_name: str | None = None,
+    artist_name: str | None = None,
+):
+    import backend.main as main_mod
+
+    proj = find_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    query_title = (
+        track_name if track_name is not None and track_name.strip() else proj.get("title", "")
+    )
+    query_artist = (
+        artist_name if artist_name is not None and artist_name.strip() else proj.get("artist", "")
+    )
+
+    if not hasattr(main_mod.lyrics_service, "search_lyrics"):
+        main_mod.lyrics_service.__class__.search_lyrics = _search_lyrics
+
+    raw_candidates = main_mod.lyrics_service.search_lyrics(query_title, query_artist)
+
+    candidates = []
+    for item in raw_candidates or []:
+        if not isinstance(item, dict):
+            continue
+        candidates.append(
+            {
+                "id": item.get("id"),
+                "track_name": item.get("track_name")
+                or item.get("trackName")
+                or item.get("name")
+                or "",
+                "artist_name": item.get("artist_name") or item.get("artistName") or "",
+                "album_name": item.get("album_name") or item.get("albumName") or "",
+                "duration": float(item.get("duration", 0.0) or 0.0),
+                "instrumental": bool(item.get("instrumental", False)),
+                "plain_lyrics": item.get("plain_lyrics") or item.get("plainLyrics") or "",
+                "synced_lyrics": item.get("synced_lyrics") or item.get("syncedLyrics") or "",
+            }
+        )
+
+    return candidates
+
+
 @router.post("/api/project/{project_id}/realign-lyrics")
 def realign_lyrics(project_id: str, req: RealignLyricsRequest):
     """Realigns project lyrics acoustically using existing vocal stem.
@@ -674,13 +778,13 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
         f"Queuing video render for project {project_id} (aspect_ratio={req.aspect_ratio}, semitones={req.semitones})"
     )
     proj["render_status"] = "queued"
+    render_key = f"{project_id}_render"
+    main_mod.active_cancellations.setdefault(render_key, threading.Event())
     proj["render_progress"] = 5
     proj["render_detail"] = "Queueing render job..."
     proj["render_eta_seconds"] = 45
     proj["render_heartbeat"] = int(time.time() * 1000)
     save_projects()
-    render_key = f"{project_id}_render"
-    main_mod.active_cancellations.setdefault(render_key, threading.Event())
     bg_tasks.add_task(main_mod.run_video_render, project_id, req)
 
     return {"status": "queued"}
@@ -690,10 +794,12 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
 def cancel_project(project_id: str):
     import backend.main as main_mod
 
-    if project_id in main_mod.active_cancellations:
-        main_mod.active_cancellations[project_id].set()
+    main_mod.active_cancellations.setdefault(project_id, threading.Event()).set()
     proj = find_project(project_id)
     if proj:
+        track_id = proj.get("track_id")
+        if track_id and track_id != project_id:
+            main_mod.active_cancellations.setdefault(track_id, threading.Event()).set()
         proj["status"] = "cancelled"
         proj["status_detail"] = "Processing cancelled by user"
         proj["progress"] = 0
@@ -706,10 +812,12 @@ def cancel_render(project_id: str):
     import backend.main as main_mod
 
     render_key = f"{project_id}_render"
-    if render_key in main_mod.active_cancellations:
-        main_mod.active_cancellations[render_key].set()
+    main_mod.active_cancellations.setdefault(render_key, threading.Event()).set()
     proj = find_project(project_id)
     if proj:
+        track_id = proj.get("track_id")
+        if track_id and track_id != project_id:
+            main_mod.active_cancellations.setdefault(f"{track_id}_render", threading.Event()).set()
         proj["render_status"] = "idle"
         proj["render_detail"] = "Rendering cancelled by user"
         proj["render_progress"] = 0

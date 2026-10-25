@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Mic2, Film, ArrowLeft, User, HelpCircle } from 'lucide-react';
+import { Mic2, Film, ArrowLeft, User, HelpCircle, Loader2 } from 'lucide-react';
 import { ProjectState } from '../types';
 
 import { Tooltip } from './Tooltip';
@@ -20,6 +20,8 @@ export interface StudioHeaderProps {
   onOpenAuth: () => void;
   onNewSong: () => void;
   onStartRender: () => void;
+  isExportModalOpen?: boolean;
+  onOpenExportModal?: () => void;
 }
 
 export const StudioHeader: React.FC<StudioHeaderProps> = ({
@@ -30,6 +32,8 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   onOpenAuth,
   onNewSong,
   onStartRender,
+  isExportModalOpen = false,
+  onOpenExportModal,
 }) => {
   const handleNewSongClick = () => {
     if (isLyricsDirty) {
@@ -105,6 +109,32 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
                   <span className="hidden sm:inline">New Song</span>
                 </button>
               </Tooltip>
+
+              {/* Persistent Background Render Progress Badge */}
+              {project &&
+                (project.render_status === 'rendering' || project.render_status === 'queued') &&
+                !isExportModalOpen && (
+                  <div
+                    data-testid="header-render-progress"
+                    className="flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-theme-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-medium shadow-theme-sm"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin shrink-0" aria-hidden="true" />
+                    <span className="font-mono font-semibold text-[11px] sm:text-xs">
+                      Rendering Video: {Math.round(project.render_progress || 0)}%
+                    </span>
+                    <button
+                      type="button"
+                      data-testid="header-reopen-export-modal"
+                      onClick={onOpenExportModal || onStartRender}
+                      className="px-2 py-0.5 rounded-theme-sm bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 text-[11px] font-bold border border-cyan-500/40 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      aria-label="View background video rendering progress"
+                    >
+                      View
+                    </button>
+                  </div>
+                )}
 
               {project.status === 'ready' && (
                 <Tooltip

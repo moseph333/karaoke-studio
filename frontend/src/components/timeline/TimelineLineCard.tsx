@@ -49,6 +49,7 @@ export interface TimelineLineCardProps {
     value: number
   ) => void;
   onCycleSinger?: (lineId: number) => void;
+  currentTime?: number;
 }
 
 export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
@@ -59,6 +60,7 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
   editingLineId,
   editingText,
   activeWordLoc,
+  currentTime,
   editInputRef,
   onLineClick,
   onWordClick,
@@ -372,6 +374,7 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
         <ExpandedWordEditor
           line={line}
           activeWordLoc={activeWordLoc}
+          currentTime={currentTime}
           onWordClick={onWordClick}
           onNudgeWord={onNudgeWord}
           onNudgeWordBoundary={onNudgeWordBoundary}

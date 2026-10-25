@@ -321,6 +321,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       const cancelBtn = screen.getByRole('button', { name: /Cancel & Return to Search/i });
       await user.click(cancelBtn);
 
+      const confirmBtn = await screen.findByRole('button', { name: /Confirm Cancel/i });
+      await user.click(confirmBtn);
+
       await waitFor(() => {
         expect(fetchSpy).toHaveBeenCalledWith(
           '/api/project/proj-cancel-pipeline/cancel',

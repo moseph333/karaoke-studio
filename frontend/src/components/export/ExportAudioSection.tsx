@@ -10,6 +10,7 @@ import { Download, Music, Mic, Volume2, Loader2, AlertCircle } from 'lucide-reac
 import { ProjectState } from '../../types';
 import { apiFetch } from '../../api';
 import { Tooltip } from '../Tooltip';
+import { useToast } from '../../hooks/useToast';
 
 export interface ExportAudioSectionProps {
   project: ProjectState;
@@ -50,6 +51,7 @@ const STEM_OPTIONS: StemOption[] = [
 ];
 
 export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project }) => {
+  const { toast } = useToast();
   const [downloadingStem, setDownloadingStem] = useState<StemType | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
@@ -98,8 +100,11 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        toast.success('Download started!');
         if (typeof window.URL.revokeObjectURL === 'function') {
-          window.URL.revokeObjectURL(blobUrl);
+          setTimeout(() => {
+            window.URL.revokeObjectURL(blobUrl);
+          }, 1500);
         }
       } else {
         const a = document.createElement('a');
@@ -108,6 +113,7 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        toast.success('Download started!');
       }
     } catch (err: unknown) {
       console.error(`Download ${stemType} failed:`, err);

@@ -18,6 +18,8 @@ export interface PitchTranspositionControlProps {
   onOpenRecommender?: () => void;
   onAnalyzeVocalRange?: () => void;
   isAnalyzingRange?: boolean;
+  isMixPending?: boolean;
+  appliedSemitones?: number;
 }
 
 export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps> = ({
@@ -28,19 +30,42 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
   onOpenRecommender,
   onAnalyzeVocalRange,
   isAnalyzingRange = false,
+  isMixPending,
+  appliedSemitones,
 }) => {
+  const isPending =
+    isMixPending !== undefined
+      ? isMixPending
+      : appliedSemitones !== undefined
+        ? semitones !== appliedSemitones
+        : semitones !== 0;
+
   return (
-    <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-slate-400 flex items-center gap-1.5 font-medium">
-          <Sliders className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
+    <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-theme-surface/80 bg-slate-950/60 border border-theme-border/80 border-slate-800/80">
+      <div className="flex items-center justify-between text-xs gap-2">
+        <span className="text-theme-text-muted text-slate-400 flex items-center gap-1.5 font-medium">
+          <Sliders className="w-3.5 h-3.5 text-theme-accent text-cyan-400" aria-hidden="true" />
           Pitch Transposition
         </span>
-        <span
-          className={`font-mono font-bold ${semitones === 0 ? 'text-slate-300' : 'text-cyan-400'}`}
-        >
-          {semitones === 0 ? '0 (Original)' : `${semitones > 0 ? '+' : ''}${semitones} semitones`}
-        </span>
+        <div className="flex items-center gap-2">
+          {isPending && (
+            <span
+              data-testid="pitch-pending-mix-badge"
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-semibold tracking-wide"
+              title="Key transposition is queued. Click 'Apply Audio Mix' below to re-process audio."
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
+              Pending Mix / Click Apply
+            </span>
+          )}
+          <span
+            className={`font-mono font-bold ${
+              semitones === 0 ? 'text-theme-text-muted text-slate-300' : 'text-theme-accent text-cyan-400'
+            }`}
+          >
+            {semitones === 0 ? '0 (Original)' : `${semitones > 0 ? '+' : ''}${semitones} semitones`}
+          </span>
+        </div>
       </div>
 
       {/* Steppers */}

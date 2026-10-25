@@ -43,8 +43,8 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         save_projects()
 
     # Fast pre-acquire check
-    if cancel_event.is_set():
-        proj = find_project(project_id)
+    proj = find_project(project_id)
+    if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
         if proj:
             proj["status"] = "cancelled"
             proj["status_detail"] = "Processing was cancelled by user"
@@ -53,7 +53,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         main_mod.active_cancellations.pop(project_id, None)
         return
 
-    if find_project(project_id) is None:
+    if proj is None:
         main_mod.active_cancellations.pop(project_id, None)
         return
 
@@ -63,9 +63,9 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         semaphore_acquired = True
 
         # Check if cancelled or deleted while waiting in queue
-        if cancel_event.is_set():
+        proj = find_project(project_id)
+        if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
             logger.info(f"Project {project_id} was cancelled while queued")
-            proj = find_project(project_id)
             if proj:
                 proj["status"] = "cancelled"
                 proj["status_detail"] = "Processing was cancelled by user"
@@ -73,7 +73,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
                 save_projects()
             return
 
-        if find_project(project_id) is None:
+        if proj is None:
             logger.info(f"Project {project_id} was deleted while queued; skipping pipeline")
             return
 
@@ -286,8 +286,8 @@ def run_local_pipeline(
         save_projects()
 
     # Fast pre-acquire check
-    if cancel_event.is_set():
-        proj = find_project(project_id)
+    proj = find_project(project_id)
+    if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
         if proj:
             proj["status"] = "cancelled"
             proj["status_detail"] = "Processing was cancelled by user"
@@ -296,7 +296,7 @@ def run_local_pipeline(
         main_mod.active_cancellations.pop(project_id, None)
         return
 
-    if find_project(project_id) is None:
+    if proj is None:
         main_mod.active_cancellations.pop(project_id, None)
         return
 
@@ -305,9 +305,9 @@ def run_local_pipeline(
         main_mod.WORKER_SEMAPHORE.acquire()
         semaphore_acquired = True
 
-        if cancel_event.is_set():
+        proj = find_project(project_id)
+        if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
             logger.info(f"Local project {project_id} was cancelled while queued")
-            proj = find_project(project_id)
             if proj:
                 proj["status"] = "cancelled"
                 proj["status_detail"] = "Processing was cancelled by user"
@@ -315,7 +315,7 @@ def run_local_pipeline(
                 save_projects()
             return
 
-        if find_project(project_id) is None:
+        if proj is None:
             logger.info(f"Local project {project_id} was deleted while queued; skipping pipeline")
             return
 

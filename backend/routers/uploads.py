@@ -166,10 +166,10 @@ async def upload_audio_track(
         "audio_url": f"/static/downloads/{project_id}.wav",
     }
 
+    main_mod.active_cancellations.setdefault(project_id, threading.Event())
     main_mod.projects[project_id] = proj_data
     save_projects()
 
-    main_mod.active_cancellations.setdefault(project_id, threading.Event())
     bg_tasks.add_task(
         main_mod.run_local_pipeline,
         project_id,

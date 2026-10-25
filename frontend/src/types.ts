@@ -69,6 +69,8 @@ export interface ProjectState {
   master_audio_url?: string;
   thumbnail_url?: string;
   lines: LyricLine[];
+  lyric_source?: string;
+  is_synced?: boolean;
   semitones: number;
   guide_volume: number;
   vocal_range?: VocalRangeData;
@@ -92,6 +94,17 @@ export interface ProjectState {
     lyrics: string;
     privacy_status: string;
   };
+}
+
+export interface LyricCandidate {
+  id?: number | string;
+  track_name: string;
+  artist_name: string;
+  album_name?: string;
+  duration?: number;
+  instrumental?: boolean;
+  plain_lyrics?: string;
+  synced_lyrics?: string;
 }
 
 export interface SearchResult {

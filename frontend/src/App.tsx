@@ -222,6 +222,10 @@ export const AppContent: React.FC = () => {
     onToggleVisualizer: isStudioReady ? handleToggleVisualizer : undefined,
     onToggleChordBar: isStudioReady ? handleToggleChordBar : undefined,
     onToggleHelp: () => setShowHelpModal((prev) => !prev),
+    lines: isStudioReady ? project?.lines : undefined,
+    precisionSeeking: isStudioReady,
+    fineSeekStep: 1,
+    coarseSeekStep: 15,
     audioRef,
     currentTime,
     duration,
@@ -425,7 +429,7 @@ export const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d0f17] text-slate-100 flex flex-col font-['Inter']">
+    <div className="min-h-screen bg-theme-bg text-theme-text flex flex-col font-theme-body">
       <div
         className={`flex-1 flex flex-col ${showAuthModal ? 'pointer-events-none select-none' : ''}`}
         {...(showAuthModal ? ({ inert: '', 'aria-hidden': 'true' } as Record<string, string>) : {})}
@@ -439,6 +443,8 @@ export const AppContent: React.FC = () => {
           onOpenAuth={() => setShowAuthModal(true)}
           onNewSong={() => setProject(null)}
           onStartRender={handleStartRender}
+          isExportModalOpen={isExportOpen}
+          onOpenExportModal={() => setIsExportOpen(true)}
         />
 
         {/* Main Content Area */}
@@ -535,6 +541,7 @@ export const AppContent: React.FC = () => {
                 showChordBar={showChordBar}
                 onToggleChordBar={handleToggleChordBar}
                 semitones={activeSemitones}
+                onSemitonesChange={handleSemitonesChange}
                 keyHint={project.vocal_range?.estimated_key}
                 onEditChord={handleEditChord}
                 syncMode={theme.syncMode}
