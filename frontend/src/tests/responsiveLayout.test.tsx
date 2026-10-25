@@ -226,16 +226,14 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
       });
     });
 
-    it('provides WCAG-compliant touch target on close button and mobile-friendly inputs', () => {
+    it('omits close button and provides WCAG-compliant mobile-friendly inputs and submit button', () => {
       setTestViewport(320, 568);
       render(<AuthModal isOpen={true} onSuccess={vi.fn()} onClose={vi.fn()} />);
 
-      const closeBtn = screen.getByRole('button', {
+      const closeBtn = screen.queryByRole('button', {
         name: /close studio authentication dialog/i,
       });
-      expect(closeBtn).toBeInTheDocument();
-      expect(closeBtn.className).toContain('min-w-[44px]');
-      expect(closeBtn.className).toContain('min-h-[44px]');
+      expect(closeBtn).not.toBeInTheDocument();
 
       const passwordInput = screen.getByLabelText(/studio passphrase/i);
       expect(passwordInput.className).toContain('min-h-[44px]');

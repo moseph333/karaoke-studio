@@ -225,7 +225,7 @@ export const AppContent: React.FC = () => {
     audioRef,
     currentTime,
     duration,
-    enabled: true,
+    enabled: !showAuthModal,
     seekStep: 5,
   });
 
@@ -426,138 +426,143 @@ export const AppContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#0d0f17] text-slate-100 flex flex-col font-['Inter']">
-      {/* Top Navbar */}
-      <StudioHeader
-        currentUser={currentUser}
-        project={project}
-        isLyricsDirty={isLyricsDirty || chordHistory.isDirty}
-        onOpenHelp={() => setShowHelpModal((prev) => !prev)}
-        onOpenAuth={() => setShowAuthModal(true)}
-        onNewSong={() => setProject(null)}
-        onStartRender={handleStartRender}
-      />
+      <div
+        className={`flex-1 flex flex-col ${showAuthModal ? 'pointer-events-none select-none' : ''}`}
+        {...(showAuthModal ? ({ inert: '', 'aria-hidden': 'true' } as Record<string, string>) : {})}
+      >
+        {/* Top Navbar */}
+        <StudioHeader
+          currentUser={currentUser}
+          project={project}
+          isLyricsDirty={isLyricsDirty || chordHistory.isDirty}
+          onOpenHelp={() => setShowHelpModal((prev) => !prev)}
+          onOpenAuth={() => setShowAuthModal(true)}
+          onNewSong={() => setProject(null)}
+          onStartRender={handleStartRender}
+        />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8 w-full">
-        {!project ? (
-          <TrackSearch
-            onSelectTrack={handleSelectTrack}
-            onUploadTrack={handleUploadTrack}
-            onOpenProject={(p) => setProject(p)}
-            isLoading={loading}
-            currentUser={currentUser}
-            authToken={authToken}
-          />
-        ) : project.status !== 'ready' ? (
-          <ProcessingView
-            project={project}
-            onCancelProcess={handleCancelProcess}
-            onResetProject={() => setProject(null)}
-          />
-        ) : (
-          /* Studio Dashboard */
-          <div className="space-y-8">
-            {/* Song Meta Header */}
-            <StudioMetaHeader
+        {/* Main Content Area */}
+        <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8 w-full">
+          {!project ? (
+            <TrackSearch
+              onSelectTrack={handleSelectTrack}
+              onUploadTrack={handleUploadTrack}
+              onOpenProject={(p) => setProject(p)}
+              isLoading={loading}
+              currentUser={currentUser}
+              authToken={authToken}
+            />
+          ) : project.status !== 'ready' ? (
+            <ProcessingView
               project={project}
-              onOpenEditModal={() => setShowStudioEditModal(true)}
-              onOpenDeleteModal={() => setShowStudioDeleteModal(true)}
-              onOpenExportModal={() => setIsExportOpen(true)}
-              onStartRender={handleStartRender}
+              onCancelProcess={handleCancelProcess}
+              onResetProject={() => setProject(null)}
             />
+          ) : (
+            /* Studio Dashboard */
+            <div className="space-y-8">
+              {/* Song Meta Header */}
+              <StudioMetaHeader
+                project={project}
+                onOpenEditModal={() => setShowStudioEditModal(true)}
+                onOpenDeleteModal={() => setShowStudioDeleteModal(true)}
+                onOpenExportModal={() => setIsExportOpen(true)}
+                onStartRender={handleStartRender}
+              />
 
-            {/* Audio Controls & Pitch Shifter */}
-            <AudioControls
-              projectId={project.id}
-              masterAudioUrl={project.master_audio_url}
-              instrumentalUrl={project.instrumental_url}
-              vocalsUrl={project.vocals_url}
-              lines={project.lines}
-              currentTime={currentTime}
-              duration={duration}
-              isPlaying={isPlaying}
-              onTogglePlay={audio.handleTogglePlay}
-              onSeek={audio.handleSeek}
-              onMixChange={handleMixChange}
-              initialSemitones={activeSemitones}
-              onSemitonesChange={handleSemitonesChange}
-              initialGuideVolume={project.guide_volume}
-              initialMuted={isMuted}
-              onMuteChange={setIsMuted}
-              playbackRate={audio.playbackRate}
-              onPlaybackRateChange={audio.setPlaybackRate}
-              audioRef={audioRef}
-              onTimeUpdate={audio.handleTimeUpdate}
-              onLoadedMetadata={audio.handleLoadedMetadata}
-              onEnded={() => setIsPlaying(false)}
-              onPlaybackError={(err) => {
-                console.error('Audio playback error:', err);
-                setIsPlaying(false);
-              }}
-              onCustomInstrumentalUploaded={(url) =>
-                setProject({ ...project, instrumental_url: url })
-              }
-              vocalRange={project.vocal_range}
-              showVisualizer={showVisualizer}
-              onToggleVisualizer={handleToggleVisualizer}
-              showChordBar={showChordBar}
-              onToggleChordBar={handleToggleChordBar}
-            />
+              {/* Audio Controls & Pitch Shifter */}
+              <AudioControls
+                projectId={project.id}
+                masterAudioUrl={project.master_audio_url}
+                instrumentalUrl={project.instrumental_url}
+                vocalsUrl={project.vocals_url}
+                lines={project.lines}
+                currentTime={currentTime}
+                duration={duration}
+                isPlaying={isPlaying}
+                onTogglePlay={audio.handleTogglePlay}
+                onSeek={audio.handleSeek}
+                onMixChange={handleMixChange}
+                initialSemitones={activeSemitones}
+                onSemitonesChange={handleSemitonesChange}
+                initialGuideVolume={project.guide_volume}
+                initialMuted={isMuted}
+                onMuteChange={setIsMuted}
+                playbackRate={audio.playbackRate}
+                onPlaybackRateChange={audio.setPlaybackRate}
+                audioRef={audioRef}
+                onTimeUpdate={audio.handleTimeUpdate}
+                onLoadedMetadata={audio.handleLoadedMetadata}
+                onEnded={() => setIsPlaying(false)}
+                onPlaybackError={(err) => {
+                  console.error('Audio playback error:', err);
+                  setIsPlaying(false);
+                }}
+                onCustomInstrumentalUploaded={(url) =>
+                  setProject({ ...project, instrumental_url: url })
+                }
+                vocalRange={project.vocal_range}
+                showVisualizer={showVisualizer}
+                onToggleVisualizer={handleToggleVisualizer}
+                showChordBar={showChordBar}
+                onToggleChordBar={handleToggleChordBar}
+              />
 
-            {/* Lyric Sweep Live Preview & Timeline Editor */}
-            <LyricTimelineEditor
-              lines={project.lines}
-              currentTime={currentTime}
-              duration={duration}
-              isPlaying={isPlaying}
-              playbackRate={audio.playbackRate}
-              audioRef={audioRef}
-              onTogglePlay={audio.handleTogglePlay}
-              onSeek={audio.handleSeek}
-              onSaveLines={handleSaveLines}
-              albumArtUrl={project.thumbnail_url}
-              themeSungColor={theme.activeSungColor}
-              themeUnsungColor={theme.activeUnsungColor}
-              onDirtyChange={setIsLyricsDirty}
-              aspectRatio={theme.aspectRatio}
-              fontSizeScale={theme.fontSizeScale}
-              projectId={project.id}
-              trackTitle={project.title}
-              trackArtist={project.artist}
-              showVisualizer={showVisualizer}
-              onToggleVisualizer={handleToggleVisualizer}
-              analyserNode={audio.analyserNode}
-              chords={project.chords}
-              showChordBar={showChordBar}
-              onToggleChordBar={handleToggleChordBar}
-              semitones={activeSemitones}
-              keyHint={project.vocal_range?.estimated_key}
-              onEditChord={handleEditChord}
-              syncMode={theme.syncMode}
-              onSyncModeChange={theme.setSyncMode}
-            />
+              {/* Lyric Sweep Live Preview & Timeline Editor */}
+              <LyricTimelineEditor
+                lines={project.lines}
+                currentTime={currentTime}
+                duration={duration}
+                isPlaying={isPlaying}
+                playbackRate={audio.playbackRate}
+                audioRef={audioRef}
+                onTogglePlay={audio.handleTogglePlay}
+                onSeek={audio.handleSeek}
+                onSaveLines={handleSaveLines}
+                albumArtUrl={project.thumbnail_url}
+                themeSungColor={theme.activeSungColor}
+                themeUnsungColor={theme.activeUnsungColor}
+                onDirtyChange={setIsLyricsDirty}
+                aspectRatio={theme.aspectRatio}
+                fontSizeScale={theme.fontSizeScale}
+                projectId={project.id}
+                trackTitle={project.title}
+                trackArtist={project.artist}
+                showVisualizer={showVisualizer}
+                onToggleVisualizer={handleToggleVisualizer}
+                analyserNode={audio.analyserNode}
+                chords={project.chords}
+                showChordBar={showChordBar}
+                onToggleChordBar={handleToggleChordBar}
+                semitones={activeSemitones}
+                keyHint={project.vocal_range?.estimated_key}
+                onEditChord={handleEditChord}
+                syncMode={theme.syncMode}
+                onSyncModeChange={theme.setSyncMode}
+              />
 
-            {/* Visual Theme & Aspect Ratio Picker */}
-            <VisualThemePicker
-              selectedTheme={theme.selectedTheme}
-              onSelectTheme={theme.setSelectedTheme}
-              aspectRatio={theme.aspectRatio}
-              onChangeAspectRatio={theme.setAspectRatio}
-              onCustomBgUploaded={theme.setCustomBgId}
-              customBgId={theme.customBgId}
-              customSungColor={theme.customSungColor}
-              onCustomSungColorChange={theme.setCustomSungColor}
-              customUnsungColor={theme.customUnsungColor}
-              onCustomUnsungColorChange={theme.setCustomUnsungColor}
-              fontSizeScale={theme.fontSizeScale}
-              onFontSizeScaleChange={theme.setFontSizeScale}
-              onResetThemeDefaults={theme.resetThemeDefaults}
-              syncMode={theme.syncMode}
-              onSyncModeChange={theme.setSyncMode}
-            />
-          </div>
-        )}
-      </main>
+              {/* Visual Theme & Aspect Ratio Picker */}
+              <VisualThemePicker
+                selectedTheme={theme.selectedTheme}
+                onSelectTheme={theme.setSelectedTheme}
+                aspectRatio={theme.aspectRatio}
+                onChangeAspectRatio={theme.setAspectRatio}
+                onCustomBgUploaded={theme.setCustomBgId}
+                customBgId={theme.customBgId}
+                customSungColor={theme.customSungColor}
+                onCustomSungColorChange={theme.setCustomSungColor}
+                customUnsungColor={theme.customUnsungColor}
+                onCustomUnsungColorChange={theme.setCustomUnsungColor}
+                fontSizeScale={theme.fontSizeScale}
+                onFontSizeScaleChange={theme.setFontSizeScale}
+                onResetThemeDefaults={theme.resetThemeDefaults}
+                syncMode={theme.syncMode}
+                onSyncModeChange={theme.setSyncMode}
+              />
+            </div>
+          )}
+        </main>
+      </div>
 
       {/* Studio Modal Dialogs */}
       <StudioModals
@@ -576,7 +581,6 @@ export const AppContent: React.FC = () => {
         fontSizeScale={theme.fontSizeScale}
         showAuthModal={showAuthModal}
         onAuthSuccess={handleAuthSuccess}
-        onCloseAuth={() => setShowAuthModal(false)}
         showHelpModal={showHelpModal}
         onCloseHelp={() => setShowHelpModal(false)}
         showStudioDeleteModal={showStudioDeleteModal}

@@ -34,6 +34,7 @@ def auth_status(request: Request):
 def auth_login(req: LoginRequest, request: Request):
     client_ip = get_client_ip(request)
     check_login_rate_limit(client_ip)
+    clean_username = (req.username or "").strip() or "Friend"
 
     if config.APP_PASSWORD:
         pwd = (req.password or "").strip()
@@ -46,11 +47,11 @@ def auth_login(req: LoginRequest, request: Request):
             is_valid = False
         if not is_valid:
             record_login_failure(client_ip)
-            logger.warning(f"Failed login attempt for user: {req.username} from {client_ip}")
+            logger.warning(f"Failed login attempt for user: {clean_username} from {client_ip}")
             raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
 
         reset_login_failures(client_ip)
-        session_token = create_session_token(config.APP_PASSWORD, client_id=req.username or "user")
+        session_token = create_session_token(config.APP_PASSWORD, client_id=clean_username)
     else:
         session_token = "ok"
 
@@ -58,7 +59,7 @@ def auth_login(req: LoginRequest, request: Request):
         content={
             "status": "ok",
             "token": session_token,
-            "username": req.username or "Friend",
+            "username": clean_username,
         }
     )
     if config.APP_PASSWORD:

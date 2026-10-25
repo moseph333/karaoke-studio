@@ -102,22 +102,16 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
       expect(modalContent.className).toContain('sm:p-6');
     });
 
-    it('enforces >=44x44px touch target on close button and triggers onClose callback', () => {
+    it('omits close button so users cannot X out of the authentication gate', () => {
       setTestViewport(320, 568);
       const onCloseMock = vi.fn();
       render(<AuthModal isOpen={true} onSuccess={vi.fn()} onClose={onCloseMock} />);
 
-      const closeBtn = screen.getByRole('button', {
+      const closeBtn = screen.queryByRole('button', {
         name: /close studio authentication dialog/i,
       });
-      expect(closeBtn).toBeInTheDocument();
-      expect(closeBtn.className).toContain('min-w-[44px]');
-      expect(closeBtn.className).toContain('min-h-[44px]');
-      expect(closeBtn.className).toContain('top-3');
-      expect(closeBtn.className).toContain('right-3');
-
-      fireEvent.click(closeBtn);
-      expect(onCloseMock).toHaveBeenCalledTimes(1);
+      expect(closeBtn).not.toBeInTheDocument();
+      expect(onCloseMock).not.toHaveBeenCalled();
     });
 
     it('enforces min-h-[44px] and text-base (16px) on inputs to prevent iOS Safari auto-zoom', () => {
@@ -156,7 +150,9 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
       );
 
       const passwordInput = screen.getByLabelText(/studio passphrase/i);
+      const usernameInput = screen.getByLabelText(/your nickname/i);
       fireEvent.change(passwordInput, { target: { value: 'wrong-pass' } });
+      fireEvent.change(usernameInput, { target: { value: 'Alex' } });
 
       const form = passwordInput.closest('form');
       expect(form).not.toBeNull();
@@ -179,7 +175,9 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
       render(<AuthModal isOpen={true} onSuccess={vi.fn()} onClose={vi.fn()} />);
 
       const passwordInput = screen.getByLabelText(/studio passphrase/i);
+      const usernameInput = screen.getByLabelText(/your nickname/i);
       fireEvent.change(passwordInput, { target: { value: 'secret-token-123' } });
+      fireEvent.change(usernameInput, { target: { value: 'Alex' } });
 
       const submitBtn = screen.getByRole('button', { name: /enter studio/i });
       fireEvent.click(submitBtn);
@@ -398,13 +396,14 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
   // Focus Area 5: Accessibility, Escape Shortcuts & Focus Trap
   // ---------------------------------------------------------------------------
   describe('Focus Area 5: Accessibility, Focus Trapping & Escape Handlers', () => {
-    it('closes AuthModal when Escape key is pressed', () => {
+    it('does not close AuthModal when Escape key is pressed', () => {
       setTestViewport(320, 568);
       const onCloseMock = vi.fn();
       render(<AuthModal isOpen={true} onSuccess={vi.fn()} onClose={onCloseMock} />);
 
       fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' });
-      expect(onCloseMock).toHaveBeenCalledTimes(1);
+      expect(onCloseMock).not.toHaveBeenCalled();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
     it('closes ExportModal when Escape key is pressed', () => {

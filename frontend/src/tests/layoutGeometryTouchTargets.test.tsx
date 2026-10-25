@@ -460,22 +460,24 @@ describe('Milestone 3 Challenger 2: Adversarial Evaluation of Layout Geometry & 
     });
 
     it('evaluates touch targets on AuthModal with zero substandard controls', () => {
-      // 1. Initial state: submit button is disabled (loading || !password.trim())
+      // 1. Initial state: submit button is disabled (loading || !password.trim() || !username.trim())
       const { container } = render(
         <AuthModal isOpen={true} onSuccess={vi.fn()} onClose={vi.fn()} />
       );
 
       const resultInitial = assertTouchTargets(container, 44);
-      // 3 active elements: close button, password input, username input
-      expect(resultInitial.total).toBe(3);
+      // 2 active elements: password input, username input (no close button)
+      expect(resultInitial.total).toBe(2);
       expect(resultInitial.failed).toHaveLength(0);
 
-      // 2. Type password to enable submit button -> 4 active elements, all compliant
+      // 2. Type password and username to enable submit button -> 3 active elements, all compliant
       const passwordInput = screen.getByLabelText(/studio passphrase/i);
+      const usernameInput = screen.getByLabelText(/your nickname/i);
       fireEvent.change(passwordInput, { target: { value: 'secret123' } });
+      fireEvent.change(usernameInput, { target: { value: 'Alex' } });
 
       const resultFilled = assertTouchTargets(container, 44);
-      expect(resultFilled.total).toBe(4);
+      expect(resultFilled.total).toBe(3);
       expect(resultFilled.failed).toHaveLength(0);
     });
 

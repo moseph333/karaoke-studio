@@ -5,16 +5,23 @@
  * current user profile, and automatic prompting on unauthorized API events.
  */
 
-import { useState, useEffect } from 'react';
-import { apiFetch } from '../api';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  apiFetch,
+  getAuthToken,
+  setAuthToken as saveAuthToken,
+  clearAuthToken,
+  getAuthUser,
+  setAuthUser,
+  AUTH_UNAUTHORIZED_EVENT,
+} from '../api';
 
 export function useStudioAuth() {
   const [authRequired, setAuthRequired] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [currentUser, setCurrentUser] = useState(
-    localStorage.getItem('karaoke_user_name') || 'Friend'
-  );
-  const [authToken, setAuthToken] = useState(localStorage.getItem('karaoke_auth_token') || '');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAuthToken()));
+  const [internalShowAuthModal, setInternalShowAuthModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState(() => getAuthUser());
+  const [authToken, setAuthToken] = useState(() => getAuthToken() || '');
 
   // Check server auth requirement on load
   useEffect(() => {
@@ -24,30 +31,69 @@ export function useStudioAuth() {
         if (data.auth_required) {
           setAuthRequired(true);
           if (!data.authenticated) {
-            localStorage.removeItem('karaoke_auth_token');
+            clearAuthToken();
             setAuthToken('');
-            setShowAuthModal(true);
+            setIsAuthenticated(false);
+            setInternalShowAuthModal(true);
+          } else {
+            setIsAuthenticated(true);
+            if (typeof data.username === 'string' && data.username.trim()) {
+              const serverUser = data.username.trim();
+              if (getAuthUser() === 'Friend') {
+                setAuthUser(serverUser);
+                setCurrentUser(serverUser);
+              }
+            }
           }
         } else {
           setAuthRequired(false);
-          setShowAuthModal(false);
+          setIsAuthenticated(true);
+          setInternalShowAuthModal(false);
         }
       })
       .catch(() => {});
 
-    const handleUnauthorized = () => setShowAuthModal(true);
-    window.addEventListener('karaoke_unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('karaoke_unauthorized', handleUnauthorized);
+    const handleUnauthorized = () => {
+      clearAuthToken();
+      setAuthRequired(true);
+      setIsAuthenticated(false);
+      setAuthToken('');
+      setInternalShowAuthModal(true);
+    };
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, handleUnauthorized);
   }, []);
 
-  const handleAuthSuccess = (username: string, token: string) => {
-    setCurrentUser(username);
+  const isAuthLocked = authRequired && !isAuthenticated;
+  const showAuthModal = internalShowAuthModal || isAuthLocked;
+
+  const setShowAuthModal = useCallback(
+    (value: boolean | ((prev: boolean) => boolean)) => {
+      setInternalShowAuthModal((prev) => {
+        const next = typeof value === 'function' ? value(prev) : value;
+        if (!next && authRequired && !isAuthenticated) {
+          return true;
+        }
+        return next;
+      });
+    },
+    [authRequired, isAuthenticated]
+  );
+
+  const handleAuthSuccess = useCallback((username: string, token: string) => {
+    const cleanUser = username.trim() || 'Friend';
+    setCurrentUser(cleanUser);
+    setAuthUser(cleanUser);
     setAuthToken(token);
-    setShowAuthModal(false);
-  };
+    saveAuthToken(token);
+    setIsAuthenticated(true);
+    setInternalShowAuthModal(false);
+  }, []);
 
   return {
     authRequired,
+    isAuthenticated,
+    isAuthLocked,
     showAuthModal,
     setShowAuthModal,
     currentUser,

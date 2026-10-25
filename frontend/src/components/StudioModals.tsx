@@ -34,7 +34,7 @@ export interface StudioModalsProps {
   fontSizeScale?: number;
   showAuthModal: boolean;
   onAuthSuccess: (username: string, token: string) => void;
-  onCloseAuth: () => void;
+  onCloseAuth?: () => void;
   showHelpModal: boolean;
   onCloseHelp: () => void;
   showStudioDeleteModal: boolean;
@@ -61,7 +61,6 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   fontSizeScale,
   showAuthModal,
   onAuthSuccess,
-  onCloseAuth,
   showHelpModal,
   onCloseHelp,
   showStudioDeleteModal,
@@ -93,7 +92,7 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
       )}
 
       {/* Shared Studio Passphrase & Friend Profile Modal */}
-      <AuthModal isOpen={showAuthModal} onSuccess={onAuthSuccess} onClose={onCloseAuth} />
+      <AuthModal isOpen={showAuthModal} onSuccess={onAuthSuccess} />
 
       {/* Help & Usage Guide Modal */}
       <HelpModal isOpen={showHelpModal} onClose={onCloseHelp} />

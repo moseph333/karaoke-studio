@@ -5,8 +5,8 @@
  * Manages modal focus trapping, credential validation, and local credential storage.
  */
 
-import React, { useState, useRef } from 'react';
-import { Lock, User, AlertCircle, ArrowRight, X } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
 import { apiFetch, getAuthUser, setAuthToken, setAuthUser } from '../api';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
@@ -16,26 +16,45 @@ interface AuthModalProps {
   onClose?: () => void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, onClose }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
   const [password, setPassword] = useState('');
-  const [username, setUsername] = useState(getAuthUser() === 'Friend' ? '' : getAuthUser());
+  const [username, setUsername] = useState(() => (getAuthUser() === 'Friend' ? '' : getAuthUser()));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  const usernameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setPassword('');
+      setError(null);
+      const savedUser = getAuthUser();
+      setUsername(savedUser === 'Friend' ? '' : savedUser);
+    }
+  }, [isOpen]);
 
   const modalRef = useFocusTrap<HTMLDivElement>({
     isOpen,
-    onClose,
     initialFocusRef: passwordInputRef,
-    escapeDeactivates: Boolean(onClose),
+    escapeDeactivates: false,
   });
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim()) {
+    const trimmedPassword = password.trim();
+    const trimmedUsername = username.trim();
+
+    if (!trimmedPassword) {
       setError('Please enter the studio passphrase');
+      passwordInputRef.current?.focus();
+      return;
+    }
+
+    if (!trimmedUsername) {
+      setError('Please enter a username / nickname');
+      usernameInputRef.current?.focus();
       return;
     }
 
@@ -48,8 +67,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, onClose
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          password: password.trim(),
-          username: username.trim() || 'Friend',
+          password: trimmedPassword,
+          username: trimmedUsername,
         }),
       });
 
@@ -59,11 +78,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, onClose
       }
 
       const data = await res.json();
-      const confirmedUser = data.username || username.trim() || 'Friend';
-      const token = data.token || password.trim();
+      const confirmedUser = (data.username || trimmedUsername).trim();
+      const token = data.token || trimmedPassword;
 
       setAuthToken(token);
       setAuthUser(confirmedUser);
+      setPassword('');
 
       onSuccess(confirmedUser, token);
     } catch (err: unknown) {
@@ -77,23 +97,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, onClose
     <div
       ref={modalRef}
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md"
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-modal-title"
       aria-describedby="auth-modal-desc"
     >
       <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl space-y-5 sm:space-y-6">
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close studio authentication dialog"
-            className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 flex items-center justify-center"
-          >
-            <X className="w-5 h-5" aria-hidden="true" />
-          </button>
-        )}
         <div className="text-center space-y-2">
           <div className="inline-flex p-3 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-cyan-400">
             <Lock className="w-6 h-6" aria-hidden="true" />
@@ -113,6 +130,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, onClose
           <div
             className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2.5 text-rose-300 text-xs"
             role="alert"
+            aria-live="assertive"
           >
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" aria-hidden="true" />
             <span>{error}</span>
@@ -131,10 +149,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, onClose
             <input
               ref={passwordInputRef}
               id="auth-password"
+              name="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter studio password..."
+              autoComplete="current-password"
               required
               className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-mono"
             />
@@ -149,11 +169,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, onClose
               Your Nickname / Handle
             </label>
             <input
+              ref={usernameInputRef}
               id="auth-username"
+              name="username"
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="e.g. Alex"
+              autoComplete="username"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              maxLength={64}
+              required
               className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
             />
             <p className="text-[11px] text-slate-500">
@@ -163,7 +191,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess, onClose
 
           <button
             type="submit"
-            disabled={loading || !password.trim()}
+            disabled={loading || !password.trim() || !username.trim()}
             className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (

@@ -941,9 +941,10 @@ describe('M5 Challenger 1: Features 41 & 45 Empirical Adversarial Suite', () => 
       await user.keyboard('m');
       expect(muteSpy).not.toHaveBeenCalled();
 
-      // Escape closes AuthModal
+      // Escape does NOT close AuthModal (hardened access gate)
       await user.keyboard('{Escape}');
-      expect(onClose).toHaveBeenCalledTimes(1);
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
     it('Scenario 22: ExportModal traps focus, allows Tab cycle through actions, and closes on Escape', async () => {
