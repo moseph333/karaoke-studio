@@ -89,13 +89,7 @@ describe('Milestone 1: UX-1 Client-Side Audio Validation & Smart Filename Parsin
   it('LocalAudioUploader shows error on oversized file upload and resets selection', async () => {
     const user = userEvent.setup();
     const onError = vi.fn();
-    render(
-      <LocalAudioUploader
-        isLoading={false}
-        customLyrics=""
-        onError={onError}
-      />
-    );
+    render(<LocalAudioUploader isLoading={false} customLyrics="" onError={onError} />);
 
     const oversized = new File(['content'], 'huge_track.wav', { type: 'audio/wav' });
     Object.defineProperty(oversized, 'size', { value: 120 * 1024 * 1024 });
@@ -112,13 +106,7 @@ describe('Milestone 1: UX-1 Client-Side Audio Validation & Smart Filename Parsin
   it('LocalAudioUploader shows error on empty 0-byte file', async () => {
     const user = userEvent.setup();
     const onError = vi.fn();
-    render(
-      <LocalAudioUploader
-        isLoading={false}
-        customLyrics=""
-        onError={onError}
-      />
-    );
+    render(<LocalAudioUploader isLoading={false} customLyrics="" onError={onError} />);
 
     const empty = new File([], 'empty.mp3', { type: 'audio/mpeg' });
     const input = screen.getByLabelText(/Choose local audio file/i);
@@ -130,13 +118,7 @@ describe('Milestone 1: UX-1 Client-Side Audio Validation & Smart Filename Parsin
 
   it('LocalAudioUploader shows error on unsupported file type', async () => {
     const onError = vi.fn();
-    render(
-      <LocalAudioUploader
-        isLoading={false}
-        customLyrics=""
-        onError={onError}
-      />
-    );
+    render(<LocalAudioUploader isLoading={false} customLyrics="" onError={onError} />);
 
     const badFile = new File(['binary'], 'notes.txt', { type: 'text/plain' });
     const input = screen.getByLabelText(/Choose local audio file/i);
@@ -161,13 +143,7 @@ describe('Milestone 1: UX-1 Client-Side Audio Validation & Smart Filename Parsin
   it('LocalAudioUploader auto-fills both Artist and Title on smart filename pattern', async () => {
     const user = userEvent.setup();
     const onError = vi.fn();
-    render(
-      <LocalAudioUploader
-        isLoading={false}
-        customLyrics=""
-        onError={onError}
-      />
-    );
+    render(<LocalAudioUploader isLoading={false} customLyrics="" onError={onError} />);
 
     const file = new File(['audio'], 'Pink Floyd - Comfortably Numb.mp3', { type: 'audio/mpeg' });
     const input = screen.getByLabelText(/Choose local audio file/i);
@@ -183,13 +159,7 @@ describe('Milestone 1: UX-1 Client-Side Audio Validation & Smart Filename Parsin
 
   it('LocalAudioUploader handles dropzone drag-and-drop validation and parsing', () => {
     const onError = vi.fn();
-    render(
-      <LocalAudioUploader
-        isLoading={false}
-        customLyrics=""
-        onError={onError}
-      />
-    );
+    render(<LocalAudioUploader isLoading={false} customLyrics="" onError={onError} />);
 
     const dropzone = screen.getByText(/Click to select audio/i).closest('div');
     expect(dropzone).toBeInTheDocument();
@@ -328,12 +298,8 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
     expect(getActivePipelineStage('queued')).toBe(0);
     expect(getActivePipelineStage('downloading')).toBe(0);
     expect(getActivePipelineStage('separating')).toBe(1);
-    expect(
-      getActivePipelineStage('separating', 'Analyzing vocal range and key...')
-    ).toBe(2);
-    expect(
-      getActivePipelineStage('separating', 'Detecting musical chord progression...')
-    ).toBe(2);
+    expect(getActivePipelineStage('separating', 'Analyzing vocal range and key...')).toBe(2);
+    expect(getActivePipelineStage('separating', 'Detecting musical chord progression...')).toBe(2);
     expect(getActivePipelineStage('fetching_lyrics')).toBe(3);
     expect(getActivePipelineStage('aligning')).toBe(3);
     expect(getActivePipelineStage('mixing')).toBe(4);
@@ -349,11 +315,7 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
     };
 
     render(
-      <ProcessingView
-        project={projectStage3}
-        onCancelProcess={vi.fn()}
-        onResetProject={vi.fn()}
-      />
+      <ProcessingView project={projectStage3} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
     );
 
     // Check all 5 stage labels are present
@@ -362,17 +324,11 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
     });
 
     // Stages 1 and 2 completed
-    expect(
-      screen.getByLabelText(`Completed: ${PIPELINE_STAGES[0].label}`)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(`Completed: ${PIPELINE_STAGES[1].label}`)
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(`Completed: ${PIPELINE_STAGES[0].label}`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`Completed: ${PIPELINE_STAGES[1].label}`)).toBeInTheDocument();
 
     // Stage 3 active
-    expect(
-      screen.getByLabelText(`Active: ${PIPELINE_STAGES[2].label}`)
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText(`Active: ${PIPELINE_STAGES[2].label}`)).toBeInTheDocument();
 
     // Stages 4 and 5 upcoming (numbered 4 and 5)
     expect(screen.getByText('4')).toBeInTheDocument();
@@ -386,16 +342,10 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
     };
 
     render(
-      <ProcessingView
-        project={stalledProject}
-        onCancelProcess={vi.fn()}
-        onResetProject={vi.fn()}
-      />
+      <ProcessingView project={stalledProject} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
     );
 
-    expect(
-      screen.getByText('Engine slow / waiting for background worker')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Engine slow / waiting for background worker')).toBeInTheDocument();
     expect(screen.queryByText(/Engine Active/i)).not.toBeInTheDocument();
   });
 
@@ -406,11 +356,7 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
     };
 
     render(
-      <ProcessingView
-        project={freshProject}
-        onCancelProcess={vi.fn()}
-        onResetProject={vi.fn()}
-      />
+      <ProcessingView project={freshProject} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
     );
 
     expect(screen.getByText(/Engine Active/i)).toBeInTheDocument();
@@ -423,11 +369,7 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
     const user = userEvent.setup();
     const onCancel = vi.fn();
     render(
-      <ProcessingView
-        project={baseProject}
-        onCancelProcess={onCancel}
-        onResetProject={vi.fn()}
-      />
+      <ProcessingView project={baseProject} onCancelProcess={onCancel} onResetProject={vi.fn()} />
     );
 
     const cancelBtn = screen.getByRole('button', { name: /Cancel & Return to Search/i });
@@ -553,9 +495,7 @@ describe('Milestone 1: UX-2 Polling Disconnect Handling (useProjectPolling)', ()
       ...separatingProject,
       progress: 60,
     };
-    fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify(recoveredProject), { status: 200 })
-    );
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify(recoveredProject), { status: 200 }));
 
     await act(async () => {
       result.current.retryPolling();

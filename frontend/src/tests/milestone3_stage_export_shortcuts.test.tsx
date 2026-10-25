@@ -170,13 +170,7 @@ describe('Milestone 3 — UX-5: TV Stage Mode Controls, Theme Integration & Pitc
     });
 
     it('applies semantic theme token classes and dynamic previewBg to stage container', () => {
-      render(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={5.0}
-          selectedTheme={customTheme}
-        />
-      );
+      render(<LyricDisplay lines={sampleLines} currentTime={5.0} selectedTheme={customTheme} />);
 
       const stage = screen.getByTestId('lyric-display-stage');
       // Should include theme token classes
@@ -351,7 +345,9 @@ describe('Milestone 3 — UX-6: Export Progress, Safe Downloads, Gutter Fix & Pr
     });
 
     it('delays URL.revokeObjectURL by 1500ms in ExportSubtitleSection', async () => {
-      const mockBlob = new Blob(['1\n00:00:01,000 --> 00:00:04,000\nHello'], { type: 'text/plain' });
+      const mockBlob = new Blob(['1\n00:00:01,000 --> 00:00:04,000\nHello'], {
+        type: 'text/plain',
+      });
       vi.spyOn(apiModule, 'apiFetch').mockResolvedValueOnce({
         ok: true,
         blob: async () => mockBlob,
@@ -422,13 +418,7 @@ describe('Milestone 3 — UX-6: Export Progress, Safe Downloads, Gutter Fix & Pr
         }),
       } as unknown as Response);
 
-      render(
-        <ExportModal
-          project={mockProject}
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      render(<ExportModal project={mockProject} isOpen={true} onClose={vi.fn()} />);
 
       const chordDownloadBtn = screen.getByTestId('download-chord-sheet-btn');
       fireEvent.click(chordDownloadBtn);
@@ -511,14 +501,10 @@ describe('Milestone 3 — UX-6: Export Progress, Safe Downloads, Gutter Fix & Pr
         })
       );
 
-      window.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true })
-      );
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
       expect(onSeek).toHaveBeenLastCalledWith(15.0);
 
-      window.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })
-      );
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
       expect(onSeek).toHaveBeenLastCalledWith(25.0);
     });
 

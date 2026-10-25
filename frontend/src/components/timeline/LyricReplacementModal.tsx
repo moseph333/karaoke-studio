@@ -158,7 +158,9 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
       if (searchTitle.trim()) params.append('track_name', searchTitle.trim());
       if (searchArtist.trim()) params.append('artist_name', searchArtist.trim());
 
-      const res = await apiFetch(`/api/project/${projectId}/lyrics/candidates?${params.toString()}`);
+      const res = await apiFetch(
+        `/api/project/${projectId}/lyrics/candidates?${params.toString()}`
+      );
       const data = await res.json();
 
       if (!res.ok) {
@@ -489,7 +491,8 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                 <div className="p-6 rounded-xl bg-slate-950/60 border border-slate-800/80 text-center space-y-2">
                   <Music className="w-8 h-8 text-slate-600 mx-auto" />
                   <p className="text-xs text-slate-400">
-                    Click &quot;Search Candidates&quot; above to find alternative lyric versions on LRCLIB.
+                    Click &quot;Search Candidates&quot; above to find alternative lyric versions on
+                    LRCLIB.
                   </p>
                 </div>
               )}
@@ -499,7 +502,8 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                 const isExpanded = expandedCandidateId === candId;
                 const isApplying = applyingCandidateId === candId;
                 const hasSynced = Boolean(cand.synced_lyrics && cand.synced_lyrics.trim());
-                const lyricPreview = cand.synced_lyrics || cand.plain_lyrics || 'No lyrics available';
+                const lyricPreview =
+                  cand.synced_lyrics || cand.plain_lyrics || 'No lyrics available';
 
                 return (
                   <div

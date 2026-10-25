@@ -97,7 +97,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                 <button
                   type="button"
                   onClick={(e) => {
-                    const delta = e.shiftKey ? -0.20 : -0.05;
+                    const delta = e.shiftKey ? -0.2 : -0.05;
                     onNudgeWordBoundary(line.id, wIdx, 'start_time', delta);
                   }}
                   aria-label={`Nudge start of word ${w.word} 0.05s earlier`}
@@ -126,7 +126,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                 <button
                   type="button"
                   onClick={(e) => {
-                    const delta = e.shiftKey ? 0.20 : 0.05;
+                    const delta = e.shiftKey ? 0.2 : 0.05;
                     onNudgeWordBoundary(line.id, wIdx, 'start_time', delta);
                   }}
                   aria-label={`Nudge start of word ${w.word} 0.05s later`}
@@ -144,7 +144,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                 <button
                   type="button"
                   onClick={(e) => {
-                    const delta = e.shiftKey ? -0.20 : -0.05;
+                    const delta = e.shiftKey ? -0.2 : -0.05;
                     onNudgeWordBoundary(line.id, wIdx, 'end_time', delta);
                   }}
                   aria-label={`Nudge end of word ${w.word} 0.05s earlier`}
@@ -163,7 +163,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                       const nextStart =
                         wIdx < line.words.length - 1
                           ? line.words[wIdx + 1].start_time
-                          : (line.end_time || Infinity);
+                          : line.end_time || Infinity;
                       const clamped = Math.min(nextStart, Math.max(w.start_time, rawVal));
                       onUpdateWordTiming(line.id, wIdx, 'end_time', clamped);
                     }
@@ -174,7 +174,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                 <button
                   type="button"
                   onClick={(e) => {
-                    const delta = e.shiftKey ? 0.20 : 0.05;
+                    const delta = e.shiftKey ? 0.2 : 0.05;
                     onNudgeWordBoundary(line.id, wIdx, 'end_time', delta);
                   }}
                   aria-label={`Nudge end of word ${w.word} 0.05s later`}
@@ -195,7 +195,11 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                     const prevEnd = wIdx > 0 ? line.words[wIdx - 1].end_time : 0;
                     const nextStart =
                       wIdx < line.words.length - 1 ? line.words[wIdx + 1].start_time : Infinity;
-                    const snappedStart = Math.min(w.end_time, nextStart, Math.max(prevEnd, currentTime));
+                    const snappedStart = Math.min(
+                      w.end_time,
+                      nextStart,
+                      Math.max(prevEnd, currentTime)
+                    );
                     onUpdateWordTiming(
                       line.id,
                       wIdx,
@@ -215,7 +219,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                     const nextStart =
                       wIdx < line.words.length - 1
                         ? line.words[wIdx + 1].start_time
-                        : (line.end_time || Infinity);
+                        : line.end_time || Infinity;
                     const snappedEnd = Math.min(nextStart, Math.max(w.start_time, currentTime));
                     onUpdateWordTiming(
                       line.id,

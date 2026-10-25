@@ -128,8 +128,10 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
         document.body.removeChild(a);
         toast.success('Download started!');
         if (typeof window.URL.revokeObjectURL === 'function') {
-          const isRealBrowser = typeof navigator !== 'undefined' && !navigator.userAgent.includes('jsdom');
-          const isFakeTimerTest = typeof (setTimeout as unknown as { clock?: unknown }).clock === 'object';
+          const isRealBrowser =
+            typeof navigator !== 'undefined' && !navigator.userAgent.includes('jsdom');
+          const isFakeTimerTest =
+            typeof (setTimeout as unknown as { clock?: unknown }).clock === 'object';
           const delay = isRealBrowser || isFakeTimerTest ? 1500 : 0;
           if (delay > 0) {
             setTimeout(() => {

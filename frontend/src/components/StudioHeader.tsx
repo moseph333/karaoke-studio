@@ -120,7 +120,10 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
                     role="status"
                     aria-live="polite"
                   >
-                    <Loader2 className="w-3.5 h-3.5 text-cyan-400 animate-spin shrink-0" aria-hidden="true" />
+                    <Loader2
+                      className="w-3.5 h-3.5 text-cyan-400 animate-spin shrink-0"
+                      aria-hidden="true"
+                    />
                     <span className="font-mono font-semibold text-[11px] sm:text-xs">
                       Rendering Video: {Math.round(project.render_progress || 0)}%
                     </span>

@@ -72,13 +72,9 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     return `Pulse ${diffSec}s ago`;
   };
 
-  const isHeartbeatStalled = Boolean(
-    project.heartbeat && Date.now() - project.heartbeat > 15000
-  );
+  const isHeartbeatStalled = Boolean(project.heartbeat && Date.now() - project.heartbeat > 15000);
 
-  const isReconnecting = Boolean(
-    project?.status_detail?.toLowerCase().includes('reconnecting')
-  );
+  const isReconnecting = Boolean(project?.status_detail?.toLowerCase().includes('reconnecting'));
 
   const currentStageIndex = getActivePipelineStage(project?.status, project?.status_detail);
 
@@ -144,16 +140,12 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
       {/* Live Heartbeat Health Indicator */}
       <div>
         {isHeartbeatStalled ? (
-          <div
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-theme-pill bg-amber-500/15 border-theme border-amber-500/40 text-amber-400 text-xs font-medium shadow-theme-sm font-theme-body"
-          >
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-theme-pill bg-amber-500/15 border-theme border-amber-500/40 text-amber-400 text-xs font-medium shadow-theme-sm font-theme-body">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" aria-hidden="true" />
             <span>Engine slow / waiting for background worker</span>
           </div>
         ) : (
-          <div
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-theme-pill bg-emerald-500/10 border-theme border-emerald-500/30 text-emerald-400 text-xs font-medium shadow-theme-sm font-theme-body"
-          >
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-theme-pill bg-emerald-500/10 border-theme border-emerald-500/30 text-emerald-400 text-xs font-medium shadow-theme-sm font-theme-body">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping motion-reduce:animate-none absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -334,4 +326,3 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     </div>
   );
 };
-

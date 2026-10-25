@@ -51,9 +51,7 @@ describe('Milestone 2: UX-3 Candidate Search & Paste Inspector', () => {
     await user.type(textarea, 'First line\nSecond line\nThird line');
 
     expect(screen.getByTestId('paste-syntax-inspector')).toBeInTheDocument();
-    expect(
-      screen.queryByText(/✓ Synced LRC/i, { selector: 'span' })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/✓ Synced LRC/i, { selector: 'span' })).not.toBeInTheDocument();
     expect(
       screen.getByText(/ℹ Plain Text \(3 lines, will require alignment\)/i)
     ).toBeInTheDocument();
@@ -65,9 +63,7 @@ describe('Milestone 2: UX-3 Candidate Search & Paste Inspector', () => {
       },
     });
 
-    expect(
-      screen.getByText(/✓ Synced LRC \(2 lines detected\)/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/✓ Synced LRC \(2 lines detected\)/i)).toBeInTheDocument();
   });
 
   it('searches LRCLIB candidates, displays formatted duration, and renders badges', async () => {
@@ -81,8 +77,7 @@ describe('Milestone 2: UX-3 Candidate Search & Paste Inspector', () => {
         duration: 354, // 5:54
         instrumental: false,
         plain_lyrics: 'Is this the real life?\nIs this just fantasy?',
-        synced_lyrics:
-          '[00:00.50] Is this the real life?\n[00:04.20] Is this just fantasy?',
+        synced_lyrics: '[00:00.50] Is this the real life?\n[00:04.20] Is this just fantasy?',
       },
       {
         id: 102,

@@ -28,10 +28,7 @@ import {
 import { TrackSearch } from '../components/TrackSearch';
 
 // UX-2 Components
-import {
-  ProcessingView,
-  getActivePipelineStage,
-} from '../components/ProcessingView';
+import { ProcessingView, getActivePipelineStage } from '../components/ProcessingView';
 import { useProjectPolling } from '../hooks/useProjectPolling';
 
 // UX-3 Components
@@ -91,13 +88,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
 
     it('LocalAudioUploader UI drops file and fires error on 100MB + 1B', async () => {
       const onError = vi.fn();
-      render(
-        <LocalAudioUploader
-          isLoading={false}
-          customLyrics=""
-          onError={onError}
-        />
-      );
+      render(<LocalAudioUploader isLoading={false} customLyrics="" onError={onError} />);
 
       const oversized = new File(['x'], 'exceeds_by_1b.mp3', { type: 'audio/mpeg' });
       Object.defineProperty(oversized, 'size', { value: 104857601 });
@@ -116,7 +107,9 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
     it('accepts uppercase audio extensions (.MP3, .FLAC, .WAV, .M4A, .OGG, .AAC, .OPUS)', () => {
       const extensions = ['MP3', 'FLAC', 'WAV', 'M4A', 'OGG', 'AAC', 'OPUS', 'FlAc', 'mP3'];
       for (const ext of extensions) {
-        const file = new File(['audio-payload'], `test_track.${ext}`, { type: 'audio/octet-stream' });
+        const file = new File(['audio-payload'], `test_track.${ext}`, {
+          type: 'audio/octet-stream',
+        });
         expect(validateAudioFile(file)).toBeNull();
       }
     });
@@ -138,7 +131,9 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
     });
 
     it('handles files with multiple dots where the last extension is valid audio', () => {
-      const multiDot = new File(['audio'], 'artist.name.track.title.2026.flac', { type: 'audio/flac' });
+      const multiDot = new File(['audio'], 'artist.name.track.title.2026.flac', {
+        type: 'audio/flac',
+      });
       expect(validateAudioFile(multiDot)).toBeNull();
     });
   });
@@ -196,12 +191,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       const user = userEvent.setup();
       const onSelectTrack = vi.fn();
 
-      render(
-        <TrackSearch
-          onSelectTrack={onSelectTrack}
-          isLoading={false}
-        />
-      );
+      render(<TrackSearch onSelectTrack={onSelectTrack} isLoading={false} />);
 
       const input = screen.getByLabelText(/Paste YouTube or YouTube Music URL/i);
       const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
@@ -220,10 +210,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       await user.clear(input);
       await user.type(input, 'https://youtu.be/dQw4w9WgXcQ');
       await user.click(submitBtn);
-      expect(onSelectTrack).toHaveBeenCalledWith(
-        'https://youtu.be/dQw4w9WgXcQ',
-        undefined
-      );
+      expect(onSelectTrack).toHaveBeenCalledWith('https://youtu.be/dQw4w9WgXcQ', undefined);
 
       // YouTube Music URL
       onSelectTrack.mockClear();
@@ -240,12 +227,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       const user = userEvent.setup();
       const onSelectTrack = vi.fn();
 
-      render(
-        <TrackSearch
-          onSelectTrack={onSelectTrack}
-          isLoading={false}
-        />
-      );
+      render(<TrackSearch onSelectTrack={onSelectTrack} isLoading={false} />);
 
       const input = screen.getByLabelText(/Paste YouTube or YouTube Music URL/i);
       const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
@@ -312,11 +294,7 @@ describe('CHALLENGER 1: UX-2 ProcessingView Stepper, Heartbeat & Disconnect Reco
       };
 
       render(
-        <ProcessingView
-          project={mockProject}
-          onCancelProcess={vi.fn()}
-          onResetProject={vi.fn()}
-        />
+        <ProcessingView project={mockProject} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
       );
 
       // Note: ProcessingView uses (status || 'queued').replace('_', ' ') which replaces only the first underscore!
@@ -352,7 +330,9 @@ describe('CHALLENGER 1: UX-2 ProcessingView Stepper, Heartbeat & Disconnect Reco
       );
 
       expect(screen.getByText(/Engine Active • Pulse 15s ago/i)).toBeInTheDocument();
-      expect(screen.queryByText(/Engine slow \/ waiting for background worker/i)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Engine slow \/ waiting for background worker/i)
+      ).not.toBeInTheDocument();
 
       vi.restoreAllMocks();
     });
@@ -403,11 +383,7 @@ describe('CHALLENGER 1: UX-2 ProcessingView Stepper, Heartbeat & Disconnect Reco
       };
 
       render(
-        <ProcessingView
-          project={project}
-          onCancelProcess={onCancel}
-          onResetProject={onReset}
-        />
+        <ProcessingView project={project} onCancelProcess={onCancel} onResetProject={onReset} />
       );
 
       // Initially shows single Cancel button
@@ -417,7 +393,9 @@ describe('CHALLENGER 1: UX-2 ProcessingView Stepper, Heartbeat & Disconnect Reco
       // Alert dialog is displayed
       const dialog = screen.getByRole('alertdialog');
       expect(dialog).toBeInTheDocument();
-      expect(screen.getByText(/Cancel separation\? In-progress work will be lost\./i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Cancel separation\? In-progress work will be lost\./i)
+      ).toBeInTheDocument();
 
       // Click "Keep Processing"
       const keepBtn = screen.getByRole('button', { name: /Keep Processing/i });
@@ -426,7 +404,9 @@ describe('CHALLENGER 1: UX-2 ProcessingView Stepper, Heartbeat & Disconnect Reco
       // Dialog dismissed, onCancel NOT called, initial button restored
       expect(onCancel).not.toHaveBeenCalled();
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Cancel & Return to Search/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /Cancel & Return to Search/i })
+      ).toBeInTheDocument();
 
       // Open dialog again and click "Confirm Cancel"
       await user.click(screen.getByRole('button', { name: /Cancel & Return to Search/i }));
@@ -583,11 +563,15 @@ describe('CHALLENGER 1: UX-3 LRCLIB Candidate Search & Live Paste Syntax Inspect
         target: { value: '[Am] I heard that you were [C] settled down\n[G] That you found a girl' },
       });
 
-      expect(screen.getByText(/ℹ Plain Text \(2 lines, will require alignment\)/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/ℹ Plain Text \(2 lines, will require alignment\)/i)
+      ).toBeInTheDocument();
 
       // Colon-separated timestamps without dot: [01:23:45]
       fireEvent.change(textarea, { target: { value: '[01:23:45] Track title' } });
-      expect(screen.getByText(/ℹ Plain Text \(1 lines, will require alignment\)/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(/ℹ Plain Text \(1 lines, will require alignment\)/i)
+      ).toBeInTheDocument();
     });
 
     it('differentiates mixed input (some lines with LRC, some plain)', async () => {
@@ -603,7 +587,8 @@ describe('CHALLENGER 1: UX-3 LRCLIB Candidate Search & Live Paste Syntax Inspect
       const textarea = screen.getByLabelText(/Lyric Text or LRC Timestamps/i);
       fireEvent.change(textarea, {
         target: {
-          value: '[00:10.00] First timed line\nSecond line without timing\n[00:20.00] Third timed line',
+          value:
+            '[00:10.00] First timed line\nSecond line without timing\n[00:20.00] Third timed line',
         },
       });
 
@@ -706,7 +691,9 @@ describe('CHALLENGER 1: UX-3 LRCLIB Candidate Search & Live Paste Syntax Inspect
       });
 
       // Attempt to apply the empty candidate
-      const applyBtn = screen.getByRole('button', { name: /Apply candidate Empty Candidate Song/i });
+      const applyBtn = screen.getByRole('button', {
+        name: /Apply candidate Empty Candidate Song/i,
+      });
       await user.click(applyBtn);
 
       // Realign API should NOT be called

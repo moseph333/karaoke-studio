@@ -282,11 +282,7 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
       };
 
       const { rerender } = render(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={12.0}
-          selectedTheme={customTheme}
-        />
+        <LyricDisplay lines={sampleLines} currentTime={12.0} selectedTheme={customTheme} />
       );
 
       const stage = screen.getByTestId('lyric-display-stage');
@@ -306,13 +302,7 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
       expect(stage.style.backgroundColor).toBe('');
 
       // Case 3: selectedTheme undefined
-      rerender(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={12.0}
-          selectedTheme={undefined}
-        />
-      );
+      rerender(<LyricDisplay lines={sampleLines} currentTime={12.0} selectedTheme={undefined} />);
 
       expect(stage.style.backgroundColor).toBe('');
     });
@@ -337,11 +327,7 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
       // Intro gap is [0, 10.0s].
       // At t = 2.0s: 8 seconds remaining before next vocal -> gap-countdown-indicator visible, countdown-cue hidden
       const { rerender } = render(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={2.0}
-          duration={60}
-        />
+        <LyricDisplay lines={sampleLines} currentTime={2.0} duration={60} />
       );
 
       expect(screen.getByTestId('gap-countdown-indicator')).toBeInTheDocument();
@@ -349,25 +335,13 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
       expect(screen.queryByTestId('countdown-cue')).not.toBeInTheDocument();
 
       // At t = 8.5s: 1.5 seconds remaining before vocals at 10.0s -> countdown-cue visible with count 2
-      rerender(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={8.5}
-          duration={60}
-        />
-      );
+      rerender(<LyricDisplay lines={sampleLines} currentTime={8.5} duration={60} />);
 
       expect(screen.getByTestId('countdown-cue')).toBeInTheDocument();
       expect(screen.getByTestId('countdown-cue')).toHaveTextContent('2');
 
       // At t = 11.0s: inside active lyric line 1 [10.0, 14.0] -> countdown-cue hidden, active line visible
-      rerender(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={11.0}
-          duration={60}
-        />
-      );
+      rerender(<LyricDisplay lines={sampleLines} currentTime={11.0} duration={60} />);
 
       expect(screen.queryByTestId('countdown-cue')).not.toBeInTheDocument();
       expect(screen.getByTestId('active-lyrics-line')).toBeInTheDocument();
@@ -603,7 +577,9 @@ describe('Adversarial Stress Suite — UX-6: StudioHeader Persistent Render Prog
           onStartRender={vi.fn()}
         />
       );
-      expect(screen.getByTestId('header-render-progress')).toHaveTextContent('Rendering Video: 100%');
+      expect(screen.getByTestId('header-render-progress')).toHaveTextContent(
+        'Rendering Video: 100%'
+      );
 
       rerender(
         <StudioHeader
@@ -651,13 +627,7 @@ describe('Adversarial Stress Suite — UX-6: StudioHeader Persistent Render Prog
         }),
       } as unknown as Response);
 
-      render(
-        <ExportModal
-          project={mockProject}
-          isOpen={true}
-          onClose={vi.fn()}
-        />
-      );
+      render(<ExportModal project={mockProject} isOpen={true} onClose={vi.fn()} />);
 
       fireEvent.click(screen.getByTestId('download-chord-sheet-btn'));
 
@@ -685,7 +655,9 @@ describe('Adversarial Stress Suite — UX-6: StudioHeader Persistent Render Prog
       act(() => {
         vi.advanceTimersByTime(1);
       });
-      expect(window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/safe-test-uuid');
+      expect(window.URL.revokeObjectURL).toHaveBeenCalledWith(
+        'blob:http://localhost/safe-test-uuid'
+      );
     });
 
     it('guarantees delayed revocation for subtitle downloads in ExportSubtitleSection', async () => {
@@ -722,7 +694,9 @@ describe('Adversarial Stress Suite — UX-6: StudioHeader Persistent Render Prog
       act(() => {
         vi.advanceTimersByTime(1);
       });
-      expect(window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:http://localhost/safe-test-uuid');
+      expect(window.URL.revokeObjectURL).toHaveBeenCalledWith(
+        'blob:http://localhost/safe-test-uuid'
+      );
     });
 
     it('guarantees delayed revocation across multiple sequential stem downloads in ExportAudioSection', async () => {

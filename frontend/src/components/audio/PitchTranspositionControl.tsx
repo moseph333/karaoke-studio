@@ -54,13 +54,18 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-semibold tracking-wide"
               title="Key transposition is queued. Click 'Apply Audio Mix' below to re-process audio."
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"
+                aria-hidden="true"
+              />
               Pending Mix / Click Apply
             </span>
           )}
           <span
             className={`font-mono font-bold ${
-              semitones === 0 ? 'text-theme-text-muted text-slate-300' : 'text-theme-accent text-cyan-400'
+              semitones === 0
+                ? 'text-theme-text-muted text-slate-300'
+                : 'text-theme-accent text-cyan-400'
             }`}
           >
             {semitones === 0 ? '0 (Original)' : `${semitones > 0 ? '+' : ''}${semitones} semitones`}

@@ -165,9 +165,7 @@ export function useLyricEditorState({
     } else {
       const prevStart = targetWord.start_time;
       const nextStart = wordIndex < words.length - 1 ? words[wordIndex + 1].start_time : Infinity;
-      targetWord.end_time = sanitizeTimestamp(
-        Math.min(nextStart, Math.max(prevStart, value))
-      );
+      targetWord.end_time = sanitizeTimestamp(Math.min(nextStart, Math.max(prevStart, value)));
     }
   };
 

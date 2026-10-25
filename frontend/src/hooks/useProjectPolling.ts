@@ -94,8 +94,7 @@ export function useProjectPolling(
             prev
               ? {
                   ...prev,
-                  status_detail:
-                    'Network connection interrupted. Reconnecting to server...',
+                  status_detail: 'Network connection interrupted. Reconnecting to server...',
                 }
               : null
           );
@@ -112,8 +111,7 @@ export function useProjectPolling(
           prev
             ? {
                 ...prev,
-                status_detail:
-                  'Network connection interrupted. Reconnecting to server...',
+                status_detail: 'Network connection interrupted. Reconnecting to server...',
               }
             : null
         );
