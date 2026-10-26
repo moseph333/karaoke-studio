@@ -969,45 +969,45 @@ class AudioAligner:
                 f"Loaded vocals for alignment: {duration:.2f}s, sample rate {sample_rate}Hz"
             )
 
-            # 3. Calculate short-time RMS energy (frame size = 20ms, hop size = 10ms)
-            frame_length = max(1, int(0.02 * sample_rate))
-            hop_length = max(1, int(0.01 * sample_rate))
-            sq_audio = mono_audio**2
-
-            # Guard against empty audio: prevent np.mean([]) warnings and NaN propagation
-            if len(sq_audio) == 0:
-                norm_energy = np.zeros(0, dtype=np.float32)
-            elif len(sq_audio) < frame_length:
-                avg_val = float(np.mean(sq_audio)) if len(sq_audio) > 0 else 0.0
-                norm_energy = np.array([avg_val], dtype=np.float32)
-            else:
-                num_frames = max(1, (len(sq_audio) - frame_length) // hop_length)
-                cum_sq = np.concatenate(([0.0], np.cumsum(sq_audio, dtype=np.float64)))
-                starts = np.arange(num_frames) * hop_length
-                ends = starts + frame_length
-                energy = ((cum_sq[ends] - cum_sq[starts]) / frame_length).astype(np.float32)
-
-                # Smooth energy envelope if sufficient frames exist
-                if len(energy) >= 5:
-                    kernel = np.ones(5, dtype=np.float32) / 5.0
-                    energy = np.convolve(energy, kernel, mode="same")
-
-                # Defensive normalization: guard against pure silence and NaN
-                max_energy = float(np.nanmax(energy)) if len(energy) > 0 else 0.0
-                if np.isnan(max_energy) or max_energy <= 1e-9:
-                    norm_energy = np.zeros_like(energy)
-                else:
-                    norm_energy = np.nan_to_num(
-                        energy / max_energy, nan=0.0, posinf=0.0, neginf=0.0
-                    )
-
-            # 4. Check if lines are un-timed plain text (both start and end are 0.0 or None)
+            # 3. Check if lines are un-timed plain text (both start and end are 0.0 or None)
             all_zero = len(lines) > 0 and all(
                 _is_zero(line.get("start_time")) and _is_zero(line.get("end_time"))
                 for line in lines
             )
 
             if all_zero:
+                # Calculate short-time RMS energy (frame size = 20ms, hop size = 10ms)
+                frame_length = max(1, int(0.02 * sample_rate))
+                hop_length = max(1, int(0.01 * sample_rate))
+                sq_audio = mono_audio**2
+
+                # Guard against empty audio: prevent np.mean([]) warnings and NaN propagation
+                if len(sq_audio) == 0:
+                    norm_energy = np.zeros(0, dtype=np.float32)
+                elif len(sq_audio) < frame_length:
+                    avg_val = float(np.mean(sq_audio)) if len(sq_audio) > 0 else 0.0
+                    norm_energy = np.array([avg_val], dtype=np.float32)
+                else:
+                    num_frames = max(1, (len(sq_audio) - frame_length) // hop_length)
+                    cum_sq = np.concatenate(([0.0], np.cumsum(sq_audio, dtype=np.float64)))
+                    starts = np.arange(num_frames) * hop_length
+                    ends = starts + frame_length
+                    energy = ((cum_sq[ends] - cum_sq[starts]) / frame_length).astype(np.float32)
+
+                    # Smooth energy envelope if sufficient frames exist
+                    if len(energy) >= 5:
+                        kernel = np.ones(5, dtype=np.float32) / 5.0
+                        energy = np.convolve(energy, kernel, mode="same")
+
+                    # Defensive normalization: guard against pure silence and NaN
+                    max_energy = float(np.nanmax(energy)) if len(energy) > 0 else 0.0
+                    if np.isnan(max_energy) or max_energy <= 1e-9:
+                        norm_energy = np.zeros_like(energy)
+                    else:
+                        norm_energy = np.nan_to_num(
+                            energy / max_energy, nan=0.0, posinf=0.0, neginf=0.0
+                        )
+
                 # For untimed plain lyrics, apply voiced harmonic gating to suppress drum bleed
                 phrases_energy = norm_energy
                 if len(mono_audio) >= frame_length and num_frames > 0:

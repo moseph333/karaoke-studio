@@ -31,6 +31,7 @@ workspace_data/
 *.webp
 *.png
 !docs/**
+!frontend/public/**
 
 # Secrets
 client_secret.json

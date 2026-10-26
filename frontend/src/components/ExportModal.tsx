@@ -250,13 +250,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     <div
       ref={modalRef}
       tabIndex={-1}
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="export-modal-title"
       aria-describedby="export-modal-desc"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
-      <div className="bg-theme-surface border border-theme-border rounded-theme-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-theme-lg p-4 sm:p-6 relative">
+      <div className="bg-theme-surface border border-theme-border rounded-t-2xl sm:rounded-theme-xl rounded-b-none sm:rounded-b-theme-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-theme-lg p-4 sm:p-6 relative flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
+        <div
+          data-testid="bottom-sheet-drag-handle"
+          className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-2 sm:hidden shrink-0"
+        />
         <Tooltip
           content="Close export dialog"
           position="bottom"

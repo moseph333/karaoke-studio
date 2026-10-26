@@ -246,3 +246,31 @@ class MockAudioContext {
 
 window.AudioContext = MockAudioContext as unknown as typeof AudioContext;
 (window as unknown as { webkitAudioContext: unknown }).webkitAudioContext = MockAudioContext;
+
+// Mock PointerEvent and pointer capture methods for JSDOM
+if (typeof window !== 'undefined') {
+  if (typeof window.PointerEvent === 'undefined') {
+    class MockPointerEvent extends MouseEvent {
+      pointerId: number;
+      pointerType: string;
+      constructor(type: string, params: PointerEventInit = {}) {
+        super(type, params);
+        this.pointerId = params.pointerId ?? 0;
+        this.pointerType = params.pointerType ?? 'mouse';
+      }
+    }
+    // @ts-expect-error polyfill PointerEvent for jsdom
+    window.PointerEvent = MockPointerEvent;
+    // @ts-expect-error polyfill global PointerEvent for jsdom
+    globalThis.PointerEvent = MockPointerEvent;
+  }
+
+  if (typeof Element !== 'undefined') {
+    if (!Element.prototype.setPointerCapture) {
+      Element.prototype.setPointerCapture = vi.fn();
+    }
+    if (!Element.prototype.releasePointerCapture) {
+      Element.prototype.releasePointerCapture = vi.fn();
+    }
+  }
+}

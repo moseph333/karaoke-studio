@@ -219,7 +219,7 @@ class TestConcurrencyCheckThenActRaces:
         orig_detect = detector.detect_chords
 
         def slow_detect(*args, **kwargs):
-            time.sleep(0.20)
+            time.sleep(0.50)
             return orig_detect(*args, **kwargs)
 
         detector.detect_chords = slow_detect

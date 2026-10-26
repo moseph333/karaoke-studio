@@ -88,7 +88,7 @@ export function buildThemeCssVariables(
 
 /**
  * Synchronizes the active theme to document.documentElement:
- * Sets data-theme attribute and all CSS custom properties.
+ * Sets data-theme attribute, all CSS custom properties, and dynamic meta[name="theme-color"].
  */
 export function applyThemeToDom(theme: AppTheme): void {
   if (
@@ -106,6 +106,22 @@ export function applyThemeToDom(theme: AppTheme): void {
   for (const [key, value] of Object.entries(theme.cssVariables)) {
     root.style.setProperty(key, value);
   }
+
+  // Synchronize dynamic meta[name="theme-color"] matching active theme background
+  const themeColor =
+    theme.colors?.bg ||
+    (theme.id && isAppThemeId(theme.id) && APP_THEMES[theme.id]?.colors?.bg) ||
+    theme.cssVariables['--theme-bg'] ||
+    theme.cssVariables['--app-bg'] ||
+    '#0d0d0f';
+
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    (document.head || root).appendChild(meta);
+  }
+  meta.setAttribute('content', themeColor);
 }
 
 /* ==========================================================================

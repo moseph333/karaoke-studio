@@ -258,13 +258,22 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
     <div
       ref={modalRef}
       tabIndex={-1}
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="lyric-replacement-title"
       aria-describedby="lyric-replacement-desc"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] flex flex-col">
+      <div className="bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl rounded-b-none sm:rounded-b-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
+        <div
+          data-testid="bottom-sheet-drag-handle"
+          className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-2 sm:hidden shrink-0"
+        />
         {/* Header */}
         <div className="flex items-center justify-between pb-2 border-b border-slate-800 shrink-0">
           <div className="flex items-center gap-2.5 text-cyan-400">
@@ -285,7 +294,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
             onClick={onClose}
             disabled={isLoading || isSearching}
             aria-label="Close dialog"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 disabled:opacity-50"
+            className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 disabled:opacity-50 flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>

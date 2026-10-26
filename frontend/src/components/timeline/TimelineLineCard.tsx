@@ -186,8 +186,8 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
                 e.stopPropagation();
                 onStartEditing(line);
               }}
-              aria-label={`Select line: ${line.text} (${formatLineTime(line.start_time)}s to ${formatLineTime(line.end_time)}s)`}
-              className="flex items-center gap-2 sm:gap-3 cursor-pointer w-full sm:flex-1 overflow-hidden text-left bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-theme-accent rounded-theme-sm min-h-[40px]"
+              aria-label={`Jump to line / Select line: ${line.text} (${formatLineTime(line.start_time)}s to ${formatLineTime(line.end_time)}s)`}
+              className="flex items-center gap-2 sm:gap-3 cursor-pointer w-full sm:flex-1 overflow-hidden text-left bg-transparent border-0 p-0 focus:outline-none focus:ring-2 focus:ring-theme-accent rounded-theme-sm min-h-[44px] min-h-[40px]"
             >
               <span className="font-mono text-xs text-theme-text-muted bg-theme-bg px-2 py-1 rounded-theme-sm border border-theme-border-subtle shrink-0">
                 {formatLineTime(line.start_time)}s - {formatLineTime(line.end_time)}s
@@ -224,7 +224,7 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
                 type="button"
                 onClick={() => onNudgeLine(line.id, -0.2)}
                 aria-label={`Nudge line ${line.id} 0.2s earlier`}
-                className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                className="min-h-[44px] min-w-[44px] min-h-[40px] px-3 sm:min-h-[32px] sm:min-w-0 sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent"
               >
                 <Rewind className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
@@ -236,7 +236,7 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
                 type="button"
                 onClick={() => onNudgeLine(line.id, -0.05)}
                 aria-label={`Nudge line ${line.id} 0.05s earlier`}
-                className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-accent font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                className="min-h-[44px] min-w-[44px] min-h-[40px] px-3 sm:min-h-[32px] sm:min-w-0 sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-accent font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent"
               >
                 -0.05s
               </button>
@@ -248,7 +248,7 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
                 type="button"
                 onClick={() => onNudgeLine(line.id, 0.05)}
                 aria-label={`Nudge line ${line.id} 0.05s later`}
-                className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-accent font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                className="min-h-[44px] min-w-[44px] min-h-[40px] px-3 sm:min-h-[32px] sm:min-w-0 sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-accent font-mono text-xs font-semibold flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent"
               >
                 +0.05s
               </button>
@@ -260,7 +260,7 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
                 type="button"
                 onClick={() => onNudgeLine(line.id, 0.2)}
                 aria-label={`Nudge line ${line.id} 0.2s later`}
-                className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                className="min-h-[44px] min-w-[44px] min-h-[40px] px-3 sm:min-h-[32px] sm:min-w-0 sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text text-xs font-mono flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent"
               >
                 <FastForward className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
@@ -319,7 +319,7 @@ export const TimelineLineCard: React.FC<TimelineLineCardProps> = ({
                   : `Expand word timings for line ${line.id}`
               }
               aria-expanded={isExpanded}
-              className="min-h-[40px] px-3 sm:min-h-[32px] sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text-muted hover:text-theme-text text-xs flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent ml-1"
+              className="min-h-[44px] min-w-[44px] min-h-[40px] px-3 sm:min-h-[32px] sm:min-w-0 sm:px-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text-muted hover:text-theme-text text-xs flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent ml-1"
               title="Expand word timings"
             >
               <ChevronRight

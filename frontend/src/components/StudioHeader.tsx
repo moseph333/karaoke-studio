@@ -22,6 +22,7 @@ export interface StudioHeaderProps {
   onStartRender: () => void;
   isExportModalOpen?: boolean;
   onOpenExportModal?: () => void;
+  onExportClick?: () => void;
 }
 
 export const StudioHeader: React.FC<StudioHeaderProps> = ({
@@ -34,7 +35,10 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   onStartRender,
   isExportModalOpen = false,
   onOpenExportModal,
+  onExportClick,
 }) => {
+  const handleExport = onExportClick || onOpenExportModal || onStartRender;
+
   const handleNewSongClick = () => {
     if (isLyricsDirty) {
       if (
@@ -49,19 +53,19 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
 
   return (
     <header className="border-b border-theme-border/60 bg-theme-bg/90 backdrop-blur-md sticky top-0 z-40 transition-colors">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 min-h-[3.5rem] sm:min-h-[4rem] h-auto py-2 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 min-h-[3.5rem] sm:min-h-[4rem] h-auto py-1.5 sm:py-2 flex flex-wrap items-center justify-between gap-2 min-w-0 overflow-x-hidden">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink">
           <div className="p-1.5 sm:p-2 rounded-theme-md bg-gradient-to-tr from-theme-accent to-theme-secondary text-theme-accent-text shadow-theme-sm shrink-0">
             <Mic2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
           </div>
-          <div className="truncate">
-            <span className="font-extrabold text-sm sm:text-lg tracking-tight font-theme-heading text-theme-text truncate block">
+          <div className="truncate min-w-0">
+            <span className="font-extrabold text-xs sm:text-lg tracking-tight font-theme-heading text-theme-text truncate block">
               Karaoke Studio
             </span>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 flex-nowrap overflow-x-hidden">
           {/* Accessible Application Theme Picker */}
           <AppThemePicker />
 
@@ -140,20 +144,34 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
                 )}
 
               {project.status === 'ready' && (
-                <Tooltip
-                  content="Render full 1080p60 MP4 video"
-                  position="bottom"
-                  className="hidden md:inline-flex"
-                >
+                <>
+                  {/* Prominent Mobile Export Trigger (< 768px) */}
                   <button
                     type="button"
-                    onClick={onStartRender}
-                    className="hidden md:flex px-4 py-2 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-bold text-xs transition-all shadow-theme-md items-center gap-2 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                    data-testid="mobile-header-export-btn"
+                    onClick={handleExport}
+                    className="flex md:hidden md:pointer-events-none p-2 sm:px-3 sm:py-2 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-bold text-xs transition-all shadow-theme-md items-center justify-center gap-1.5 min-h-[44px] min-w-[44px] focus:outline-none focus:ring-2 focus:ring-theme-accent shrink-0"
+                    aria-label="Export Video"
                   >
-                    <Film className="w-4 h-4" />
-                    Render & Export Video
+                    <Film className="w-4 h-4 shrink-0" aria-hidden="true" />
                   </button>
-                </Tooltip>
+
+                  {/* Desktop Export Button (>= 768px) */}
+                  <Tooltip
+                    content="Render full 1080p60 MP4 video"
+                    position="bottom"
+                    className="hidden md:inline-flex"
+                  >
+                    <button
+                      type="button"
+                      onClick={onStartRender || handleExport}
+                      className="hidden md:flex px-4 py-2 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-bold text-xs transition-all shadow-theme-md items-center gap-2 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent"
+                    >
+                      <Film className="w-4 h-4" />
+                      Render & Export Video
+                    </button>
+                  </Tooltip>
+                </>
               )}
             </>
           )}

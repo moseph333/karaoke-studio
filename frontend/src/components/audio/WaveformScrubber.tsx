@@ -52,7 +52,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   // Mode A: Instant deterministic energy envelope (0ms, no network, runs everywhere)
   const fallbackBars = useMemo(() => {
     const bars: number[] = [];
-    const totalDuration = duration > 0 ? duration : 100;
+    const totalDuration = Number.isFinite(duration) && duration > 0 ? duration : 100;
 
     for (let i = 0; i < BAR_COUNT; i++) {
       const centerTime = ((i + 0.5) / BAR_COUNT) * totalDuration;
@@ -138,24 +138,37 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
 
   const bars = decodedPeaks || fallbackBars;
   const progressPercent =
-    duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+    Number.isFinite(duration) && duration > 0
+      ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
+      : 0;
 
   const seekFromClientX = useCallback(
     (clientX: number) => {
-      if (!containerRef.current || duration <= 0 || isNaN(clientX)) return;
+      if (!containerRef.current || !Number.isFinite(duration) || duration <= 0 || isNaN(clientX))
+        return;
       const rect = containerRef.current.getBoundingClientRect();
-      if (!rect || !rect.width || isNaN(rect.width)) return;
-      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const inputEl = containerRef.current.querySelector('input');
+      const inputRect = inputEl ? inputEl.getBoundingClientRect() : null;
+      const activeRect =
+        rect && rect.width > 0 ? rect : inputRect && inputRect.width > 0 ? inputRect : rect;
+      const width =
+        activeRect && activeRect.width > 0
+          ? activeRect.width
+          : containerRef.current.clientWidth || 300;
+      if (!width || isNaN(width)) return;
+      const left = activeRect ? activeRect.left : 0;
+      const ratio = Math.max(0, Math.min(1, (clientX - left) / width));
       if (!isNaN(ratio)) {
-        onSeek(ratio * duration);
+        const targetTime = ratio * duration;
+        if (Number.isFinite(targetTime)) {
+          onSeek(targetTime);
+        }
       }
     },
     [duration, onSeek]
   );
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Avoid re-capturing if triggered directly by the input
-    if ((e.target as HTMLElement).tagName === 'INPUT') return;
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch (_err) {
@@ -179,6 +192,10 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isDragging) {
+      const clientX = e.clientX ?? (e.nativeEvent as unknown as MouseEvent)?.clientX;
+      if (clientX !== undefined && !isNaN(clientX)) {
+        seekFromClientX(clientX);
+      }
       setIsDragging(false);
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
@@ -189,71 +206,74 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   };
 
   const formatTime = (secs: number) => {
-    if (isNaN(secs) || secs < 0) return '0:00';
+    if (!Number.isFinite(secs) || secs < 0) return '0:00';
     const m = Math.floor(secs / 60);
     const s = Math.floor(secs % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   return (
-    <div className={`relative flex flex-col gap-1.5 select-none ${className}`}>
-      <div
-        ref={containerRef}
-        data-testid="waveform-scrubber"
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        className="relative h-14 w-full bg-theme-bg border border-theme-border-subtle rounded-theme-lg overflow-hidden cursor-pointer flex items-end px-1 gap-[2px] group"
-      >
-        {/* Waveform Bars */}
-        {bars.map((height, i) => {
-          const barPercent = ((i + 0.5) / bars.length) * 100;
-          const isPlayed = barPercent <= progressPercent;
-          return (
-            <div
-              key={i}
-              data-testid="waveform-bar"
-              className={`flex-1 rounded-theme-pill transition-colors duration-75 ${
-                isPlayed
-                  ? 'from-cyan-500 bg-theme-sung'
-                  : 'bg-slate-700 bg-theme-surface-raised group-hover:bg-theme-border'
-              }`}
-              style={{ height: `${Math.max(12, Math.round(height * 100))}%` }}
-            />
-          );
-        })}
-
-        {/* Playhead Progress Needle */}
-        <div
-          data-testid="waveform-playhead"
-          className="absolute top-0 bottom-0 w-0.5 bg-theme-accent shadow-theme-glow pointer-events-none z-10"
-          style={{ left: `${progressPercent}%` }}
-        />
-
-        {/* Accessible Range Input Overlay (Preserves Keyboard Navigation & A11y Tests) */}
-        <Tooltip
-          content="Scrub audio timeline (±5s seek)"
-          hotkey={['←', '→']}
-          position="top"
-          className="w-full absolute inset-0 cursor-pointer z-20"
-        >
-          <input
-            type="range"
-            min={0}
-            max={duration || 100}
-            step={0.1}
-            value={currentTime}
-            onChange={(e) => onSeek(parseFloat(e.target.value))}
-            aria-label="Audio timeline position"
-            aria-valuemin={0}
-            aria-valuemax={Math.round(duration) || 100}
-            aria-valuenow={Math.round(currentTime)}
-            aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
-            className="w-full h-full opacity-0 cursor-pointer z-20 touch-none py-2"
+    <div
+      ref={containerRef}
+      data-testid="waveform-scrubber"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      className={`relative h-14 w-full bg-theme-bg border border-theme-border-subtle rounded-theme-lg overflow-hidden cursor-pointer flex items-end px-1 gap-[2px] group select-none touch-none ${className}`}
+    >
+      {/* Waveform Bars */}
+      {bars.map((height, i) => {
+        const barPercent = ((i + 0.5) / bars.length) * 100;
+        const isPlayed = barPercent <= progressPercent;
+        return (
+          <div
+            key={i}
+            data-testid="waveform-bar"
+            className={`flex-1 rounded-theme-pill transition-colors duration-75 ${
+              isPlayed
+                ? 'from-cyan-500 bg-theme-sung'
+                : 'bg-slate-700 bg-theme-surface-raised group-hover:bg-theme-border'
+            }`}
+            style={{ height: `${Math.max(12, Math.round(height * 100))}%` }}
           />
-        </Tooltip>
-      </div>
+        );
+      })}
+
+      {/* Playhead Progress Needle */}
+      <div
+        data-testid="waveform-playhead"
+        className="absolute top-0 bottom-0 w-0.5 bg-theme-accent shadow-theme-glow pointer-events-none z-10"
+        style={{ left: `${progressPercent}%` }}
+      />
+
+      {/* Accessible Range Input Overlay (Preserves Keyboard Navigation & A11y Tests) */}
+      <Tooltip
+        content="Scrub audio timeline (±5s seek)"
+        hotkey={['←', '→']}
+        position="top"
+        className="w-full absolute inset-0 cursor-pointer z-20"
+      >
+        <input
+          type="range"
+          min={0}
+          max={Number.isFinite(duration) && duration > 0 ? duration : 100}
+          step={0.1}
+          value={currentTime}
+          onChange={(e) => {
+            const val = parseFloat(e.target.value);
+            if (Number.isFinite(val) && Number.isFinite(duration) && duration > 0) {
+              onSeek(val);
+            }
+          }}
+          aria-label="Audio timeline position"
+          aria-valuemin={0}
+          aria-valuemax={Number.isFinite(duration) && duration > 0 ? Math.round(duration) : 100}
+          aria-valuenow={Math.round(currentTime)}
+          aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+          className="w-full h-full opacity-0 cursor-pointer z-20 touch-none py-2"
+        />
+      </Tooltip>
     </div>
   );
 };

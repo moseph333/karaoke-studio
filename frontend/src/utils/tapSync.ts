@@ -11,6 +11,8 @@ import { sanitizeTimestamp, recalculateWordTimings } from './lyrics';
 
 export type TapSyncMode = 'line' | 'word';
 
+export const MIN_TAP_DURATION = 0.05;
+
 export interface TapWordResult {
   updatedLines: LyricLine[];
   nextLineIndex: number;
@@ -43,7 +45,8 @@ export function applyLineTap(
 
   const rawTapTime = sanitizeTimestamp(currentTime);
   const prevLine = targetIndex > 0 ? lines[targetIndex - 1] : null;
-  const effectiveTap = prevLine ? Math.max(rawTapTime, prevLine.start_time) : rawTapTime;
+  const minPrevEnd = prevLine ? sanitizeTimestamp(prevLine.start_time + MIN_TAP_DURATION) : 0;
+  const effectiveTap = prevLine ? Math.max(rawTapTime, minPrevEnd) : rawTapTime;
 
   const updatedLines = lines.map((line, idx) => {
     if (idx === targetIndex - 1 && line.end_time > effectiveTap) {
@@ -141,9 +144,13 @@ export function applyWordTap(
   if (wordIdx > 0) {
     // Preceding word in same line
     const prevWord = words[wordIdx - 1];
-    effectiveTap = Math.max(rawTapTime, prevWord.start_time);
+    const minPrevEnd = sanitizeTimestamp(prevWord.start_time + MIN_TAP_DURATION);
+    effectiveTap = Math.max(rawTapTime, minPrevEnd);
     if (prevWord.end_time > effectiveTap) {
       prevWord.end_time = effectiveTap;
+    }
+    if (prevWord.end_time <= prevWord.start_time) {
+      prevWord.end_time = minPrevEnd;
     }
   } else if (targetLineIndex > 0) {
     // Preceding word across line boundary: find most recent previous line with words
@@ -158,15 +165,22 @@ export function applyWordTap(
       }
     }
     if (prevLine && prevWord) {
-      effectiveTap = Math.max(rawTapTime, prevWord.start_time);
+      const minPrevEnd = sanitizeTimestamp(prevWord.start_time + MIN_TAP_DURATION);
+      effectiveTap = Math.max(rawTapTime, minPrevEnd);
       if (prevWord.end_time > effectiveTap) {
         prevWord.end_time = effectiveTap;
+      }
+      if (prevWord.end_time <= prevWord.start_time) {
+        prevWord.end_time = minPrevEnd;
       }
       // Re-bound previous line
       prevLine.end_time = sanitizeTimestamp(Math.max(...prevLine.words.map((w) => w.end_time)));
       prevLine.start_time = sanitizeTimestamp(Math.min(...prevLine.words.map((w) => w.start_time)));
       if (prevLine.end_time > effectiveTap) {
         prevLine.end_time = effectiveTap;
+      }
+      if (prevLine.end_time <= prevLine.start_time) {
+        prevLine.end_time = sanitizeTimestamp(prevLine.start_time + MIN_TAP_DURATION);
       }
     }
   }

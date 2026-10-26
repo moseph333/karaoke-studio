@@ -277,3 +277,16 @@ export interface AppTheme {
   shadows: AppThemeShadows;
   cssVariables: Record<string, string>;
 }
+
+// ==========================================
+// Studio Workspace Navigation Types (Milestone M1)
+// ==========================================
+
+export type StudioWorkspaceTab = 'stage' | 'timeline' | 'mix';
+
+export interface StudioWorkspaceTabConfig {
+  id: StudioWorkspaceTab;
+  label: string;
+  ariaLabel: string;
+  panelId: string;
+}

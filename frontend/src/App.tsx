@@ -14,7 +14,9 @@ import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
 import { StudioMetaHeader } from './components/StudioMetaHeader';
 import { StudioModals } from './components/StudioModals';
-import { LyricLine, ChordSegment, SyncDisplayMode } from './types';
+import { MobileStudioWorkspaceTabs } from './components/MobileStudioWorkspaceTabs';
+import { MobileStudioTransport } from './components/MobileStudioTransport';
+import { LyricLine, ChordSegment, SyncDisplayMode, StudioWorkspaceTab } from './types';
 import { useChordHistory } from './hooks/useChordHistory';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
@@ -36,6 +38,14 @@ export const AppContent: React.FC = () => {
   const [showStudioEditModal, setShowStudioEditModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [showVisualizer, setShowVisualizer] = useState(false);
+
+  // Mobile Studio Workspace Navigation State (Stage / Timeline / Mix)
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<StudioWorkspaceTab>('stage');
+
+  // Reset to 'stage' when switching active projects or resetting
+  useEffect(() => {
+    setActiveWorkspaceTab('stage');
+  }, [project?.id]);
 
   // Theme & Visual Styling Hook
   const theme = useVisualTheme();
@@ -418,6 +428,7 @@ export const AppContent: React.FC = () => {
     }
 
     setProject(null);
+    setActiveWorkspaceTab('stage');
     setShowStudioDeleteModal(false);
     toast.success('Project deleted successfully');
   };
@@ -441,19 +452,29 @@ export const AppContent: React.FC = () => {
           isLyricsDirty={isLyricsDirty || chordHistory.isDirty}
           onOpenHelp={() => setShowHelpModal((prev) => !prev)}
           onOpenAuth={() => setShowAuthModal(true)}
-          onNewSong={() => setProject(null)}
+          onNewSong={() => {
+            setProject(null);
+            setActiveWorkspaceTab('stage');
+          }}
           onStartRender={handleStartRender}
           isExportModalOpen={isExportOpen}
           onOpenExportModal={() => setIsExportOpen(true)}
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-8 w-full">
+        <main
+          className={`flex-1 max-w-7xl mx-auto px-3 sm:px-4 pt-4 sm:pt-8 ${
+            isStudioReady ? 'pb-28 md:pb-8' : 'pb-4 sm:pb-8'
+          } w-full`}
+        >
           {!project ? (
             <TrackSearch
               onSelectTrack={handleSelectTrack}
               onUploadTrack={handleUploadTrack}
-              onOpenProject={(p) => setProject(p)}
+              onOpenProject={(p) => {
+                setProject(p);
+                setActiveWorkspaceTab('stage');
+              }}
               isLoading={loading}
               currentUser={currentUser}
               authToken={authToken}
@@ -462,11 +483,14 @@ export const AppContent: React.FC = () => {
             <ProcessingView
               project={project}
               onCancelProcess={handleCancelProcess}
-              onResetProject={() => setProject(null)}
+              onResetProject={() => {
+                setProject(null);
+                setActiveWorkspaceTab('stage');
+              }}
             />
           ) : (
             /* Studio Dashboard */
-            <div className="space-y-8">
+            <div className="space-y-6 sm:space-y-8">
               {/* Song Meta Header */}
               <StudioMetaHeader
                 project={project}
@@ -476,100 +500,153 @@ export const AppContent: React.FC = () => {
                 onStartRender={handleStartRender}
               />
 
-              {/* Audio Controls & Pitch Shifter */}
-              <AudioControls
-                projectId={project.id}
-                masterAudioUrl={project.master_audio_url}
-                instrumentalUrl={project.instrumental_url}
-                vocalsUrl={project.vocals_url}
-                lines={project.lines}
-                currentTime={currentTime}
-                duration={duration}
-                isPlaying={isPlaying}
-                onTogglePlay={audio.handleTogglePlay}
-                onSeek={audio.handleSeek}
-                onMixChange={handleMixChange}
-                initialSemitones={activeSemitones}
-                onSemitonesChange={handleSemitonesChange}
-                initialGuideVolume={project.guide_volume}
-                initialMuted={isMuted}
-                onMuteChange={setIsMuted}
-                playbackRate={audio.playbackRate}
-                onPlaybackRateChange={audio.setPlaybackRate}
-                audioRef={audioRef}
-                onTimeUpdate={audio.handleTimeUpdate}
-                onLoadedMetadata={audio.handleLoadedMetadata}
-                onEnded={() => setIsPlaying(false)}
-                onPlaybackError={(err) => {
-                  console.error('Audio playback error:', err);
-                  setIsPlaying(false);
-                }}
-                onCustomInstrumentalUploaded={(url) =>
-                  setProject({ ...project, instrumental_url: url })
-                }
-                vocalRange={project.vocal_range}
-                showVisualizer={showVisualizer}
-                onToggleVisualizer={handleToggleVisualizer}
-                showChordBar={showChordBar}
-                onToggleChordBar={handleToggleChordBar}
+              {/* Mobile Workspace Navigation Tabs (< 768px only) */}
+              <MobileStudioWorkspaceTabs
+                activeTab={activeWorkspaceTab}
+                onSelectTab={setActiveWorkspaceTab}
+                onTabChange={setActiveWorkspaceTab}
+                hasUnsavedChanges={isLyricsDirty || chordHistory.isDirty}
               />
+
+              {/* Audio Controls & Pitch Shifter */}
+              <div
+                id="workspace-panel-mix-audio"
+                role="tabpanel"
+                aria-labelledby="workspace-tab-mix"
+                tabIndex={0}
+                data-testid="studio-panel-audio"
+                className={activeWorkspaceTab === 'mix' ? 'block' : 'hidden md:block'}
+              >
+                <AudioControls
+                  projectId={project.id}
+                  masterAudioUrl={project.master_audio_url}
+                  instrumentalUrl={project.instrumental_url}
+                  vocalsUrl={project.vocals_url}
+                  lines={project.lines}
+                  currentTime={currentTime}
+                  duration={duration}
+                  isPlaying={isPlaying}
+                  onTogglePlay={audio.handleTogglePlay}
+                  onSeek={audio.handleSeek}
+                  onMixChange={handleMixChange}
+                  initialSemitones={activeSemitones}
+                  onSemitonesChange={handleSemitonesChange}
+                  initialGuideVolume={project.guide_volume}
+                  initialMuted={isMuted}
+                  onMuteChange={setIsMuted}
+                  playbackRate={audio.playbackRate}
+                  onPlaybackRateChange={audio.setPlaybackRate}
+                  audioRef={audioRef}
+                  onTimeUpdate={audio.handleTimeUpdate}
+                  onLoadedMetadata={audio.handleLoadedMetadata}
+                  onEnded={() => setIsPlaying(false)}
+                  onPlaybackError={(err) => {
+                    console.error('Audio playback error:', err);
+                    setIsPlaying(false);
+                  }}
+                  onCustomInstrumentalUploaded={(url) =>
+                    setProject({ ...project, instrumental_url: url })
+                  }
+                  vocalRange={project.vocal_range}
+                  showVisualizer={showVisualizer}
+                  onToggleVisualizer={handleToggleVisualizer}
+                  showChordBar={showChordBar}
+                  onToggleChordBar={handleToggleChordBar}
+                />
+              </div>
 
               {/* Lyric Sweep Live Preview & Timeline Editor */}
-              <LyricTimelineEditor
-                lines={project.lines}
-                currentTime={currentTime}
-                duration={duration}
-                isPlaying={isPlaying}
-                playbackRate={audio.playbackRate}
-                audioRef={audioRef}
-                onTogglePlay={audio.handleTogglePlay}
-                onSeek={audio.handleSeek}
-                onSaveLines={handleSaveLines}
-                albumArtUrl={project.thumbnail_url}
-                themeSungColor={theme.activeSungColor}
-                themeUnsungColor={theme.activeUnsungColor}
-                onDirtyChange={setIsLyricsDirty}
-                aspectRatio={theme.aspectRatio}
-                fontSizeScale={theme.fontSizeScale}
-                projectId={project.id}
-                trackTitle={project.title}
-                trackArtist={project.artist}
-                showVisualizer={showVisualizer}
-                onToggleVisualizer={handleToggleVisualizer}
-                analyserNode={audio.analyserNode}
-                chords={project.chords}
-                showChordBar={showChordBar}
-                onToggleChordBar={handleToggleChordBar}
-                semitones={activeSemitones}
-                onSemitonesChange={handleSemitonesChange}
-                keyHint={project.vocal_range?.estimated_key}
-                onEditChord={handleEditChord}
-                syncMode={theme.syncMode}
-                onSyncModeChange={theme.setSyncMode}
-              />
+              <div
+                data-testid="workspace-stage-timeline-container"
+                className={
+                  activeWorkspaceTab === 'stage' || activeWorkspaceTab === 'timeline'
+                    ? 'block'
+                    : 'hidden md:block'
+                }
+              >
+                <LyricTimelineEditor
+                  lines={project.lines}
+                  currentTime={currentTime}
+                  duration={duration}
+                  isPlaying={isPlaying}
+                  playbackRate={audio.playbackRate}
+                  audioRef={audioRef}
+                  onTogglePlay={audio.handleTogglePlay}
+                  onSeek={audio.handleSeek}
+                  onSaveLines={handleSaveLines}
+                  albumArtUrl={project.thumbnail_url}
+                  themeSungColor={theme.activeSungColor}
+                  themeUnsungColor={theme.activeUnsungColor}
+                  onDirtyChange={setIsLyricsDirty}
+                  aspectRatio={theme.aspectRatio}
+                  fontSizeScale={theme.fontSizeScale}
+                  projectId={project.id}
+                  trackTitle={project.title}
+                  trackArtist={project.artist}
+                  showVisualizer={showVisualizer}
+                  onToggleVisualizer={handleToggleVisualizer}
+                  analyserNode={audio.analyserNode}
+                  chords={project.chords}
+                  showChordBar={showChordBar}
+                  onToggleChordBar={handleToggleChordBar}
+                  semitones={activeSemitones}
+                  onSemitonesChange={handleSemitonesChange}
+                  keyHint={project.vocal_range?.estimated_key}
+                  onEditChord={handleEditChord}
+                  syncMode={theme.syncMode}
+                  onSyncModeChange={theme.setSyncMode}
+                  activeWorkspaceTab={activeWorkspaceTab}
+                />
+              </div>
 
               {/* Visual Theme & Aspect Ratio Picker */}
-              <VisualThemePicker
-                selectedTheme={theme.selectedTheme}
-                onSelectTheme={theme.setSelectedTheme}
-                aspectRatio={theme.aspectRatio}
-                onChangeAspectRatio={theme.setAspectRatio}
-                onCustomBgUploaded={theme.setCustomBgId}
-                customBgId={theme.customBgId}
-                customSungColor={theme.customSungColor}
-                onCustomSungColorChange={theme.setCustomSungColor}
-                customUnsungColor={theme.customUnsungColor}
-                onCustomUnsungColorChange={theme.setCustomUnsungColor}
-                fontSizeScale={theme.fontSizeScale}
-                onFontSizeScaleChange={theme.setFontSizeScale}
-                onResetThemeDefaults={theme.resetThemeDefaults}
-                syncMode={theme.syncMode}
-                onSyncModeChange={theme.setSyncMode}
-              />
+              <div
+                id="workspace-panel-mix-theme"
+                role="tabpanel"
+                aria-labelledby="workspace-tab-mix"
+                tabIndex={0}
+                data-testid="studio-panel-theme"
+                className={activeWorkspaceTab === 'mix' ? 'block' : 'hidden md:block'}
+              >
+                <VisualThemePicker
+                  selectedTheme={theme.selectedTheme}
+                  onSelectTheme={theme.setSelectedTheme}
+                  aspectRatio={theme.aspectRatio}
+                  onChangeAspectRatio={theme.setAspectRatio}
+                  onCustomBgUploaded={theme.setCustomBgId}
+                  customBgId={theme.customBgId}
+                  customSungColor={theme.customSungColor}
+                  onCustomSungColorChange={theme.setCustomSungColor}
+                  customUnsungColor={theme.customUnsungColor}
+                  onCustomUnsungColorChange={theme.setCustomUnsungColor}
+                  fontSizeScale={theme.fontSizeScale}
+                  onFontSizeScaleChange={theme.setFontSizeScale}
+                  onResetThemeDefaults={theme.resetThemeDefaults}
+                  syncMode={theme.syncMode}
+                  onSyncModeChange={theme.setSyncMode}
+                />
+              </div>
             </div>
           )}
         </main>
       </div>
+
+      {/* Mobile Sticky Bottom Transport Bar */}
+      {isStudioReady && (
+        <MobileStudioTransport
+          currentTime={currentTime}
+          duration={duration}
+          isPlaying={isPlaying}
+          onTogglePlay={audio.handleTogglePlay}
+          onSeek={audio.handleSeek}
+          activeSemitones={activeSemitones}
+          semitones={activeSemitones}
+          playbackRate={audio.playbackRate}
+          onSelectTab={setActiveWorkspaceTab}
+          onOpenMixTab={() => setActiveWorkspaceTab('mix')}
+          onRestart={() => audio.handleSeek(0)}
+        />
+      )}
 
       {/* Studio Modal Dialogs */}
       <StudioModals

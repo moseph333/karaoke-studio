@@ -102,13 +102,22 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
     <div
       ref={modalRef}
       tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md"
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-metadata-title"
       aria-describedby="edit-metadata-desc"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
-      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-theme-surface border border-theme-border rounded-theme-xl shadow-theme-lg space-y-4 sm:space-y-5">
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-theme-surface border border-theme-border rounded-t-2xl sm:rounded-theme-xl rounded-b-none sm:rounded-b-theme-xl shadow-theme-lg space-y-4 sm:space-y-5 flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
+        <div
+          data-testid="bottom-sheet-drag-handle"
+          className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-2 sm:hidden shrink-0"
+        />
         <button
           type="button"
           onClick={onClose}
