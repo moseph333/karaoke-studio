@@ -98,7 +98,7 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
     <nav
       data-testid={testId}
       aria-label="Studio workspace navigation"
-      className={`w-full md:hidden mb-4 ${className}`.trim()}
+      className={`w-full md:hidden sticky top-[3.5rem] z-30 bg-theme-bg/95 backdrop-blur-md py-1.5 mb-3 ${className}`.trim()}
     >
       <div
         role="tablist"

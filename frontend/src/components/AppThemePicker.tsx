@@ -197,7 +197,7 @@ export const AppThemePicker: React.FC<AppThemePickerProps> = ({ className, id })
           aria-label="Available application themes"
           tabIndex={-1}
           onKeyDown={handleKeyDown}
-          className="absolute right-0 top-full mt-1.5 w-72 sm:w-80 p-1.5 z-50 bg-theme-surface border border-theme-border rounded-theme-md shadow-theme-lg flex flex-col gap-1 focus:outline-none max-h-[80vh] overflow-y-auto"
+          className="fixed left-3 right-3 top-14 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-1.5 sm:w-80 p-1.5 z-50 bg-theme-surface border border-theme-border rounded-theme-md shadow-theme-lg flex flex-col gap-1 focus:outline-none max-h-[80vh] overflow-y-auto"
         >
           {availableThemes.map((item, index) => {
             const isSelected = item.id === themeId;
@@ -223,7 +223,7 @@ export const AppThemePicker: React.FC<AppThemePickerProps> = ({ className, id })
                   }
                 }}
                 className={clsx(
-                  'px-2.5 py-2 rounded-theme-sm cursor-pointer transition-colors flex items-center gap-3 select-none min-h-[40px]',
+                  'px-2.5 py-2 rounded-theme-sm cursor-pointer transition-colors flex items-center gap-3 select-none min-h-[48px] sm:min-h-[40px]',
                   isHighlighted
                     ? 'bg-theme-surface-raised border border-theme-border/60 text-theme-text'
                     : isSelected

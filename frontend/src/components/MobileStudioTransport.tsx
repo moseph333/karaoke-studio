@@ -89,13 +89,19 @@ export const MobileStudioTransport: React.FC<MobileStudioTransportProps> = ({
         {/* Scrubber Row */}
         <div className="relative w-full min-h-[36px] flex items-center group">
           {/* Visual Track Background */}
-          <div className="w-full h-1.5 bg-theme-surface-raised rounded-theme-pill overflow-hidden relative">
+          <div className="w-full h-2 bg-theme-surface-raised rounded-theme-pill overflow-hidden relative">
             <div
               data-testid="mobile-scrubber-progress"
               className="h-full bg-theme-accent transition-all duration-75"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
+          {/* Visual Playhead Thumb */}
+          <div
+            aria-hidden="true"
+            className="w-3.5 h-3.5 rounded-full bg-theme-accent border-2 border-theme-surface shadow-theme-sm pointer-events-none absolute -translate-x-1/2 transition-all duration-75"
+            style={{ left: `${progressPercent}%` }}
+          />
 
           {/* Accessible Range Input Overlay */}
           <input

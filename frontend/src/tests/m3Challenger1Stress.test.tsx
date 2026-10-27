@@ -146,17 +146,17 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
       // Verify zero overflow
       assertZeroHorizontalOverflow(container, 320);
 
-      // Verify header structure has min-h-[3.5rem] and flex flex-wrap with overflow-x-hidden
+      // Verify header structure has min-h-[3.5rem] and flex flex-wrap without clipping dropdowns
       const headerDiv = container.querySelector('header > div');
       expect(headerDiv).toBeInTheDocument();
       expect(headerDiv?.className).toContain('min-h-[3.5rem]');
-      expect(headerDiv?.className).toContain('overflow-x-hidden');
+      expect(headerDiv?.className).not.toContain('overflow-x-hidden');
       expect(headerDiv?.className).toContain('min-w-0');
 
-      // Verify right action cluster is flex-nowrap and overflow-x-hidden to prevent layout breakage
+      // Verify right action cluster uses flex-wrap sm:flex-nowrap and shrink-0 without clipping AppThemePicker
       const actionCluster = headerDiv?.children[1];
-      expect(actionCluster?.className).toContain('flex-nowrap');
-      expect(actionCluster?.className).toContain('overflow-x-hidden');
+      expect(actionCluster?.className).toContain('flex-wrap');
+      expect(actionCluster?.className).not.toContain('overflow-x-hidden');
       expect(actionCluster?.className).toContain('shrink-0');
 
       // Verify render progress badge is rendered

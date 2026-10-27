@@ -426,8 +426,10 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         !showControls ? 'cursor-none' : ''
       }`
     : `relative ${
-        aspectRatio === '9:16' ? 'aspect-[9/16] max-w-xs mx-auto' : 'aspect-video w-full'
-      } rounded-2xl overflow-hidden shadow-2xl border border-theme-border bg-theme-bg text-theme-text font-theme-heading font-theme-body flex flex-col justify-end p-3 sm:p-6 md:p-8 select-none ${className}`;
+        aspectRatio === '9:16'
+          ? 'aspect-[9/16] max-w-xs mx-auto'
+          : 'aspect-video w-full min-h-[340px] sm:min-h-0'
+      } rounded-2xl overflow-hidden shadow-2xl border border-theme-border bg-theme-bg text-theme-text font-theme-heading font-theme-body flex flex-col justify-end pt-14 pb-5 px-3 sm:p-6 md:p-8 select-none ${className}`;
 
   return (
     <div
@@ -534,8 +536,8 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
 
       {/* Lyrics Display */}
       <div
-        className={`relative z-10 space-y-3 sm:space-y-4 text-center max-w-5xl mx-auto w-full ${
-          isFullscreen ? 'my-auto' : ''
+        className={`relative z-10 space-y-3 sm:space-y-4 text-center max-w-5xl mx-auto w-full my-auto sm:my-0 ${
+          isFullscreen ? 'sm:my-auto' : ''
         }`}
       >
         {/* Live Synchronized Chord Bar in Studio & TV Stage Mode */}
@@ -779,7 +781,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       {isFullscreen && (
         <div
           data-testid="stage-floating-controls"
-          className={`relative z-30 max-w-3xl mx-auto w-full bg-slate-900/90 border border-slate-700/70 backdrop-blur-lg px-3 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-2xl flex items-center gap-2 sm:gap-4 overflow-x-auto transition-opacity duration-500 ${
+          className={`relative z-30 max-w-3xl mx-auto w-full bg-slate-900/90 border border-slate-700/70 backdrop-blur-lg px-3 sm:px-6 py-2.5 sm:py-3 rounded-2xl shadow-2xl flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-start gap-2 sm:gap-4 overflow-x-auto transition-opacity duration-500 ${
             showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
@@ -799,7 +801,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
           </button>
 
           {/* Scrubber Slider */}
-          <div className="flex-1 flex items-center gap-2">
+          <div className="w-full sm:w-auto sm:flex-1 order-first sm:order-none flex items-center gap-2">
             <input
               type="range"
               data-testid="stage-scrubber"

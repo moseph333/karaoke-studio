@@ -53,7 +53,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
 
   return (
     <header className="border-b border-theme-border/60 bg-theme-bg/90 backdrop-blur-md sticky top-0 z-40 transition-colors">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 min-h-[3.5rem] sm:min-h-[4rem] h-auto py-1.5 sm:py-2 flex flex-wrap items-center justify-between gap-2 min-w-0 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 min-h-[3.5rem] sm:min-h-[4rem] h-auto py-1.5 sm:py-2 flex flex-wrap items-center justify-between gap-2 min-w-0">
         <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink">
           <div className="p-1.5 sm:p-2 rounded-theme-md bg-gradient-to-tr from-theme-accent to-theme-secondary text-theme-accent-text shadow-theme-sm shrink-0">
             <Mic2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
@@ -65,7 +65,7 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0 flex-nowrap overflow-x-hidden">
+        <div className="flex flex-wrap sm:flex-nowrap items-center justify-end gap-1 sm:gap-2 shrink-0">
           {/* Accessible Application Theme Picker */}
           <AppThemePicker />
 

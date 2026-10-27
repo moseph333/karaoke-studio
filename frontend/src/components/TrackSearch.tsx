@@ -92,17 +92,17 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-2 sm:py-8 px-0 sm:px-4 space-y-6 sm:space-y-8 font-theme-body text-theme-text">
+    <div className="max-w-3xl mx-auto py-2 sm:py-8 px-0 sm:px-4 space-y-4 sm:space-y-8 font-theme-body text-theme-text">
       {/* Header */}
       <div className="text-center">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-theme-pill bg-theme-surface-subtle border-theme border-theme-border-subtle text-theme-accent text-xs font-semibold uppercase tracking-wider mb-4 shadow-theme-sm font-theme-heading">
-          <Sparkles className="w-3.5 h-3.5 text-theme-accent" />
+        <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-theme-pill bg-theme-surface-subtle border-theme border-theme-border-subtle text-theme-accent text-[11px] sm:text-xs font-semibold uppercase tracking-wider mb-2 sm:mb-4 shadow-theme-sm font-theme-heading">
+          <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-theme-accent" />
           AI-Powered Karaoke Studio
         </div>
         <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-theme-text tracking-tight font-theme-heading">
           Turn Any YouTube Song Into Karaoke
         </h1>
-        <p className="mt-3 text-sm text-theme-text-muted max-w-xl mx-auto font-theme-body">
+        <p className="mt-1.5 sm:mt-3 text-xs sm:text-sm text-theme-text-muted max-w-xl mx-auto font-theme-body">
           Word-by-word synchronized highlighting, isolated instrumentals, pitch control, and 1080p60
           YouTube exports.
         </p>

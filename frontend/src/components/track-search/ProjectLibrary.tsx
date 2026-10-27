@@ -287,7 +287,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
               <div
                 key={p.id}
                 onClick={() => onOpenProject && onOpenProject(p)}
-                className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-theme-md bg-theme-surface border-theme border-theme-border-subtle hover:border-theme-border hover:bg-theme-surface-subtle transition-all cursor-pointer shadow-theme-md min-h-[64px]"
+                className="group flex flex-wrap sm:flex-nowrap flex-row items-center justify-between gap-2 sm:gap-2.5 p-2.5 sm:p-3 rounded-theme-md bg-theme-surface border-theme border-theme-border-subtle hover:border-theme-border hover:bg-theme-surface-subtle transition-all cursor-pointer shadow-theme-md min-h-[64px]"
               >
                 <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
                   {p.thumbnail_url ? (
@@ -309,7 +309,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                     <p className="text-[11px] text-theme-text-muted truncate mt-0.5 font-theme-body">
                       {p.artist || 'Karaoke'}
                     </p>
-                    <div className="flex items-center gap-2 mt-1.5">
+                    <div className="flex items-center gap-2 mt-1">
                       <span
                         className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-theme-sm font-medium border-theme font-theme-body ${
                           isReady
@@ -333,7 +333,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-1.5 shrink-0 self-end sm:self-center">
+                <div className="flex items-center justify-end gap-1 sm:gap-1.5 shrink-0 self-center">
                   <Tooltip content="Edit song title and artist" position="top">
                     <button
                       type="button"
