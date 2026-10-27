@@ -155,7 +155,9 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
   describe('Suite 1: Navigation (M1) + Tap-to-Sync (M2) + Stage Continuity', () => {
     it('1.1 transitions cleanly from Stage to Timeline tab and enters Tap-to-Sync mode', async () => {
       render(<App />);
-      await screen.findByTestId('studio-panel-audio');
+      await waitFor(() => {
+        expect(screen.getByTestId('studio-panel-audio')).toBeInTheDocument();
+      });
       const stageTab = screen.getByRole('tab', { name: /stage/i });
       const timelineTab = screen.getByRole('tab', { name: /timeline/i });
       expect(stageTab).toHaveAttribute('aria-selected', 'true');
@@ -179,7 +181,9 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
 
     it('1.2 stamps words in Tap-to-Sync and preserves dirty state across tab switches', async () => {
       render(<App />);
-      await screen.findByTestId('studio-panel-audio');
+      await waitFor(() => {
+        expect(screen.getByTestId('studio-panel-audio')).toBeInTheDocument();
+      });
 
       // Switch to Timeline tab
       const timelineTab = screen.getByRole('tab', { name: /timeline/i });

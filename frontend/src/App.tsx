@@ -41,11 +41,13 @@ export const AppContent: React.FC = () => {
 
   // Mobile Studio Workspace Navigation State (Stage / Timeline / Mix)
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<StudioWorkspaceTab>('stage');
+  const [trackedProjectId, setTrackedProjectId] = useState<string | undefined>(project?.id);
 
-  // Reset to 'stage' when switching active projects or resetting
-  useEffect(() => {
+  // Reset to 'stage' synchronously when switching active projects or resetting
+  if (trackedProjectId !== project?.id) {
+    setTrackedProjectId(project?.id);
     setActiveWorkspaceTab('stage');
-  }, [project?.id]);
+  }
 
   // Theme & Visual Styling Hook
   const theme = useVisualTheme();
