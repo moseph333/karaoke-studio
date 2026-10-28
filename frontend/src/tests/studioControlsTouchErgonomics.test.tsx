@@ -81,15 +81,16 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       const lineCard = screen.getByTestId('timeline-line-1');
       expect(lineCard).toBeInTheDocument();
 
-      // Check the 2-row flex structure
+      // Rows stack until the timeline card (a container) is wide enough for one row
       const rowContainer = lineCard.firstElementChild;
-      expect(rowContainer).toHaveClass('flex', 'flex-col', 'sm:flex-row');
+      expect(rowContainer).toHaveClass('flex', 'flex-col', '@[720px]:flex-row');
 
-      // Row 1: Line select button contains timestamp pill and text
+      // Row 1: Line select button contains timestamp pill and text and takes the free width
       const lineSelectBtn = screen.getByRole('button', {
         name: /select line: is this the real life\?/i,
       });
-      expect(lineSelectBtn).toHaveClass('min-h-[40px]', 'w-full', 'sm:flex-1');
+      expectTouchTarget(lineSelectBtn, 40);
+      expect(lineSelectBtn).toHaveClass('min-w-0', 'flex-1');
 
       // The line text span must have truncate, min-w-0, and flex-1
       const textSpan = within(lineSelectBtn).getByText(
@@ -97,10 +98,14 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       );
       expect(textSpan).toHaveClass('truncate', 'min-w-0', 'flex-1');
 
-      // Row 2: Nudge & Expand Controls container
-      const nudgeToolbar = lineCard.querySelector('.flex.items-center.justify-between');
-      expect(nudgeToolbar).toBeInTheDocument();
-      expect(nudgeToolbar).toHaveClass('border-t', 'sm:border-t-0', 'mt-2', 'sm:mt-0');
+      // Row 2: Nudge & Expand controls wrap and spread across the card when stacked
+      const nudgeToolbar = rowContainer?.lastElementChild;
+      expect(nudgeToolbar).toHaveClass('flex', 'flex-wrap', 'justify-between');
+      expect(
+        within(nudgeToolbar as HTMLElement).getByRole('button', {
+          name: /expand word timings for line 1/i,
+        })
+      ).toBeInTheDocument();
     });
 
     it('provides >=40px hit targets for all 4 line nudge buttons and accordion chevron', () => {
@@ -120,10 +125,9 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       const coarseLater = screen.getByRole('button', { name: /nudge line 1 0\.2s later/i });
       const chevron = screen.getByRole('button', { name: /expand word timings for line 1/i });
 
-      // All line timing toolbar controls must have min-h-[40px] and px-3 on mobile
+      // All line timing toolbar controls keep a >=40px touch target on mobile
       [coarseEarlier, fineEarlier, fineLater, coarseLater, chevron].forEach((btn) => {
-        expect(btn).toHaveClass('min-h-[40px]');
-        expect(btn).toHaveClass('px-3');
+        expectTouchTarget(btn, 40);
       });
     });
 
@@ -142,15 +146,15 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       const chevron = screen.getByRole('button', { name: /expand word timings for line 1/i });
       await user.click(chevron);
 
-      // Whole-word shift pills must have min-h-[36px] and min-w-[36px]
+      // Whole-word shift buttons keep a >=36px touch target
       const wordShiftEarlier = screen.getAllByRole('button', {
         name: /nudge word Is 0\.05s earlier/i,
       })[0];
       const wordShiftLater = screen.getAllByRole('button', {
         name: /nudge word Is 0\.05s later/i,
       })[0];
-      expect(wordShiftEarlier).toHaveClass('min-h-[36px]', 'min-w-[36px]');
-      expect(wordShiftLater).toHaveClass('min-h-[36px]', 'min-w-[36px]');
+      expectTouchTarget(wordShiftEarlier, 36);
+      expectTouchTarget(wordShiftLater, 36);
 
       // Boundary stepper +/- buttons must have w-8 h-8 on mobile
       const stepStartEarlier = screen.getAllByRole('button', {

@@ -1,16 +1,18 @@
 /**
  * Tap-to-Sync Banner Component
  *
- * Sticky active banner rendered in the timeline editor during live Tap-to-Sync mode,
- * displaying current target line and word context, mode switcher (Line Sync vs. Word Sync),
- * hotkey badge [T], and prominent TAP NOW action.
+ * Sticky banner shown in the timeline editor during live Tap-to-Sync mode: the current
+ * target line or word, the Line/Word mode switch, progress, the [T] hotkey hint and a
+ * large TAP action.
  */
 
 import React, { useMemo } from 'react';
-import { Radio, X, Sparkles } from 'lucide-react';
+import { Radio, X } from 'lucide-react';
 import { LyricLine, WordTiming } from '../../types';
 import { recalculateWordTimings } from '../../utils/lyrics';
 import { TapSyncMode } from '../../utils/tapSync';
+import { cn } from '../../utils/cn';
+import { focusRing } from '../ui/variants';
 
 export interface TapToSyncBannerProps {
   isActive: boolean;
@@ -23,6 +25,17 @@ export interface TapToSyncBannerProps {
   onModeChange?: (mode: TapSyncMode) => void;
   targetWordIndex?: number;
 }
+
+const modeButton = (active: boolean) =>
+  cn(
+    'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[calc(var(--theme-radius-md)-2px)] px-3 py-2 text-xs font-semibold transition-colors sm:min-h-[28px] sm:min-w-0 sm:px-2.5 sm:py-0.5 sm:text-[11px]',
+    active
+      ? 'bg-theme-warning font-bold text-theme-text-inverse shadow-theme-sm'
+      : 'text-theme-text-muted hover:text-theme-text',
+    focusRing
+  );
+
+const pill = 'rounded-theme-pill border px-2 py-0.5 font-mono text-[11px] tabular-nums';
 
 export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
   isActive,
@@ -46,25 +59,23 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
   return (
     <div
       data-testid="tap-to-sync-banner"
-      className="sticky top-0 z-20 bg-gradient-to-r from-amber-500/20 via-cyan-500/20 to-indigo-500/20 border border-cyan-500/40 backdrop-blur-md rounded-2xl p-3 sm:p-4 shadow-xl space-y-2 animate-in fade-in slide-in-from-top-2 duration-200"
+      className="sticky top-0 z-20 space-y-2 rounded-theme-lg border border-theme-warning/40 bg-theme-surface-raised/95 p-3 shadow-theme-lg backdrop-blur-md motion-safe:animate-fade-in sm:p-3.5"
     >
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        {/* Left: Info & Target Line / Word Preview */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="p-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 shrink-0">
-            <Radio className="w-5 h-5 animate-pulse" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="shrink-0 rounded-theme-md border border-theme-warning/40 bg-theme-warning/15 p-2 text-theme-warning">
+            <Radio className="h-5 w-5 motion-safe:animate-pulse" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> Live Tap-to-Sync Mode
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-theme-warning">
+                Live Tap-to-Sync Mode
               </span>
 
-              {/* Mode Switcher (Line vs Word) */}
               <div
                 role="group"
                 aria-label="Tap-to-sync mode selection"
-                className="inline-flex items-center rounded-lg bg-slate-900/90 border border-slate-700 p-0.5"
+                className="inline-flex items-center rounded-theme-md border border-theme-border-subtle bg-theme-bg p-0.5"
               >
                 <button
                   type="button"
@@ -72,11 +83,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
                   aria-label="Line sync mode"
                   aria-pressed={syncMode === 'line'}
                   onClick={() => onModeChange?.('line')}
-                  className={`px-3 py-2 sm:px-2.5 sm:py-0.5 rounded text-xs sm:text-[11px] font-semibold transition-all min-h-[44px] min-w-[44px] sm:min-h-[28px] sm:min-w-0 flex items-center justify-center ${
-                    syncMode === 'line'
-                      ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  className={modeButton(syncMode === 'line')}
                 >
                   Line Sync
                 </button>
@@ -86,37 +93,36 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
                   aria-label="Word sync mode"
                   aria-pressed={syncMode === 'word'}
                   onClick={() => onModeChange?.('word')}
-                  className={`px-3 py-2 sm:px-2.5 sm:py-0.5 rounded text-xs sm:text-[11px] font-semibold transition-all min-h-[44px] min-w-[44px] sm:min-h-[28px] sm:min-w-0 flex items-center justify-center ${
-                    syncMode === 'word'
-                      ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
+                  className={modeButton(syncMode === 'word')}
                 >
                   Word Sync
                 </button>
               </div>
 
-              {/* Progress Badges */}
-              <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 text-[11px] font-mono">
+              <span
+                className={cn(pill, 'border-theme-border-subtle bg-theme-bg text-theme-text-muted')}
+              >
                 Line {targetIndex + 1} of {totalLines}
               </span>
               {syncMode === 'word' && targetLine && (
                 <span
                   data-testid="word-progress-badge"
-                  className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-mono"
+                  className={cn(
+                    pill,
+                    'border-theme-warning/40 bg-theme-warning/15 text-theme-warning'
+                  )}
                 >
                   Word {Math.min(targetWordIndex + 1, targetWords.length)} of {targetWords.length}
                 </span>
               )}
             </div>
 
-            {/* Target Display: Line text or Word sequence with active highlight */}
             {syncMode === 'word' ? (
               targetLine ? (
                 <div className="mt-1 space-y-1">
                   <div
                     data-testid="tap-target-line-words"
-                    className="flex flex-wrap items-center gap-1.5 text-sm max-w-md sm:max-w-xl"
+                    className="flex max-w-md flex-wrap items-center gap-1.5 text-sm sm:max-w-xl"
                   >
                     {targetWords.map((w, idx) => {
                       const isTarget = idx === targetWordIndex;
@@ -126,13 +132,14 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
                           key={idx}
                           data-testid={isTarget ? 'tap-target-word-active' : undefined}
                           data-active-target-word={isTarget ? 'true' : undefined}
-                          className={`px-1.5 py-0.5 rounded transition-all text-xs sm:text-sm ${
+                          className={cn(
+                            'rounded-theme-sm px-1.5 py-0.5 text-xs transition-colors sm:text-sm',
                             isTarget
-                              ? 'bg-amber-400 text-slate-950 font-black shadow-md ring-2 ring-amber-300 scale-105 animate-pulse'
+                              ? 'bg-theme-warning font-black text-theme-text-inverse ring-2 ring-theme-warning/50'
                               : isPast
-                                ? 'text-slate-400 line-through opacity-60 font-medium'
-                                : 'text-slate-200 font-medium'
-                          }`}
+                                ? 'font-medium text-theme-text-muted line-through opacity-60'
+                                : 'font-medium text-theme-text'
+                          )}
                         >
                           {w.word}
                         </span>
@@ -140,42 +147,41 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
                     })}
                   </div>
                   {targetWords[targetWordIndex] && (
-                    <p className="text-[11px] text-amber-300/90 font-mono">
+                    <p className="font-mono text-[11px] text-theme-warning">
                       Active word:{' '}
-                      <span
-                        className="font-bold text-amber-300 underline"
-                        data-testid="active-word-label"
-                      >
+                      <span className="font-bold underline" data-testid="active-word-label">
                         "{targetWords[targetWordIndex].word}"
                       </span>
                     </p>
                   )}
                 </div>
               ) : (
-                <p className="text-sm font-semibold text-white truncate max-w-md sm:max-w-lg mt-0.5">
+                <p className="mt-0.5 max-w-md truncate text-sm font-semibold text-theme-text sm:max-w-lg">
                   All words synced!
                 </p>
               )
             ) : (
-              <p className="text-sm font-semibold text-white truncate max-w-md sm:max-w-lg mt-0.5">
+              <p className="mt-0.5 max-w-md truncate text-sm font-semibold text-theme-text sm:max-w-lg">
                 {targetLine ? `"${targetLine.text}"` : 'All lines synced!'}
               </p>
             )}
           </div>
         </div>
 
-        {/* Right: Actions */}
-        <div className="flex items-center gap-2 shrink-0 justify-end w-full sm:w-auto">
+        <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
           <button
             type="button"
             data-testid="tap-now-btn"
             onClick={onTap}
             disabled={!targetLine}
-            className="flex-1 sm:flex-initial min-h-[48px] sm:min-h-[52px] px-6 py-3.5 sm:py-3 rounded-xl bg-gradient-to-r from-amber-500 to-cyan-500 hover:from-amber-400 hover:to-cyan-400 text-slate-950 font-black text-sm uppercase tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25 transition-all transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-cyan-300 disabled:opacity-50 touch-manipulation select-none"
+            className={cn(
+              'flex min-h-[48px] flex-1 touch-manipulation select-none items-center justify-center gap-2 rounded-theme-lg bg-gradient-accent px-6 py-3.5 text-sm font-black uppercase tracking-wide text-theme-accent-text shadow-theme-glow transition-transform active:scale-95 disabled:opacity-50 sm:min-h-[52px] sm:flex-initial sm:py-3',
+              focusRing
+            )}
           >
             <span>{syncMode === 'word' ? 'TAP WORD' : 'TAP NOW'}</span>
             <span className="sr-only">TAP NOW</span>
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-slate-950/40 text-[10px] font-mono text-slate-950 border border-slate-950/30">
+            <kbd className="hidden rounded-theme-sm border border-white/30 bg-black/20 px-1.5 py-0.5 font-mono text-[10px] sm:inline-block">
               T
             </kbd>
           </button>
@@ -184,14 +190,17 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
             data-testid="exit-tap-mode-btn"
             onClick={onExit}
             aria-label="Exit tap to sync mode"
-            className="min-h-[44px] min-w-[44px] px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 shrink-0"
+            className={cn(
+              'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-theme-lg bg-theme-surface-subtle px-3 py-2 text-xs font-semibold text-theme-text-muted transition-colors hover:bg-theme-surface hover:text-theme-text',
+              focusRing
+            )}
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">Exit</span>
           </button>
         </div>
       </div>
-      <p className="text-[11px] text-slate-400">
+      <p className="text-[11px] text-theme-text-muted">
         {syncMode === 'word'
           ? 'Play song and tap [T] when vocalist sings each word. Timings stay monotonic and non-overlapping.'
           : 'Play song and tap when vocalist starts each line. Word timings are recalculated automatically.'}

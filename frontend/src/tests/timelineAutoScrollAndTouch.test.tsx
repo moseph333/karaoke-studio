@@ -8,6 +8,7 @@ import { TransportDock } from '../components/transport/TransportDock';
 import App from '../App';
 import { LyricLine } from '../types';
 import * as apiModule from '../api';
+import { expectTouchTarget } from './responsiveTestUtils';
 
 describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline State & Mobile Responsiveness', () => {
   const multiScreenLines: LyricLine[] = Array.from({ length: 15 }, (_, i) => ({
@@ -65,8 +66,8 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
       const lineSelectBtn = screen.getByRole('button', {
         name: /select line: Line 1 lyric text/i,
       });
-      expect(lineSelectBtn).toHaveClass('min-h-[40px]');
-      expect(lineSelectBtn).toHaveClass('w-full');
+      expectTouchTarget(lineSelectBtn, 40);
+      expect(lineSelectBtn).toHaveClass('flex-1');
 
       // Row 2: Nudge controls container with 4 nudge buttons + expand button
       const coarseEarlierBtn = screen.getByRole('button', {
@@ -77,12 +78,16 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
       const coarseLaterBtn = screen.getByRole('button', { name: /^nudge line 1 0\.2s later$/i });
       const expandBtn = screen.getByRole('button', { name: /^expand word timings for line 1$/i });
 
-      // In mobile viewports (<640px), buttons must provide at least 40px hit area
-      expect(coarseEarlierBtn).toHaveClass('min-h-[40px]');
-      expect(fineEarlierBtn).toHaveClass('min-h-[40px]');
-      expect(fineLaterBtn).toHaveClass('min-h-[40px]');
-      expect(coarseLaterBtn).toHaveClass('min-h-[40px]');
-      expect(expandBtn).toHaveClass('min-h-[40px]');
+      // In mobile viewports, buttons must provide at least 40px hit area
+      for (const btn of [
+        coarseEarlierBtn,
+        fineEarlierBtn,
+        fineLaterBtn,
+        coarseLaterBtn,
+        expandBtn,
+      ]) {
+        expectTouchTarget(btn, 40);
+      }
 
       // Word stream chips must have >=34px height
       const wordChip = screen.getByRole('button', {
@@ -200,12 +205,12 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
         });
         expect(screen.getByText(/Auto-scroll paused/i)).toBeInTheDocument();
 
-        // 5. Resume immediately on clicking a word chip to seek
+        // 5. Resume immediately on clicking a word chip (shown for the active line) to seek
         const wordBtn = screen.getByRole('button', {
-          name: /jump to word WordA_2 in timeline/i,
+          name: /jump to word WordA_7 in timeline/i,
         });
         fireEvent.click(wordBtn);
-        expect(onSeek).toHaveBeenCalledWith(5);
+        expect(onSeek).toHaveBeenCalledWith(30);
         expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
 
         // 6. Manually pause again and test return to active target
@@ -252,17 +257,15 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
       await user.click(expandBtn);
       expect(expandBtn).toHaveAttribute('aria-expanded', 'true');
 
-      // Verify touch targets for word shift pills: min-h-[36px] min-w-[36px]
+      // Verify touch targets for word shift buttons (>=36px)
       const shiftEarlierBtn = screen.getByRole('button', {
         name: /nudge word WordA_1 0\.05s earlier/i,
       });
       const shiftLaterBtn = screen.getByRole('button', {
         name: /nudge word WordA_1 0\.05s later/i,
       });
-      expect(shiftEarlierBtn).toHaveClass('min-h-[36px]');
-      expect(shiftEarlierBtn).toHaveClass('min-w-[36px]');
-      expect(shiftLaterBtn).toHaveClass('min-h-[36px]');
-      expect(shiftLaterBtn).toHaveClass('min-w-[36px]');
+      expectTouchTarget(shiftEarlierBtn, 36);
+      expectTouchTarget(shiftLaterBtn, 36);
 
       // Verify touch targets for start/end boundary steppers: w-8 h-8 sm:w-6 sm:h-6
       const startMinusBtn = screen.getByRole('button', {

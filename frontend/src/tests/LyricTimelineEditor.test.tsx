@@ -571,6 +571,32 @@ describe('LyricTimelineEditor', () => {
       expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
     });
 
+    it('does not pause when a smooth scroll emits a final frame after nearly reaching its target', () => {
+      const { rerender } = render(<LyricTimelineEditor {...timelineProps} currentTime={0.5} />);
+      const container = screen.getByTestId('timeline-scroll-container');
+      (container as unknown as { __simulatingSmoothScroll?: boolean }).__simulatingSmoothScroll =
+        true;
+      const scrollTo = vi.fn();
+      container.scrollTo = scrollTo;
+
+      rerender(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
+      const lastCall = scrollTo.mock.calls[scrollTo.mock.calls.length - 1];
+      const target = (lastCall?.[0] as ScrollToOptions).top as number;
+      expect(target).toBeGreaterThan(2);
+
+      // Browsers can report a frame 1px short (which ends the auto-scroll) and then the target
+      act(() => {
+        container.scrollTop = target - 1;
+        fireEvent.scroll(container);
+      });
+      act(() => {
+        container.scrollTop = target;
+        fireEvent.scroll(container);
+      });
+
+      expect(screen.queryByText(/Auto-scroll paused/i)).not.toBeInTheDocument();
+    });
+
     it('resumes auto-scrolling immediately when user manually scrolls back to the active position', () => {
       render(<LyricTimelineEditor {...timelineProps} currentTime={31.0} />);
       const container = screen.getByTestId('timeline-scroll-container');
@@ -1495,17 +1521,20 @@ describe('Duet / Multi-Singer Part Assignment (Requirement R2)', () => {
 
       const pill1 = screen.getByTestId('toggle-singer-1');
       expect(pill1).toBeInTheDocument();
-      expect(pill1).toHaveTextContent('🎤 S1');
+      expect(pill1).toHaveTextContent('S1');
+      expect(pill1).toHaveAttribute('data-singer', 'singer1');
+      // The part icon is decorative; the label carries the role
+      expect(pill1.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
       expect(pill1).toHaveAttribute('aria-label', expect.stringContaining('Singer 1'));
 
       const pill2 = screen.getByTestId('toggle-singer-2');
       expect(pill2).toBeInTheDocument();
-      expect(pill2).toHaveTextContent('🎤 S2');
+      expect(pill2).toHaveTextContent('S2');
       expect(pill2).toHaveAttribute('aria-label', expect.stringContaining('Singer 2'));
 
       const pill3 = screen.getByTestId('toggle-singer-3');
       expect(pill3).toBeInTheDocument();
-      expect(pill3).toHaveTextContent('👥 Both');
+      expect(pill3).toHaveTextContent('Both');
       expect(pill3).toHaveAttribute('aria-label', expect.stringContaining('Both'));
     });
 
@@ -1521,19 +1550,19 @@ describe('Duet / Multi-Singer Part Assignment (Requirement R2)', () => {
       );
 
       const pill1 = screen.getByTestId('toggle-singer-1');
-      expect(pill1).toHaveTextContent('🎤 S1');
+      expect(pill1).toHaveTextContent('S1');
 
       // Click 1: S1 -> S2
       fireEvent.click(pill1);
-      expect(pill1).toHaveTextContent('🎤 S2');
+      expect(pill1).toHaveTextContent('S2');
 
       // Click 2: S2 -> Both
       fireEvent.click(pill1);
-      expect(pill1).toHaveTextContent('👥 Both');
+      expect(pill1).toHaveTextContent('Both');
 
       // Click 3: Both -> S1
       fireEvent.click(pill1);
-      expect(pill1).toHaveTextContent('🎤 S1');
+      expect(pill1).toHaveTextContent('S1');
     });
 
     it('isolates click event from line selection and audio seek', () => {
@@ -1604,21 +1633,21 @@ describe('Duet / Multi-Singer Part Assignment (Requirement R2)', () => {
       );
 
       const pill1 = screen.getByTestId('toggle-singer-1');
-      expect(pill1).toHaveTextContent('🎤 S1');
+      expect(pill1).toHaveTextContent('S1');
 
       // Cycle S1 -> S2
       fireEvent.click(pill1);
-      expect(pill1).toHaveTextContent('🎤 S2');
+      expect(pill1).toHaveTextContent('S2');
       expect(screen.getByTestId('undo-lyrics-btn')).not.toBeDisabled();
       expect(screen.getByTestId('dirty-indicator')).toBeInTheDocument();
 
       // Undo -> restores S1
       fireEvent.click(screen.getByTestId('undo-lyrics-btn'));
-      expect(pill1).toHaveTextContent('🎤 S1');
+      expect(pill1).toHaveTextContent('S1');
 
       // Redo -> restores S2
       fireEvent.click(screen.getByTestId('redo-lyrics-btn'));
-      expect(pill1).toHaveTextContent('🎤 S2');
+      expect(pill1).toHaveTextContent('S2');
     });
 
     it('reverts bulk duet assignment in a single Undo step', () => {
@@ -1639,14 +1668,14 @@ describe('Duet / Multi-Singer Part Assignment (Requirement R2)', () => {
       fireEvent.click(screen.getByTestId('apply-duet-btn'));
 
       // Check lines are now S1, S2, S1, S2
-      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('🎤 S2');
-      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('🎤 S2');
+      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('S2');
+      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('S2');
 
       // Single Undo reverts line 3 back to original 'both' and line 4 to undefined/S1
       fireEvent.click(screen.getByTestId('undo-lyrics-btn'));
-      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('👥 Both');
+      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('Both');
     });
   });
 

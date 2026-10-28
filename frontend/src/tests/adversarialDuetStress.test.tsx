@@ -160,84 +160,84 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
       const redoBtn = screen.getByTestId('redo-lyrics-btn');
 
       // Initial state: Singer 1
-      expect(toggleBtn1).toHaveTextContent('🎤 S1');
-      expect(toggleBtn2).toHaveTextContent('🎤 S1');
+      expect(toggleBtn1).toHaveTextContent('S1');
+      expect(toggleBtn2).toHaveTextContent('S1');
       expect(undoBtn).toBeDisabled();
       expect(redoBtn).toBeDisabled();
 
       // Rapidly cycle line 1: S1 -> S2 -> Both -> S1 -> S2 (4 clicks)
       fireEvent.click(toggleBtn1); // -> S2
-      expect(toggleBtn1).toHaveTextContent('🎤 S2');
+      expect(toggleBtn1).toHaveTextContent('S2');
       expect(undoBtn).not.toBeDisabled();
 
       fireEvent.click(toggleBtn1); // -> Both
-      expect(toggleBtn1).toHaveTextContent('👥 Both');
+      expect(toggleBtn1).toHaveTextContent('Both');
 
       fireEvent.click(toggleBtn1); // -> S1
-      expect(toggleBtn1).toHaveTextContent('🎤 S1');
+      expect(toggleBtn1).toHaveTextContent('S1');
 
       fireEvent.click(toggleBtn1); // -> S2
-      expect(toggleBtn1).toHaveTextContent('🎤 S2');
+      expect(toggleBtn1).toHaveTextContent('S2');
 
       // Interleave line 2 cycle: S1 -> S2 (1 click)
       fireEvent.click(toggleBtn2); // -> S2
-      expect(toggleBtn2).toHaveTextContent('🎤 S2');
+      expect(toggleBtn2).toHaveTextContent('S2');
 
       // Now verify Undo (Ctrl+Z) step-by-step
       // Step 1 undo: reverts line 2 back to S1
       fireEvent.click(undoBtn);
-      expect(toggleBtn2).toHaveTextContent('🎤 S1');
-      expect(toggleBtn1).toHaveTextContent('🎤 S2');
+      expect(toggleBtn2).toHaveTextContent('S1');
+      expect(toggleBtn1).toHaveTextContent('S2');
       expect(redoBtn).not.toBeDisabled();
 
       // Step 2 undo: reverts line 1 back to S1
       fireEvent.click(undoBtn);
-      expect(toggleBtn1).toHaveTextContent('🎤 S1');
+      expect(toggleBtn1).toHaveTextContent('S1');
 
       // Step 3 undo: reverts line 1 back to Both
       fireEvent.click(undoBtn);
-      expect(toggleBtn1).toHaveTextContent('👥 Both');
+      expect(toggleBtn1).toHaveTextContent('Both');
 
       // Step 4 undo: reverts line 1 back to S2
       fireEvent.click(undoBtn);
-      expect(toggleBtn1).toHaveTextContent('🎤 S2');
+      expect(toggleBtn1).toHaveTextContent('S2');
 
       // Step 5 undo: reverts line 1 back to initial S1
       fireEvent.click(undoBtn);
-      expect(toggleBtn1).toHaveTextContent('🎤 S1');
-      expect(toggleBtn2).toHaveTextContent('🎤 S1');
+      expect(toggleBtn1).toHaveTextContent('S1');
+      expect(toggleBtn2).toHaveTextContent('S1');
       expect(undoBtn).toBeDisabled();
 
       // Now Redo (Ctrl+Y) step-by-step
       // Step 1 redo: line 1 -> S2
       fireEvent.click(redoBtn);
-      expect(toggleBtn1).toHaveTextContent('🎤 S2');
+      expect(toggleBtn1).toHaveTextContent('S2');
 
       // Step 2 redo: line 1 -> Both
       fireEvent.click(redoBtn);
-      expect(toggleBtn1).toHaveTextContent('👥 Both');
+      expect(toggleBtn1).toHaveTextContent('Both');
 
       // Step 3 redo: line 1 -> S1
       fireEvent.click(redoBtn);
-      expect(toggleBtn1).toHaveTextContent('🎤 S1');
+      expect(toggleBtn1).toHaveTextContent('S1');
 
       // Step 4 redo: line 1 -> S2
       fireEvent.click(redoBtn);
-      expect(toggleBtn1).toHaveTextContent('🎤 S2');
+      expect(toggleBtn1).toHaveTextContent('S2');
 
       // Step 5 redo: line 2 -> S2
       fireEvent.click(redoBtn);
-      expect(toggleBtn2).toHaveTextContent('🎤 S2');
+      expect(toggleBtn2).toHaveTextContent('S2');
       expect(redoBtn).toBeDisabled();
 
       // Redo branch invalidation: undo 1 step, then cycle line 3 -> redo stack is cleared
       fireEvent.click(undoBtn); // line 2 reverts to S1
-      expect(toggleBtn2).toHaveTextContent('🎤 S1');
+      expect(toggleBtn2).toHaveTextContent('S1');
       expect(redoBtn).not.toBeDisabled();
 
       const toggleBtn3 = screen.getByTestId('toggle-singer-3');
       fireEvent.click(toggleBtn3); // line 3 -> S2
-      expect(toggleBtn3).toHaveTextContent('🎤 S2');
+      expect(toggleBtn3).toHaveTextContent('S2');
 
       // Redo should now be disabled because a new branch was started
       expect(redoBtn).toBeDisabled();
@@ -255,18 +255,18 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
       );
 
       const toggleBtn = screen.getByTestId('toggle-singer-1');
-      expect(toggleBtn).toHaveTextContent('🎤 S1');
+      expect(toggleBtn).toHaveTextContent('S1');
 
       fireEvent.click(toggleBtn);
-      expect(toggleBtn).toHaveTextContent('🎤 S2');
+      expect(toggleBtn).toHaveTextContent('S2');
 
       // Trigger Ctrl+Z
       fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
-      expect(toggleBtn).toHaveTextContent('🎤 S1');
+      expect(toggleBtn).toHaveTextContent('S1');
 
       // Trigger Ctrl+Y
       fireEvent.keyDown(window, { key: 'y', ctrlKey: true });
-      expect(toggleBtn).toHaveTextContent('🎤 S2');
+      expect(toggleBtn).toHaveTextContent('S2');
     });
   });
 
@@ -295,17 +295,17 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
       // Verify alternating roles on all 6 lines: S1, S2, S1, S2, S1, S2
-      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('🎤 S2');
-      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('🎤 S2');
-      expect(screen.getByTestId('toggle-singer-5')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-6')).toHaveTextContent('🎤 S2');
+      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('S2');
+      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('S2');
+      expect(screen.getByTestId('toggle-singer-5')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-6')).toHaveTextContent('S2');
 
       // Single Undo reverts all 6 lines back to S1
       fireEvent.click(screen.getByTestId('undo-lyrics-btn'));
       for (let i = 1; i <= 6; i++) {
-        expect(screen.getByTestId(`toggle-singer-${i}`)).toHaveTextContent('🎤 S1');
+        expect(screen.getByTestId(`toggle-singer-${i}`)).toHaveTextContent('S1');
       }
     });
 
@@ -326,12 +326,12 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
       fireEvent.click(screen.getByTestId('apply-duet-btn'));
 
       // 2x2: S1, S1, S2, S2, S1, S1
-      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('🎤 S2');
-      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('🎤 S2');
-      expect(screen.getByTestId('toggle-singer-5')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-6')).toHaveTextContent('🎤 S1');
+      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('S2');
+      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('S2');
+      expect(screen.getByTestId('toggle-singer-5')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-6')).toHaveTextContent('S1');
     });
 
     it('applies range assignment to a sub-range with custom target role', () => {
@@ -364,14 +364,14 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
       fireEvent.click(screen.getByTestId('apply-duet-btn'));
 
       // Line 1 should remain S1
-      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('🎤 S1');
+      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('S1');
       // Lines 2, 3, 4 should be Both
-      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('👥 Both');
-      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('👥 Both');
-      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('👥 Both');
+      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('Both');
+      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('Both');
+      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('Both');
       // Lines 5, 6 should remain S1
-      expect(screen.getByTestId('toggle-singer-5')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-6')).toHaveTextContent('🎤 S1');
+      expect(screen.getByTestId('toggle-singer-5')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-6')).toHaveTextContent('S1');
     });
 
     it('applies auto-suggest mode with pause threshold and overlapping detection', () => {
@@ -399,12 +399,12 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
 
       fireEvent.click(screen.getByTestId('apply-duet-btn'));
 
-      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('🎤 S1');
-      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('🎤 S2');
-      expect(screen.getByTestId('toggle-singer-5')).toHaveTextContent('👥 Both');
-      expect(screen.getByTestId('toggle-singer-6')).toHaveTextContent('🎤 S1');
+      expect(screen.getByTestId('toggle-singer-1')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-2')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-3')).toHaveTextContent('S1');
+      expect(screen.getByTestId('toggle-singer-4')).toHaveTextContent('S2');
+      expect(screen.getByTestId('toggle-singer-5')).toHaveTextContent('Both');
+      expect(screen.getByTestId('toggle-singer-6')).toHaveTextContent('S1');
     });
   });
 

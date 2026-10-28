@@ -336,9 +336,9 @@ describe('Adversarial Challenge: Milestone M2 Waveform Scrubbing & Touch Ergonom
 
       assertZeroHorizontalOverflow(container, 768);
 
-      // Verify grid-cols-2 class is active on the root container at 768px
+      // Columns follow the timeline card width (container query), two from 28rem up
       const rootGrid = container.firstElementChild;
-      expect(rootGrid?.className).toContain('md:grid-cols-2');
+      expect(rootGrid?.className).toContain('@md:grid-cols-2');
     });
 
     it('EWE-FIX-1: Playhead snap row has flex-wrap and >=44x44px touch targets', () => {
@@ -367,7 +367,7 @@ describe('Adversarial Challenge: Milestone M2 Waveform Scrubbing & Touch Ergonom
         setTestViewport(vp, 800);
         const { container, unmount } = render(<ExpandedWordEditor {...createWordEditorProps()} />);
 
-        const wordCards = container.querySelectorAll('.p-2\\.5.rounded-lg');
+        const wordCards = container.querySelectorAll('[data-testid="word-timing-card"]');
         expect(wordCards.length).toBeGreaterThan(0);
 
         wordCards.forEach((card, cardIdx) => {

@@ -46,6 +46,7 @@ export function useTimelineAutoScroll({
   const programmaticScrollTimeoutRef = useRef<number | null>(null);
   const lastCurrentTimeRef = useRef(currentTime);
   const prevIsPlayingRef = useRef(isPlaying);
+  const lastSizeKeyRef = useRef<string | null>(null);
 
   const clearUserScrollTimeout = useCallback(() => {
     if (userScrollTimeoutRef.current) {
@@ -229,6 +230,14 @@ export function useTimelineAutoScroll({
 
     const currentScrollTop = container.scrollTop;
 
+    // When the list or its viewport changes size (fonts loading, rows expanding, window
+    // resizing) the browser clamps the scroll position and fires a scroll event. That is
+    // not the user scrolling away, unless they also just interacted with the list.
+    const sizeKey = `${container.scrollHeight}x${container.clientHeight}`;
+    const sizeChanged = lastSizeKeyRef.current !== null && lastSizeKeyRef.current !== sizeKey;
+    lastSizeKeyRef.current = sizeKey;
+    if (sizeChanged && Date.now() - lastUserInteractionTimeRef.current > 1000) return;
+
     if (isProgrammaticScrollRef.current) {
       const target = lastTargetScrollRef.current;
       const start = programmaticStartScrollTopRef.current;
@@ -258,6 +267,17 @@ export function useTimelineAutoScroll({
         clearTimeout(programmaticScrollTimeoutRef.current);
         programmaticScrollTimeoutRef.current = null;
       }
+    }
+
+    // A smooth auto-scroll can emit one more event on its target after the event that
+    // already ended it; landing exactly on the target is not the user scrolling away.
+    const lastTarget = lastTargetScrollRef.current;
+    if (
+      lastTarget !== null &&
+      Math.abs(currentScrollTop - lastTarget) <= 2 &&
+      Date.now() - lastUserInteractionTimeRef.current > 300
+    ) {
+      return;
     }
 
     const activeTarget = calculateTargetScrollTop();

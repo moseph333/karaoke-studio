@@ -2,11 +2,14 @@
  * Expanded Word Editor Component
  *
  * Renders precision word-level steppers (+/-0.05s) for word start and end boundaries,
- * along with whole-word shift pills (◀/▶) for fine-grained alignment.
+ * whole-word shift buttons, and snap-to-playhead actions for fine-grained alignment.
  */
 
 import React from 'react';
+import { ChevronLeft, ChevronRight, Crosshair } from 'lucide-react';
 import { LyricLine, WordTiming } from '../../types';
+import { cn } from '../../utils/cn';
+import { focusRing } from '../ui/variants';
 
 export interface ActiveWordLocation {
   lineId: number;
@@ -18,6 +21,8 @@ export interface ExpandedWordEditorProps {
   line: LyricLine;
   activeWordLoc: ActiveWordLocation | null;
   currentTime?: number;
+  /** Live playback clock; snapping falls back to `currentTime` when omitted. */
+  getCurrentTime?: () => number;
   onWordClick: (w: WordTiming) => void;
   onNudgeWord: (lineId: number, wordIndex: number, delta: number) => void;
   onNudgeWordBoundary: (
@@ -34,66 +39,97 @@ export interface ExpandedWordEditorProps {
   ) => void;
 }
 
+const shiftButton = cn(
+  'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-sm bg-theme-surface-raised p-2 text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text md:min-h-[30px] md:min-w-[30px] md:p-1',
+  focusRing
+);
+
+const stepButton = (edge: 'l' | 'r') =>
+  cn(
+    'flex h-8 w-8 min-h-[44px] min-w-[44px] items-center justify-center bg-theme-surface-raised text-sm font-bold text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:h-6 sm:w-6 sm:min-h-0 sm:min-w-0',
+    edge === 'l' ? 'rounded-l-theme-sm' : 'rounded-r-theme-sm',
+    focusRing
+  );
+
+const timeInput =
+  'h-8 w-16 min-h-[44px] border-y border-theme-border-subtle bg-theme-bg p-0.5 text-center text-xs tabular-nums text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-focus sm:h-6 sm:w-14 sm:min-h-0';
+
+const snapButton = cn(
+  'flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center gap-1 rounded-theme-sm border border-theme-accent/35 bg-theme-accent/10 px-2 py-1.5 text-[11px] font-semibold text-theme-highlight transition-colors hover:bg-theme-accent/20 sm:min-h-0 sm:min-w-0',
+  focusRing
+);
+
 export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
   line,
   activeWordLoc,
   currentTime,
+  getCurrentTime,
   onWordClick,
   onNudgeWord,
   onNudgeWordBoundary,
   onUpdateWordTiming,
 }) => {
+  const playhead = () => {
+    const live = getCurrentTime?.();
+    return typeof live === 'number' && Number.isFinite(live) ? live : (currentTime ?? 0);
+  };
+
   return (
-    <div className="mt-3 pt-3 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+    <div className="mt-2 grid grid-cols-1 gap-2 border-t border-theme-border-subtle/70 pt-2.5 @md:grid-cols-2 @3xl:grid-cols-3">
       {line.words.map((w, wIdx) => {
         const isWordActive = activeWordLoc?.lineId === line.id && activeWordLoc?.wordIndex === wIdx;
 
         return (
           <div
             key={wIdx}
+            data-testid="word-timing-card"
             data-active-word={isWordActive ? 'true' : undefined}
-            className={`flex flex-col gap-1.5 p-2.5 rounded-lg border text-xs transition-all ${
+            className={cn(
+              'flex flex-col gap-1.5 rounded-theme-md border p-2.5 text-xs transition-colors',
               isWordActive
-                ? 'bg-cyan-950/70 border-cyan-500 ring-1 ring-cyan-400/50 shadow-md'
-                : 'bg-slate-900 border-slate-800'
-            }`}
+                ? 'border-theme-accent/60 bg-theme-accent/10 ring-1 ring-theme-accent/30'
+                : 'border-theme-border-subtle bg-theme-surface'
+            )}
           >
             <div className="flex items-center justify-between">
               <span
                 onClick={() => onWordClick(w)}
-                className={`min-w-0 font-bold cursor-pointer truncate mr-2 ${
-                  isWordActive ? 'text-cyan-300' : 'text-white hover:text-cyan-400'
-                }`}
+                className={cn(
+                  'mr-2 min-w-0 cursor-pointer truncate font-semibold',
+                  isWordActive
+                    ? 'text-theme-highlight'
+                    : 'text-theme-text hover:text-theme-highlight'
+                )}
                 title={`Click to seek to word: ${w.word}`}
               >
                 {w.word}
               </span>
-              {/* Word Shift Pill */}
+              {/* Whole-word shift */}
               <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => onNudgeWord(line.id, wIdx, -0.05)}
                   aria-label={`Nudge word ${w.word} 0.05s earlier`}
-                  className="min-h-[44px] min-w-[44px] min-h-[36px] min-w-[36px] p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={shiftButton}
                   title="Shift word 0.05s earlier"
                 >
-                  ◀
+                  <ChevronLeft className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={() => onNudgeWord(line.id, wIdx, 0.05)}
                   aria-label={`Nudge word ${w.word} 0.05s later`}
-                  className="min-h-[44px] min-w-[44px] min-h-[36px] min-w-[36px] p-2 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={shiftButton}
                   title="Shift word 0.05s later"
                 >
-                  ▶
+                  <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 font-mono text-[11px]">
-              {/* Start Time Stepper */}
-              <div className="flex items-center gap-0.5">
+            <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] sm:flex-nowrap">
+              {/* Start boundary */}
+              <div className="flex items-center gap-px">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -102,7 +138,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                   }}
                   aria-label={`Nudge start of word ${w.word} 0.05s earlier`}
                   title="Nudge earlier (-0.05s, Shift+Click for -0.20s)"
-                  className="w-8 h-8 min-h-[44px] min-w-[44px] sm:w-6 sm:h-6 sm:min-h-0 sm:min-w-0 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={stepButton('l')}
                 >
                   -
                 </button>
@@ -121,7 +157,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                     }
                   }}
                   aria-label={`Start time for word ${w.word}`}
-                  className="w-16 h-8 min-h-[44px] sm:min-h-0 sm:w-14 sm:h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={timeInput}
                 />
                 <button
                   type="button"
@@ -131,16 +167,16 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                   }}
                   aria-label={`Nudge start of word ${w.word} 0.05s later`}
                   title="Nudge later (+0.05s, Shift+Click for +0.20s)"
-                  className="w-8 h-8 min-h-[44px] min-w-[44px] sm:w-6 sm:h-6 sm:min-h-0 sm:min-w-0 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={stepButton('r')}
                 >
                   +
                 </button>
               </div>
 
-              <span className="text-slate-500 font-bold">to</span>
+              <span className="font-sans text-theme-text-muted">to</span>
 
-              {/* End Time Stepper */}
-              <div className="flex items-center gap-0.5">
+              {/* End boundary */}
+              <div className="flex items-center gap-px">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -149,7 +185,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                   }}
                   aria-label={`Nudge end of word ${w.word} 0.05s earlier`}
                   title="Nudge earlier (-0.05s, Shift+Click for -0.20s)"
-                  className="w-8 h-8 min-h-[44px] min-w-[44px] sm:w-6 sm:h-6 sm:min-h-0 sm:min-w-0 rounded-l bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={stepButton('l')}
                 >
                   -
                 </button>
@@ -169,7 +205,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                     }
                   }}
                   aria-label={`End time for word ${w.word}`}
-                  className="w-16 h-8 min-h-[44px] sm:min-h-0 sm:w-14 sm:h-6 p-0.5 bg-slate-950 border-y border-slate-700 text-center text-slate-200 text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={timeInput}
                 />
                 <button
                   type="button"
@@ -179,16 +215,16 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                   }}
                   aria-label={`Nudge end of word ${w.word} 0.05s later`}
                   title="Nudge later (+0.05s, Shift+Click for +0.20s)"
-                  className="w-8 h-8 min-h-[44px] min-w-[44px] sm:w-6 sm:h-6 sm:min-h-0 sm:min-w-0 rounded-r bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold flex items-center justify-center focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={stepButton('r')}
                 >
                   +
                 </button>
               </div>
             </div>
 
-            {/* Playhead Snapping Buttons (when currentTime is available) */}
+            {/* Snap boundaries to the playhead (shown when the playback clock is known) */}
             {currentTime !== undefined && Number.isFinite(currentTime) && (
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 pt-1.5 border-t border-slate-800/80">
+              <div className="flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle/70 pt-1.5 sm:flex-nowrap">
                 <button
                   type="button"
                   onClick={() => {
@@ -198,7 +234,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                     const snappedStart = Math.min(
                       w.end_time,
                       nextStart,
-                      Math.max(prevEnd, currentTime)
+                      Math.max(prevEnd, playhead())
                     );
                     onUpdateWordTiming(
                       line.id,
@@ -209,9 +245,10 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                   }}
                   aria-label={`Snap start of word ${w.word} to playhead`}
                   title={`Snap start to playhead (${currentTime.toFixed(2)}s)`}
-                  className="flex-1 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 py-1.5 px-2 rounded bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-800/50 text-[10px] font-semibold text-cyan-300 hover:text-cyan-200 transition-colors flex items-center justify-center gap-1 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={snapButton}
                 >
-                  ⏱ Start to Playhead
+                  <Crosshair className="h-3 w-3" aria-hidden="true" />
+                  Start to Playhead
                 </button>
                 <button
                   type="button"
@@ -220,7 +257,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                       wIdx < line.words.length - 1
                         ? line.words[wIdx + 1].start_time
                         : line.end_time || Infinity;
-                    const snappedEnd = Math.min(nextStart, Math.max(w.start_time, currentTime));
+                    const snappedEnd = Math.min(nextStart, Math.max(w.start_time, playhead()));
                     onUpdateWordTiming(
                       line.id,
                       wIdx,
@@ -230,9 +267,10 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                   }}
                   aria-label={`Snap end of word ${w.word} to playhead`}
                   title={`Snap end to playhead (${currentTime.toFixed(2)}s)`}
-                  className="flex-1 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 py-1.5 px-2 rounded bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-800/50 text-[10px] font-semibold text-cyan-300 hover:text-cyan-200 transition-colors flex items-center justify-center gap-1 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                  className={snapButton}
                 >
-                  ⏱ End to Playhead
+                  <Crosshair className="h-3 w-3" aria-hidden="true" />
+                  End to Playhead
                 </button>
               </div>
             )}

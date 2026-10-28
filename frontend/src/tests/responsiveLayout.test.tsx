@@ -19,6 +19,7 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   detectHorizontalOverflow,
+  expectTouchTarget,
 } from './responsiveTestUtils';
 
 describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => {
@@ -637,14 +638,13 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
           />
         );
 
-        const lineHeaders = document.querySelectorAll('.flex.flex-col.sm\\:flex-row');
-        expect(lineHeaders.length).toBeGreaterThanOrEqual(1);
+        // Line rows stack until the timeline card is wide enough (container query)
+        const row = screen.getByTestId('timeline-line-1').firstElementChild;
+        expect(row).toHaveClass('flex', 'flex-col', '@[720px]:flex-row');
 
         const nudgeButtons = screen.getAllByRole('button', { name: /nudge line/i });
         expect(nudgeButtons.length).toBeGreaterThan(0);
-        nudgeButtons.forEach((btn) => {
-          expect(btn.className).toContain('min-h-[40px]');
-        });
+        nudgeButtons.forEach((btn) => expectTouchTarget(btn, 40));
       });
     });
 

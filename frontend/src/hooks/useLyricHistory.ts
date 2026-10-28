@@ -7,6 +7,12 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { LyricLine } from '../types';
+import {
+  isUndoRoutedElsewhere,
+  noteUndo,
+  noteUndoableEdit,
+  registerUndoScope,
+} from '../utils/undoRouter';
 
 export interface UseLyricHistoryOptions {
   maxHistory?: number;
@@ -66,6 +72,7 @@ export function useLyricHistory({
       redoStackRef.current = [];
       setUndoStack([...undoStackRef.current]);
       setRedoStack([]);
+      noteUndoableEdit('lyrics');
     },
     [maxHistory]
   );
@@ -79,6 +86,7 @@ export function useLyricHistory({
     redoStackRef.current.push(cloneLines(targetLines));
     setUndoStack([...undoStackRef.current]);
     setRedoStack([...redoStackRef.current]);
+    noteUndo('lyrics');
     return cloneLines(previous);
   }, []);
 
@@ -95,6 +103,7 @@ export function useLyricHistory({
       }
       setUndoStack([...undoStackRef.current]);
       setRedoStack([...redoStackRef.current]);
+      noteUndoableEdit('lyrics');
       return cloneLines(next);
     },
     [maxHistory]
@@ -123,6 +132,15 @@ export function useLyricHistory({
     }
   }, [redo]);
 
+  useEffect(
+    () =>
+      registerUndoScope('lyrics', {
+        canUndo: () => undoStackRef.current.length > 0,
+        canRedo: () => redoStackRef.current.length > 0,
+      }),
+    []
+  );
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isInputElement(e.target)) return;
@@ -135,11 +153,13 @@ export function useLyricHistory({
       const key = e.key.toLowerCase();
       // Undo: Ctrl+Z / Cmd+Z without Shift
       if (key === 'z' && !e.shiftKey) {
+        if (isUndoRoutedElsewhere('lyrics', 'undo', e)) return;
         e.preventDefault();
         handleUndo();
       }
       // Redo: Ctrl+Y / Cmd+Y or Ctrl+Shift+Z / Cmd+Shift+Z
       else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+        if (isUndoRoutedElsewhere('lyrics', 'redo', e)) return;
         e.preventDefault();
         handleRedo();
       }

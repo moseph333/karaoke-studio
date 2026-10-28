@@ -607,7 +607,8 @@ describe('Milestone 3 Challenger 2: Adversarial LyricTimelineEditor & Line Struc
       const line1 = screen.getByTestId('timeline-line-1');
       expect(within(line1).getByText('こんにちは世界 123 !')).toBeInTheDocument();
 
-      // Words stream rendered with individual syllable tokens
+      // Selecting the line shows its word stream with individual syllable tokens
+      await user.click(within(line1).getByRole('button', { name: /select line: こんにちは世界/i }));
       expect(screen.getByRole('button', { name: /Jump to word こ/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Jump to word ん/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Jump to word に/i })).toBeInTheDocument();

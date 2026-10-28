@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+import containerQueries from '@tailwindcss/container-queries';
 
 // Theme colors resolve through space-separated RGB channel variables so Tailwind
 // opacity modifiers (e.g. `bg-theme-accent/20`) generate valid CSS.
@@ -95,5 +96,5 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [containerQueries],
 };
