@@ -1,17 +1,197 @@
-"""AI stem separation service running Demucs to isolate vocal and instrumental stems from source audio files."""
+"""AI stem separation: isolates the vocals and the instrumental of a song.
+
+Engines (see separation_presets): Demucs (`python -m demucs`) for the Fast preset, and RoFormer
+models through backend.workers.roformer_worker for Balanced and Best. Each runs as a child
+process whose stderr is parsed for progress, while a watchdog thread stops it on cancel, on
+the overall timeout or after a long silence. When a preset cannot run, or fails, the next
+cheaper one is tried (best -> balanced -> fast) and the reason is recorded in the returned
+provenance.
+"""
 
 import logging
-import re
+import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 from typing import Any
 
 from backend.config import STEMS_DIR
+from backend.services.separation_presets import (
+    SeparationPlan,
+    demucs_supports_quality_flags,
+    downloads_allowed,
+    estimate_cpu_seconds,
+    fallback_chain,
+    model_dir,
+    model_label,
+    plan_status,
+    resolve_plan,
+    separation_stall_seconds,
+    separation_timeout_seconds,
+)
+from backend.services.separation_progress import ProgressTracker
 
 logger = logging.getLogger(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ROFORMER_WORK_DIR = "roformer"
+KILL_GRACE_SECONDS = 10.0
+_REASON_CHARS = 300
+
+
+class SeparationCancelled(RuntimeError):
+    """The user cancelled while separation was running."""
+
+
+def _quietly(action) -> None:
+    try:
+        action()
+    except Exception:
+        pass
+
+
+class _Watchdog(threading.Thread):
+    """Stops a separation process on cancel, overall timeout or a long output stall.
+
+    It only terminates the child (and kills it if it ignores that); the reading loop then sees
+    end-of-file, and the caller's cleanup owns waiting for the exit status.
+    """
+
+    def __init__(self, process, cancel_event, timeout_s: float, stall_s: float):
+        super().__init__(name="separation-watchdog", daemon=True)
+        self.process = process
+        self.cancel_event = cancel_event
+        self.timeout_s = timeout_s
+        self.stall_s = stall_s
+        self.interval = 0.2
+        self.started = time.monotonic()
+        self.last_output = self.started
+        self.reason: str | None = None
+        self._halt = threading.Event()
+
+    def touch(self) -> None:
+        self.last_output = time.monotonic()
+
+    def halt(self) -> None:
+        self._halt.set()
+
+    def _due(self) -> str | None:
+        if self.cancel_event is not None and self.cancel_event.is_set():
+            return "cancelled"
+        now = time.monotonic()
+        if now - self.started > self.timeout_s:
+            return "timeout"
+        if now - self.last_output > self.stall_s:
+            return "stalled"
+        return None
+
+    def run(self) -> None:
+        while not self._halt.wait(self.interval):
+            reason = self._due()
+            if reason is None:
+                continue
+            self.reason = reason
+            logger.warning(f"Stopping stem separation process ({reason})")
+            _quietly(self.process.terminate)
+            if not self._halt.wait(KILL_GRACE_SECONDS):
+                _quietly(self.process.kill)
+            return
+
+
+class _ProgressReporter:
+    """Forwards progress updates, dropping exact repeats that arrive in quick succession."""
+
+    def __init__(self, callback, min_interval: float = 1.0):
+        self.callback = callback
+        self.min_interval = min_interval
+        self.last: tuple[float | None, str] | None = None
+        self.last_time = 0.0
+
+    def __call__(self, pct: float | None, detail: str, eta: int | None) -> None:
+        if not self.callback:
+            return
+        now = time.monotonic()
+        if (pct, detail) == self.last and now - self.last_time < self.min_interval:
+            return
+        self.last, self.last_time = (pct, detail), now
+        self.callback(pct, detail, eta)
+
+
+def _engine_name(plan: SeparationPlan) -> str:
+    return "Demucs" if plan.engine == "demucs" else "RoFormer separation"
+
+
+def _failure_hint(plan: SeparationPlan, returncode: Any, text: str) -> str | None:
+    lower = text.lower()
+    code = returncode if isinstance(returncode, int) else None
+    if code in (137, -9) or any(
+        s in lower for s in ("out of memory", "memoryerror", "cannot allocate memory")
+    ):
+        if plan.engine == "demucs":
+            return "it ran out of memory. Close other heavy jobs or give the server more RAM"
+        return "it ran out of memory. Try the Fast preset or give the server more RAM"
+    if "no space left on device" in lower:
+        return "the disk is full. Free up space in the data folder and try again"
+    if plan.engine == "roformer" and code == 3:
+        return "the model weights are not downloaded and automatic download is disabled"
+    if (plan.engine == "roformer" and code == 4) or "no module named" in lower:
+        return "a required package is not installed"
+    if code is not None and code < 0:
+        return f"the process was stopped by signal {-code}"
+    return None
+
+
+def _duration_text(seconds: float) -> str:
+    if seconds < 120:
+        return f"{seconds:g} seconds"
+    if seconds < 7200:
+        return f"{seconds / 60:.0f} minutes"
+    return f"{seconds / 3600:g} hours"
+
+
+def _failure_message(
+    plan: SeparationPlan, returncode: Any, tracker: ProgressTracker, reason: str | None = None
+) -> str:
+    lines = [line for line in tracker.tail if line != tracker.error_detail]
+    text = "\n".join([*lines, tracker.error_detail or ""])
+    name = _engine_name(plan)
+    if reason == "timeout":
+        head = (
+            f"{name} failed: stopped after {_duration_text(separation_timeout_seconds())} "
+            "(SEPARATION_TIMEOUT_SEC)"
+        )
+    elif reason == "stalled":
+        head = (
+            f"{name} failed: no output for {_duration_text(separation_stall_seconds())} "
+            "(SEPARATION_STALL_SEC)"
+        )
+    else:
+        # Lead with the most useful sentence: a known cause, the worker's own error, or
+        # the engine's last words
+        summary = _failure_hint(plan, returncode, text) or tracker.error_detail
+        if not summary and lines:
+            summary = lines.pop()
+        head = f"{name} failed (exit {returncode})" + (f": {summary}" if summary else "")
+    return "\n".join([head, *lines])
+
+
+def _short_reason(plan: SeparationPlan, detail: str) -> str:
+    first = detail.strip().splitlines()[0] if detail.strip() else "unavailable"
+    if len(first) > _REASON_CHARS:
+        first = first[:_REASON_CHARS] + "…"
+    return f"{plan.label}: {first}"
+
+
+def _worker_env() -> dict[str, str]:
+    """Environment for `python -m backend.workers...`, whatever the server's working dir."""
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        p for p in (str(PROJECT_ROOT), env.get("PYTHONPATH", "")) if p
+    )
+    return env
 
 
 class AudioSeparator:
@@ -27,6 +207,17 @@ class AudioSeparator:
         except OSError:
             return False
 
+    @staticmethod
+    def _purge_work_dirs(target_dir: Path) -> None:
+        """Remove engine scratch folders; only the two standard stems live in target_dir."""
+        try:
+            children = list(target_dir.iterdir())
+        except OSError:
+            return
+        for child in children:
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+
     def separate_stems(
         self,
         audio_path: str,
@@ -35,12 +226,13 @@ class AudioSeparator:
         duration: float | None = None,
         progress_callback: Any | None = None,
         cancel_event: Any | None = None,
-    ) -> dict[str, str]:
-        """
-        Separates vocal and instrumental tracks using Demucs.
-        Uses --two-stems=vocals for fast 2-stem separation (vocals vs no_vocals).
-        Eliminates pipe deadlocks by routing stdout to DEVNULL and draining stderr.
-        Guarantees child subprocess termination and cleans up intermediate Demucs model directories.
+    ) -> dict[str, Any]:
+        """Separate a song into vocals.wav and instrumental.wav under output_base_dir/track_id.
+
+        model_name is a preset id (fast | balanced | best) or a Demucs model name such as
+        "htdemucs". Returns the stem paths plus, when an engine ran, a "separation" dict
+        describing what produced them. Valid cached stems are reused without running anything.
+        Raises SeparationCancelled (a RuntimeError) on cancel and RuntimeError on failure.
         """
         if not audio_path or not str(audio_path).strip():
             raise ValueError("Input audio path cannot be empty")
@@ -73,134 +265,203 @@ class AudioSeparator:
         if instrumental_target.exists() and not self._is_valid_stem(instrumental_target):
             instrumental_target.unlink(missing_ok=True)
 
-        logger.info(f"Starting Demucs separation for {audio_file.name} using {model_name}...")
-        if progress_callback:
-            progress_callback(5.0, "Initializing Demucs AI neural network...", None)
+        requested = resolve_plan(model_name)
+        chain = fallback_chain(requested)
+        reasons: list[str] = []
+        started = time.monotonic()
+        report = _ProgressReporter(progress_callback)
+
+        for plan in chain:
+            if cancel_event is not None and cancel_event.is_set():
+                raise SeparationCancelled("Stem separation cancelled by user")
+            is_last = plan is chain[-1]
+            ready, why = plan_status(plan)
+            if not ready:
+                logger.info(f"Skipping {plan.label} for {track_id}: {why}")
+                reasons.append(_short_reason(plan, why or "unavailable"))
+                if is_last:
+                    raise RuntimeError(f"No separation engine can run: {'; '.join(reasons)}")
+                continue
+
+            self._purge_work_dirs(target_dir)
+            eta = estimate_cpu_seconds(plan.preset, duration) if duration else None
+            if reasons:
+                report(5.0, f"Using {plan.label} instead", eta)
+            elif plan.engine == "demucs":
+                report(5.0, "Initializing Demucs AI neural network...", eta)
+            else:
+                report(5.0, f"Starting {plan.label}…", eta)
+            logger.info(f"Separating {audio_file.name} for {track_id} with {plan.label}")
+
+            try:
+                self._run_plan(plan, audio_file, target_dir, report, cancel_event)
+                found_vocals, found_instrumental = self._find_outputs(
+                    target_dir, vocals_target, instrumental_target
+                )
+            except SeparationCancelled:
+                self._purge_work_dirs(target_dir)
+                raise
+            except (RuntimeError, OSError) as exc:
+                self._purge_work_dirs(target_dir)
+                if (cancel_event is not None and cancel_event.is_set()) or is_last:
+                    raise
+                logger.warning(f"{plan.label} failed for {track_id}; falling back: {exc}")
+                reasons.append(_short_reason(plan, str(exc)))
+                continue
+            break
+        else:  # every plan was skipped or failed without raising (not expected)
+            raise RuntimeError(f"Stem separation failed: {'; '.join(reasons)}")
+
+        # Move the stems to their standard paths directly under track_id
+        os.replace(found_vocals, vocals_target)
+        os.replace(found_instrumental, instrumental_target)
+        self._purge_work_dirs(target_dir)
+
+        if not self._is_valid_stem(vocals_target) or not self._is_valid_stem(instrumental_target):
+            raise RuntimeError("Separated stem output files are invalid or empty")
+
+        elapsed = time.monotonic() - started
+        logger.info(f"Separated {track_id} with {plan.label} in {elapsed:.0f}s")
+        return {
+            "vocals_path": str(vocals_target),
+            "instrumental_path": str(instrumental_target),
+            "separation": {
+                "preset": plan.preset,
+                "engine": plan.engine,
+                "models": list(plan.models),
+                "label": plan.label,
+                "requested": requested.preset,
+                "fallback_reason": "; ".join(reasons) or None,
+                "elapsed_seconds": round(elapsed, 1),
+                "separated_at": int(time.time()),
+            },
+        }
+
+    @staticmethod
+    def _find_outputs(
+        target_dir: Path, vocals_target: Path, instrumental_target: Path
+    ) -> tuple[Path, Path]:
+        """The engine's vocals.wav / no_vocals.wav, wherever under target_dir it wrote them."""
+        found_vocals = next((p for p in target_dir.rglob("vocals.wav") if p != vocals_target), None)
+        found_instrumental = next(
+            (p for p in target_dir.rglob("no_vocals.wav") if p != instrumental_target), None
+        )
+        if not found_vocals or not found_instrumental:
+            raise RuntimeError(f"Could not locate separated stem outputs in {target_dir}")
+        return found_vocals, found_instrumental
+
+    def _command(self, plan: SeparationPlan, audio_file: Path, target_dir: Path) -> list[str]:
+        if plan.engine == "demucs":
+            cmd = [sys.executable, "-u", "-m", "demucs", "--two-stems=vocals", "-n", plan.models[0]]
+            if demucs_supports_quality_flags():
+                cmd += [
+                    "--shifts",
+                    str(plan.params.get("shifts", 1)),
+                    "--overlap",
+                    str(plan.params.get("overlap", 0.25)),
+                    "--int24",
+                    # Clip the rare overs instead of rescaling each stem by a different amount
+                    "--clip-mode",
+                    "clamp",
+                ]
+            return [*cmd, "-o", str(target_dir), str(audio_file)]
 
         cmd = [
             sys.executable,
             "-u",
             "-m",
-            "demucs",
-            "--two-stems=vocals",
-            "-n",
-            model_name,
-            "-o",
-            str(target_dir),
-            str(audio_file),
+            "backend.workers.roformer_worker",
+            "--audio",
+            str(audio_file.resolve()),
+            "--out",
+            str((target_dir / ROFORMER_WORK_DIR).resolve()),
+            "--models",
+            *plan.models,
+            "--overlap",
+            str(plan.params.get("overlap", 2)),
+            "--model-dir",
+            str(model_dir().resolve()),
+            "--allow-download",
+            "1" if downloads_allowed() else "0",
         ]
+        if len(plan.models) > 1:
+            cmd += ["--ensemble", str(plan.params.get("ensemble", "avg_wave"))]
+        return cmd
 
-        # Use stdout=subprocess.DEVNULL to eliminate unread stdout pipe buffer deadlock hazard!
+    def _run_plan(
+        self,
+        plan: SeparationPlan,
+        audio_file: Path,
+        target_dir: Path,
+        report: _ProgressReporter,
+        cancel_event: Any | None,
+    ) -> None:
+        if plan.engine == "demucs":
+            tracker = ProgressTracker(engine_label="Demucs AI", count_unit="seconds")
+            extra: dict[str, Any] = {}
+        else:
+            label = model_label(plan.models[0]) if len(plan.models) == 1 else "RoFormer"
+            tracker = ProgressTracker(plan.passes, engine_label=label, count_unit="chunks")
+            extra = {"env": _worker_env()}
+
+        # stdout goes to DEVNULL so an unread pipe can never fill up and deadlock the child
         process = subprocess.Popen(
-            cmd,
+            self._command(plan, audio_file, target_dir),
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
+            **extra,
         )
-
-        stderr_lines = []
-        last_callback_time = 0.0
+        watchdog = _Watchdog(
+            process, cancel_event, separation_timeout_seconds(), separation_stall_seconds()
+        )
+        watchdog.start()
+        engine = "Demucs" if plan.engine == "demucs" else "RoFormer"
+        cancelled_message = f"{engine} separation cancelled by user"
 
         try:
             if process.stderr:
                 for line in process.stderr:
-                    stderr_lines.append(line)
+                    watchdog.touch()
                     if cancel_event and cancel_event.is_set():
-                        logger.warning(f"Demucs separation cancelled by user for track {track_id}")
-                        raise RuntimeError("Demucs separation cancelled by user")
-
-                    now = time.time()
-                    # Parse tqdm progress patterns: e.g. " 45%|████▌     | 45/100 [00:15<00:18,  2.97it/s]"
-                    pct_match = re.search(r"(\d+)%", line)
-                    eta_match = re.search(r"<(\d+):(\d+)", line)
-                    chunk_match = re.search(r"(\d+)/(\d+)", line)
-
-                    current_pct = float(pct_match.group(1)) if pct_match else None
-                    eta_sec = None
-                    if eta_match:
-                        eta_sec = int(eta_match.group(1)) * 60 + int(eta_match.group(2))
-
-                    detail = "Separating audio with Demucs AI..."
-                    if chunk_match and current_pct is not None:
-                        detail = f"Demucs AI: chunk {chunk_match.group(1)}/{chunk_match.group(2)} ({current_pct:.0f}%)"
-                    elif current_pct is not None:
-                        detail = f"Demucs AI separating stems ({current_pct:.0f}%)"
-
-                    if progress_callback and (
-                        now - last_callback_time >= 0.3 or current_pct is not None
-                    ):
-                        last_callback_time = now
-                        progress_callback(current_pct, detail, eta_sec)
-
+                        logger.warning(f"{plan.label} cancelled by user")
+                        raise SeparationCancelled(cancelled_message)
+                    update = tracker.feed(line)
+                    if update is not None:
+                        report(*update)
             process.wait()
-
         finally:
+            watchdog.halt()
             # Guaranteed subprocess termination in all cases (cancellation, exceptions, or failure)
             if process.poll() is None:
-                logger.warning(f"Terminating lingering Demucs subprocess for track {track_id}")
+                logger.warning(f"Terminating lingering {plan.label} subprocess")
                 process.terminate()
                 try:
                     process.wait(timeout=2)
                 except subprocess.TimeoutExpired:
-                    logger.warning(f"Force killing Demucs subprocess for track {track_id}")
+                    logger.warning(f"Force killing {plan.label} subprocess")
                     process.kill()
                     try:
                         process.wait(timeout=1)
                     except subprocess.TimeoutExpired:
                         pass
             if process.stderr and hasattr(process.stderr, "close"):
-                try:
-                    process.stderr.close()
-                except Exception:
-                    pass
+                _quietly(process.stderr.close)
+            watchdog.join(timeout=1)
 
+        if (cancel_event is not None and cancel_event.is_set()) or watchdog.reason == "cancelled":
+            raise SeparationCancelled(cancelled_message)
+        if watchdog.reason in ("timeout", "stalled"):
+            message = _failure_message(plan, process.returncode, tracker, watchdog.reason)
+            logger.error(message)
+            raise RuntimeError(message)
         if process.returncode != 0:
-            full_stderr = "".join(stderr_lines)
-            logger.error(
-                f"Demucs separation failed (exit code {process.returncode}): {full_stderr}"
-            )
-            raise RuntimeError(f"Demucs failed: {full_stderr}")
-
-        # Locate separated stem outputs in Demucs directory structure
-        found_vocals = None
-        found_no_vocals = None
-
-        for path in target_dir.rglob("vocals.wav"):
-            if path != vocals_target:
-                found_vocals = path
-                break
-
-        for path in target_dir.rglob("no_vocals.wav"):
-            if path != instrumental_target:
-                found_no_vocals = path
-                break
-
-        if not found_vocals or not found_no_vocals:
-            raise RuntimeError(f"Could not locate separated stem outputs in {target_dir}")
-
-        # Copy to standardized paths directly under track_id
-        shutil.copy2(found_vocals, vocals_target)
-        shutil.copy2(found_no_vocals, instrumental_target)
-
-        # Validate that standardized output files were created properly
-        if not self._is_valid_stem(vocals_target) or not self._is_valid_stem(instrumental_target):
-            raise RuntimeError("Separated stem output files are invalid or empty")
-
-        # Clean up intermediate Demucs model directories to prevent disk bloat
-        intermediate_model_dir = target_dir / model_name
-        if intermediate_model_dir.exists() and intermediate_model_dir.is_dir():
-            shutil.rmtree(intermediate_model_dir, ignore_errors=True)
-            logger.info(f"Cleaned up intermediate Demucs directory: {intermediate_model_dir}")
-
-        for child in list(target_dir.iterdir()):
-            if child.is_dir():
-                shutil.rmtree(child, ignore_errors=True)
-
-        return {
-            "vocals_path": str(vocals_target),
-            "instrumental_path": str(instrumental_target),
-        }
+            message = _failure_message(plan, process.returncode, tracker)
+            logger.error(message)
+            raise RuntimeError(message)
 
     def set_custom_instrumental(self, track_id: str, custom_file_path: str) -> str:
         """Override the instrumental stem with a user-supplied audio file."""

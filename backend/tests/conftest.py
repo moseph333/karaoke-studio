@@ -51,6 +51,14 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     if not config.APP_PASSWORD:
         monkeypatch.setattr(config, "APP_PASSWORD", "sluggos")
 
+    # Hermetic ML settings: the bundled engines only, no model downloads, models under tmp
+    monkeypatch.setenv("SEPARATION_QUALITY", "fast")
+    monkeypatch.setenv("SEPARATION_ALLOW_DOWNLOAD", "0")
+    monkeypatch.setenv("AUDIO_SEPARATOR_MODEL_DIR", str(test_data_dir / "models" / "separator"))
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    for name in ("SEPARATION_TIMEOUT_SEC", "SEPARATION_STALL_SEC"):
+        monkeypatch.delenv(name, raising=False)
+
     # Re-target mounted Starlette StaticFiles directories to isolated test directories
     for route in app.routes:
         if hasattr(route, "name") and hasattr(route, "app"):
