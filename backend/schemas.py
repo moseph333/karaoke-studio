@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from backend.services.downloader import TrackDownloader
+from backend.services.separation_presets import PRESET_IDS, normalize_preset
 
 
 class LoginRequest(BaseModel):
@@ -19,6 +20,18 @@ class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     query: str = Field(..., max_length=300, description="Search query")
     limit: int | None = Field(default=5, ge=1, le=50, description="Max results to return")
+
+
+def parse_separation_quality(value: Any, optional: bool = False) -> str | None:
+    """A preset id from user input such as " Best ", or a ValueError listing the choices."""
+    if value is None or (isinstance(value, str) and not value.strip()):
+        if optional:
+            return None
+        raise ValueError("Choose a separation quality: " + ", ".join(PRESET_IDS))
+    preset = normalize_preset(value)
+    if preset is None:
+        raise ValueError("Separation quality must be one of: " + ", ".join(PRESET_IDS))
+    return preset
 
 
 class ProcessRequest(BaseModel):
@@ -37,6 +50,15 @@ class ProcessRequest(BaseModel):
         max_length=64,
         description="Optional creator username or nickname",
     )
+    separation_quality: str | None = Field(
+        default=None,
+        description="Stem separation preset: 'fast', 'balanced' or 'best' (server default if unset)",
+    )
+
+    @field_validator("separation_quality", mode="before")
+    @classmethod
+    def validate_separation_quality(cls, v: Any) -> str | None:
+        return parse_separation_quality(v, optional=True)
 
     @field_validator("url_or_id")
     @classmethod
@@ -369,6 +391,22 @@ class RealignLyricsRequest(BaseModel):
         default=False,
         description="Re-query LRCLIB using project title and artist",
     )
+
+
+class ReseparateRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    quality: str = Field(..., description="Stem separation preset: 'fast', 'balanced' or 'best'")
+    realign_lyrics: bool = Field(
+        default=False, description="Re-time the words against the new vocal stem afterwards"
+    )
+    redetect_chords: bool = Field(
+        default=False, description="Replace the chords with a fresh detection afterwards"
+    )
+
+    @field_validator("quality", mode="before")
+    @classmethod
+    def validate_quality(cls, v: Any) -> str:
+        return parse_separation_quality(v)
 
 
 # ==============================================================================

@@ -62,6 +62,24 @@ describe('useProjectPolling', () => {
     expect(result.current.isWorking).toBe(true);
   });
 
+  it('keeps polling while a stem re-separation job is queued or running', () => {
+    const job = { id: 'job1', quality: 'best' as const, progress: 10 };
+    const running = renderHook(() =>
+      useProjectPolling({ ...mockBaseProject, separation_job: { ...job, status: 'running' } })
+    );
+    expect(running.result.current.isWorking).toBe(true);
+    const queued = renderHook(() =>
+      useProjectPolling({ ...mockBaseProject, separation_job: { ...job, status: 'queued' } })
+    );
+    expect(queued.result.current.isWorking).toBe(true);
+    for (const status of ['done', 'error', 'cancelled'] as const) {
+      const finished = renderHook(() =>
+        useProjectPolling({ ...mockBaseProject, separation_job: { ...job, status } })
+      );
+      expect(finished.result.current.isWorking).toBe(false);
+    }
+  });
+
   it('polls /api/project/:id every 1000ms while isWorking is true and updates project state', async () => {
     const separatingProject: ProjectState = {
       ...mockBaseProject,

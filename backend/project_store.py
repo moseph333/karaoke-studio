@@ -205,6 +205,8 @@ def cleanup_project_disk_artifacts(
                             pass
                 if not has_external_ref:
                     shutil.rmtree(stem_subdir, ignore_errors=True)
+            # Half-made stems from an unfinished re-separation
+            shutil.rmtree(stems_dir / ".staging" / ident, ignore_errors=True)
 
     # 2. Cleanup flat directories: DOWNLOADS_DIR and OUTPUT_DIR
     target_prefixes = [f"{pid}.", f"{pid}_"]

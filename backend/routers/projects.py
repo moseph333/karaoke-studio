@@ -18,6 +18,8 @@ from backend.project_store import (
     load_projects,
     save_projects,
 )
+from backend.reseparation import cancel_key as reseparation_cancel_key
+from backend.reseparation import settle_stale_job
 from backend.schemas import (
     ChordsUpdateRequest,
     KeyRecommendationRequest,
@@ -105,6 +107,8 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
     }
     if video_id:
         proj_data["track_id"] = video_id
+    if req.separation_quality:
+        proj_data["separation_quality"] = req.separation_quality
     cancel_event = threading.Event()
     main_mod.active_cancellations[project_id] = cancel_event
     if video_id and video_id != project_id:
@@ -129,7 +133,13 @@ def list_projects(scope: str | None = "all", user: str | None = None):
 
 @router.get("/api/project/{project_id}")
 def get_project(project_id: str):
-    return get_project_or_404(project_id)
+    import backend.main as main_mod
+
+    proj = get_project_or_404(project_id)
+    # A re-separation left running by a previous server process would otherwise poll forever
+    if settle_stale_job(proj, main_mod.active_cancellations):
+        save_projects()
+    return proj
 
 
 @router.get(
@@ -929,7 +939,7 @@ def delete_project(project_id: str):
     tid = proj.get("track_id")
 
     # 1. Signal cancellation for any active background jobs
-    cancel_keys = {pid, f"{pid}_render"}
+    cancel_keys = {pid, f"{pid}_render", reseparation_cancel_key(pid)}
     if tid:
         cancel_keys.add(tid)
         cancel_keys.add(f"{tid}_render")

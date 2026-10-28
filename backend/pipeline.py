@@ -16,8 +16,70 @@ from backend.project_store import (
     get_project_or_404,
     save_projects,
 )
+from backend.services.separation_presets import (
+    PRESET_LABELS,
+    configured_preset,
+    estimate_cpu_seconds,
+    normalize_preset,
+)
 
 logger = logging.getLogger("karaoke_backend")
+
+
+def _shared_stem_provenance(main_mod, project_id: str, audio_id: str) -> dict | None:
+    """How cached stems were made, as recorded by another project that shares them."""
+    for other in list(main_mod.projects.values()):
+        if not isinstance(other, dict) or other.get("id") == project_id:
+            continue
+        if audio_id in (other.get("track_id"), other.get("id")) and isinstance(
+            other.get("separation"), dict
+        ):
+            return dict(other["separation"])
+    return None
+
+
+def separate_project_stems(
+    main_mod,
+    project_id: str,
+    audio_path: str,
+    audio_id: str,
+    duration: float,
+    update_pipe,
+    cancel_event,
+) -> dict:
+    """Separates a pipeline's song at the project's chosen quality (or the server default),
+    records the stems and how they were made on the project, and returns the stem paths."""
+    proj = get_project_or_404(project_id)
+    quality = normalize_preset(proj.get("separation_quality")) or configured_preset()
+    update_pipe(
+        "separating",
+        35,
+        f"Preparing {PRESET_LABELS[quality]} stem separation...",
+        max(15, estimate_cpu_seconds(quality, duration)),
+    )
+
+    def sep_cb(pct, detail, eta_s):
+        pipe_progress = int(35 + ((pct or 0.0) * 0.35))
+        update_pipe("separating", pipe_progress, detail, eta_s=eta_s)
+
+    stems = main_mod.separator.separate_stems(
+        audio_path=audio_path,
+        track_id=audio_id,
+        model_name=quality,
+        duration=duration,
+        progress_callback=sep_cb,
+        cancel_event=cancel_event,
+    )
+    proj = get_project_or_404(project_id)
+    proj["vocals_path"] = stems["vocals_path"]
+    proj["instrumental_path"] = stems["instrumental_path"]
+    proj["vocals_url"] = f"/static/stems/{audio_id}/vocals.wav"
+    proj["instrumental_url"] = f"/static/stems/{audio_id}/instrumental.wav"
+    provenance = stems.get("separation") or _shared_stem_provenance(main_mod, project_id, audio_id)
+    if provenance:
+        proj["separation"] = provenance
+    save_projects()
+    return stems
 
 
 def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = None):
@@ -122,26 +184,9 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
 
         # Step 2: Separate Stems (Vocals & Instrumental)
         duration = float(meta.get("duration") or 180)
-        initial_sep_eta = max(15, int(duration * 0.25))
-        update_pipe("separating", 35, "Initializing Demucs AI stem separation...", initial_sep_eta)
-
-        def sep_cb(pct, detail, eta_s):
-            pipe_progress = int(35 + ((pct or 0.0) * 0.35))
-            update_pipe("separating", pipe_progress, detail, eta_s=eta_s)
-
-        stems = main_mod.separator.separate_stems(
-            audio_path=meta["audio_path"],
-            track_id=audio_id,
-            duration=duration,
-            progress_callback=sep_cb,
-            cancel_event=cancel_event,
+        stems = separate_project_stems(
+            main_mod, project_id, meta["audio_path"], audio_id, duration, update_pipe, cancel_event
         )
-        proj = get_project_or_404(project_id)
-        proj["vocals_path"] = stems["vocals_path"]
-        proj["instrumental_path"] = stems["instrumental_path"]
-        proj["vocals_url"] = f"/static/stems/{audio_id}/vocals.wav"
-        proj["instrumental_url"] = f"/static/stems/{audio_id}/instrumental.wav"
-        save_projects()
 
         # Step 2b: Analyze Vocal Range & Pitch Bounds
         if cancel_event.is_set():
@@ -376,26 +421,9 @@ def run_local_pipeline(
         save_projects()
 
         # Step 2: Separate Stems (Vocals & Instrumental)
-        initial_sep_eta = max(15, int(duration * 0.25))
-        update_pipe("separating", 35, "Initializing Demucs AI stem separation...", initial_sep_eta)
-
-        def sep_cb(pct, detail, eta_s):
-            pipe_progress = int(35 + ((pct or 0.0) * 0.35))
-            update_pipe("separating", pipe_progress, detail, eta_s=eta_s)
-
-        stems = main_mod.separator.separate_stems(
-            audio_path=str(wav_target),
-            track_id=project_id,
-            duration=duration,
-            progress_callback=sep_cb,
-            cancel_event=cancel_event,
+        stems = separate_project_stems(
+            main_mod, project_id, str(wav_target), project_id, duration, update_pipe, cancel_event
         )
-        proj = get_project_or_404(project_id)
-        proj["vocals_path"] = stems["vocals_path"]
-        proj["instrumental_path"] = stems["instrumental_path"]
-        proj["vocals_url"] = f"/static/stems/{project_id}/vocals.wav"
-        proj["instrumental_url"] = f"/static/stems/{project_id}/instrumental.wav"
-        save_projects()
 
         # Step 2b: Analyze Vocal Range & Pitch Bounds
         if cancel_event.is_set():

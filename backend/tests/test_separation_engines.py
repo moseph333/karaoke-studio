@@ -703,3 +703,23 @@ def test_real_worker_process_end_to_end(tmp_path, engines, monkeypatch):
     assert reports[-1] == (100.0, "Stems ready", None)
     assert all(_stage_words_ok(detail) for detail in details)
     assert all((presets.model_dir() / model).is_file() for model in BEST_MODELS)
+
+
+def test_an_aborting_progress_callback_cleans_up_without_falling_back(tmp_path, engines):
+    class Abort(Exception):
+        pass
+
+    def callback(pct, detail, eta):
+        if pct is not None and pct >= 50:
+            raise Abort()
+
+    separator = AudioSeparator(output_base_dir=tmp_path / "stems")
+    with pytest.raises(Abort):
+        separator.separate_stems(
+            str(_write_wav(tmp_path / "song.wav")),
+            "trk",
+            model_name="balanced",
+            progress_callback=callback,
+        )
+    assert len(engines.calls) == 1
+    assert not any(p.is_dir() for p in (tmp_path / "stems" / "trk").iterdir())
