@@ -49,6 +49,40 @@ export interface LyricLineDraft {
   singer?: SingerRole;
 }
 
+export type SeparationPreset = 'fast' | 'balanced' | 'best';
+
+/** How the song's stems were made (recorded by the server when separation runs). */
+export interface SeparationInfo {
+  preset: SeparationPreset | 'custom';
+  engine?: 'demucs' | 'roformer';
+  models?: string[];
+  label?: string;
+  requested?: SeparationPreset | 'custom';
+  fallback_reason?: string | null;
+  elapsed_seconds?: number;
+  separated_at?: number;
+}
+
+export type BackgroundJobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
+
+/** A re-separation running in the background while the song stays usable. */
+export interface SeparationJob {
+  id: string;
+  status: BackgroundJobStatus;
+  quality: SeparationPreset;
+  label?: string;
+  realign_lyrics?: boolean;
+  redetect_chords?: boolean;
+  progress: number;
+  detail?: string;
+  eta_seconds?: number | null;
+  error?: string | null;
+  warnings?: string[];
+  created_at?: number;
+  finished_at?: number | null;
+  elapsed_seconds?: number;
+}
+
 export interface ProjectState {
   id: string;
   status:
@@ -93,6 +127,9 @@ export interface ProjectState {
   render_heartbeat?: number;
   render_error?: string;
   video_url?: string;
+  separation_quality?: SeparationPreset;
+  separation?: SeparationInfo | null;
+  separation_job?: SeparationJob | null;
   youtube_package?: {
     title: string;
     description: string;

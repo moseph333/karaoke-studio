@@ -308,6 +308,9 @@ class AudioSeparator:
                 logger.warning(f"{plan.label} failed for {track_id}; falling back: {exc}")
                 reasons.append(_short_reason(plan, str(exc)))
                 continue
+            except BaseException:  # e.g. a progress callback aborting the job
+                self._purge_work_dirs(target_dir)
+                raise
             break
         else:  # every plan was skipped or failed without raising (not expected)
             raise RuntimeError(f"Stem separation failed: {'; '.join(reasons)}")

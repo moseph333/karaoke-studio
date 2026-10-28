@@ -10,6 +10,7 @@ from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Uploa
 
 from backend.config import BACKGROUNDS_DIR, DOWNLOADS_DIR, STEMS_DIR
 from backend.project_store import get_project_or_404, save_projects
+from backend.schemas import parse_separation_quality
 from backend.upload_utils import (
     ALLOWED_AUDIO_EXTS,
     ALLOWED_BACKGROUND_EXTS,
@@ -111,9 +112,15 @@ async def upload_audio_track(
     artist: str | None = Form(default=None),
     created_by: str | None = Form(default=None),
     custom_lyrics: str | None = Form(default=None),
+    separation_quality: str | None = Form(default=None),
     bg_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     import backend.main as main_mod
+
+    try:
+        quality = parse_separation_quality(separation_quality, optional=True)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     raw_ext = Path(file.filename or "").suffix.lower()
     if raw_ext not in ALLOWED_AUDIO_EXTS:
@@ -165,6 +172,8 @@ async def upload_audio_track(
         "created_at": int(time.time()),
         "audio_url": f"/static/downloads/{project_id}.wav",
     }
+    if quality:
+        proj_data["separation_quality"] = quality
 
     main_mod.active_cancellations.setdefault(project_id, threading.Event())
     main_mod.projects[project_id] = proj_data
