@@ -1,14 +1,15 @@
 /**
  * Edit Project Metadata Modal Component
  *
- * Provides a focus-trapped dialog for editing song title and artist information,
- * syncing modifications via PATCH /api/project/:id with immediate local update.
+ * Edits a song's title and artist and saves them with PATCH /api/project/:id. Focus
+ * starts on the title field.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Pencil, AlertCircle, X, Check } from 'lucide-react';
+import { Pencil, AlertCircle, Check } from 'lucide-react';
 import { apiFetch } from '../api';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
+import { Button } from './ui/Button';
 
 export interface EditMetadataModalProps {
   isOpen: boolean;
@@ -20,6 +21,10 @@ export interface EditMetadataModalProps {
   onClose: () => void;
   onSaved: (updatedProject: { id: string; title: string; artist: string }) => void;
 }
+
+const inputCls =
+  'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
+const labelCls = 'flex items-center gap-1.5 text-xs font-semibold text-theme-text';
 
 export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   isOpen,
@@ -41,14 +46,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
     }
   }, [project, isOpen]);
 
-  const modalRef = useFocusTrap<HTMLDivElement>({
-    isOpen,
-    onClose,
-    initialFocusRef: titleInputRef,
-    escapeDeactivates: true,
-  });
-
-  if (!isOpen || !project) return null;
+  if (!project) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,70 +97,39 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   };
 
   return (
-    <div
-      ref={modalRef}
-      tabIndex={-1}
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/80 backdrop-blur-md"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="edit-metadata-title"
-      aria-describedby="edit-metadata-desc"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      titleId="edit-metadata-title"
+      descriptionId="edit-metadata-desc"
+      size="md"
+      showDragHandle
+      initialFocusRef={titleInputRef}
     >
-      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-theme-surface border border-theme-border rounded-t-2xl sm:rounded-theme-xl rounded-b-none sm:rounded-b-theme-xl shadow-theme-lg space-y-4 sm:space-y-5 flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
+      <DialogHeader
+        title="Edit Track Details"
+        titleId="edit-metadata-title"
+        description="Update title, artist, and karaoke metadata"
+        descriptionId="edit-metadata-desc"
+        icon={<Pencil className="h-5 w-5" />}
+        onClose={onClose}
+        closeLabel="Close edit metadata dialog"
+      />
+
+      {error && (
         <div
-          data-testid="bottom-sheet-drag-handle"
-          className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-2 sm:hidden shrink-0"
-        />
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close edit metadata dialog"
-          className="absolute top-3 right-3 sm:top-5 sm:right-5 min-w-[44px] min-h-[44px] p-2.5 rounded-theme-pill bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text-muted hover:text-theme-text transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center"
+          className="mb-4 flex items-center gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3 text-xs text-theme-danger"
+          role="alert"
         >
-          <X className="w-5 h-5" aria-hidden="true" />
-        </button>
-
-        <div className="flex items-center gap-3">
-          <div className="p-3 rounded-theme-lg bg-theme-accent/10 border border-theme-accent/20 text-theme-accent shrink-0">
-            <Pencil className="w-6 h-6" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2
-              id="edit-metadata-title"
-              className="text-lg sm:text-xl font-bold text-theme-text font-theme-heading truncate"
-            >
-              Edit Track Details
-            </h2>
-            <p
-              id="edit-metadata-desc"
-              className="text-xs text-theme-text-muted font-theme-body truncate mt-0.5"
-            >
-              Update title, artist, and karaoke metadata
-            </p>
-          </div>
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
         </div>
+      )}
 
-        {error && (
-          <div
-            className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-theme-md flex items-center gap-2.5 text-rose-300 text-xs"
-            role="alert"
-          >
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" aria-hidden="true" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit}>
+        <div className="space-y-4">
           <div className="space-y-1.5">
-            <label
-              htmlFor="edit-project-title"
-              className="text-xs font-semibold text-theme-text font-theme-heading flex items-center gap-1.5"
-            >
+            <label htmlFor="edit-project-title" className={labelCls}>
               Track Title
             </label>
             <input
@@ -173,15 +140,12 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Bohemian Rhapsody"
               required
-              className="w-full min-h-[44px] px-3.5 py-2.5 bg-theme-bg border border-theme-border-subtle rounded-theme-md text-theme-text placeholder:text-theme-text-muted text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-theme-accent focus:border-theme-border font-theme-body"
+              className={inputCls}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label
-              htmlFor="edit-project-artist"
-              className="text-xs font-semibold text-theme-text font-theme-heading flex items-center gap-1.5"
-            >
+            <label htmlFor="edit-project-artist" className={labelCls}>
               Artist Name
             </label>
             <input
@@ -191,34 +155,28 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               onChange={(e) => setArtist(e.target.value)}
               placeholder="e.g. Queen"
               required
-              className="w-full min-h-[44px] px-3.5 py-2.5 bg-theme-bg border border-theme-border-subtle rounded-theme-md text-theme-text placeholder:text-theme-text-muted text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-theme-accent focus:border-theme-border font-theme-body"
+              className={inputCls}
             />
           </div>
+        </div>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-4 py-2.5 rounded-theme-md bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !title.trim() || !artist.trim()}
-              className="w-full sm:w-auto min-h-[44px] min-w-[44px] px-5 py-2.5 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-bold text-xs transition-all shadow-theme-sm border border-theme-border focus:outline-none focus:ring-2 focus:ring-theme-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-theme-heading"
-            >
-              {loading ? (
-                <span className="w-4 h-4 border-2 border-theme-accent-text border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Check className="w-4 h-4" />
-              )}
-              <span>{loading ? 'Saving...' : 'Save Changes'}</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <DialogFooter>
+          <Button variant="secondary" fullWidth="mobile" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="gradient"
+            fullWidth="mobile"
+            disabled={!title.trim() || !artist.trim()}
+            loading={loading}
+            loadingLabel="Saving..."
+            leftIcon={<Check className="h-4 w-4" aria-hidden="true" />}
+          >
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </form>
+    </Dialog>
   );
 };

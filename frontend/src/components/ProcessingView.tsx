@@ -191,7 +191,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
                 {Math.round(progress)}%
               </span>
               <Loader2
-                className="mt-0.5 h-4 w-4 text-theme-highlight motion-safe:animate-spin"
+                className="mt-0.5 h-4 w-4 text-theme-highlight animate-spin"
                 aria-hidden="true"
               />
             </span>
@@ -288,7 +288,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
                       <Check className="h-4 w-4" aria-label={`Completed: ${stage.label}`} />
                     ) : isActive ? (
                       <Loader2
-                        className="h-4 w-4 motion-safe:animate-spin"
+                        className="h-4 w-4 animate-spin"
                         aria-label={`Active: ${stage.label}`}
                       />
                     ) : (

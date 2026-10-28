@@ -405,7 +405,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
 
         const closeBtn = screen.getByRole('button', { name: /close/i });
         expect(closeBtn).toHaveAttribute('aria-label');
-        expect(closeBtn.className).toContain('focus:ring');
+        expect(closeBtn.className).toMatch(/focus(-visible)?:ring/);
       });
     });
 
@@ -713,7 +713,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
         const closeBtn = screen.getByRole('button', { name: /close/i });
         closeBtn.focus();
         expect(document.activeElement).toBe(closeBtn);
-        expect(closeBtn.className).toContain('focus:ring');
+        expect(closeBtn.className).toMatch(/focus(-visible)?:ring/);
       });
 
       it('F11-B4: close button does not overlap or crush long modal titles on 320px viewport', () => {

@@ -1421,7 +1421,7 @@ describe('Duet / Multi-Singer Part Assignment (Requirement R2)', () => {
       fireEvent.change(endInput, { target: { value: '3' } });
 
       // Select Both role
-      fireEvent.click(screen.getByRole('button', { name: /👥 Both/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^Both$/ }));
 
       fireEvent.click(screen.getByTestId('apply-duet-btn'));
 

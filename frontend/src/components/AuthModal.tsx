@@ -1,20 +1,25 @@
 /**
  * Authentication Modal Component
  *
- * Provides passphrase entry and user alias configuration for studio access.
- * Manages modal focus trapping, credential validation, and local credential storage.
+ * The studio access gate: shared passphrase plus a nickname. It sits above every other
+ * layer and cannot be dismissed (no close button, Escape and backdrop clicks ignored).
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
 import { apiFetch, getAuthUser, setAuthToken, setAuthUser } from '../api';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import { Dialog } from './ui/Dialog';
+import { Button } from './ui/Button';
 
 interface AuthModalProps {
   isOpen: boolean;
   onSuccess: (username: string, token: string) => void;
   onClose?: () => void;
 }
+
+const inputCls =
+  'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
+const labelCls = 'flex items-center gap-1.5 text-xs font-semibold text-theme-text';
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
   const [password, setPassword] = useState('');
@@ -32,14 +37,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
       setUsername(savedUser === 'Friend' ? '' : savedUser);
     }
   }, [isOpen]);
-
-  const modalRef = useFocusTrap<HTMLDivElement>({
-    isOpen,
-    initialFocusRef: passwordInputRef,
-    escapeDeactivates: false,
-  });
-
-  if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,60 +91,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
   };
 
   return (
-    <div
-      ref={modalRef}
-      tabIndex={-1}
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      }}
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/90 backdrop-blur-md"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="auth-modal-title"
-      aria-describedby="auth-modal-desc"
+    <Dialog
+      open={isOpen}
+      titleId="auth-modal-title"
+      descriptionId="auth-modal-desc"
+      size="md"
+      layer="gate"
+      dismissOnBackdrop={false}
+      dismissOnEscape={false}
+      showDragHandle
+      initialFocusRef={passwordInputRef}
+      overlayClassName="bg-theme-overlay/90 backdrop-blur-md"
     >
-      <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl rounded-b-none sm:rounded-b-2xl shadow-2xl space-y-5 sm:space-y-6 flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
-        <div
-          data-testid="bottom-sheet-drag-handle"
-          className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-2 sm:hidden shrink-0"
-        />
-        <div className="text-center space-y-2">
-          <div className="inline-flex p-3 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-cyan-400">
-            <Lock className="w-6 h-6" aria-hidden="true" />
+      <div className="space-y-5 sm:space-y-6">
+        <div className="space-y-2 text-center">
+          <div className="inline-flex rounded-theme-lg bg-gradient-accent p-3 text-theme-accent-text shadow-theme-glow">
+            <Lock className="h-6 w-6" aria-hidden="true" />
           </div>
           <h2
             id="auth-modal-title"
-            className="text-2xl font-extrabold text-white tracking-tight font-['Montserrat']"
+            className="font-theme-heading text-2xl font-extrabold tracking-tight text-theme-text"
           >
             Studio Access Gate
           </h2>
-          <p id="auth-modal-desc" className="text-xs text-slate-400">
+          <p id="auth-modal-desc" className="text-sm text-theme-text-muted">
             Enter the shared studio passphrase and your nickname to start producing tracks.
           </p>
         </div>
 
         {error && (
           <div
-            className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex items-center gap-2.5 text-rose-300 text-xs"
+            className="flex items-center gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3 text-xs text-theme-danger"
             role="alert"
             aria-live="assertive"
           >
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" aria-hidden="true" />
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label
-              htmlFor="auth-password"
-              className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"
-            >
-              <Lock className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
+            <label htmlFor="auth-password" className={labelCls}>
+              <Lock className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
               Studio Passphrase
             </label>
             <input
@@ -160,16 +146,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
               placeholder="Enter studio password..."
               autoComplete="current-password"
               required
-              className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent font-mono"
+              className={`${inputCls} font-mono`}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label
-              htmlFor="auth-username"
-              className="text-xs font-semibold text-slate-300 flex items-center gap-1.5"
-            >
-              <User className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
+            <label htmlFor="auth-username" className={labelCls}>
+              <User className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
               Your Nickname / Handle
             </label>
             <input
@@ -186,29 +169,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
               spellCheck={false}
               maxLength={64}
               required
-              className="w-full min-h-[44px] px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-500 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              className={inputCls}
             />
-            <p className="text-[11px] text-slate-500">
+            <p className="text-[11px] text-theme-text-muted">
               Tracks you create will be tagged under this name in your personal workspace.
             </p>
           </div>
 
-          <button
+          <Button
             type="submit"
-            disabled={loading || !password.trim() || !username.trim()}
-            className="w-full min-h-[44px] py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            variant="gradient"
+            size="lg"
+            fullWidth
+            disabled={!password.trim() || !username.trim()}
+            loading={loading}
+            rightIcon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
+            className="min-h-[44px] text-sm"
           >
-            {loading ? (
-              <span className="inline-block w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></span>
-            ) : (
-              <>
-                <span>Enter Studio</span>
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
+            Enter Studio
+          </Button>
         </form>
       </div>
-    </div>
+    </Dialog>
   );
 };

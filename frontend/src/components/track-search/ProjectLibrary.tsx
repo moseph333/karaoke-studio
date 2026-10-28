@@ -266,7 +266,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
           onClick={fetchLibrary}
           leftIcon={
             <RefreshCw
-              className={cn('h-3.5 w-3.5', loadingLibrary && 'motion-safe:animate-spin')}
+              className={cn('h-3.5 w-3.5', loadingLibrary && 'animate-spin')}
               aria-hidden="true"
             />
           }

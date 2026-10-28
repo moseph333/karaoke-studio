@@ -359,7 +359,7 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
       fireEvent.change(endInput, { target: { value: '4' } });
 
       // Choose Both / Duet
-      fireEvent.click(screen.getByRole('button', { name: /👥 Both/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^Both$/ }));
 
       fireEvent.click(screen.getByTestId('apply-duet-btn'));
 

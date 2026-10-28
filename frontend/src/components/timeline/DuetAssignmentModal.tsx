@@ -1,17 +1,37 @@
 /**
  * Duet Assignment Modal Component
  *
- * Focus-trapped dialog allowing users to bulk-assign lyric lines to singer roles
- * via range selection, alternating line patterns (1x1, 2x2), or automated
- * pause-clustering auto-split (>= 2.5s gaps), with live distribution previews.
+ * Bulk-assigns lyric lines to singer roles by alternating pattern (1x1, 2x2), a line
+ * range, or automatic pause clustering (gaps >= the threshold), with a live preview of
+ * the resulting split.
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, X, Shuffle, Sliders, Sparkles, Check } from 'lucide-react';
+import { Users, Shuffle, Sliders, Sparkles, Check } from 'lucide-react';
 import { LyricLine, SingerRole, BulkAssignOptions } from '../../types';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
+import { Button } from '../ui/Button';
+import { SegmentedControl, type SegmentedOption } from '../ui/SegmentedControl';
+import { Tabs } from '../ui/Tabs';
+import { SINGER_CONFIG } from '../stage/singers';
+import { cn } from '../../utils/cn';
 
 export type { BulkAssignOptions };
+
+type DuetMode = 'range' | 'alternating' | 'auto';
+
+const singerOption = (role: SingerRole, label: string): SegmentedOption<SingerRole> => {
+  const Icon = SINGER_CONFIG[role].Icon;
+  return { value: role, label, icon: <Icon className="h-3.5 w-3.5" aria-hidden="true" /> };
+};
+
+const PREVIEW_TONES: Record<SingerRole, string> = {
+  singer1: 'border-theme-sung/35 bg-theme-sung/10 [&_svg]:text-theme-sung',
+  singer2: 'border-theme-secondary/40 bg-theme-secondary/10 [&_svg]:text-theme-secondary',
+  both: 'border-theme-success/35 bg-theme-success/10 [&_svg]:text-theme-success',
+};
+
+const groupLabel = 'text-xs font-semibold text-theme-text';
 
 export interface DuetAssignmentModalProps {
   isOpen: boolean;
@@ -28,7 +48,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
   onApply,
   selectedLineIndex = 0,
 }) => {
-  const [mode, setMode] = useState<'range' | 'alternating' | 'auto'>('alternating');
+  const [mode, setMode] = useState<DuetMode>('alternating');
 
   // Range options
   const [rangeScope, setRangeScope] = useState<'all' | 'custom'>('all');
@@ -53,11 +73,6 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
       }
     }
   }, [lines.length, selectedLineIndex]);
-
-  const modalRef = useFocusTrap<HTMLDivElement>({
-    isOpen,
-    onClose,
-  });
 
   // Calculate live preview distribution
   const preview = useMemo(() => {
@@ -138,8 +153,6 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
     autoStartSinger,
   ]);
 
-  if (!isOpen) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (lines.length === 0) return;
@@ -170,200 +183,123 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
     onClose();
   };
 
+  const numberInput =
+    'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base tabular-nums text-theme-text focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
+  const thresholdPct = ((pauseThreshold - 1.5) / (5.0 - 1.5)) * 100;
+
   return (
-    <div
-      ref={modalRef}
-      tabIndex={-1}
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="duet-assign-title"
-      aria-describedby="duet-assign-desc"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      titleId="duet-assign-title"
+      descriptionId="duet-assign-desc"
+      size="lg"
+      showDragHandle
     >
-      <div className="bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl rounded-b-none sm:rounded-b-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 max-h-[90vh] overflow-y-auto flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
-        <div
-          data-testid="bottom-sheet-drag-handle"
-          className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-2 sm:hidden shrink-0"
-        />
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <div className="flex items-center gap-2.5 text-pink-400">
-            <div className="p-2 rounded-xl bg-pink-500/10 border border-pink-500/20">
-              <Users className="w-5 h-5 text-pink-400" />
-            </div>
-            <div>
-              <h3 id="duet-assign-title" className="text-base font-bold text-white">
-                Duet & Multi-Singer Assignment
-              </h3>
-              <p id="duet-assign-desc" className="text-xs text-slate-400">
-                Assign lines to Singer 1, Singer 2, or Both
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close dialog"
-            className="min-h-[44px] min-w-[44px] p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-pink-400 flex items-center justify-center"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <DialogHeader
+        title="Duet & Multi-Singer Assignment"
+        titleId="duet-assign-title"
+        description="Assign lines to Singer 1, Singer 2, or Both"
+        descriptionId="duet-assign-desc"
+        icon={<Users className="h-5 w-5" />}
+        onClose={onClose}
+      />
 
-        {/* Mode Navigation Tabs */}
+      <Tabs<DuetMode>
+        ariaLabel="Assignment mode"
+        value={mode}
+        onChange={setMode}
+        fullWidth
+        getTabId={(id) => `duet-mode-${id}`}
+        items={[
+          {
+            id: 'alternating',
+            label: 'Alternating',
+            icon: <Shuffle className="h-3.5 w-3.5" aria-hidden="true" />,
+            controls: 'duet-mode-panel',
+          },
+          {
+            id: 'range',
+            label: 'Range',
+            icon: <Sliders className="h-3.5 w-3.5" aria-hidden="true" />,
+            controls: 'duet-mode-panel',
+          },
+          {
+            id: 'auto',
+            label: 'Auto-Suggest',
+            icon: <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />,
+            controls: 'duet-mode-panel',
+          },
+        ]}
+        tabClassName="text-xs"
+      />
+
+      <form onSubmit={handleSubmit} className="mt-4">
         <div
-          className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950/70 border border-slate-800 rounded-xl"
-          role="tablist"
+          id="duet-mode-panel"
+          role="tabpanel"
+          aria-labelledby={`duet-mode-${mode}`}
+          className="space-y-4"
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'alternating'}
-            onClick={() => setMode('alternating')}
-            className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-              mode === 'alternating'
-                ? 'bg-pink-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-          >
-            <Shuffle className="w-3.5 h-3.5" />
-            <span>Alternating</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'range'}
-            onClick={() => setMode('range')}
-            className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-              mode === 'range'
-                ? 'bg-pink-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Range</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'auto'}
-            onClick={() => setMode('auto')}
-            className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
-              mode === 'auto'
-                ? 'bg-pink-600 text-white shadow-md'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Auto-Suggest</span>
-          </button>
-        </div>
-
-        {/* Tab Content */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Mode 1: Alternating Lines */}
           {mode === 'alternating' && (
-            <div className="space-y-3">
+            <>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Alternation Pattern</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPattern('1x1')}
-                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center ${
-                      pattern === '1x1'
-                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    1-by-1 (S1, S2, S1...)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPattern('2x2')}
-                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center ${
-                      pattern === '2x2'
-                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    2-by-2 (S1, S1, S2, S2...)
-                  </button>
-                </div>
+                <span className={groupLabel}>Alternation Pattern</span>
+                <SegmentedControl<'1x1' | '2x2'>
+                  ariaLabel="Alternation pattern"
+                  value={pattern}
+                  onChange={setPattern}
+                  fullWidth
+                  tone="neutral"
+                  size="sm"
+                  options={[
+                    { value: '1x1', label: '1-by-1 (S1, S2, S1...)' },
+                    { value: '2x2', label: '2-by-2 (S1, S1, S2, S2...)' },
+                  ]}
+                />
               </div>
-
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Starting Singer</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStartSinger('singer1')}
-                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center ${
-                      startSinger === 'singer1'
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    🎤 Start with Singer 1
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStartSinger('singer2')}
-                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center ${
-                      startSinger === 'singer2'
-                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    🎤 Start with Singer 2
-                  </button>
-                </div>
+                <span className={groupLabel}>Starting Singer</span>
+                <SegmentedControl<SingerRole>
+                  ariaLabel="Starting singer"
+                  value={startSinger}
+                  onChange={setStartSinger}
+                  fullWidth
+                  tone="neutral"
+                  size="sm"
+                  options={[
+                    singerOption('singer1', 'Start with Singer 1'),
+                    singerOption('singer2', 'Start with Singer 2'),
+                  ]}
+                />
               </div>
-            </div>
+            </>
           )}
 
-          {/* Mode 2: Range Selection */}
           {mode === 'range' && (
-            <div className="space-y-3">
+            <>
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Target Range</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRangeScope('all')}
-                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center ${
-                      rangeScope === 'all'
-                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    All Lines ({lines.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRangeScope('custom')}
-                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center ${
-                      rangeScope === 'custom'
-                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    Custom Range
-                  </button>
-                </div>
+                <span className={groupLabel}>Target Range</span>
+                <SegmentedControl<'all' | 'custom'>
+                  ariaLabel="Target range"
+                  value={rangeScope}
+                  onChange={setRangeScope}
+                  fullWidth
+                  tone="neutral"
+                  size="sm"
+                  options={[
+                    { value: 'all', label: `All Lines (${lines.length})` },
+                    { value: 'custom', label: 'Custom Range' },
+                  ]}
+                />
               </div>
 
               {rangeScope === 'custom' && (
-                <div className="grid grid-cols-2 gap-3 pt-1">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label
                       htmlFor="range-start-input"
-                      className="text-xs text-slate-400 block mb-1"
+                      className="mb-1 block text-xs text-theme-text-muted"
                     >
                       From Line #
                     </label>
@@ -374,11 +310,14 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                       max={lines.length || 1}
                       value={startLineNum}
                       onChange={(e) => setStartLineNum(Math.max(1, parseInt(e.target.value) || 1))}
-                      className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 text-white text-sm"
+                      className={numberInput}
                     />
                   </div>
                   <div>
-                    <label htmlFor="range-end-input" className="text-xs text-slate-400 block mb-1">
+                    <label
+                      htmlFor="range-end-input"
+                      className="mb-1 block text-xs text-theme-text-muted"
+                    >
                       To Line #
                     </label>
                     <input
@@ -392,58 +331,37 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                           Math.max(startLineNum, parseInt(e.target.value) || startLineNum)
                         )
                       }
-                      className="w-full min-h-[44px] px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 focus:border-pink-500 focus:ring-1 focus:ring-pink-500 text-white text-sm"
+                      className={numberInput}
                     />
                   </div>
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Assign Role</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTargetSinger('singer1')}
-                    className={`min-h-[44px] px-2 py-2 rounded-xl text-xs font-bold border transition-all text-center ${
-                      targetSinger === 'singer1'
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    🎤 Singer 1
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetSinger('singer2')}
-                    className={`min-h-[44px] px-2 py-2 rounded-xl text-xs font-bold border transition-all text-center ${
-                      targetSinger === 'singer2'
-                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    🎤 Singer 2
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTargetSinger('both')}
-                    className={`min-h-[44px] px-2 py-2 rounded-xl text-xs font-bold border transition-all text-center ${
-                      targetSinger === 'both'
-                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    👥 Both
-                  </button>
-                </div>
+                <span className={groupLabel}>Assign Role</span>
+                <SegmentedControl<SingerRole>
+                  ariaLabel="Assign role"
+                  value={targetSinger}
+                  onChange={setTargetSinger}
+                  fullWidth
+                  tone="neutral"
+                  size="sm"
+                  options={[
+                    singerOption('singer1', 'Singer 1'),
+                    singerOption('singer2', 'Singer 2'),
+                    singerOption('both', 'Both'),
+                  ]}
+                />
               </div>
-            </div>
+            </>
           )}
 
-          {/* Mode 3: Auto-Suggest Duet Split */}
           {mode === 'auto' && (
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-300 leading-relaxed">
-                <span className="font-semibold text-pink-400">Intelligent Pause Clustering:</span>{' '}
+            <>
+              <div className="rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs leading-relaxed text-theme-text-muted">
+                <span className="font-semibold text-theme-highlight">
+                  Intelligent Pause Clustering:
+                </span>{' '}
                 Detects non-vocal gaps between lyric lines (&ge; {pauseThreshold.toFixed(1)}s) to
                 infer natural verse/chorus conversational turns, while assigning overlapping phrases
                 to Both.
@@ -451,13 +369,10 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="pause-threshold-input"
-                    className="text-xs font-semibold text-slate-300"
-                  >
+                  <label htmlFor="pause-threshold-input" className={groupLabel}>
                     Inter-Line Pause Threshold
                   </label>
-                  <span className="text-xs font-mono text-pink-400 font-bold">
+                  <span className="font-mono text-xs font-bold tabular-nums text-theme-highlight">
                     {pauseThreshold.toFixed(1)}s
                   </span>
                 </div>
@@ -469,9 +384,10 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                   step="0.5"
                   value={pauseThreshold}
                   onChange={(e) => setPauseThreshold(parseFloat(e.target.value))}
-                  className="w-full accent-pink-500 cursor-pointer min-h-[44px]"
+                  className="ks-range min-h-[44px]"
+                  style={{ '--ks-range-fill': `${thresholdPct}%` } as React.CSSProperties}
                 />
-                <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                <div className="flex justify-between font-mono text-[10px] text-theme-text-muted">
                   <span>1.5s (frequent turns)</span>
                   <span>2.5s (standard)</span>
                   <span>5.0s (stanza breaks only)</span>
@@ -479,92 +395,78 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300">Initial Singer</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAutoStartSinger('singer1')}
-                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center ${
-                      autoStartSinger === 'singer1'
-                        ? 'bg-amber-500/20 border-amber-500 text-amber-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    🎤 Singer 1 Starts
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAutoStartSinger('singer2')}
-                    className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold border transition-all text-center ${
-                      autoStartSinger === 'singer2'
-                        ? 'bg-pink-500/20 border-pink-500 text-pink-300'
-                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    🎤 Singer 2 Starts
-                  </button>
-                </div>
+                <span className={groupLabel}>Initial Singer</span>
+                <SegmentedControl<SingerRole>
+                  ariaLabel="Initial singer"
+                  value={autoStartSinger}
+                  onChange={setAutoStartSinger}
+                  fullWidth
+                  tone="neutral"
+                  size="sm"
+                  options={[
+                    singerOption('singer1', 'Singer 1 Starts'),
+                    singerOption('singer2', 'Singer 2 Starts'),
+                  ]}
+                />
               </div>
-            </div>
+            </>
           )}
+        </div>
 
-          {/* Live Distribution Preview */}
-          <div
-            data-testid="duet-preview-summary"
-            className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs space-y-2"
+        <div
+          data-testid="duet-preview-summary"
+          className="mt-4 space-y-2 rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs"
+        >
+          <div className="flex items-center justify-between font-semibold text-theme-text">
+            <span>Assignment Preview:</span>
+            <span className="font-mono text-[11px] text-theme-text-muted">
+              {lines.length} lines total
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {(
+              [
+                ['singer1', 'Singer 1', preview.s1, preview.s1Pct],
+                ['singer2', 'Singer 2', preview.s2, preview.s2Pct],
+                ['both', 'Both', preview.both, preview.bothPct],
+              ] as const
+            ).map(([role, label, count, pct]) => {
+              const Icon = SINGER_CONFIG[role].Icon;
+              return (
+                <div
+                  key={role}
+                  className={cn('rounded-theme-md border p-2 text-center', PREVIEW_TONES[role])}
+                >
+                  <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-theme-text-muted">
+                    <Icon className="h-3 w-3" aria-hidden="true" />
+                    {label}
+                  </div>
+                  <div className="text-sm font-bold tabular-nums text-theme-text">
+                    {count}{' '}
+                    <span className="text-[10px] font-medium text-theme-text-muted">({pct}%)</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="secondary" fullWidth="mobile" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="gradient"
+            fullWidth="mobile"
+            disabled={lines.length === 0}
+            data-testid="apply-duet-btn"
+            leftIcon={<Check className="h-4 w-4" aria-hidden="true" />}
           >
-            <div className="flex items-center justify-between text-slate-300 font-semibold">
-              <span>Assignment Preview:</span>
-              <span className="text-slate-500 font-mono text-[11px]">
-                {lines.length} lines total
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
-                <div className="text-[10px] text-amber-400 font-semibold">Singer 1</div>
-                <div className="text-sm font-bold text-amber-300">
-                  {preview.s1}{' '}
-                  <span className="text-[10px] text-amber-400/80">({preview.s1Pct}%)</span>
-                </div>
-              </div>
-              <div className="p-2 rounded-lg bg-pink-500/10 border border-pink-500/30 text-center">
-                <div className="text-[10px] text-pink-400 font-semibold">Singer 2</div>
-                <div className="text-sm font-bold text-pink-300">
-                  {preview.s2}{' '}
-                  <span className="text-[10px] text-pink-400/80">({preview.s2Pct}%)</span>
-                </div>
-              </div>
-              <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-center">
-                <div className="text-[10px] text-emerald-400 font-semibold">Both</div>
-                <div className="text-sm font-bold text-emerald-300">
-                  {preview.both}{' '}
-                  <span className="text-[10px] text-emerald-400/80">({preview.bothPct}%)</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Modal Action Buttons */}
-          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:w-auto min-h-[44px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 flex items-center justify-center"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={lines.length === 0}
-              data-testid="apply-duet-btn"
-              className="w-full sm:w-auto min-h-[44px] px-5 py-2 rounded-xl bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-lg shadow-pink-600/20 focus:outline-none focus:ring-2 focus:ring-pink-400 flex items-center justify-center gap-1.5"
-            >
-              <Check className="w-4 h-4" />
-              Apply Assignment
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            Apply Assignment
+          </Button>
+        </DialogFooter>
+      </form>
+    </Dialog>
   );
 };

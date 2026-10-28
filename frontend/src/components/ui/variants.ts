@@ -9,11 +9,19 @@ export const focusRing =
   'focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-focus focus-visible:ring-offset-2 focus-visible:ring-offset-theme-bg';
 
 export type ButtonVariant =
-  'primary' | 'gradient' | 'secondary' | 'subtle' | 'ghost' | 'outline' | 'danger' | 'success';
+  | 'primary'
+  | 'gradient'
+  | 'secondary'
+  | 'subtle'
+  | 'ghost'
+  | 'outline'
+  | 'danger'
+  | 'destructive'
+  | 'success';
 
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
-export const buttonBase = `inline-flex items-center justify-center gap-2 font-semibold whitespace-nowrap select-none transition-[background-color,border-color,color,box-shadow,transform,filter] duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 ${focusRing}`;
+export const buttonBase = `inline-flex min-w-[44px] items-center justify-center gap-2 font-semibold whitespace-nowrap select-none transition-[background-color,border-color,color,box-shadow,transform,filter] duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 ${focusRing}`;
 
 export const buttonVariants: Record<ButtonVariant, string> = {
   primary:
@@ -30,6 +38,8 @@ export const buttonVariants: Record<ButtonVariant, string> = {
     'bg-transparent text-theme-text border border-theme-border hover:bg-theme-surface-subtle hover:border-theme-text-muted',
   danger:
     'bg-theme-danger/10 text-theme-danger border border-theme-danger/40 hover:bg-theme-danger/20 hover:border-theme-danger/60',
+  destructive:
+    'bg-theme-danger text-theme-text-inverse border border-transparent shadow-theme-sm hover:brightness-110',
   success:
     'bg-theme-success/15 text-theme-success border border-theme-success/40 hover:bg-theme-success/25',
 };

@@ -60,7 +60,9 @@ export function Tabs<T extends string>({
       className={cn(
         variant === 'segmented'
           ? 'flex gap-1 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-1'
-          : 'flex gap-1 border-b border-theme-border-subtle',
+          : // The baseline is an inset shadow so the active underline can cover it without
+            // overflowing (a scrollable tablist would otherwise grow a 1px vertical scrollbar).
+            'flex gap-1 shadow-[inset_0_-1px_0_rgb(var(--theme-border-subtle-rgb))]',
         fullWidth && 'w-full',
         className
       )}
@@ -94,7 +96,7 @@ export function Tabs<T extends string>({
                       : 'text-theme-text-muted hover:bg-theme-surface-raised/60 hover:text-theme-text'
                   )
                 : cn(
-                    '-mb-px border-b-2',
+                    'border-b-2',
                     active
                       ? 'border-theme-accent text-theme-text'
                       : 'border-transparent text-theme-text-muted hover:text-theme-text'

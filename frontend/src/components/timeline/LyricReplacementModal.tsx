@@ -1,31 +1,37 @@
 /**
  * Lyric Replacement / Re-Import Modal Component
  *
- * Focus-trapped dialog allowing users to:
- * 1. Manually paste new plain or LRC lyrics with a live syntax inspector.
- * 2. Interactively search LRCLIB candidates by title & artist, review duration & sync badges,
- *    expand line previews in an accordion, and apply the chosen candidate.
- * 3. Acoustically realign words without re-running Demucs stem separation.
+ * Replaces a song's lyrics without re-running stem separation:
+ * 1. Paste plain or LRC lyrics, with a live syntax inspector.
+ * 2. Search LRCLIB candidates by title and artist, preview their lines and apply one.
+ * 3. Re-fetch from LRCLIB with the song's own metadata.
+ * New lyrics are aligned against the existing vocal stem.
  */
 
 import React, { useState } from 'react';
 import {
   FileText,
   RefreshCw,
-  X,
-  Loader2,
   Sparkles,
   AlertCircle,
   Search,
   ChevronDown,
-  ChevronUp,
   CheckCircle2,
+  Info,
   Music,
 } from 'lucide-react';
 import { LyricCandidate, LyricLine } from '../../types';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { apiFetch } from '../../api';
 import { useToast } from '../../hooks/useToast';
+import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
+import { Button } from '../ui/Button';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import { EmptyState } from '../ui/EmptyState';
+import { cn } from '../../utils/cn';
+import { formatTime } from '../../utils/format';
+
+const fieldCls =
+  'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm md:min-h-[38px]';
 
 export interface LyricReplacementModalProps {
   isOpen: boolean;
@@ -58,19 +64,9 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
   const [expandedCandidateId, setExpandedCandidateId] = useState<string | number | null>(null);
   const [applyingCandidateId, setApplyingCandidateId] = useState<string | number | null>(null);
 
-  const modalRef = useFocusTrap<HTMLDivElement>({
-    isOpen,
-    onClose: isLoading ? () => {} : onClose,
-  });
-
-  if (!isOpen) return null;
-
-  // Format seconds to mm:ss
-  const formatDuration = (seconds?: number) => {
-    if (!seconds || seconds <= 0 || !Number.isFinite(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const isBusy = isLoading || isSearching;
+  const handleClose = () => {
+    if (!isLoading) onClose();
   };
 
   // Live Paste Syntax Inspector calculation
@@ -92,7 +88,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
           lrcLines.length === totalLines
             ? 'All lines contain valid LRC timestamps'
             : `${lrcLines.length} of ${totalLines} lines contain LRC timestamps`,
-        className: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+        className: 'border-theme-success/35 bg-theme-success/10 text-theme-success',
       };
     }
 
@@ -100,7 +96,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
       type: 'plain' as const,
       text: `ℹ Plain Text (${totalLines} lines, will require alignment)`,
       detail: 'Untimed text will be acoustically aligned to vocal stem',
-      className: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300',
+      className: 'border-theme-info/35 bg-theme-info/10 text-theme-info',
     };
   };
 
@@ -255,178 +251,140 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
   };
 
   return (
-    <div
-      ref={modalRef}
-      tabIndex={-1}
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="lyric-replacement-title"
-      aria-describedby="lyric-replacement-desc"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+    <Dialog
+      open={isOpen}
+      onClose={handleClose}
+      titleId="lyric-replacement-title"
+      descriptionId="lyric-replacement-desc"
+      size="2xl"
+      showDragHandle
     >
-      <div className="bg-slate-900 border border-slate-800 rounded-t-2xl sm:rounded-2xl rounded-b-none sm:rounded-b-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
-        <div
-          data-testid="bottom-sheet-drag-handle"
-          className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-2 sm:hidden shrink-0"
-        />
-        {/* Header */}
-        <div className="flex items-center justify-between pb-2 border-b border-slate-800 shrink-0">
-          <div className="flex items-center gap-2.5 text-cyan-400">
-            <div className="p-2 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
-              <FileText className="w-5 h-5 text-cyan-400" />
-            </div>
-            <div>
-              <h3 id="lyric-replacement-title" className="text-base font-bold text-white">
-                Replace / Re-align Lyrics
-              </h3>
-              <p id="lyric-replacement-desc" className="text-xs text-slate-400">
-                Update lyrics without re-running stem separation
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isLoading || isSearching}
-            aria-label="Close dialog"
-            className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 disabled:opacity-50 flex items-center justify-center"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <DialogHeader
+        title="Replace / Re-align Lyrics"
+        titleId="lyric-replacement-title"
+        description="Update lyrics without re-running stem separation"
+        descriptionId="lyric-replacement-desc"
+        icon={<FileText className="h-5 w-5" />}
+        onClose={handleClose}
+        closeDisabled={isBusy}
+      />
 
-        {/* Tab Buttons */}
-        <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800 shrink-0">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('paste');
-              setErrorMsg(null);
-            }}
-            className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-              activeTab === 'paste'
-                ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 shadow'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Paste Lyrics / LRC
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('lrclib');
-              setErrorMsg(null);
-            }}
-            className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 transition-all ${
-              activeTab === 'lrclib'
-                ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 shadow'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <RefreshCw className="w-4 h-4" />
-            Re-query LRCLIB
-          </button>
-        </div>
+      <div className="space-y-4">
+        <SegmentedControl<'paste' | 'lrclib'>
+          ariaLabel="Lyric source"
+          value={activeTab}
+          onChange={(tab) => {
+            setActiveTab(tab);
+            setErrorMsg(null);
+          }}
+          fullWidth
+          tone="neutral"
+          size="sm"
+          options={[
+            {
+              value: 'paste',
+              label: 'Paste Lyrics / LRC',
+              icon: <FileText className="h-4 w-4" aria-hidden="true" />,
+            },
+            {
+              value: 'lrclib',
+              label: 'Re-query LRCLIB',
+              icon: <RefreshCw className="h-4 w-4" aria-hidden="true" />,
+            },
+          ]}
+        />
 
         {errorMsg && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2 shrink-0">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3 text-xs text-theme-danger"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{errorMsg}</span>
           </div>
         )}
 
-        {/* Tab 1: Paste Plain or LRC Lyrics */}
         {activeTab === 'paste' && (
-          <form onSubmit={handlePasteSubmit} className="space-y-3 flex-1 flex flex-col min-h-0">
-            <div className="space-y-1 flex-1 flex flex-col min-h-0">
-              <label
-                htmlFor="custom-lyrics-textarea"
-                className="text-xs font-semibold text-slate-300"
-              >
-                Lyric Text or LRC Timestamps
-              </label>
-              <textarea
-                id="custom-lyrics-textarea"
-                rows={8}
-                value={lyricsText}
-                onChange={(e) => setLyricsText(e.target.value)}
-                placeholder="[00:12.34] First lyric line&#10;[00:16.78] Second line&#10;Or paste plain untimed lyrics..."
-                className="w-full flex-1 min-h-[160px] px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 text-white text-xs font-mono outline-none resize-none transition-all placeholder:text-slate-600"
-              />
+          <form onSubmit={handlePasteSubmit}>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label
+                  htmlFor="custom-lyrics-textarea"
+                  className="text-xs font-semibold text-theme-text"
+                >
+                  Lyric Text or LRC Timestamps
+                </label>
+                <textarea
+                  id="custom-lyrics-textarea"
+                  rows={8}
+                  value={lyricsText}
+                  onChange={(e) => setLyricsText(e.target.value)}
+                  placeholder="[00:12.34] First lyric line&#10;[00:16.78] Second line&#10;Or paste plain untimed lyrics..."
+                  className="min-h-[160px] w-full resize-y rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 font-mono text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-xs"
+                />
+              </div>
+
+              {pasteInspector && (
+                <div
+                  data-testid="paste-syntax-inspector"
+                  className={cn(
+                    'flex flex-wrap items-center justify-between gap-2 rounded-theme-md border p-2.5 text-xs',
+                    pasteInspector.className
+                  )}
+                >
+                  <div className="flex items-center gap-1.5 font-bold">
+                    {pasteInspector.type === 'synced' ? (
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Info className="h-4 w-4" aria-hidden="true" />
+                    )}
+                    <span>{pasteInspector.text}</span>
+                  </div>
+                  <span className="text-[11px] opacity-80">{pasteInspector.detail}</span>
+                </div>
+              )}
+
+              <p className="text-[11px] text-theme-text-muted">
+                Auto-detects LRC timestamps or runs acoustic forced alignment across your existing
+                vocal stem.
+              </p>
             </div>
 
-            {/* Live Paste Syntax Inspector */}
-            {pasteInspector && (
-              <div
-                data-testid="paste-syntax-inspector"
-                className={`p-2.5 rounded-xl border text-xs flex flex-wrap items-center justify-between gap-2 transition-all shrink-0 ${pasteInspector.className}`}
-              >
-                <div className="flex items-center gap-1.5 font-bold">
-                  {pasteInspector.type === 'synced' ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  ) : (
-                    <FileText className="w-4 h-4 text-cyan-400" />
-                  )}
-                  <span>{pasteInspector.text}</span>
-                </div>
-                <span className="text-[11px] opacity-80">{pasteInspector.detail}</span>
-              </div>
-            )}
-
-            <p className="text-[11px] text-slate-400 shrink-0">
-              Auto-detects LRC timestamps or runs acoustic forced alignment across your existing
-              vocal stem.
-            </p>
-
-            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 pt-2 shrink-0">
-              <button
-                type="button"
-                onClick={onClose}
+            <DialogFooter>
+              <Button
+                variant="secondary"
+                fullWidth="mobile"
+                onClick={handleClose}
                 disabled={isLoading}
-                className="w-full sm:w-auto min-h-[44px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 type="submit"
-                disabled={isLoading || !lyricsText.trim()}
-                className="w-full sm:w-auto min-h-[44px] px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-bold transition-all shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                variant="gradient"
+                fullWidth="mobile"
+                disabled={!lyricsText.trim()}
+                loading={isLoading}
+                loadingLabel="Aligning Lyrics..."
+                leftIcon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Aligning Lyrics...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    Re-align Lyrics
-                  </>
-                )}
-              </button>
-            </div>
+                Re-align Lyrics
+              </Button>
+            </DialogFooter>
           </form>
         )}
 
-        {/* Tab 2: Candidate Search & Paste Inspector */}
         {activeTab === 'lrclib' && (
-          <div className="space-y-4 flex-1 flex flex-col min-h-0 overflow-hidden">
-            {/* Interactive Candidate Search Form */}
+          <div className="space-y-4">
             <form
               onSubmit={handleSearchCandidates}
-              className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-3 shrink-0"
+              className="space-y-3 rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60 p-3.5"
             >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label
                     htmlFor="candidate-track-title"
-                    className="text-[11px] font-semibold text-slate-400"
+                    className="text-[11px] font-semibold text-theme-text-muted"
                   >
                     Track Title
                   </label>
@@ -436,13 +394,13 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                     value={searchTitle}
                     onChange={(e) => setSearchTitle(e.target.value)}
                     placeholder="Track Title"
-                    className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                    className={fieldCls}
                   />
                 </div>
                 <div className="space-y-1">
                   <label
                     htmlFor="candidate-artist-name"
-                    className="text-[11px] font-semibold text-slate-400"
+                    className="text-[11px] font-semibold text-theme-text-muted"
                   >
                     Artist Name
                   </label>
@@ -452,58 +410,50 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                     value={searchArtist}
                     onChange={(e) => setSearchArtist(e.target.value)}
                     placeholder="Artist Name"
-                    className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                    className={fieldCls}
                   />
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <span className="text-[11px] text-slate-400">
-                  Target: <span className="text-white font-bold">{trackTitle}</span> by{' '}
-                  <span className="text-white font-bold">{trackArtist}</span>
+                <span className="text-[11px] text-theme-text-muted">
+                  Target: <span className="font-bold text-theme-text">{trackTitle}</span> by{' '}
+                  <span className="font-bold text-theme-text">{trackArtist}</span>
                 </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={handleBlindLrclibSubmit}
-                    disabled={isLoading || isSearching}
+                    disabled={isBusy}
                     title="Directly re-query LRCLIB using original song metadata"
-                    className="min-h-[36px] px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                    leftIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
                     Fetch from LRCLIB
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
-                    disabled={isSearching || (!searchTitle.trim() && !searchArtist.trim())}
-                    className="min-h-[36px] px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all shadow-md shadow-cyan-600/20 flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    variant="gradient"
+                    size="sm"
+                    disabled={!searchTitle.trim() && !searchArtist.trim()}
+                    loading={isSearching}
+                    loadingLabel="Searching..."
+                    leftIcon={<Search className="h-3.5 w-3.5" aria-hidden="true" />}
                   >
-                    {isSearching ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Searching...
-                      </>
-                    ) : (
-                      <>
-                        <Search className="w-3.5 h-3.5" />
-                        Search Candidates
-                      </>
-                    )}
-                  </button>
+                    Search Candidates
+                  </Button>
                 </div>
               </div>
             </form>
 
-            {/* Candidate Results List */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 min-h-[120px]">
+            <div className="space-y-2.5">
               {candidates.length === 0 && !isSearching && (
-                <div className="p-6 rounded-xl bg-slate-950/60 border border-slate-800/80 text-center space-y-2">
-                  <Music className="w-8 h-8 text-slate-600 mx-auto" />
-                  <p className="text-xs text-slate-400">
-                    Click &quot;Search Candidates&quot; above to find alternative lyric versions on
-                    LRCLIB.
-                  </p>
-                </div>
+                <EmptyState
+                  icon={<Music className="h-6 w-6" />}
+                  title="No candidates yet"
+                  description='Click "Search Candidates" above to find alternative lyric versions on LRCLIB.'
+                  className="py-6"
+                />
               )}
 
               {candidates.map((cand, cIdx) => {
@@ -518,89 +468,84 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                   <div
                     key={candId}
                     data-testid={`lyric-candidate-${cIdx}`}
-                    className="p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all space-y-2"
+                    className="space-y-2 rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60 p-3 transition-colors hover:border-theme-border"
                   >
-                    {/* Candidate Header Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-white truncate">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-bold text-theme-text">
                             {cand.track_name || 'Untitled Track'}
                           </span>
-                          {/* Badges: [Synced LRC] vs [Plain Lyrics] */}
                           {hasSynced ? (
                             <span
                               data-testid="badge-synced-lrc"
-                              className="px-2 py-0.5 rounded text-[10px] font-bold font-mono tracking-wider bg-emerald-500/15 border border-emerald-500/30 text-emerald-300"
+                              className="rounded-theme-sm border border-theme-success/35 bg-theme-success/15 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-success"
                             >
                               [Synced LRC]
                             </span>
                           ) : (
                             <span
                               data-testid="badge-plain-lyrics"
-                              className="px-2 py-0.5 rounded text-[10px] font-bold font-mono tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-300"
+                              className="rounded-theme-sm border border-theme-warning/35 bg-theme-warning/15 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-warning"
                             >
                               [Plain Lyrics]
                             </span>
                           )}
                           {cand.instrumental && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-500/15 border border-purple-500/30 text-purple-300">
+                            <span className="rounded-theme-sm border border-theme-accent/35 bg-theme-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-theme-highlight">
                               Instrumental
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-slate-400 mt-0.5 truncate">
+                        <p className="mt-0.5 truncate text-xs text-theme-text-muted">
                           {cand.artist_name || 'Unknown Artist'} •{' '}
                           {cand.album_name || 'Single / Unknown Album'} •{' '}
-                          <span className="font-mono">{formatDuration(cand.duration)}</span>
+                          <span className="font-mono tabular-nums">
+                            {formatTime(cand.duration)}
+                          </span>
                         </p>
                       </div>
 
-                      {/* Actions: Expand Preview & Apply This Candidate */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setExpandedCandidateId(isExpanded ? null : candId)}
                           aria-expanded={isExpanded}
                           aria-label={`Toggle line preview for ${cand.track_name}`}
-                          className="min-h-[34px] px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 text-xs font-medium transition-colors flex items-center gap-1 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+                          rightIcon={
+                            <ChevronDown
+                              className={cn(
+                                'h-3.5 w-3.5 transition-transform',
+                                isExpanded && 'rotate-180'
+                              )}
+                              aria-hidden="true"
+                            />
+                          }
                         >
-                          <span>Preview Lines</span>
-                          {isExpanded ? (
-                            <ChevronUp className="w-3.5 h-3.5" />
-                          ) : (
-                            <ChevronDown className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-                        <button
-                          type="button"
+                          Preview Lines
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
                           onClick={() => handleApplyCandidate(cand)}
                           disabled={isLoading || applyingCandidateId !== null}
                           aria-label={`Apply candidate ${cand.track_name} by ${cand.artist_name}`}
-                          className="min-h-[34px] px-3.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-all shadow-md shadow-cyan-600/20 flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                          loading={isApplying}
+                          loadingLabel="Applying..."
+                          leftIcon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
                         >
-                          {isApplying ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              Applying...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-3.5 h-3.5" />
-                              Apply This Candidate
-                            </>
-                          )}
-                        </button>
+                          Apply This Candidate
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Expandable Line Preview Accordion */}
                     {isExpanded && (
                       <div
                         data-testid={`candidate-preview-${cIdx}`}
-                        className="mt-2 p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs font-mono text-slate-300 max-h-40 overflow-y-auto whitespace-pre-wrap leading-relaxed space-y-1"
+                        className="mt-2 max-h-40 space-y-1 overflow-y-auto whitespace-pre-wrap rounded-theme-md border border-theme-border-subtle bg-theme-surface p-3 font-mono text-xs leading-relaxed text-theme-text"
                       >
-                        <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider pb-1 border-b border-slate-800 flex justify-between">
+                        <div className="flex justify-between border-b border-theme-border-subtle pb-1 text-[10px] font-bold uppercase tracking-wider text-theme-highlight">
                           <span>Lyric Content Preview</span>
                           <span>{hasSynced ? 'LRC Timed' : 'Plain Text'}</span>
                         </div>
@@ -612,20 +557,19 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
               })}
             </div>
 
-            {/* Modal Bottom Cancel Button */}
-            <div className="flex justify-end pt-2 border-t border-slate-800 shrink-0">
-              <button
-                type="button"
-                onClick={onClose}
-                disabled={isLoading || isSearching}
-                className="min-h-[40px] px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 disabled:opacity-50"
+            <DialogFooter>
+              <Button
+                variant="secondary"
+                fullWidth="mobile"
+                onClick={handleClose}
+                disabled={isBusy}
               >
                 Close
-              </button>
-            </div>
+              </Button>
+            </DialogFooter>
           </div>
         )}
       </div>
-    </div>
+    </Dialog>
   );
 };

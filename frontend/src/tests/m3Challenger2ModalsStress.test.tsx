@@ -421,7 +421,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
       const closeBtn = screen.getByRole('button', { name: /close export dialog/i });
       expect(closeBtn.className).toContain('min-w-[44px]');
       expect(closeBtn.className).toContain('min-h-[44px]');
-      expect(closeBtn.className).toContain('focus:ring');
+      expect(closeBtn.className).toMatch(/focus(-visible)?:ring/);
       expect(closeBtn).toHaveAttribute('aria-label');
     });
 
@@ -456,7 +456,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
       const closeBtn = screen.getByRole('button', { name: /close edit metadata dialog/i });
       expect(closeBtn.className).toContain('min-w-[44px]');
       expect(closeBtn.className).toContain('min-h-[44px]');
-      expect(closeBtn.className).toContain('focus:ring');
+      expect(closeBtn.className).toMatch(/focus(-visible)?:ring/);
     });
 
     it('DeleteConfirmModal: close button satisfies >=44x44px touch target', () => {
