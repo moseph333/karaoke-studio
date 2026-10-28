@@ -19,6 +19,8 @@ import { StageLyrics } from './stage/StageLyrics';
 import { StageFloatingControls } from './stage/StageFloatingControls';
 import { NormalizedSinger, normalizeSingerRole } from './stage/singers';
 import { cn } from '../utils/cn';
+import { useRegisterCommands } from './commandPalette/context';
+import { Maximize, Minimize } from 'lucide-react';
 
 export interface LyricDisplayProps {
   lines: LyricLine[];
@@ -244,6 +246,18 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       // Pseudo-fullscreen keeps working without the native Fullscreen API
     }
   }, [isFullscreen]);
+
+  useRegisterCommands('stage-fullscreen', [
+    {
+      id: 'stage-fullscreen',
+      title: isFullscreen ? 'Exit fullscreen stage' : 'Enter fullscreen stage',
+      group: 'Stage',
+      icon: isFullscreen ? <Minimize /> : <Maximize />,
+      shortcut: ['F'],
+      keywords: ['tv', 'big screen', 'present'],
+      run: toggleFullscreen,
+    },
+  ]);
 
   // Sync state when the user leaves native fullscreen (Esc / F11)
   useEffect(() => {

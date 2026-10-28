@@ -57,7 +57,9 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
   // re-separation) the element reloads from 0; restore position and play state afterwards.
   const lastTimeRef = useRef(0);
   const isPlayingRef = useRef(false);
-  const restoreRef = useRef<{ time: number; play: boolean } | null>(null);
+  // `queued` marks a seek requested before the media loaded (deep links), which must survive
+  // the project switch that loads it; positions captured from the previous song must not.
+  const restoreRef = useRef<{ time: number; play: boolean; queued?: boolean } | null>(null);
   const prevSourceRef = useRef<string | undefined>(project?.master_audio_url);
   isPlayingRef.current = isPlaying;
 
@@ -77,7 +79,7 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
     if (prevProjectIdRef.current !== project?.id) {
       prevProjectIdRef.current = project?.id;
       // New project: forget a source-swap restore captured for the previous song
-      if (restoreRef.current?.play) restoreRef.current = null;
+      if (!restoreRef.current?.queued) restoreRef.current = null;
       if (!restoreRef.current) lastTimeRef.current = 0;
     }
   }, [project?.id]);
@@ -189,7 +191,7 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
       el.currentTime = time;
       return;
     }
-    restoreRef.current = { time, play: false };
+    restoreRef.current = { time, play: false, queued: true };
   }, []);
 
   const getCurrentTime = useCallback(() => {

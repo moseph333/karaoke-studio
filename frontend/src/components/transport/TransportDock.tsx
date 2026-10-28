@@ -27,6 +27,8 @@ import {
   setStoredMasterVolume,
 } from '../../utils/volumeStorage';
 import { useInterpolatedTime } from '../../hooks/useInterpolatedTime';
+import { useMediaSession } from '../../hooks/useMediaSession';
+import { lineStartAtOffset } from '../../utils/lineNavigation';
 
 export interface TransportDockProps {
   masterAudioUrl?: string;
@@ -55,6 +57,10 @@ export interface TransportDockProps {
   /** Opens the key / mix settings (mobile Mix tab or desktop inspector). */
   onOpenMixSettings?: () => void;
   peaks?: number[] | null;
+  /** Song details for the OS media controls (lock screen, media keys). */
+  mediaTitle?: string;
+  mediaArtist?: string;
+  mediaArtworkUrl?: string;
   className?: string;
 }
 
@@ -140,6 +146,9 @@ export const TransportDock: React.FC<TransportDockProps> = ({
   isRemixing = false,
   onOpenMixSettings,
   peaks,
+  mediaTitle,
+  mediaArtist,
+  mediaArtworkUrl,
   className,
 }) => {
   const dockRef = useRef<HTMLElement>(null);
@@ -190,6 +199,38 @@ export const TransportDock: React.FC<TransportDockProps> = ({
   useEffect(() => {
     setPlaybackError(null);
   }, [masterAudioUrl]);
+
+  // Media keys, headset buttons and the lock screen drive the transport; previous/next
+  // track step through lyric lines.
+  const elementTime = () => resolvedAudioRef.current?.currentTime ?? currentTime;
+  const seekLine = (offset: -1 | 1) => {
+    const steps = (lines ?? []).map((l) => ({
+      start_time: l.start_time ?? l.start ?? 0,
+      end_time: l.end_time ?? l.end ?? 0,
+    }));
+    const target = lineStartAtOffset(steps, elementTime(), offset);
+    if (target !== null) onSeek(target);
+  };
+  useMediaSession({
+    enabled: Boolean(masterAudioUrl),
+    title: mediaTitle,
+    artist: mediaArtist,
+    artworkUrl: mediaArtworkUrl,
+    isPlaying,
+    duration,
+    playbackRate,
+    getCurrentTime: elementTime,
+    audioRef: resolvedAudioRef,
+    onPlay: () => {
+      if (!isPlaying) onTogglePlay();
+    },
+    onPause: () => {
+      if (isPlaying) onTogglePlay();
+    },
+    onSeek,
+    onPreviousLine: () => seekLine(-1),
+    onNextLine: () => seekLine(1),
+  });
 
   // Publish the dock height (--dock-height) so page padding and toasts clear the dock
   useEffect(() => {

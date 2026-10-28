@@ -143,6 +143,28 @@ describe('useStudioAudio', () => {
     });
   });
 
+  describe('switching songs', () => {
+    it('starts the next song from the top even when paused mid-song', async () => {
+      const { rerender } = render(<Harness project={baseProject} />);
+      const el = screen.getByTestId('harness-audio') as HTMLAudioElement;
+      setElementTime(el, 90);
+
+      rerender(
+        <Harness
+          project={{ ...baseProject, id: 'p2', master_audio_url: '/static/output/p2.wav' }}
+        />
+      );
+      setElementTime(el, 0);
+      await act(async () => {
+        fireEvent.loadedMetadata(el);
+      });
+
+      expect(el.currentTime).toBe(0);
+      expect(hook.getCurrentTime()).toBe(0);
+      expect(el.play).not.toHaveBeenCalled();
+    });
+  });
+
   describe('queueSeek (deep links)', () => {
     it('applies a queued seek once metadata has loaded', async () => {
       render(<Harness project={baseProject} />);
