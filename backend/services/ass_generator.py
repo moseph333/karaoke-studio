@@ -83,9 +83,26 @@ VISUAL_THEMES: dict[str, dict[str, Any]] = {
         "shadow_width": 2,
         "font_name": "Arial",
     },
+    "afterglow": {
+        "id": "afterglow",
+        "name": "Afterglow",
+        "description": "Ink-black stage with a warm gold sweep and violet-to-rose duet glow",
+        "primary_color": "&H0024BFFB",  # #fbbf24 (Warm Gold) -> BGR &H0024BFFB
+        "secondary_color": "&H00FFEBED",  # #edebff (Lilac White) -> BGR &H00FFEBED
+        "outline_color": "&H00120B0B",  # #0b0b12 (Ink) outline
+        "shadow_color": "&H80120B0B",  # Soft ink shadow
+        "outline_width": 3,
+        "shadow_width": 2,
+        "font_name": "Sora",
+        "singer2_color": "&H00B672F4",  # #f472b6 (Rose)
+        "both_color": "&H00D4EA5E",  # #5eead4 (Aqua)
+    },
 }
 
 DEFAULT_THEME_ID = "modern_gold"
+
+DEFAULT_SINGER2_COLOR = "&H00B300FF"  # #ff00b3
+DEFAULT_BOTH_COLOR = "&H0050FA7B"  # #7bfa50
 
 
 def css_to_ass_color(color: str, default: str = "&H0000D7FF") -> str:
@@ -299,12 +316,21 @@ def generate_ass_content(
     elif cfg.get("secondary_color"):
         cfg["secondary_color"] = css_to_ass_color(cfg["secondary_color"], default="&H00FFFFFF")
 
-    # Resolve Singer 2 and Both sung colors with robust defaults
-    s2_raw = singer2_color or (style_config or {}).get("singer2_color")
-    singer2_color_val = css_to_ass_color(s2_raw, default="&H00B300FF") if s2_raw else "&H00B300FF"
+    # Resolve Singer 2 and Both sung colors: explicit arg > style_config > preset > defaults
+    preset = VISUAL_THEMES.get(eff_theme_id or "", {}) if eff_theme_id else {}
+    s2_raw = (
+        singer2_color
+        or (style_config or {}).get("singer2_color")
+        or preset.get("singer2_color")
+    )
+    singer2_color_val = (
+        css_to_ass_color(s2_raw, default=DEFAULT_SINGER2_COLOR) if s2_raw else DEFAULT_SINGER2_COLOR
+    )
 
-    both_raw = both_color or (style_config or {}).get("both_color")
-    both_color_val = css_to_ass_color(both_raw, default="&H0050FA7B") if both_raw else "&H0050FA7B"
+    both_raw = both_color or (style_config or {}).get("both_color") or preset.get("both_color")
+    both_color_val = (
+        css_to_ass_color(both_raw, default=DEFAULT_BOTH_COLOR) if both_raw else DEFAULT_BOTH_COLOR
+    )
 
     font_name = cfg.get("font_name", "DejaVu Sans")
     base_font_size = cfg.get("font_size", default_font_size)

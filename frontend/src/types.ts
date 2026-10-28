@@ -127,6 +127,12 @@ export interface VisualTheme {
   previewUnsung: string;
   sync_mode?: SyncDisplayMode;
   fontFamily?: string;
+  /** Solid stage backdrop shared by the live preview and the video renderer fallback. */
+  stageBg?: string;
+  /** Preset-specific duet palette (falls back to the export defaults when omitted). */
+  singer2Color?: string;
+  bothColor?: string;
+  tone?: 'dark' | 'light';
 }
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
@@ -205,7 +211,8 @@ export interface ChordsUpdateRequest {
 // Application Theme Engine Types
 // ==========================================
 
-export type AppThemeId = 'punk_diy' | 'tape_studio_70s' | 'dive_bar_crt' | 'clean_paper';
+export type AppThemeId =
+  'afterglow' | 'punk_diy' | 'tape_studio_70s' | 'dive_bar_crt' | 'clean_paper';
 
 export interface AppThemeColors {
   bg: string;
@@ -224,6 +231,13 @@ export interface AppThemeColors {
   highlight: string;
   sung: string;
   unsung: string;
+  // Semantic status & interaction tokens (optional so ad-hoc palettes stay valid)
+  success?: string;
+  warning?: string;
+  danger?: string;
+  info?: string;
+  focus?: string;
+  overlay?: string;
 }
 
 export interface AppThemeTypography {
@@ -257,6 +271,15 @@ export interface AppThemeSwatches {
   bg: string;
 }
 
+export interface AppThemeEffects {
+  /** Brand gradient used for primary CTAs and the brand mark. */
+  gradientAccent: string;
+  /** Ambient stage backdrop gradient. */
+  gradientStage: string;
+  /** Alpha (0-1) applied to translucent "glass" surfaces such as the transport dock. */
+  glassAlpha: string;
+}
+
 export interface AppThemeBorders {
   radius: string;
   width: string;
@@ -267,7 +290,7 @@ export interface AppTheme {
   id: AppThemeId;
   name: string;
   tagline: string;
-  stagePresetId: 'punk_diy' | 'tape_70s' | 'crt_ktv' | 'clean_paper';
+  stagePresetId: 'afterglow' | 'punk_diy' | 'tape_70s' | 'crt_ktv' | 'clean_paper';
   swatches: AppThemeSwatches;
   colors: AppThemeColors;
   typography: AppThemeTypography;
@@ -275,6 +298,7 @@ export interface AppTheme {
   geometry: AppThemeGeometry;
   borders?: AppThemeBorders;
   shadows: AppThemeShadows;
+  effects?: AppThemeEffects;
   cssVariables: Record<string, string>;
 }
 

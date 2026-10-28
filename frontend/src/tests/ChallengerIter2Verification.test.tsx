@@ -4,7 +4,7 @@
  * Verifies:
  * 1. Prototype traversal vulnerability resolution:
  *    - isAppThemeId('toString') === false, valueOf, constructor, __proto__, etc.
- *    - getAppTheme('toString') returns default 'punk_diy'
+ *    - getAppTheme('toString') returns default 'afterglow'
  *    - localStorage pre-seeded with 'toString' boots safely without uncaught TypeError
  *    - multi-tab storage event with 'toString'
  *    - setTheme('toString') behavior
@@ -26,6 +26,8 @@ import {
   APP_THEME_STORAGE_KEY,
 } from '../theme/appThemes';
 import { AppTheme, AppThemeId } from '../types';
+import { ALL_APP_THEME_IDS } from './themeFixtures';
+import { runIndexHtmlBootScript } from './bootScriptUtils';
 
 describe('Challenger M1 Iteration 2 Verification Suite', () => {
   beforeEach(() => {
@@ -59,28 +61,28 @@ describe('Challenger M1 Iteration 2 Verification Suite', () => {
       }
     });
 
-    it('returns default punk_diy theme when getAppTheme is called with prototype properties', () => {
+    it('returns default afterglow theme when getAppTheme is called with prototype properties', () => {
       for (const key of requiredProtoKeys) {
         const theme = getAppTheme(key);
         expect(theme).toBeDefined();
-        expect(theme.id).toBe('punk_diy');
+        expect(theme.id).toBe('afterglow');
         expect(theme.colors).toBeDefined();
         expect(theme.cssVariables).toBeDefined();
         expect(typeof theme.colors.bg).toBe('string');
       }
     });
 
-    it('returns default punk_diy theme when getAppTheme is called with any Object.prototype property', () => {
+    it('returns default afterglow theme when getAppTheme is called with any Object.prototype property', () => {
       for (const key of fullObjectProtoKeys) {
         const theme = getAppTheme(key);
         expect(theme).toBeDefined();
-        expect(theme.id).toBe('punk_diy');
+        expect(theme.id).toBe('afterglow');
       }
     });
 
-    it('getStoredAppTheme returns punk_diy when localStorage is pre-seeded with toString', () => {
+    it('getStoredAppTheme returns afterglow when localStorage is pre-seeded with toString', () => {
       localStorage.setItem(APP_THEME_STORAGE_KEY, 'toString');
-      expect(getStoredAppTheme()).toBe('punk_diy');
+      expect(getStoredAppTheme()).toBe('afterglow');
     });
 
     it('boots <AppThemeProvider> safely without uncaught TypeError when localStorage contains toString', () => {
@@ -105,11 +107,11 @@ describe('Challenger M1 Iteration 2 Verification Suite', () => {
         );
       }).not.toThrow();
 
-      expect(screen.getByTestId('current-theme')).toHaveTextContent('punk_diy');
-      expect(screen.getByTestId('theme-name')).toHaveTextContent(APP_THEMES.punk_diy.name);
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(screen.getByTestId('current-theme')).toHaveTextContent('afterglow');
+      expect(screen.getByTestId('theme-name')).toHaveTextContent(APP_THEMES.afterglow.name);
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
       expect(document.documentElement.style.getPropertyValue('--theme-bg')).toBe(
-        APP_THEMES.punk_diy.colors.bg
+        APP_THEMES.afterglow.colors.bg
       );
     });
 
@@ -134,8 +136,8 @@ describe('Challenger M1 Iteration 2 Verification Suite', () => {
           </AppThemeProvider>
         );
 
-        expect(screen.getByTestId(`theme-${key}`)).toHaveTextContent('punk_diy');
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(screen.getByTestId(`theme-${key}`)).toHaveTextContent('afterglow');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
         unmount();
       }
     });
@@ -161,11 +163,11 @@ describe('Challenger M1 Iteration 2 Verification Suite', () => {
         );
       });
 
-      expect(screen.getByTestId('active-theme')).toHaveTextContent('punk_diy');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(screen.getByTestId('active-theme')).toHaveTextContent('afterglow');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
 
-    it('survives calling setTheme("toString") without throwing and remains on punk_diy', () => {
+    it('survives calling setTheme("toString") without throwing and remains on afterglow', () => {
       const Mutator = () => {
         const { currentThemeId, setTheme } = useAppTheme();
         return (
@@ -188,8 +190,8 @@ describe('Challenger M1 Iteration 2 Verification Suite', () => {
         screen.getByRole('button', { name: 'Inject toString' }).click();
       });
 
-      expect(screen.getByTestId('theme-val')).toHaveTextContent('punk_diy');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(screen.getByTestId('theme-val')).toHaveTextContent('afterglow');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
 
     it('applyThemeToDom handles null/undefined/missing cssVariables without TypeError', () => {
@@ -207,9 +209,9 @@ describe('Challenger M1 Iteration 2 Verification Suite', () => {
   // Part 2: 4-Dimensional Distinctness Verification
   // =========================================================================
   describe('Part 2: 4-Dimensional Distinctness Criteria', () => {
-    const themeIds: AppThemeId[] = ['punk_diy', 'tape_studio_70s', 'dive_bar_crt', 'clean_paper'];
+    const themeIds: AppThemeId[] = [...ALL_APP_THEME_IDS];
 
-    it('verifies all 4 themes exist in APP_THEMES and APP_THEME_LIST', () => {
+    it('verifies all 5 themes exist in APP_THEMES and APP_THEME_LIST', () => {
       expect(Object.keys(APP_THEMES).sort()).toEqual([...themeIds].sort());
       expect(APP_THEME_LIST.map((t) => t.id)).toEqual(themeIds);
     });
@@ -356,30 +358,19 @@ describe('Challenger M1 Iteration 2 Verification Suite', () => {
   // Part 4: Zero-FOUC Blocking Pre-render Script Emulation
   // =========================================================================
   describe('Part 4: Zero-FOUC Script Storage Resilience', () => {
-    function executeZeroFoucInline() {
-      try {
-        const validThemes = ['punk_diy', 'tape_studio_70s', 'dive_bar_crt', 'clean_paper'];
-        const saved = localStorage.getItem('karaoke_app_theme');
-        if (saved && validThemes.indexOf(saved) !== -1) {
-          document.documentElement.setAttribute('data-theme', saved);
-        } else {
-          document.documentElement.setAttribute('data-theme', 'punk_diy');
-        }
-      } catch {
-        document.documentElement.setAttribute('data-theme', 'punk_diy');
-      }
-    }
+    // Executes the real zero-FOUC script shipped in index.html
+    const executeZeroFoucInline = () => runIndexHtmlBootScript();
 
-    it('sets punk_diy when localStorage is pre-seeded with toString or other proto properties', () => {
+    it('sets afterglow when localStorage is pre-seeded with toString or other proto properties', () => {
       for (const protoKey of ['toString', 'valueOf', 'constructor', '__proto__']) {
         localStorage.setItem('karaoke_app_theme', protoKey);
         executeZeroFoucInline();
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
       }
     });
 
     it('sets valid themes when correctly saved in localStorage', () => {
-      const themes = ['tape_studio_70s', 'dive_bar_crt', 'clean_paper', 'punk_diy'];
+      const themes = ['tape_studio_70s', 'dive_bar_crt', 'clean_paper', 'punk_diy', 'afterglow'];
       for (const t of themes) {
         localStorage.setItem('karaoke_app_theme', t);
         executeZeroFoucInline();

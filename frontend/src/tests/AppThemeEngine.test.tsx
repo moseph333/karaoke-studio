@@ -2,9 +2,9 @@
  * Milestone 1 Unit & Integration Test Suite
  *
  * Verifies App Theme Engine core functionality:
- * 1. Token schema & 4-dimension distinctness across all 4 themes
+ * 1. Token schema & 4-dimension distinctness across all 5 themes
  * 2. Punk Rock / Underground / DIY rubric compliance
- * 3. Default boot & pre-render DOM initialization ('punk_diy')
+ * 3. Default boot & pre-render DOM initialization ('afterglow')
  * 4. Interactive theme switching & CSS custom property sync
  * 5. LocalStorage persistence & error resilience
  * 6. Corrupt / invalid key fallback handling
@@ -27,6 +27,7 @@ import {
 } from '../theme/appThemes';
 import { AppThemeId } from '../types';
 import App from '../App';
+import { ALL_APP_THEME_IDS } from './themeFixtures';
 
 describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
   beforeEach(() => {
@@ -39,9 +40,9 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
   // Suite 1: Token Schema & 4-Dimension Distinctness
   // =========================================================================
   describe('Suite 1: Token Schema & 4-Dimension Distinctness', () => {
-    const themeIds: AppThemeId[] = ['punk_diy', 'tape_studio_70s', 'dive_bar_crt', 'clean_paper'];
+    const themeIds: AppThemeId[] = [...ALL_APP_THEME_IDS];
 
-    it('defines exactly the 4 required human-crafted themes', () => {
+    it('defines exactly the 5 application themes', () => {
       expect(Object.keys(APP_THEMES).sort()).toEqual([...themeIds].sort());
       themeIds.forEach((id) => {
         expect(APP_THEMES[id].id).toBe(id);
@@ -113,14 +114,15 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
     });
 
     it('maps every application theme to a valid stage preset ID', () => {
+      expect(APP_THEMES.afterglow.stagePresetId).toBe('afterglow');
       expect(APP_THEMES.punk_diy.stagePresetId).toBe('punk_diy');
       expect(APP_THEMES.tape_studio_70s.stagePresetId).toBe('tape_70s');
       expect(APP_THEMES.dive_bar_crt.stagePresetId).toBe('crt_ktv');
       expect(APP_THEMES.clean_paper.stagePresetId).toBe('clean_paper');
     });
 
-    it('exposes APP_THEME_LIST array containing all 4 themes', () => {
-      expect(APP_THEME_LIST.length).toBe(4);
+    it('exposes APP_THEME_LIST array containing all 5 themes', () => {
+      expect(APP_THEME_LIST.length).toBe(ALL_APP_THEME_IDS.length);
       expect(APP_THEME_LIST.map((t) => t.id)).toEqual(themeIds);
     });
   });
@@ -180,15 +182,15 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
       );
     };
 
-    it('defaults to punk_diy on fresh boot with empty localStorage', () => {
+    it('defaults to afterglow on fresh boot with empty localStorage', () => {
       render(
         <AppThemeProvider>
           <TestConsumer />
         </AppThemeProvider>
       );
-      expect(screen.getByTestId('theme-id')).toHaveTextContent('punk_diy');
-      expect(screen.getByTestId('theme-id-alias')).toHaveTextContent('punk_diy');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(screen.getByTestId('theme-id')).toHaveTextContent('afterglow');
+      expect(screen.getByTestId('theme-id-alias')).toHaveTextContent('afterglow');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
 
     it('injects all required CSS custom properties onto document.documentElement', () => {
@@ -198,7 +200,7 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
         </AppThemeProvider>
       );
       const style = document.documentElement.style;
-      const punk = APP_THEMES.punk_diy;
+      const punk = APP_THEMES[DEFAULT_APP_THEME_ID];
 
       // Both --app-* aliases and --theme-* primary tokens
       expect(style.getPropertyValue('--app-bg')).toBe(punk.colors.bg);
@@ -267,8 +269,8 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
       act(() => {
         screen.getByRole('button', { name: 'Reset Default' }).click();
       });
-      expect(screen.getByTestId('active-theme')).toHaveTextContent('punk_diy');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(screen.getByTestId('active-theme')).toHaveTextContent('afterglow');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
 
     it('survives rapid successive theme switching with atomic consistency', () => {
@@ -365,7 +367,7 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
       return <span data-testid="theme">{currentThemeId}</span>;
     };
 
-    it('falls back to punk_diy when localStorage contains unknown theme key', () => {
+    it('falls back to afterglow when localStorage contains unknown theme key', () => {
       localStorage.setItem('karaoke_app_theme', 'unknown_gradient_cyber_theme');
 
       render(
@@ -374,11 +376,11 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
         </AppThemeProvider>
       );
 
-      expect(screen.getByTestId('theme')).toHaveTextContent('punk_diy');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(screen.getByTestId('theme')).toHaveTextContent('afterglow');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
 
-    it('falls back to punk_diy when localStorage contains empty string or corrupted JSON', () => {
+    it('falls back to afterglow when localStorage contains empty string or corrupted JSON', () => {
       localStorage.setItem('karaoke_app_theme', '');
 
       render(
@@ -387,10 +389,10 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
         </AppThemeProvider>
       );
 
-      expect(screen.getByTestId('theme')).toHaveTextContent('punk_diy');
+      expect(screen.getByTestId('theme')).toHaveTextContent('afterglow');
     });
 
-    it('safely handles calling setTheme with invalid key by defaulting to punk_diy without crashing', () => {
+    it('safely handles calling setTheme with invalid key by defaulting to afterglow without crashing', () => {
       const InvalidCaller: React.FC = () => {
         const { setTheme } = useAppTheme();
         return (
@@ -411,13 +413,13 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
         screen.getByRole('button', { name: 'Call Invalid' }).click();
       });
 
-      expect(screen.getByTestId('theme')).toHaveTextContent('punk_diy');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(screen.getByTestId('theme')).toHaveTextContent('afterglow');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
 
     it('verifies isAppThemeId and getAppTheme edge cases and exports', () => {
-      expect(DEFAULT_APP_THEME_ID).toBe('punk_diy');
-      expect(DEFAULT_THEME_ID).toBe('punk_diy');
+      expect(DEFAULT_APP_THEME_ID).toBe('afterglow');
+      expect(DEFAULT_THEME_ID).toBe('afterglow');
       expect(AppThemeContext).toBeDefined();
 
       applyThemeToDom(APP_THEMES.clean_paper);
@@ -429,8 +431,8 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
       expect(isAppThemeId(undefined)).toBe(false);
 
       expect(getAppTheme('clean_paper').id).toBe('clean_paper');
-      expect(getAppTheme('unknown_id').id).toBe('punk_diy');
-      expect(getAppTheme(null).id).toBe('punk_diy');
+      expect(getAppTheme('unknown_id').id).toBe('afterglow');
+      expect(getAppTheme(null).id).toBe('afterglow');
     });
   });
 
@@ -456,12 +458,14 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
       }).not.toThrow();
     });
 
-    it('returns default punk_diy theme properties from resilient fallback', () => {
+    it('returns default afterglow theme properties from resilient fallback', () => {
       render(<ComponentWithoutProvider />);
 
-      expect(screen.getByTestId('fallback-id')).toHaveTextContent('punk_diy');
-      expect(screen.getByTestId('fallback-name')).toHaveTextContent(APP_THEMES.punk_diy.name);
-      expect(screen.getByTestId('available-count')).toHaveTextContent('4');
+      expect(screen.getByTestId('fallback-id')).toHaveTextContent('afterglow');
+      expect(screen.getByTestId('fallback-name')).toHaveTextContent(APP_THEMES.afterglow.name);
+      expect(screen.getByTestId('available-count')).toHaveTextContent(
+        String(ALL_APP_THEME_IDS.length)
+      );
     });
 
     it('allows setTheme to be called on fallback without error', () => {
@@ -485,7 +489,7 @@ describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
     it('renders <App /> directly without crashing and provides theme context', () => {
       const { container } = render(<App />);
       expect(container).toBeDefined();
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
   });
 });

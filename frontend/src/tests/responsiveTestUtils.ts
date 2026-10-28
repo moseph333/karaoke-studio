@@ -384,3 +384,62 @@ export function assertTouchTargets(
 
   return { total: interactive.length, failed };
 }
+
+/**
+ * Touch-target class tokens accepted by the responsive ergonomics suites.
+ * Shared by `assertTouchTargets` callers and `expectTouchTarget`.
+ */
+export const TOUCH_TARGET_TOKENS = {
+  44: [
+    'min-h-[44px]',
+    'min-h-[48px]',
+    'min-w-[44px]',
+    'h-11',
+    'h-12',
+    'w-11',
+    'w-12',
+    'p-3',
+    'py-3',
+  ],
+  40: [
+    'min-h-[40px]',
+    'min-h-[44px]',
+    'min-h-[48px]',
+    'h-10',
+    'h-11',
+    'h-12',
+    'p-2.5',
+    'p-3',
+    'py-3',
+  ],
+  36: [
+    'min-h-[36px]',
+    'min-h-[40px]',
+    'min-h-[44px]',
+    'min-h-[48px]',
+    'h-9',
+    'h-10',
+    'h-11',
+    'h-12',
+    'p-2.5',
+    'p-3',
+  ],
+} as const;
+
+/**
+ * Asserts that an element carries at least one touch-target sizing token for the
+ * requested minimum (44 / 40 / 36px). Prefer this over pinning a single class name,
+ * so restyles that keep the touch target intact do not break tests.
+ */
+export function expectTouchTarget(el: Element | null | undefined, min: 44 | 40 | 36 = 44): void {
+  expect(el, 'expected an element to inspect for touch-target sizing').toBeTruthy();
+  const cls = (el as HTMLElement).className;
+  const classString = typeof cls === 'string' ? cls : '';
+  const tokens = TOUCH_TARGET_TOKENS[min];
+  const tokenList = classString.split(/\s+/);
+  const ok = tokens.some((t) => tokenList.includes(t));
+  expect(
+    ok,
+    `expected touch target >= ${min}px (one of ${tokens.join(', ')}) but got class "${classString}"`
+  ).toBe(true);
+}

@@ -28,6 +28,7 @@ const fs = nodeRequire('fs');
 const path = nodeRequire('path');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeProcess = (globalThis as any).process;
+import { runIndexHtmlBootScript } from './bootScriptUtils';
 
 import { StudioHeader } from '../components/StudioHeader';
 import { AppThemeProvider } from '../context/AppThemeContext';
@@ -439,12 +440,13 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
         expectedTheme: string;
         expectedColor: string;
       }> = [
+        { stored: 'afterglow', expectedTheme: 'afterglow', expectedColor: '#0b0b12' },
         { stored: 'punk_diy', expectedTheme: 'punk_diy', expectedColor: '#0d0d0f' },
         { stored: 'tape_studio_70s', expectedTheme: 'tape_studio_70s', expectedColor: '#1a1410' },
         { stored: 'dive_bar_crt', expectedTheme: 'dive_bar_crt', expectedColor: '#09080f' },
         { stored: 'clean_paper', expectedTheme: 'clean_paper', expectedColor: '#f4f4f0' },
-        { stored: 'corrupted_theme_xyz', expectedTheme: 'punk_diy', expectedColor: '#0d0d0f' },
-        { stored: null, expectedTheme: 'punk_diy', expectedColor: '#0d0d0f' },
+        { stored: 'corrupted_theme_xyz', expectedTheme: 'afterglow', expectedColor: '#0b0b12' },
+        { stored: null, expectedTheme: 'afterglow', expectedColor: '#0b0b12' },
       ];
 
       for (const tc of testCases) {
@@ -454,24 +456,16 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
           localStorage.removeItem(APP_THEME_STORAGE_KEY);
         }
 
-        // Run simulation of inline script logic
-        const validThemes = ['punk_diy', 'tape_studio_70s', 'dive_bar_crt', 'clean_paper'];
-        const themeColors: Record<string, string> = {
-          punk_diy: '#0d0d0f',
-          tape_studio_70s: '#1a1410',
-          dive_bar_crt: '#09080f',
-          clean_paper: '#f4f4f0',
-        };
-        const saved = localStorage.getItem(APP_THEME_STORAGE_KEY);
-        const activeTheme = saved && validThemes.indexOf(saved) !== -1 ? saved : 'punk_diy';
-        document.documentElement.setAttribute('data-theme', activeTheme);
+        // index.html ships the theme-color meta; the boot script updates it in place
         let metaThemeColor = document.querySelector('meta[name="theme-color"]');
         if (!metaThemeColor) {
           metaThemeColor = document.createElement('meta');
           metaThemeColor.setAttribute('name', 'theme-color');
           document.head.appendChild(metaThemeColor);
         }
-        metaThemeColor.setAttribute('content', themeColors[activeTheme] || '#0d0d0f');
+
+        // Execute the real inline boot script from index.html
+        runIndexHtmlBootScript();
 
         expect(document.documentElement.getAttribute('data-theme')).toBe(tc.expectedTheme);
         expect(metaThemeColor.getAttribute('content')).toBe(tc.expectedColor);
@@ -573,7 +567,7 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
       expect(meta?.getAttribute('content')).toBe('#556677');
     });
 
-    it('falls back to default #0d0d0f when minimal theme has no bg variable or colors', () => {
+    it('falls back to default #0b0b12 when minimal theme has no bg variable or colors', () => {
       const bareTheme = {
         id: 'bare_theme' as AppThemeId,
         cssVariables: {
@@ -585,7 +579,7 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
 
       const meta = document.querySelector('meta[name="theme-color"]');
       expect(meta).toBeInTheDocument();
-      expect(meta?.getAttribute('content')).toBe('#0d0d0f');
+      expect(meta?.getAttribute('content')).toBe('#0b0b12');
     });
 
     it('does not throw or mutate DOM when theme is null, undefined, or empty object', () => {

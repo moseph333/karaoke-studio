@@ -1,40 +1,44 @@
 /** @type {import('tailwindcss').Config} */
+
+// Theme colors resolve through space-separated RGB channel variables so Tailwind
+// opacity modifiers (e.g. `bg-theme-accent/20`) generate valid CSS.
+const channel = (name) => `rgb(var(--theme-${name}-rgb) / <alpha-value>)`;
+
+const THEME_COLOR_TOKENS = [
+  'bg',
+  'surface',
+  'surface-subtle',
+  'surface-raised',
+  'border',
+  'border-subtle',
+  'text',
+  'text-muted',
+  'text-inverse',
+  'accent',
+  'accent-hover',
+  'accent-text',
+  'secondary',
+  'highlight',
+  'sung',
+  'unsung',
+  'success',
+  'warning',
+  'danger',
+  'info',
+  'focus',
+  'overlay',
+];
+
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        // Preserved legacy tokens for backward compatibility
-        studio: {
-          bg: "#0d0f17",
-          card: "#161926",
-          border: "#262b40",
-          accent: "#06b6d4",
-          sung: "#facc15",
-          highlight: "#38bdf8",
-        },
-        // Application-wide theme engine semantic tokens
-        theme: {
-          bg: "var(--theme-bg)",
-          surface: "var(--theme-surface)",
-          "surface-subtle": "var(--theme-surface-subtle)",
-          "surface-raised": "var(--theme-surface-raised)",
-          border: "var(--theme-border)",
-          "border-subtle": "var(--theme-border-subtle)",
-          text: "var(--theme-text)",
-          "text-muted": "var(--theme-text-muted)",
-          "text-inverse": "var(--theme-text-inverse)",
-          accent: "var(--theme-accent)",
-          "accent-hover": "var(--theme-accent-hover)",
-          "accent-text": "var(--theme-accent-text)",
-          secondary: "var(--theme-secondary)",
-          highlight: "var(--theme-highlight)",
-          sung: "var(--theme-sung)",
-          unsung: "var(--theme-unsung)",
-        },
+        theme: Object.fromEntries(THEME_COLOR_TOKENS.map((token) => [token, channel(token)])),
+      },
+      backgroundImage: {
+        'gradient-accent': 'var(--theme-gradient-accent)',
+        'gradient-stage': 'var(--theme-gradient-stage)',
       },
       borderRadius: {
         'theme-sm': 'var(--theme-radius-sm)',
@@ -50,18 +54,42 @@ export default {
         'theme-glow': 'var(--theme-shadow-glow)',
       },
       borderWidth: {
-        'theme': 'var(--theme-border-width)',
+        theme: 'var(--theme-border-width)',
         'theme-thick': 'var(--theme-border-width-thick)',
       },
       fontFamily: {
-        'heading': ['var(--theme-font-heading)', 'sans-serif'],
-        'body': ['var(--theme-font-body)', 'sans-serif'],
-        'mono': ['var(--theme-font-mono)', 'monospace'],
-        'karaoke': ['var(--theme-font-karaoke)', 'sans-serif'],
+        heading: ['var(--theme-font-heading)', 'sans-serif'],
+        body: ['var(--theme-font-body)', 'sans-serif'],
+        mono: ['var(--theme-font-mono)', 'monospace'],
+        karaoke: ['var(--theme-font-karaoke)', 'sans-serif'],
         'theme-heading': ['var(--theme-font-heading)', 'sans-serif'],
         'theme-body': ['var(--theme-font-body)', 'sans-serif'],
+      },
+      keyframes: {
+        'dialog-in': {
+          from: { opacity: '0', transform: 'translateY(8px) scale(0.985)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+        'sheet-in': {
+          from: { opacity: '0', transform: 'translateY(24px)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'slide-down': {
+          from: { opacity: '0', transform: 'translateY(-6px)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+      },
+      animation: {
+        'dialog-in': 'dialog-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+        'sheet-in': 'sheet-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+        'fade-in': 'fade-in 160ms ease-out',
+        'slide-down': 'slide-down 160ms ease-out',
       },
     },
   },
   plugins: [],
-}
+};

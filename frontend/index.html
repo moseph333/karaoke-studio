@@ -1,44 +1,45 @@
 <!doctype html>
-<html lang="en" class="dark" data-theme="punk_diy">
+<html lang="en" data-theme="afterglow">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0d0d0f" />
+    <meta name="theme-color" content="#0b0b12" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <!-- Zero-FOUC Blocking Pre-Render Theme Initialization Script -->
     <script>
       (function() {
         try {
-          var validThemes = ['punk_diy', 'tape_studio_70s', 'dive_bar_crt', 'clean_paper'];
+          var validThemes = ['afterglow', 'punk_diy', 'tape_studio_70s', 'dive_bar_crt', 'clean_paper'];
           var themeColors = {
+            afterglow: '#0b0b12',
             punk_diy: '#0d0d0f',
             tape_studio_70s: '#1a1410',
             dive_bar_crt: '#09080f',
             clean_paper: '#f4f4f0'
           };
           var saved = localStorage.getItem('karaoke_app_theme');
-          var activeTheme = (saved && validThemes.indexOf(saved) !== -1) ? saved : 'punk_diy';
+          var activeTheme = (saved && validThemes.indexOf(saved) !== -1) ? saved : 'afterglow';
           document.documentElement.setAttribute('data-theme', activeTheme);
           var metaThemeColor = document.querySelector('meta[name="theme-color"]');
           if (metaThemeColor) {
-            metaThemeColor.setAttribute('content', themeColors[activeTheme] || '#0d0d0f');
+            metaThemeColor.setAttribute('content', themeColors[activeTheme] || '#0b0b12');
           }
         } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'punk_diy');
+          document.documentElement.setAttribute('data-theme', 'afterglow');
         }
       })();
     </script>
     <link rel="manifest" href="/manifest.json" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2306b6d4'><path d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z'/><path d='M19 10v2a7 7 0 0 1-14 0v-2'/><line x1='12' x2='12' y1='19' y2='22'/></svg>" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Karaoke Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- Comprehensive Theme Fonts: Inter, Montserrat, Courier Prime, Fraunces, VT323, Space Grotesk, Share Tech Mono, JetBrains Mono -->
-    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Montserrat:wght@600;700;800&family=Share+Tech+Mono&family=Space+Grotesk:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
+    <!-- Theme Fonts: Sora, Inter, Montserrat, Courier Prime, Fraunces, VT323, Space Grotesk, Share Tech Mono, JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Montserrat:wght@600;700;800&family=Share+Tech+Mono&family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
   </head>
-  <body class="min-h-screen selection:bg-cyan-500 selection:text-black" style="background-color: var(--theme-bg); color: var(--theme-text); font-family: var(--theme-font-body);">
+  <body class="min-h-screen" style="background-color: var(--theme-bg); color: var(--theme-text); font-family: var(--theme-font-body);">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

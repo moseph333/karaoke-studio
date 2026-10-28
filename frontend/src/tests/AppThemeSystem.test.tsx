@@ -16,6 +16,8 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, act, renderHook } from '@testing-library/react';
+import { ALL_APP_THEME_IDS, ALL_STAGE_PRESET_IDS } from './themeFixtures';
+import { runIndexHtmlBootScript } from './bootScriptUtils';
 
 // Domain Types
 import { AppThemeId, AppTheme, VisualTheme, LyricLine, ProjectState } from '../types';
@@ -201,12 +203,12 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
     // Feature 1: App Theme Tokens & Types
     // ------------------------------------------------------------------------
     describe('F1: App Theme Tokens & Types', () => {
-      const themeIds: AppThemeId[] = ['punk_diy', 'tape_studio_70s', 'dive_bar_crt', 'clean_paper'];
+      const themeIds: AppThemeId[] = [...ALL_APP_THEME_IDS];
 
-      it('F1.1: defines exactly the 4 required human-crafted themes with valid identifiers', () => {
-        expect(DEFAULT_APP_THEME_ID).toBe('punk_diy');
+      it('F1.1: defines exactly the 5 application themes with valid identifiers', () => {
+        expect(DEFAULT_APP_THEME_ID).toBe('afterglow');
         expect(Object.keys(APP_THEMES).sort()).toEqual([...themeIds].sort());
-        expect(APP_THEME_LIST.length).toBe(4);
+        expect(APP_THEME_LIST.length).toBe(ALL_APP_THEME_IDS.length);
         themeIds.forEach((id) => {
           const theme = APP_THEMES[id];
           expect(theme.id).toBe(id);
@@ -335,25 +337,13 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
     // Feature 3: Zero-FOUC Pre-Render Script
     // ------------------------------------------------------------------------
     describe('F3: Zero-FOUC Pre-Render Script', () => {
-      // Re-executes the exact pre-render script logic embedded in index.html <head>
-      const executePreRenderScript = () => {
-        try {
-          const validThemes = ['punk_diy', 'tape_studio_70s', 'dive_bar_crt', 'clean_paper'];
-          const saved = localStorage.getItem('karaoke_app_theme');
-          if (saved && validThemes.indexOf(saved) !== -1) {
-            document.documentElement.setAttribute('data-theme', saved);
-          } else {
-            document.documentElement.setAttribute('data-theme', 'punk_diy');
-          }
-        } catch {
-          document.documentElement.setAttribute('data-theme', 'punk_diy');
-        }
-      };
+      // Executes the real pre-render script embedded in index.html <head>
+      const executePreRenderScript = () => runIndexHtmlBootScript();
 
-      it('F3.1: defaults to punk_diy on fresh boot when localStorage is empty', () => {
+      it('F3.1: defaults to afterglow on fresh boot when localStorage is empty', () => {
         localStorage.clear();
         executePreRenderScript();
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
       });
 
       it('F3.2: reads valid saved theme from localStorage and applies immediately without FOUC', () => {
@@ -366,30 +356,30 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         expect(document.documentElement.getAttribute('data-theme')).toBe('clean_paper');
       });
 
-      it('F3.3: falls back safely to punk_diy when localStorage holds unknown theme identifier', () => {
+      it('F3.3: falls back safely to afterglow when localStorage holds unknown theme identifier', () => {
         localStorage.setItem(APP_THEME_STORAGE_KEY, 'neon_glitch_cyber');
         executePreRenderScript();
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
       });
 
-      it('F3.4: falls back safely to punk_diy when localStorage holds empty string or corrupt payload', () => {
+      it('F3.4: falls back safely to afterglow when localStorage holds empty string or corrupt payload', () => {
         localStorage.setItem(APP_THEME_STORAGE_KEY, '');
         executePreRenderScript();
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
 
         localStorage.setItem(APP_THEME_STORAGE_KEY, 'null');
         executePreRenderScript();
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
       });
 
-      it('F3.5: falls back safely to punk_diy when localStorage throws SecurityError in restricted iframe', () => {
+      it('F3.5: falls back safely to afterglow when localStorage throws SecurityError in restricted iframe', () => {
         const originalGetItem = localStorage.getItem;
         localStorage.getItem = vi.fn().mockImplementation(() => {
           throw new DOMException('The operation is insecure.', 'SecurityError');
         });
 
         executePreRenderScript();
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
 
         localStorage.getItem = originalGetItem;
       });
@@ -399,14 +389,14 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
     // Feature 4: Theme State & LocalStorage Persistence
     // ------------------------------------------------------------------------
     describe('F4: Theme State & LocalStorage Persistence', () => {
-      it('F4.1: useAppTheme hook initializes with punk_diy on clean session profile', () => {
+      it('F4.1: useAppTheme hook initializes with afterglow on clean session profile', () => {
         expect(AppThemeContext).toBeDefined();
         const { result } = renderHook(() => useAppTheme(), {
           wrapper: ({ children }) => <AppThemeProvider>{children}</AppThemeProvider>,
         });
-        expect(result.current.themeId).toBe('punk_diy');
-        expect(result.current.theme.id).toBe('punk_diy');
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(result.current.themeId).toBe('afterglow');
+        expect(result.current.theme.id).toBe('afterglow');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
       });
 
       it('F4.2: setThemeId updates context state and synchronizes document data-theme', () => {
@@ -436,7 +426,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         expect(getStoredAppTheme()).toBe('clean_paper');
       });
 
-      it('F4.4: resetToDefault restores punk_diy in state, DOM attribute, and localStorage', () => {
+      it('F4.4: resetToDefault restores afterglow in state, DOM attribute, and localStorage', () => {
         const { result } = renderHook(() => useAppTheme(), {
           wrapper: ({ children }) => <AppThemeProvider>{children}</AppThemeProvider>,
         });
@@ -450,16 +440,16 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           result.current.resetToDefault();
         });
 
-        expect(result.current.themeId).toBe('punk_diy');
-        expect(localStorage.getItem(APP_THEME_STORAGE_KEY)).toBe('punk_diy');
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(result.current.themeId).toBe('afterglow');
+        expect(localStorage.getItem(APP_THEME_STORAGE_KEY)).toBe('afterglow');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
       });
 
       it('F4.5: useAppTheme outside AppThemeProvider provides non-crashing fallback', () => {
         // Must not throw when rendered without AppThemeProvider
         const { result } = renderHook(() => useAppTheme());
-        expect(result.current.themeId).toBe('punk_diy');
-        expect(result.current.theme.id).toBe('punk_diy');
+        expect(result.current.themeId).toBe('afterglow');
+        expect(result.current.theme.id).toBe('afterglow');
         expect(typeof result.current.setThemeId).toBe('function');
 
         // Invoking setThemeId outside provider applies theme to DOM safely
@@ -502,7 +492,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         expect(listbox).toBeInTheDocument();
 
         const options = screen.getAllByRole('option');
-        expect(options.length).toBe(4);
+        expect(options.length).toBe(ALL_APP_THEME_IDS.length);
       });
 
       it('F5.3: options indicate aria-selected, swatches, and checkmark on active theme', () => {
@@ -516,13 +506,13 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         fireEvent.click(trigger);
 
         const options = screen.getAllByRole('option');
-        const punkOption = options[0];
-        expect(punkOption).toHaveAttribute('aria-selected', 'true');
-        expect(punkOption).toHaveAttribute('data-theme-id', 'punk_diy');
+        const defaultOption = options[0];
+        expect(defaultOption).toHaveAttribute('aria-selected', 'true');
+        expect(defaultOption).toHaveAttribute('data-theme-id', 'afterglow');
 
-        const tapeOption = options[1];
-        expect(tapeOption).toHaveAttribute('aria-selected', 'false');
-        expect(tapeOption).toHaveAttribute('data-theme-id', 'tape_studio_70s');
+        const punkOption = options[1];
+        expect(punkOption).toHaveAttribute('aria-selected', 'false');
+        expect(punkOption).toHaveAttribute('data-theme-id', 'punk_diy');
       });
 
       it('F5.4: supports ArrowDown/ArrowUp keyboard navigation and Home/End jumping', () => {
@@ -538,11 +528,11 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         expect(trigger).toHaveAttribute('aria-expanded', 'true');
 
         const listbox = screen.getByRole('listbox');
-        // ArrowDown navigates to option 1 (tape_studio_70s)
+        // ArrowDown navigates to option 1 (punk_diy)
         fireEvent.keyDown(listbox, { key: 'ArrowDown' });
         // End key navigates to last option (clean_paper)
         fireEvent.keyDown(listbox, { key: 'End' });
-        // Home key returns to first option (punk_diy)
+        // Home key returns to first option (afterglow)
         fireEvent.keyDown(listbox, { key: 'Home' });
       });
 
@@ -557,8 +547,8 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         fireEvent.click(trigger);
 
         const options = screen.getAllByRole('option');
-        // Click or Enter on option 2 (dive_bar_crt)
-        fireEvent.click(options[2]);
+        // Click or Enter on option 3 (dive_bar_crt)
+        fireEvent.click(options[3]);
 
         expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
         expect(document.documentElement.getAttribute('data-theme')).toBe('dive_bar_crt');
@@ -678,8 +668,8 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           </AppThemeProvider>
         );
 
-        // Initial punk_diy
-        expect(document.documentElement.style.getPropertyValue('--theme-bg')).toBe('#0d0d0f');
+        // Initial afterglow default
+        expect(document.documentElement.style.getPropertyValue('--theme-bg')).toBe('#0b0b12');
 
         // Switch to tape_studio_70s
         act(() => {
@@ -805,19 +795,10 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
     // Feature 9: Stage Preset Extension (Frontend & Backend)
     // ------------------------------------------------------------------------
     describe('F9: Stage Preset Extension (Frontend & Backend)', () => {
-      it('F9.1: frontend THEMES array defines exactly 8 stage presets', () => {
-        expect(THEMES.length).toBe(8);
+      it('F9.1: frontend THEMES array defines exactly 9 stage presets (legacy indices preserved)', () => {
+        expect(THEMES.length).toBe(ALL_STAGE_PRESET_IDS.length);
         const ids = THEMES.map((t) => t.id);
-        expect(ids).toEqual([
-          'modern_gold',
-          'cyber_cyan',
-          'neon_pink',
-          'classic_ktv',
-          'punk_diy',
-          'tape_70s',
-          'crt_ktv',
-          'clean_paper',
-        ]);
+        expect(ids).toEqual([...ALL_STAGE_PRESET_IDS]);
       });
 
       it('F9.2: legacy presets are strictly preserved with exact original colors', () => {
@@ -874,8 +855,8 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         const { result } = renderHook(() => useVisualTheme(), {
           wrapper: ({ children }) => <AppThemeProvider>{children}</AppThemeProvider>,
         });
-        expect(result.current.selectedTheme.id).toBe('punk_diy');
-        expect(document.documentElement.getAttribute('data-stage-preset')).toBe('punk_diy');
+        expect(result.current.selectedTheme.id).toBe('afterglow');
+        expect(document.documentElement.getAttribute('data-stage-preset')).toBe('afterglow');
       });
 
       it('F10.2: switching app theme to tape_studio_70s syncs stage preset to tape_70s', () => {
@@ -894,7 +875,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           </AppThemeProvider>
         );
 
-        expect(visualThemeHook.selectedTheme.id).toBe('punk_diy');
+        expect(visualThemeHook.selectedTheme.id).toBe('afterglow');
 
         act(() => {
           themeContext.setThemeId('tape_studio_70s');
@@ -1115,7 +1096,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         });
 
         expect(document.documentElement.style.getPropertyValue('--karaoke-font-family')).toContain(
-          'Impact'
+          'Sora'
         );
 
         act(() => {
@@ -1287,33 +1268,33 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
     // Category 1: Corrupted localStorage Values
     // ------------------------------------------------------------------------
     describe('B1: Corrupted localStorage Values', () => {
-      it('B1.1: safely falls back to punk_diy when localStorage holds "null" literal string', () => {
+      it('B1.1: safely falls back to afterglow when localStorage holds "null" literal string', () => {
         localStorage.setItem(APP_THEME_STORAGE_KEY, 'null');
-        expect(getStoredAppTheme()).toBe('punk_diy');
-        expect(getAppTheme('null').id).toBe('punk_diy');
+        expect(getStoredAppTheme()).toBe('afterglow');
+        expect(getAppTheme('null').id).toBe('afterglow');
       });
 
-      it('B1.2: safely falls back to punk_diy when localStorage holds "{}" json string', () => {
+      it('B1.2: safely falls back to afterglow when localStorage holds "{}" json string', () => {
         localStorage.setItem(APP_THEME_STORAGE_KEY, '{}');
-        expect(getStoredAppTheme()).toBe('punk_diy');
+        expect(getStoredAppTheme()).toBe('afterglow');
       });
 
-      it('B1.3: safely falls back to punk_diy when localStorage holds "[object Object]"', () => {
+      it('B1.3: safely falls back to afterglow when localStorage holds "[object Object]"', () => {
         localStorage.setItem(APP_THEME_STORAGE_KEY, '[object Object]');
-        expect(getStoredAppTheme()).toBe('punk_diy');
+        expect(getStoredAppTheme()).toBe('afterglow');
       });
 
       it('B1.4: prototype property names ("toString", "constructor", "__proto__") safely fall back', () => {
         ['toString', 'constructor', '__proto__', 'valueOf'].forEach((protoName) => {
           localStorage.setItem(APP_THEME_STORAGE_KEY, protoName);
-          expect(getStoredAppTheme()).toBe('punk_diy');
-          expect(getAppTheme(protoName).id).toBe('punk_diy');
+          expect(getStoredAppTheme()).toBe('afterglow');
+          expect(getAppTheme(protoName).id).toBe('afterglow');
         });
       });
 
-      it('B1.5: arbitrary long random or unicode strings fall back to punk_diy', () => {
+      it('B1.5: arbitrary long random or unicode strings fall back to afterglow', () => {
         localStorage.setItem(APP_THEME_STORAGE_KEY, '🔥punk_theme_invalid_🚀'.repeat(10));
-        expect(getStoredAppTheme()).toBe('punk_diy');
+        expect(getStoredAppTheme()).toBe('afterglow');
       });
     });
 
@@ -1321,12 +1302,12 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
     // Category 2: LocalStorage Throwing Exceptions
     // ------------------------------------------------------------------------
     describe('B2: LocalStorage Throwing Exceptions', () => {
-      it('B2.1: SecurityError on localStorage.getItem safely falls back to punk_diy', () => {
+      it('B2.1: SecurityError on localStorage.getItem safely falls back to afterglow', () => {
         const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
           throw new DOMException('Access denied', 'SecurityError');
         });
 
-        expect(getStoredAppTheme()).toBe('punk_diy');
+        expect(getStoredAppTheme()).toBe('afterglow');
         spy.mockRestore();
       });
 
@@ -1348,7 +1329,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
             configurable: true,
           });
 
-          expect(getStoredAppTheme()).toBe('punk_diy');
+          expect(getStoredAppTheme()).toBe('afterglow');
           expect(() => setStoredAppTheme('tape_studio_70s')).not.toThrow();
         } finally {
           Object.defineProperty(window, 'localStorage', {
@@ -1360,7 +1341,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
       });
 
       it('B2.4: getStoredAppTheme does not throw when invoked in window-less environment', () => {
-        expect(getStoredAppTheme()).toBe('punk_diy');
+        expect(getStoredAppTheme()).toBe('afterglow');
       });
 
       it('B2.5: AppThemeProvider functions normally when localStorage access is restricted', () => {
@@ -1451,7 +1432,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           );
         });
 
-        expect(result.current.themeId).toBe('punk_diy');
+        expect(result.current.themeId).toBe('afterglow');
       });
 
       it('B3.5: cycling through all 4 themes repeatedly in loop preserves valid state at every step', () => {
@@ -1887,21 +1868,21 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         </AppThemeProvider>
       );
 
-      // Verify default identity: Punk Rock DIY
-      expect(themeContext.themeId).toBe('punk_diy');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      // Verify default identity: Afterglow
+      expect(themeContext.themeId).toBe('afterglow');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
 
-      // Verify trigger swatch preview shows flyer yellow and safety red
+      // Verify trigger shows the flagship theme name
       const trigger = screen.getByTestId('app-theme-picker-trigger');
-      expect(trigger).toHaveTextContent('Basement Flyer');
+      expect(trigger).toHaveTextContent('Afterglow');
 
-      // Verify stage preset defaulted to matching punk_diy preset
-      expect(visualThemeHook.selectedTheme.id).toBe('punk_diy');
-      expect(document.documentElement.getAttribute('data-stage-preset')).toBe('punk_diy');
+      // Verify stage preset defaulted to matching afterglow preset
+      expect(visualThemeHook.selectedTheme.id).toBe('afterglow');
+      expect(document.documentElement.getAttribute('data-stage-preset')).toBe('afterglow');
 
-      // Verify Impact font and flyer yellow sung colors
+      // Verify Sora stage font for the flagship preset
       const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine.style.fontFamily).toContain('Impact');
+      expect(activeLine.style.fontFamily).toContain('Sora');
     });
 
     it('Scenario 2: User switches through all 4 themes, observing multi-dimensional changes across Library, Studio, and Modals', () => {
@@ -2085,9 +2066,9 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         reloadedHook.result.current.resetToDefault();
       });
 
-      expect(reloadedHook.result.current.themeId).toBe('punk_diy');
-      expect(localStorage.getItem(APP_THEME_STORAGE_KEY)).toBe('punk_diy');
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(reloadedHook.result.current.themeId).toBe('afterglow');
+      expect(localStorage.getItem(APP_THEME_STORAGE_KEY)).toBe('afterglow');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
   });
 });

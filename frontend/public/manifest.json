@@ -1,13 +1,13 @@
 {
   "name": "Karaoke Studio",
   "short_name": "Karaoke",
-  "description": "Professional in-browser karaoke studio with real-time lyric synchronization, pitch shifting, and vocal removal.",
+  "description": "Local-first karaoke studio: AI stem separation, word-synced lyrics, live stage and 1080p karaoke video export.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "theme_color": "#0d0d0f",
-  "background_color": "#0d0d0f",
+  "theme_color": "#0b0b12",
+  "background_color": "#0b0b12",
   "categories": ["music", "entertainment"],
   "icons": [
     {

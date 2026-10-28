@@ -3,38 +3,149 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   THEME 1: PUNK ROCK / UNDERGROUND / DIY (Signature Default)
-   Vibe: Cut-and-paste zine, Xerox photocopy toner, typewriter monospace,
-         sharp cut edges, hard offset drop shadows, flyer yellow & safety red.
+   THEME 0: AFTERGLOW (Signature Default) — Deep ink stage, soft glass depth & a violet-to-rose spotlight
+   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
    ========================================================================== */
 :root,
+[data-theme='afterglow'] {
+  --theme-bg: #0b0b12;
+  --theme-surface: #14141f;
+  --theme-surface-subtle: #1b1b29;
+  --theme-surface-raised: #232335;
+  --theme-border: #34344f;
+  --theme-border-subtle: #26263a;
+  --theme-text: #f5f3ff;
+  --theme-text-muted: #a8a5c7;
+  --theme-text-inverse: #0b0b12;
+  --theme-accent: #7c3aed;
+  --theme-accent-hover: #6d28d9;
+  --theme-accent-text: #ffffff;
+  --theme-secondary: #db2777;
+  --theme-highlight: #a78bfa;
+  --theme-sung: #fbbf24;
+  --theme-unsung: #edebff;
+  --theme-success: #34d399;
+  --theme-warning: #fbbf24;
+  --theme-danger: #fb7185;
+  --theme-info: #60a5fa;
+  --theme-focus: #a78bfa;
+  --theme-overlay: #05050a;
+  --theme-bg-rgb: 11 11 18;
+  --theme-surface-rgb: 20 20 31;
+  --theme-surface-subtle-rgb: 27 27 41;
+  --theme-surface-raised-rgb: 35 35 53;
+  --theme-border-rgb: 52 52 79;
+  --theme-border-subtle-rgb: 38 38 58;
+  --theme-text-rgb: 245 243 255;
+  --theme-text-muted-rgb: 168 165 199;
+  --theme-text-inverse-rgb: 11 11 18;
+  --theme-accent-rgb: 124 58 237;
+  --theme-accent-hover-rgb: 109 40 217;
+  --theme-accent-text-rgb: 255 255 255;
+  --theme-secondary-rgb: 219 39 119;
+  --theme-highlight-rgb: 167 139 250;
+  --theme-sung-rgb: 251 191 36;
+  --theme-unsung-rgb: 237 235 255;
+  --theme-success-rgb: 52 211 153;
+  --theme-warning-rgb: 251 191 36;
+  --theme-danger-rgb: 251 113 133;
+  --theme-info-rgb: 96 165 250;
+  --theme-focus-rgb: 167 139 250;
+  --theme-overlay-rgb: 5 5 10;
+  --theme-gradient-accent: linear-gradient(135deg, #7c3aed 0%, #c026d3 52%, #db2777 100%);
+  --theme-gradient-stage:
+    radial-gradient(120% 90% at 50% 0%, rgba(124, 58, 237, 0.22) 0%, rgba(11, 11, 18, 0) 60%),
+    radial-gradient(90% 70% at 100% 100%, rgba(219, 39, 119, 0.14) 0%, rgba(11, 11, 18, 0) 55%),
+    #0b0b12;
+  --theme-glass-alpha: 0.78;
+  --theme-font-heading: Sora, Inter, 'Segoe UI', system-ui, sans-serif;
+  --theme-font-body: Inter, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
+  --theme-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --theme-font-karaoke: Sora, Inter, system-ui, sans-serif;
+  --karaoke-font-family: Sora, Inter, system-ui, sans-serif;
+  --theme-radius-sm: 8px;
+  --theme-radius-md: 12px;
+  --theme-radius-lg: 16px;
+  --theme-radius-xl: 24px;
+  --theme-radius-pill: 9999px;
+  --theme-border-width: 1px;
+  --theme-border-width-thick: 2px;
+  --theme-shadow-sm: 0 1px 2px rgba(5, 5, 12, 0.55);
+  --theme-shadow-md: 0 1px 2px rgba(5, 5, 12, 0.5), 0 8px 24px -10px rgba(5, 5, 12, 0.75);
+  --theme-shadow-lg: 0 2px 6px rgba(5, 5, 12, 0.45), 0 24px 56px -18px rgba(5, 5, 12, 0.85);
+  --theme-shadow-glow:
+    0 0 0 1px rgba(167, 139, 250, 0.35), 0 10px 36px -8px rgba(219, 39, 119, 0.45);
+  --app-bg: #0b0b12;
+  --app-surface: #14141f;
+  --app-border-color: #34344f;
+  --app-text: #f5f3ff;
+  --app-text-muted: #a8a5c7;
+  --app-accent: #7c3aed;
+  --app-font-heading: Sora, Inter, 'Segoe UI', system-ui, sans-serif;
+  --app-font-body: Inter, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
+  --app-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --app-radius: 12px;
+  --app-border-width: 1px;
+  --app-shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 12px 32px -14px rgba(5, 5, 12, 0.8);
+}
+
+/* ==========================================================================
+   THEME 1: PUNK ROCK / UNDERGROUND / DIY — Raw zine Xerox stencil, flyer yellow & hard offset shadows
+   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
+   ========================================================================== */
 [data-theme='punk_diy'] {
-  /* Colors */
   --theme-bg: #0d0d0f;
   --theme-surface: #17171a;
   --theme-surface-subtle: #202024;
   --theme-surface-raised: #28282d;
-  --theme-border: #facc15; /* Flyer neon yellow */
-  --theme-border-subtle: #3f3f46; /* Gritty toner ink */
-  --theme-text: #f5f5f5; /* Bleached zine white */
-  --theme-text-muted: #a1a1aa; /* Newsprint halftone gray */
+  --theme-border: #facc15;
+  --theme-border-subtle: #3f3f46;
+  --theme-text: #f5f5f5;
+  --theme-text-muted: #a1a1aa;
   --theme-text-inverse: #000000;
-  --theme-accent: #facc15; /* Flyer yellow */
+  --theme-accent: #facc15;
   --theme-accent-hover: #fde047;
   --theme-accent-text: #000000;
-  --theme-secondary: #ef4444; /* Safety red */
-  --theme-highlight: #ec4899; /* Xerox magenta */
+  --theme-secondary: #ef4444;
+  --theme-highlight: #ec4899;
   --theme-sung: #facc15;
   --theme-unsung: #f5f5f5;
-
-  /* Typography */
-  --theme-font-heading: 'Impact', 'Arial Black', sans-serif;
-  --theme-font-body: 'Courier Prime', 'Courier New', monospace;
-  --theme-font-mono: 'Courier Prime', 'Courier New', monospace;
-  --theme-font-karaoke: 'Impact', 'Arial Black', sans-serif;
-  --karaoke-font-family: 'Impact', 'Arial Black', sans-serif;
-
-  /* Geometry: Non-pill, sharp cut edges, heavy visible borders */
+  --theme-success: #4ade80;
+  --theme-warning: #facc15;
+  --theme-danger: #ef4444;
+  --theme-info: #38bdf8;
+  --theme-focus: #facc15;
+  --theme-overlay: #000000;
+  --theme-bg-rgb: 13 13 15;
+  --theme-surface-rgb: 23 23 26;
+  --theme-surface-subtle-rgb: 32 32 36;
+  --theme-surface-raised-rgb: 40 40 45;
+  --theme-border-rgb: 250 204 21;
+  --theme-border-subtle-rgb: 63 63 70;
+  --theme-text-rgb: 245 245 245;
+  --theme-text-muted-rgb: 161 161 170;
+  --theme-text-inverse-rgb: 0 0 0;
+  --theme-accent-rgb: 250 204 21;
+  --theme-accent-hover-rgb: 253 224 71;
+  --theme-accent-text-rgb: 0 0 0;
+  --theme-secondary-rgb: 239 68 68;
+  --theme-highlight-rgb: 236 72 153;
+  --theme-sung-rgb: 250 204 21;
+  --theme-unsung-rgb: 245 245 245;
+  --theme-success-rgb: 74 222 128;
+  --theme-warning-rgb: 250 204 21;
+  --theme-danger-rgb: 239 68 68;
+  --theme-info-rgb: 56 189 248;
+  --theme-focus-rgb: 250 204 21;
+  --theme-overlay-rgb: 0 0 0;
+  --theme-gradient-accent: linear-gradient(135deg, #facc15 0%, #fde047 100%);
+  --theme-gradient-stage: radial-gradient(120% 120% at 50% 0%, #28282d 0%, #0d0d0f 70%);
+  --theme-glass-alpha: 0.82;
+  --theme-font-heading: Impact, 'Arial Black', 'Trebuchet MS', sans-serif;
+  --theme-font-body: 'Courier Prime', 'Courier New', Courier, monospace;
+  --theme-font-mono: 'Courier Prime', 'Courier New', Courier, monospace;
+  --theme-font-karaoke: Impact, 'Arial Black', sans-serif;
+  --karaoke-font-family: Impact, 'Arial Black', sans-serif;
   --theme-radius-sm: 0px;
   --theme-radius-md: 0px;
   --theme-radius-lg: 0px;
@@ -42,60 +153,81 @@
   --theme-radius-pill: 0px;
   --theme-border-width: 2px;
   --theme-border-width-thick: 3px;
-
-  /* Shadows: Hard-edged offset shadows (zero diffuse blur) */
   --theme-shadow-sm: 2px 2px 0px #000000;
   --theme-shadow-md: 4px 4px 0px #000000;
   --theme-shadow-lg: 5px 5px 0px #facc15;
   --theme-shadow-glow: 4px 4px 0px #ef4444;
-
-  /* Aliases */
   --app-bg: #0d0d0f;
   --app-surface: #17171a;
   --app-border-color: #facc15;
   --app-text: #f5f5f5;
   --app-text-muted: #a1a1aa;
   --app-accent: #facc15;
-  --app-font-heading: 'Impact', 'Arial Black', sans-serif;
-  --app-font-body: 'Courier Prime', 'Courier New', monospace;
-  --app-font-mono: 'Courier Prime', 'Courier New', monospace;
+  --app-font-heading: Impact, 'Arial Black', 'Trebuchet MS', sans-serif;
+  --app-font-body: 'Courier Prime', 'Courier New', Courier, monospace;
+  --app-font-mono: 'Courier Prime', 'Courier New', Courier, monospace;
   --app-radius: 0px;
   --app-border-width: 2px;
   --app-shadow-card: 4px 4px 0px #000000;
 }
 
 /* ==========================================================================
-   THEME 2: ANALOG 70s TAPE STUDIO
-   Vibe: Teak wood console, reel-to-reel tape deck, warm amber VU meter glow,
-         curved Bakelite chassis, vintage display serif typography.
+   THEME 2: ANALOG 70s TAPE STUDIO — Warm walnut chassis, incandescent amber VU & display serif
+   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
    ========================================================================== */
 [data-theme='tape_studio_70s'] {
-  /* Colors */
-  --theme-bg: #1a1410; /* Dark walnut woodgrain */
-  --theme-surface: #271e18; /* Teak console chassis */
-  --theme-surface-subtle: #362a22; /* Warm dark brass */
-  --theme-surface-raised: #44352b; /* Console meter bridge */
-  --theme-border: #d97706; /* Amber brass bezel */
-  --theme-border-subtle: #574334; /* Engraved chassis line */
-  --theme-text: #fef3c7; /* Warm cream parchment */
-  --theme-text-muted: #b59f84; /* Faded tape box label */
+  --theme-bg: #1a1410;
+  --theme-surface: #271e18;
+  --theme-surface-subtle: #362a22;
+  --theme-surface-raised: #44352b;
+  --theme-border: #d97706;
+  --theme-border-subtle: #574334;
+  --theme-text: #fef3c7;
+  --theme-text-muted: #b59f84;
   --theme-text-inverse: #1a1410;
-  --theme-accent: #f59e0b; /* Incandescent VU amber */
+  --theme-accent: #f59e0b;
   --theme-accent-hover: #fbbf24;
   --theme-accent-text: #1a1410;
-  --theme-secondary: #b45309; /* Terracotta reel flange */
+  --theme-secondary: #b45309;
   --theme-highlight: #d97706;
   --theme-sung: #f59e0b;
   --theme-unsung: #fef3c7;
-
-  /* Typography */
-  --theme-font-heading: 'Fraunces', 'Cooper Black', 'Georgia', serif;
+  --theme-success: #86efac;
+  --theme-warning: #f59e0b;
+  --theme-danger: #f87171;
+  --theme-info: #7dd3fc;
+  --theme-focus: #fbbf24;
+  --theme-overlay: #0b0805;
+  --theme-bg-rgb: 26 20 16;
+  --theme-surface-rgb: 39 30 24;
+  --theme-surface-subtle-rgb: 54 42 34;
+  --theme-surface-raised-rgb: 68 53 43;
+  --theme-border-rgb: 217 119 6;
+  --theme-border-subtle-rgb: 87 67 52;
+  --theme-text-rgb: 254 243 199;
+  --theme-text-muted-rgb: 181 159 132;
+  --theme-text-inverse-rgb: 26 20 16;
+  --theme-accent-rgb: 245 158 11;
+  --theme-accent-hover-rgb: 251 191 36;
+  --theme-accent-text-rgb: 26 20 16;
+  --theme-secondary-rgb: 180 83 9;
+  --theme-highlight-rgb: 217 119 6;
+  --theme-sung-rgb: 245 158 11;
+  --theme-unsung-rgb: 254 243 199;
+  --theme-success-rgb: 134 239 172;
+  --theme-warning-rgb: 245 158 11;
+  --theme-danger-rgb: 248 113 113;
+  --theme-info-rgb: 125 211 252;
+  --theme-focus-rgb: 251 191 36;
+  --theme-overlay-rgb: 11 8 5;
+  --theme-gradient-accent: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+  --theme-gradient-stage: radial-gradient(120% 120% at 50% 0%, #44352b 0%, #1a1410 70%);
+  --theme-glass-alpha: 0.82;
+  --theme-font-heading: Fraunces, 'Cooper Black', Georgia, 'Times New Roman', serif;
   --theme-font-body: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
-  --theme-font-mono: 'Courier Prime', monospace;
-  --theme-font-karaoke: 'Fraunces', 'Cooper Black', serif;
-  --karaoke-font-family: 'Fraunces', 'Cooper Black', serif;
-
-  /* Geometry: Softly curved vintage console chassis */
+  --theme-font-mono: 'Courier Prime', 'Courier New', monospace;
+  --theme-font-karaoke: Fraunces, 'Cooper Black', Georgia, serif;
+  --karaoke-font-family: Fraunces, 'Cooper Black', Georgia, serif;
   --theme-radius-sm: 6px;
   --theme-radius-md: 10px;
   --theme-radius-lg: 16px;
@@ -103,60 +235,81 @@
   --theme-radius-pill: 9999px;
   --theme-border-width: 1.5px;
   --theme-border-width-thick: 2.5px;
-
-  /* Shadows: Soft warm incandescent drop shadows */
   --theme-shadow-sm: 0 2px 4px rgba(26, 20, 16, 0.4);
   --theme-shadow-md: 0 4px 12px rgba(26, 20, 16, 0.6), 0 0 4px rgba(217, 119, 6, 0.15);
   --theme-shadow-lg: 0 10px 24px rgba(26, 20, 16, 0.8), 0 0 16px rgba(245, 158, 11, 0.2);
   --theme-shadow-glow: 0 0 20px rgba(245, 158, 11, 0.35);
-
-  /* Aliases */
   --app-bg: #1a1410;
   --app-surface: #271e18;
   --app-border-color: #d97706;
   --app-text: #fef3c7;
   --app-text-muted: #b59f84;
   --app-accent: #f59e0b;
-  --app-font-heading: 'Fraunces', 'Cooper Black', 'Georgia', serif;
+  --app-font-heading: Fraunces, 'Cooper Black', Georgia, 'Times New Roman', serif;
   --app-font-body: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
-  --app-font-mono: 'Courier Prime', monospace;
+  --app-font-mono: 'Courier Prime', 'Courier New', monospace;
   --app-radius: 10px;
   --app-border-width: 1.5px;
   --app-shadow-card: 0 4px 12px rgba(26, 20, 16, 0.6);
 }
 
 /* ==========================================================================
-   THEME 3: DIVE BAR CRT KTV
-   Vibe: Grimy karaoke private booth, cathode-ray tube television, glowing
-         neon cyan/magenta tube signs, arcade scanline phosphor display.
+   THEME 3: DIVE BAR CRT KTV — Grimy neon cyan wipe & arcade pixel scanline CRT monitor
+   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
    ========================================================================== */
 [data-theme='dive_bar_crt'] {
-  /* Colors */
-  --theme-bg: #09080f; /* Smoked glass booth */
-  --theme-surface: #13101f; /* Heavy CRT television plastic */
-  --theme-surface-subtle: #1c182e; /* Tinted acrylic screen */
+  --theme-bg: #09080f;
+  --theme-surface: #13101f;
+  --theme-surface-subtle: #1c182e;
   --theme-surface-raised: #26203d;
-  --theme-border: #06b6d4; /* Buzzing neon cyan */
-  --theme-border-subtle: #3a2b5e; /* Interlaced cathode grid */
-  --theme-text: #e0e7ff; /* Phosphor cool white */
-  --theme-text-muted: #8c7aa8; /* Phosphor decay lavender */
+  --theme-border: #06b6d4;
+  --theme-border-subtle: #3a2b5e;
+  --theme-text: #e0e7ff;
+  --theme-text-muted: #8c7aa8;
   --theme-text-inverse: #09080f;
-  --theme-accent: #06b6d4; /* Neon cyan */
+  --theme-accent: #06b6d4;
   --theme-accent-hover: #22d3ee;
   --theme-accent-text: #09080f;
-  --theme-secondary: #f43f5e; /* Neon sign hot red */
-  --theme-highlight: #d946ef; /* Neon sign electric magenta */
+  --theme-secondary: #f43f5e;
+  --theme-highlight: #d946ef;
   --theme-sung: #06b6d4;
   --theme-unsung: #e0e7ff;
-
-  /* Typography */
-  --theme-font-heading: 'VT323', 'Press Start 2P', monospace;
+  --theme-success: #22c55e;
+  --theme-warning: #fde047;
+  --theme-danger: #f43f5e;
+  --theme-info: #22d3ee;
+  --theme-focus: #22d3ee;
+  --theme-overlay: #030208;
+  --theme-bg-rgb: 9 8 15;
+  --theme-surface-rgb: 19 16 31;
+  --theme-surface-subtle-rgb: 28 24 46;
+  --theme-surface-raised-rgb: 38 32 61;
+  --theme-border-rgb: 6 182 212;
+  --theme-border-subtle-rgb: 58 43 94;
+  --theme-text-rgb: 224 231 255;
+  --theme-text-muted-rgb: 140 122 168;
+  --theme-text-inverse-rgb: 9 8 15;
+  --theme-accent-rgb: 6 182 212;
+  --theme-accent-hover-rgb: 34 211 238;
+  --theme-accent-text-rgb: 9 8 15;
+  --theme-secondary-rgb: 244 63 94;
+  --theme-highlight-rgb: 217 70 239;
+  --theme-sung-rgb: 6 182 212;
+  --theme-unsung-rgb: 224 231 255;
+  --theme-success-rgb: 34 197 94;
+  --theme-warning-rgb: 253 224 71;
+  --theme-danger-rgb: 244 63 94;
+  --theme-info-rgb: 34 211 238;
+  --theme-focus-rgb: 34 211 238;
+  --theme-overlay-rgb: 3 2 8;
+  --theme-gradient-accent: linear-gradient(135deg, #06b6d4 0%, #d946ef 100%);
+  --theme-gradient-stage: radial-gradient(120% 120% at 50% 0%, #26203d 0%, #09080f 70%);
+  --theme-glass-alpha: 0.82;
+  --theme-font-heading: VT323, 'Press Start 2P', 'Courier New', monospace;
   --theme-font-body: 'Share Tech Mono', 'Courier New', monospace;
-  --theme-font-mono: 'VT323', monospace;
-  --theme-font-karaoke: 'VT323', monospace;
-  --karaoke-font-family: 'VT323', monospace;
-
-  /* Geometry: Curved TV glass screen bezels */
+  --theme-font-mono: VT323, 'Courier New', monospace;
+  --theme-font-karaoke: VT323, monospace;
+  --karaoke-font-family: VT323, monospace;
   --theme-radius-sm: 4px;
   --theme-radius-md: 8px;
   --theme-radius-lg: 14px;
@@ -164,60 +317,81 @@
   --theme-radius-pill: 9999px;
   --theme-border-width: 1.5px;
   --theme-border-width-thick: 2px;
-
-  /* Shadows: Phosphor neon glow */
   --theme-shadow-sm: 0 0 6px rgba(6, 182, 212, 0.3);
   --theme-shadow-md: 0 0 14px rgba(6, 182, 212, 0.4), 0 0 2px rgba(217, 70, 239, 0.3);
   --theme-shadow-lg: 0 0 24px rgba(6, 182, 212, 0.5), 0 0 8px rgba(217, 70, 239, 0.4);
   --theme-shadow-glow: 0 0 24px #06b6d4;
-
-  /* Aliases */
   --app-bg: #09080f;
   --app-surface: #13101f;
   --app-border-color: #06b6d4;
   --app-text: #e0e7ff;
   --app-text-muted: #8c7aa8;
   --app-accent: #06b6d4;
-  --app-font-heading: 'VT323', 'Press Start 2P', monospace;
+  --app-font-heading: VT323, 'Press Start 2P', 'Courier New', monospace;
   --app-font-body: 'Share Tech Mono', 'Courier New', monospace;
-  --app-font-mono: 'VT323', monospace;
+  --app-font-mono: VT323, 'Courier New', monospace;
   --app-radius: 8px;
   --app-border-width: 1.5px;
   --app-shadow-card: 0 0 14px rgba(6, 182, 212, 0.4);
 }
 
 /* ==========================================================================
-   THEME 4: BRUTALIST / CLEAN PAPER STUDIO
-   Vibe: Swiss International style, unbleached drafting newsprint, razor-sharp
-         ink lines, zero gradients, ultra-minimal architectural layout.
+   THEME 4: BRUTALIST / CLEAN PAPER STUDIO — High-contrast monochrome newsprint & sharp Swiss geometry
+   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
    ========================================================================== */
 [data-theme='clean_paper'] {
-  /* Colors */
-  --theme-bg: #f4f4f0; /* Drafting vellum / newsprint */
-  --theme-surface: #ffffff; /* Pure white paper block */
-  --theme-surface-subtle: #eaeae4; /* Shaded drawing board */
+  --theme-bg: #f4f4f0;
+  --theme-surface: #ffffff;
+  --theme-surface-subtle: #eaeae4;
   --theme-surface-raised: #ffffff;
-  --theme-border: #111111; /* Heavy technical drawing ink */
-  --theme-border-subtle: #737373; /* 0.5mm graphite pencil rule */
-  --theme-text: #111111; /* Deep black typography */
-  --theme-text-muted: #525252; /* Medium graphite note */
+  --theme-border: #111111;
+  --theme-border-subtle: #737373;
+  --theme-text: #111111;
+  --theme-text-muted: #525252;
   --theme-text-inverse: #ffffff;
-  --theme-accent: #111111; /* Stark monochrome focus */
+  --theme-accent: #111111;
   --theme-accent-hover: #000000;
   --theme-accent-text: #ffffff;
-  --theme-secondary: #dc2626; /* Red proof wax stamp */
-  --theme-highlight: #2563eb; /* Blueprint cyan */
+  --theme-secondary: #dc2626;
+  --theme-highlight: #2563eb;
   --theme-sung: #111111;
   --theme-unsung: #525252;
-
-  /* Typography */
-  --theme-font-heading: 'Space Grotesk', 'Helvetica Neue', 'Arial', sans-serif;
-  --theme-font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --theme-success: #15803d;
+  --theme-warning: #b45309;
+  --theme-danger: #b91c1c;
+  --theme-info: #1d4ed8;
+  --theme-focus: #2563eb;
+  --theme-overlay: #111111;
+  --theme-bg-rgb: 244 244 240;
+  --theme-surface-rgb: 255 255 255;
+  --theme-surface-subtle-rgb: 234 234 228;
+  --theme-surface-raised-rgb: 255 255 255;
+  --theme-border-rgb: 17 17 17;
+  --theme-border-subtle-rgb: 115 115 115;
+  --theme-text-rgb: 17 17 17;
+  --theme-text-muted-rgb: 82 82 82;
+  --theme-text-inverse-rgb: 255 255 255;
+  --theme-accent-rgb: 17 17 17;
+  --theme-accent-hover-rgb: 0 0 0;
+  --theme-accent-text-rgb: 255 255 255;
+  --theme-secondary-rgb: 220 38 38;
+  --theme-highlight-rgb: 37 99 235;
+  --theme-sung-rgb: 17 17 17;
+  --theme-unsung-rgb: 82 82 82;
+  --theme-success-rgb: 21 128 61;
+  --theme-warning-rgb: 180 83 9;
+  --theme-danger-rgb: 185 28 28;
+  --theme-info-rgb: 29 78 216;
+  --theme-focus-rgb: 37 99 235;
+  --theme-overlay-rgb: 17 17 17;
+  --theme-gradient-accent: linear-gradient(135deg, #111111 0%, #000000 100%);
+  --theme-gradient-stage: radial-gradient(120% 120% at 50% 0%, #ffffff 0%, #f4f4f0 70%);
+  --theme-glass-alpha: 0.82;
+  --theme-font-heading: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --theme-font-body: Inter, system-ui, -apple-system, sans-serif;
   --theme-font-mono: 'JetBrains Mono', 'Courier New', monospace;
   --theme-font-karaoke: 'Space Grotesk', 'Helvetica Neue', sans-serif;
   --karaoke-font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif;
-
-  /* Geometry: Razor-sharp 0px brutalist edges */
   --theme-radius-sm: 0px;
   --theme-radius-md: 0px;
   --theme-radius-lg: 0px;
@@ -225,22 +399,18 @@
   --theme-radius-pill: 0px;
   --theme-border-width: 1.5px;
   --theme-border-width-thick: 3px;
-
-  /* Shadows: Stark high-contrast hard offset stamp */
   --theme-shadow-sm: 2px 2px 0px #111111;
   --theme-shadow-md: 4px 4px 0px #111111;
   --theme-shadow-lg: 6px 6px 0px #111111;
   --theme-shadow-glow: 4px 4px 0px #dc2626;
-
-  /* Aliases */
   --app-bg: #f4f4f0;
   --app-surface: #ffffff;
   --app-border-color: #111111;
   --app-text: #111111;
   --app-text-muted: #525252;
   --app-accent: #111111;
-  --app-font-heading: 'Space Grotesk', 'Helvetica Neue', 'Arial', sans-serif;
-  --app-font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --app-font-heading: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --app-font-body: Inter, system-ui, -apple-system, sans-serif;
   --app-font-mono: 'JetBrains Mono', 'Courier New', monospace;
   --app-radius: 0px;
   --app-border-width: 1.5px;
@@ -256,10 +426,23 @@
     overflow-x: hidden;
     max-width: 100vw;
   }
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+  html[data-theme='clean_paper'] {
+    color-scheme: light;
+  }
   body {
     font-family: var(--theme-font-body, 'Inter', system-ui, sans-serif);
-    color: var(--theme-text, #f1f5f9);
-    background-color: var(--theme-bg, #0d0f17);
+    color: var(--theme-text, #f5f3ff);
+    background-color: var(--theme-bg, #0b0b12);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings:
+      'cv11' 1,
+      'ss01' 1;
     transition:
       background-color 0.2s ease,
       color 0.2s ease;
@@ -271,57 +454,159 @@
   h5,
   h6 {
     font-family: var(--theme-font-heading, inherit);
+    letter-spacing: -0.01em;
+  }
+  :where(
+    a,
+    button,
+    [role='button'],
+    [role='tab'],
+    [role='option'],
+    input,
+    select,
+    textarea,
+    [tabindex]
+  ):focus-visible {
+    outline: 2px solid rgb(var(--theme-focus-rgb, 167 139 250));
+    outline-offset: 2px;
+  }
+  ::selection {
+    background-color: rgb(var(--theme-accent-rgb, 124 58 237) / 0.4);
+    color: var(--theme-text, #f5f3ff);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
 /* Custom scrollbars driven by theme tokens */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--theme-border-rgb, 52 52 79)) transparent;
+}
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--theme-bg, #111420);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--theme-border-subtle, #252a3d);
-  border-radius: var(--theme-radius-sm, 4px);
+  background: rgb(var(--theme-border-rgb, 52 52 79));
+  border: 3px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--theme-border, #3b425f);
+  background-color: rgb(var(--theme-text-muted-rgb, 168 165 199) / 0.6);
 }
 
-/* Text selection highlights driven by theme accent */
-::selection {
-  background-color: var(--theme-accent, #06b6d4);
-  color: var(--theme-accent-text, #000000);
-}
+/* ==========================================================================
+   DESIGN SYSTEM COMPONENT LAYER
+   ========================================================================== */
+@layer components {
+  /* Translucent "glass" surface used by docks, toolbars and sticky headers */
+  .ks-glass {
+    background-color: rgb(var(--theme-surface-rgb) / var(--theme-glass-alpha, 0.82));
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    backdrop-filter: blur(18px) saturate(150%);
+  }
 
-/* Karaoke Preview Styling */
-.karaoke-font {
-  font-family: var(--theme-font-karaoke, 'Montserrat', sans-serif);
-  font-weight: 800;
-  text-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.9),
-    0 0 2px rgba(0, 0, 0, 1);
-}
+  /* Gradient text using the active theme brand gradient */
+  .ks-text-gradient {
+    background-image: var(--theme-gradient-accent);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
 
-[data-theme='punk_diy'] .karaoke-font {
-  text-shadow:
-    3px 3px 0px #000000,
-    -1px -1px 0px #000000;
-  letter-spacing: -0.02em;
-}
+  /* Ambient stage backdrop */
+  .ks-stage-backdrop {
+    background: var(--theme-gradient-stage);
+  }
 
-[data-theme='dive_bar_crt'] .karaoke-font {
-  text-shadow:
-    0 0 8px rgba(6, 182, 212, 0.8),
-    0 0 16px rgba(217, 70, 239, 0.6);
-  letter-spacing: 0.05em;
-}
+  /* Thin, theme-aware range slider. Set --ks-range-fill (0-100%) inline for the filled track. */
+  .ks-range {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+    width: 100%;
+    --ks-range-fill: 0%;
+    --ks-range-color: rgb(var(--theme-accent-rgb));
+  }
+  .ks-range:focus {
+    outline: none;
+  }
+  .ks-range::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: linear-gradient(
+      to right,
+      var(--ks-range-color) 0%,
+      var(--ks-range-color) var(--ks-range-fill),
+      rgb(var(--theme-border-rgb)) var(--ks-range-fill),
+      rgb(var(--theme-border-rgb)) 100%
+    );
+  }
+  .ks-range::-moz-range-track {
+    height: 6px;
+    border-radius: 9999px;
+    background: rgb(var(--theme-border-rgb));
+  }
+  .ks-range::-moz-range-progress {
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--ks-range-color);
+  }
+  .ks-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    margin-top: -6px;
+    border-radius: 9999px;
+    background: rgb(var(--theme-text-rgb));
+    border: 3px solid var(--ks-range-color);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+    transition: transform 120ms ease;
+  }
+  .ks-range::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: rgb(var(--theme-text-rgb));
+    border: 3px solid var(--ks-range-color);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  }
+  .ks-range:hover::-webkit-slider-thumb,
+  .ks-range:focus-visible::-webkit-slider-thumb {
+    transform: scale(1.12);
+  }
+  .ks-range:focus-visible::-webkit-slider-thumb {
+    box-shadow:
+      0 0 0 4px rgb(var(--theme-focus-rgb) / 0.35),
+      0 1px 3px rgb(0 0 0 / 0.35);
+  }
+  .ks-range:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
 
-[data-theme='clean_paper'] .karaoke-font {
-  text-shadow: 2px 2px 0px #111111;
-  letter-spacing: -0.01em;
+  /* Hide scrollbars on horizontally scrolling chip rows while keeping them scrollable */
+  .ks-no-scrollbar {
+    scrollbar-width: none;
+  }
+  .ks-no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ==========================================================================

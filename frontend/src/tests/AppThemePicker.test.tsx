@@ -51,8 +51,8 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
       expect(trigger).toHaveAttribute('aria-expanded', 'false');
       expect(trigger).toHaveAttribute('aria-controls');
 
-      // Displays current theme name ("Punk Rock DIY")
-      expect(trigger).toHaveTextContent(APP_THEMES.punk_diy.name);
+      // Displays current theme name (flagship default "Afterglow")
+      expect(trigger).toHaveTextContent(APP_THEMES[DEFAULT_APP_THEME_ID].name);
 
       // Listbox is closed initially
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
@@ -63,7 +63,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
   // 2. Mouse Interaction: Open, Close, Click Outside
   // =========================================================================
   describe('2. Mouse Interaction: Open, Close, and Dismissal', () => {
-    it('opens listbox on trigger click and displays all 4 themes with checkmark on active', () => {
+    it('opens listbox on trigger click and displays all themes with checkmark on active', () => {
       renderWithProvider(<AppThemePicker />);
 
       const trigger = screen.getByRole('button', { name: /select theme/i });
@@ -74,7 +74,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
       expect(listbox).toBeInTheDocument();
 
       const options = screen.getAllByRole('option');
-      expect(options).toHaveLength(4);
+      expect(options).toHaveLength(APP_THEME_LIST.length);
 
       // Verify each theme option details
       APP_THEME_LIST.forEach((theme, idx) => {
@@ -82,7 +82,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
         expect(opt).toHaveAttribute('data-theme-id', theme.id);
         expect(opt).toHaveTextContent(theme.name);
         expect(opt).toHaveTextContent(theme.tagline);
-        if (theme.id === 'punk_diy') {
+        if (theme.id === DEFAULT_APP_THEME_ID) {
           expect(opt).toHaveAttribute('aria-selected', 'true');
         } else {
           expect(opt).toHaveAttribute('aria-selected', 'false');
@@ -204,17 +204,17 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
       const trigger = screen.getByRole('button', { name: /select theme/i });
 
       trigger.focus();
-      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // Opens, highlighted = 0 (punk_diy)
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // Opens, highlighted = 0 (afterglow)
+      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-afterglow');
+
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // highlighted = 1 (punk_diy)
       expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-punk_diy');
 
-      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // highlighted = 1 (tape_studio_70s)
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // highlighted = 2 (tape_studio_70s)
       expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-tape_studio_70s');
 
-      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // highlighted = 2 (dive_bar_crt)
-      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-dive_bar_crt');
-
-      fireEvent.keyDown(trigger, { key: 'ArrowUp' }); // highlighted = 1 (tape_studio_70s)
-      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-tape_studio_70s');
+      fireEvent.keyDown(trigger, { key: 'ArrowUp' }); // highlighted = 1 (punk_diy)
+      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-punk_diy');
     });
 
     it('jumps to end with End key and jumps to beginning with Home key', () => {
@@ -228,7 +228,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
       expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-clean_paper');
 
       fireEvent.keyDown(trigger, { key: 'Home' });
-      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-punk_diy');
+      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-afterglow');
     });
   });
 
@@ -243,6 +243,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'Enter' }); // Opens
 
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // Move to punk_diy
       fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // Move to tape_studio_70s
       fireEvent.keyDown(trigger, { key: 'Enter' }); // Select
 
@@ -337,7 +338,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
 
       const trigger = screen.getByRole('button', { name: /select theme/i });
       expect(trigger).toBeInTheDocument();
-      expect(trigger).toHaveTextContent(APP_THEMES.punk_diy.name);
+      expect(trigger).toHaveTextContent(APP_THEMES[DEFAULT_APP_THEME_ID].name);
     });
   });
 });
