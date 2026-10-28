@@ -111,7 +111,7 @@ export const AppContent: React.FC = () => {
     setProject,
     isStudioReady,
   });
-  const waveformPeaks = useWaveformPeaks(project?.id, isStudioReady);
+  const waveformPeaks = useWaveformPeaks(project?.id, isStudioReady, project?.master_audio_url);
   const intake = useTrackIntake({ currentUser, setProject });
   const quality = useQualityJobs({ project, setProject });
 

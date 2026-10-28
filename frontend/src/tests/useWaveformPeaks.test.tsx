@@ -1,6 +1,6 @@
 /**
- * Server waveform peaks: fetched once per studio project, ignored when unusable so the
- * scrubber can fall back to decoding the audio in the browser.
+ * Server waveform peaks: fetched for the studio project and again when its master audio
+ * changes, ignored when unusable so the scrubber can fall back to decoding in the browser.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -52,5 +52,25 @@ describe('useWaveformPeaks', () => {
     spy.mockImplementation(() => new Promise<Response>(() => {}));
     rerender({ id: 'p2', enabled: true });
     expect(result.current).toBeNull();
+  });
+
+  it('fetches again when the master audio changes, keeping the old peaks meanwhile', async () => {
+    let respond: (res: Response) => void = () => {};
+    const spy = vi
+      .spyOn(apiModule, 'apiFetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ peaks: [0.2] })))
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => (respond = resolve)));
+    const { result, rerender } = renderHook(
+      ({ audio }: { audio: string }) => useWaveformPeaks('p1', true, audio),
+      { initialProps: { audio: '/static/output/p1_mix_0_0.wav?v=1' } }
+    );
+    await waitFor(() => expect(result.current).toEqual([0.2]));
+
+    rerender({ audio: '/static/output/p1_mix_2_0.wav?v=2' });
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(result.current).toEqual([0.2]);
+
+    respond(new Response(JSON.stringify({ peaks: [0.7] })));
+    await waitFor(() => expect(result.current).toEqual([0.7]));
   });
 });

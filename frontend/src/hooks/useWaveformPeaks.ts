@@ -1,6 +1,8 @@
 /**
  * Server-computed waveform peaks for the transport scrubber. Returns null until they arrive
  * (or if the server cannot provide them), in which case the scrubber decodes in the browser.
+ * They are fetched again when `audioVersion` (the master audio URL) changes, as after a key
+ * change or new stems; the previous peaks stay up until the new ones arrive.
  */
 
 import { useEffect, useState } from 'react';
@@ -8,7 +10,11 @@ import { apiFetch } from '../api';
 
 export const WAVEFORM_BINS = 800;
 
-export function useWaveformPeaks(projectId: string | undefined, enabled: boolean): number[] | null {
+export function useWaveformPeaks(
+  projectId: string | undefined,
+  enabled: boolean,
+  audioVersion?: string | null
+): number[] | null {
   const [loaded, setLoaded] = useState<{ projectId: string; peaks: number[] } | null>(null);
 
   useEffect(() => {
@@ -28,7 +34,7 @@ export function useWaveformPeaks(projectId: string | undefined, enabled: boolean
         // Network error or aborted: the scrubber falls back to browser decoding
       });
     return () => controller.abort();
-  }, [projectId, enabled]);
+  }, [projectId, enabled, audioVersion]);
 
   return loaded && loaded.projectId === projectId ? loaded.peaks : null;
 }
