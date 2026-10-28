@@ -263,7 +263,7 @@ describe('Tier 5 Adversarial Concurrency & Stress Hardening', () => {
           configurable: true,
         });
 
-        expect(getStoredAppTheme()).toBe('punk_diy');
+        expect(getStoredAppTheme()).toBe('afterglow');
         expect(() => setStoredAppTheme('clean_paper')).not.toThrow();
 
         // Simulate an intentional error inside the test

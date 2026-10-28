@@ -1,15 +1,15 @@
 """Backend Theme & Export Pipeline Parity Test Suite (Milestone 3).
 
 Verifies:
-1. Inventory completeness of all 8 visual themes (4 legacy + 4 new presets) in VISUAL_THEMES.
-2. Valid ASS header, styles block, and BGR color code generation across all 8 presets.
+1. Inventory completeness of all 9 visual themes (4 legacy + 4 app-matched + afterglow) in VISUAL_THEMES.
+2. Valid ASS header, styles block, and BGR color code generation across all 9 presets.
 3. Punk Rock DIY preset attributes (Impact font, flyer yellow &H0015CCFA, paper unsung &H00F5F5F5, black outline/shadow).
 4. New distinct theme attributes (tape_70s, crt_ktv, clean_paper).
 5. Custom color overrides (primary_color, secondary_color) overriding preset defaults.
 6. Custom font_name in style_config overriding preset font.
 7. Aspect ratio 9:16 vertical shorts layout with new themes.
 8. VideoRenderer delegation with new themes.
-9. FastAPI GET /api/project/{id}/export/ass endpoint accepting all 8 theme IDs with HTTP 200.
+9. FastAPI GET /api/project/{id}/export/ass endpoint accepting all 9 theme IDs with HTTP 200.
 10. FastAPI GET /api/project/{id}/export/ass rejecting unknown theme IDs with HTTP 400.
 11. FastAPI GET /api/project/{id}/export/ass combining theme preset with direct color overrides.
 """
@@ -29,7 +29,8 @@ from backend.services.video_renderer import VideoRenderer
 # All expected theme IDs
 LEGACY_THEMES = ["modern_gold", "cyber_cyan", "neon_pink", "classic_ktv"]
 NEW_THEMES = ["punk_diy", "tape_70s", "crt_ktv", "clean_paper"]
-ALL_THEMES = LEGACY_THEMES + NEW_THEMES
+FLAGSHIP_THEMES = ["afterglow"]
+ALL_THEMES = LEGACY_THEMES + NEW_THEMES + FLAGSHIP_THEMES
 
 SAMPLE_LINES = [
     {
@@ -75,9 +76,9 @@ def test_project():
 class TestVisualThemesRegistry:
     """Verifies VISUAL_THEMES dictionary structure and registry completeness."""
 
-    def test_theme_inventory_contains_all_8_presets(self):
-        """VISUAL_THEMES must contain exactly 8 presets: 4 legacy and 4 new."""
-        assert len(VISUAL_THEMES) == 8
+    def test_theme_inventory_contains_all_9_presets(self):
+        """VISUAL_THEMES must contain exactly 9 presets: 4 legacy, 4 app-matched, 1 flagship."""
+        assert len(VISUAL_THEMES) == 9
         for tid in ALL_THEMES:
             assert tid in VISUAL_THEMES, f"Missing preset '{tid}' in VISUAL_THEMES"
 
@@ -266,3 +267,35 @@ class TestExportsApiThemeParity:
         assert "&H00FF00FF" in body
         # Impact font should still be present from punk_diy
         assert "Impact" in body
+
+
+class TestAfterglowFlagshipPreset:
+    """Verifies the Afterglow flagship preset shipped with the frontend default theme."""
+
+    def test_afterglow_preset_colors_and_font(self):
+        theme = VISUAL_THEMES["afterglow"]
+        assert theme["primary_color"] == "&H0024BFFB"
+        assert theme["secondary_color"] == "&H00FFEBED"
+        assert theme["font_name"] == "Sora"
+
+    def test_afterglow_preset_duet_colors_apply_without_overrides(self):
+        content = generate_ass_content(lines=SAMPLE_LINES, theme_id="afterglow")
+        assert "KaraokeLine1_Singer2,Sora" in content
+        assert "&H00B672F4" in content
+        assert "&H00D4EA5E" in content
+
+    def test_explicit_duet_colors_override_preset(self):
+        content = generate_ass_content(
+            lines=SAMPLE_LINES,
+            theme_id="afterglow",
+            singer2_color="#00ff00",
+            both_color="#0000ff",
+        )
+        assert "&H0000FF00" in content
+        assert "&H00FF0000" in content
+        assert "&H00B672F4" not in content
+
+    def test_presets_without_duet_palette_keep_export_defaults(self):
+        content = generate_ass_content(lines=SAMPLE_LINES, theme_id="punk_diy")
+        assert "&H00B300FF" in content
+        assert "&H0050FA7B" in content

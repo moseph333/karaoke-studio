@@ -9,7 +9,8 @@
 
 import { useState, useCallback, useMemo, useEffect, useContext, useRef } from 'react';
 import { VisualTheme, SyncDisplayMode } from '../types';
-import { THEMES } from '../components/VisualThemePicker';
+import { THEMES } from '../theme/stagePresets';
+import { DEFAULT_APP_THEME_ID, getAppTheme } from '../theme/appThemes';
 import { AppThemeContext } from '../context/AppThemeContext';
 
 /**
@@ -69,8 +70,9 @@ export function useVisualTheme(initialTheme?: VisualTheme): UseVisualThemeReturn
       if (match) return match;
     }
     if (appThemeContext) {
-      const punk = THEMES.find((t) => t.id === 'punk_diy');
-      if (punk) return punk;
+      const fallbackPresetId = getAppTheme(DEFAULT_APP_THEME_ID).stagePresetId;
+      const fallback = THEMES.find((t) => t.id === fallbackPresetId);
+      if (fallback) return fallback;
     }
     return THEMES[0];
   });

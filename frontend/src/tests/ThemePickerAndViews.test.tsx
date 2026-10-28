@@ -6,7 +6,7 @@
  * 2. Complete Keyboard Accessibility (Tab, Enter, Space, ArrowDown, ArrowUp, Home, End, Escape).
  * 3. Reactive State Synchronization across Library View, Studio Workspace Views, and Modals.
  * 4. Multi-Dimensional Style Transformations across all 4 visual dimensions (Colors, Typography, Geometry, Shadows).
- * 5. Strict Punk Rock / Underground / DIY Rubric Compliance in Library and Studio views.
+ * 5. Strict Punk Rock / Underground / DIY Rubric Compliance in Library and Studio views (legacy punk_diy theme).
  */
 
 import React from 'react';
@@ -84,7 +84,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
   // Suite 1: Theme Picker Rendering & Options Listing
   // =========================================================================
   describe('Suite 1: Theme Picker Header Integration & Options Listing', () => {
-    it('renders the theme picker trigger button in StudioHeader with default Punk Rock DIY theme', () => {
+    it('renders the theme picker trigger button in StudioHeader with the default Afterglow theme', () => {
       render(
         <AppThemeProvider>
           <StudioHeader
@@ -108,10 +108,10 @@ describe('ThemePickerAndViews Integration Suite', () => {
       expect(trigger).toHaveAttribute('aria-expanded', 'false');
 
       // Default theme name must be visible
-      expect(trigger).toHaveTextContent(/Basement Flyer/i);
+      expect(trigger).toHaveTextContent(/Afterglow/i);
     });
 
-    it('opens listbox dropdown listing all 4 distinct human-crafted themes with WAI-ARIA roles', () => {
+    it('opens listbox dropdown listing all 5 distinct themes with WAI-ARIA roles', () => {
       render(
         <AppThemeProvider>
           <StudioHeader
@@ -137,10 +137,11 @@ describe('ThemePickerAndViews Integration Suite', () => {
       expect(listbox).toBeInTheDocument();
 
       const options = screen.getAllByRole('option');
-      expect(options).toHaveLength(4);
+      expect(options).toHaveLength(5);
 
-      // Verify all 4 themes are listed
+      // Verify all 5 themes are listed
       const expectedThemes = [
+        { id: 'afterglow', name: 'Afterglow' },
         { id: 'punk_diy', name: 'Basement Flyer' },
         { id: 'tape_studio_70s', name: "Reel-to-Reel '74" },
         { id: 'dive_bar_crt', name: 'Midnight KTV Booth' },
@@ -152,7 +153,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
       });
 
       // Default option has aria-selected="true"
-      const defaultOption = screen.getByRole('option', { name: /Basement Flyer/i });
+      const defaultOption = screen.getByRole('option', { name: /Afterglow/i });
       expect(defaultOption).toHaveAttribute('aria-selected', 'true');
     });
   });
@@ -216,7 +217,8 @@ describe('ThemePickerAndViews Integration Suite', () => {
 
       const listbox = screen.getByRole('listbox');
 
-      // ArrowDown to second option (tape_studio_70s)
+      // ArrowDown twice to the third option (tape_studio_70s)
+      fireEvent.keyDown(listbox, { key: 'ArrowDown', code: 'ArrowDown' });
       fireEvent.keyDown(listbox, { key: 'ArrowDown', code: 'ArrowDown' });
       const tapeOption = screen.getByRole('option', { name: /Reel-to-Reel '74/i });
 

@@ -15,6 +15,7 @@ import clsx from 'clsx';
 import { Palette, Check, ChevronDown } from 'lucide-react';
 import { useAppTheme } from '../context/AppThemeContext';
 import { AppThemeId } from '../types';
+import { DEFAULT_APP_THEME_ID } from '../theme/appThemes';
 
 export interface AppThemePickerProps {
   className?: string;
@@ -260,7 +261,7 @@ export const AppThemePicker: React.FC<AppThemePickerProps> = ({ className, id })
                     <span className="font-bold text-xs sm:text-sm text-theme-text truncate block">
                       {item.name}
                     </span>
-                    {item.id === 'punk_diy' && (
+                    {item.id === DEFAULT_APP_THEME_ID && (
                       <span className="text-[9px] uppercase tracking-wider px-1 py-0.5 rounded-theme-sm bg-theme-accent text-theme-accent-text font-black shrink-0">
                         Default
                       </span>

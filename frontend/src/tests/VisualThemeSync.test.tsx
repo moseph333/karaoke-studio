@@ -61,8 +61,8 @@ describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
   });
 
   describe('THEMES Array Specification & Legacy Preservation', () => {
-    it('defines exactly 8 stage presets: 4 legacy followed by 4 matching application presets', () => {
-      expect(THEMES).toHaveLength(8);
+    it('defines 9 stage presets: 4 legacy, 4 app-matched, then the flagship afterglow preset', () => {
+      expect(THEMES).toHaveLength(9);
       const ids = THEMES.map((t) => t.id);
       expect(ids).toEqual([
         'modern_gold',
@@ -73,6 +73,7 @@ describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
         'tape_70s',
         'crt_ktv',
         'clean_paper',
+        'afterglow',
       ]);
     });
 

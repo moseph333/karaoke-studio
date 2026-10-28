@@ -436,10 +436,11 @@ describe('Milestone 5 Tier 5 Adversarial Coverage Hardening', () => {
         expect(getAppTheme('toString').id).toBe(DEFAULT_APP_THEME_ID);
       });
 
-      it('APP_THEMES supports Symbol.iterator yielding all 4 themes in canonical order', () => {
+      it('APP_THEMES supports Symbol.iterator yielding all 5 themes in canonical order', () => {
         const iterated = Array.from(APP_THEMES);
-        expect(iterated).toHaveLength(4);
+        expect(iterated).toHaveLength(5);
         expect(iterated.map((t) => t.id)).toEqual([
+          'afterglow',
           'punk_diy',
           'tape_studio_70s',
           'dive_bar_crt',
@@ -564,7 +565,7 @@ describe('Milestone 5 Tier 5 Adversarial Coverage Hardening', () => {
         }
       });
 
-      it('calling setTheme with invalid string safely defaults to punk_diy', () => {
+      it('calling setTheme with invalid string safely defaults to afterglow', () => {
         const { result } = renderHook(() => useAppTheme(), {
           wrapper: ({ children }) => (
             <AppThemeProvider initialThemeId="clean_paper">{children}</AppThemeProvider>
@@ -578,9 +579,9 @@ describe('Milestone 5 Tier 5 Adversarial Coverage Hardening', () => {
           result.current.setThemeId('malformed_theme_id' as AppThemeId);
         });
 
-        expect(result.current.themeId).toBe('punk_diy');
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
-        expect(localStorage.getItem(APP_THEME_STORAGE_KEY)).toBe('punk_diy');
+        expect(result.current.themeId).toBe('afterglow');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
+        expect(localStorage.getItem(APP_THEME_STORAGE_KEY)).toBe('afterglow');
       });
     });
 

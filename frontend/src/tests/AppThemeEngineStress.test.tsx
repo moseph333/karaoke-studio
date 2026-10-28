@@ -23,11 +23,13 @@ import {
 import {
   APP_THEMES,
   DEFAULT_APP_THEME_ID,
+  APP_THEME_LIST,
   isAppThemeId,
   getAppTheme,
   APP_THEME_STORAGE_KEY,
 } from '../theme/appThemes';
 import { AppThemeId } from '../types';
+import { runIndexHtmlBootScript } from './bootScriptUtils';
 
 describe('AppThemeEngine Stress Testing (Milestone 1 Challenger 1)', () => {
   beforeEach(() => {
@@ -265,14 +267,20 @@ describe('AppThemeEngine Stress Testing (Milestone 1 Challenger 1)', () => {
       );
     };
 
-    it('synchronizes all 4 valid themes across browser tabs via storage events', () => {
+    it('synchronizes all valid themes across browser tabs via storage events', () => {
       render(
         <AppThemeProvider>
           <MultiTabHarness />
         </AppThemeProvider>
       );
 
-      const targets: AppThemeId[] = ['tape_studio_70s', 'dive_bar_crt', 'clean_paper', 'punk_diy'];
+      const targets: AppThemeId[] = [
+        'tape_studio_70s',
+        'dive_bar_crt',
+        'clean_paper',
+        'punk_diy',
+        'afterglow',
+      ];
 
       for (const target of targets) {
         act(() => {
@@ -473,9 +481,9 @@ describe('AppThemeEngine Stress Testing (Milestone 1 Challenger 1)', () => {
         screen.getByTestId('btn-interleave').click();
       });
 
-      // Passing null falls back safely to default theme (punk_diy) without crashing
+      // Passing null falls back safely to default theme (afterglow) without crashing
       const current = document.documentElement.getAttribute('data-theme');
-      expect(['punk_diy', 'clean_paper']).toContain(current);
+      expect([DEFAULT_APP_THEME_ID, 'punk_diy', 'clean_paper']).toContain(current);
       unmount();
     });
 
@@ -662,8 +670,10 @@ describe('AppThemeEngine Stress Testing (Milestone 1 Challenger 1)', () => {
 
       expect(screen.getByTestId('outside-id')).toHaveTextContent(DEFAULT_APP_THEME_ID);
       expect(screen.getByTestId('outside-current-id')).toHaveTextContent(DEFAULT_APP_THEME_ID);
-      expect(screen.getByTestId('outside-theme-name')).toHaveTextContent(APP_THEMES.punk_diy.name);
-      expect(screen.getByTestId('outside-count')).toHaveTextContent('4');
+      expect(screen.getByTestId('outside-theme-name')).toHaveTextContent(
+        APP_THEMES[DEFAULT_APP_THEME_ID].name
+      );
+      expect(screen.getByTestId('outside-count')).toHaveTextContent(String(APP_THEME_LIST.length));
     });
 
     it('allows mutating DOM attributes and variables via setTheme outside provider without crashing', () => {
@@ -693,7 +703,7 @@ describe('AppThemeEngine Stress Testing (Milestone 1 Challenger 1)', () => {
 
       expect(document.documentElement.getAttribute('data-theme')).toBe(DEFAULT_APP_THEME_ID);
       expect(document.documentElement.style.getPropertyValue('--theme-bg')).toBe(
-        APP_THEMES.punk_diy.colors.bg
+        APP_THEMES[DEFAULT_APP_THEME_ID].colors.bg
       );
     });
 
@@ -715,25 +725,13 @@ describe('AppThemeEngine Stress Testing (Milestone 1 Challenger 1)', () => {
   // Stress Suite 7: Zero-FOUC Inline Pre-render Script Emulation
   // =========================================================================
   describe('Stress Suite 7: Zero-FOUC Inline Pre-render Script Emulation', () => {
-    // Replicates the synchronous pre-render IIFE in frontend/index.html
-    function runPreRenderScript() {
-      try {
-        const validThemes = ['punk_diy', 'tape_studio_70s', 'dive_bar_crt', 'clean_paper'];
-        const saved = localStorage.getItem('karaoke_app_theme');
-        if (saved && validThemes.indexOf(saved) !== -1) {
-          document.documentElement.setAttribute('data-theme', saved);
-        } else {
-          document.documentElement.setAttribute('data-theme', 'punk_diy');
-        }
-      } catch (e) {
-        document.documentElement.setAttribute('data-theme', 'punk_diy');
-      }
-    }
+    // Executes the synchronous pre-render IIFE shipped in frontend/index.html
+    const runPreRenderScript = () => runIndexHtmlBootScript();
 
-    it('sets data-theme="punk_diy" on fresh boot with empty localStorage', () => {
+    it('sets data-theme="afterglow" on fresh boot with empty localStorage', () => {
       document.documentElement.removeAttribute('data-theme');
       runPreRenderScript();
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
 
     it('sets pre-seeded valid theme without delay or error', () => {
@@ -745,21 +743,21 @@ describe('AppThemeEngine Stress Testing (Milestone 1 Challenger 1)', () => {
       }
     });
 
-    it('defaults to punk_diy when localStorage holds corrupted or prototype values', () => {
+    it('defaults to afterglow when localStorage holds corrupted or prototype values', () => {
       const hostileValues = ['toString', 'valueOf', 'constructor', '<script>', '', 'invalid'];
       for (const val of hostileValues) {
         localStorage.setItem('karaoke_app_theme', val);
         runPreRenderScript();
-        expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+        expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
       }
     });
 
-    it('defaults to punk_diy when localStorage throws SecurityError in pre-render script', () => {
+    it('defaults to afterglow when localStorage throws SecurityError in pre-render script', () => {
       vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
         throw new Error('Access denied');
       });
       runPreRenderScript();
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('afterglow');
     });
   });
 });
