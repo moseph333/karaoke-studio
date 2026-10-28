@@ -363,7 +363,8 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
       );
       expect(screen.queryByTestId('pitch-pending-mix-badge')).not.toBeInTheDocument();
 
-      // Matrix Test 2: semitones === 2, appliedSemitones === undefined -> BADGE visible
+      // Matrix Test 2: semitones === 2, appliedSemitones === undefined -> NO badge
+      // (keys apply automatically; without an applied value there is nothing pending to show)
       rerender(
         <PitchTranspositionControl
           semitones={2}
@@ -371,10 +372,7 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
           onResetPitch={onResetPitch}
         />
       );
-      expect(screen.getByTestId('pitch-pending-mix-badge')).toBeInTheDocument();
-      expect(screen.getByTestId('pitch-pending-mix-badge')).toHaveTextContent(
-        'Pending Mix / Click Apply'
-      );
+      expect(screen.queryByTestId('pitch-pending-mix-badge')).not.toBeInTheDocument();
 
       // Matrix Test 3: semitones === 2, appliedSemitones === 2 -> NO badge (applied matches!)
       rerender(
@@ -387,7 +385,7 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
       );
       expect(screen.queryByTestId('pitch-pending-mix-badge')).not.toBeInTheDocument();
 
-      // Matrix Test 4: semitones === 0, appliedSemitones === 2 -> BADGE visible (reverting to 0 needs apply!)
+      // Matrix Test 4: semitones === 0, appliedSemitones === 2 -> BADGE visible (revert queued)
       rerender(
         <PitchTranspositionControl
           semitones={0}
@@ -396,7 +394,7 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
           onResetPitch={onResetPitch}
         />
       );
-      expect(screen.getByTestId('pitch-pending-mix-badge')).toBeInTheDocument();
+      expect(screen.getByTestId('pitch-pending-mix-badge')).toHaveTextContent('Applying…');
 
       // Matrix Test 5: semitones === -3, appliedSemitones === 1 -> BADGE visible
       rerender(
@@ -430,6 +428,18 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
         />
       );
       expect(screen.getByTestId('pitch-pending-mix-badge')).toBeInTheDocument();
+
+      // Matrix Test 8: re-render in flight -> BADGE reports the re-pitch
+      rerender(
+        <PitchTranspositionControl
+          semitones={4}
+          appliedSemitones={1}
+          isRemixing
+          onSemitoneChange={onSemitoneChange}
+          onResetPitch={onResetPitch}
+        />
+      );
+      expect(screen.getByTestId('pitch-pending-mix-badge')).toHaveTextContent('Re-pitching…');
     });
   });
 });

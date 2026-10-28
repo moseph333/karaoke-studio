@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
+import { expectTouchTarget } from './responsiveTestUtils';
 import { TrackSearch } from '../components/TrackSearch';
 import { ProjectState } from '../types';
 import { setAuthUser } from '../api';
@@ -67,17 +68,18 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       });
       expect(profileButton).toBeInTheDocument();
 
-      // Check the truncated text span
-      const nameSpan = profileButton.querySelector('span');
+      // The nickname collapses to the avatar on phones and truncates from sm upwards
+      const nameSpan = Array.from(profileButton.querySelectorAll('span')).find(
+        (el) => el.textContent === ultraLongNickname
+      );
       expect(nameSpan).toBeInTheDocument();
-      expect(nameSpan?.textContent).toBe(ultraLongNickname);
-
-      // Verify strict responsive classes: max-w-[65px] for mobile 320px, truncate
-      expect(nameSpan?.className).toMatch(/max-w-\[65px\]/);
+      expect(nameSpan?.className).toMatch(/(^|\s)hidden(\s|$)/);
+      expect(nameSpan?.className).toMatch(/sm:inline/);
+      expect(nameSpan?.className).toMatch(/max-w-\[\d+px\]/);
       expect(nameSpan?.className).toMatch(/truncate/);
 
-      // Verify touch target height
-      expect(profileButton.className).toMatch(/min-h-\[36px\]/);
+      // Verify touch target size
+      expectTouchTarget(profileButton);
 
       // Verify top brand: renders "Karaoke Studio" directly across all viewports
       const header = screen.getByRole('banner');
@@ -289,14 +291,17 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
         expect(screen.getByRole('button', { name: /New Song/i })).toBeInTheDocument();
       });
 
-      // Verify Navbar Render & Export Video button is restricted to hidden md:flex
+      // A single Export entry point that stays available (icon-only) on phones
       const navbar = screen.getByRole('banner');
-      const navRenderBtn = within(navbar).getByRole('button', { name: /Render & Export Video/i });
-      expect(navRenderBtn.className).toMatch(/hidden md:flex/);
+      const exportBtn = within(navbar).getByRole('button', { name: 'Open export dialog' });
+      expectTouchTarget(exportBtn);
+      expect(exportBtn.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+      expect(exportBtn.querySelector('span')?.className).toMatch(/hidden sm:inline/);
 
-      // Verify "New Song" button has responsive label and min-h-[36px]
+      // Verify "New Song" button has a responsive label and a compliant touch target
       const newSongBtn = within(navbar).getByRole('button', { name: /New Song/i });
-      expect(newSongBtn.className).toMatch(/min-h-\[36px\]/);
+      expectTouchTarget(newSongBtn);
+      expect(newSongBtn.className).toMatch(/md:min-h-\[36px\]/);
       const newSongSpan = newSongBtn.querySelector('span');
       expect(newSongSpan?.className).toMatch(/hidden sm:inline/);
     });

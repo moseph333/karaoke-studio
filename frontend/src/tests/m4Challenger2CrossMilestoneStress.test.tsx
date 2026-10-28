@@ -321,8 +321,8 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       fireEvent.click(timelineTab);
       expect(timelineTab).toHaveAttribute('aria-selected', 'true');
 
-      // Mobile header export button
-      const exportBtn = screen.getByTestId('mobile-header-export-btn');
+      // Header export button
+      const exportBtn = screen.getByTestId('studio-export-btn');
       expect(exportBtn).toBeInTheDocument();
       fireEvent.click(exportBtn);
 
@@ -614,9 +614,9 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
         .closest('nav');
       expect(tabsNav?.className).toContain('md:hidden');
 
-      // Mobile sticky bottom transport must be hidden on desktop
-      const transportBar = screen.getByTestId('mobile-studio-transport');
-      expect(transportBar.className).toContain('md:hidden');
+      // The transport dock switches from a fixed mini-player to an in-flow dock on desktop
+      const transportBar = screen.getByTestId('transport-dock');
+      expect(transportBar.className).toContain('md:static');
     });
 
     it('5.2 simultaneously displays all panels on tablet viewport (768px)', async () => {
@@ -672,7 +672,7 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       }
 
       // Modal open/close churn
-      const exportBtn = screen.getByTestId('mobile-header-export-btn');
+      const exportBtn = screen.getByTestId('studio-export-btn');
       fireEvent.click(exportBtn);
       expect(container.querySelector('audio')).toBe(audioEl);
 
@@ -703,15 +703,15 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       fireEvent.click(transposeUp);
       fireEvent.click(transposeUp);
 
-      // Verify status badge in mobile transport updates
-      const transport = screen.getByTestId('mobile-studio-transport');
-      expect(transport.textContent).toContain('+2');
+      // Verify the key chip in the transport dock updates immediately
+      const transport = screen.getByTestId('transport-dock');
+      expect(within(transport).getByTestId('transport-key-chip')).toHaveTextContent('+2 st');
 
       // Switch to Timeline tab
       const timelineTab = screen.getByRole('tab', { name: /timeline/i });
       fireEvent.click(timelineTab);
 
-      // Verify transposition remains +2 in sticky transport
+      // Verify transposition remains +2 in the dock
       expect(transport.textContent).toContain('+2');
 
       // Switch to Stage tab
@@ -720,7 +720,7 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       expect(transport.textContent).toContain('+2');
     });
 
-    it('6.3 maintains play/pause toggle functionality from sticky transport bar', async () => {
+    it('6.3 maintains play/pause toggle functionality from the transport dock', async () => {
       render(<App />);
 
       await waitFor(() => {
@@ -729,9 +729,9 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       // Allow initial project effect to settle
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      const transport = screen.getByTestId('mobile-studio-transport');
+      const transport = screen.getByTestId('transport-dock');
       const playPauseBtn = within(transport).getByRole('button', {
-        name: /play audio|pause audio/i,
+        name: /start playback|pause playback/i,
       });
       expect(playPauseBtn).toBeInTheDocument();
 

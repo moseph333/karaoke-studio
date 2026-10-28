@@ -427,9 +427,9 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       }`
     : `relative ${
         aspectRatio === '9:16'
-          ? 'aspect-[9/16] max-w-xs mx-auto'
-          : 'aspect-video w-full min-h-[340px] sm:min-h-0'
-      } rounded-2xl overflow-hidden shadow-2xl border border-theme-border bg-theme-bg text-theme-text font-theme-heading font-theme-body flex flex-col justify-end pt-14 pb-5 px-3 sm:p-6 md:p-8 select-none ${className}`;
+          ? 'aspect-[9/16] max-w-xs mx-auto md:ks-stage-fit-portrait'
+          : 'aspect-video w-full min-h-[340px] sm:min-h-0 md:mx-auto md:ks-stage-fit'
+      } ks-stage-container rounded-2xl overflow-hidden shadow-2xl border border-theme-border bg-theme-bg text-theme-text font-theme-heading font-theme-body flex flex-col justify-end pt-14 pb-5 px-3 sm:p-6 md:p-8 select-none ${className}`;
 
   return (
     <div
@@ -518,6 +518,25 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
           <Activity className="w-4 h-4" />
         </button>
 
+        {/* Chord bar toggle (the floating TV-stage controls carry their own copy) */}
+        {!isFullscreen && (
+          <button
+            type="button"
+            data-testid="chord-bar-toggle"
+            aria-label={isChordBarVisible ? 'Hide Live Chord Bar (C)' : 'Show Live Chord Bar (C)'}
+            aria-pressed={isChordBarVisible}
+            onClick={handleToggleChordBar}
+            className={`p-2 rounded-xl border backdrop-blur text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 min-h-[44px] min-w-[44px] flex items-center justify-center shadow-lg ${
+              isChordBarVisible
+                ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-amber-500/20'
+                : 'bg-slate-900/80 hover:bg-slate-800 border-slate-700/60 text-slate-400 hover:text-slate-200'
+            }`}
+            title={isChordBarVisible ? 'Hide Live Chord Bar (C)' : 'Show Live Chord Bar (C)'}
+          >
+            <Music2 className="w-4 h-4" />
+          </button>
+        )}
+
         <button
           type="button"
           data-testid="stage-fullscreen-toggle"
@@ -536,7 +555,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
 
       {/* Lyrics Display */}
       <div
-        className={`relative z-10 space-y-3 sm:space-y-4 text-center max-w-5xl mx-auto w-full my-auto sm:my-0 ${
+        className={`ks-stage-lyrics relative z-10 space-y-3 sm:space-y-4 text-center max-w-5xl mx-auto w-full my-auto sm:my-0 ${
           isFullscreen ? 'sm:my-auto' : ''
         }`}
       >
@@ -617,7 +636,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         )}
 
         {/* Active Line (Line 1) */}
-        <div className="min-h-[3rem] sm:min-h-[4.5rem] flex items-center justify-center text-xl sm:text-3xl md:text-5xl">
+        <div className="ks-stage-line min-h-[3rem] sm:min-h-[4.5rem] flex items-center justify-center text-xl sm:text-3xl md:text-5xl">
           {currentLine ? (
             <div
               data-testid="active-lyrics-line"
@@ -745,7 +764,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         </div>
 
         {/* Upcoming Line (Line 2) */}
-        <div className="min-h-[1.5rem] sm:min-h-[2rem] flex items-center justify-center text-sm sm:text-lg md:text-xl">
+        <div className="ks-stage-next min-h-[1.5rem] sm:min-h-[2rem] flex items-center justify-center text-sm sm:text-lg md:text-xl">
           {nextLine ? (
             <p
               data-testid="upcoming-lyrics-line"

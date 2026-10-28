@@ -4,7 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { MobileStudioWorkspaceTabs } from '../components/MobileStudioWorkspaceTabs';
-import { MobileStudioTransport } from '../components/MobileStudioTransport';
+import { TransportDock } from '../components/transport/TransportDock';
 import { ProjectState } from '../types';
 import {
   setTestViewport,
@@ -13,7 +13,7 @@ import {
   assertTouchTargets,
 } from './responsiveTestUtils';
 
-describe('Milestone M1: Mobile Studio Navigation & Sticky Transport', () => {
+describe('Milestone M1: Mobile Studio Navigation & Transport Dock', () => {
   const readyProject: ProjectState = {
     id: 'm1-test-proj',
     title: 'Mobile Navigation Track',
@@ -332,9 +332,9 @@ describe('Milestone M1: Mobile Studio Navigation & Sticky Transport', () => {
         .closest('nav');
       expect(tabsNav?.className).toContain('md:hidden');
 
-      // Mobile sticky transport must have md:hidden
-      const transport = screen.getByTestId('mobile-studio-transport');
-      expect(transport.className).toContain('md:hidden');
+      // The transport dock stays available on tablet, docked in the layout flow
+      const transport = screen.getByTestId('transport-dock');
+      expect(transport.className).toContain('md:static');
 
       // All 4 panels must have md:block
       expect(screen.getByTestId('studio-panel-stage').className).toMatch(/block/);
@@ -367,7 +367,7 @@ describe('Milestone M1: Mobile Studio Navigation & Sticky Transport', () => {
       expect(themePanel.className).toContain('md:block');
     });
 
-    it('T3.3: resets main container bottom padding from pb-28 on mobile to md:pb-8 on desktop', async () => {
+    it('T3.3: reserves dock clearance below main on mobile and drops it on desktop', async () => {
       render(<App />);
 
       await waitFor(() => {
@@ -375,33 +375,33 @@ describe('Milestone M1: Mobile Studio Navigation & Sticky Transport', () => {
       });
 
       const mainEl = screen.getByRole('main');
-      expect(mainEl.className).toContain('pb-28');
-      expect(mainEl.className).toContain('md:pb-8');
+      expect(mainEl.className).toContain('pb-[calc(var(--dock-height,8.5rem)+1rem)]');
+      expect(mainEl.className).toContain('md:pb-0');
     });
   });
 
   // =========================================================================
-  // Suite 4: Persistent Mobile Sticky Mini-Player Transport
+  // Suite 4: Transport Dock (mobile mini-player)
   // =========================================================================
-  describe('Suite 4: Persistent Mobile Sticky Mini-Player Transport', () => {
-    it('T4.1: renders sticky bottom mini-player with fixed positioning and safe-area padding', () => {
-      render(
-        <MobileStudioTransport
-          isPlaying={false}
-          currentTime={15}
-          duration={120}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
-        />
-      );
+  describe('Suite 4: Transport Dock (mobile mini-player)', () => {
+    const dockProps = {
+      masterAudioUrl: '/static/test-master.wav',
+      isPlaying: false,
+      currentTime: 15,
+      duration: 120,
+      onTogglePlay: vi.fn(),
+      onSeek: vi.fn(),
+    };
 
-      const transport = screen.getByTestId('mobile-studio-transport');
-      expect(transport).toBeInTheDocument();
+    it('T4.1: docks to the bottom on phones with safe-area padding', () => {
+      render(<TransportDock {...dockProps} />);
+
+      const transport = screen.getByTestId('transport-dock');
       expect(transport.className).toContain('fixed');
       expect(transport.className).toContain('bottom-0');
       expect(transport.className).toContain('z-40');
-      expect(transport.className).toContain('md:hidden');
-      expect(transport.className).toMatch(/pb-\[calc\(.*safe-area-inset-bottom/);
+      expect(transport.className).toContain('md:static');
+      expect(transport.style.paddingBottom).toContain('safe-area-inset-bottom');
     });
 
     it('T4.2: toggles playback state when Play/Pause button is clicked', async () => {
@@ -409,105 +409,66 @@ describe('Milestone M1: Mobile Studio Navigation & Sticky Transport', () => {
       const onTogglePlay = vi.fn();
 
       const { rerender } = render(
-        <MobileStudioTransport
-          isPlaying={false}
-          currentTime={0}
-          duration={180}
-          onTogglePlay={onTogglePlay}
-          onSeek={vi.fn()}
-        />
+        <TransportDock {...dockProps} currentTime={0} duration={180} onTogglePlay={onTogglePlay} />
       );
 
-      const playBtn = screen.getByRole('button', { name: /play audio/i });
-      expect(playBtn).toBeInTheDocument();
-      await user.click(playBtn);
+      await user.click(screen.getByRole('button', { name: /start playback/i }));
       expect(onTogglePlay).toHaveBeenCalledTimes(1);
 
       rerender(
-        <MobileStudioTransport
-          isPlaying={true}
+        <TransportDock
+          {...dockProps}
+          isPlaying
           currentTime={0}
           duration={180}
           onTogglePlay={onTogglePlay}
-          onSeek={vi.fn()}
         />
       );
 
-      const pauseBtn = screen.getByRole('button', { name: /pause audio/i });
-      expect(pauseBtn).toBeInTheDocument();
-      await user.click(pauseBtn);
+      await user.click(screen.getByRole('button', { name: /pause playback/i }));
       expect(onTogglePlay).toHaveBeenCalledTimes(2);
     });
 
-    it('T4.3: calls onSeek when scrubbing the range slider', () => {
+    it('T4.3: calls onSeek when scrubbing the timeline', () => {
       const onSeek = vi.fn();
-      render(
-        <MobileStudioTransport
-          isPlaying={false}
-          currentTime={20}
-          duration={100}
-          onTogglePlay={vi.fn()}
-          onSeek={onSeek}
-        />
-      );
+      render(<TransportDock {...dockProps} currentTime={20} duration={100} onSeek={onSeek} />);
 
-      const scrubber = screen.getByRole('slider', { name: /audio playback scrub bar/i });
-      expect(scrubber).toBeInTheDocument();
+      const scrubber = screen.getByRole('slider', { name: 'Audio timeline position' });
       fireEvent.change(scrubber, { target: { value: '45' } });
       expect(onSeek).toHaveBeenCalledWith(45);
     });
 
     it('T4.4: formats current playback time and total duration correctly', () => {
-      render(
-        <MobileStudioTransport
-          isPlaying={false}
-          currentTime={75}
-          duration={210}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
-        />
-      );
+      render(<TransportDock {...dockProps} currentTime={75} duration={210} />);
 
-      const timeDisplay = screen.getByTestId('mobile-transport-time');
-      expect(timeDisplay).toHaveTextContent('1:15 / 3:30');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('1:15');
+      expect(screen.getByTestId('transport-duration')).toHaveTextContent('3:30');
     });
 
-    it('T4.5: renders active key and tempo status badge and switches to mix tab on click', async () => {
+    it('T4.5: shows the active key and tempo and opens mix settings on click', async () => {
       const user = userEvent.setup();
-      const onOpenMixTab = vi.fn();
+      const onOpenMixSettings = vi.fn();
 
       render(
-        <MobileStudioTransport
-          isPlaying={false}
+        <TransportDock
+          {...dockProps}
           currentTime={10}
-          duration={120}
-          activeSemitones={2}
+          semitones={2}
           playbackRate={1.25}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
-          onOpenMixTab={onOpenMixTab}
+          onOpenMixSettings={onOpenMixSettings}
         />
       );
 
-      const badge = screen.getByRole('button', { name: /open mix and theme settings/i });
-      expect(badge).toBeInTheDocument();
-      expect(badge).toHaveTextContent('+2 st');
-      expect(badge).toHaveTextContent('1.25x');
+      const chip = screen.getByRole('button', { name: /open mix settings/i });
+      expect(chip).toHaveTextContent('+2 st');
+      expect(chip).toHaveTextContent('1.25x');
 
-      await user.click(badge);
-      expect(onOpenMixTab).toHaveBeenCalledTimes(1);
+      await user.click(chip);
+      expect(onOpenMixSettings).toHaveBeenCalledTimes(1);
     });
 
-    it('T4.6: ensures transport play button meets >= 44x44px touch target requirement', () => {
-      const { container } = render(
-        <MobileStudioTransport
-          isPlaying={false}
-          currentTime={0}
-          duration={100}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
-        />
-      );
+    it('T4.6: ensures every dock control meets the >= 44px touch target requirement', () => {
+      const { container } = render(<TransportDock {...dockProps} currentTime={0} />);
       const inspection = assertTouchTargets(container, 44);
       expect(inspection.failed).toHaveLength(0);
     });
@@ -519,7 +480,8 @@ describe('Milestone M1: Mobile Studio Navigation & Sticky Transport', () => {
   describe('Suite 5: Viewport Geometry & Overflow Validation', () => {
     it('T5.1: guarantees zero horizontal overflow at 375px Mobile Standard viewport', () => {
       const { container } = render(
-        <MobileStudioTransport
+        <TransportDock
+          masterAudioUrl="/static/test-master.wav"
           isPlaying={false}
           currentTime={0}
           duration={100}

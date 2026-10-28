@@ -532,6 +532,35 @@
     background: var(--theme-gradient-stage);
   }
 
+  /* Size the live stage from a height budget so stage + timeline fit one screen: the
+     default keeps ~500px of the viewport for chrome and the timeline. --stage-h can be
+     overridden by the studio workspace (stage size setting). */
+  .ks-stage-fit {
+    width: min(100%, calc(var(--stage-h, clamp(220px, calc(100dvh - 500px), 440px)) * 16 / 9));
+  }
+  .ks-stage-fit-portrait {
+    width: min(100%, calc(var(--stage-h, clamp(220px, calc(100dvh - 500px), 440px)) * 9 / 16));
+  }
+
+  /* Stage typography follows the stage box, so short laptop stages never clip lyrics */
+  .ks-stage-container {
+    container-type: size;
+    container-name: stage;
+  }
+  @container stage (max-height: 380px) {
+    .ks-stage-container .ks-stage-lyrics > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 0.375rem;
+    }
+    .ks-stage-container .ks-stage-line {
+      min-height: 0;
+      font-size: clamp(1.1rem, 13cqh, 2.75rem);
+    }
+    .ks-stage-container .ks-stage-next {
+      min-height: 0;
+      font-size: clamp(0.8rem, 6.5cqh, 1.25rem);
+    }
+  }
+
   /* Thin, theme-aware range slider. Set --ks-range-fill (0-100%) inline for the filled track. */
   .ks-range {
     -webkit-appearance: none;

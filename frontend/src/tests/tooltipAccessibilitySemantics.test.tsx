@@ -6,7 +6,7 @@
  * 2. Dynamic aria-describedby attachment, detachment, ID uniqueness, and existing ID preservation
  * 3. Disabled controls behavior (disabled prop prevents hover and focus popups)
  * 4. Control coverage across studio surfaces:
- *    - AudioControls (Play/Pause, Scrubber, Mute, Volume, Pitch steppers, Guide Vocal, Apply Mix)
+ *    - TransportDock (Play/Pause, Scrubber, Restart), MasterVolumeControl, Mix inspector (Pitch steppers, Guide Vocal)
  *    - LyricTimelineEditor (Nudge ±0.2s, Nudge ±0.05s, Insert above/below, Delete, Edit text, Save, Discard)
  *    - ExportModal (Download .LRC, Download .ASS, Render Video, Close)
  *    - StudioHeader (Help, Return to library, User profile, Edit metadata, Delete project)
@@ -16,7 +16,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { Tooltip } from '../components/Tooltip';
-import { AudioControls } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 import { MasterVolumeControl } from '../components/audio/MasterVolumeControl';
 import { PitchTranspositionControl } from '../components/audio/PitchTranspositionControl';
 import { GuideVocalControl } from '../components/audio/GuideVocalControl';
@@ -315,18 +315,16 @@ describe('Tooltip Accessibility Semantics & Control Coverage', () => {
   // Dimension 4: Verification Across Studio Surfaces
   // =========================================================================
   describe('4. Studio Surfaces Tooltip Integration', () => {
-    describe('AudioControls Surface', () => {
+    describe('Transport & Mix Surfaces', () => {
       it('renders tooltips for Play/Pause, Scrubber, and Restart buttons', () => {
         render(
-          <AudioControls
-            projectId="p1"
+          <TransportDock
             masterAudioUrl="/audio/master.mp3"
             currentTime={10}
             duration={120}
             isPlaying={false}
             onTogglePlay={vi.fn()}
             onSeek={vi.fn()}
-            onMixChange={vi.fn()}
           />
         );
 
@@ -411,15 +409,13 @@ describe('Tooltip Accessibility Semantics & Control Coverage', () => {
         expect(tooltip).toHaveTextContent('Raise key by 1 semitone (+12 max)');
       });
 
-      it('renders tooltips on GuideVocalControl and AudioMixActionsBar', () => {
+      it('renders tooltips on GuideVocalControl and keeps AudioMixActionsBar apply-free', () => {
         render(
           <div>
             <GuideVocalControl guideVolume={0.25} onGuideVolumeChange={vi.fn()} />
             <AudioMixActionsBar
-              isApplyingMix={false}
               uploadingInst={false}
               fileInputRef={{ current: null }}
-              onApplyAudioMix={vi.fn()}
               onInstrumentalUpload={vi.fn()}
             />
           </div>
@@ -428,17 +424,19 @@ describe('Tooltip Accessibility Semantics & Control Coverage', () => {
         // Guide vocal slider
         const vocalSlider = screen.getByRole('slider', { name: 'Guide vocal volume level' });
         fireEvent.focus(vocalSlider);
-        let tooltip = screen.getByRole('tooltip');
+        const tooltip = screen.getByRole('tooltip');
         expect(tooltip).toHaveTextContent('Adjust guide vocal blend (0%–50%)');
+        expect(vocalSlider.getAttribute('aria-describedby')).toBe(tooltip.id);
         fireEvent.blur(vocalSlider);
+        expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
-        // Apply mix button
-        const applyMixBtn = screen.getByRole('button', {
-          name: 'Apply audio mix settings to playback',
-        });
-        fireEvent.focus(applyMixBtn);
-        tooltip = screen.getByRole('tooltip');
-        expect(tooltip).toHaveTextContent('Apply pitch & vocal blend settings');
+        // Mix changes apply automatically: there is no apply button
+        expect(
+          screen.queryByRole('button', { name: 'Apply audio mix settings to playback' })
+        ).not.toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: 'Replace instrumental file' })
+        ).toBeInTheDocument();
       });
     });
 
@@ -656,7 +654,7 @@ describe('Tooltip Accessibility Semantics & Control Coverage', () => {
         expect(tooltip).toHaveTextContent('Manage user profile');
       });
 
-      it('renders tooltips for StudioMetaHeader actions (Edit Metadata, Delete Project, Subtitles, Video)', () => {
+      it('renders tooltips for StudioMetaHeader actions and the header Export entry point', () => {
         const mockProject: ProjectState = {
           id: 'proj-meta-1',
           title: 'Meta Song',
@@ -692,20 +690,52 @@ describe('Tooltip Accessibility Semantics & Control Coverage', () => {
         expect(tooltip).toHaveTextContent('Delete project and media files');
         fireEvent.blur(deleteBtn);
 
-        // Export Subtitles: aria-label="Export subtitles and studio package"
-        const subBtn = screen.getByRole('button', {
-          name: 'Export subtitles and studio package',
-        });
-        fireEvent.focus(subBtn);
-        tooltip = screen.getByRole('tooltip');
-        expect(tooltip).toHaveTextContent('Export .LRC or .ASS subtitles');
-        fireEvent.blur(subBtn);
+        // Song header no longer duplicates export actions
+        expect(
+          screen.queryByRole('button', { name: 'Export subtitles and studio package' })
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole('button', { name: 'Render 1080p Video' })
+        ).not.toBeInTheDocument();
+        fireEvent.blur(deleteBtn);
 
-        // Render 1080p Video: text content "Render 1080p Video"
-        const videoBtn = screen.getByRole('button', { name: 'Render 1080p Video' });
-        fireEvent.focus(videoBtn);
-        tooltip = screen.getByRole('tooltip');
-        expect(tooltip).toHaveTextContent('Render 1080p60 MP4 video');
+        // Sync fidelity badge explains itself on hover
+        const badge = screen.getByTestId('sync-status-badge');
+        fireEvent.mouseEnter(badge);
+        act(() => {
+          vi.advanceTimersByTime(200);
+        });
+        expect(screen.getByRole('tooltip')).toHaveTextContent(/synchroniz/i);
+        fireEvent.mouseLeave(badge);
+      });
+
+      it('renders a tooltip for the single header Export button', () => {
+        render(
+          <StudioHeader
+            currentUser="TestUser"
+            project={{
+              id: 'proj-export-1',
+              title: 'Export Song',
+              artist: 'Export Artist',
+              status: 'ready',
+              progress: 100,
+              semitones: 0,
+              guide_volume: 0,
+              lines: [],
+            }}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onOpenExportModal={vi.fn()}
+          />
+        );
+
+        const exportBtn = screen.getByRole('button', { name: 'Open export dialog' });
+        fireEvent.focus(exportBtn);
+        expect(screen.getByRole('tooltip')).toHaveTextContent(
+          'Video, subtitles, stems & YouTube kit'
+        );
       });
     });
   });

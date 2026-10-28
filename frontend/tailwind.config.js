@@ -33,6 +33,10 @@ export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      screens: {
+        // Desktop viewports tall enough for the single-screen studio layout
+        studio: { raw: '(min-width: 768px) and (min-height: 640px)' },
+      },
       colors: {
         theme: Object.fromEntries(THEME_COLOR_TOKENS.map((token) => [token, channel(token)])),
       },

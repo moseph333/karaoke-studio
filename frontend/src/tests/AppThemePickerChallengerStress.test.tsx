@@ -6,7 +6,7 @@
  * 2. Rapid successive theme toggles and state consistency between DOM data-theme and localStorage.
  * 3. Fallback resilience: interactive operation outside AppThemeProvider.
  * 4. Multi-tab storage event resilience and storage quota exception safety.
- * 5. 4-Dimensional distinctness verification across all 4 themes.
+ * 5. 4-Dimensional distinctness verification across every registered theme.
  */
 
 import React from 'react';
@@ -16,6 +16,7 @@ import { AppThemePicker } from '../components/AppThemePicker';
 import { AppThemeProvider, useAppTheme } from '../context/AppThemeContext';
 import { APP_THEMES, APP_THEME_LIST, APP_THEME_STORAGE_KEY } from '../theme/appThemes';
 import { AppThemeId } from '../types';
+import { ALL_APP_THEME_IDS, DEFAULT_APP_THEME_ID } from './themeFixtures';
 
 describe('AppThemePicker Empirical Challenger Stress Suite', () => {
   beforeEach(() => {
@@ -42,34 +43,34 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
 
       const trigger = screen.getByRole('button', { name: /select theme/i });
       trigger.focus();
-      // Open with Enter -> highlighted at 0 (punk_diy)
+      // Open with Enter -> highlights the active theme (punk_diy, index 1)
       fireEvent.keyDown(trigger, { key: 'Enter' });
       expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-punk_diy');
 
-      // Navigate down to clean_paper (index 3)
-      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // index 1: tape_studio_70s
-      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // index 2: dive_bar_crt
-      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // index 3: clean_paper
+      // Navigate down to clean_paper (last index)
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // tape_studio_70s
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // dive_bar_crt
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // clean_paper
       expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-clean_paper');
 
-      // Next ArrowDown must wrap back to index 0: punk_diy
+      // Next ArrowDown must wrap back to index 0: afterglow
       fireEvent.keyDown(trigger, { key: 'ArrowDown' });
-      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-punk_diy');
+      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-afterglow');
     });
 
     it('seamlessly loops ArrowUp from index 0 to index (length - 1)', () => {
       render(
-        <AppThemeProvider initialThemeId="punk_diy">
+        <AppThemeProvider initialThemeId="afterglow">
           <AppThemePicker />
         </AppThemeProvider>
       );
 
       const trigger = screen.getByRole('button', { name: /select theme/i });
       trigger.focus();
-      fireEvent.keyDown(trigger, { key: 'Enter' }); // Opens at index 0 (punk_diy)
-      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-punk_diy');
+      fireEvent.keyDown(trigger, { key: 'Enter' }); // Opens at index 0 (afterglow)
+      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-afterglow');
 
-      // Press ArrowUp at index 0 -> should loop to index 3 (clean_paper)
+      // Press ArrowUp at index 0 -> should loop to the last index (clean_paper)
       fireEvent.keyDown(trigger, { key: 'ArrowUp' });
       expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-clean_paper');
 
@@ -106,7 +107,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
         const activeDesc = trigger.getAttribute('aria-activedescendant');
         expect(activeDesc).toBeTruthy();
         expect(activeDesc).toMatch(
-          /^theme-option-(punk_diy|tape_studio_70s|dive_bar_crt|clean_paper)$/
+          /^theme-option-(afterglow|punk_diy|tape_studio_70s|dive_bar_crt|clean_paper)$/
         );
       }
     });
@@ -214,9 +215,9 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
       );
 
       const trigger = screen.getByRole('button', { name: /select theme/i });
-      // Defaults safely to Punk Rock DIY
-      expect(trigger).toHaveTextContent(APP_THEMES.punk_diy.name);
-      expect(document.documentElement.getAttribute('data-theme')).toBe('punk_diy');
+      // Defaults safely to the flagship default theme
+      expect(trigger).toHaveTextContent(APP_THEMES[DEFAULT_APP_THEME_ID].name);
+      expect(document.documentElement.getAttribute('data-theme')).toBe(DEFAULT_APP_THEME_ID);
     });
 
     it('survives localStorage quota exceeded exceptions during setThemeId', () => {
@@ -280,7 +281,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
 
       const trigger = screen.getByRole('button', { name: /select theme/i });
       expect(trigger).toBeInTheDocument();
-      expect(trigger).toHaveTextContent(APP_THEMES.punk_diy.name);
+      expect(trigger).toHaveTextContent(APP_THEMES[DEFAULT_APP_THEME_ID].name);
 
       // Open dropdown via click
       fireEvent.click(trigger);
@@ -317,13 +318,16 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
   });
 
   // =========================================================================
-  // Challenge 4: 4-Dimensional Distinctness Across All 4 Themes
+  // Challenge 4: 4-Dimensional Distinctness Across Every Theme
   // =========================================================================
-  describe('Challenge 4: 4-Dimensional Distinctness Across All 4 Themes', () => {
+  describe('Challenge 4: 4-Dimensional Distinctness Across Every Theme', () => {
     const themes = APP_THEME_LIST;
-    expect(themes).toHaveLength(4);
 
-    it('Dimension 1 (Colors): All 6 pairs have distinct bg, surface, text, and accent hexes', () => {
+    it('covers every registered app theme', () => {
+      expect(themes.map((t) => t.id).sort()).toEqual([...ALL_APP_THEME_IDS].sort());
+    });
+
+    it('Dimension 1 (Colors): Every theme pair has distinct bg, surface, text, and accent hexes', () => {
       for (let i = 0; i < themes.length; i++) {
         for (let j = i + 1; j < themes.length; j++) {
           const t1 = themes[i];
@@ -345,9 +349,10 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
       }
     });
 
-    it('Dimension 2 (Typography): All 4 themes use distinct heading font stacks', () => {
+    it('Dimension 2 (Typography): Every theme uses a distinct heading font stack', () => {
       const headingFonts = new Set(themes.map((t) => t.typography.heading));
-      expect(headingFonts.size).toBe(4);
+      expect(headingFonts.size).toBe(themes.length);
+      expect(APP_THEMES.afterglow.typography.heading).toContain('Sora');
 
       // Verify specific font signatures
       expect(APP_THEMES.punk_diy.typography.heading).toContain('Impact');
@@ -392,7 +397,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
       expect(APP_THEMES.clean_paper.shadows.md).toBe('4px 4px 0px #111111');
     });
 
-    it('Contrast & Readability: All 4 themes provide accessible contrast ratios (> 4.5:1 text, > 3:1 accent)', () => {
+    it('Contrast & Readability: Every theme provides accessible contrast ratios (> 4.5:1 text, > 3:1 accent)', () => {
       function getLuminance(hex: string): number {
         const clean = hex.replace('#', '');
         const r = parseInt(clean.substring(0, 2), 16) / 255;

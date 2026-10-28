@@ -14,6 +14,8 @@
 import React, { useRef } from 'react';
 import { Tv, Edit3, Sliders } from 'lucide-react';
 import { StudioWorkspaceTab } from '../types';
+import { cn } from '../utils/cn';
+import { focusRing } from './ui/variants';
 
 export interface MobileStudioWorkspaceTabsProps {
   activeTab: StudioWorkspaceTab;
@@ -61,7 +63,7 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
   onSelectTab,
   onTabChange,
   hasUnsavedChanges = false,
-  className = '',
+  className,
   'data-testid': testId = 'mobile-studio-workspace-tabs',
 }) => {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -98,12 +100,15 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
     <nav
       data-testid={testId}
       aria-label="Studio workspace navigation"
-      className={`w-full md:hidden sticky top-[3.5rem] z-30 bg-theme-bg/95 backdrop-blur-md py-1.5 mb-3 ${className}`.trim()}
+      className={cn(
+        'sticky top-[3.5rem] z-30 w-full bg-theme-bg/85 py-2 backdrop-blur-xl md:hidden',
+        className
+      )}
     >
       <div
         role="tablist"
         aria-label="Studio workspace navigation sections"
-        className="grid grid-cols-3 gap-1.5 p-1.5 rounded-theme-lg bg-theme-surface border border-theme-border shadow-theme-sm"
+        className="grid grid-cols-3 gap-1 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-1"
       >
         {WORKSPACE_TABS.map((tab, index) => {
           const isActive = activeTab === tab.id;
@@ -127,20 +132,25 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
               tabIndex={isActive ? 0 : -1}
               onClick={() => handleSelect(tab.id)}
               onKeyDown={(e) => handleKeyDown(e, index)}
-              className={`relative flex items-center justify-center gap-1.5 px-2 py-2.5 min-h-[44px] rounded-theme-md text-xs sm:text-sm font-theme-heading font-bold transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent focus:ring-offset-1 focus:ring-offset-theme-surface select-none ${
+              className={cn(
+                'relative flex min-h-[44px] select-none items-center justify-center gap-1.5 rounded-theme-md border px-2 py-2 text-xs font-semibold transition-[background-color,color,box-shadow] duration-150 sm:text-sm',
+                focusRing,
                 isActive
-                  ? 'bg-theme-accent text-theme-accent-text border border-theme-accent shadow-theme-sm'
-                  : 'bg-theme-surface-subtle/60 text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-subtle border border-transparent'
-              }`}
+                  ? 'border-theme-border-subtle bg-theme-surface-raised text-theme-text shadow-theme-sm'
+                  : 'border-transparent text-theme-text-muted hover:text-theme-text'
+              )}
             >
-              <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <Icon
+                className={cn('h-4 w-4 shrink-0', isActive && 'text-theme-highlight')}
+                aria-hidden="true"
+              />
               <span className="truncate">{tab.label}</span>
               {tab.id === 'timeline' && hasUnsavedChanges && (
                 <span
                   data-testid="tab-unsaved-badge"
                   aria-label="Unsaved changes"
                   title="Unsaved changes in timeline"
-                  className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0 ml-0.5"
+                  className="ml-0.5 h-2 w-2 shrink-0 rounded-full bg-theme-warning motion-safe:animate-pulse"
                 />
               )}
             </button>

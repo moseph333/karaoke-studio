@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { TrackSearch } from '../components/TrackSearch';
 import { ProjectState } from '../types';
+import { expectTouchTarget } from './responsiveTestUtils';
 
 describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Integrity at 320px', () => {
   beforeEach(() => {
@@ -419,32 +420,35 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const headerContainer = header?.querySelector('div');
       expect(headerContainer).toBeInTheDocument();
       expect(headerContainer?.className).toMatch(/flex-wrap/);
-      expect(headerContainer?.className).toMatch(/px-3/);
+      expect(headerContainer?.className).toMatch(/sm:flex-nowrap/);
+      expect(headerContainer?.className).toMatch(/\bpx-\d/);
       expect(headerContainer?.className).toMatch(/min-h-\[3\.5rem\]/);
 
-      // Brand logo & title scaling
-      const brandLogo = headerContainer?.querySelector('.bg-gradient-to-tr');
+      // Brand mark never shrinks; its icon keeps a fixed size
+      const brandLogo = headerContainer?.querySelector('.bg-gradient-accent');
       expect(brandLogo?.className).toMatch(/shrink-0/);
       const brandIcon = brandLogo?.querySelector('svg');
-      expect(brandIcon?.getAttribute('class')).toMatch(/w-4 h-4/);
+      expect(brandIcon?.getAttribute('class')).toMatch(/h-4 w-4/);
 
       // Brand title in header renders "Karaoke Studio" with no YouTube prefix
       const brandTitle = within(header!).getByText(/Karaoke Studio/i);
       expect(brandTitle.textContent?.trim()).toBe('Karaoke Studio');
       expect(brandTitle.querySelector('span')).toBeNull();
+      expect(brandTitle.className).toMatch(/truncate/);
 
-      // User profile button truncation
+      // User profile button collapses to its avatar on phones
       const userBtn = screen.getByRole('button', { name: /Logged in as/i });
-      expect(userBtn.className).toMatch(/min-h-\[36px\]/);
-      const userNameSpan = userBtn.querySelector('span');
-      expect(userNameSpan?.className).toMatch(/max-w-\[65px\]/);
+      expectTouchTarget(userBtn);
+      const userNameSpan = Array.from(userBtn.querySelectorAll('span')).find(
+        (el) => el.textContent === 'Friend'
+      );
+      expect(userNameSpan?.className).toMatch(/(^|\s)hidden(\s|$)/);
+      expect(userNameSpan?.className).toMatch(/sm:inline/);
       expect(userNameSpan?.className).toMatch(/truncate/);
 
-      // No "New Song" or "Render" button when project is null
+      // No "New Song" or "Export" button when project is null
       expect(screen.queryByRole('button', { name: 'New Song' })).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: /Render & Export Video/i })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Open export dialog' })).not.toBeInTheDocument();
 
       // State 2: Select ready project
       await waitFor(() => {
@@ -456,14 +460,15 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       // In ready state:
       const newSongBtn = await screen.findByRole('button', { name: 'New Song' });
       expect(newSongBtn).toBeInTheDocument();
-      expect(newSongBtn.className).toMatch(/min-h-\[36px\]/);
+      expectTouchTarget(newSongBtn);
       const newSongLabel = newSongBtn.querySelector('span');
       expect(newSongLabel?.className).toMatch(/hidden sm:inline/);
 
-      // Navbar Render button must be hidden on mobile/tablet (hidden md:flex)
-      const navRenderBtn = screen.getByRole('button', { name: /Render & Export Video/i });
-      expect(navRenderBtn.className).toMatch(/hidden md:flex/);
-      expect(navRenderBtn.className).toMatch(/min-h-\[36px\]/);
+      // A single Export entry point, icon-only on phones
+      const exportBtns = screen.getAllByRole('button', { name: 'Open export dialog' });
+      expect(exportBtns).toHaveLength(1);
+      expectTouchTarget(exportBtns[0]);
+      expect(exportBtns[0].querySelector('span')?.className).toMatch(/hidden sm:inline/);
     });
 
     it('verifies TrackSearch responsive classes: hero text, search input, tabs, cards', () => {
@@ -572,7 +577,10 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       const header = document.querySelector('header > div');
       expect(header?.classList.contains('flex-wrap')).toBe(true);
-      expect(header?.classList.contains('gap-2')).toBe(true);
+      expect(header?.classList.contains('gap-x-2')).toBe(true);
+      const actions = header?.lastElementChild;
+      expect(actions?.classList.contains('flex-wrap')).toBe(true);
+      expect(actions?.classList.contains('min-w-0')).toBe(true);
     });
 
     it('handles processing boundary values: null eta, 0% progress, and default stage descriptions', async () => {

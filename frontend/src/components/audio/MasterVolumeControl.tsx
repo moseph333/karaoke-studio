@@ -1,19 +1,22 @@
 /**
  * Master Volume Control Component
  *
- * Renders master volume slider, mute toggle button, and visual volume percentage.
- * Supports keyboard accessibility, touch targets, and mute state restoration.
+ * Compact mute toggle + volume slider used by the transport dock. Supports keyboard
+ * accessibility, 44px touch targets on mobile and mute state restoration.
  */
 
 import React from 'react';
 import { Volume2, Volume1, VolumeX } from 'lucide-react';
 import { Tooltip } from '../Tooltip';
+import { cn } from '../../utils/cn';
+import { focusRing } from '../ui/variants';
 
 export interface MasterVolumeControlProps {
   volume: number;
   isMuted: boolean;
   onToggleMute: () => void;
   onVolumeSliderChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  className?: string;
 }
 
 export const MasterVolumeControl: React.FC<MasterVolumeControlProps> = ({
@@ -21,43 +24,30 @@ export const MasterVolumeControl: React.FC<MasterVolumeControlProps> = ({
   isMuted,
   onToggleMute,
   onVolumeSliderChange,
+  className,
 }) => {
+  const silent = isMuted || volume === 0;
+  const pct = Math.round(Math.max(0, Math.min(1, volume)) * 100);
+  const Icon = silent ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+
   return (
-    <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80">
-      <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1.5 text-slate-400 font-medium">
-          <Tooltip
-            content={isMuted || volume === 0 ? 'Unmute audio' : 'Mute audio'}
-            hotkey="M"
-            position="top"
-          >
-            <button
-              type="button"
-              onClick={onToggleMute}
-              aria-label={isMuted || volume === 0 ? 'Unmute audio' : 'Mute audio'}
-              aria-pressed={isMuted || volume === 0}
-              className="min-h-[44px] min-w-[44px] p-2.5 -ml-2 flex items-center justify-center rounded-md hover:bg-slate-800 text-slate-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            >
-              {isMuted || volume === 0 ? (
-                <VolumeX className="w-4 h-4 text-red-400" aria-hidden="true" />
-              ) : volume < 0.5 ? (
-                <Volume1 className="w-4 h-4 text-cyan-400" aria-hidden="true" />
-              ) : (
-                <Volume2 className="w-4 h-4 text-cyan-400" aria-hidden="true" />
-              )}
-            </button>
-          </Tooltip>
-          <span>Master Volume</span>
-        </div>
-        <span
-          className={`font-mono font-bold ${
-            isMuted || volume === 0 ? 'text-red-400' : 'text-cyan-400'
-          }`}
+    <div data-testid="master-volume-control" className={cn('flex items-center gap-1', className)}>
+      <Tooltip content={silent ? 'Unmute audio' : 'Mute audio'} hotkey="M" position="top">
+        <button
+          type="button"
+          onClick={onToggleMute}
+          aria-label={silent ? 'Unmute audio' : 'Mute audio'}
+          aria-pressed={silent}
+          className={cn(
+            'inline-flex min-h-[44px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] items-center justify-center rounded-theme-md transition-colors hover:bg-theme-surface-subtle',
+            silent ? 'text-theme-danger' : 'text-theme-text-muted hover:text-theme-text',
+            focusRing
+          )}
         >
-          {isMuted || volume === 0 ? 'Muted' : `${Math.round(volume * 100)}%`}
-        </span>
-      </div>
-      <Tooltip content="Adjust master playback volume" position="top" className="w-full">
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </Tooltip>
+      <Tooltip content="Adjust master playback volume" position="top" className="w-24 lg:w-28">
         <input
           type="range"
           min={0}
@@ -68,20 +58,27 @@ export const MasterVolumeControl: React.FC<MasterVolumeControlProps> = ({
           aria-label="Master volume"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={isMuted || volume === 0 ? 0 : Math.round(volume * 100)}
-          aria-valuetext={isMuted || volume === 0 ? 'Muted' : `${Math.round(volume * 100)}%`}
-          className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-cyan-400 transition-all ${
-            isMuted || volume === 0
-              ? 'bg-slate-800 accent-slate-500 opacity-60'
-              : 'bg-slate-800 accent-cyan-400 hover:accent-cyan-300'
-          }`}
+          aria-valuenow={silent ? 0 : pct}
+          aria-valuetext={silent ? 'Muted' : `${pct}%`}
+          style={
+            {
+              '--ks-range-fill': `${silent ? 0 : pct}%`,
+              '--ks-range-color': silent
+                ? 'rgb(var(--theme-text-muted-rgb))'
+                : 'rgb(var(--theme-accent-rgb))',
+            } as React.CSSProperties
+          }
+          className={cn('ks-range min-h-[44px] md:min-h-[28px] w-full', silent && 'opacity-70')}
         />
       </Tooltip>
-      <div className="flex items-center justify-between mt-1 text-[10px] text-slate-500">
-        <span>0%</span>
-        <span>50%</span>
-        <span>100%</span>
-      </div>
+      <span
+        className={cn(
+          'hidden w-10 shrink-0 text-right font-mono text-[11px] tabular-nums xl:inline',
+          silent ? 'text-theme-danger' : 'text-theme-text-muted'
+        )}
+      >
+        {silent ? 'Muted' : `${pct}%`}
+      </span>
     </div>
   );
 };

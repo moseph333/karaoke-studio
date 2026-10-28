@@ -123,14 +123,14 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
   const selectedIndex = ed.editableLines.findIndex((l) => l.id === ed.selectedLineId);
   const activeLineIdx = selectedIndex >= 0 ? selectedIndex : 0;
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 studio:h-full studio:min-h-0 studio:gap-3">
       <div
         id="workspace-panel-stage"
         role="tabpanel"
         aria-labelledby="workspace-tab-stage"
         tabIndex={0}
         data-testid="studio-panel-stage"
-        className={panelCls(activeWorkspaceTab, 'stage')}
+        className={`${panelCls(activeWorkspaceTab, 'stage')} studio:shrink-0`}
       >
         <LyricDisplay {...props} lines={ed.editableLines} />
       </div>
@@ -141,9 +141,9 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
         aria-labelledby="workspace-tab-timeline"
         tabIndex={0}
         data-testid="studio-panel-timeline"
-        className={panelCls(activeWorkspaceTab, 'timeline')}
+        className={`${panelCls(activeWorkspaceTab, 'timeline')} studio:min-h-0 studio:flex-1`}
       >
-        <div className="bg-theme-surface border border-theme-border rounded-theme-xl p-3 sm:p-5 shadow-theme-lg space-y-3">
+        <div className="bg-theme-surface border border-theme-border rounded-theme-xl p-3 sm:p-5 shadow-theme-lg space-y-3 studio:flex studio:h-full studio:flex-col studio:gap-3 studio:space-y-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-theme-border-subtle">
             <div>
               <div className="flex flex-wrap items-center gap-2">
@@ -173,7 +173,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                   </button>
                 )}
               </div>
-              <p className="text-xs text-theme-text-muted font-theme-body mt-0.5">
+              <p className="text-xs text-theme-text-muted font-theme-body mt-0.5 studio:hidden">
                 Click any line to jump audio. Nudge words or lines to fine-tune sync with the beat.
               </p>
             </div>
@@ -213,7 +213,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                   className={S_ACTION_BTN}
                 >
                   <Clock className="w-3.5 h-3.5 text-theme-accent" />
-                  <span className="hidden md:inline">Offset</span>
+                  <span className="hidden xl:inline">Offset</span>
                 </button>
               </Tooltip>
               <Tooltip content="Assign duet singer parts" position="top">
@@ -226,7 +226,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                   className={S_DUET_BTN}
                 >
                   <Users className="w-3.5 h-3.5 text-pink-400" />
-                  <span className="hidden md:inline">Duet Parts</span>
+                  <span className="hidden xl:inline">Duet Parts</span>
                 </button>
               </Tooltip>
               <Tooltip content="Live tap-to-sync mode (T)" position="top">
@@ -248,7 +248,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                   <Radio
                     className={`w-3.5 h-3.5 ${ed.isTapToSyncActive ? 'animate-pulse text-amber-400' : 'text-theme-text-muted'}`}
                   />
-                  <span className="hidden md:inline">Tap Sync</span>
+                  <span className="hidden xl:inline">Tap Sync</span>
                 </button>
               </Tooltip>
               <Tooltip content="Replace or re-align lyrics" position="top">
@@ -261,7 +261,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                   className={S_ACTION_BTN}
                 >
                   <FileText className="w-3.5 h-3.5 text-theme-accent" />
-                  <span className="hidden md:inline">Re-import</span>
+                  <span className="hidden xl:inline">Re-import</span>
                 </button>
               </Tooltip>
               {ed.hasUnsavedChanges && (
@@ -326,7 +326,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
             onTouchMove={handleUserScrollInteraction}
             onPointerDown={handlePointerDown}
             onKeyDown={handleKeyDown}
-            className="max-h-[300px] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 scroll-smooth focus:outline-none touch-pan-y overscroll-contain"
+            className="max-h-[300px] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 scroll-smooth focus:outline-none touch-pan-y overscroll-contain studio:max-h-none studio:min-h-0 studio:flex-1"
           >
             {ed.editableLines.length === 0 ? (
               <div className="text-center py-8 px-4 bg-theme-surface-subtle/50 rounded-theme-lg border border-theme-border-subtle shadow-theme-sm">

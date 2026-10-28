@@ -23,7 +23,7 @@ import userEvent from '@testing-library/user-event';
 
 import App from '../App';
 import { MobileStudioWorkspaceTabs } from '../components/MobileStudioWorkspaceTabs';
-import { MobileStudioTransport } from '../components/MobileStudioTransport';
+import { TransportDock } from '../components/transport/TransportDock';
 import { StudioHeader } from '../components/StudioHeader';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
 import { TapToSyncBanner } from '../components/timeline/TapToSyncBanner';
@@ -340,7 +340,7 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
 
         return (
           <div>
-            <MobileStudioTransport
+            <TransportDock
               currentTime={time}
               duration={20.0}
               isPlaying={playing}
@@ -386,7 +386,7 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       const stampBtn = screen.getByTestId('tap-now-btn');
       expect(stampBtn).toBeInTheDocument();
 
-      const playPauseBtn = screen.getByTestId('mobile-play-pause-btn');
+      const playPauseBtn = screen.getByTestId('transport-play-pause-btn');
 
       // Interleaved rapid tapping and play/pause toggles (1 line stamp)
       await user.click(playPauseBtn);
@@ -426,7 +426,7 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
                 onStartRender={vi.fn()}
                 onExportClick={() => setShowExport(true)}
               />
-              <MobileStudioTransport
+              <TransportDock
                 currentTime={4.2}
                 duration={30.0}
                 isPlaying={isPlaying}
@@ -449,16 +449,16 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       // 1. Audio is playing
       expect(isPlaying).toBe(true);
 
-      // 2. Open Export Modal from mobile header export trigger
-      const exportTrigger = screen.getByTestId('mobile-header-export-btn');
+      // 2. Open Export Modal from the header export trigger
+      const exportTrigger = screen.getByTestId('studio-export-btn');
       await user.click(exportTrigger);
 
       expect(screen.getByRole('heading', { name: /export/i })).toBeInTheDocument();
       // Audio playback state remains intact
       expect(isPlaying).toBe(true);
 
-      // 3. Toggle play/pause from mobile transport while modal is open
-      const playPauseBtn = screen.getByTestId('mobile-play-pause-btn');
+      // 3. Toggle play/pause from the transport dock while modal is open
+      const playPauseBtn = screen.getByTestId('transport-play-pause-btn');
       await user.click(playPauseBtn);
       expect(onTogglePlay).toHaveBeenCalledTimes(1);
 
@@ -498,15 +498,15 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
         assertZeroHorizontalOverflow(tabsContainer, vpWidth);
         unmountTabs();
 
-        // 2. MobileStudioTransport
+        // 2. TransportDock
         const { container: transportContainer, unmount: unmountTransport } = render(
-          <MobileStudioTransport
+          <TransportDock
             currentTime={125.4}
             duration={245.8}
             isPlaying={false}
             onTogglePlay={vi.fn()}
             onSeek={vi.fn()}
-            activeSemitones={-3}
+            semitones={-3}
             playbackRate={1.25}
           />
         );
@@ -616,31 +616,30 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       });
     });
 
-    it('verifies all interactive controls in MobileStudioTransport meet >= 44x44px hit targets', () => {
+    it('verifies all interactive controls in TransportDock meet >= 44x44px hit targets', () => {
       setTestViewport(375, 667);
       render(
-        <MobileStudioTransport
+        <TransportDock
           currentTime={10.0}
           duration={60.0}
           isPlaying={false}
           onTogglePlay={vi.fn()}
           onSeek={vi.fn()}
-          onRestart={vi.fn()}
         />
       );
 
-      const playBtn = screen.getByTestId('mobile-play-pause-btn');
+      const playBtn = screen.getByTestId('transport-play-pause-btn');
       expect(playBtn.className).toMatch(/min-h-\[44px\]/);
       expect(playBtn.className).toMatch(/min-w-\[44px\]/);
 
-      const restartBtn = screen.getByTestId('mobile-restart-btn');
+      const restartBtn = screen.getByRole('button', { name: 'Restart track from beginning' });
       expect(restartBtn.className).toMatch(/min-h-\[44px\]/);
       expect(restartBtn.className).toMatch(/min-w-\[44px\]/);
 
-      const mixBtn = screen.getByTestId('mobile-mix-quick-switch');
+      const mixBtn = screen.getByTestId('transport-key-chip');
       expect(mixBtn.className).toMatch(/min-h-\[44px\]/);
 
-      const scrubber = screen.getByTestId('mobile-scrubber');
+      const scrubber = screen.getByRole('slider', { name: 'Audio timeline position' });
       expect(scrubber.className).toMatch(/min-h-\[44px\]/);
     });
 
@@ -753,7 +752,7 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       setTestViewport(375, 667);
       const { container } = render(
         <AppThemeProvider>
-          <MobileStudioTransport
+          <TransportDock
             currentTime={0}
             duration={0}
             isPlaying={false}
@@ -773,15 +772,16 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
         </AppThemeProvider>
       );
 
-      expect(screen.getByTestId('mobile-time-display')).toHaveTextContent('0:00 / 0:00');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:00');
+      expect(screen.getByTestId('transport-duration')).toHaveTextContent('0:00');
       expect(screen.getByText(/no lyric lines yet/i)).toBeInTheDocument();
       expect(container).toBeInTheDocument();
     });
 
-    it('safely formats NaN, Infinity, and negative time values in MobileStudioTransport', () => {
+    it('safely formats NaN, Infinity, and negative time values in TransportDock', () => {
       setTestViewport(375, 667);
       const { rerender } = render(
-        <MobileStudioTransport
+        <TransportDock
           currentTime={NaN}
           duration={NaN}
           isPlaying={false}
@@ -789,10 +789,11 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
           onSeek={vi.fn()}
         />
       );
-      expect(screen.getByTestId('mobile-time-display')).toHaveTextContent('0:00 / 0:00');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:00');
+      expect(screen.getByTestId('transport-duration')).toHaveTextContent('0:00');
 
       rerender(
-        <MobileStudioTransport
+        <TransportDock
           currentTime={-15}
           duration={100}
           isPlaying={false}
@@ -800,10 +801,11 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
           onSeek={vi.fn()}
         />
       );
-      expect(screen.getByTestId('mobile-time-display')).toHaveTextContent('0:00 / 1:40');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:00');
+      expect(screen.getByTestId('transport-duration')).toHaveTextContent('1:40');
 
       rerender(
-        <MobileStudioTransport
+        <TransportDock
           currentTime={50}
           duration={Infinity}
           isPlaying={false}
@@ -811,7 +813,8 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
           onSeek={vi.fn()}
         />
       );
-      expect(screen.getByTestId('mobile-time-display')).toHaveTextContent('0:50 / 0:00');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:50');
+      expect(screen.getByTestId('transport-duration')).toHaveTextContent('0:00');
     });
 
     it('performs 50 consecutive modal open/Escape dismiss cycles without focus trapping leaks', () => {
@@ -842,10 +845,10 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       }
     });
 
-    it('verifies safe-area bottom padding calculation and presence on MobileStudioTransport and modals', () => {
+    it('verifies safe-area bottom padding calculation and presence on TransportDock', () => {
       setTestViewport(375, 667);
       render(
-        <MobileStudioTransport
+        <TransportDock
           currentTime={5.0}
           duration={30.0}
           isPlaying={false}
@@ -854,11 +857,11 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
         />
       );
 
-      const transport = screen.getByTestId('mobile-studio-transport');
-      expect(transport.className).toContain('fixed bottom-0');
+      const transport = screen.getByTestId('transport-dock');
+      expect(transport.className).toContain('fixed');
+      expect(transport.className).toContain('bottom-0');
       expect(transport.className).toContain('z-40');
-      expect(transport.className).toContain('md:hidden');
-      expect(transport.className).toContain('pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]');
+      expect(transport.className).toContain('md:static');
       expect(transport.style.paddingBottom).toContain('safe-area-inset-bottom');
     });
   });

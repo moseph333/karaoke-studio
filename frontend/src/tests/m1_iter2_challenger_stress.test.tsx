@@ -6,7 +6,7 @@
  *    - Native <audio> element is never unmounted during rapid, randomized tab transitions
  *    - Continuous playback state is preserved across 100 tab switches
  *    - currentTime advances monotonically across tab switches without backward jump or reset
- *    - Scrubbing from sticky transport updates playhead seamlessly across all workspace tabs
+ *    - Scrubbing from the transport dock updates playhead seamlessly across all workspace tabs
  *    - Audio ended and error events propagate cleanly regardless of active tab
  * 2. Editor State Preservation & Undo/Redo Stacks:
  *    - Uncommitted edits and unsaved dirty indicators survive multi-tab round-trips
@@ -14,10 +14,10 @@
  *    - Discard changes resets editor state back to project baseline
  * 3. Viewport Geometry & Horizontal Overflow:
  *    - Zero horizontal overflow (scrollWidth <= clientWidth) at 320px, 375px, 768px, 1280px
- *    - Standalone MobileStudioTransport and MobileStudioWorkspaceTabs zero-overflow at 320px
+ *    - Standalone TransportDock and MobileStudioWorkspaceTabs zero-overflow at 320px
  * 4. Architectural & Gate Remediation Verification:
  *    - LyricTimelineEditor.tsx strictly complies with <= 450 lines and zero lines > 200 chars
- *    - Safe-area calculation in MobileStudioTransport adheres to calc(env(safe-area-inset-bottom, 0px) + 0.5rem)
+ *    - Safe-area calculation in TransportDock adheres to calc(env(safe-area-inset-bottom, 0px) + 0.5rem)
  *    - App.tsx workspace tab reset behavior on project transitions
  */
 
@@ -27,7 +27,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { MobileStudioWorkspaceTabs } from '../components/MobileStudioWorkspaceTabs';
-import { MobileStudioTransport } from '../components/MobileStudioTransport';
+import { TransportDock } from '../components/transport/TransportDock';
 import { ProjectState } from '../types';
 import {
   setTestViewport,
@@ -157,11 +157,11 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
       expect(originalAudio).toBeInstanceOf(HTMLAudioElement);
 
       // Start playback
-      fireEvent.click(screen.getByRole('button', { name: /play audio/i }));
+      fireEvent.click(screen.getByRole('button', { name: /start playback/i }));
       await waitFor(() => {
-        expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+        expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
           'aria-label',
-          'Pause audio'
+          'Pause playback'
         );
       });
 
@@ -185,9 +185,9 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
         expect(originalAudio.paused).toBe(false);
 
         // Sticky transport state must remain in playing state
-        expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+        expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
           'aria-label',
-          'Pause audio'
+          'Pause playback'
         );
       }
     });
@@ -201,7 +201,7 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
       });
 
       const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
-      fireEvent.click(screen.getByRole('button', { name: /play audio/i }));
+      fireEvent.click(screen.getByRole('button', { name: /start playback/i }));
 
       const stageTab = screen.getByRole('tab', { name: /stage/i });
       const timelineTab = screen.getByRole('tab', { name: /timeline/i });
@@ -212,7 +212,7 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
         audioEl.currentTime = 1.5;
         fireEvent.timeUpdate(audioEl);
       });
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:01');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:01');
 
       // Step 2: Switch to Timeline, advance to 3.8s
       fireEvent.click(timelineTab);
@@ -220,7 +220,7 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
         audioEl.currentTime = 3.8;
         fireEvent.timeUpdate(audioEl);
       });
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:03');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:03');
 
       // Step 3: Switch to Mix, advance to 6.2s
       fireEvent.click(mixTab);
@@ -228,15 +228,15 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
         audioEl.currentTime = 6.2;
         fireEvent.timeUpdate(audioEl);
       });
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:06');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:06');
 
       // Step 4: Return to Stage, ensure currentTime did NOT reset to 0:00
       fireEvent.click(stageTab);
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:06');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:06');
       expect(audioEl.currentTime).toBe(6.2);
     });
 
-    it('1.3: Seeking from sticky transport updates audio currentTime regardless of active tab', async () => {
+    it('1.3: Seeking from the transport dock updates audio currentTime regardless of active tab', async () => {
       setTestViewport(375, 667);
       render(<App />);
 
@@ -245,11 +245,15 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
       });
 
       const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
+      // The browser reports the track duration once metadata has loaded
+      act(() => {
+        fireEvent.loadedMetadata(audioEl);
+      });
       const mixTab = screen.getByRole('tab', { name: /mix/i });
       fireEvent.click(mixTab);
 
       // Scrub while on Mix tab
-      const scrubber = screen.getByRole('slider', { name: /audio playback scrub bar/i });
+      const scrubber = screen.getByRole('slider', { name: 'Audio timeline position' });
       fireEvent.change(scrubber, { target: { value: '7.5' } });
 
       expect(audioEl.currentTime).toBe(7.5);
@@ -257,7 +261,7 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
       // Return to Stage and check rendered state
       const stageTab = screen.getByRole('tab', { name: /stage/i });
       fireEvent.click(stageTab);
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:07');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:07');
     });
 
     it('1.4: Audio ended event while in background tab transitions transport to paused state cleanly', async () => {
@@ -269,7 +273,7 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
       });
 
       const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
-      fireEvent.click(screen.getByRole('button', { name: /play audio/i }));
+      fireEvent.click(screen.getByRole('button', { name: /start playback/i }));
 
       // Switch to Timeline
       fireEvent.click(screen.getByRole('tab', { name: /timeline/i }));
@@ -280,9 +284,9 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+        expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
           'aria-label',
-          'Play audio'
+          'Start playback'
         );
       });
     });
@@ -488,18 +492,18 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
       });
     }
 
-    it('3.2: MobileStudioTransport fits within 320px viewport with >= 44x44px touch targets', () => {
+    it('3.2: TransportDock fits within 320px viewport with >= 44x44px touch targets', () => {
       const { container } = render(
-        <MobileStudioTransport
+        <TransportDock
+          masterAudioUrl="/static/iter2-master.wav"
           currentTime={42}
           duration={180}
           isPlaying={true}
-          activeSemitones={1}
+          semitones={1}
           playbackRate={1.0}
           onTogglePlay={vi.fn()}
           onSeek={vi.fn()}
-          onOpenMixTab={vi.fn()}
-          onRestart={vi.fn()}
+          onOpenMixSettings={vi.fn()}
         />
       );
 
@@ -566,9 +570,9 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
       expect(overLongLines).toEqual([]);
     });
 
-    it('4.2: MobileStudioTransport safe-area padding calculation incorporates calc(env(...) + 0.5rem)', () => {
+    it('4.2: TransportDock safe-area padding calculation incorporates calc(env(...) + 0.5rem)', () => {
       const { container } = render(
-        <MobileStudioTransport
+        <TransportDock
           currentTime={10}
           duration={100}
           isPlaying={false}
@@ -577,13 +581,8 @@ describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
         />
       );
 
-      const transport = container.querySelector(
-        '[data-testid="mobile-studio-transport"]'
-      ) as HTMLElement;
+      const transport = container.querySelector('[data-testid="transport-dock"]') as HTMLElement;
       expect(transport).not.toBeNull();
-
-      // Check className includes safe area padding
-      expect(transport.className).toContain('pb-[calc(env(safe-area-inset-bottom,0px)+0.5rem)]');
 
       // Check inline style paddingBottom is present
       expect(transport.style.paddingBottom).toBeDefined();

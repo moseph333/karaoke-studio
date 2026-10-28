@@ -7,15 +7,11 @@
 
 import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
 import { TrackSearch } from './components/TrackSearch';
-import { AudioControls } from './components/AudioControls';
-import { LyricTimelineEditor } from './components/LyricTimelineEditor';
-import { VisualThemePicker } from './components/VisualThemePicker';
 import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
-import { StudioMetaHeader } from './components/StudioMetaHeader';
 import { StudioModals } from './components/StudioModals';
-import { MobileStudioWorkspaceTabs } from './components/MobileStudioWorkspaceTabs';
-import { MobileStudioTransport } from './components/MobileStudioTransport';
+import { StudioWorkspace } from './components/studio/StudioWorkspace';
+import { TransportDock } from './components/transport/TransportDock';
 import { LyricLine, ChordSegment, SyncDisplayMode, StudioWorkspaceTab } from './types';
 import { useChordHistory } from './hooks/useChordHistory';
 import { apiFetch } from './api';
@@ -25,7 +21,9 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStudioAudio } from './hooks/useStudioAudio';
 import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
+import { useMixController } from './hooks/useMixController';
 import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
+import { cn } from './utils/cn';
 
 export const AppContent: React.FC = () => {
   const { toast } = useToast();
@@ -58,16 +56,9 @@ export const AppContent: React.FC = () => {
 
   // Audio Playback Hook
   const audio = useStudioAudio(project);
-  const {
-    audioRef,
-    currentTime,
-    duration,
-    isPlaying,
-    isMuted,
-    setCurrentTime,
-    setIsPlaying,
-    setIsMuted,
-  } = audio;
+  const { audioRef, currentTime, duration, isPlaying, isMuted, setCurrentTime, setIsPlaying } =
+    audio;
+  const { queueSeek } = audio;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -81,11 +72,11 @@ export const AppContent: React.FC = () => {
         if (data?.id) {
           setProject(data);
           const seekTime = tParam ? parseFloat(tParam) : NaN;
-          if (!isNaN(seekTime)) setCurrentTime(seekTime);
+          if (!isNaN(seekTime)) queueSeek(seekTime);
         }
       })
       .catch((e) => console.error('Failed to load project from URL parameter', e));
-  }, [setProject, setCurrentTime]);
+  }, [setProject, queueSeek]);
 
   const handleCancelProcess = async () => {
     if (!project?.id) return;
@@ -112,18 +103,41 @@ export const AppContent: React.FC = () => {
 
   const isStudioReady = Boolean(project && project.status === 'ready');
   const [showChordBar, setShowChordBar] = useState(false);
-  const [activeSemitones, setActiveSemitones] = useState(0);
   const [initialChords, setInitialChords] = useState<ChordSegment[]>([]);
 
   const handleToggleChordBar = () => setShowChordBar((prev) => !prev);
   const handleToggleVisualizer = () => setShowVisualizer((prev) => !prev);
-  const handleSemitonesChange = (semi: number) => setActiveSemitones(semi);
 
-  useEffect(() => {
-    if (project?.semitones !== undefined) {
-      setActiveSemitones(project.semitones);
-    }
-  }, [project?.semitones]);
+  // Key + guide vocal mix: requested values render immediately, the server re-mix is
+  // debounced and the new master swaps in without losing the playback position.
+  const mix = useMixController({
+    projectId: isStudioReady ? project?.id : undefined,
+    initialSemitones: project?.semitones ?? 0,
+    initialGuideVolume: project?.guide_volume ?? 0,
+    onApplied: ({ semitones, guideVolume, masterAudioUrl }) =>
+      setProject((prev) =>
+        prev
+          ? {
+              ...prev,
+              master_audio_url: masterAudioUrl ?? prev.master_audio_url,
+              semitones,
+              guide_volume: guideVolume,
+            }
+          : prev
+      ),
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to apply audio mix'),
+  });
+
+  const handleOpenMixSettings = useCallback(() => {
+    setActiveWorkspaceTab('mix');
+    window.requestAnimationFrame(() => {
+      const panel = document.getElementById('workspace-panel-mix-audio');
+      if (!panel) return;
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+      panel.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+      panel.focus({ preventScroll: true });
+    });
+  }, []);
 
   // Load chords for project when ready
   useEffect(() => {
@@ -337,43 +351,6 @@ export const AppContent: React.FC = () => {
     }
   };
 
-  // Re-mix master audio with pitch and guide vocal changes
-  const handleMixChange = async (semitones: number, guideVolume: number) => {
-    if (!project?.id) return;
-    const wasPlaying = isPlaying;
-    if (audioRef.current) audioRef.current.pause();
-
-    try {
-      const res = await apiFetch(`/api/project/${project.id}/mix`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ semitones, guide_volume: guideVolume }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setProject((prev) =>
-          prev
-            ? {
-                ...prev,
-                master_audio_url: data.master_audio_url,
-                semitones,
-                guide_volume: guideVolume,
-              }
-            : null
-        );
-        if (audioRef.current) {
-          audioRef.current.load();
-          audioRef.current.currentTime = currentTime;
-          if (wasPlaying) {
-            audioRef.current.play().then(() => setIsPlaying(true));
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Mix failed:', err);
-    }
-  };
-
   // Trigger Video Render with custom theme, colors & font size scale
   const handleStartRender = async (options?: {
     includeVisualizer?: boolean;
@@ -390,8 +367,8 @@ export const AppContent: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          semitones: activeSemitones ?? project.semitones ?? 0,
-          guide_volume: project.guide_volume || 0,
+          semitones: mix.semitones,
+          guide_volume: mix.guideVolume,
           aspect_ratio: theme.aspectRatio,
           custom_bg_id: theme.customBgId || undefined,
           sync_mode: effectiveSyncMode,
@@ -442,12 +419,20 @@ export const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-theme-bg text-theme-text flex flex-col font-theme-body">
+    <div
+      className={cn(
+        'min-h-screen bg-theme-bg text-theme-text flex flex-col font-theme-body',
+        isStudioReady && 'studio:h-[100dvh] studio:overflow-hidden'
+      )}
+    >
       <div
-        className={`flex-1 flex flex-col ${showAuthModal ? 'pointer-events-none select-none' : ''}`}
+        className={cn(
+          'flex-1 flex flex-col',
+          isStudioReady && 'studio:min-h-0',
+          showAuthModal && 'pointer-events-none select-none'
+        )}
         {...(showAuthModal ? ({ inert: '', 'aria-hidden': 'true' } as Record<string, string>) : {})}
       >
-        {/* Top Navbar */}
         <StudioHeader
           currentUser={currentUser}
           project={project}
@@ -458,16 +443,17 @@ export const AppContent: React.FC = () => {
             setProject(null);
             setActiveWorkspaceTab('stage');
           }}
-          onStartRender={handleStartRender}
           isExportModalOpen={isExportOpen}
           onOpenExportModal={() => setIsExportOpen(true)}
         />
 
-        {/* Main Content Area */}
         <main
-          className={`flex-1 max-w-7xl mx-auto px-3 sm:px-4 pt-4 sm:pt-8 ${
-            isStudioReady ? 'pb-28 md:pb-8' : 'pb-4 sm:pb-8'
-          } w-full`}
+          className={cn(
+            'flex-1 w-full mx-auto',
+            isStudioReady
+              ? 'max-w-screen-2xl pb-[calc(var(--dock-height,8.5rem)+1rem)] md:pb-0 studio:min-h-0'
+              : 'max-w-7xl px-3 sm:px-4 pt-4 sm:pt-8 pb-4 sm:pb-8'
+          )}
         >
           {!project ? (
             <TrackSearch
@@ -491,164 +477,58 @@ export const AppContent: React.FC = () => {
               }}
             />
           ) : (
-            /* Studio Dashboard */
-            <div className="space-y-6 sm:space-y-8">
-              {/* Song Meta Header */}
-              <StudioMetaHeader
-                project={project}
-                onOpenEditModal={() => setShowStudioEditModal(true)}
-                onOpenDeleteModal={() => setShowStudioDeleteModal(true)}
-                onOpenExportModal={() => setIsExportOpen(true)}
-                onStartRender={handleStartRender}
-              />
-
-              {/* Mobile Workspace Navigation Tabs (< 768px only) */}
-              <MobileStudioWorkspaceTabs
-                activeTab={activeWorkspaceTab}
-                onSelectTab={setActiveWorkspaceTab}
-                onTabChange={setActiveWorkspaceTab}
-                hasUnsavedChanges={isLyricsDirty || chordHistory.isDirty}
-              />
-
-              {/* Audio Controls & Pitch Shifter */}
-              <div
-                id="workspace-panel-mix-audio"
-                role="tabpanel"
-                aria-labelledby="workspace-tab-mix"
-                tabIndex={0}
-                data-testid="studio-panel-audio"
-                className={activeWorkspaceTab === 'mix' ? 'block' : 'hidden md:block'}
-              >
-                <AudioControls
-                  projectId={project.id}
-                  masterAudioUrl={project.master_audio_url}
-                  instrumentalUrl={project.instrumental_url}
-                  vocalsUrl={project.vocals_url}
-                  lines={project.lines}
-                  currentTime={currentTime}
-                  duration={duration}
-                  isPlaying={isPlaying}
-                  onTogglePlay={audio.handleTogglePlay}
-                  onSeek={audio.handleSeek}
-                  onMixChange={handleMixChange}
-                  initialSemitones={activeSemitones}
-                  onSemitonesChange={handleSemitonesChange}
-                  initialGuideVolume={project.guide_volume}
-                  initialMuted={isMuted}
-                  onMuteChange={setIsMuted}
-                  playbackRate={audio.playbackRate}
-                  onPlaybackRateChange={audio.setPlaybackRate}
-                  audioRef={audioRef}
-                  onTimeUpdate={audio.handleTimeUpdate}
-                  onLoadedMetadata={audio.handleLoadedMetadata}
-                  onEnded={() => setIsPlaying(false)}
-                  onPlaybackError={(err) => {
-                    console.error('Audio playback error:', err);
-                    setIsPlaying(false);
-                  }}
-                  onCustomInstrumentalUploaded={(url) =>
-                    setProject({ ...project, instrumental_url: url })
-                  }
-                  vocalRange={project.vocal_range}
-                  showVisualizer={showVisualizer}
-                  onToggleVisualizer={handleToggleVisualizer}
-                  showChordBar={showChordBar}
-                  onToggleChordBar={handleToggleChordBar}
-                />
-              </div>
-
-              {/* Lyric Sweep Live Preview & Timeline Editor */}
-              <div
-                data-testid="workspace-stage-timeline-container"
-                className={
-                  activeWorkspaceTab === 'stage' || activeWorkspaceTab === 'timeline'
-                    ? 'block'
-                    : 'hidden md:block'
-                }
-              >
-                <LyricTimelineEditor
-                  lines={project.lines}
-                  currentTime={currentTime}
-                  duration={duration}
-                  isPlaying={isPlaying}
-                  playbackRate={audio.playbackRate}
-                  audioRef={audioRef}
-                  onTogglePlay={audio.handleTogglePlay}
-                  onSeek={audio.handleSeek}
-                  onSaveLines={handleSaveLines}
-                  albumArtUrl={project.thumbnail_url}
-                  themeSungColor={theme.activeSungColor}
-                  themeUnsungColor={theme.activeUnsungColor}
-                  onDirtyChange={setIsLyricsDirty}
-                  aspectRatio={theme.aspectRatio}
-                  fontSizeScale={theme.fontSizeScale}
-                  projectId={project.id}
-                  trackTitle={project.title}
-                  trackArtist={project.artist}
-                  showVisualizer={showVisualizer}
-                  onToggleVisualizer={handleToggleVisualizer}
-                  analyserNode={audio.analyserNode}
-                  chords={project.chords}
-                  showChordBar={showChordBar}
-                  onToggleChordBar={handleToggleChordBar}
-                  semitones={activeSemitones}
-                  onSemitonesChange={handleSemitonesChange}
-                  keyHint={project.vocal_range?.estimated_key}
-                  onEditChord={handleEditChord}
-                  syncMode={theme.syncMode}
-                  onSyncModeChange={theme.setSyncMode}
-                  activeWorkspaceTab={activeWorkspaceTab}
-                />
-              </div>
-
-              {/* Visual Theme & Aspect Ratio Picker */}
-              <div
-                id="workspace-panel-mix-theme"
-                role="tabpanel"
-                aria-labelledby="workspace-tab-mix"
-                tabIndex={0}
-                data-testid="studio-panel-theme"
-                className={activeWorkspaceTab === 'mix' ? 'block' : 'hidden md:block'}
-              >
-                <VisualThemePicker
-                  selectedTheme={theme.selectedTheme}
-                  onSelectTheme={theme.setSelectedTheme}
-                  aspectRatio={theme.aspectRatio}
-                  onChangeAspectRatio={theme.setAspectRatio}
-                  onCustomBgUploaded={theme.setCustomBgId}
-                  customBgId={theme.customBgId}
-                  customSungColor={theme.customSungColor}
-                  onCustomSungColorChange={theme.setCustomSungColor}
-                  customUnsungColor={theme.customUnsungColor}
-                  onCustomUnsungColorChange={theme.setCustomUnsungColor}
-                  fontSizeScale={theme.fontSizeScale}
-                  onFontSizeScaleChange={theme.setFontSizeScale}
-                  onResetThemeDefaults={theme.resetThemeDefaults}
-                  syncMode={theme.syncMode}
-                  onSyncModeChange={theme.setSyncMode}
-                />
-              </div>
-            </div>
+            <StudioWorkspace
+              project={project}
+              activeTab={activeWorkspaceTab}
+              onSelectTab={setActiveWorkspaceTab}
+              hasUnsavedChanges={isLyricsDirty || chordHistory.isDirty}
+              onLyricsDirtyChange={setIsLyricsDirty}
+              onSaveLines={handleSaveLines}
+              onEditChord={handleEditChord}
+              onOpenEditModal={() => setShowStudioEditModal(true)}
+              onOpenDeleteModal={() => setShowStudioDeleteModal(true)}
+              onCustomInstrumentalUploaded={(url) =>
+                setProject((prev) => (prev ? { ...prev, instrumental_url: url } : prev))
+              }
+              audio={audio}
+              mix={mix}
+              theme={theme}
+              showVisualizer={showVisualizer}
+              onToggleVisualizer={handleToggleVisualizer}
+              showChordBar={showChordBar}
+              onToggleChordBar={handleToggleChordBar}
+            />
           )}
         </main>
-      </div>
 
-      {/* Mobile Sticky Bottom Transport Bar */}
-      {isStudioReady && (
-        <MobileStudioTransport
-          currentTime={currentTime}
-          duration={duration}
-          isPlaying={isPlaying}
-          onTogglePlay={audio.handleTogglePlay}
-          onSeek={audio.handleSeek}
-          activeSemitones={activeSemitones}
-          semitones={activeSemitones}
-          playbackRate={audio.playbackRate}
-          onSelectTab={setActiveWorkspaceTab}
-          onOpenMixTab={() => setActiveWorkspaceTab('mix')}
-          onRestart={() => audio.handleSeek(0)}
-        />
-      )}
+        {/* Transport dock: fixed mini-player on phones, docked bar on desktop */}
+        {isStudioReady && project && (
+          <TransportDock
+            masterAudioUrl={project.master_audio_url}
+            lines={project.lines}
+            currentTime={currentTime}
+            duration={duration}
+            isPlaying={isPlaying}
+            onTogglePlay={audio.handleTogglePlay}
+            onSeek={audio.handleSeek}
+            audioRef={audioRef}
+            onTimeUpdate={audio.handleTimeUpdate}
+            onLoadedMetadata={audio.handleLoadedMetadata}
+            onEnded={() => setIsPlaying(false)}
+            onPlaybackError={(err) => {
+              console.error('Audio playback error:', err);
+              setIsPlaying(false);
+            }}
+            initialMuted={isMuted}
+            onMuteChange={audio.setIsMuted}
+            playbackRate={audio.playbackRate}
+            onPlaybackRateChange={audio.setPlaybackRate}
+            semitones={mix.semitones}
+            isRemixing={mix.isRemixing}
+            onOpenMixSettings={handleOpenMixSettings}
+          />
+        )}
+      </div>
 
       {/* Studio Modal Dialogs */}
       <StudioModals
@@ -659,7 +539,7 @@ export const AppContent: React.FC = () => {
         onStartRender={handleStartRender}
         selectedTheme={theme.effectiveTheme}
         aspectRatio={theme.aspectRatio}
-        activeSemitones={activeSemitones}
+        activeSemitones={mix.semitones}
         syncMode={theme.syncMode}
         onSyncModeChange={theme.setSyncMode}
         primaryColor={theme.customSungColor || undefined}

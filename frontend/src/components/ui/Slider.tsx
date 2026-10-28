@@ -1,7 +1,13 @@
 import React, { useRef } from 'react';
 import { cn } from '../../utils/cn';
 
-export interface SliderProps {
+/** Props a wrapping Tooltip (or other enhancer) may inject; forwarded to the input. */
+type ForwardedInputProps = Pick<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  'onFocus' | 'onBlur' | 'onMouseEnter' | 'onMouseLeave' | 'onClick' | 'aria-describedby' | 'title'
+>;
+
+export interface SliderProps extends ForwardedInputProps {
   label: string;
   value: number;
   min: number;
@@ -38,6 +44,8 @@ export const Slider: React.FC<SliderProps> = ({
   testId,
   tone = 'accent',
   className,
+  onBlur,
+  ...forwarded
 }) => {
   const lastCommitted = useRef<number>(value);
   const clamped = Math.min(max, Math.max(min, Number.isFinite(value) ? value : min));
@@ -51,6 +59,7 @@ export const Slider: React.FC<SliderProps> = ({
 
   return (
     <input
+      {...forwarded}
       id={id}
       type="range"
       min={min}
@@ -67,7 +76,10 @@ export const Slider: React.FC<SliderProps> = ({
       }}
       onPointerUp={(e) => commit(parseFloat((e.target as HTMLInputElement).value))}
       onKeyUp={(e) => commit(parseFloat((e.target as HTMLInputElement).value))}
-      onBlur={(e) => commit(parseFloat(e.target.value))}
+      onBlur={(e) => {
+        commit(parseFloat(e.target.value));
+        onBlur?.(e);
+      }}
       style={
         {
           '--ks-range-fill': `${fill.toFixed(2)}%`,

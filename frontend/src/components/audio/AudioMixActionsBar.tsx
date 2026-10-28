@@ -1,62 +1,42 @@
 /**
  * Audio Mix Actions Bar Component
  *
- * Renders bottom actions for applying audio mix (pitch & guide vocal) to preview
- * playback and uploading custom instrumental audio files.
+ * Shows the current instrumental source and lets the user replace it with their own
+ * backing track. Mix settings apply automatically, so there is no apply step.
  */
 
 import React from 'react';
-import { Music2, Upload } from 'lucide-react';
-import { Tooltip } from '../Tooltip';
+import { AudioLines, Upload } from 'lucide-react';
+import { Spinner } from '../ui/Spinner';
+import { focusRing } from '../ui/variants';
+import { cn } from '../../utils/cn';
 
 export interface AudioMixActionsBarProps {
-  isApplyingMix: boolean;
   uploadingInst: boolean;
   fileInputRef: React.RefObject<HTMLInputElement>;
-  onApplyAudioMix: () => void;
   onInstrumentalUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** True when the instrumental is a user upload rather than the separated stem. */
+  isCustomInstrumental?: boolean;
 }
 
 export const AudioMixActionsBar: React.FC<AudioMixActionsBarProps> = ({
-  isApplyingMix,
   uploadingInst,
   fileInputRef,
-  onApplyAudioMix,
   onInstrumentalUpload,
+  isCustomInstrumental = false,
 }) => {
   return (
-    <div className="mt-4 pt-4 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-xs">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-        <Tooltip
-          content="Apply pitch & vocal blend settings"
-          position="top"
-          className="w-full sm:w-auto"
-        >
-          <button
-            type="button"
-            onClick={onApplyAudioMix}
-            disabled={isApplyingMix}
-            aria-label="Apply audio mix settings to playback"
-            className="w-full sm:w-auto min-h-[44px] justify-center px-3.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 font-medium transition-all flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          >
-            {isApplyingMix ? (
-              <span
-                className="w-3 h-3 border-2 border-cyan-300 border-t-transparent rounded-full animate-spin"
-                role="status"
-                aria-label="Applying mix"
-              ></span>
-            ) : (
-              <Music2 className="w-3.5 h-3.5" aria-hidden="true" />
-            )}
-            Apply Audio Mix
-          </button>
-        </Tooltip>
-        <span className="text-slate-500 text-[11px]">
-          Updates pitch & vocal blend in preview player
+    <div className="flex flex-col gap-2" data-testid="instrumental-source">
+      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-theme-text-muted">
+        Instrumental
+      </span>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-border-subtle px-2.5 py-2">
+        <span className="flex min-w-0 items-center gap-2 text-xs text-theme-text">
+          <AudioLines className="h-3.5 w-3.5 shrink-0 text-theme-text-muted" aria-hidden="true" />
+          <span className="truncate">
+            {isCustomInstrumental ? 'Custom backing track' : 'Separated stem'}
+          </span>
         </span>
-      </div>
-
-      <div className="w-full sm:w-auto">
         <input
           type="file"
           ref={fileInputRef}
@@ -70,10 +50,17 @@ export const AudioMixActionsBar: React.FC<AudioMixActionsBarProps> = ({
           onClick={() => fileInputRef.current?.click()}
           disabled={uploadingInst}
           aria-label="Replace instrumental file"
-          className="w-full sm:w-auto min-h-[44px] justify-center px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors flex items-center gap-1.5 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          className={cn(
+            'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-2.5 text-xs font-semibold text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-subtle disabled:opacity-50',
+            focusRing
+          )}
         >
-          <Upload className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
-          {uploadingInst ? 'Uploading...' : 'Replace Instrumental File'}
+          {uploadingInst ? (
+            <Spinner className="h-3.5 w-3.5" />
+          ) : (
+            <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          {uploadingInst ? 'Uploading...' : 'Replace'}
         </button>
       </div>
     </div>

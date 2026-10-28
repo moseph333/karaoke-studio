@@ -19,6 +19,7 @@ import {
   MASTER_VOLUME_STORAGE_KEY,
   MASTER_MUTED_STORAGE_KEY,
 } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 import { ExportModal } from '../components/ExportModal';
 import { TrackSearch } from '../components/TrackSearch';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
@@ -533,9 +534,10 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         expect(screen.getByText('Render Candidate')).toBeInTheDocument();
       });
 
-      // Click Render & Export Video
-      const renderButtons = screen.getAllByRole('button', { name: /Render.*Video/i });
-      await user.click(renderButtons[0]);
+      // Open the export dialog from the top bar, then start the video render
+      await user.click(screen.getByRole('button', { name: 'Open export dialog' }));
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /start video render/i }));
 
       await waitFor(() => {
         expect(fetchSpy).toHaveBeenCalledWith(
@@ -957,9 +959,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
   });
 
   // =========================================================================
-  // 4. AudioControls.tsx Storage Exceptions, Media Errors & Rapid Transpositions
+  // 4. TransportDock / AudioControls Storage Exceptions, Media Errors & Rapid Transpositions
   // =========================================================================
-  describe('4. AudioControls.tsx Storage Exceptions & Boundary Hardening', () => {
+  describe('4. TransportDock & AudioControls Storage Exceptions & Boundary Hardening', () => {
     it('handles localStorage SecurityError exceptions during volume and muted read/write', () => {
       // Simulate sandbox iframe or restricted cookies where localStorage throws
       const originalGetItem = localStorage.getItem;
@@ -975,15 +977,13 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       // Must mount without throwing and use defaults (volume 1.0, muted false)
       render(
         <ToastProvider>
-          <AudioControls
-            projectId="proj-storage-err"
+          <TransportDock
             masterAudioUrl="/media/track.wav"
             currentTime={0}
             duration={180}
             isPlaying={false}
             onTogglePlay={vi.fn()}
             onSeek={vi.fn()}
-            onMixChange={vi.fn()}
           />
         </ToastProvider>
       );
@@ -1003,17 +1003,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       const user = userEvent.setup();
       render(
         <ToastProvider>
-          <AudioControls
-            projectId="proj-pitch-clamp"
-            masterAudioUrl="/media/track.wav"
-            currentTime={0}
-            duration={180}
-            isPlaying={false}
-            initialSemitones={10}
-            onTogglePlay={vi.fn()}
-            onSeek={vi.fn()}
-            onMixChange={vi.fn()}
-          />
+          <AudioControls projectId="proj-pitch-clamp" initialSemitones={10} onMixChange={vi.fn()} />
         </ToastProvider>
       );
 
@@ -1022,15 +1012,16 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       });
       // +1 -> 11
       await user.click(upBtn);
-      expect(screen.getByText(/\+11 semitones/i)).toBeInTheDocument();
+      expect(screen.getByText('11 semitones up')).toBeInTheDocument();
 
       // +1 -> 12
       await user.click(upBtn);
-      expect(screen.getByText(/\+12 semitones/i)).toBeInTheDocument();
+      expect(screen.getByText('12 semitones up')).toBeInTheDocument();
 
-      // +1 -> must remain clamped at 12
+      // +1 -> must remain clamped at 12 (the stepper disables at the bound)
+      expect(upBtn).toBeDisabled();
       await user.click(upBtn);
-      expect(screen.getByText(/\+12 semitones/i)).toBeInTheDocument();
+      expect(screen.getByText('12 semitones up')).toBeInTheDocument();
     });
 
     it('unmutes and restores volume when volume slider is dragged > 0 while muted', () => {
@@ -1040,15 +1031,13 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       const onMuteChange = vi.fn();
       render(
         <ToastProvider>
-          <AudioControls
-            projectId="proj-unmute-slider"
+          <TransportDock
             masterAudioUrl="/media/track.wav"
             currentTime={0}
             duration={180}
             isPlaying={false}
             onTogglePlay={vi.fn()}
             onSeek={vi.fn()}
-            onMixChange={vi.fn()}
             onMuteChange={onMuteChange}
           />
         </ToastProvider>
@@ -1095,16 +1084,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
 
       const { container } = render(
         <ToastProvider>
-          <AudioControls
-            projectId="proj-upload-fail"
-            masterAudioUrl="/media/track.wav"
-            currentTime={0}
-            duration={180}
-            isPlaying={false}
-            onTogglePlay={vi.fn()}
-            onSeek={vi.fn()}
-            onMixChange={vi.fn()}
-          />
+          <AudioControls projectId="proj-upload-fail" onMixChange={vi.fn()} />
         </ToastProvider>
       );
 

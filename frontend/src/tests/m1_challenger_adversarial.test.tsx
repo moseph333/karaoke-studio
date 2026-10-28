@@ -27,7 +27,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { MobileStudioWorkspaceTabs } from '../components/MobileStudioWorkspaceTabs';
-import { MobileStudioTransport } from '../components/MobileStudioTransport';
+import { TransportDock } from '../components/transport/TransportDock';
 import { ProjectState } from '../types';
 import {
   setTestViewport,
@@ -151,13 +151,13 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
       const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
       expect(audioEl).toBeInstanceOf(HTMLAudioElement);
 
-      // Start audio playback via sticky transport play button
-      const playBtn = screen.getByRole('button', { name: /play audio/i });
+      // Start audio playback via the transport dock play button
+      const playBtn = screen.getByRole('button', { name: /start playback/i });
       await user.click(playBtn);
 
       // Verify playing state
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /pause audio/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /pause playback/i })).toBeInTheDocument();
       });
 
       const stageTab = screen.getByRole('tab', { name: /stage/i });
@@ -175,10 +175,10 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
         const currentAudio = screen.getByTestId('audio-element');
         expect(currentAudio).toBe(audioEl);
 
-        // Play/Pause button in mobile transport must remain in "Pause audio" (still playing) state
-        expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+        // Dock play/pause button must remain in "Pause playback" (still playing) state
+        expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
           'aria-label',
-          'Pause audio'
+          'Pause playback'
         );
       }
     });
@@ -194,7 +194,7 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
       const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
 
       // Start playback
-      fireEvent.click(screen.getByRole('button', { name: /play audio/i }));
+      fireEvent.click(screen.getByRole('button', { name: /start playback/i }));
 
       const stageTab = screen.getByRole('tab', { name: /stage/i });
       const timelineTab = screen.getByRole('tab', { name: /timeline/i });
@@ -205,7 +205,7 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
         audioEl.currentTime = 2.5;
         fireEvent.timeUpdate(audioEl);
       });
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:02');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:02');
 
       // Switch to Timeline tab and advance to 4.5s
       fireEvent.click(timelineTab);
@@ -213,7 +213,7 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
         audioEl.currentTime = 4.5;
         fireEvent.timeUpdate(audioEl);
       });
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:04');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:04');
 
       // Switch to Mix tab and advance to 8.0s
       fireEvent.click(mixTab);
@@ -221,12 +221,12 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
         audioEl.currentTime = 8.0;
         fireEvent.timeUpdate(audioEl);
       });
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:08');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:08');
 
       // Switch back to Stage tab
       fireEvent.click(stageTab);
       // Verify time remained at 8.0s (no reset to 0:00)
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:08');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:08');
     });
 
     it('C1.3: Scrubbing from mobile transport while on Mix tab updates playhead and preserves state in Timeline', async () => {
@@ -239,12 +239,17 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
 
       const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
 
+      // The browser reports the track duration once metadata has loaded
+      act(() => {
+        fireEvent.loadedMetadata(audioEl);
+      });
+
       // Switch to Mix tab
       const mixTab = screen.getByRole('tab', { name: /mix/i });
       fireEvent.click(mixTab);
 
-      // Scrub mobile transport slider to 9.0s (inside Line 102)
-      const scrubber = screen.getByRole('slider', { name: /audio playback scrub bar/i });
+      // Scrub the dock timeline to 9.0s (inside Line 102)
+      const scrubber = screen.getByRole('slider', { name: 'Audio timeline position' });
       fireEvent.change(scrubber, { target: { value: '9.0' } });
 
       expect(audioEl.currentTime).toBe(9.0);
@@ -253,8 +258,8 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
       const timelineTab = screen.getByRole('tab', { name: /timeline/i });
       fireEvent.click(timelineTab);
 
-      // Verify the mobile transport time reflects the scrubbed position
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:09');
+      // Verify the dock time reflects the scrubbed position
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:09');
 
       // Verify Line 102 (starts at 7.0s, ends at 11.0s) is rendered and active
       expect(screen.getByText('State remains preserved across all panels')).toBeInTheDocument();
@@ -273,51 +278,51 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
       const mixTab = screen.getByRole('tab', { name: /mix/i });
 
       // Start playing on Stage
-      fireEvent.click(screen.getByRole('button', { name: /play audio/i }));
+      fireEvent.click(screen.getByRole('button', { name: /start playback/i }));
       await waitFor(() => {
-        expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+        expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
           'aria-label',
-          'Pause audio'
+          'Pause playback'
         );
       });
 
       // Switch to Timeline: still playing
       fireEvent.click(timelineTab);
-      expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+      expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
         'aria-label',
-        'Pause audio'
+        'Pause playback'
       );
 
       // Pause playback on Timeline
-      fireEvent.click(screen.getByRole('button', { name: /pause audio/i }));
+      fireEvent.click(screen.getByRole('button', { name: /pause playback/i }));
       await waitFor(() => {
-        expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+        expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
           'aria-label',
-          'Play audio'
+          'Start playback'
         );
       });
 
       // Switch to Mix: still paused
       fireEvent.click(mixTab);
-      expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+      expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
         'aria-label',
-        'Play audio'
+        'Start playback'
       );
 
       // Resume playback on Mix
-      fireEvent.click(screen.getByRole('button', { name: /play audio/i }));
+      fireEvent.click(screen.getByRole('button', { name: /start playback/i }));
       await waitFor(() => {
-        expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+        expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
           'aria-label',
-          'Pause audio'
+          'Pause playback'
         );
       });
 
       // Switch back to Stage: still playing
       fireEvent.click(stageTab);
-      expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+      expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
         'aria-label',
-        'Pause audio'
+        'Pause playback'
       );
     });
   });
@@ -483,18 +488,18 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
       });
     }
 
-    it('C3.2: MobileStudioTransport component strictly fits within 320px viewport without overflow', () => {
+    it('C3.2: TransportDock strictly fits within 320px viewport without overflow', () => {
       const { container } = render(
-        <MobileStudioTransport
+        <TransportDock
+          masterAudioUrl="/static/m1-master.wav"
           currentTime={85}
           duration={240}
           isPlaying={true}
-          activeSemitones={-2}
+          semitones={-2}
           playbackRate={0.8}
           onTogglePlay={vi.fn()}
           onSeek={vi.fn()}
-          onOpenMixTab={vi.fn()}
-          onRestart={vi.fn()}
+          onOpenMixSettings={vi.fn()}
         />
       );
 
@@ -526,9 +531,9 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
   // Challenge 4: Edge Cases & Boundary Resilience
   // =========================================================================
   describe('Challenge 4: Edge Cases & Boundary Resilience', () => {
-    it('C4.1: MobileStudioTransport handles duration=0, duration=NaN, currentTime=NaN gracefully', () => {
+    it('C4.1: TransportDock handles duration=0, duration=NaN, currentTime=NaN gracefully', () => {
       const { rerender } = render(
-        <MobileStudioTransport
+        <TransportDock
           currentTime={NaN}
           duration={0}
           isPlaying={false}
@@ -538,10 +543,11 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
       );
 
       // Should display 0:00 / 0:00 and not "NaN:NaN"
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:00 / 0:00');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:00');
+      expect(screen.getByTestId('transport-duration')).toHaveTextContent('0:00');
 
       rerender(
-        <MobileStudioTransport
+        <TransportDock
           currentTime={-5}
           duration={NaN}
           isPlaying={false}
@@ -549,7 +555,8 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
           onSeek={vi.fn()}
         />
       );
-      expect(screen.getByTestId('mobile-transport-time')).toHaveTextContent('0:00 / 0:00');
+      expect(screen.getByTestId('transport-time')).toHaveTextContent('0:00');
+      expect(screen.getByTestId('transport-duration')).toHaveTextContent('0:00');
     });
 
     it('C4.2: Keyboard navigation on workspace tabs cycles correctly under stress', () => {
@@ -592,11 +599,11 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
       const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
 
       // Start audio
-      fireEvent.click(screen.getByRole('button', { name: /play audio/i }));
+      fireEvent.click(screen.getByRole('button', { name: /start playback/i }));
       await waitFor(() => {
-        expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+        expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
           'aria-label',
-          'Pause audio'
+          'Pause playback'
         );
       });
 
@@ -608,11 +615,11 @@ describe('Milestone M1 Empirical Adversarial Challenge', () => {
         fireEvent.ended(audioEl);
       });
 
-      // Sticky transport must now show Play audio
+      // The dock must now offer Start playback
       await waitFor(() => {
-        expect(screen.getByTestId('mobile-play-pause-btn')).toHaveAttribute(
+        expect(screen.getByTestId('transport-play-pause-btn')).toHaveAttribute(
           'aria-label',
-          'Play audio'
+          'Start playback'
         );
       });
     });

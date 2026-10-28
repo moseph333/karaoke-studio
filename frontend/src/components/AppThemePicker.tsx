@@ -159,7 +159,7 @@ export const AppThemePicker: React.FC<AppThemePickerProps> = ({ className, id })
         aria-label="Select theme"
         aria-controls={listboxId}
         aria-activedescendant={activeOptionId}
-        className="px-2 sm:px-2.5 py-1.5 rounded-theme-md bg-theme-surface border border-theme-border/60 hover:border-theme-accent text-theme-text text-xs font-medium transition-all flex items-center gap-1.5 sm:gap-2 shadow-theme-sm min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent shrink-0"
+        className="px-2 sm:px-2.5 py-1.5 rounded-theme-md bg-theme-surface border border-theme-border/60 hover:border-theme-accent text-theme-text text-xs font-medium transition-all flex items-center gap-1.5 sm:gap-2 shadow-theme-sm min-h-[44px] md:min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent shrink-0"
       >
         <Palette className="w-3.5 h-3.5 text-theme-accent shrink-0" aria-hidden="true" />
 
@@ -176,13 +176,13 @@ export const AppThemePicker: React.FC<AppThemePickerProps> = ({ className, id })
         </span>
 
         {/* Current Theme Name */}
-        <span className="font-semibold text-theme-text text-xs truncate max-w-[85px] sm:max-w-[120px]">
+        <span className="hidden sm:inline font-semibold text-theme-text text-xs truncate max-w-[120px]">
           {theme.name}
         </span>
 
         <ChevronDown
           className={clsx(
-            'w-3.5 h-3.5 text-theme-text-muted transition-transform duration-150 shrink-0',
+            'hidden sm:block w-3.5 h-3.5 text-theme-text-muted transition-transform duration-150 shrink-0',
             isOpen && 'rotate-180 text-theme-text'
           )}
           aria-hidden="true"

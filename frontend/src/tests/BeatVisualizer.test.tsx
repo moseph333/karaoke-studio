@@ -4,7 +4,6 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import { BeatVisualizer } from '../components/BeatVisualizer';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
-import { AudioControls } from '../components/AudioControls';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import {
   setTestViewport,
@@ -86,22 +85,18 @@ describe('Beat-Reactive Audio Visualizer & Hotkeys (Requirement R3 / M3)', () =>
   });
 
   describe('Toggle Controls & Stage Mode Integration', () => {
-    it('renders toggle-visualizer-btn in AudioControls with >=44px touch target', () => {
+    it('renders a single toggle-visualizer-btn in the stage toolbar with >=44px touch target', () => {
       const onToggle = vi.fn();
       render(
-        <AudioControls
-          projectId="test-viz"
+        <LyricDisplay
+          lines={mockLines}
           currentTime={0}
-          duration={100}
-          isPlaying={false}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
-          onMixChange={vi.fn()}
           showVisualizer={false}
           onToggleVisualizer={onToggle}
         />
       );
 
+      expect(screen.getAllByTestId('toggle-visualizer-btn')).toHaveLength(1);
       const btn = screen.getByTestId('toggle-visualizer-btn');
       expect(btn).toBeInTheDocument();
       expect(btn).toHaveAttribute('aria-pressed', 'false');
