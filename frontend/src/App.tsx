@@ -35,7 +35,6 @@ export const AppContent: React.FC = () => {
   const [showStudioDeleteModal, setShowStudioDeleteModal] = useState(false);
   const [showStudioEditModal, setShowStudioEditModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [showVisualizer, setShowVisualizer] = useState(false);
 
   // Mobile Studio Workspace Navigation State (Stage / Timeline / Mix)
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<StudioWorkspaceTab>('stage');
@@ -47,8 +46,9 @@ export const AppContent: React.FC = () => {
     setActiveWorkspaceTab('stage');
   }
 
-  // Theme & Visual Styling Hook
-  const theme = useVisualTheme();
+  // Stage look & preview toggles, remembered across reloads
+  const theme = useVisualTheme(undefined, { persist: true });
+  const { showVisualizer, showChordBar } = theme;
 
   // Authentication & Friend Profile Hook
   const { showAuthModal, setShowAuthModal, currentUser, authToken, handleAuthSuccess } =
@@ -102,11 +102,10 @@ export const AppContent: React.FC = () => {
   };
 
   const isStudioReady = Boolean(project && project.status === 'ready');
-  const [showChordBar, setShowChordBar] = useState(false);
   const [initialChords, setInitialChords] = useState<ChordSegment[]>([]);
 
-  const handleToggleChordBar = () => setShowChordBar((prev) => !prev);
-  const handleToggleVisualizer = () => setShowVisualizer((prev) => !prev);
+  const handleToggleChordBar = theme.toggleChordBar;
+  const handleToggleVisualizer = theme.toggleVisualizer;
 
   // Key + guide vocal mix: requested values render immediately, the server re-mix is
   // debounced and the new master swaps in without losing the playback position.
@@ -381,6 +380,10 @@ export const AppContent: React.FC = () => {
             secondary_color: theme.customUnsungColor || theme.selectedTheme.secondary_color,
             font_size_scale: theme.fontSizeScale,
             sync_mode: effectiveSyncMode,
+            // Match the live preview: duet colors and the preset backdrop behind artwork
+            singer2_color: theme.activeSinger2Color,
+            both_color: theme.activeBothColor,
+            background_color: theme.stageBackgroundColor,
           },
         }),
       });
@@ -546,6 +549,9 @@ export const AppContent: React.FC = () => {
         onSyncModeChange={theme.setSyncMode}
         primaryColor={theme.customSungColor || undefined}
         secondaryColor={theme.customUnsungColor || undefined}
+        singer2Color={theme.activeSinger2Color}
+        bothColor={theme.activeBothColor}
+        backgroundColor={theme.stageBackgroundColor}
         fontSizeScale={theme.fontSizeScale}
         showAuthModal={showAuthModal}
         onAuthSuccess={handleAuthSuccess}

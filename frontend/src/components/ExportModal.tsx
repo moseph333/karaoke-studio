@@ -62,6 +62,11 @@ export interface ExportModalProps {
   onChangeSyncMode?: (mode: SyncDisplayMode) => void;
   primaryColor?: string;
   secondaryColor?: string;
+  /** Duet sung colors from the Look panel (sent only when provided). */
+  singer2Color?: string;
+  bothColor?: string;
+  /** Preset backdrop the renderer uses when there is no artwork or custom background. */
+  backgroundColor?: string;
   fontSizeScale?: number;
 }
 
@@ -79,6 +84,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   onChangeSyncMode,
   primaryColor,
   secondaryColor,
+  singer2Color,
+  bothColor,
+  backgroundColor,
   fontSizeScale,
 }) => {
   const { toast } = useToast();
@@ -140,6 +148,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           ...(secondaryColor ? { secondary_color: secondaryColor } : {}),
           ...(fontSizeScale !== undefined ? { font_size_scale: fontSizeScale } : {}),
           ...(syncMode || renderSyncMode !== 'word' ? { sync_mode: renderSyncMode } : {}),
+          ...(singer2Color ? { singer2_color: singer2Color } : {}),
+          ...(bothColor ? { both_color: bothColor } : {}),
+          ...(backgroundColor ? { background_color: backgroundColor } : {}),
         },
       };
       if (syncMode || renderSyncMode !== 'word') {
@@ -502,6 +513,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           aspectRatio={aspectRatio}
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
+          singer2Color={singer2Color}
+          bothColor={bothColor}
           fontSizeScale={fontSizeScale}
           activeSemitones={semitones}
           syncMode={

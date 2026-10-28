@@ -9,7 +9,14 @@
 import React, { useRef, useState } from 'react';
 import { Palette, Upload, Monitor, Smartphone, Check, RotateCcw, ImageIcon, X } from 'lucide-react';
 import { VisualTheme } from '../types';
-import { THEMES, STAGE_PRESETS_IN_DISPLAY_ORDER, getStageBackground } from '../theme/stagePresets';
+import {
+  THEMES,
+  STAGE_PRESETS_IN_DISPLAY_ORDER,
+  DEFAULT_BOTH_COLOR,
+  DEFAULT_SINGER2_COLOR,
+  getStageBackground,
+} from '../theme/stagePresets';
+import { StageSize } from '../theme/stageSettingsStorage';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
 import { Panel } from './ui/Panel';
@@ -34,10 +41,25 @@ export interface VisualThemePickerProps {
   fontSizeScale?: number;
   onFontSizeScaleChange?: (scale: number) => void;
   onResetThemeDefaults?: () => void;
+  /** Show Singer 2 / Both color pickers (the song has duet lines). */
+  showDuetColors?: boolean;
+  customSinger2Color?: string | null;
+  onCustomSinger2ColorChange?: (color: string) => void;
+  customBothColor?: string | null;
+  onCustomBothColorChange?: (color: string) => void;
+  /** Desktop stage height budget; the control is hidden when no handler is given. */
+  stageSize?: StageSize;
+  onStageSizeChange?: (size: StageSize) => void;
   className?: string;
 }
 
 const FONT_SCALES = [0.8, 1.0, 1.2, 1.5] as const;
+
+const STAGE_SIZE_OPTIONS: ReadonlyArray<{ value: StageSize; label: string; hint: string }> = [
+  { value: 'compact', label: 'Compact', hint: 'More room for the timeline' },
+  { value: 'standard', label: 'Standard', hint: 'Balanced stage and timeline' },
+  { value: 'large', label: 'Large', hint: 'Bigger live preview' },
+];
 
 const sectionLabel = 'text-xs font-semibold uppercase tracking-[0.08em] text-theme-text-muted';
 
@@ -65,6 +87,13 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   fontSizeScale = 1.0,
   onResetThemeDefaults,
   onFontSizeScaleChange,
+  showDuetColors = false,
+  customSinger2Color,
+  onCustomSinger2ColorChange,
+  customBothColor,
+  onCustomBothColorChange,
+  stageSize = 'standard',
+  onStageSizeChange,
   className,
 }) => {
   const { toast } = useToast();
@@ -73,6 +102,9 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
 
   const activeSungColor = customSungColor || selectedTheme.previewSung;
   const activeUnsungColor = customUnsungColor || selectedTheme.previewUnsung;
+  const activeSinger2Color =
+    customSinger2Color || selectedTheme.singer2Color || DEFAULT_SINGER2_COLOR;
+  const activeBothColor = customBothColor || selectedTheme.bothColor || DEFAULT_BOTH_COLOR;
   const activeScale = fontSizeScale || 1.0;
   const activeScaleOption =
     FONT_SCALES.find((s) => Math.abs(activeScale - s) < 0.05)?.toString() ?? '';
@@ -242,6 +274,24 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                 value: activeUnsungColor,
                 onChange: onCustomUnsungColorChange,
               },
+              ...(showDuetColors
+                ? [
+                    {
+                      id: 'singer2-color-picker',
+                      label: 'Singer 2',
+                      aria: 'Singer 2 sung color',
+                      value: activeSinger2Color,
+                      onChange: onCustomSinger2ColorChange,
+                    },
+                    {
+                      id: 'both-color-picker',
+                      label: 'Both singers',
+                      aria: 'Both singers sung color',
+                      value: activeBothColor,
+                      onChange: onCustomBothColorChange,
+                    },
+                  ]
+                : []),
             ].map((c) => (
               <label
                 key={c.id}
@@ -292,6 +342,26 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
             }))}
           />
         </div>
+
+        {onStageSizeChange && (
+          <div className="hidden flex-col gap-2 md:flex">
+            <span className={sectionLabel}>Studio preview size</span>
+            <SegmentedControl<StageSize>
+              value={stageSize}
+              onChange={onStageSizeChange}
+              ariaLabel="Studio preview size"
+              size="sm"
+              fullWidth
+              tone="neutral"
+              options={STAGE_SIZE_OPTIONS.map((o) => ({
+                value: o.value,
+                label: o.label,
+                title: o.hint,
+                testId: `stage-size-${o.value}`,
+              }))}
+            />
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <span className={sectionLabel}>Background</span>

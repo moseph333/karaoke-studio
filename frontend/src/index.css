@@ -541,6 +541,13 @@
   .ks-stage-fit-portrait {
     width: min(100%, calc(var(--stage-h, clamp(220px, calc(100dvh - 500px), 440px)) * 9 / 16));
   }
+  /* Studio preview size setting (Standard keeps the default budget above) */
+  [data-stage-size='compact'] {
+    --stage-h: clamp(200px, calc(100dvh - 600px), 340px);
+  }
+  [data-stage-size='large'] {
+    --stage-h: clamp(260px, calc(100dvh - 420px), 620px);
+  }
 
   /* Stage typography follows the stage box, so short laptop stages never clip lyrics */
   .ks-stage-container {

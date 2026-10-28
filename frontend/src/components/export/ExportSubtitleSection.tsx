@@ -29,6 +29,8 @@ export interface ExportSubtitleSectionProps {
   aspectRatio?: '16:9' | '9:16' | string;
   primaryColor?: string;
   secondaryColor?: string;
+  singer2Color?: string;
+  bothColor?: string;
   fontSizeScale?: number;
   activeSemitones?: number;
   syncMode?: SyncDisplayMode;
@@ -42,6 +44,8 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
   aspectRatio = '16:9',
   primaryColor,
   secondaryColor,
+  singer2Color,
+  bothColor,
   fontSizeScale,
   activeSemitones,
   syncMode,
@@ -90,6 +94,12 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
       }
       if (fontSizeScale !== undefined) {
         assUrl += `&font_size_scale=${encodeURIComponent(fontSizeScale)}`;
+      }
+      if (singer2Color) {
+        assUrl += `&singer2_color=${encodeURIComponent(singer2Color)}`;
+      }
+      if (bothColor) {
+        assUrl += `&both_color=${encodeURIComponent(bothColor)}`;
       }
       if (syncMode || activeSyncMode !== 'word') {
         assUrl += `&sync_mode=${encodeURIComponent(activeSyncMode)}`;
