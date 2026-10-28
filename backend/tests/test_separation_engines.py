@@ -21,6 +21,7 @@ import soundfile as sf
 
 from backend.services import separation_presets as presets
 from backend.services import separator as separator_mod
+from backend.services.process_watchdog import PROJECT_ROOT
 from backend.services.separation_progress import ProgressTracker, parse_eta_seconds
 from backend.services.separator import AudioSeparator, SeparationCancelled
 from backend.workers import roformer_worker as worker
@@ -532,7 +533,7 @@ def test_balanced_runs_the_roformer_worker(tmp_path, engines):
     assert call["kwargs"]["stdout"] == subprocess.DEVNULL
     assert call["kwargs"]["stderr"] == subprocess.PIPE
     worker_path = call["kwargs"]["env"]["PYTHONPATH"].split(os.pathsep)
-    assert str(separator_mod.PROJECT_ROOT) in worker_path
+    assert str(PROJECT_ROOT) in worker_path
 
     target = tmp_path / "stems" / "trk"
     assert sorted(p.name for p in target.iterdir()) == ["instrumental.wav", "vocals.wav"]

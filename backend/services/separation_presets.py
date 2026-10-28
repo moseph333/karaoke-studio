@@ -201,7 +201,7 @@ def package_version(name: str) -> str | None:
         return None
 
 
-def _version_tuple(version: str | None) -> tuple[int, ...]:
+def version_tuple(version: str | None) -> tuple[int, ...]:
     parts: list[int] = []
     for piece in (version or "").split("."):
         digits = "".join(ch for ch in piece if ch.isdigit())
@@ -214,7 +214,7 @@ def _version_tuple(version: str | None) -> tuple[int, ...]:
 @lru_cache(maxsize=1)
 def demucs_supports_quality_flags() -> bool:
     """--shifts/--overlap/--int24/--clip-mode are passed only to demucs >= 4.1."""
-    return _version_tuple(package_version("demucs")) >= (4, 1)
+    return version_tuple(package_version("demucs")) >= (4, 1)
 
 
 def weights_cached(models: tuple[str, ...], directory: Path | None = None) -> bool:

@@ -55,3 +55,13 @@ def test_fast_and_none_need_no_roformer_weights(monkeypatch):
     assert fetch_models.roformer_models("none") == []
     code, calls = _run(monkeypatch, ["--separation", "none", "--no-demucs"])
     assert (code, calls) == (0, [])
+
+
+def test_alignment_model_is_fetched_on_request(monkeypatch, tmp_path):
+    monkeypatch.setenv("ALIGNMENT_MODEL_DIR", str(tmp_path / "mms"))
+    code, calls = _run(monkeypatch, ["--separation", "none", "--no-demucs", "--alignment"])
+    assert code == 0
+    assert calls[0][:2] == [sys.executable, "-c"]
+    assert "MMS_FA.get_model(with_star=True" in calls[0][2]
+    assert str(tmp_path / "mms") in calls[0][2] and "mms_fa.pt" in calls[0][2]
+    assert (tmp_path / "mms").is_dir()

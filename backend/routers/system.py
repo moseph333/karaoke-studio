@@ -9,5 +9,5 @@ router = APIRouter(tags=["system"])
 
 @router.get("/api/capabilities")
 def capabilities():
-    """Available stem separation presets (with reasons when one cannot run) and defaults."""
+    """Separation presets and the lyric alignment engine, with reasons when one cannot run."""
     return get_capabilities()

@@ -34,6 +34,7 @@ from backend.schemas import (
     SearchRequest,
     VocalRangeData,
 )
+from backend.services.lyric_sync import sync_lyrics
 from backend.services.waveform import (
     DEFAULT_BINS,
     MAX_BINS,
@@ -709,12 +710,17 @@ def realign_lyrics(project_id: str, req: RealignLyricsRequest):
                 detail="No lyric lines found in provided input or LRCLIB response",
             )
 
-        aligned_lines = main_mod.aligner.align_lyrics(vocals_path, lines_to_align)
+        # Answered within the request, so the fast DSP aligner; background re-alignment
+        # (see quality router) can use the neural one
+        result = sync_lyrics(vocals_path, lines_to_align, lyric_data=lyric_data, engine="dsp")
+        aligned_lines = result.lines
 
         with PROJECTS_LOCK:
             proj["lines"] = aligned_lines
             proj["lyric_source"] = lyric_data.get("source", "custom")
             proj["is_synced"] = lyric_data.get("synced", True)
+            proj["sync_report"] = result.report
+            proj["lyric_timing"] = result.lyric_timing
 
             if aligned_lines:
                 max_end = max(
@@ -739,6 +745,8 @@ def realign_lyrics(project_id: str, req: RealignLyricsRequest):
             "lines": aligned_lines,
             "source": proj["lyric_source"],
             "is_synced": proj["is_synced"],
+            "sync_report": result.report,
+            "lyric_timing": result.lyric_timing,
         }
     except HTTPException:
         raise

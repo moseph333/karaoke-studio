@@ -16,6 +16,7 @@ from backend.project_store import (
     get_project_or_404,
     save_projects,
 )
+from backend.services.lyric_sync import sync_lyrics
 from backend.services.separation_presets import (
     PRESET_LABELS,
     configured_preset,
@@ -80,6 +81,32 @@ def separate_project_stems(
         proj["separation"] = provenance
     save_projects()
     return stems
+
+
+def sync_project_lyrics(
+    project_id: str, vocals_path: str, lyric_data: dict, update_pipe, cancel_event
+) -> None:
+    """Times a pipeline's lyrics (progress 82-91) and stores lines, report and timing kind."""
+    update_pipe("aligning", 82, "Aligning lyrics to vocal acoustic energy envelopes...", 5)
+    last = [82]
+
+    def on_progress(pct, detail):
+        if pct is not None:
+            last[0] = max(last[0], 82 + round(pct * 0.09))
+        update_pipe("aligning", last[0], detail)
+
+    result = sync_lyrics(
+        vocals_path,
+        lyric_data["lines"],
+        lyric_data=lyric_data,
+        progress=on_progress,
+        cancel_event=cancel_event,
+    )
+    proj = get_project_or_404(project_id)
+    proj["lines"] = result.lines
+    proj["sync_report"] = result.report
+    proj["lyric_timing"] = result.lyric_timing
+    save_projects()
 
 
 def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = None):
@@ -244,12 +271,8 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         proj["is_synced"] = lyric_data["synced"]
         save_projects()
 
-        # Step 4: Forced Word-Level Alignment
-        update_pipe("aligning", 82, "Aligning lyrics to vocal acoustic energy envelopes...", 5)
-        aligned_lines = main_mod.aligner.align_lyrics(stems["vocals_path"], lyric_data["lines"])
-        proj = get_project_or_404(project_id)
-        proj["lines"] = aligned_lines
-        save_projects()
+        # Step 4: Line and word timing (DSP, plus the neural aligner when available)
+        sync_project_lyrics(project_id, stems["vocals_path"], lyric_data, update_pipe, cancel_event)
 
         # Step 5: Mix Initial Master
         update_pipe("mixing", 92, "Mixing initial master playback...", 3)
@@ -479,12 +502,8 @@ def run_local_pipeline(
         proj["is_synced"] = lyric_data["synced"]
         save_projects()
 
-        # Step 4: Forced Word-Level Alignment
-        update_pipe("aligning", 82, "Aligning lyrics to vocal acoustic energy envelopes...", 5)
-        aligned_lines = main_mod.aligner.align_lyrics(stems["vocals_path"], lyric_data["lines"])
-        proj = get_project_or_404(project_id)
-        proj["lines"] = aligned_lines
-        save_projects()
+        # Step 4: Line and word timing (DSP, plus the neural aligner when available)
+        sync_project_lyrics(project_id, stems["vocals_path"], lyric_data, update_pipe, cancel_event)
 
         # Step 5: Mix Initial Master
         update_pipe("mixing", 92, "Mixing initial master playback...", 3)

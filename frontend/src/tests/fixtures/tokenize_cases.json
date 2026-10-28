@@ -1,0 +1,50 @@
+[
+  {
+    "text": "Hello, world!  ok",
+    "tokens": ["Hello,", "world!", "ok"]
+  },
+  {
+    "text": "  Leading and trailing  ",
+    "tokens": ["Leading", "and", "trailing"]
+  },
+  {
+    "text": "Rock-n-roll 2nite",
+    "tokens": ["Rock-n-roll", "2nite"]
+  },
+  {
+    "text": "Don’t stop",
+    "tokens": ["Don’t", "stop"]
+  },
+  {
+    "text": "你好世界！",
+    "tokens": ["你", "好", "世", "界！"]
+  },
+  {
+    "text": "東京へ行こう、ね",
+    "tokens": ["東", "京", "へ", "行", "こ", "う、", "ね"]
+  },
+  {
+    "text": "안녕 하세요",
+    "tokens": ["안", "녕", "하", "세", "요"]
+  },
+  {
+    "text": "チーカー",
+    "tokens": ["チー", "カー"]
+  },
+  {
+    "text": "I love 東京 so much",
+    "tokens": ["I", "love", "東", "京", "so", "much"]
+  },
+  {
+    "text": "「你好」",
+    "tokens": ["「", "你", "好」"]
+  },
+  {
+    "text": "",
+    "tokens": []
+  },
+  {
+    "text": "   ",
+    "tokens": []
+  }
+]

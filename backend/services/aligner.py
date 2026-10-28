@@ -21,7 +21,7 @@ _ENERGY_BLOCK = 1 << 20
 _FFT_BATCH = 2048
 
 
-def _frame_mean_square(
+def frame_mean_square(
     mono: np.ndarray, frame_len: int, hop_len: int, num_frames: int
 ) -> np.ndarray:
     """Mean square of each frame (frames start every hop_len samples) as float32.
@@ -525,7 +525,7 @@ def refine_line_boundaries(
             sanitized.append(l_copy)
         return sanitized
 
-    energy = _frame_mean_square(mono, frame_len, hop_len, num_frames)
+    energy = frame_mean_square(mono, frame_len, hop_len, num_frames)
     rms = np.sqrt(np.maximum(0.0, energy))
     max_rms = float(np.max(rms))
 
@@ -1096,7 +1096,7 @@ class AudioAligner:
                     norm_energy = np.array([avg_val], dtype=np.float32)
                 else:
                     num_frames = max(1, (len(mono_audio) - frame_length) // hop_length)
-                    energy = _frame_mean_square(mono_audio, frame_length, hop_length, num_frames)
+                    energy = frame_mean_square(mono_audio, frame_length, hop_length, num_frames)
 
                     # Smooth energy envelope if sufficient frames exist
                     if len(energy) >= 5:

@@ -49,6 +49,28 @@ export interface LyricLineDraft {
   singer?: SingerRole;
 }
 
+export type LyricTiming = 'source_word' | 'source_line' | 'aligned' | 'none';
+
+/** How the server timed the lyrics (written by every alignment). */
+export interface SyncReport {
+  version: number;
+  engine: 'ctc' | 'dsp';
+  requested_engine?: 'auto' | 'ctc' | 'dsp';
+  fallback_reason?: string | null;
+  lyric_source?: string | null;
+  source_timing?: 'word' | 'line' | 'none';
+  global_offset?: { applied: number } | null;
+  lines_total: number;
+  lines_ctc?: number;
+  lines_dsp?: number;
+  lines_lrc?: number;
+  lines_fallback?: number;
+  low_confidence_lines?: number;
+  mean_confidence?: number | null;
+  elapsed_seconds?: number;
+  aligned_at?: number;
+}
+
 export type SeparationPreset = 'fast' | 'balanced' | 'best';
 
 /** How the song's stems were made (recorded by the server when separation runs). */
@@ -129,6 +151,8 @@ export interface ProjectState {
   video_url?: string;
   separation_quality?: SeparationPreset;
   separation?: SeparationInfo | null;
+  sync_report?: SyncReport | null;
+  lyric_timing?: LyricTiming;
   separation_job?: SeparationJob | null;
   youtube_package?: {
     title: string;

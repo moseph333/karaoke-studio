@@ -21,6 +21,7 @@ from typing import Any
 
 from backend.config import STEMS_DIR
 from backend.project_store import PROJECTS_LOCK, find_project, save_projects
+from backend.services.lyric_sync import sync_lyrics
 from backend.services.separation_presets import PRESET_LABELS
 
 logger = logging.getLogger("karaoke_backend")
@@ -288,7 +289,8 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
         update(progress=92, detail="Re-timing words against the new vocals…")
         try:
             lines = [dict(line) for line in _live(project_id, job_id)[0].get("lines") or []]
-            store(lines=main_mod.aligner.align_lyrics(vocals_path, lines))
+            result = sync_lyrics(vocals_path, lines)
+            store(lines=result.lines, sync_report=result.report)
         except ReseparationCancelled:
             raise
         except Exception as exc:

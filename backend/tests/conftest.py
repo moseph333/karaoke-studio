@@ -56,8 +56,21 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("SEPARATION_ALLOW_DOWNLOAD", "0")
     monkeypatch.setenv("AUDIO_SEPARATOR_MODEL_DIR", str(test_data_dir / "models" / "separator"))
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
-    for name in ("SEPARATION_TIMEOUT_SEC", "SEPARATION_STALL_SEC"):
+    monkeypatch.setenv("ALIGNMENT_ENGINE", "dsp")
+    monkeypatch.setenv("ALIGNMENT_ALLOW_DOWNLOAD", "0")
+    monkeypatch.setenv("ALIGNMENT_MODEL_DIR", str(test_data_dir / "models" / "mms_fa"))
+    for name in (
+        "SEPARATION_TIMEOUT_SEC",
+        "SEPARATION_STALL_SEC",
+        "ALIGNMENT_TIMEOUT_SEC",
+        "ALIGNMENT_STALL_SEC",
+        "ALIGNMENT_MIN_CONFIDENCE",
+        "ALIGN_REFINE_PLAIN",
+    ):
         monkeypatch.delenv(name, raising=False)
+    from backend.services import sync_confidence
+
+    sync_confidence.clear_cache()
 
     # Re-target mounted Starlette StaticFiles directories to isolated test directories
     for route in app.routes:

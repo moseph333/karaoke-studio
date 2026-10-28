@@ -13,12 +13,17 @@ import os
 import shutil
 import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
 from typing import Any
 
 from backend.config import STEMS_DIR
+from backend.services.process_watchdog import (
+    ProcessWatchdog,
+    duration_text,
+    quietly,
+    worker_env,
+)
 from backend.services.separation_presets import (
     SeparationPlan,
     demucs_supports_quality_flags,
@@ -36,69 +41,12 @@ from backend.services.separation_progress import ProgressTracker
 
 logger = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 ROFORMER_WORK_DIR = "roformer"
-KILL_GRACE_SECONDS = 10.0
 _REASON_CHARS = 300
 
 
 class SeparationCancelled(RuntimeError):
     """The user cancelled while separation was running."""
-
-
-def _quietly(action) -> None:
-    try:
-        action()
-    except Exception:
-        pass
-
-
-class _Watchdog(threading.Thread):
-    """Stops a separation process on cancel, overall timeout or a long output stall.
-
-    It only terminates the child (and kills it if it ignores that); the reading loop then sees
-    end-of-file, and the caller's cleanup owns waiting for the exit status.
-    """
-
-    def __init__(self, process, cancel_event, timeout_s: float, stall_s: float):
-        super().__init__(name="separation-watchdog", daemon=True)
-        self.process = process
-        self.cancel_event = cancel_event
-        self.timeout_s = timeout_s
-        self.stall_s = stall_s
-        self.interval = 0.2
-        self.started = time.monotonic()
-        self.last_output = self.started
-        self.reason: str | None = None
-        self._halt = threading.Event()
-
-    def touch(self) -> None:
-        self.last_output = time.monotonic()
-
-    def halt(self) -> None:
-        self._halt.set()
-
-    def _due(self) -> str | None:
-        if self.cancel_event is not None and self.cancel_event.is_set():
-            return "cancelled"
-        now = time.monotonic()
-        if now - self.started > self.timeout_s:
-            return "timeout"
-        if now - self.last_output > self.stall_s:
-            return "stalled"
-        return None
-
-    def run(self) -> None:
-        while not self._halt.wait(self.interval):
-            reason = self._due()
-            if reason is None:
-                continue
-            self.reason = reason
-            logger.warning(f"Stopping stem separation process ({reason})")
-            _quietly(self.process.terminate)
-            if not self._halt.wait(KILL_GRACE_SECONDS):
-                _quietly(self.process.kill)
-            return
 
 
 class _ProgressReporter:
@@ -144,14 +92,6 @@ def _failure_hint(plan: SeparationPlan, returncode: Any, text: str) -> str | Non
     return None
 
 
-def _duration_text(seconds: float) -> str:
-    if seconds < 120:
-        return f"{seconds:g} seconds"
-    if seconds < 7200:
-        return f"{seconds / 60:.0f} minutes"
-    return f"{seconds / 3600:g} hours"
-
-
 def _failure_message(
     plan: SeparationPlan, returncode: Any, tracker: ProgressTracker, reason: str | None = None
 ) -> str:
@@ -160,12 +100,12 @@ def _failure_message(
     name = _engine_name(plan)
     if reason == "timeout":
         head = (
-            f"{name} failed: stopped after {_duration_text(separation_timeout_seconds())} "
+            f"{name} failed: stopped after {duration_text(separation_timeout_seconds())} "
             "(SEPARATION_TIMEOUT_SEC)"
         )
     elif reason == "stalled":
         head = (
-            f"{name} failed: no output for {_duration_text(separation_stall_seconds())} "
+            f"{name} failed: no output for {duration_text(separation_stall_seconds())} "
             "(SEPARATION_STALL_SEC)"
         )
     else:
@@ -183,15 +123,6 @@ def _short_reason(plan: SeparationPlan, detail: str) -> str:
     if len(first) > _REASON_CHARS:
         first = first[:_REASON_CHARS] + "…"
     return f"{plan.label}: {first}"
-
-
-def _worker_env() -> dict[str, str]:
-    """Environment for `python -m backend.workers...`, whatever the server's working dir."""
-    env = dict(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join(
-        p for p in (str(PROJECT_ROOT), env.get("PYTHONPATH", "")) if p
-    )
-    return env
 
 
 class AudioSeparator:
@@ -405,7 +336,7 @@ class AudioSeparator:
         else:
             label = model_label(plan.models[0]) if len(plan.models) == 1 else "RoFormer"
             tracker = ProgressTracker(plan.passes, engine_label=label, count_unit="chunks")
-            extra = {"env": _worker_env()}
+            extra = {"env": worker_env()}
 
         # stdout goes to DEVNULL so an unread pipe can never fill up and deadlock the child
         process = subprocess.Popen(
@@ -418,8 +349,12 @@ class AudioSeparator:
             bufsize=1,
             **extra,
         )
-        watchdog = _Watchdog(
-            process, cancel_event, separation_timeout_seconds(), separation_stall_seconds()
+        watchdog = ProcessWatchdog(
+            process,
+            cancel_event,
+            separation_timeout_seconds(),
+            separation_stall_seconds(),
+            label="stem separation",
         )
         watchdog.start()
         engine = "Demucs" if plan.engine == "demucs" else "RoFormer"
@@ -452,7 +387,7 @@ class AudioSeparator:
                     except subprocess.TimeoutExpired:
                         pass
             if process.stderr and hasattr(process.stderr, "close"):
-                _quietly(process.stderr.close)
+                quietly(process.stderr.close)
             watchdog.join(timeout=1)
 
         if (cancel_event is not None and cancel_event.is_set()) or watchdog.reason == "cancelled":
