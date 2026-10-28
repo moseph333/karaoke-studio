@@ -1,47 +1,95 @@
 # Karaoke Studio
 
-Local-first web app for splitting songs into vocal and instrumental stems, syncing lyrics down to the word, practicing or performing on a live stage, and exporting 1080p karaoke videos.
+Local-first web app that turns any song into karaoke: it splits the vocals from the backing track, times the lyrics down to the word, lets you fix anything on a live timeline, and exports 1080p karaoke videos.
 
-![Karaoke Studio Interface](docs/karaoke-preview.png)
+![Karaoke Studio](docs/karaoke-preview.png)
 
-## What It Does
+## What's new in 2.0
 
-- **Audio & Stem Separation**: Upload local audio (`.mp3`, `.wav`, `.flac`), drop in existing backing tracks, or pull audio via `yt-dlp`. Uses Demucs to split `vocals.wav` and `instrumental.wav`.
-- **Pitch, Tempo & Key Matching**: Shift key (`-12` to `+12` semitones) and playback speed (`0.5x`–`1.5x`) independently, blend 0%–50% guide vocals, or use the **Smart Key Recommender** to match a song's vocal range to your voice.
-- **Lyric Fetching & Word Alignment**: Automatically searches LRCLIB and `syncedlyrics` (or accepts pasted text / `.lrc` files) and aligns lines and individual words to the isolated vocal track.
-- **Timeline Editor**: Fine-tune timing with 50-step Undo/Redo, live Tap-to-Sync (`T`), batch timestamp offsets, ±0.2s nudging, inline word/chord editing, and duet role assignment (`Singer 1`, `Singer 2`, `Both`).
-- **Live Stage & Themes**: Fullscreen TV stage (`F`) with **Word Sweep** or **Line-by-Line** lyric display, instrumental gap countdowns, optional 60fps beat visualizer (`V`), transposing chord bar (`C`), and 4 built-in themes (**Basement Flyer**, **Reel-to-Reel '74**, **Midnight KTV Booth**, and **Monolith Press**).
-- **Exports**: One-click downloads for isolated WAV stems, chord & lyric sheets, standalone `.lrc` and `.ass` subtitle files, or 1080p60 MP4 videos (16:9 widescreen or 9:16 vertical Shorts).
+- **A redesigned studio.** One screen: stage and timeline in the middle, the mix and look inspector on the right, a transport dock at the bottom. Built on a token-driven design system with a new default theme, **Afterglow**. The four classic themes are still there.
+- **Cleaner stems.** Choose **Fast**, **Balanced** or **Best** separation per song. Balanced (Mel-Band RoFormer) is the new default and falls back to Fast automatically. You can re-make a finished song's stems at another quality later, in the background.
+- **Better lyric sync.** A neural word aligner (Meta's MMS model) runs when available, with the DSP aligner as fallback. Every line gets a confidence score, shaky lines show up under **Needs review**, and any line can be re-aligned on its own.
+- **Exports match the stage.** The live preview uses the same backdrop, duet colours and font as the rendered video, and exported subtitles no longer run ahead of the singing.
+- **Power-user polish.** A command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd>), media keys, stage settings that persist, and more keyboard shortcuts.
 
-## Quick Start
+## Screenshots
 
-### 1. One-Command Local Launch
+| | |
+| :---: | :---: |
+| ![Song library and intake](docs/screenshots/library.png) <br> Library and intake | ![Stem quality picker](docs/screenshots/separation-quality.png) <br> Stem quality at intake |
+| ![Improve stem separation](docs/screenshots/improve-stems.png) <br> Re-make stems at another quality | ![Re-align a line](docs/screenshots/realign-line.png) <br> Re-align one line |
+| ![Lines that need review](docs/screenshots/needs-review.png) <br> Needs review | ![Command palette](docs/screenshots/command-palette.png) <br> Command palette |
+| ![Export dialog](docs/screenshots/export.png) <br> Export | ![Processing](docs/screenshots/processing.png) <br> Processing |
+| ![Monolith Press theme](docs/screenshots/theme-monolith-press.png) <br> Monolith Press theme | ![Midnight KTV Booth theme](docs/screenshots/theme-midnight-ktv.png) <br> Midnight KTV Booth theme |
+| ![Phone stage](docs/screenshots/phone-stage.png) <br> Phone: stage | ![Phone timeline](docs/screenshots/phone-timeline.png) <br> Phone: timeline |
+
+## Features
+
+### Stem separation
+
+Pull audio from YouTube (`yt-dlp`) or upload `.mp3`, `.wav`, `.flac`, `.m4a`, `.ogg`, `.opus` or `.aac`. The song is split into `vocals.wav` and `instrumental.wav` at the quality you pick in **Advanced options**:
+
+| Preset | Engine | Time on CPU (4-min song) | Notes |
+| :--- | :--- | :--- | :--- |
+| **Fast** | Demucs `htdemucs` | about 1.5 min | Bundled. Some instrument bleed in the vocals. |
+| **Balanced** *(default)* | Mel-Band RoFormer | about 6 min | Cleaner vocals, tidier backing track. Needs the ML extras. |
+| **Best** | Mel-Band RoFormer + BS-RoFormer, averaged | about 25 min | Cleanest. A GPU is recommended. |
+
+When a preset cannot run (extras not installed, weights unavailable, out of memory), separation falls back Best → Balanced → Fast and the studio says why. The Mix panel shows which model made a song's stems, and **Improve** re-makes them at another quality while the song stays playable. You can also re-time the lyrics against the new vocals or detect the chords again.
+
+### Lyrics and sync
+
+- Lyrics come from LRCLIB and `syncedlyrics`, or you paste plain text or LRC (enhanced LRC word tags are kept).
+- **Neural alignment** (MMS forced alignment through torchaudio) places each word when the model is available. The **DSP aligner** (vocal energy, spectral flux and phrase snapping) is the fallback and the in-request engine.
+- Every line gets a **confidence** score from how well the vocal stem supports its timing. The sync badge shows the song's average, a dot on each timeline row shows the line's, and **Needs review** filters the lines below 60%.
+- **Re-align this line** (row menu) finds where a line is really sung near its current place and applies the result as an undoable edit. Whole songs can be re-aligned in the background with the neural aligner while you keep working.
+- Lines you change by hand are marked as manual and keep your timing.
+
+### Timeline editor
+
+50-step undo and redo, live tap-to-sync (<kbd>T</kbd>), batch offsets, ±0.2 s and ±0.05 s nudges, an expandable per-word editor, inline text and chord editing, and duet parts (Singer 1, Singer 2, Both).
+
+### Stage, themes and export
+
+- Word-sweep or line-by-line highlighting, instrumental countdowns, a beat visualizer (<kbd>V</kbd>), a transposing chord bar (<kbd>C</kbd>) and a fullscreen TV stage (<kbd>F</kbd>).
+- Five app themes (**Afterglow**, **Basement Flyer**, **Reel-to-Reel '74**, **Midnight KTV Booth**, **Monolith Press**) and nine stage presets, with custom colours, font scale and image or video backdrops. Stage settings are remembered.
+- Key shift (−12 to +12 semitones) and speed (0.5× to 1.5×), a 0–50% guide vocal, and the **Smart Key Recommender** that fits a song's vocal range to your voice. Final renders shift pitch with Rubber Band at high quality, keeping the guide vocal's formants.
+- Exports: 1080p60 MP4 (16:9 or 9:16 Shorts), `.lrc` and `.ass` subtitles, WAV stems, chord and lyric sheets, and a YouTube metadata kit.
+
+## Quick start
+
+### One-command local launch
 
 ```bash
 ./run.sh
 ```
 
-Checks FFmpeg, creates the Python virtual environment, builds the frontend if needed, starts FastAPI on port `8000`, and opens your browser.
+Checks FFmpeg, creates the Python environment, installs dependencies (CPU PyTorch by default), builds the frontend if needed, starts the server on port `8000` and opens your browser. Set `INSTALL_ML_EXTRAS=1` to also install the RoFormer extras for Balanced and Best, and `TORCH_INDEX_URL` to pick another PyTorch build (for example CUDA):
 
-### 2. Docker Compose
+```bash
+INSTALL_ML_EXTRAS=1 ./run.sh
+```
+
+### Docker Compose
 
 ```bash
 docker compose up -d
 ```
 
-To expose the app through a Cloudflare Tunnel, set `CLOUDFLARE_TUNNEL_TOKEN` in `.env` and run:
+The image includes the ML extras (build with `--build-arg INSTALL_ML_EXTRAS=0` for a smaller, Fast-only image). Model weights live in the `karaoke-models` volume, so they download once and survive rebuilds. To expose the app through a Cloudflare Tunnel, set `CLOUDFLARE_TUNNEL_TOKEN` in `.env` and run:
 
 ```bash
 docker compose --profile tunnel up -d
 ```
 
-### 3. Manual Dev Setup
+### Manual development setup
 
 ```bash
 # Backend (port 8000)
 python3 -m venv venv
 source venv/bin/activate
-pip install -r backend/requirements.txt
+pip install --extra-index-url https://download.pytorch.org/whl/cpu -r backend/requirements.txt
+pip install --extra-index-url https://download.pytorch.org/whl/cpu -r backend/requirements-ml.txt  # optional
 uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
 # Frontend (proxies API requests to localhost:8000)
@@ -50,25 +98,52 @@ npm install
 npm run dev
 ```
 
-## Keyboard Shortcuts
+## Models and licences
 
-Shortcuts are disabled automatically while typing in inputs or modal dialogs.
+Nothing is downloaded until it is first needed. Downloads go to persistent model folders (Docker: the `/models` volume).
+
+| Model | Used for | Size | Licence | Folder |
+| :--- | :--- | :--- | :--- | :--- |
+| Demucs `htdemucs` | Fast | about 80 MB | MIT | `TORCH_HOME` |
+| Mel-Band RoFormer | Balanced, Best | about 0.9 GB | third-party, see the model card | `AUDIO_SEPARATOR_MODEL_DIR` |
+| BS-RoFormer | Best | about 0.6 GB | third-party, see the model card | `AUDIO_SEPARATOR_MODEL_DIR` |
+| MMS forced aligner | neural lyric alignment | about 1.2 GB | **CC-BY-NC 4.0 (non-commercial)** | `ALIGNMENT_MODEL_DIR` |
+
+- Review the model licences before any commercial use. The MMS aligner is for non-commercial use only. Set `ALIGNMENT_ENGINE=dsp` to never use it.
+- To prefetch everything (for example while building an image, or for an offline server), run:
+
+  ```bash
+  python -m backend.tools.fetch_models --separation all --alignment
+  ```
+
+  Then set `SEPARATION_ALLOW_DOWNLOAD=0` and `ALIGNMENT_ALLOW_DOWNLOAD=0` so the server never downloads at run time.
+- `GET /api/capabilities` reports what the server can run right now and why not; the intake picker and the re-align dialogs use it.
+
+## Keyboard shortcuts
+
+Shortcuts are ignored while you type in a field or while a dialog is open.
 
 | Key | Action |
 | :--- | :--- |
-| <kbd>Space</kbd> | Play / pause audio |
-| <kbd>←</kbd> / <kbd>→</kbd> | Seek backward / forward 5 seconds |
-| <kbd>M</kbd> | Mute / unmute audio |
-| <kbd>F</kbd> | Toggle Fullscreen TV Stage Mode |
-| <kbd>V</kbd> | Toggle beat-reactive audio visualizer |
-| <kbd>C</kbd> | Toggle live transposing chord bar |
-| <kbd>T</kbd> | Stamp current timestamp during Tap-to-Sync |
-| <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> | Undo / redo timeline or chord edits |
-| <kbd>?</kbd> | Open the in-app help guide |
+| <kbd>Space</kbd> | Play / pause |
+| <kbd>←</kbd> / <kbd>→</kbd> | Seek 5 seconds |
+| <kbd>Shift</kbd>+<kbd>←</kbd> / <kbd>→</kbd> | Seek 1 second |
+| <kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>→</kbd> | Seek 15 seconds |
+| <kbd>[</kbd> / <kbd>]</kbd> | Previous / next lyric line |
+| <kbd>R</kbd> | Replay the current line |
+| <kbd>M</kbd> | Mute / unmute |
+| <kbd>F</kbd> | Fullscreen stage |
+| <kbd>V</kbd> | Beat visualizer |
+| <kbd>C</kbd> | Chord bar |
+| <kbd>T</kbd> | Tap-to-sync stamp |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Z</kbd>, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Y</kbd> | Undo / redo lyric or chord edits |
+| <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> | Command palette: every action, song and lyric line |
+| <kbd>?</kbd> | Help and usage guide |
+| Media keys | Play, pause, previous / next line, seek (MediaSession) |
 
 ## Configuration
 
-Copy `.env.example` to `.env` to customize settings:
+Copy `.env.example` to `.env`; it documents every setting.
 
 ```bash
 cp .env.example .env
@@ -76,36 +151,75 @@ cp .env.example .env
 
 | Variable | Default | Purpose |
 | :--- | :--- | :--- |
-| `PORT` | `8000` | Port for the web UI and FastAPI server |
-| `APP_PASSWORD` | *(empty)* | Optional login passphrase (`HttpOnly` cookie session). Leave blank for open local access. |
-| `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` | `5` | Max failed login attempts per IP before returning HTTP `429` |
-| `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `60.0` | Rate-limit window in seconds |
-| `MAX_CONCURRENT_JOBS` | `2` | Max simultaneous stem separation / video render jobs |
-| `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Cloudflare Zero Trust tunnel token (Docker `--profile tunnel`) |
-| `KARAOKE_DATA_DIR` | `./workspace_data` | Storage directory for audio, stems, and rendered videos |
+| `PORT` | `8000` | Port for the web UI and API |
+| `APP_PASSWORD` | *(empty)* | Optional shared passphrase (`HttpOnly` cookie session). Leave blank for open local access. |
+| `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` / `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `5` / `60.0` | Failed logins allowed per IP and window before HTTP `429` |
+| `MAX_CONCURRENT_JOBS` | `2` | Separations, re-separations, re-alignments and renders running at once |
+| `KARAOKE_DATA_DIR` | `./workspace_data` | Audio, stems, renders and `projects.json` |
+| `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Cloudflare tunnel token (Docker `--profile tunnel`) |
 
-## System Requirements
+**Stem separation**
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `SEPARATION_QUALITY` | `balanced` | Default preset for new songs: `fast`, `balanced` or `best` |
+| `SEPARATION_ALLOW_DOWNLOAD` | `1` | Download RoFormer weights on first use |
+| `AUDIO_SEPARATOR_MODEL_DIR` | `<data dir>/models/audio-separator` | Where RoFormer weights live |
+| `SEPARATION_BALANCED_MODEL` / `SEPARATION_BEST_MODELS` | built-in | Override the RoFormer checkpoints |
+| `SEPARATION_TIMEOUT_SEC` / `SEPARATION_STALL_SEC` | `7200` / `900` | Stop a separation that runs too long or prints nothing |
+| `INSTALL_ML_EXTRAS` | Docker `1`, `run.sh` `0` | Install the RoFormer extras |
+
+**Lyric sync**
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `ALIGNMENT_ENGINE` | `auto` | `auto` / `ctc` use the neural aligner when available, `dsp` never does |
+| `ALIGNMENT_ALLOW_DOWNLOAD` | `1` | Download the MMS model on first use |
+| `ALIGNMENT_MODEL_DIR` | `<data dir>/models/mms_fa` | Where the MMS model lives |
+| `ALIGNMENT_MIN_CONFIDENCE` | `0.45` | Model score from which neural word timing replaces the DSP estimate |
+| `ALIGNMENT_TIMEOUT_SEC` / `ALIGNMENT_STALL_SEC` | `1800` / `600` | Stop a neural pass that runs too long or prints nothing |
+| `MAX_CONCURRENT_ALIGN_JOBS` | `1` | Neural passes at once (each loads the model) |
+| `ALIGN_REFINE_PLAIN` | `1` | Snap pasted, untimed lyrics to the sung phrases |
+
+## Tools
+
+```bash
+# Download model weights ahead of time
+python -m backend.tools.fetch_models --separation all --alignment
+
+# Measure lyric sync accuracy against hand-timed words (enhanced LRC or studio JSON)
+python -m backend.tools.benchmark_sync --vocals vocals.wav --truth truth.lrc --engine both
+
+# Measure stem quality (SI-SDR) per preset against reference stems
+python -m backend.tools.benchmark_separation --mix song.wav --vocals ref_vocals.wav
+
+# Seed a demo workspace with synthetic songs for UI work and screenshots
+KARAOKE_DATA_DIR=/tmp/karaoke-demo python -m backend.tools.seed_demo
+```
+
+## System requirements
 
 - **OS**: Linux, macOS, or Windows (WSL2)
 - **Python**: 3.10+ (3.12 recommended)
 - **Node.js**: 18+
-- **FFmpeg**: compiled with `libass` support (for burning subtitles into MP4s)
-- **Disk space**: ~5 GB free for Demucs weights and working audio files
+- **FFmpeg**: with `libass` (subtitle burn-in) and ideally `rubberband` (high-quality pitch shifting in renders)
+- **Disk space**: about 4 GB for dependencies and model weights, plus room for your songs
+- **GPU**: optional. Best separation and neural alignment are much faster on one.
 
-## Tests & Architecture
+## Development and tests
 
 ```bash
-# Backend tests & linter
+# Backend tests and linter (the suite sets its own test passphrase)
 pytest
 ruff check backend && ruff format --check backend
 
-# Frontend tests, linter & production build
+# Frontend tests, linter, type check and production build
 cd frontend
-npm test && npm run lint && npm run build
+npm test && npm run lint && npm run format:check && npx tsc -p . --noEmit && npm run build
 ```
 
-For details on the backend routers, DSP alignment pipeline, and frontend state hooks, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Engines that need model weights are tested with fake worker processes, so the suites run offline. For the design system, routes, background jobs and worker protocols, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## License & Disclaimer
+## Licence and disclaimer
 
-For personal, educational, and fair-use audio practice with media you own or have permission to use. Provided as-is under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE).
+For personal, educational and fair-use practice with media you own or have permission to use. Provided as-is under the [GNU Affero General Public License v3.0 (AGPL-3.0)](LICENSE). Model weights downloaded at run time keep their own licences (see above).
