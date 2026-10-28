@@ -3,17 +3,28 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        INSTALL_ML_EXTRAS: ${INSTALL_ML_EXTRAS:-1}
     container_name: karaoke-studio
     restart: unless-stopped
     ports:
       - "${PORT:-8000}:8000"
+    # Every setting from .env (see .env.example) reaches the server; the values below win
+    env_file:
+      - path: .env
+        required: false
     environment:
       - PORT=8000
       - APP_PASSWORD=${APP_PASSWORD:-}
       - KARAOKE_DATA_DIR=/app/workspace_data
+      - SEPARATION_QUALITY=${SEPARATION_QUALITY:-balanced}
+      - SEPARATION_ALLOW_DOWNLOAD=${SEPARATION_ALLOW_DOWNLOAD:-1}
     volumes:
       - ${KARAOKE_DATA_DIR:-./workspace_data}:/app/workspace_data
       - ./.git:/app/.git:ro
+      # Model weights (Demucs, RoFormer, alignment) downloaded once and kept across rebuilds
+      - karaoke-models:/models
+      # Weights cached by images before 2.0
       - demucs-models:/root/.cache/torch
 
   # Cloudflare Tunnel Sidecar (Optional)
@@ -30,5 +41,7 @@ services:
       - tunnel
 
 volumes:
+  karaoke-models:
+    name: karaoke-models
   demucs-models:
     name: karaoke-demucs-models

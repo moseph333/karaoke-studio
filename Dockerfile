@@ -11,24 +11,34 @@ COPY frontend/ ./
 RUN npm run build
 
 # ==============================================================================
-# Stage 2: Python Runtime with Demucs & FFmpeg
+# Stage 2: Python Runtime with Demucs, RoFormer & FFmpeg
 # ==============================================================================
 FROM python:3.12-slim AS runtime
 
-# Set environment
+# 1 installs the optional ML extras (RoFormer separation for the Balanced/Best presets);
+# 0 builds a smaller image that always separates with Demucs (Fast)
+ARG INSTALL_ML_EXTRAS=1
+
+# Model weights live under /models (a named volume in docker-compose) so they survive
+# rebuilds and are downloaded at most once
 ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive \
     PORT=8000 \
     KARAOKE_DATA_DIR=/app/workspace_data \
-    TORCH_HOME=/root/.cache/torch
+    TORCH_HOME=/models/torch \
+    HF_HOME=/models/hf \
+    AUDIO_SEPARATOR_MODEL_DIR=/models/audio-separator \
+    ALIGNMENT_MODEL_DIR=/models/mms_fa
 
-# Install system dependencies (FFmpeg with libass/freetype for subtitle burn-in)
+# System dependencies: FFmpeg (libass, rubberband) for mixing and subtitle burn-in,
+# libsamplerate for audio-separator, CJK/DejaVu fonts for lyrics in other scripts
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     ca-certificates \
     git \
     build-essential \
+    libsamplerate0 \
     fonts-noto-cjk \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
@@ -38,12 +48,20 @@ WORKDIR /app
 # Install CPU-optimized PyTorch first to keep image lightweight (~1.5GB vs ~6GB)
 RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu
 
-# Install backend dependencies
-COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+# Install backend dependencies (and the optional ML extras)
+COPY backend/requirements.txt backend/requirements-ml.txt /app/backend/
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+        -r /app/backend/requirements.txt \
+    && if [ "$INSTALL_ML_EXTRAS" = "1" ]; then \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r /app/backend/requirements-ml.txt; \
+    fi
 
-# Pre-cache Demucs AI neural network weights so first track separation is instant
-RUN python -c "import demucs.pretrained; demucs.pretrained.get_model('htdemucs')"
+# Pre-cache the Demucs weights so the Fast preset works offline from the first song.
+# RoFormer weights (0.6-0.9 GB per model) download on first use into the models volume,
+# or ahead of time with: docker compose exec karaoke-studio python -m backend.tools.fetch_models
+RUN mkdir -p /models/torch /models/hf /models/audio-separator /models/mms_fa \
+    && python -c "import demucs.pretrained; demucs.pretrained.get_model('htdemucs')"
 
 # Copy application source
 COPY backend /app/backend

@@ -23,6 +23,13 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_BACKGROUND_COLOR = "0x0f111a"
+# Theme fonts shipped with the app (e.g. Sora for Afterglow) so renders match the stage
+FONTS_DIR = Path(__file__).resolve().parents[1] / "assets" / "fonts"
+
+
+def _escape_filter_path(path: str | Path) -> str:
+    """A path quoted for an FFmpeg filter option value."""
+    return str(path).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
 
 
 def ffmpeg_color(value: Any, default: str = DEFAULT_BACKGROUND_COLOR) -> str:
@@ -161,9 +168,10 @@ class VideoRenderer:
                 duration = 200.0  # safe fallback if probe fails
 
         # Escape ASS path for FFmpeg subtitles filter
-        escaped_ass = (
-            str(ass_subtitles_path).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
-        )
+        escaped_ass = _escape_filter_path(ass_subtitles_path)
+        subtitles = f"subtitles='{escaped_ass}'"
+        if FONTS_DIR.is_dir():
+            subtitles += f":fontsdir='{_escape_filter_path(FONTS_DIR)}'"
 
         # Determine background input
         if custom_bg_path and os.path.exists(custom_bg_path):
@@ -189,10 +197,10 @@ class VideoRenderer:
                 f"{filter_bg}"
                 f"[1:a]showfreqs=s={width}x{vis_h}:mode=bar:fscale=log:colors=cyan|magenta[vis];"
                 f"[bg][vis]overlay=0:H-{vis_h}:format=auto[bgvis];"
-                f"[bgvis]subtitles='{escaped_ass}'[v]"
+                f"[bgvis]{subtitles}[v]"
             )
         else:
-            filter_complex = f"{filter_bg}[bg]subtitles='{escaped_ass}'[v]"
+            filter_complex = f"{filter_bg}[bg]{subtitles}[v]"
 
         cmd = [
             "ffmpeg",
