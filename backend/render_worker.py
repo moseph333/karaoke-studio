@@ -14,6 +14,7 @@ from backend.project_store import (
 )
 from backend.schemas import RenderRequest
 from backend.services.ass_generator import css_to_ass_color
+from backend.services.audio_mixer import mix_quality
 
 logger = logging.getLogger("karaoke_backend")
 
@@ -142,14 +143,15 @@ def run_video_render(project_id: str, req: RenderRequest):
 
         update_render(15, "Mixing master audio with pitch adjustment...", 40)
 
-        # 2. Mix audio with current pitch & guide vocal settings
-        mixed_audio = main_mod.audio_mixer.mix_and_shift(
-            instrumental_path=proj["instrumental_path"],
-            vocals_path=proj.get("vocals_path"),
-            semitones=req.semitones,
-            guide_volume=req.guide_volume,
-            output_filename=f"{track_id}_final_audio.wav",
-        )
+        # 2. Mix audio with current pitch & guide vocal settings (export-grade pitch shifting)
+        with mix_quality("final"):
+            mixed_audio = main_mod.audio_mixer.mix_and_shift(
+                instrumental_path=proj["instrumental_path"],
+                vocals_path=proj.get("vocals_path"),
+                semitones=req.semitones,
+                guide_volume=req.guide_volume,
+                output_filename=f"{track_id}_final_audio.wav",
+            )
 
         update_render(22, "Initializing FFmpeg 1080p60 encoding engine...", 35)
 

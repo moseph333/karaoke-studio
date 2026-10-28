@@ -43,7 +43,19 @@ fi
 
 echo "✅ Using Python: $($PYTHON --version)"
 
-# 3. Check and build frontend if needed
+# 3. Install Python dependencies on first run (and the optional ML extras when asked)
+TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
+if ! "$PYTHON" -c "import fastapi, uvicorn, soundfile, demucs" &> /dev/null; then
+    echo "📦 Installing Python dependencies (first run, this can take a while)..."
+    "$PYTHON" -m pip install --upgrade pip
+    "$PYTHON" -m pip install --extra-index-url "$TORCH_INDEX_URL" -r backend/requirements.txt
+fi
+if [ "${INSTALL_ML_EXTRAS:-0}" = "1" ] && ! "$PYTHON" -c "import audio_separator" &> /dev/null; then
+    echo "📦 Installing optional ML extras for RoFormer separation..."
+    "$PYTHON" -m pip install --extra-index-url "$TORCH_INDEX_URL" -r backend/requirements-ml.txt
+fi
+
+# 4. Check and build frontend if needed
 if [ ! -d "$PROJECT_DIR/frontend/dist" ] || [ "$PROJECT_DIR/frontend/src" -nt "$PROJECT_DIR/frontend/dist" ]; then
     echo "📦 Building frontend UI..."
     if command -v npm &> /dev/null; then
@@ -54,7 +66,7 @@ if [ ! -d "$PROJECT_DIR/frontend/dist" ] || [ "$PROJECT_DIR/frontend/src" -nt "$
 fi
 
 
-# 4. Start FastAPI server
+# 5. Start FastAPI server
 echo "🚀 Starting server at http://localhost:8000 ..."
 
 # Attempt to open browser in background after 1.5 seconds

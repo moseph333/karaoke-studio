@@ -1,0 +1,11 @@
+# Optional ML extras: RoFormer stem separation (Balanced and Best presets) and the text
+# normalisation used by neural lyric alignment. The Docker image installs them by default
+# (build arg INSTALL_ML_EXTRAS=1). Without them the studio falls back to Demucs (Fast).
+#
+#   pip install --extra-index-url https://download.pytorch.org/whl/cpu \
+#       -r backend/requirements.txt -r backend/requirements-ml.txt
+#
+# Model weights are downloaded on first use (see .env.example), not installed here.
+audio-separator[cpu]>=0.47,<0.48
+uroman>=1.3
+num2words>=0.5.13
