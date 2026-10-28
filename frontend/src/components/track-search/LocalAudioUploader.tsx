@@ -2,15 +2,16 @@
 /**
  * Local Audio Uploader Component
  *
- * Provides drag-and-drop dropzone, local file selection, audio format validation,
- * metadata fields (track title & artist), and project creation submission.
- * Fully adapted to application-wide semantic theme tokens across 4 visual dimensions.
+ * Drag-and-drop dropzone, local file selection, audio format validation, optional
+ * title/artist fields and project creation.
  */
 
 import React, { useState } from 'react';
-import { Music, Upload, X } from 'lucide-react';
+import { FileAudio, Upload, X } from 'lucide-react';
 import { ProjectState } from '../../types';
 import { apiFetch } from '../../api';
+import { cn } from '../../utils/cn';
+import { focusRing } from '../ui/variants';
 
 export interface UploadTrackParams {
   file: File;
@@ -41,7 +42,7 @@ export const validateAudioFile = (file: File): string | null => {
   }
   const ext = file.name.split('.').pop()?.toLowerCase();
   if (!ext || !ALLOWED_AUDIO_EXTENSIONS.includes(ext)) {
-    return 'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, AAC.';
+    return 'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, OPUS, AAC.';
   }
   return null;
 };
@@ -194,42 +195,47 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
     }
   };
 
+  const inputCls =
+    'min-h-[44px] w-full rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 disabled:opacity-60 sm:text-sm';
+  const labelCls = 'mb-1 block text-xs font-semibold text-theme-text-muted';
+
   return (
-    <div id="panel-local" role="tabpanel" aria-labelledby="tab-local" className="font-theme-body">
+    <div id="panel-local">
       <form onSubmit={handleLocalUpload} className="space-y-4">
-        {/* File Dropzone */}
         <div
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`border-theme-thick border-dashed rounded-theme-md p-5 sm:p-6 text-center transition-all ${
+          data-dragging={isDragging ? 'true' : undefined}
+          className={cn(
+            'rounded-theme-lg border-2 border-dashed p-4 text-center transition-colors sm:p-6',
             isDragging
-              ? 'border-theme-accent bg-theme-accent/15 shadow-theme-glow'
+              ? 'border-theme-accent bg-theme-accent/10 shadow-theme-glow'
               : selectedFile
-                ? 'border-theme-border bg-theme-surface shadow-theme-md'
-                : 'border-theme-border-subtle hover:border-theme-border bg-theme-surface/70 hover:bg-theme-surface shadow-theme-sm'
-          }`}
+                ? 'border-theme-border bg-theme-bg/60'
+                : 'border-theme-border-subtle bg-theme-bg/40 hover:border-theme-border hover:bg-theme-bg/70'
+          )}
         >
           <input
             type="file"
             id="local-audio-file-input"
-            accept=".mp3,.wav,.flac,.m4a,.ogg,.aac,audio/*"
+            accept=".mp3,.wav,.flac,.m4a,.ogg,.opus,.aac,audio/*"
             onChange={handleFileChange}
             className="sr-only"
             aria-label="Choose local audio file"
             disabled={isLoading || uploadingTrack}
           />
           {selectedFile ? (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-10 h-10 rounded-theme-sm bg-theme-accent/20 border-theme border-theme-accent/30 text-theme-accent flex items-center justify-center shrink-0 shadow-theme-sm">
-                  <Music className="w-5 h-5" aria-hidden="true" />
+            <div className="flex flex-col items-center justify-between gap-3 text-left sm:flex-row">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-theme-md bg-theme-accent/15 text-theme-highlight">
+                  <FileAudio className="h-5 w-5" aria-hidden="true" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-theme-text truncate font-theme-heading">
+                  <p className="truncate font-theme-heading text-sm font-semibold text-theme-text">
                     {selectedFile.name}
                   </p>
-                  <p className="text-xs text-theme-text-muted font-theme-body">
+                  <p className="text-xs text-theme-text-muted">
                     {formatFileSize(selectedFile.size)}
                   </p>
                 </div>
@@ -237,7 +243,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
               <div className="flex items-center gap-2">
                 <label
                   htmlFor="local-audio-file-input"
-                  className="min-h-[44px] px-3 py-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border-theme border-theme-border-subtle text-xs font-semibold text-theme-text cursor-pointer flex items-center justify-center transition-colors shadow-theme-sm font-theme-heading"
+                  className="flex min-h-[44px] cursor-pointer items-center justify-center rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-3 py-2 font-theme-heading text-xs font-semibold text-theme-text transition-colors hover:border-theme-border md:min-h-[36px]"
                 >
                   Change File
                 </label>
@@ -250,40 +256,36 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
                     onError(null);
                   }}
                   aria-label="Remove selected audio file"
-                  className="min-h-[44px] min-w-[44px] p-2 rounded-theme-sm bg-theme-surface-subtle hover:bg-red-950/60 hover:text-red-300 border-theme border-theme-border-subtle hover:border-red-600 text-theme-text-muted flex items-center justify-center transition-colors shadow-theme-sm"
+                  className={cn(
+                    'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-md p-2 text-theme-text-muted transition-colors hover:bg-theme-danger/10 hover:text-theme-danger md:min-h-[36px] md:min-w-[36px]',
+                    focusRing
+                  )}
                 >
-                  <X className="w-4 h-4" aria-hidden="true" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
           ) : (
-            <label htmlFor="local-audio-file-input" className="cursor-pointer block space-y-2 py-4">
-              <div className="w-12 h-12 rounded-theme-pill bg-theme-surface-subtle border-theme border-theme-border text-theme-accent flex items-center justify-center mx-auto shadow-theme-sm">
-                <Upload className="w-6 h-6" aria-hidden="true" />
+            <label htmlFor="local-audio-file-input" className="block cursor-pointer space-y-2 py-3">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text shadow-theme-glow">
+                <Upload className="h-5 w-5" aria-hidden="true" />
               </div>
               <div>
-                <span className="text-sm font-semibold text-theme-text hover:text-theme-accent transition-colors font-theme-heading">
+                <span className="font-theme-heading text-sm font-semibold text-theme-text transition-colors hover:text-theme-highlight">
                   Click to select audio
                 </span>
-                <span className="text-xs text-theme-text-muted font-theme-body">
-                  {' '}
-                  or drag and drop here
-                </span>
+                <span className="text-xs text-theme-text-muted"> or drag and drop here</span>
               </div>
-              <p className="text-xs text-theme-text-muted font-theme-body">
-                Supported formats: WAV, MP3, FLAC, M4A, OGG, AAC (up to 100MB)
+              <p className="text-xs text-theme-text-muted">
+                WAV, MP3, FLAC, M4A, OGG, OPUS or AAC · up to 100 MB
               </p>
             </label>
           )}
         </div>
 
-        {/* Optional Metadata Inputs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label
-              htmlFor="local-track-title"
-              className="block text-xs font-medium text-theme-text-muted mb-1 font-theme-body"
-            >
+            <label htmlFor="local-track-title" className={labelCls}>
               Track Title (optional)
             </label>
             <input
@@ -293,15 +295,12 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
               onChange={(e) => setTrackTitle(e.target.value)}
               placeholder="e.g. Bohemian Rhapsody"
               aria-label="Track Title"
-              className="w-full px-3.5 py-2.5 rounded-theme-sm bg-theme-surface border-theme border-theme-border-subtle text-theme-text placeholder:text-theme-text-muted text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-theme-accent focus:border-theme-border min-h-[44px] shadow-theme-sm font-theme-body"
+              className={inputCls}
               disabled={isLoading || uploadingTrack}
             />
           </div>
           <div>
-            <label
-              htmlFor="local-track-artist"
-              className="block text-xs font-medium text-theme-text-muted mb-1 font-theme-body"
-            >
+            <label htmlFor="local-track-artist" className={labelCls}>
               Artist Name (optional)
             </label>
             <input
@@ -311,13 +310,12 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
               onChange={(e) => setTrackArtist(e.target.value)}
               placeholder="e.g. Queen"
               aria-label="Artist Name"
-              className="w-full px-3.5 py-2.5 rounded-theme-sm bg-theme-surface border-theme border-theme-border-subtle text-theme-text placeholder:text-theme-text-muted text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-theme-accent focus:border-theme-border min-h-[44px] shadow-theme-sm font-theme-body"
+              className={inputCls}
               disabled={isLoading || uploadingTrack}
             />
           </div>
         </div>
 
-        {/* Submit Button */}
         <button
           type="submit"
           disabled={isLoading || uploadingTrack || !selectedFile}
@@ -326,12 +324,15 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
               ? 'Uploading and processing audio track...'
               : 'Upload and process local audio track'
           }
-          className="w-full min-h-[44px] py-3 px-4 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text border-theme border-theme-border font-semibold text-sm transition-all shadow-theme-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-theme-heading"
+          className={cn(
+            'flex min-h-[44px] w-full items-center justify-center gap-2 rounded-theme-md bg-gradient-accent px-4 py-3 font-theme-heading text-sm font-semibold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50',
+            focusRing
+          )}
         >
           {uploadingTrack ? (
             <>
               <span
-                className="inline-block w-4 h-4 border-2 border-theme-accent-text border-t-transparent rounded-full animate-spin"
+                className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-theme-accent-text border-t-transparent"
                 role="status"
                 aria-label="Uploading"
               ></span>
@@ -339,7 +340,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
             </>
           ) : (
             <>
-              <Upload className="w-4 h-4" aria-hidden="true" />
+              <Upload className="h-4 w-4" aria-hidden="true" />
               <span>Upload &amp; Create Karaoke Project</span>
             </>
           )}

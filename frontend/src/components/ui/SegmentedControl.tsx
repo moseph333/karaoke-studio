@@ -5,6 +5,8 @@ import { focusRing } from './variants';
 export interface SegmentedOption<T extends string> {
   value: T;
   label: React.ReactNode;
+  /** Element id for the option button. */
+  id?: string;
   icon?: React.ReactNode;
   ariaLabel?: string;
   title?: string;
@@ -80,6 +82,7 @@ export function SegmentedControl<T extends string>({
               refs.current[index] = el;
             }}
             type="button"
+            id={opt.id}
             role={isRadio ? 'radio' : undefined}
             aria-checked={isRadio ? active : undefined}
             aria-pressed={isRadio ? undefined : active}

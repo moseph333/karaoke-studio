@@ -42,6 +42,13 @@ describe('useProjectPolling', () => {
     expect(result.current.isWorking).toBe(true);
   });
 
+  it('keeps polling while the server reports the local-upload "processing" status', () => {
+    const { result } = renderHook(() =>
+      useProjectPolling({ ...mockBaseProject, status: 'processing', progress: 5 })
+    );
+    expect(result.current.isWorking).toBe(true);
+  });
+
   it('computes isWorking=true when render_status is rendering', () => {
     const renderingProject: ProjectState = {
       ...mockBaseProject,

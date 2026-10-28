@@ -125,7 +125,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
 
       for (const file of invalidFiles) {
         expect(validateAudioFile(file)).toBe(
-          'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, AAC.'
+          'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, OPUS, AAC.'
         );
       }
     });

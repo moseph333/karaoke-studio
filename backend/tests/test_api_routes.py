@@ -1123,10 +1123,14 @@ class TestTrackUploadRoutes:
         assert validate_audio_header(valid_flac, ".flac") is True
         assert validate_audio_header(b"flac", ".flac") is False
 
-        # OGG
+        # OGG (and Opus, which ships in an Ogg container)
         valid_ogg = b"OggS\x00\x02\x00\x00"
         assert validate_audio_header(valid_ogg, ".ogg") is True
         assert validate_audio_header(b"OGGS", ".ogg") is False
+        valid_opus = b"OggS\x00\x02" + b"\x00" * 20 + b"\x01\x13OpusHead"
+        assert validate_audio_header(valid_opus, ".opus") is True
+        assert validate_audio_header(valid_opus, ".OPUS") is True
+        assert validate_audio_header(b"ID3\x03\x00", ".opus") is False
 
         # M4A & AAC
         valid_m4a = b"\x00\x00\x00\x20ftypM4A "
@@ -1220,6 +1224,18 @@ class TestTrackUploadRoutes:
         data = res.json()
         assert data["status"] == "queued"
         assert data["project_id"].startswith("local_")
+
+    def test_upload_track_valid_opus_accepted_200(self, client, monkeypatch):
+        """Valid Ogg Opus upload is accepted and stored for transcoding."""
+        monkeypatch.setattr(main_mod, "run_local_pipeline", lambda *args, **kwargs: None)
+        valid_opus = io.BytesIO(b"OggS\x00\x02" + b"\x00" * 20 + b"\x01\x13OpusHead" + b"\x00" * 32)
+        res = client.post(
+            "/api/upload-track",
+            files={"file": ("voice-memo.opus", valid_opus, "audio/ogg")},
+        )
+        assert res.status_code == 200
+        project_id = res.json()["project_id"]
+        assert (main_mod.DOWNLOADS_DIR / f"{project_id}.opus").exists()
 
     def test_upload_track_valid_flac_accepted_200(self, client, monkeypatch):
         """Valid FLAC file upload with fLaC header is accepted with HTTP 200."""

@@ -1,29 +1,40 @@
 /**
  * Project Library Component
  *
- * Displays the recent projects library grid with tab filtering ("My Songs" vs
- * "Community Library"), status indicators, metadata editing, and project deletion.
- * Fully adapted to application-wide semantic theme tokens across 4 visual dimensions.
+ * The song library below the intake card: "My Songs" / "Community Library" tabs,
+ * search, status filter and sort, and a grid of album-art cards with edit and delete
+ * actions. Shows skeleton cards while the library loads.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  FolderHeart,
-  Globe,
-  Music,
+  AlertCircle,
   CheckCircle2,
   Clock,
-  Play,
+  XCircle,
+  type LucideIcon,
+  FolderHeart,
+  Globe,
+  Library,
+  Music,
   Pencil,
-  Trash2,
+  Play,
+  RefreshCw,
   Search,
+  SearchX,
+  Trash2,
   X,
 } from 'lucide-react';
 import { ProjectState } from '../../types';
 import { apiFetch } from '../../api';
 import { DeleteConfirmModal } from '../DeleteConfirmModal';
 import { EditMetadataModal } from '../EditMetadataModal';
-import { Tooltip } from '../Tooltip';
+import { IconButton } from '../ui/IconButton';
+import { Button } from '../ui/Button';
+import { EmptyState } from '../ui/EmptyState';
+import { Skeleton } from '../ui/Skeleton';
+import { focusRing } from '../ui/variants';
+import { cn } from '../../utils/cn';
 
 export interface ProjectLibraryProps {
   currentUser?: string;
@@ -31,19 +42,46 @@ export interface ProjectLibraryProps {
   onOpenProject?: (project: ProjectState) => void;
 }
 
+type LibraryTab = 'my' | 'community';
+type StatusFilter = 'all' | 'ready' | 'in_progress_error';
+type SortKey = 'recent' | 'title_asc' | 'artist_asc';
+
+const TAB_IDS: Record<LibraryTab, string> = {
+  my: 'library-tab-my',
+  community: 'library-tab-community',
+};
+
+const controlCls =
+  'min-h-[36px] rounded-theme-md border border-theme-border-subtle bg-theme-surface text-xs text-theme-text shadow-theme-sm focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/50';
+
+const statusLabel = (status: string) => status.replace(/_/g, ' ');
+
+/** Badge shown over a library card's artwork for its processing status. */
+const statusBadge = (status: string): { label: string; Icon: LucideIcon; tone: string } => {
+  if (status === 'ready')
+    return { label: 'Ready', Icon: CheckCircle2, tone: 'bg-theme-success/30' };
+  if (status === 'error') return { label: 'Error', Icon: AlertCircle, tone: 'bg-theme-danger/50' };
+  if (status === 'cancelled') return { label: 'Cancelled', Icon: XCircle, tone: 'bg-black/50' };
+  return { label: statusLabel(status), Icon: Clock, tone: 'bg-theme-warning/35' };
+};
+
 export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
   currentUser = 'Friend',
   authToken = '',
   onOpenProject,
 }) => {
   const [libraryProjects, setLibraryProjects] = useState<ProjectState[]>([]);
-  const [activeTab, setActiveTab] = useState<'my' | 'community'>('my');
+  const [activeTab, setActiveTab] = useState<LibraryTab>('my');
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [deletingProject, setDeletingProject] = useState<ProjectState | null>(null);
   const [editingProject, setEditingProject] = useState<ProjectState | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'ready' | 'in_progress_error'>('all');
-  const [sortBy, setSortBy] = useState<'recent' | 'title_asc' | 'artist_asc'>('recent');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sortBy, setSortBy] = useState<SortKey>('recent');
+  const tabRefs = useRef<Record<LibraryTab, HTMLButtonElement | null>>({
+    my: null,
+    community: null,
+  });
 
   const handleProjectDeleted = (deletedId: string) => {
     setLibraryProjects((prev) => prev.filter((p) => p.id !== deletedId));
@@ -59,7 +97,6 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
     setEditingProject(null);
   };
 
-  // Fetch recent projects from the studio
   const fetchLibrary = async () => {
     setLoadingLibrary(true);
     try {
@@ -133,60 +170,116 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
     return result;
   }, [baseProjects, statusFilter, searchQuery, sortBy]);
 
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('all');
+  };
+
+  const onTabKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End')
+      return;
+    e.preventDefault();
+    const next: LibraryTab =
+      e.key === 'Home'
+        ? 'my'
+        : e.key === 'End'
+          ? 'community'
+          : activeTab === 'my'
+            ? 'community'
+            : 'my';
+    setActiveTab(next);
+    tabRefs.current[next]?.focus();
+  };
+
+  const tabs: Array<{
+    id: LibraryTab;
+    label: string;
+    text: React.ReactNode;
+    count: number;
+    Icon: typeof Globe;
+  }> = [
+    { id: 'my', label: 'My Songs', text: 'My Songs', count: myProjects.length, Icon: FolderHeart },
+    {
+      id: 'community',
+      label: 'Community Library',
+      text: (
+        <>
+          <span className="hidden sm:inline">Community </span>Library
+        </>
+      ),
+      count: libraryProjects.length,
+      Icon: Globe,
+    },
+  ];
+
   return (
-    <div className="pt-4 border-t border-theme-border-subtle space-y-4 font-theme-body">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div
-          className="flex items-center gap-1.5 sm:gap-2 flex-wrap"
-          role="tablist"
-          aria-label="Song library filters"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'my'}
-            aria-label={`My Songs (${myProjects.length})`}
-            onClick={() => setActiveTab('my')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-theme-sm text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[36px] font-theme-heading ${
-              activeTab === 'my'
-                ? 'bg-theme-accent/20 text-theme-accent border-theme border-theme-border shadow-theme-sm'
-                : 'bg-theme-surface text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-subtle border-theme border-transparent'
-            }`}
+    <div className="space-y-4 font-theme-body sm:px-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-2">
+          <h2 className="flex items-center gap-2 font-theme-heading text-lg font-bold text-theme-text">
+            <Library className="h-5 w-5 text-theme-highlight" aria-hidden="true" />
+            Song library
+          </h2>
+          <div
+            className="flex flex-wrap items-center gap-1.5"
+            role="tablist"
+            aria-label="Song library filters"
           >
-            <FolderHeart className="w-3.5 h-3.5" aria-hidden="true" />
-            My Songs ({myProjects.length})
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'community'}
-            aria-label={`Community Library (${libraryProjects.length})`}
-            onClick={() => setActiveTab('community')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-theme-sm text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[36px] font-theme-heading ${
-              activeTab === 'community'
-                ? 'bg-theme-accent/20 text-theme-accent border-theme border-theme-border shadow-theme-sm'
-                : 'bg-theme-surface text-theme-text-muted hover:text-theme-text hover:bg-theme-surface-subtle border-theme border-transparent'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5" aria-hidden="true" />
-            <span className="hidden xs:inline sm:inline">Community </span>Library (
-            {libraryProjects.length})
-          </button>
+            {tabs.map(({ id, label, text, count, Icon }) => {
+              const selected = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  ref={(el) => {
+                    tabRefs.current[id] = el;
+                  }}
+                  id={TAB_IDS[id]}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  aria-controls="library-panel"
+                  tabIndex={selected ? 0 : -1}
+                  aria-label={`${label} (${count})`}
+                  onClick={() => setActiveTab(id)}
+                  onKeyDown={onTabKeyDown}
+                  className={cn(
+                    'flex min-h-[36px] items-center gap-1.5 rounded-theme-pill border px-3 font-theme-heading text-xs font-semibold transition-colors',
+                    selected
+                      ? 'border-theme-accent/50 bg-theme-accent/15 text-theme-highlight'
+                      : 'border-theme-border-subtle bg-theme-surface text-theme-text-muted hover:border-theme-border hover:text-theme-text',
+                    focusRing
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{text}</span>
+                  <span className="rounded-theme-pill bg-theme-surface-raised px-1.5 text-[10px] tabular-nums text-theme-text-muted">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={fetchLibrary}
-          className="text-[11px] text-theme-text-muted hover:text-theme-text transition-colors py-1 px-2 min-h-[36px] flex items-center rounded-theme-sm hover:bg-theme-surface-subtle"
+          leftIcon={
+            <RefreshCw
+              className={cn('h-3.5 w-3.5', loadingLibrary && 'motion-safe:animate-spin')}
+              aria-hidden="true"
+            />
+          }
+          className="min-h-[36px]"
         >
           Refresh
-        </button>
+        </Button>
       </div>
 
-      {/* Search, Filter & Sort Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-        <div className="relative flex-1 min-w-0">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+        <div className="relative min-w-0 flex-1">
           <Search
-            className="w-4 h-4 text-theme-text-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-theme-text-muted"
             aria-hidden="true"
           />
           <input
@@ -195,28 +288,29 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search library by title, artist, or creator..."
             aria-label="Search project library"
-            className="w-full bg-theme-surface border-theme border-theme-border-subtle text-theme-text placeholder:text-theme-text-muted text-xs rounded-theme-sm pl-9 pr-8 py-2 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent/50 focus:border-theme-border shadow-theme-sm transition-all font-theme-body"
+            className={cn(controlCls, 'w-full py-2 pl-9 pr-9 placeholder:text-theme-text-muted')}
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery('')}
               aria-label="Clear search query"
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-theme-text-muted hover:text-theme-text rounded-theme-sm min-h-[28px] min-w-[28px] flex items-center justify-center transition-colors"
+              className={cn(
+                'absolute right-1.5 top-1/2 flex min-h-[28px] min-w-[28px] -translate-y-1/2 items-center justify-center rounded-theme-sm p-1 text-theme-text-muted transition-colors hover:text-theme-text',
+                focusRing
+              )}
             >
-              <X className="w-3.5 h-3.5" aria-hidden="true" />
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as 'all' | 'ready' | 'in_progress_error')
-            }
+            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
             aria-label="Filter projects by status"
-            className="bg-theme-surface border-theme border-theme-border-subtle text-theme-text text-xs rounded-theme-sm px-2.5 py-1.5 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent/50 focus:border-theme-border shadow-theme-sm cursor-pointer flex-1 sm:flex-initial font-theme-body"
+            className={cn(controlCls, 'flex-1 cursor-pointer px-2.5 py-1.5 sm:flex-initial')}
           >
             <option value="all">All Statuses</option>
             <option value="ready">Ready</option>
@@ -225,9 +319,9 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
 
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'recent' | 'title_asc' | 'artist_asc')}
+            onChange={(e) => setSortBy(e.target.value as SortKey)}
             aria-label="Sort projects"
-            className="bg-theme-surface border-theme border-theme-border-subtle text-theme-text text-xs rounded-theme-sm px-2.5 py-1.5 min-h-[36px] focus:outline-none focus:ring-2 focus:ring-theme-accent/50 focus:border-theme-border shadow-theme-sm cursor-pointer flex-1 sm:flex-initial font-theme-body"
+            className={cn(controlCls, 'flex-1 cursor-pointer px-2.5 py-1.5 sm:flex-initial')}
           >
             <option value="recent">Recent (Newest)</option>
             <option value="title_asc">Title (A–Z)</option>
@@ -235,143 +329,166 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
           </select>
 
           {(searchQuery || statusFilter !== 'all') && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setStatusFilter('all');
-              }}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
               aria-label="Reset filters"
-              className="text-[11px] text-theme-accent hover:text-theme-accent-hover py-1.5 px-2.5 rounded-theme-sm bg-theme-accent/15 border-theme border-theme-accent/30 hover:bg-theme-accent/25 min-h-[36px] transition-colors shadow-theme-sm font-theme-heading font-semibold"
+              className="min-h-[36px] text-theme-highlight"
             >
               Clear Filters
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
-      {loadingLibrary ? (
-        <div className="py-8 text-center text-xs text-theme-text-muted font-theme-body">
-          Loading library tracks...
-        </div>
-      ) : baseProjects.length === 0 ? (
-        <div className="py-8 text-center rounded-theme-md bg-theme-surface/50 border-theme border-theme-border-subtle p-6 space-y-1 shadow-theme-sm">
-          <p className="text-xs text-theme-text-muted font-theme-body">
-            {activeTab === 'my'
-              ? `No songs created yet by "${currentUser}". Search a song above to generate your first track!`
-              : 'No tracks in the studio library yet.'}
-          </p>
-        </div>
-      ) : filteredProjects.length === 0 ? (
-        <div className="py-8 text-center rounded-theme-md bg-theme-surface/50 border-theme border-theme-border-subtle p-6 space-y-3 shadow-theme-sm">
-          <p className="text-xs text-theme-text-muted font-theme-body">
-            No matching songs found for your search or filter.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setSearchQuery('');
-              setStatusFilter('all');
-            }}
-            aria-label="Clear filters and restore tracks"
-            className="px-3 py-1.5 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border-theme border-theme-border-subtle text-theme-accent text-xs font-semibold transition-colors min-h-[36px] shadow-theme-sm font-theme-heading"
-          >
-            Clear Filters
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {filteredProjects.map((p) => {
-            const isReady = p.status === 'ready';
-            return (
-              <div
-                key={p.id}
-                onClick={() => onOpenProject && onOpenProject(p)}
-                className="group flex flex-wrap sm:flex-nowrap flex-row items-center justify-between gap-2 sm:gap-2.5 p-2.5 sm:p-3 rounded-theme-md bg-theme-surface border-theme border-theme-border-subtle hover:border-theme-border hover:bg-theme-surface-subtle transition-all cursor-pointer shadow-theme-md min-h-[64px]"
+      <div id="library-panel" role="tabpanel" aria-labelledby={TAB_IDS[activeTab]}>
+        {loadingLibrary ? (
+          <>
+            <p className="sr-only">Loading library tracks...</p>
+            <div
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+              aria-hidden="true"
+            >
+              {Array.from({ length: 8 }, (_, i) => (
+                <div
+                  key={i}
+                  className="overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-theme-surface"
+                >
+                  <Skeleton className="aspect-square rounded-none" />
+                  <div className="space-y-2 p-3">
+                    <Skeleton className="h-3.5 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : baseProjects.length === 0 ? (
+          <EmptyState
+            icon={<Music className="h-6 w-6" />}
+            title={activeTab === 'my' ? 'No songs yet' : 'The library is empty'}
+            description={
+              activeTab === 'my'
+                ? `No songs created yet by "${currentUser}". Search a song above to generate your first track!`
+                : 'No tracks in the studio library yet.'
+            }
+          />
+        ) : filteredProjects.length === 0 ? (
+          <EmptyState
+            icon={<SearchX className="h-6 w-6" />}
+            title="No matching songs"
+            description="No matching songs found for your search or filter."
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={clearFilters}
+                aria-label="Clear filters and restore tracks"
+                className="min-h-[36px]"
               >
-                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
-                  {p.thumbnail_url ? (
-                    <img
-                      src={p.thumbnail_url}
-                      alt={p.title || 'Track'}
-                      className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-theme-sm shrink-0 shadow-theme-sm border-theme border-theme-border-subtle"
+                Clear Filters
+              </Button>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {filteredProjects.map((p) => {
+              const badge = statusBadge(p.status);
+              const title = p.title || `Track ${p.id}`;
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => onOpenProject && onOpenProject(p)}
+                  className="group relative flex cursor-pointer flex-col overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-theme-surface shadow-theme-sm transition-[border-color,box-shadow,transform] duration-200 hover:border-theme-border hover:shadow-theme-md motion-safe:hover:-translate-y-0.5"
+                >
+                  <div className="relative aspect-square overflow-hidden bg-theme-surface-raised">
+                    {p.thumbnail_url ? (
+                      <img
+                        src={p.thumbnail_url}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-stage">
+                        <Music className="h-8 w-8 text-theme-text-muted" aria-hidden="true" />
+                      </div>
+                    )}
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent"
                     />
-                  ) : (
-                    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-theme-sm bg-theme-surface-subtle bg-slate-800 border-theme border-theme-border-subtle flex items-center justify-center shrink-0">
-                      <Music className="w-4 h-4 sm:w-5 sm:h-5 text-theme-text-muted" />
+                    <span
+                      data-status={p.status}
+                      className={cn(
+                        'absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-theme-pill px-2 py-0.5 text-[10px] font-semibold capitalize text-white backdrop-blur-md',
+                        badge.tone
+                      )}
+                    >
+                      <badge.Icon className="h-3 w-3" aria-hidden="true" />
+                      {badge.label}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-accent text-theme-accent-text opacity-0 shadow-theme-glow transition-opacity group-hover:opacity-100"
+                    >
+                      <Play className="ml-0.5 h-4 w-4 fill-current" />
+                    </span>
+                    <div className="absolute right-1.5 top-1.5 flex gap-1 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                      <IconButton
+                        variant="overlay"
+                        size="sm"
+                        label={`Edit metadata for ${p.title || p.id}`}
+                        tooltip="Edit song title and artist"
+                        icon={<Pencil className="h-3.5 w-3.5" />}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingProject(p);
+                        }}
+                      />
+                      <IconButton
+                        variant="overlay"
+                        size="sm"
+                        label={`Delete project ${p.title || p.id}`}
+                        tooltip="Delete project and media files"
+                        icon={<Trash2 className="h-3.5 w-3.5" />}
+                        className="hover:bg-theme-danger/80"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingProject(p);
+                        }}
+                      />
                     </div>
-                  )}
+                  </div>
 
-                  <div className="truncate flex-1 min-w-0">
-                    <h4 className="text-xs font-semibold text-theme-text group-hover:text-theme-accent truncate transition-colors font-theme-heading">
-                      {p.title || `Track ${p.id}`}
+                  <div className="min-w-0 space-y-0.5 p-2.5 sm:p-3">
+                    <h4 className="truncate font-theme-heading text-sm font-semibold text-theme-text">
+                      <button
+                        type="button"
+                        className={cn(
+                          'max-w-full truncate rounded-theme-sm text-left transition-colors group-hover:text-theme-highlight',
+                          focusRing
+                        )}
+                      >
+                        {title}
+                      </button>
                     </h4>
-                    <p className="text-[11px] text-theme-text-muted truncate mt-0.5 font-theme-body">
+                    <p className="truncate text-xs text-theme-text-muted">
                       {p.artist || 'Karaoke'}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span
-                        className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-theme-sm font-medium border-theme font-theme-body ${
-                          isReady
-                            ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
-                            : 'bg-theme-accent/15 text-theme-accent border-theme-accent/30'
-                        }`}
-                      >
-                        {isReady ? (
-                          <CheckCircle2 className="w-2.5 h-2.5" />
-                        ) : (
-                          <Clock className="w-2.5 h-2.5" />
-                        )}
-                        {isReady ? 'Ready' : p.status}
-                      </span>
-                      {p.created_by && (
-                        <span className="text-[10px] text-theme-text-muted truncate font-theme-body">
-                          by {p.created_by}
-                        </span>
-                      )}
-                    </div>
+                    {p.created_by && (
+                      <p className="truncate text-[11px] text-theme-text-muted/80">
+                        by {p.created_by}
+                      </p>
+                    )}
                   </div>
                 </div>
-
-                <div className="flex items-center justify-end gap-1 sm:gap-1.5 shrink-0 self-center">
-                  <Tooltip content="Edit song title and artist" position="top">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingProject(p);
-                      }}
-                      aria-label={`Edit metadata for ${p.title || p.id}`}
-                      className="min-h-[44px] min-w-[44px] p-2.5 rounded-theme-sm bg-theme-surface-subtle hover:bg-theme-surface-raised border-theme border-theme-border-subtle hover:border-theme-border text-theme-text-muted hover:text-theme-accent transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-theme-accent shadow-theme-sm"
-                    >
-                      <Pencil className="w-4 h-4" aria-hidden="true" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Delete project and media files" position="top">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingProject(p);
-                      }}
-                      aria-label={`Delete project ${p.title || p.id}`}
-                      className="min-h-[44px] min-w-[44px] p-2.5 rounded-theme-sm bg-theme-surface-subtle hover:bg-red-950/60 border-theme border-theme-border-subtle hover:border-red-600 text-theme-text-muted hover:text-red-400 transition-colors flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-red-500 shadow-theme-sm"
-                    >
-                      <Trash2 className="w-4 h-4" aria-hidden="true" />
-                    </button>
-                  </Tooltip>
-                  <div
-                    aria-hidden="true"
-                    className="shrink-0 p-2 rounded-theme-sm bg-theme-surface-subtle border-theme border-theme-border-subtle text-theme-text-muted group-hover:bg-theme-accent group-hover:text-theme-accent-text group-hover:border-theme-border transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center shadow-theme-sm"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <DeleteConfirmModal
         isOpen={Boolean(deletingProject)}

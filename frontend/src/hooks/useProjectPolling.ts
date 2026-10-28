@@ -11,6 +11,7 @@ import { apiFetch } from '../api';
 
 const ACTIVE_PIPELINE_STATUSES = [
   'queued',
+  'processing',
   'downloading',
   'separating',
   'fetching_lyrics',

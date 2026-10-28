@@ -33,13 +33,13 @@ describe('Milestone 1: UX-1 Client-Side Audio Validation & Smart Filename Parsin
     // Unsupported format (.pdf)
     const pdfFile = new File(['pdf-bytes'], 'document.pdf', { type: 'application/pdf' });
     expect(validateAudioFile(pdfFile)).toBe(
-      'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, AAC.'
+      'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, OPUS, AAC.'
     );
 
     // Unsupported video container (.mp4)
     const mp4File = new File(['mp4-bytes'], 'video.mp4', { type: 'video/mp4' });
     expect(validateAudioFile(mp4File)).toBe(
-      'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, AAC.'
+      'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, OPUS, AAC.'
     );
 
     // Supported formats
@@ -125,7 +125,7 @@ describe('Milestone 1: UX-1 Client-Side Audio Validation & Smart Filename Parsin
     fireEvent.change(input, { target: { files: [badFile] } });
 
     expect(onError).toHaveBeenCalledWith(
-      'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, AAC.'
+      'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, OPUS, AAC.'
     );
 
     // Also test dropzone rejection
@@ -136,7 +136,7 @@ describe('Milestone 1: UX-1 Client-Side Audio Validation & Smart Filename Parsin
       dataTransfer: { files: [badVideo] },
     });
     expect(onError).toHaveBeenCalledWith(
-      'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, AAC.'
+      'Unsupported audio format. Supported formats: WAV, MP3, FLAC, M4A, OGG, OPUS, AAC.'
     );
   });
 

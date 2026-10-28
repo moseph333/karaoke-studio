@@ -28,7 +28,7 @@ import { cn } from './utils/cn';
 export const AppContent: React.FC = () => {
   const { toast } = useToast();
   useAppTheme();
-  const { project, setProject } = useProjectPolling(null);
+  const { project, setProject, isReconnecting, retryPolling } = useProjectPolling(null);
   const [loading, setLoading] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isLyricsDirty, setIsLyricsDirty] = useState(false);
@@ -470,6 +470,8 @@ export const AppContent: React.FC = () => {
           ) : project.status !== 'ready' ? (
             <ProcessingView
               project={project}
+              isReconnecting={isReconnecting}
+              onRetryPolling={retryPolling}
               onCancelProcess={handleCancelProcess}
               onResetProject={() => {
                 setProject(null);
