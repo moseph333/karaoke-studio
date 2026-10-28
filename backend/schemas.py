@@ -417,6 +417,55 @@ class RealignLyricsRequest(BaseModel):
         default=False,
         description="Re-query LRCLIB using project title and artist",
     )
+    lines: list[LyricLineSchema] | None = Field(
+        default=None,
+        max_length=5000,
+        description="Re-time these lines (the studio's current lyrics) instead of new lyrics",
+    )
+    background: bool = Field(
+        default=False,
+        description="Queue the alignment as a background job (202) that may use the neural aligner",
+    )
+
+
+class RealignLineRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    line: LyricLineSchema = Field(..., description="The line as it is now in the studio")
+    prev_end: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=86400.0,
+        allow_inf_nan=False,
+        description="End of the line before it: the line will not move earlier than this",
+    )
+    next_start: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=86400.0,
+        allow_inf_nan=False,
+        description="Start of the line after it: the line will not move later than this",
+    )
+    engine: Literal["auto", "ctc", "dsp"] | None = Field(
+        default=None,
+        description="Aligner to try (server setting if unset; 'dsp' for the fast one only)",
+    )
+    search_window: float = Field(
+        default=1.5,
+        gt=0.0,
+        le=3.0,
+        allow_inf_nan=False,
+        description="How far (seconds) to look either side of the line's current timing",
+    )
+
+    @model_validator(mode="after")
+    def validate_neighbours(self) -> "RealignLineRequest":
+        if (
+            self.prev_end is not None
+            and self.next_start is not None
+            and self.next_start < self.prev_end
+        ):
+            raise ValueError("next_start cannot be earlier than prev_end")
+        return self
 
 
 class ReseparateRequest(BaseModel):

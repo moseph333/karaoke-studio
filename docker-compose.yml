@@ -19,6 +19,8 @@ services:
       - KARAOKE_DATA_DIR=/app/workspace_data
       - SEPARATION_QUALITY=${SEPARATION_QUALITY:-balanced}
       - SEPARATION_ALLOW_DOWNLOAD=${SEPARATION_ALLOW_DOWNLOAD:-1}
+      - ALIGNMENT_ENGINE=${ALIGNMENT_ENGINE:-auto}
+      - ALIGNMENT_ALLOW_DOWNLOAD=${ALIGNMENT_ALLOW_DOWNLOAD:-1}
     volumes:
       - ${KARAOKE_DATA_DIR:-./workspace_data}:/app/workspace_data
       - ./.git:/app/.git:ro

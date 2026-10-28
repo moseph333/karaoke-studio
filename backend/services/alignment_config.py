@@ -7,6 +7,7 @@
     ALIGNMENT_TIMEOUT_SEC      stop the neural pass after this long (1800)
     ALIGNMENT_STALL_SEC        ... or after this long without output (600)
     ALIGN_REFINE_PLAIN         snap plain-lyric lines to the vocal phrases (default 1)
+    MAX_CONCURRENT_ALIGN_JOBS  neural passes allowed at once, read at start-up (default 1)
 
 "auto" uses the neural (CTC) aligner when PyTorch and torchaudio >= 2.10 are installed and
 the model is cached or may be downloaded, and the DSP aligner otherwise. Values are read at
@@ -73,6 +74,13 @@ def timeout_seconds() -> float:
 
 def stall_seconds() -> float:
     return _positive("ALIGNMENT_STALL_SEC", 600.0)
+
+
+def max_concurrent_jobs() -> int:
+    try:
+        return max(1, int(os.getenv("MAX_CONCURRENT_ALIGN_JOBS", "1").strip()))
+    except ValueError:
+        return 1
 
 
 def model_dir() -> Path:

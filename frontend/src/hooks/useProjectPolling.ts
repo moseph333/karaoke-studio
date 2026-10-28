@@ -1,8 +1,9 @@
 /**
  * Project Status Polling Hook
  *
- * Encapsulates polling intervals for background audio processing, video rendering and
- * stem re-separation, synchronizing project state between backend API and studio components.
+ * Encapsulates polling intervals for background audio processing, video rendering, stem
+ * re-separation and lyric re-alignment, synchronizing project state between backend API and
+ * studio components.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -56,7 +57,8 @@ export function useProjectPolling(
   const isWorking =
     Boolean(project?.status && ACTIVE_PIPELINE_STATUSES.includes(project.status)) ||
     Boolean(project?.render_status && ACTIVE_RENDER_STATUSES.includes(project.render_status)) ||
-    isJobActive(project?.separation_job);
+    isJobActive(project?.separation_job) ||
+    isJobActive(project?.sync_job);
 
   const pollStatus = useCallback(async () => {
     const currentId = projectIdRef.current;

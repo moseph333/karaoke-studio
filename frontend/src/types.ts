@@ -105,6 +105,34 @@ export interface SeparationJob {
   elapsed_seconds?: number;
 }
 
+export type SyncJobMode = 'lrclib' | 'custom' | 'lines';
+
+/** A lyric re-alignment running in the background (it may use the neural aligner). */
+export interface SyncJob {
+  id: string;
+  status: BackgroundJobStatus;
+  mode: SyncJobMode;
+  progress: number;
+  detail?: string;
+  error?: string | null;
+  engine?: 'ctc' | 'dsp';
+  fallback_reason?: string | null;
+  created_at?: number;
+  finished_at?: number | null;
+  elapsed_seconds?: number;
+}
+
+/** Result of re-timing one line (POST /api/project/:id/realign-line); nothing is saved. */
+export interface RealignLineResult {
+  status: 'ok' | 'not_found';
+  line: LyricLine;
+  engine: 'ctc' | 'dsp';
+  elapsed: number;
+  fallback_reason?: string | null;
+  detail?: string | null;
+  window: [number, number];
+}
+
 export interface ProjectState {
   id: string;
   status:
@@ -154,6 +182,7 @@ export interface ProjectState {
   sync_report?: SyncReport | null;
   lyric_timing?: LyricTiming;
   separation_job?: SeparationJob | null;
+  sync_job?: SyncJob | null;
   youtube_package?: {
     title: string;
     description: string;

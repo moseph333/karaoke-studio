@@ -7,8 +7,10 @@ import time
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 
+from backend import realignment
+from backend.background_jobs import SEPARATION_JOB, job_active
 from backend.config import OUTPUT_DIR
 from backend.project_store import (
     PROJECTS_LOCK,
@@ -34,7 +36,7 @@ from backend.schemas import (
     SearchRequest,
     VocalRangeData,
 )
-from backend.services.lyric_sync import sync_lyrics
+from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.waveform import (
     DEFAULT_BINS,
     MAX_BINS,
@@ -137,8 +139,9 @@ def get_project(project_id: str):
     import backend.main as main_mod
 
     proj = get_project_or_404(project_id)
-    # A re-separation left running by a previous server process would otherwise poll forever
-    if settle_stale_job(proj, main_mod.active_cancellations):
+    # Background jobs left running by a previous server process would otherwise poll forever
+    settled = settle_stale_job(proj, main_mod.active_cancellations)
+    if realignment.settle_stale_job(proj, main_mod.active_cancellations) or settled:
         save_projects()
     return proj
 
@@ -665,17 +668,23 @@ def get_lyric_candidates(
 
 
 @router.post("/api/project/{project_id}/realign-lyrics")
-def realign_lyrics(project_id: str, req: RealignLyricsRequest):
+def realign_lyrics(
+    project_id: str, req: RealignLyricsRequest, bg_tasks: BackgroundTasks, response: Response
+):
     """Realigns project lyrics acoustically using existing vocal stem.
 
-    Accepts either custom lyrics (LRC or plain text) or triggers an LRCLIB re-fetch,
-    then aligns words against the existing isolated vocal stem without re-running Demucs.
+    Takes custom lyrics (LRC or plain text), an LRCLIB re-fetch, or the studio's current
+    ``lines`` to re-time, and aligns the words against the existing isolated vocal stem
+    without re-running separation. Answered within the request by the fast DSP aligner, or
+    with ``background: true`` queued as a job (202, ``sync_job`` on the project) that runs
+    the server's configured aligner, neural when available.
     """
     import backend.main as main_mod
 
     proj = find_project(project_id)
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
+    pid = proj.get("id", project_id)
 
     vocals_path = proj.get("vocals_path")
     if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
@@ -687,21 +696,41 @@ def realign_lyrics(project_id: str, req: RealignLyricsRequest):
             detail="Cannot realign lyrics: isolated vocal stem missing or not ready",
         )
 
-    if not req.fetch_lrclib and (not req.custom_lyrics or not req.custom_lyrics.strip()):
+    has_custom = bool(req.custom_lyrics and req.custom_lyrics.strip())
+    if not req.fetch_lrclib and not has_custom and not req.lines:
         raise HTTPException(
             status_code=400,
             detail="Must provide either custom_lyrics or fetch_lrclib=True",
         )
 
+    with PROJECTS_LOCK:
+        if realignment.settle_stale_job(proj, main_mod.active_cancellations):
+            save_projects()
+        if req.background:
+            reason = realignment.conflict_reason(proj)
+        elif realignment.job_is_active(proj) or job_active(proj, SEPARATION_JOB):
+            # Either job would overwrite this result when it finishes
+            reason = realignment.conflict_reason(proj)
+        else:
+            reason = None
+    if reason:
+        raise HTTPException(status_code=409, detail=reason)
+
     try:
         if req.fetch_lrclib:
+            mode = "lrclib"
             lyric_data = main_mod.lyrics_service.fetch_lyrics(
                 proj.get("title", "Karaoke Track"),
                 proj.get("artist", "Artist"),
                 proj.get("duration"),
             )
-        else:
+        elif has_custom:
+            mode = "custom"
             lyric_data = main_mod.lyrics_service.process_custom_lyrics(req.custom_lyrics or "")
+        else:
+            mode = "lines"
+            lines = prepare_existing_lines([line.model_dump() for line in req.lines or []])
+            lyric_data = {"lines": lines, "source": proj.get("lyric_source")}
 
         lines_to_align = lyric_data.get("lines") or []
         if not lines_to_align:
@@ -710,43 +739,46 @@ def realign_lyrics(project_id: str, req: RealignLyricsRequest):
                 detail="No lyric lines found in provided input or LRCLIB response",
             )
 
-        # Answered within the request, so the fast DSP aligner; background re-alignment
-        # (see quality router) can use the neural one
+        if req.background:
+            with PROJECTS_LOCK:
+                proj = find_project(pid)
+                if not proj:
+                    raise HTTPException(status_code=404, detail="Project not found")
+                reason = realignment.conflict_reason(proj)
+                if reason:
+                    raise HTTPException(status_code=409, detail=reason)
+                job = realignment.create_job(proj, mode)
+                main_mod.active_cancellations[realignment.cancel_key(pid)] = threading.Event()
+                save_projects()
+            bg_tasks.add_task(
+                realignment.run_realignment, pid, job["id"], lines_to_align, lyric_data, mode
+            )
+            response.status_code = 202
+            return {"status": "queued", "job": job}
+
+        # Answered within the request, so the fast DSP aligner
         result = sync_lyrics(vocals_path, lines_to_align, lyric_data=lyric_data, engine="dsp")
         aligned_lines = result.lines
 
         with PROJECTS_LOCK:
-            proj["lines"] = aligned_lines
-            proj["lyric_source"] = lyric_data.get("source", "custom")
-            proj["is_synced"] = lyric_data.get("synced", True)
+            realignment.store_aligned_lines(main_mod, proj, aligned_lines)
+            if mode == "lines":
+                if proj.get("lyric_timing") in (None, "none"):
+                    proj["lyric_timing"] = result.lyric_timing
+            else:
+                proj["lyric_source"] = lyric_data.get("source", "custom")
+                proj["is_synced"] = lyric_data.get("synced", True)
+                proj["lyric_timing"] = result.lyric_timing
             proj["sync_report"] = result.report
-            proj["lyric_timing"] = result.lyric_timing
-
-            if aligned_lines:
-                max_end = max(
-                    (float(line.get("end_time", 0.0)) for line in aligned_lines), default=0.0
-                )
-                if max_end > proj.get("duration", 0.0):
-                    proj["duration"] = max_end
-
-            if "youtube_package" in proj:
-                proj["youtube_package"] = main_mod.youtube_service.generate_youtube_package(
-                    title=proj.get("title", "Karaoke Track"),
-                    artist=proj.get("artist", "Artist"),
-                    lines=proj.get("lines", []),
-                    semitones=proj.get("semitones", 0),
-                    has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
-                )
-
             save_projects()
 
         return {
             "status": "ok",
             "lines": aligned_lines,
-            "source": proj["lyric_source"],
-            "is_synced": proj["is_synced"],
+            "source": proj.get("lyric_source"),
+            "is_synced": proj.get("is_synced"),
             "sync_report": result.report,
-            "lyric_timing": result.lyric_timing,
+            "lyric_timing": proj.get("lyric_timing", result.lyric_timing),
         }
     except HTTPException:
         raise
@@ -947,7 +979,12 @@ def delete_project(project_id: str):
     tid = proj.get("track_id")
 
     # 1. Signal cancellation for any active background jobs
-    cancel_keys = {pid, f"{pid}_render", reseparation_cancel_key(pid)}
+    cancel_keys = {
+        pid,
+        f"{pid}_render",
+        reseparation_cancel_key(pid),
+        realignment.cancel_key(pid),
+    }
     if tid:
         cancel_keys.add(tid)
         cancel_keys.add(f"{tid}_render")
