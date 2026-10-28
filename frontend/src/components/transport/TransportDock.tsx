@@ -388,7 +388,7 @@ export const TransportDock: React.FC<TransportDockProps> = ({
               onClick={onTogglePlay}
               aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
               className={cn(
-                'inline-flex h-12 w-12 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-transform hover:brightness-110 active:scale-95',
+                'inline-flex h-12 w-12 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-transform hover:brightness-110 active:scale-95',
                 focusRing
               )}
             >

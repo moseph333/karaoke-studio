@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { ToastItem, ToastContainer } from '../components/Toast';
 import { ToastProvider, useToast } from '../hooks/useToast';
 import { Toast } from '../types';
+import { expectTouchTarget } from './responsiveTestUtils';
 
 describe('Toast Component & ToastProvider', () => {
   beforeEach(() => {
@@ -28,6 +29,23 @@ describe('Toast Component & ToastProvider', () => {
 
     expect(screen.getByText('Backing track separated successfully')).toBeInTheDocument();
     expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('stacks above the transport dock and draws variants from theme tokens', () => {
+    render(
+      <ToastContainer
+        toasts={[
+          { id: 't-ok', message: 'Saved', type: 'success', duration: 0, createdAt: Date.now() },
+        ]}
+        onDismiss={vi.fn()}
+      />
+    );
+    const region = screen.getByLabelText('Notifications');
+    expect(region.className).toContain('bottom-[calc(var(--dock-height,0px)+1rem)]');
+    const toast = screen.getByRole('status');
+    expect(toast.className).toContain('border-theme-success/45');
+    expect(toast.className).not.toMatch(/slate|emerald/);
+    expectTouchTarget(screen.getByRole('button', { name: /dismiss notification/i }), 36);
   });
 
   it('renders role="alert" for error toasts', () => {

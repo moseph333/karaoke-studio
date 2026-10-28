@@ -1,12 +1,14 @@
 /**
  * Styled Accessible Contextual Tooltip Component
  *
- * Provides accessible, glassmorphic hover and focus tooltips with optional
- * keyboard shortcut badge hints (<kbd>). Manages ARIA described-by linking,
- * Escape key dismissal, and touch-safe pointer-events suppression.
+ * Provides accessible hover and focus tooltips with optional keyboard shortcut badge hints
+ * (<kbd>). Manages ARIA described-by linking, Escape key dismissal, and touch-safe
+ * pointer-events suppression. `portal` renders the bubble in document.body with fixed
+ * positioning so scroll containers and overflow-hidden cards cannot clip it.
  */
 
-import React, { useState, useRef, useEffect, useId, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useId, useCallback, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { isQuietFocus } from '../utils/focusIntent';
 
@@ -27,6 +29,73 @@ export interface TooltipProps {
   disabled?: boolean;
   /** Optional container class overrides (e.g. 'flex-1', 'w-full') */
   className?: string;
+  /** Render the bubble in document.body (fixed) so clipping ancestors cannot hide it. */
+  portal?: boolean;
+}
+
+const GAP = 8;
+const VIEWPORT_MARGIN = 8;
+
+const POSITION_CLASSES: Record<
+  NonNullable<TooltipProps['position']>,
+  Record<NonNullable<TooltipProps['align']>, string>
+> = {
+  top: {
+    start: 'bottom-full mb-2 left-0',
+    center: 'bottom-full mb-2 left-1/2 -translate-x-1/2',
+    end: 'bottom-full mb-2 right-0',
+  },
+  bottom: {
+    start: 'top-full mt-2 left-0',
+    center: 'top-full mt-2 left-1/2 -translate-x-1/2',
+    end: 'top-full mt-2 right-0',
+  },
+  left: {
+    start: 'right-full mr-2 top-1/2 -translate-y-1/2',
+    center: 'right-full mr-2 top-1/2 -translate-y-1/2',
+    end: 'right-full mr-2 top-1/2 -translate-y-1/2',
+  },
+  right: {
+    start: 'left-full ml-2 top-1/2 -translate-y-1/2',
+    center: 'left-full ml-2 top-1/2 -translate-y-1/2',
+    end: 'left-full ml-2 top-1/2 -translate-y-1/2',
+  },
+};
+
+/** Fixed coordinates for a portaled bubble, flipped and clamped to stay on screen. */
+function placeBubble(
+  trigger: DOMRect,
+  bubble: { width: number; height: number },
+  position: NonNullable<TooltipProps['position']>,
+  align: NonNullable<TooltipProps['align']>
+): { left: number; top: number } {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let side = position;
+  if (side === 'top' && trigger.top - GAP - bubble.height < VIEWPORT_MARGIN) side = 'bottom';
+  else if (side === 'bottom' && trigger.bottom + GAP + bubble.height > vh - VIEWPORT_MARGIN)
+    side = 'top';
+  else if (side === 'left' && trigger.left - GAP - bubble.width < VIEWPORT_MARGIN) side = 'right';
+  else if (side === 'right' && trigger.right + GAP + bubble.width > vw - VIEWPORT_MARGIN)
+    side = 'left';
+
+  let left: number;
+  let top: number;
+  if (side === 'top' || side === 'bottom') {
+    top = side === 'top' ? trigger.top - GAP - bubble.height : trigger.bottom + GAP;
+    left =
+      align === 'start'
+        ? trigger.left
+        : align === 'end'
+          ? trigger.right - bubble.width
+          : trigger.left + trigger.width / 2 - bubble.width / 2;
+  } else {
+    left = side === 'left' ? trigger.left - GAP - bubble.width : trigger.right + GAP;
+    top = trigger.top + trigger.height / 2 - bubble.height / 2;
+  }
+  const clamp = (v: number, size: number, max: number) =>
+    Math.min(Math.max(v, VIEWPORT_MARGIN), Math.max(VIEWPORT_MARGIN, max - size - VIEWPORT_MARGIN));
+  return { left: clamp(left, bubble.width, vw), top: clamp(top, bubble.height, vh) };
 }
 
 export const Tooltip: React.FC<TooltipProps> = ({
@@ -38,9 +107,13 @@ export const Tooltip: React.FC<TooltipProps> = ({
   children,
   disabled = false,
   className,
+  portal = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wrapperRef = useRef<HTMLSpanElement | null>(null);
+  const bubbleRef = useRef<HTMLSpanElement | null>(null);
   const generatedId = useId();
   const tooltipId = `tooltip-${generatedId.replace(/:/g, '')}`;
 
@@ -94,28 +167,29 @@ export const Tooltip: React.FC<TooltipProps> = ({
     };
   }, []);
 
-  // Calculate position classes
-  const getPositionClasses = () => {
-    switch (position) {
-      case 'bottom':
-        return align === 'start'
-          ? 'top-full mt-2 left-0'
-          : align === 'end'
-            ? 'top-full mt-2 right-0'
-            : 'top-full mt-2 left-1/2 -translate-x-1/2';
-      case 'left':
-        return 'right-full mr-2 top-1/2 -translate-y-1/2';
-      case 'right':
-        return 'left-full ml-2 top-1/2 -translate-y-1/2';
-      case 'top':
-      default:
-        return align === 'start'
-          ? 'bottom-full mb-2 left-0'
-          : align === 'end'
-            ? 'bottom-full mb-2 right-0'
-            : 'bottom-full mb-2 left-1/2 -translate-x-1/2';
+  // Portaled bubbles are measured and placed before paint, and close when the page moves
+  // underneath them rather than drifting away from their trigger.
+  useLayoutEffect(() => {
+    if (!portal || !isOpen) {
+      setCoords(null);
+      return;
     }
-  };
+    const trigger = wrapperRef.current?.getBoundingClientRect();
+    const bubble = bubbleRef.current?.getBoundingClientRect();
+    if (trigger && bubble) {
+      setCoords(placeBubble(trigger, bubble, position, align));
+    }
+  }, [portal, isOpen, position, align, content]);
+
+  useEffect(() => {
+    if (!portal || !isOpen) return;
+    window.addEventListener('scroll', hide, true);
+    window.addEventListener('resize', hide);
+    return () => {
+      window.removeEventListener('scroll', hide, true);
+      window.removeEventListener('resize', hide);
+    };
+  }, [portal, isOpen, hide]);
 
   const hotkeys = Array.isArray(hotkey) ? hotkey : hotkey ? [hotkey] : [];
 
@@ -152,8 +226,40 @@ export const Tooltip: React.FC<TooltipProps> = ({
   const hasPositionClass =
     className !== undefined && /\b(absolute|fixed|sticky|static)\b/.test(className);
 
+  const bubble = isOpen ? (
+    <span
+      ref={bubbleRef}
+      id={tooltipId}
+      role="tooltip"
+      aria-hidden={!isOpen}
+      style={portal ? { left: coords?.left ?? 0, top: coords?.top ?? 0 } : undefined}
+      className={clsx(
+        'pointer-events-none z-[70] rounded-theme-md border border-theme-border bg-theme-surface-raised/95 px-2.5 py-1.5 font-theme-body text-xs font-medium text-theme-text shadow-theme-lg backdrop-blur-md',
+        'max-w-[200px] sm:max-w-[260px] whitespace-normal break-words text-center',
+        'flex items-center justify-center gap-1.5',
+        portal ? 'fixed w-max' : 'absolute',
+        portal ? !coords && 'invisible' : POSITION_CLASSES[position][align]
+      )}
+    >
+      <span>{content}</span>
+      {hotkeys.length > 0 && (
+        <span className="ml-1 inline-flex shrink-0 items-center gap-1">
+          {hotkeys.map((k, idx) => (
+            <kbd
+              key={idx}
+              className="inline-flex min-w-[16px] items-center justify-center rounded-theme-sm border border-theme-border-subtle bg-theme-surface-subtle px-1.5 py-0.5 font-mono text-[10px] font-bold text-theme-highlight shadow-theme-sm"
+            >
+              {k}
+            </kbd>
+          ))}
+        </span>
+      )}
+    </span>
+  ) : null;
+
   return (
     <span
+      ref={wrapperRef}
       className={clsx(
         !hasPositionClass && 'relative',
         'inline-flex flex-wrap items-center',
@@ -161,49 +267,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
       )}
     >
       {trigger}
-      {isOpen && (
-        <span
-          id={tooltipId}
-          role="tooltip"
-          aria-hidden={!isOpen}
-          style={{
-            backgroundColor: 'var(--theme-surface, #020617)',
-            color: 'var(--theme-text, #f1f5f9)',
-            borderColor: 'var(--theme-border, #334155)',
-            borderRadius: 'var(--theme-radius-md, 8px)',
-            boxShadow: 'var(--theme-shadow-lg, 0 25px 50px -12px rgba(0, 0, 0, 0.25))',
-            fontFamily: 'var(--theme-font-body, inherit)',
-          }}
-          className={clsx(
-            'absolute z-50 pointer-events-none px-2.5 py-1.5 rounded-lg text-xs font-medium',
-            'bg-slate-950/95 text-slate-100 border border-slate-700/80 shadow-2xl backdrop-blur-md',
-            'max-w-[200px] sm:max-w-[260px] whitespace-normal break-words text-center transition-opacity duration-150',
-            'flex items-center justify-center gap-1.5',
-            getPositionClasses()
-          )}
-        >
-          <span>{content}</span>
-          {hotkeys.length > 0 && (
-            <span className="inline-flex items-center gap-1 ml-1 shrink-0">
-              {hotkeys.map((k, idx) => (
-                <kbd
-                  key={idx}
-                  style={{
-                    backgroundColor: 'var(--theme-surface-subtle, #1e293b)',
-                    color: 'var(--theme-accent, #67e8f9)',
-                    borderColor: 'var(--theme-border-subtle, #334155)',
-                    borderRadius: 'var(--theme-radius-sm, 4px)',
-                    fontFamily: 'var(--theme-font-mono, monospace)',
-                  }}
-                  className="inline-flex items-center justify-center min-w-[16px] px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-cyan-300 border border-slate-700 shadow-sm"
-                >
-                  {k}
-                </kbd>
-              ))}
-            </span>
-          )}
-        </span>
-      )}
+      {bubble && (portal ? createPortal(bubble, document.body) : bubble)}
     </span>
   );
 };

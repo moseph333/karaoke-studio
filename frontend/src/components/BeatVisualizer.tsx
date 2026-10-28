@@ -43,7 +43,7 @@ function toRgba(hexOrColor: string, alpha: number): string {
 export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
   analyserNode,
   isPlaying = false,
-  themeSungColor = '#06b6d4',
+  themeSungColor = '#fbbf24',
   className = '',
   barCount = 32,
 }) => {
@@ -198,7 +198,7 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
           glowRadius
         );
         radial.addColorStop(0, toRgba(themeSungColor, Math.min(0.45, 0.12 + bassEnergy * 0.28)));
-        radial.addColorStop(1, 'rgba(15, 23, 42, 0)');
+        radial.addColorStop(1, toRgba(themeSungColor, 0));
         ctx.fillStyle = radial;
         ctx.fillRect(0, 0, width, height);
       }

@@ -179,7 +179,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                         }}
                         aria-label="Clear search query"
                         className={cn(
-                          'absolute right-14 flex min-h-[32px] min-w-[32px] items-center justify-center rounded-full p-1.5 text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:right-32',
+                          'absolute right-14 flex min-h-[32px] min-w-[32px] items-center justify-center rounded-theme-pill p-1.5 text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:right-32',
                           focusRing
                         )}
                       >
