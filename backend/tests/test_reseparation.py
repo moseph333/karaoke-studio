@@ -1,5 +1,6 @@
 """Separation quality through the API: intake choice, provenance, capabilities, re-separation."""
 
+import os
 import threading
 import time
 from pathlib import Path
@@ -311,6 +312,27 @@ def test_lyrics_saved_while_the_words_are_retimed_are_kept(client, song, monkeyp
     assert "realigned" not in proj["lines"][0]
     assert "sync_report" not in proj
     assert proj["separation"]["preset"] == "balanced"
+
+
+def test_swapped_in_stems_are_newer_than_mixes_of_the_old_ones(client, song, monkeypatch):
+    fake_separate = main_mod.separator.separate_stems
+
+    def written_a_while_ago(**kwargs):
+        result = fake_separate(**kwargs)
+        # The engine finished writing before the user's last mix of the old stems
+        _wav(main_mod.OUTPUT_DIR / "rs1_mix_0_0.wav")
+        for key in ("vocals_path", "instrumental_path"):
+            stamp = time.time() - 60
+            os.utime(result[key], (stamp, stamp))
+        return result
+
+    monkeypatch.setattr(main_mod.separator, "separate_stems", written_a_while_ago)
+    assert client.post("/api/project/rs1/reseparate", json={"quality": "fast"}).status_code == 202
+    assert client.get("/api/project/rs1").json()["separation_job"]["status"] == "done"
+
+    mix_of_old_stems = os.path.getmtime(main_mod.OUTPUT_DIR / "rs1_mix_0_0.wav")
+    for name in ("vocals.wav", "instrumental.wav"):
+        assert os.path.getmtime(song["stems"] / name) >= mix_of_old_stems
 
 
 def test_failed_reseparation_leaves_the_song_as_it_was(client, song, monkeypatch):
