@@ -287,6 +287,32 @@ def test_reseparation_keeps_a_custom_instrumental_and_redetects_chords_on_reques
     assert song["log"]["align"] == []  # lyrics untouched unless asked
 
 
+def test_lyrics_saved_while_the_words_are_retimed_are_kept(client, song, monkeypatch):
+    edited = [{"id": 1, "text": "hello there", "start_time": 1.2, "end_time": 2.4}]
+
+    def user_saves_meanwhile(vocals_path, lines):
+        main_mod.projects["rs1"]["lines"] = edited
+        return [{**line, "realigned": True} for line in lines]
+
+    monkeypatch.setattr(main_mod.aligner, "align_lyrics", user_saves_meanwhile)
+    res = client.post(
+        "/api/project/rs1/reseparate", json={"quality": "balanced", "realign_lyrics": True}
+    )
+    assert res.status_code == 202
+
+    proj = client.get("/api/project/rs1").json()
+    job = proj["separation_job"]
+    assert job["status"] == "done"
+    assert job["detail"] == (
+        "Stems re-made with Balanced · Mel-Band RoFormer. "
+        "The lyrics were edited while re-timing, so your edits were kept"
+    )
+    assert [(line["text"], line["start_time"]) for line in proj["lines"]] == [("hello there", 1.2)]
+    assert "realigned" not in proj["lines"][0]
+    assert "sync_report" not in proj
+    assert proj["separation"]["preset"] == "balanced"
+
+
 def test_failed_reseparation_leaves_the_song_as_it_was(client, song, monkeypatch):
     def broken(*args, **kwargs):
         raise RuntimeError("RoFormer separation failed (exit 5): out of ideas")

@@ -3,7 +3,8 @@
 The new stems are made under STEMS_DIR/.staging/<audio_id>/<job id> and swapped in only once
 complete, so a cancelled or failed run leaves the song exactly as it was. Afterwards the
 vocal range is refreshed, chords are re-detected when asked (or when there are none), the
-words are re-timed when asked, and the current master mix is rendered again.
+words are re-timed when asked (lyrics saved in the meantime are kept instead), and the
+current master mix is rendered again.
 
 The job's state lives on the project as ``separation_job`` so the studio can poll it. Project
 dicts can be replaced by fresh copies from disk at any time (see find_project), so every
@@ -23,6 +24,7 @@ from backend.background_jobs import SEPARATION_JOB, job_active
 from backend.background_jobs import conflict_reason as job_conflict
 from backend.config import STEMS_DIR
 from backend.project_store import PROJECTS_LOCK, find_project, save_projects
+from backend.realignment import lines_fingerprint
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.separation_presets import PRESET_LABELS
 
@@ -167,10 +169,11 @@ def run_reseparation(project_id: str, job_id: str) -> None:
             }
             proj["separation"] = separation
             proj["separation_quality"] = quality
+            detail = f"Stems re-made with {separation.get('label') or label}"
             job.update(
                 status="done",
                 progress=100,
-                detail=f"Stems re-made with {separation.get('label') or label}",
+                detail=". ".join([detail, *(job.get("warnings") or [])]),
                 eta_seconds=0,
                 finished_at=int(time.time()),
                 elapsed_seconds=int(time.time() - started),
@@ -274,11 +277,20 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
         update(progress=92, detail="Re-timing words against the new vocals…")
         try:
             current = _live(project_id, job_id)[0]
+            before = lines_fingerprint(current.get("lines"))
             lines = prepare_existing_lines(current.get("lines") or [])
             result = sync_lyrics(
                 vocals_path, lines, lyric_data={"source": current.get("lyric_source")}
             )
-            store(lines=result.lines, sync_report=result.report)
+            with PROJECTS_LOCK:
+                current = _live(project_id, job_id)[0]
+                # Lyrics saved while the words were being re-timed win over the re-timed copy
+                edited = lines_fingerprint(current.get("lines")) != before
+                if not edited:
+                    current.update(lines=result.lines, sync_report=result.report)
+                    save_projects()
+            if edited:
+                update(warnings=["The lyrics were edited while re-timing, so your edits were kept"])
         except ReseparationCancelled:
             raise
         except Exception as exc:
