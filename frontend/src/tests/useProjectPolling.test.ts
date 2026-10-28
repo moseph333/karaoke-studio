@@ -80,6 +80,22 @@ describe('useProjectPolling', () => {
     }
   });
 
+  it('keeps polling while a background lyric re-alignment is queued or running', () => {
+    const job = { id: 'sync1', mode: 'lines' as const, progress: 40 };
+    for (const status of ['queued', 'running'] as const) {
+      const active = renderHook(() =>
+        useProjectPolling({ ...mockBaseProject, sync_job: { ...job, status } })
+      );
+      expect(active.result.current.isWorking).toBe(true);
+    }
+    for (const status of ['done', 'error', 'cancelled'] as const) {
+      const finished = renderHook(() =>
+        useProjectPolling({ ...mockBaseProject, sync_job: { ...job, status } })
+      );
+      expect(finished.result.current.isWorking).toBe(false);
+    }
+  });
+
   it('polls /api/project/:id every 1000ms while isWorking is true and updates project state', async () => {
     const separatingProject: ProjectState = {
       ...mockBaseProject,

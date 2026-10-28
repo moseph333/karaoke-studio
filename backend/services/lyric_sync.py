@@ -7,7 +7,9 @@ the neural timing for lines the model is sure about. Every line gets a confidenc
 an ``align_method`` (ctc, dsp, lrc or fallback), and a report says how the song was timed.
 
 Lyrics that arrive with their own word timing (enhanced LRC) keep it. If the neural pass is
-unavailable or fails, the whole song keeps the DSP timing and the report records why.
+unavailable or fails, the whole song keeps the DSP timing and the report records why. At most
+MAX_CONCURRENT_ALIGN_JOBS neural passes run at once (ALIGN_SEMAPHORE): each loads a large
+model, so further songs wait for a free slot.
 """
 
 import itertools
@@ -18,9 +20,11 @@ import statistics
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -42,6 +46,8 @@ MIN_ALIGNED_SHARE = 0.7
 LOW_CONFIDENCE = 0.6  # matches the studio's "Needs review" threshold (timelineReview.ts)
 
 ProgressCallback = Callable[[float | None, str], None]
+
+ALIGN_SEMAPHORE = threading.BoundedSemaphore(alignment_config.max_concurrent_jobs())
 
 
 class AlignmentCancelled(RuntimeError):
@@ -75,6 +81,24 @@ def source_timing(lines: list[dict]) -> str:
     if any(_num(line.get("start_time")) > 0 or _num(line.get("end_time")) > 0 for line in lines):
         return "line"
     return "none"
+
+
+def prepare_existing_lines(lines: list[dict]) -> list[dict]:
+    """Copies of a song's current lines for re-timing. Word timing that came with the lyrics
+    (``align_method`` "lrc") is kept; every other line is timed again."""
+    prepared = []
+    for line in lines:
+        if not isinstance(line, dict):
+            continue
+        copy = dict(line)
+        method = copy.get("align_method")
+        from_lyrics = method == "lrc" or (method is None and copy.get("has_word_sync"))
+        if from_lyrics and copy.get("words"):
+            copy["has_word_sync"] = True
+        else:
+            copy.pop("has_word_sync", None)
+        prepared.append(copy)
+    return prepared
 
 
 def _plain_line(line: dict) -> dict:
@@ -114,6 +138,28 @@ def _windows(lines: list[dict]) -> list[tuple[float, float]]:
 def _report_progress(progress: ProgressCallback | None, pct: float | None, detail: str) -> None:
     if progress:
         progress(pct, detail)
+
+
+@contextmanager
+def neural_slot(
+    progress: ProgressCallback | None = None,
+    cancel_event: Any | None = None,
+    wait: bool = True,
+) -> Iterator[None]:
+    """Holds an ALIGN_SEMAPHORE slot for one neural pass. Waits for a free slot (checking for
+    cancellation), or with ``wait=False`` raises NeuralAlignmentFailed when none is free."""
+    semaphore = ALIGN_SEMAPHORE
+    if not semaphore.acquire(blocking=False):
+        if not wait:
+            raise NeuralAlignmentFailed("the neural aligner is busy with another song")
+        _report_progress(progress, None, "Waiting for the neural aligner to finish another song...")
+        while not semaphore.acquire(timeout=0.25):
+            if cancel_event is not None and cancel_event.is_set():
+                raise AlignmentCancelled("Lyric alignment cancelled by user")
+    try:
+        yield
+    finally:
+        semaphore.release()
 
 
 def run_neural_pass(
@@ -291,9 +337,18 @@ def fill_missing(
     return [span for span in filled if span is not None]
 
 
-def merge_line(dsp_line: dict, neural: dict | None, window: tuple[float, float], alignable: int):
+def merge_line(
+    dsp_line: dict,
+    neural: dict | None,
+    window: tuple[float, float],
+    alignable: int,
+    *,
+    widen_to_dsp: bool = True,
+):
     """The line to keep, and its method: neural timing when the model is confident enough
-    and placed most words, otherwise the DSP timing."""
+    and placed most words, otherwise the DSP timing. The neural line keeps at least the DSP
+    line's span unless ``widen_to_dsp`` is False (when the model searched a wider window
+    than the DSP estimate and may have found the line elsewhere)."""
     words = [w for w in dsp_line.get("words") or [] if isinstance(w, dict)]
     if not neural or neural.get("status") != "ok" or not words:
         return dsp_line, "dsp", None
@@ -309,8 +364,11 @@ def merge_line(dsp_line: dict, neural: dict | None, window: tuple[float, float],
 
     spans = finish_neural_words(raw, window[1])
     known = [s for s in spans if s]
-    line_start = max(window[0], min(_num(dsp_line.get("start_time")), known[0][0]))
-    line_end = min(window[1], max(_num(dsp_line.get("end_time")), known[-1][1]))
+    line_start, line_end = known[0][0], known[-1][1]
+    if widen_to_dsp:
+        line_start = min(_num(dsp_line.get("start_time")), line_start)
+        line_end = max(_num(dsp_line.get("end_time")), line_end)
+    line_start, line_end = max(window[0], line_start), min(window[1], line_end)
     if line_end <= line_start:
         line_end = line_start + 0.5
     texts = [str(w.get("word") or "") for w in words]
@@ -376,7 +434,8 @@ def sync_lyrics(
         if request_lines:
             _report_progress(progress, 25, "Aligning words (neural)...")
             try:
-                response = run_neural_pass(vocals_path, request_lines, progress, cancel_event)
+                with neural_slot(progress, cancel_event):
+                    response = run_neural_pass(vocals_path, request_lines, progress, cancel_event)
                 neural_by_index = {
                     x.get("index"): x for x in response["lines"] if isinstance(x, dict)
                 }

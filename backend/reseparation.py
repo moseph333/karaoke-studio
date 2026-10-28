@@ -19,25 +19,17 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from backend.background_jobs import SEPARATION_JOB, job_active
+from backend.background_jobs import conflict_reason as job_conflict
 from backend.config import STEMS_DIR
 from backend.project_store import PROJECTS_LOCK, find_project, save_projects
-from backend.services.lyric_sync import sync_lyrics
+from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.separation_presets import PRESET_LABELS
 
 logger = logging.getLogger("karaoke_backend")
 
 STAGING_DIRNAME = ".staging"
-ACTIVE_JOB_STATES = ("queued", "running")
 _SEPARATION_SHARE = 80  # the separation itself fills the first 80% of the job's progress
-_BUSY_PIPELINE_STATES = {
-    "queued",
-    "processing",
-    "downloading",
-    "separating",
-    "fetching_lyrics",
-    "aligning",
-    "mixing",
-}
 
 
 class ReseparationCancelled(Exception):
@@ -53,19 +45,12 @@ def staging_dir(stems_dir: Path, audio_id: str) -> Path:
 
 
 def job_is_active(proj: dict) -> bool:
-    job = proj.get("separation_job")
-    return isinstance(job, dict) and job.get("status") in ACTIVE_JOB_STATES
+    return job_active(proj, SEPARATION_JOB)
 
 
 def conflict_reason(proj: dict) -> str | None:
     """Why another job prevents a re-separation from starting now, or None."""
-    if job_is_active(proj):
-        return "The stems for this song are already being re-made"
-    if proj.get("status") in _BUSY_PIPELINE_STATES:
-        return "This song is still being processed"
-    if proj.get("render_status") in ("queued", "rendering"):
-        return "Wait for the video render to finish first"
-    return None
+    return job_conflict(proj, SEPARATION_JOB)
 
 
 def settle_stale_job(proj: dict, active_cancellations: dict) -> bool:
@@ -288,8 +273,11 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
     if job.get("realign_lyrics") and proj.get("lines"):
         update(progress=92, detail="Re-timing words against the new vocals…")
         try:
-            lines = [dict(line) for line in _live(project_id, job_id)[0].get("lines") or []]
-            result = sync_lyrics(vocals_path, lines)
+            current = _live(project_id, job_id)[0]
+            lines = prepare_existing_lines(current.get("lines") or [])
+            result = sync_lyrics(
+                vocals_path, lines, lyric_data={"source": current.get("lyric_source")}
+            )
             store(lines=result.lines, sync_report=result.report)
         except ReseparationCancelled:
             raise
