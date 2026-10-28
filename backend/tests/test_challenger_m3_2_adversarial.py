@@ -518,10 +518,6 @@ class TestMonotonicityAndAdversarialEdgeCases:
                 if j + 1 < len(words):
                     assert words[j]["end_time"] <= words[j + 1]["start_time"] + 0.001
 
-    @pytest.mark.xfail(
-        reason="BUG: _partition_lines_into_phrases forces l_e >= l_s + 0.010 while cur_t advances by dur < 0.010, causing adjacent lines to overlap",
-        strict=False,
-    )
     def test_xfail_dense_lines_overlapping_regression(self, tmp_path):
         """
         Adversarial Scenario: 200 lines partitioned into a 1.0s active vocal phrase (dur = 0.005s).
@@ -553,10 +549,6 @@ class TestMonotonicityAndAdversarialEdgeCases:
             f"line[{overlaps[0] + 1}].start_time={aligned[overlaps[0] + 1]['start_time']}"
         )
 
-    @pytest.mark.xfail(
-        reason="BUG: enforce_monotonic_words produces negative start_time when max_allowed_end < min_dur in tight windows near t=0",
-        strict=False,
-    )
     def test_xfail_negative_word_timestamp_in_tight_window(self):
         """
         Adversarial Scenario: Line starting at t=0.0 with 5ms window and 10 words.
@@ -572,10 +564,6 @@ class TestMonotonicityAndAdversarialEdgeCases:
             f"enforce_monotonic_words produced negative start_time: {negative_words}"
         )
 
-    @pytest.mark.xfail(
-        reason="BUG: align_lyrics and refine_line_boundaries crash with TypeError on None start_time or end_time",
-        strict=False,
-    )
     def test_xfail_none_timestamps_typeerror_crash(self, tmp_path):
         """
         Adversarial Scenario: Plain lyrics payload containing None for start_time/end_time.

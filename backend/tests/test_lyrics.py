@@ -48,6 +48,44 @@ def test_parse_plain_text():
     assert lines[1]["text"] == "This is a karaoke test"
 
 
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "[Verse 1]",
+        "[Verse 2: Kendrick Lamar]",
+        "(Chorus x2)",
+        "[Pre-Chorus]",
+        "{Bridge}",
+        "[Instrumental]",
+        "[Guitar Solo]",
+        "Chorus:",
+        "Verse 3",
+        "  OUTRO  ",
+        "[Hook 2x]",
+        "[Intro – Spoken]",
+    ],
+)
+def test_plain_text_drops_section_labels(heading):
+    lines = LyricsService.parse_plain_text(f"{heading}\nSing this line")
+    assert [line["text"] for line in lines] == ["Sing this line"]
+
+
+@pytest.mark.parametrize(
+    "lyric",
+    [
+        "(Ooh, baby)",
+        "Bridge over troubled water",
+        "Drop",
+        "Chorus of angels singing",
+        "[Woah oh oh]",
+        "Verse after verse I sing",
+        "(Hey!)",
+    ],
+)
+def test_plain_text_keeps_sung_lines_that_look_like_labels(lyric):
+    assert [line["text"] for line in LyricsService.parse_plain_text(lyric)] == [lyric]
+
+
 def test_update_lyrics_endpoint_validation(client):
     from backend.main import projects
 
@@ -200,12 +238,14 @@ def test_process_custom_lyrics():
     assert res_plain["lines"][0]["start_time"] == 0.0
     assert res_plain["plain_lyrics"] == plain_input
 
-    # 3. Plain text with section headings
+    # 3. Plain text with section headings: the labels are not sung, so they are dropped
     section_input = "[Verse 1]\nLine one\n[Chorus]\nLine two"
     res_section = service.process_custom_lyrics(section_input)
     assert res_section["source"] == "custom"
     assert res_section["synced"] is False
-    assert len(res_section["lines"]) == 4
+    assert [line["text"] for line in res_section["lines"]] == ["Line one", "Line two"]
+    assert [line["id"] for line in res_section["lines"]] == [0, 1]
+    assert res_section["plain_lyrics"] == section_input
 
     # 4. Empty or whitespace input
     res_empty = service.process_custom_lyrics("")
@@ -728,34 +768,34 @@ def test_parse_lrc_enhanced_word_timestamps_tag_free_text_and_words():
 
 
 def test_parse_lrc_offset_header_positive_and_negative():
-    """parse_lrc accurately adjusts line and word timestamps by [offset:+/-ms] header."""
-    # Positive offset: +500ms -> +0.5s
+    """[offset:+/-ms] follows the LRC convention: positive shows lyrics sooner, negative later."""
+    # Positive offset: +500ms -> everything 0.5s earlier
     pos_lrc = "[offset:500]\n[00:04.00] Line one\n[00:10.00] <00:10.20> First <00:10.80> Second\n"
     pos_lines = LyricsService.parse_lrc(pos_lrc)
     assert len(pos_lines) == 2
-    assert pos_lines[0]["start_time"] == 4.5  # 4.0 + 0.5
-    assert pos_lines[1]["start_time"] == 10.5  # 10.0 + 0.5
+    assert pos_lines[0]["start_time"] == 3.5  # 4.0 - 0.5
+    assert pos_lines[1]["start_time"] == 9.5  # 10.0 - 0.5
     assert pos_lines[1]["words"][0]["word"] == "First"
-    assert pos_lines[1]["words"][0]["start_time"] == 10.7  # 10.2 + 0.5
+    assert pos_lines[1]["words"][0]["start_time"] == 9.7  # 10.2 - 0.5
     assert pos_lines[1]["words"][1]["word"] == "Second"
-    assert pos_lines[1]["words"][1]["start_time"] == 11.3  # 10.8 + 0.5
+    assert pos_lines[1]["words"][1]["start_time"] == 10.3  # 10.8 - 0.5
 
-    # Negative offset: -500ms -> -0.5s
+    # Negative offset: -500ms -> everything 0.5s later
     neg_lrc = "[offset:-500]\n[00:04.00] Line one\n[00:10.00] <00:10.20> First <00:10.80> Second\n"
     neg_lines = LyricsService.parse_lrc(neg_lrc)
     assert len(neg_lines) == 2
-    assert neg_lines[0]["start_time"] == 3.5  # 4.0 - 0.5
-    assert neg_lines[1]["start_time"] == 9.5  # 10.0 - 0.5
+    assert neg_lines[0]["start_time"] == 4.5  # 4.0 + 0.5
+    assert neg_lines[1]["start_time"] == 10.5  # 10.0 + 0.5
     assert neg_lines[1]["words"][0]["word"] == "First"
-    assert neg_lines[1]["words"][0]["start_time"] == 9.7  # 10.2 - 0.5
+    assert neg_lines[1]["words"][0]["start_time"] == 10.7  # 10.2 + 0.5
     assert neg_lines[1]["words"][1]["word"] == "Second"
-    assert neg_lines[1]["words"][1]["start_time"] == 10.3  # 10.8 - 0.5
+    assert neg_lines[1]["words"][1]["start_time"] == 11.3  # 10.8 + 0.5
 
 
 def test_parse_lrc_offset_clamping_at_zero():
-    """parse_lrc clamps shifted timestamps safely at 0.0 when negative offset exceeds timestamp."""
+    """parse_lrc clamps shifted timestamps at 0.0 when a positive offset exceeds them."""
     lrc = (
-        "[offset:-10000]\n"  # -10 seconds
+        "[offset:10000]\n"  # 10 seconds sooner
         "[00:04.00] <00:04.20> Word one <00:04.80> Word two\n"
     )
     lines = LyricsService.parse_lrc(lrc)
@@ -1266,3 +1306,41 @@ def test_candidate_ranking_target_duration_none_fallback():
         [cand_stub, cand_plain], "Song Title", "Artist Name", target_duration=None
     )
     assert winner["id"] == "complete_plain"
+
+
+def test_syncedlyrics_timeout_does_not_wait_for_a_slow_search(monkeypatch):
+    import time
+
+    import backend.services.lyrics as lyrics_mod
+
+    release = __import__("threading").Event()
+    monkeypatch.setattr(lyrics_mod, "SYNCEDLYRICS_TIMEOUT_SEC", 0.2)
+    monkeypatch.setattr(LyricsService, "_fetch_from_lrclib", lambda *args, **kwargs: None)
+    monkeypatch.setattr(lyrics_mod.syncedlyrics, "search", lambda query: release.wait(5))
+    started = time.monotonic()
+    try:
+        res = LyricsService().fetch_lyrics("Slow Song", "Slow Artist")
+    finally:
+        release.set()
+    assert time.monotonic() - started < 2
+    assert res["source"] == "none"
+
+
+def test_syncedlyrics_untimed_results_are_plain_lyrics(monkeypatch):
+    import backend.services.lyrics as lyrics_mod
+
+    monkeypatch.setattr(LyricsService, "_fetch_from_lrclib", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        lyrics_mod.syncedlyrics, "search", lambda query: "[Chorus]\nFirst line\nSecond line\n"
+    )
+    res = LyricsService().fetch_lyrics("Song", "Artist")
+    assert (res["source"], res["synced"], res["lrc"]) == ("syncedlyrics", False, "")
+    assert [line["text"] for line in res["lines"]] == ["First line", "Second line"]
+    assert all(line["start_time"] == 0.0 for line in res["lines"])
+
+    monkeypatch.setattr(
+        lyrics_mod.syncedlyrics, "search", lambda query: "[00:01.00] One\n[00:03.00] Two\n"
+    )
+    res = LyricsService().fetch_lyrics("Song", "Artist")
+    assert (res["source"], res["synced"]) == ("syncedlyrics", True)
+    assert [line["start_time"] for line in res["lines"]] == [1.0, 3.0]

@@ -56,10 +56,6 @@ class TestNoisyPhraseOnsets:
         assert snapped_s >= 0.0
         assert snapped_s < refined[0]["end_time"]
 
-    @pytest.mark.xfail(
-        reason="RMS energy without voiced/harmonic gating snaps to pre-vocal breath noise",
-        strict=False,
-    )
     def test_breath_noise_mae_target(self):
         """Verifies whether breath noise causes onset error to exceed the 120ms MAE target."""
         sr = 44100
@@ -200,10 +196,6 @@ class TestLaggingLineStarts:
         )
         # Check if error <= 120ms
 
-    @pytest.mark.xfail(
-        reason="Bug in aligner.py line 416: 'first_act_idx > 0' check prevents snapping to onset at t=0.0s",
-        strict=False,
-    )
     def test_lagging_start_when_onset_at_zero_mae_target(self):
         """Verifies whether lagging start snaps to onset when singing begins at t=0.00s."""
         sr = 44100
@@ -279,10 +271,6 @@ class TestDelayedAndPrematureLineEnds:
         )
         assert snapped_e >= refined[0]["start_time"]
 
-    @pytest.mark.xfail(
-        reason="aligner.py line 422 does not search forward past raw_e to extend clipped sustained notes",
-        strict=False,
-    )
     def test_premature_line_end_clipped_sustained_note_mae_target(self):
         """Verifies whether line end extends to true release when singer sustains note past raw_e."""
         sr = 44100

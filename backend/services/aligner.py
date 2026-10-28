@@ -10,6 +10,106 @@ import soundfile as sf
 logger = logging.getLogger(__name__)
 
 
+# Plain-lyrics fallback layout (no usable audio): sung duration per unit of line weight
+# (roughly syllables * 3 + letters * 0.2), the shortest line, and the pause between lines
+FALLBACK_SECONDS_PER_WEIGHT = 0.12
+FALLBACK_MIN_LINE_SEC = 1.0
+FALLBACK_LINE_GAP = 0.3
+# Samples per block when summing frame energies (8 MB of float64 at a time)
+_ENERGY_BLOCK = 1 << 20
+# Frames per FFT batch in whole-track voicing analysis
+_FFT_BATCH = 2048
+
+
+def _frame_mean_square(
+    mono: np.ndarray, frame_len: int, hop_len: int, num_frames: int
+) -> np.ndarray:
+    """Mean square of each frame (frames start every hop_len samples) as float32.
+
+    Same result as differencing a running sum of squares over the whole track, but the
+    sum is built a block at a time and only read at frame boundaries, so no track-sized
+    float64 array is allocated (that allocation dominated alignment time on long songs).
+    """
+    starts = np.arange(num_frames, dtype=np.int64) * hop_len
+    ends = starts + frame_len
+    return (
+        (_running_square_sum_at(mono, ends) - _running_square_sum_at(mono, starts)) / frame_len
+    ).astype(np.float32)
+
+
+def _signal_variance(signal: np.ndarray) -> float:
+    """Variance of a whole track, accumulated in float64 a block at a time (no full-size
+    temporary, unlike np.var)."""
+    n = signal.size
+    if n == 0:
+        return 0.0
+    total = total_sq = 0.0
+    for start in range(0, n, _ENERGY_BLOCK):
+        block = np.asarray(signal[start : start + _ENERGY_BLOCK], dtype=np.float64)
+        total += float(block.sum())
+        total_sq += float(np.dot(block, block))
+    mean = total / n
+    return max(0.0, total_sq / n - mean * mean)
+
+
+def _running_square_sum_at(signal: np.ndarray, positions: np.ndarray) -> np.ndarray:
+    """sum(signal[:p] ** 2) for each p of the ascending ``positions``."""
+    out = np.zeros(len(positions), dtype=np.float64)
+    carry = 0.0
+    done = 0
+    for block_start in range(0, len(signal), _ENERGY_BLOCK):
+        block = signal[block_start : block_start + _ENERGY_BLOCK]
+        block_end = block_start + len(block)
+        running = np.cumsum(np.square(block, dtype=np.float64))
+        upto = int(np.searchsorted(positions, block_end, side="right"))
+        if upto > done:
+            offsets = positions[done:upto] - block_start
+            inside = offsets > 0
+            out[done:upto] = carry
+            out[done:upto][inside] += running[offsets[inside] - 1]
+            done = upto
+        carry += float(running[-1])
+    out[done:] = carry
+    return out
+
+
+def _voicing_features(
+    mono: np.ndarray, sample_rate: int, frame_length: int, hop_length: int, num_frames: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Per-frame voicing evidence for whole-track phrase detection: the autocorrelation peak
+    in the 80-500 Hz pitch range (periodicity) and the share of energy above 3 kHz.
+
+    Frames are transformed _FFT_BATCH at a time; doing the whole song at once needed about
+    1 GB for a four-minute track. Each frame's values are the same either way.
+    """
+    max_lag = int(sample_rate / 80)
+    n_fft = max(1024, 1 << int(np.ceil(np.log2(frame_length + max_lag))))
+    frames = np.lib.stride_tricks.as_strided(
+        mono,
+        shape=(num_frames, frame_length),
+        strides=(mono.strides[0] * hop_length, mono.strides[0]),
+    )
+    window = np.hanning(frame_length).astype(np.float32)
+    lag_min = max(1, int(sample_rate / 500))
+    lag_max = min(n_fft // 2, max_lag)
+    high_band = np.fft.rfftfreq(n_fft, 1.0 / sample_rate) > 3000.0
+    periodicity = np.zeros(num_frames, dtype=np.float64)
+    hf_ratio = np.zeros(num_frames, dtype=np.float64)
+    for start in range(0, num_frames, _FFT_BATCH):
+        batch = frames[start : start + _FFT_BATCH]
+        stop = start + len(batch)
+        power = np.abs(np.fft.rfft(batch * window, n=n_fft, axis=-1)) ** 2
+        if lag_max > lag_min:
+            autocorr = np.fft.irfft(power, n=n_fft, axis=-1)
+            periodicity[start:stop] = np.max(autocorr[:, lag_min:lag_max], axis=-1) / np.maximum(
+                1e-9, autocorr[:, 0]
+            )
+        hf_ratio[start:stop] = np.sum(power[:, high_band], axis=-1) / (
+            np.sum(power, axis=-1) + 1e-9
+        )
+    return periodicity, hf_ratio
+
+
 def _safe_float(val: Any, default: float = 0.0) -> float:
     """Safely converts val to a finite float, falling back to default if None, non-finite, or invalid."""
     if val is None:
@@ -205,7 +305,7 @@ def estimate_global_offset(
         mono = mono / mono_max
 
     # Pure silence or DC check
-    if float(np.var(mono)) < 1e-6:
+    if _signal_variance(mono) < 1e-6:
         return 0.0, 0.0
 
     dt = 0.02  # 50 Hz analysis grid
@@ -394,7 +494,7 @@ def refine_line_boundaries(
         mono = np.nan_to_num(mono, nan=0.0, posinf=0.0, neginf=0.0).astype(np.float32)
 
     # Pure silence or invalid sample rate fallback
-    if len(mono) == 0 or sample_rate <= 0 or float(np.var(mono)) < 1e-7:
+    if len(mono) == 0 or sample_rate <= 0 or _signal_variance(mono) < 1e-7:
         sanitized: list[dict[str, Any]] = []
         cur_t = 0.0
         for line in lines:
@@ -425,10 +525,7 @@ def refine_line_boundaries(
             sanitized.append(l_copy)
         return sanitized
 
-    starts = np.arange(num_frames) * hop_len
-    ends = starts + frame_len
-    cum_sq = np.concatenate(([0.0], np.cumsum(mono**2, dtype=np.float64)))
-    energy = ((cum_sq[ends] - cum_sq[starts]) / frame_len).astype(np.float32)
+    energy = _frame_mean_square(mono, frame_len, hop_len, num_frames)
     rms = np.sqrt(np.maximum(0.0, energy))
     max_rms = float(np.max(rms))
 
@@ -661,11 +758,16 @@ def align_words_spectral(
     if sample_rate <= 0 or audio_segment is None:
         return _proportional_fallback()
 
-    # Pre-slice audio_segment if it represents full track to avoid heavy array operations
+    # Pre-slice audio_segment if it represents full track to avoid heavy array operations.
+    # Audio clearly longer than the line is the whole track even when the line runs past its
+    # end (a final line's LRC end often does); treating it as line-local would align the line
+    # against the start of the song.
     n_samples = audio_segment.shape[0] if audio_segment.ndim >= 1 else 0
     audio_dur = n_samples / sample_rate
     pad_sec = 0.08
-    if audio_dur >= l_end - 0.02:
+    if audio_dur >= l_end - 0.02 or audio_dur > (l_end - l_start) + 0.5:
+        if l_start >= audio_dur:
+            return _proportional_fallback()
         s_sample = max(0, round((l_start - pad_sec) * sample_rate))
         e_sample = min(n_samples, round((l_end + pad_sec) * sample_rate))
         raw_seg = audio_segment[s_sample:e_sample]
@@ -936,10 +1038,12 @@ class AudioAligner:
         if not lines:
             return []
 
+        duration: float | None = None
         try:
             # 1. Read vocals audio safely
             try:
-                audio_data, sample_rate = sf.read(vocals_path)
+                # float32 halves the decode buffer; the analysis below runs in float32 anyway
+                audio_data, sample_rate = sf.read(vocals_path, dtype="float32")
             except Exception as read_err:
                 logger.warning(
                     f"Failed to read vocal audio from {vocals_path}: {read_err}. Falling back to default timing."
@@ -951,18 +1055,22 @@ class AudioAligner:
 
             # 2. Resilient stereo / multichannel to mono conversion (vectorized fast path)
             if audio_data.ndim == 2:
-                mono_audio = (
-                    audio_data[:, 0] if audio_data.shape[1] == 1 else np.mean(audio_data, axis=-1)
-                )
+                if audio_data.shape[1] == 1:
+                    mono_audio = audio_data[:, 0]
+                elif audio_data.shape[1] == 2:
+                    # Same values as np.mean(axis=-1), without a slow strided reduction
+                    mono_audio = (audio_data[:, 0] + audio_data[:, 1]) * np.float32(0.5)
+                else:
+                    mono_audio = np.mean(audio_data, axis=-1)
             elif audio_data.ndim > 2:
                 mono_audio = np.mean(audio_data, axis=-1)
             else:
                 mono_audio = audio_data
 
-            # Sanitize any NaN or Inf values from corrupted decodes
-            mono_audio = np.nan_to_num(mono_audio, nan=0.0, posinf=0.0, neginf=0.0).astype(
-                np.float32
-            )
+            # Sanitize any NaN or Inf values from corrupted decodes (only copy when needed)
+            mono_audio = np.asarray(mono_audio, dtype=np.float32)
+            if not np.isfinite(mono_audio).all():
+                mono_audio = np.nan_to_num(mono_audio, nan=0.0, posinf=0.0, neginf=0.0)
             duration = float(len(mono_audio) / sample_rate) if len(mono_audio) > 0 else 0.0
 
             logger.info(
@@ -979,20 +1087,16 @@ class AudioAligner:
                 # Calculate short-time RMS energy (frame size = 20ms, hop size = 10ms)
                 frame_length = max(1, int(0.02 * sample_rate))
                 hop_length = max(1, int(0.01 * sample_rate))
-                sq_audio = mono_audio**2
 
                 # Guard against empty audio: prevent np.mean([]) warnings and NaN propagation
-                if len(sq_audio) == 0:
+                if len(mono_audio) == 0:
                     norm_energy = np.zeros(0, dtype=np.float32)
-                elif len(sq_audio) < frame_length:
-                    avg_val = float(np.mean(sq_audio)) if len(sq_audio) > 0 else 0.0
+                elif len(mono_audio) < frame_length:
+                    avg_val = float(np.mean(np.square(mono_audio)))
                     norm_energy = np.array([avg_val], dtype=np.float32)
                 else:
-                    num_frames = max(1, (len(sq_audio) - frame_length) // hop_length)
-                    cum_sq = np.concatenate(([0.0], np.cumsum(sq_audio, dtype=np.float64)))
-                    starts = np.arange(num_frames) * hop_length
-                    ends = starts + frame_length
-                    energy = ((cum_sq[ends] - cum_sq[starts]) / frame_length).astype(np.float32)
+                    num_frames = max(1, (len(mono_audio) - frame_length) // hop_length)
+                    energy = _frame_mean_square(mono_audio, frame_length, hop_length, num_frames)
 
                     # Smooth energy envelope if sufficient frames exist
                     if len(energy) >= 5:
@@ -1012,28 +1116,9 @@ class AudioAligner:
                 phrases_energy = norm_energy
                 if len(mono_audio) >= frame_length and num_frames > 0:
                     try:
-                        max_lag_u = int(sample_rate / 80)
-                        n_fft_u = max(1024, 1 << int(np.ceil(np.log2(frame_length + max_lag_u))))
-                        shape_u = (num_frames, frame_length)
-                        strides_u = (mono_audio.strides[0] * hop_length, mono_audio.strides[0])
-                        frames_u = np.lib.stride_tricks.as_strided(
-                            mono_audio, shape=shape_u, strides=strides_u
+                        per_u, hf_ratio_u = _voicing_features(
+                            mono_audio, sample_rate, frame_length, hop_length, num_frames
                         )
-                        win_u = np.hanning(frame_length).astype(np.float32)
-                        spec_u = np.fft.rfft(frames_u * win_u, n=n_fft_u, axis=-1)
-                        mag_u = np.abs(spec_u)
-                        R_u = np.fft.irfft(mag_u**2, n=n_fft_u, axis=-1)
-                        r0_u = np.maximum(1e-9, R_u[:, 0])
-                        lag_min_u = max(1, int(sample_rate / 500))
-                        lag_max_u = min(n_fft_u // 2, max_lag_u)
-                        if lag_max_u > lag_min_u:
-                            per_u = np.max(R_u[:, lag_min_u:lag_max_u], axis=-1) / r0_u
-                        else:
-                            per_u = np.zeros(num_frames, dtype=np.float32)
-                        freqs_u = np.fft.rfftfreq(n_fft_u, 1.0 / sample_rate)
-                        tot_pow_u = np.sum(mag_u**2, axis=-1) + 1e-9
-                        hf_pow_u = np.sum(mag_u[:, freqs_u > 3000.0] ** 2, axis=-1)
-                        hf_ratio_u = hf_pow_u / tot_pow_u
                         is_voiced_u = (per_u >= 0.28) & (hf_ratio_u < 0.60) & (norm_energy > 0.05)
                         if np.sum(is_voiced_u) > 5:
                             if len(is_voiced_u) >= 3:
@@ -1182,191 +1267,42 @@ class AudioAligner:
 
         except Exception as e:
             logger.error(f"Error during audio alignment: {e}", exc_info=True)
-            return self._fallback_distribute_words(lines)
+            return self._fallback_distribute_words(lines, duration)
 
-    def _align_line_words(
-        self,
-        words: list[str],
-        l_start: float,
-        l_end: float,
-        norm_energy: np.ndarray,
-        sample_rate: int,
-        hop_length: int,
+    def _fallback_distribute_words(
+        self, lines: list[dict[str, Any]], duration: float | None = None
     ) -> list[dict[str, Any]]:
         """
-        Aligns words within a line window using acoustic energy envelopes, rule-based
-        syllable weighting, intra-line vocal pause detection, and termination snapping.
-        """
-        n_words = len(words)
-        if n_words == 0:
-            return []
-
-        weights = [calculate_word_weight(w) for w in words]
-
-        # Extract energy slice for this line window
-        if len(norm_energy) > 0 and sample_rate > 0 and hop_length > 0:
-            f_start = int((l_start * sample_rate) / hop_length)
-            f_end = int((l_end * sample_rate) / hop_length)
-            f_start = max(0, min(len(norm_energy) - 1, f_start))
-            f_end = max(f_start + 1, min(len(norm_energy), f_end))
-            line_energy = norm_energy[f_start:f_end]
-        else:
-            line_energy = np.zeros(0, dtype=np.float32)
-
-        peak_e = float(np.max(line_energy)) if len(line_energy) > 0 else 0.0
-        floor_e = float(np.percentile(line_energy, 10)) if len(line_energy) > 0 else 0.0
-        delta_e = peak_e - floor_e
-
-        # Fallback if audio is silent or energy is flat
-        if delta_e < 0.01:
-            tot_w = sum(weights)
-            tot_dur = max(0.1, l_end - l_start)
-            raw_spans = []
-            cur_t = l_start
-            for wt in weights:
-                dur = tot_dur * (wt / tot_w) if tot_w > 0 else tot_dur / n_words
-                raw_spans.append((cur_t, cur_t + dur))
-                cur_t += dur
-            return enforce_monotonic_words(words, raw_spans, l_start, l_end)
-
-        t_active = floor_e + 0.08 * delta_e
-        is_active = line_energy > t_active
-
-        if not np.any(is_active):
-            tot_w = sum(weights)
-            tot_dur = max(0.1, l_end - l_start)
-            raw_spans = []
-            cur_t = l_start
-            for wt in weights:
-                dur = tot_dur * (wt / tot_w) if tot_w > 0 else tot_dur / n_words
-                raw_spans.append((cur_t, cur_t + dur))
-                cur_t += dur
-            return enforce_monotonic_words(words, raw_spans, l_start, l_end)
-
-        padded = np.pad(is_active.astype(np.int8), (1, 1), mode="constant")
-        diff = np.diff(padded)
-        s_fr = np.where(diff == 1)[0]
-        e_fr = np.where(diff == -1)[0]
-        runs = [
-            (
-                float(l_start + s * hop_length / sample_rate),
-                float(l_start + e * hop_length / sample_rate),
-            )
-            for s, e in zip(s_fr, e_fr, strict=False)
-        ]
-
-        # Bridge micro-pauses (< 0.20s)
-        min_pause = 0.20
-        bridged_runs: list[tuple[float, float]] = []
-        cur_s, cur_e = runs[0]
-        for next_s, next_e in runs[1:]:
-            if next_s - cur_e < min_pause:
-                cur_e = max(cur_e, next_e)
-            else:
-                bridged_runs.append((cur_s, cur_e))
-                cur_s, cur_e = next_s, next_e
-        bridged_runs.append((cur_s, cur_e))
-
-        # Add 80ms release hangover tail
-        hangover = 0.08
-        bursts: list[tuple[float, float]] = []
-        for b_s, b_e in bridged_runs:
-            bursts.append((b_s, min(l_end, b_e + hangover)))
-
-        # Evaluate trailing silence on last burst: snap if >= 0.25s, else stretch to l_end
-        trailing_silence = l_end - bursts[-1][1]
-        if trailing_silence < 0.25:
-            bursts[-1] = (bursts[-1][0], l_end)
-
-        # Evaluate leading silence on first burst: snap to l_start if < 0.20s
-        leading_silence = bursts[0][0] - l_start
-        if leading_silence < 0.20:
-            bursts[0] = (l_start, bursts[0][1])
-
-        # Resolve any accidental overlaps between bursts caused by hangover
-        clean_bursts: list[tuple[float, float]] = []
-        for b_s, b_e in bursts:
-            if clean_bursts and b_s < clean_bursts[-1][1]:
-                clean_bursts[-1] = (clean_bursts[-1][0], max(clean_bursts[-1][1], b_e))
-            else:
-                clean_bursts.append((b_s, b_e))
-        bursts = clean_bursts
-
-        # If more bursts than words, merge closest bursts until B <= n_words
-        while len(bursts) > n_words:
-            min_gap_idx = 0
-            min_gap = bursts[1][0] - bursts[0][1]
-            for idx in range(1, len(bursts) - 1):
-                gap = bursts[idx + 1][0] - bursts[idx][1]
-                if gap < min_gap:
-                    min_gap = gap
-                    min_gap_idx = idx
-            merged = (bursts[min_gap_idx][0], bursts[min_gap_idx + 1][1])
-            bursts = [*bursts[:min_gap_idx], merged, *bursts[min_gap_idx + 2 :]]
-
-        num_bursts = len(bursts)
-        d_k_list = [max(0.01, b[1] - b[0]) for b in bursts]
-        d_tot = sum(d_k_list)
-        w_tot = sum(weights)
-
-        # Partition words across bursts
-        if num_bursts == 1:
-            splits = [0, n_words]
-        elif num_bursts == n_words:
-            splits = list(range(n_words + 1))
-        else:
-            p_weights = [0.0] * (n_words + 1)
-            for j in range(n_words):
-                p_weights[j + 1] = p_weights[j] + weights[j]
-            targets = [w_tot * (d / d_tot) for d in d_k_list]
-            dp = np.full((n_words + 1, num_bursts + 1), np.inf, dtype=np.float64)
-            parent = np.full((n_words + 1, num_bursts + 1), -1, dtype=np.int32)
-            dp[0, 0] = 0.0
-            for k in range(1, num_bursts + 1):
-                target = targets[k - 1]
-                for i in range(k, n_words - (num_bursts - k) + 1):
-                    for j in range(k - 1, i):
-                        block_w = p_weights[i] - p_weights[j]
-                        cost = dp[j, k - 1] + (block_w - target) ** 2
-                        if cost < dp[i, k]:
-                            dp[i, k] = cost
-                            parent[i, k] = j
-            curr = n_words
-            splits = [n_words]
-            for k in range(num_bursts, 0, -1):
-                prev = int(parent[curr, k])
-                splits.append(prev)
-                curr = prev
-            splits.reverse()
-
-        raw_spans: list[tuple[float, float]] = []
-        for k in range(num_bursts):
-            w_slice = weights[splits[k] : splits[k + 1]]
-            b_s, b_e = bursts[k]
-            d_burst = max(0.01, b_e - b_s)
-            w_slice_tot = sum(w_slice)
-            cur_t = b_s
-            for widx, wt in enumerate(w_slice):
-                dur = d_burst * (wt / w_slice_tot) if w_slice_tot > 0 else d_burst / len(w_slice)
-                w_start = cur_t
-                w_end = cur_t + dur
-                if widx == len(w_slice) - 1:
-                    w_end = b_e
-                raw_spans.append((w_start, w_end))
-                cur_t = w_end
-
-        return enforce_monotonic_words(words, raw_spans, l_start, l_end)
-
-    def _fallback_distribute_words(self, lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """
         Graceful fallback when audio analysis fails: distributes words proportionally across line timestamps.
+
+        Untimed (plain) lines are laid out one after another, sized by their syllables and
+        stretched over the track when its duration is known, instead of all landing on 0-1s.
         """
+        seconds_per_weight = FALLBACK_SECONDS_PER_WEIGHT
+        untimed = [
+            line
+            for line in lines
+            if _is_zero(line.get("start_time")) and _is_zero(line.get("end_time"))
+        ]
+        if untimed and duration and duration > 1.0 and len(untimed) == len(lines):
+            total = sum(self._compute_line_weight(line) for line in lines)
+            gaps = FALLBACK_LINE_GAP * max(0, len(lines) - 1)
+            seconds_per_weight = max(0.01, (duration * 0.95 - gaps) / max(total, 1.0))
+
         fallback_lines = []
+        cursor = 0.0
         for line in lines:
-            l_start = _safe_float(line.get("start_time"), 0.0)
-            l_end = _safe_float(line.get("end_time"), l_start + 4.0)
+            if _is_zero(line.get("start_time")) and _is_zero(line.get("end_time")):
+                l_start = cursor
+                l_end = l_start + max(
+                    FALLBACK_MIN_LINE_SEC, self._compute_line_weight(line) * seconds_per_weight
+                )
+            else:
+                l_start = _safe_float(line.get("start_time"), 0.0)
+                l_end = _safe_float(line.get("end_time"), l_start + 4.0)
             if l_end <= l_start:
                 l_end = l_start + 1.0
+            cursor = l_end + FALLBACK_LINE_GAP
 
             text = str(line.get("text", "")).strip()
             text = re.sub(

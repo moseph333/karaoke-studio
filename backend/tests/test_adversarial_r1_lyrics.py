@@ -209,9 +209,9 @@ def test_rank_candidates_deterministic_tie_breaking():
 # ==============================================================================
 
 
-def test_parse_lrc_negative_offset_header_clamped_at_zero():
-    """Negative offset headers [offset:-10000] shift timestamps and clamp at 0.0."""
-    lrc = """[offset:-10000]
+def test_parse_lrc_large_offset_header_clamped_at_zero():
+    """A large positive offset [offset:10000] moves lyrics 10s sooner and clamps at 0.0."""
+    lrc = """[offset:10000]
 [00:05.00]First line
 [00:15.00]Second line
 """
@@ -230,9 +230,9 @@ def test_parse_lrc_negative_offset_header_clamped_at_zero():
             assert w["end_time"] >= 0.0
 
 
-def test_parse_lrc_huge_positive_offset_header():
-    """Huge positive offset headers [offset:+600000] shift all timestamps safely."""
-    lrc = """[offset:+600000]
+def test_parse_lrc_huge_negative_offset_header():
+    """A huge negative offset [offset:-600000] delays all timestamps safely."""
+    lrc = """[offset:-600000]
 [00:05.00]First line
 [00:15.00]Second line
 """
