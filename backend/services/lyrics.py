@@ -11,6 +11,31 @@ import syncedlyrics
 
 logger = logging.getLogger(__name__)
 
+# Section labels that pasted lyrics often carry ("[Verse 1]", "(Chorus x2)", "Bridge:").
+# Bracketed labels may name a performer ("[Verse 2: Artist]"); the less distinctive words
+# (drop, break, solo...) only count when bracketed, so a sung "Drop" line survives.
+_SECTION_WORDS = (
+    r"verse|chorus|pre[- ]?chorus|post[- ]?chorus|bridge|intro|outro|hook|refrain|interlude"
+)
+_BRACKET_ONLY_WORDS = (
+    r"instrumental|breakdown|drop|break|solo|guitar solo|coda|vamp|tag|skit|spoken"
+)
+_SECTION_SUFFIX = r"(?:\s*\d+|\s+[ivx]+)?(?:\s*(?:[x\u00d7]\s*\d+|\d+\s*[x\u00d7]))?"
+_SECTION_HEADING = re.compile(
+    rf"^\s*(?:[\[\(\{{]\s*(?:{_SECTION_WORDS}|{_BRACKET_ONLY_WORDS}){_SECTION_SUFFIX}"
+    rf"\s*(?:[:\-\u2013][^\]\)\}}]*)?[\]\)\}}]"
+    rf"|(?:{_SECTION_WORDS}){_SECTION_SUFFIX}\s*:?)\s*$",
+    re.IGNORECASE,
+)
+
+
+SYNCEDLYRICS_TIMEOUT_SEC = 6.0
+
+
+def is_section_heading(line: str) -> bool:
+    """True for a line that only labels a song section, such as "[Chorus]" or "Verse 2:"."""
+    return bool(_SECTION_HEADING.match(line or ""))
+
 
 class LyricsNormalizer:
     """Normalizes noisy track titles and artist names to canonical search queries."""
@@ -271,29 +296,47 @@ class LyricsService:
             return lrclib_res
 
         # 2. Try syncedlyrics library with strict timeout
+        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import TimeoutError as FuturesTimeout
+
+        query = f"{clean_artist} - {clean_title}"
+        # Not a `with` block: leaving one waits for the search to finish, which defeated the
+        # timeout. A late result is simply dropped.
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="syncedlyrics")
         try:
-            from concurrent.futures import ThreadPoolExecutor
-            from concurrent.futures import TimeoutError as FuturesTimeout
+            future = executor.submit(syncedlyrics.search, query)
+            lrc_content = future.result(timeout=SYNCEDLYRICS_TIMEOUT_SEC)
 
-            query = f"{clean_artist} - {clean_title}"
-            with ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(syncedlyrics.search, query)
-                lrc_content = future.result(timeout=6.0)
-
-            if lrc_content:
-                parsed_lines = self.parse_lrc(lrc_content)
-                plain = "\n".join(line["text"] for line in parsed_lines)
-                return {
-                    "source": "syncedlyrics",
-                    "synced": True,
-                    "plain_lyrics": plain,
-                    "lrc": lrc_content,
-                    "lines": parsed_lines,
-                }
+            if isinstance(lrc_content, str) and lrc_content.strip():
+                if self.is_lrc(lrc_content):
+                    parsed_lines = self.parse_lrc(lrc_content)
+                    if parsed_lines:
+                        return {
+                            "source": "syncedlyrics",
+                            "synced": True,
+                            "plain_lyrics": "\n".join(line["text"] for line in parsed_lines),
+                            "lrc": lrc_content,
+                            "lines": parsed_lines,
+                        }
+                else:
+                    # Some providers only have untimed lyrics: align them like pasted text
+                    plain_lines = self.parse_plain_text(lrc_content)
+                    if plain_lines:
+                        return {
+                            "source": "syncedlyrics",
+                            "synced": False,
+                            "plain_lyrics": lrc_content.strip(),
+                            "lrc": "",
+                            "lines": plain_lines,
+                        }
         except FuturesTimeout:
-            logger.warning(f"syncedlyrics search timed out after 6 seconds for {query}")
+            logger.warning(
+                f"syncedlyrics search timed out after {SYNCEDLYRICS_TIMEOUT_SEC:g} seconds for {query}"
+            )
         except Exception as e:
             logger.warning(f"syncedlyrics search failed: {e}")
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
 
         return {"source": "none", "synced": False, "plain_lyrics": "", "lrc": "", "lines": []}
 
@@ -823,7 +866,8 @@ class LyricsService:
         word_tag_pattern = re.compile(r"<(\d{1,4}):(\d{2})(?:\.(\d{1,3}))?>")
         offset_pattern = re.compile(r"^\[offset:\s*([+-]?\d+)\s*\]", re.IGNORECASE | re.MULTILINE)
 
-        # Extract [offset:+/-ms] header if present
+        # [offset:+/-ms] header. LRC convention: a positive offset makes the lyrics appear
+        # sooner, so it is subtracted from every timestamp.
         offset_sec = 0.0
         offset_match = offset_pattern.search(lrc_text)
         if offset_match:
@@ -875,7 +919,7 @@ class LyricsService:
                 divisor = (10 ** len(frac)) if frac else 1
                 frac_val = (int(frac) / divisor) if frac else 0.0
                 timestamp = int(minutes) * 60 + int(seconds) + frac_val
-                adj_timestamp = round(max(0.0, timestamp + offset_sec), 3)
+                adj_timestamp = round(max(0.0, timestamp - offset_sec), 3)
                 parsed_entries.append((adj_timestamp, clean_text, body))
 
         # Sort entries chronologically to handle multi-timestamp or out-of-order lines
@@ -906,7 +950,7 @@ class LyricsService:
                     divisor = (10 ** len(frac)) if frac else 1
                     frac_val = (int(frac) / divisor) if frac else 0.0
                     raw_ts = int(mins) * 60 + int(secs) + frac_val
-                    ts = round(max(0.0, raw_ts + offset_sec), 3)
+                    ts = round(max(0.0, raw_ts - offset_sec), 3)
                     tags.append((ts, tm.start(), tm.end()))
 
                 # Text before the first tag
@@ -1106,9 +1150,14 @@ class LyricsService:
 
     @staticmethod
     def parse_plain_text(text: str) -> list[dict[str, Any]]:
-        """Parses plain multiline text into unaligned line items."""
+        """Parses plain multiline text into unaligned line items, skipping section labels
+        such as "[Chorus]" that are not sung."""
         lines = []
-        raw_lines = [line.strip() for line in text.split("\n") if line.strip()]
+        raw_lines = [
+            line.strip()
+            for line in text.split("\n")
+            if line.strip() and not is_section_heading(line)
+        ]
         for idx, line in enumerate(raw_lines):
             words = line.split()
             lines.append(

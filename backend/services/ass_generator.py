@@ -153,6 +153,33 @@ def safe_time(val: Any, default: float = 0.0) -> float:
     return 0.0
 
 
+def _word_sweep_text(words: list, base_cs: int, line_start: float, escape: bool = True) -> str:
+    """Karaoke text with one \\kf sweep per word, placed on absolute centisecond boundaries.
+
+    Silent \\k spacers cover the lead-in and every pause between words, and each boundary is
+    rounded once (not each duration), so the highlight neither runs ahead after a pause nor
+    drifts over a long line.
+    """
+    parts: list[str] = []
+    cursor = base_cs
+    previous_end = line_start
+    for w in words:
+        if not isinstance(w, dict):
+            continue
+        start = safe_time(w.get("start_time"), previous_end)
+        end = safe_time(w.get("end_time"), start + 0.4)
+        start_cs = max(cursor, round(start * 100))
+        end_cs = max(start_cs + 1, round(end * 100))
+        if start_cs > cursor:
+            parts.append(f"{{\\k{start_cs - cursor}}}")
+        raw_word = str(w.get("word") or "")
+        word_text = escape_ass_text(raw_word) if escape else raw_word
+        parts.append(f"{{\\kf{end_cs - start_cs}}}{word_text} ")
+        cursor = end_cs
+        previous_end = max(start, end)
+    return "".join(parts).strip()
+
+
 def format_ass_time(seconds: float) -> str:
     """Converts float seconds to ASS timestamp format: H:MM:SS.cs
 
@@ -479,32 +506,19 @@ def generate_ass_content(
                 else:
                     line_karaoke_text = clean_line_text
             else:
-                # Build line text with \\kf (progressive fill) tags
-                karaoke_text_parts = []
-                if lead_in_cs > 0:
-                    karaoke_text_parts.append(f"{{\\k{lead_in_cs}}}")
-
+                base_cs = round(display_start * 100)  # the event start exactly as written
                 if words:
-                    cur_word_time = l_start
-                    for w in words:
-                        if not isinstance(w, dict):
-                            continue
-                        w_start = safe_time(w.get("start_time"), cur_word_time)
-                        w_end = safe_time(w.get("end_time"), w_start + 0.4)
-                        w_end = max(w_start, w_end)
-                        dur_cs = max(1, round((w_end - w_start) * 100))
-                        raw_word = str(w.get("word") or "")
-                        word_text = escape_ass_text(raw_word)
-
-                        # Use \\kf for smooth progressive sweep
-                        karaoke_text_parts.append(f"{{\\kf{dur_cs}}}{word_text} ")
-                        cur_word_time = w_end
+                    line_karaoke_text = _word_sweep_text(words, base_cs, l_start)
                 elif line.get("text"):
-                    line_dur_cs = max(1, round((l_end - l_start) * 100))
                     escaped_text = escape_ass_text(str(line.get("text") or ""))
-                    karaoke_text_parts.append(f"{{\\kf{line_dur_cs}}}{escaped_text}")
-
-                line_karaoke_text = "".join(karaoke_text_parts).strip()
+                    line_karaoke_text = _word_sweep_text(
+                        [{"word": escaped_text, "start_time": l_start, "end_time": l_end}],
+                        base_cs,
+                        l_start,
+                        escape=False,
+                    )
+                else:
+                    line_karaoke_text = f"{{\\k{lead_in_cs}}}" if lead_in_cs > 0 else ""
 
             ass_content.append(
                 f"Dialogue: 0,{format_ass_time(display_start)},{format_ass_time(display_end)},{style_name},,0,0,0,,{line_karaoke_text}"
