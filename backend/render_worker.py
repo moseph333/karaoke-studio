@@ -181,6 +181,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             include_visualizer=req.include_visualizer,
             include_chords=req.include_chords,
             semitones=req.semitones,
+            background_color=style_cfg.get("background_color"),
         )
 
         proj = get_project_or_404(project_id)

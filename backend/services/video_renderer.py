@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import subprocess
 import threading
 from pathlib import Path
@@ -19,6 +20,22 @@ from backend.services.ass_generator import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_BACKGROUND_COLOR = "0x0f111a"
+
+
+def ffmpeg_color(value: Any, default: str = DEFAULT_BACKGROUND_COLOR) -> str:
+    """Converts a CSS hex color (#RRGGBB or RRGGBB) to FFmpeg's 0xRRGGBB form.
+
+    Anything else falls back to ``default`` so user input never reaches the filter graph.
+    """
+    if not isinstance(value, str):
+        return default
+    hex_part = value.strip().lstrip("#")
+    if re.fullmatch(r"[0-9a-fA-F]{6}", hex_part):
+        return f"0x{hex_part.lower()}"
+    return default
 
 
 class VideoRenderer:
@@ -161,7 +178,8 @@ class VideoRenderer:
             )
         else:
             # Generate ambient dynamic gradient
-            bg_input = ["-f", "lavfi", "-i", f"color=c=0x0f111a:s={width}x{height}"]
+            bg_color = ffmpeg_color(kwargs.get("background_color"))
+            bg_input = ["-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}"]
             filter_bg = "[0:v]null[bg];"
 
         # Combined filter: background + optional audio visualizer + ASS subtitles

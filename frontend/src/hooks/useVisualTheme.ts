@@ -9,7 +9,20 @@
 
 import { useState, useCallback, useMemo, useEffect, useContext, useRef } from 'react';
 import { VisualTheme, SyncDisplayMode } from '../types';
-import { THEMES } from '../theme/stagePresets';
+import {
+  DEFAULT_BOTH_COLOR,
+  DEFAULT_SINGER2_COLOR,
+  THEMES,
+  getStageBackground,
+  getStagePreset,
+} from '../theme/stagePresets';
+import {
+  DEFAULT_STAGE_SETTINGS,
+  StageSettings,
+  StageSize,
+  loadStageSettings,
+  saveStageSettings,
+} from '../theme/stageSettingsStorage';
 import { DEFAULT_APP_THEME_ID, getAppTheme } from '../theme/appThemes';
 import { AppThemeContext } from '../context/AppThemeContext';
 
@@ -61,6 +74,12 @@ export interface UseVisualThemeReturn {
   setCustomSungColor: (color: string | null) => void;
   customUnsungColor: string | null;
   setCustomUnsungColor: (color: string | null) => void;
+  /** Singer 2 sung color override (duets). */
+  customSinger2Color: string | null;
+  setCustomSinger2Color: (color: string | null) => void;
+  /** Sung color override for lines both singers share. */
+  customBothColor: string | null;
+  setCustomBothColor: (color: string | null) => void;
   fontSizeScale: number;
   setFontSizeScale: (scale: number) => void;
   aspectRatio: string;
@@ -69,20 +88,48 @@ export interface UseVisualThemeReturn {
   setCustomBgId: (id: string) => void;
   syncMode: SyncDisplayMode;
   setSyncMode: (mode: SyncDisplayMode) => void;
+  showVisualizer: boolean;
+  setShowVisualizer: (show: boolean) => void;
+  toggleVisualizer: () => void;
+  showChordBar: boolean;
+  setShowChordBar: (show: boolean) => void;
+  toggleChordBar: () => void;
+  /** Desktop stage height budget in the studio layout. */
+  stageSize: StageSize;
+  setStageSize: (size: StageSize) => void;
   resetThemeDefaults: () => void;
   activeSungColor: string;
   activeUnsungColor: string;
+  activeSinger2Color: string;
+  activeBothColor: string;
+  /** Solid stage backdrop behind artwork (also the video's fallback background). */
+  stageBackgroundColor: string;
   /** Uploaded background shown behind the stage lyrics, if any. */
   stageBackground: StageBackgroundMedia | null;
   effectiveTheme: VisualTheme & { font_size_scale: number; sync_mode?: SyncDisplayMode };
 }
 
-export function useVisualTheme(initialTheme?: VisualTheme): UseVisualThemeReturn {
+export interface UseVisualThemeOptions {
+  /** Restore and save the stage settings in localStorage (the studio passes true). */
+  persist?: boolean;
+}
+
+export function useVisualTheme(
+  initialTheme?: VisualTheme,
+  options: UseVisualThemeOptions = {}
+): UseVisualThemeReturn {
+  const { persist = false } = options;
   const appThemeContext = useContext(AppThemeContext);
   const activePresetId = appThemeContext?.theme?.stagePresetId;
 
-  const [selectedTheme, setSelectedTheme] = useState<VisualTheme>(() => {
+  // Saved settings are read once, when the studio mounts
+  const [stored] = useState<StageSettings | null>(() => (persist ? loadStageSettings() : null));
+  const restoredPreset =
+    !initialTheme && stored?.presetSource === 'user' ? getStagePreset(stored.presetId) : undefined;
+
+  const [selectedTheme, setSelectedThemeState] = useState<VisualTheme>(() => {
     if (initialTheme) return initialTheme;
+    if (restoredPreset) return restoredPreset;
     if (appThemeContext && activePresetId) {
       const match = THEMES.find((t) => t.id === activePresetId);
       if (match) return match;
@@ -94,13 +141,27 @@ export function useVisualTheme(initialTheme?: VisualTheme): UseVisualThemeReturn
     }
     return THEMES[0];
   });
+  const [presetSource, setPresetSource] = useState<'user' | 'app'>(restoredPreset ? 'user' : 'app');
 
-  const [customSungColor, setCustomSungColor] = useState<string | null>(null);
-  const [customUnsungColor, setCustomUnsungColor] = useState<string | null>(null);
-  const [fontSizeScale, setFontSizeScale] = useState<number>(1.0);
-  const [aspectRatio, setAspectRatio] = useState<string>('16:9');
-  const [customBgId, setCustomBgId] = useState<string>('');
-  const [syncMode, setSyncMode] = useState<SyncDisplayMode>('word');
+  const seed = stored ?? DEFAULT_STAGE_SETTINGS;
+  const [customSungColor, setCustomSungColor] = useState<string | null>(seed.customSungColor);
+  const [customUnsungColor, setCustomUnsungColor] = useState<string | null>(seed.customUnsungColor);
+  const [customSinger2Color, setCustomSinger2Color] = useState<string | null>(seed.singer2Color);
+  const [customBothColor, setCustomBothColor] = useState<string | null>(seed.bothColor);
+  const [fontSizeScale, setFontSizeScale] = useState<number>(seed.fontSizeScale);
+  const [aspectRatio, setAspectRatio] = useState<string>(seed.aspectRatio);
+  const [customBgId, setCustomBgId] = useState<string>(seed.customBgId);
+  const [syncMode, setSyncMode] = useState<SyncDisplayMode>(seed.syncMode);
+  const [showVisualizer, setShowVisualizer] = useState<boolean>(seed.showVisualizer);
+  const [showChordBar, setShowChordBar] = useState<boolean>(seed.showChordBar);
+  const [stageSize, setStageSize] = useState<StageSize>(seed.stageSize);
+
+  const setSelectedTheme = useCallback((theme: VisualTheme) => {
+    setSelectedThemeState(theme);
+    setPresetSource('user');
+  }, []);
+  const toggleVisualizer = useCallback(() => setShowVisualizer((prev) => !prev), []);
+  const toggleChordBar = useCallback(() => setShowChordBar((prev) => !prev), []);
 
   const prevPresetIdRef = useRef<string | undefined>(activePresetId);
 
@@ -112,19 +173,60 @@ export function useVisualTheme(initialTheme?: VisualTheme): UseVisualThemeReturn
       prevPresetIdRef.current = activePresetId;
       const match = THEMES.find((t) => t.id === activePresetId);
       if (match && match.id !== selectedTheme.id) {
-        setSelectedTheme(match);
+        setSelectedThemeState(match);
       }
+      setPresetSource('app');
     }
   }, [appThemeContext, activePresetId, selectedTheme.id]);
+
+  useEffect(() => {
+    if (!persist) return;
+    saveStageSettings({
+      presetId: selectedTheme.id,
+      presetSource,
+      customSungColor,
+      customUnsungColor,
+      singer2Color: customSinger2Color,
+      bothColor: customBothColor,
+      fontSizeScale,
+      aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9',
+      syncMode,
+      customBgId,
+      showVisualizer,
+      showChordBar,
+      stageSize,
+    });
+  }, [
+    persist,
+    selectedTheme.id,
+    presetSource,
+    customSungColor,
+    customUnsungColor,
+    customSinger2Color,
+    customBothColor,
+    fontSizeScale,
+    aspectRatio,
+    syncMode,
+    customBgId,
+    showVisualizer,
+    showChordBar,
+    stageSize,
+  ]);
 
   const stageBackground = useMemo(() => stageBackgroundFromId(customBgId), [customBgId]);
 
   const activeSungColor = customSungColor ?? selectedTheme.previewSung;
   const activeUnsungColor = customUnsungColor ?? selectedTheme.previewUnsung;
+  const activeSinger2Color =
+    customSinger2Color ?? selectedTheme.singer2Color ?? DEFAULT_SINGER2_COLOR;
+  const activeBothColor = customBothColor ?? selectedTheme.bothColor ?? DEFAULT_BOTH_COLOR;
+  const stageBackgroundColor = getStageBackground(selectedTheme);
 
   const resetThemeDefaults = useCallback(() => {
     setCustomSungColor(null);
     setCustomUnsungColor(null);
+    setCustomSinger2Color(null);
+    setCustomBothColor(null);
     setFontSizeScale(1.0);
     setSyncMode('word');
   }, []);
@@ -178,6 +280,10 @@ export function useVisualTheme(initialTheme?: VisualTheme): UseVisualThemeReturn
     setCustomSungColor,
     customUnsungColor,
     setCustomUnsungColor,
+    customSinger2Color,
+    setCustomSinger2Color,
+    customBothColor,
+    setCustomBothColor,
     fontSizeScale,
     setFontSizeScale,
     aspectRatio,
@@ -186,9 +292,20 @@ export function useVisualTheme(initialTheme?: VisualTheme): UseVisualThemeReturn
     setCustomBgId,
     syncMode,
     setSyncMode,
+    showVisualizer,
+    setShowVisualizer,
+    toggleVisualizer,
+    showChordBar,
+    setShowChordBar,
+    toggleChordBar,
+    stageSize,
+    setStageSize,
     resetThemeDefaults,
     activeSungColor,
     activeUnsungColor,
+    activeSinger2Color,
+    activeBothColor,
+    stageBackgroundColor,
     stageBackground,
     effectiveTheme,
   };

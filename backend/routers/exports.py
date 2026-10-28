@@ -323,6 +323,12 @@ def export_project_ass(
         "word",
         description="Lyric synchronization mode: 'word' or 'line'",
     ),
+    singer2_color: str | None = Query(
+        None, description="Optional Singer 2 sung color (CSS hex or ASS) for duet lines"
+    ),
+    both_color: str | None = Query(
+        None, description="Optional sung color (CSS hex or ASS) for lines sung by both singers"
+    ),
 ):
     """Export synchronized Advanced SubStation Alpha (.ass) subtitles for a project.
 
@@ -419,6 +425,11 @@ def export_project_ass(
         "semitones": semitones,
         "sync_mode": clean_sync_mode,
     }
+    # Duet colors chosen in the stage look panel (the generator falls back to the preset)
+    if singer2_color:
+        style_cfg["singer2_color"] = singer2_color
+    if both_color:
+        style_cfg["both_color"] = both_color
 
     ass_content = main_mod.video_renderer.generate_ass_content(
         lines=lines or [],

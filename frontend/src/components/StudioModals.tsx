@@ -31,6 +31,10 @@ export interface StudioModalsProps {
   onSyncModeChange?: (mode: SyncDisplayMode) => void;
   primaryColor?: string;
   secondaryColor?: string;
+  /** Duet colors and stage backdrop from the Look panel, so exports match the preview. */
+  singer2Color?: string;
+  bothColor?: string;
+  backgroundColor?: string;
   fontSizeScale?: number;
   showAuthModal: boolean;
   onAuthSuccess: (username: string, token: string) => void;
@@ -58,6 +62,9 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   onSyncModeChange,
   primaryColor,
   secondaryColor,
+  singer2Color,
+  bothColor,
+  backgroundColor,
   fontSizeScale,
   showAuthModal,
   onAuthSuccess,
@@ -87,6 +94,9 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
           onSyncModeChange={onSyncModeChange}
           primaryColor={primaryColor}
           secondaryColor={secondaryColor}
+          singer2Color={singer2Color}
+          bothColor={bothColor}
+          backgroundColor={backgroundColor}
           fontSizeScale={fontSizeScale}
         />
       )}
