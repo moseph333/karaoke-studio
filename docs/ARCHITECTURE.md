@@ -1,431 +1,281 @@
-# Karaoke Studio Architecture & Engineering Guide
+# Karaoke Studio 2.0: Architecture
 
-Karaoke Studio is a local-first audio workstation engineered for high-concurrency stem separation, acoustic word alignment, interactive timeline lyric synchronization, and 1080p60 lyric video rendering. This document provides a comprehensive technical overview of system architecture, modular backend and frontend boundaries, request lifecycles, background worker pipelines, state management, and test suite organization.
-
----
-
-## 1. System Overview & Technology Stack
-
-Karaoke Studio combines an asynchronous Python backend built on **FastAPI** with a single-page application (SPA) built with **React 18**, **TypeScript**, and **Tailwind CSS**.
-
-```
-+---------------------------------------------------------------------------------+
-|                                 Browser Client                                  |
-|  React 18 + TypeScript + Tailwind CSS + Wavesurfer.js + Lucide Icons            |
-|  [TrackSearch] <---> [AudioControls] <---> [LyricTimelineEditor] <---> [Modals] |
-+---------------------------------------+-----------------------------------------+
-                                        | HTTP / REST + Static Media Streaming
-                                        v
-+---------------------------------------------------------------------------------+
-|                               FastAPI Backend                                   |
-|  backend/main.py (<300 lines) -> Routers: auth, projects, uploads, exports      |
-|  Middlewares: CORS, Security Headers, Rate Limiting, Session Auth               |
-+-------------------+-----------------------------+-------------------------------+
-                    |                             |
-                    v                             v
-+---------------------------------------+  +--------------------------------------+
-|       Domain & Service Layer          |  |       Concurrency & Persistence      |
-| - AudioSeparator (Demucs v4)          |  | - MAX_CONCURRENT_JOBS Semaphore      |
-| - VocalAnalyzer (YIN F0 / Key Detect) |  | - Cancelable Thread Execution        |
-| - LyricsService (LRCLIB, LRC Parser)  |  | - Atomic JSON Store (projects.json)  |
-| - AudioAligner (Envelope Detection)   |  | - Backup Recovery (.bak file)        |
-| - AudioMixer (FFmpeg DSP Pitch/Blend) |  | - Atomic Disk Cleanup on Deletion    |
-| - VideoRenderer (libass / FFmpeg)     |  +--------------------------------------+
-+---------------------------------------+
-```
-
-### Core Technologies
-- **Backend**: Python 3.10+ / 3.12, FastAPI, Uvicorn, Pydantic v2, `psutil`.
-- **Media DSP & Synthesis**: FFmpeg (with `libass` compiled), Demucs v4 (Hybrid Transformer), `yt-dlp`, `syncedlyrics`, `numpy`, `scipy`.
-- **Frontend**: React 18, TypeScript 5, Vite, Tailwind CSS, Wavesurfer.js, Lucide React.
-- **Verification Tooling**: Vitest, React Testing Library, `pytest`, `pytest-cov`, Ruff, ESLint, Prettier.
-
-### Repository Layout
-```
-├── backend/
-│   ├── main.py                     # Entry point & lifespan (<300 lines)
-│   ├── config.py                   # Environment configuration & constants
-│   ├── schemas.py                  # Pydantic data models & request/response schemas
-│   ├── auth.py                     # HMAC session auth & sliding-window rate limiting
-│   ├── project_store.py            # Atomic JSON persistence & backup recovery
-│   ├── pipeline.py                 # Asynchronous track intake & processing pipeline
-│   ├── render_worker.py            # Asynchronous video render worker
-│   ├── upload_utils.py             # Magic-byte validation & upload helpers
-│   ├── export_utils.py             # RFC 5987 / 6266 Content-Disposition & header helpers
-│   ├── routers/                    # Decomposed API route controllers
-│   │   ├── auth.py                 # Login, session validation, logout
-│   │   ├── projects.py             # Project CRUD, vocal range, smart key, metadata, deletion cleanup
-│   │   ├── uploads.py              # Track intake, local audio upload, background uploads
-│   │   └── exports.py              # Standalone .lrc / .ass exports, YouTube SEO kits
-│   ├── services/                   # Media processing & domain services
-│   │   ├── separator.py            # Demucs v4 stem isolation & pipe buffering
-│   │   ├── vocal_analyzer.py       # YIN F0 pitch tracking, chroma key detection & smart key recommender
-│   │   ├── chord_detector.py       # Harmonic chord progression extraction & transposition
-│   │   ├── lyrics.py               # Multi-stage query normalization, candidate scoring, LRCLIB & LRC parsing
-│   │   ├── aligner.py              # FFT offset recovery, phrase boundary snapping, spectral flux & harmonic DP word alignment
-│   │   ├── audio_mixer.py          # FFmpeg pitch transposition & guide vocal blend
-│   │   ├── video_renderer.py       # FFmpeg video muxing, visualizer compositing & background loop
-│   │   ├── ass_generator.py        # SubStation Alpha (\kf, multi-singer duet, gap countdown) script generation
-│   │   ├── downloader.py           # yt-dlp stream extraction & metadata retrieval
-│   │   └── youtube_uploader.py     # YouTube SEO metadata package generation
-│   └── tests/                      # Python test suites (unit, integration, E2E tiers)
-├── frontend/
-│   ├── src/
-│   │   ├── App.tsx                 # Root coordinator (<450 lines)
-│   │   ├── types.ts                # TypeScript domain models & interfaces
-│   │   ├── api.ts                  # REST API client & auth event bus
-│   │   ├── components/             # Modular React UI components
-│   │   │   ├── TrackSearch.tsx     # Intake coordinator
-│   │   │   │   └── track-search/   # ProjectLibrary.tsx (search/filter/sort), LocalAudioUploader.tsx
-│   │   │   ├── AudioControls.tsx   # Master transport coordinator
-│   │   │   │   └── audio/          # WaveformScrubber, PlaybackSpeed, Volume, Pitch, GuideVocal, VocalRangeRecommenderModal, MixActions, ErrorBanner
-│   │   │   ├── LyricTimelineEditor # Interactive timeline coordinator
-│   │   │   │   └── timeline/       # LineCard, ExpandedWordEditor, DuetAssignmentModal, BatchOffsetModal, TapToSyncBanner, LyricReplacementModal, TimelineModals
-│   │   │   ├── ExportModal.tsx     # Export coordinator
-│   │   │   │   └── export/         # ExportAudioSection.tsx, ExportSubtitleSection.tsx, ExportYouTubeKit.tsx
-│   │   │   ├── BeatVisualizer.tsx  # 60fps HTML5 Canvas & Web Audio AnalyserNode beat visualizer [V]
-│   │   │   ├── VisualThemePicker   # Visual preset, custom color/font scale & background picker
-│   │   │   ├── HelpModal.tsx       # In-app help & keyboard shortcuts guide
-│   │   │   ├── ProcessingView.tsx  # Pipeline progress view
-│   │   │   ├── StudioHeader.tsx    # App navigation bar
-│   │   │   ├── StudioMetaHeader.tsx# Project metadata breadcrumb & edit controls
-│   │   │   ├── StudioModals.tsx    # Global modal dialog container
-│   │   │   ├── LyricDisplay.tsx    # Live synchronized karaoke lyric display, Duet badges, Gap Countdown & Fullscreen TV Stage Mode
-│   │   │   ├── Tooltip.tsx         # Accessible hover/focus tooltips with hotkey badges
-│   │   │   ├── ErrorBoundary.tsx   # React error boundary with auto-recovery
-│   │   │   └── Toast.tsx           # Toast alert system
-│   │   ├── hooks/                  # Custom React hooks
-│   │   │   ├── useKeyboardShortcuts# Global & modal keyboard shortcuts (Space, ←/→, M, F, V, ?)
-│   │   │   ├── useFocusTrap.ts     # Accessible modal focus trapping
-│   │   │   ├── useToast.tsx        # Toast notifications queue
-│   │   │   ├── useInterpolatedTime # 60fps RAF audio playback time sync (playbackRate-aware)
-│   │   │   ├── useLyricEditorState # Timeline line/word editing, duet assignment, batch offset, tap-to-sync & dirty state
-│   │   │   ├── useLyricHistory.ts  # 50-step bounded Undo/Redo history stack (Ctrl+Z / Ctrl+Y)
-│   │   │   ├── useTapCursorHistory # Line & Word Tap-to-Sync cursor state, 50-step history & T hotkey
-│   │   │   ├── useVisualTheme.ts   # Theme presets, custom sung/unsung color overrides & font scaling
-│   │   │   ├── useStudioAudio.ts   # Audio transport, playback speed, volume, mute & Web Audio AnalyserNode state
-│   │   │   ├── useStudioAuth.ts    # Authentication state & session tokens
-│   │   │   └── useTimelineAutoScroll# Smooth active-word auto-scrolling
-│   │   ├── utils/                  # Pure domain utilities (lyrics.ts, tapSync.ts, vocalRange.ts, gapDetection.ts, volumeStorage.ts, audioErrors.ts)
-│   │   └── tests/                  # Vitest component & responsive test suites (63 suites)
-├── docs/                           # Architectural guides & previews
-└── workspace_data/                 # Local data directory (downloads, stems, output)
-```
+This guide explains how Karaoke Studio is put together: the FastAPI backend and its processing pipelines, the background jobs that run on finished songs, the stem separation and lyric sync engines with their worker protocols, and the React frontend with its design system, studio layout and command palette.
 
 ---
 
-## 2. Backend Architecture
-
-The backend was refactored from a monolithic entry point into modular, single-responsibility components adhering strictly to bounded file size guardrails (<=300 lines for `main.py`, <=500 lines for all service and router modules).
-
-### Application Entry Point (`backend/main.py`)
-- **FastAPI Lifespan Context**: Initializes data directories (`downloads/`, `stems/`, `output/`, `temp/`), loads projects from disk on startup, and gracefully shuts down running workers.
-- **Middleware Chain**:
-  1. `SecurityHeadersMiddleware`: Injects defensive HTTP security headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`).
-  2. `CORSMiddleware`: Permits controlled cross-origin requests for local development.
-  3. `SessionAuthMiddleware`: Inspects inbound requests across 5 auth vectors (`X-Session-Token`, `X-App-Password`, `Authorization: Bearer`, and cookies `session_token` / `karaoke_token`).
-- **Global Exception Handlers**: Translates validation errors into structured HTTP 422 JSON responses with sanitized details.
-- **Static Mounts**: Serves static media artifacts (`/downloads`, `/stems`, `/output`) and SPA frontend bundles.
-
-### Modular Routers (`backend/routers/`)
-1. **`routers/auth.py`**:
-   - `POST /api/auth/login`: Authenticates passphrase against `APP_PASSWORD`. On success, issues HMAC-SHA256 signed session token and sets `HttpOnly` cookie. Enforces sliding-window rate limiting (`LOGIN_RATE_LIMIT_MAX_ATTEMPTS` per `LOGIN_RATE_LIMIT_WINDOW_SECONDS`), returning HTTP 429 when exceeded.
-   - `GET /api/auth/status`: Reports authentication mode (`is_authenticated`, `requires_auth`, `configured`).
-   - `POST /api/auth/logout`: Clears session cookies.
-2. **`routers/projects.py`**:
-   - `GET /api/projects`: Lists projects with optional user scoping (`scope=my` or `scope=all`).
-   - `GET /api/project/{project_id}`: Retrieves single project state and metadata.
-   - `GET /api/project/{project_id}/vocal-range` & `POST /api/project/{project_id}/vocal-range`: Computes or returns cached vocal pitch bounds (`Hz` and scientific pitch notation), tessitura, and estimated key from `vocals.wav`, auto-backfilling existing projects without repeating stem separation.
-   - `POST /api/project/{project_id}/recommend-key`: Calculates the cost-minimizing integer semitone offset (`[-12, +12]`) to fit a track's vocal range into a target voice preset or custom note range.
-   - `PATCH /api/project/{project_id}/metadata`: Persists title and artist updates atomically to `projects.json`.
-   - `DELETE /api/project/{project_id}`: Cancels in-flight pipeline or render jobs, removes project and alias entries from `projects.json`, and performs atomic disk cleanup of all audio, stem, and video artifacts across storage directories.
-   - `POST /api/project/{project_id}/lyrics`: Saves edited lyric lines, word tokens, and multi-singer duet assignments (`singer1`, `singer2`, `both`).
-   - `POST /api/project/{project_id}/realign-lyrics`: Replaces project lyrics via custom text/LRC or re-queries LRCLIB, re-running acoustic word alignment against existing `vocals.wav` without repeating stem separation.
-   - `POST /api/project/{project_id}/mix`: Adjusts pitch shift (-12 to +12 semitones) and guide vocal blend (0% to 50%).
-   - `POST /api/project/{project_id}/render`: Queues 1080p60 MP4 video synthesis (supporting aspect ratio, custom theme/colors/font scale, instrumental gap countdown cues, and optional composited beat-reactive audio visualizer).
-   - `POST /api/project/{project_id}/cancel`: Halts active processing or rendering jobs.
-3. **`routers/uploads.py`**:
-   - `POST /api/process`: Ingests YouTube URLs or 11-character video IDs.
-   - `POST /api/upload-audio`: Ingests local audio files (`.mp3`, `.wav`, `.flac`), validating magic bytes and size limits.
-   - `POST /api/upload-background`: Ingests static images (`.jpg`, `.png`, `.webp`) and custom videos (`.mp4`, `.webm`) for video backgrounds.
-   - `GET /api/search`: Queries YouTube tracks via `yt-dlp`.
-4. **`routers/exports.py`**:
-   - `GET /api/project/{project_id}/export/lrc`: Generates standalone `.lrc` subtitle downloads with UTF-8 RFC 5987 headers.
-   - `GET /api/project/{project_id}/export/ass`: Generates SubStation Alpha `.ass` karaoke subtitle files formatted with active visual theme styles, multi-singer duet styles (`KaraokeLineX_Singer2`, `KaraokeLineX_Both`), instrumental gap countdown cues, custom colors, font size scale, and resolution.
-   - `GET /api/project/{project_id}/export/audio/{stem}`: Streams direct audio downloads (`instrumental`, `vocals`, or `master`) with RFC 5987 `Content-Disposition` headers.
-   - `GET /api/project/{project_id}/youtube-kit`: Generates YouTube SEO metadata packages (title, description, tags, timecoded chapters).
-
-### Domain Modules & Services
-- **`backend/project_store.py`**: Thread-safe persistence using `threading.Lock`. Writes are executed atomically by writing to `projects.json.tmp` followed by atomic filesystem replacement (`os.replace`). Creates automated backups in `projects.json.bak` to ensure self-healing recovery if disk corruption occurs.
-- **`backend/pipeline.py`**: Manages the sequential track processing lifecycle in background worker threads, executing:
-  `queued` -> `downloading` -> `separating` -> `aligning` (including vocal range & key extraction) -> `ready` (or `error`).
-- **`backend/render_worker.py`**: Dispatches video rendering jobs guarded by `MAX_CONCURRENT_JOBS` concurrency semaphores.
-- **`services/separator.py` (`AudioSeparator`)**: Wraps Demucs v4 CLI with non-blocking pipe draining to avoid OS subprocess buffer deadlocks. Cleans up intermediate model artifacts (`htdemucs/`) on exit or failure.
-- **`services/vocal_analyzer.py` (`VocalAnalyzer`)**: Performs FFT-accelerated YIN $F_0$ pitch detection with cumulative mean normalization and parabolic interpolation to extract lowest/highest notes, median note, 10th–90th percentile tessitura, and Krumhansl-Schmuckler 12-bin chroma key correlation, plus cost-minimizing semitone transposition recommendations for voice presets (`bass` through `soprano`) or custom note ranges.
-- **`services/lyrics.py` (`LyricsNormalizer`, `LyricsService`)**: Normalizes noisy track/artist metadata (soundtrack/remaster tags, featured artists, unbalanced brackets, swapped `Artist - Title`), executes a 6-stage query fallback ladder against LRCLIB and `syncedlyrics`, ranks candidates by token-set/sequence similarity, line completeness, and duration proximity, and parses LRC timestamps (`[mm:ss.xx]`) and plain text tokens.
-- **`services/aligner.py` (`AudioAligner`)**: Verifies LRC candidates and recovers global timing offsets via zero-mean Pearson FFT cross-correlation with 3-point parabolic interpolation, snaps synced line starts and releases to vocal phrase boundaries while trimming $\ge 1.0\text{s}$ trailing instrumental gaps, partitions untimed plain lyrics across detected vocal phrases (preserving $\ge 1.5\text{s}$ interludes), and computes sub-line word boundaries via vocal-band ($200\text{--}4500\text{Hz}$) STFT log-magnitude spectral flux, voiced harmonic autocorrelation gating, and syllable-aware dynamic programming while enforcing strict monotonic non-overlapping invariants.
-- **`services/audio_mixer.py` (`AudioMixer`)**: Uses FFmpeg `asetrate` / `aresample` filters to shift pitch by semitones without modifying playback tempo, and blends guide vocals over backing tracks.
-- **`services/ass_generator.py`**: Formats Advanced SubStation Alpha scripts with progressive `\kf` syllable wipes, 6 multi-singer duet styles (`KaraokeLineX_Singer1`, `KaraokeLineX_Singer2`, `KaraokeLineX_Both`), `KaraokeCountdown` cues for intro and inter-line gaps ($\ge 4.0\text{s}$), visual color themes, CSS-to-ASS color conversion, font size scaling, and aspect ratio scaling (`1920x1080` for 16:9, `1080x1920` for 9:16).
-- **`services/video_renderer.py` (`VideoRenderer`)**: Executes FFmpeg filtergraphs burning ASS subtitles and optional beat-reactive frequency visualizers onto looped background videos or scaled images, encoding 1080p60 MP4 with 320 kbps AAC audio.
-
----
-
-## 3. Frontend Architecture
-
-The frontend follows a component hierarchy with specialized subdirectories, decoupled custom hooks, and strict accessibility standards.
+## 1. Overview
 
 ```
+┌──────────────────────────────── Browser ────────────────────────────────┐
+│ React 18 + TypeScript + Tailwind (token-driven design system)           │
+│ Library / Processing / Studio: stage, timeline, inspector, transport    │
+│ Command palette · MediaSession · polling (pipeline, render, jobs)       │
+└───────────────┬─────────────────────────────────────────┬───────────────┘
+                │ REST /api/*                              │ media /static/*
+┌───────────────▼─────────────────────────────────────────▼───────────────┐
+│ FastAPI (backend/main.py): auth, security headers, CORS, static mounts  │
+│ Routers: auth · projects · uploads · exports · quality · system         │
+├──────────────────────────────┬──────────────────────────────────────────┤
+│ Pipelines & background jobs  │ Services                                 │
+│ pipeline.py (intake)         │ separator + presets ──► roformer_worker  │
+│ render_worker.py (video)     │ lyric_sync + aligner ─► ctc_align_worker │
+│ reseparation.py (stems)      │ lyrics, chord_detector, vocal_analyzer   │
+│ realignment.py (lyrics)      │ audio_mixer, video_renderer, ass_generator│
+├──────────────────────────────┴──────────────────────────────────────────┤
+│ projects.json (atomic writes, .bak recovery) · stems/ output/ downloads/│
+│ Model folders: TORCH_HOME · AUDIO_SEPARATOR_MODEL_DIR · ALIGNMENT_MODEL_DIR│
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Stack.** Python 3.10+ (3.12 recommended), FastAPI, Pydantic v2, numpy/scipy/soundfile, FFmpeg (libass, Rubber Band, alimiter), yt-dlp, syncedlyrics. PyTorch and torchaudio 2.10+ for Demucs and neural alignment; the optional extras in `backend/requirements-ml.txt` add RoFormer separation (`audio-separator`) and text normalisation (`uroman`, `num2words`). Frontend: React 18, TypeScript (strict), Vite, Tailwind CSS, lucide icons, Vitest and React Testing Library.
+
+### Repository layout
+
+```
+backend/
+  main.py                 app, middleware, static mounts, router wiring, shared singletons
+  config.py               paths (KARAOKE_DATA_DIR), auth and job limits, version
+  schemas.py              Pydantic request and response models with timing validators
+  project_store.py        projects.json persistence, PROJECTS_LOCK, disk cleanup
+  pipeline.py             YouTube and upload intake pipelines
+  render_worker.py        1080p60 video render job
+  background_jobs.py      conflict rules shared by the two jobs below
+  reseparation.py         re-make a finished song's stems (separation_job)
+  realignment.py          re-time a finished song's lyrics in the background (sync_job)
+  routers/                auth, projects, uploads, exports, quality, system
+  services/
+    separation_presets.py   Fast / Balanced / Best plans, availability, estimates
+    separator.py            plan chain with fallback, Demucs and RoFormer runs
+    separation_progress.py  progress parsing for both engines
+    process_watchdog.py     cancel / timeout / stall watchdog for worker processes
+    lyrics.py               LRCLIB, syncedlyrics, LRC and plain-text parsing
+    aligner.py              DSP aligner (envelope, phrase snapping, spectral flux words)
+    lyric_sync.py           sync orchestrator: DSP pass, neural pass, merge, report
+    line_realign.py         re-time one line near its current place
+    lyric_tokenize.py       word tokens (mirrors the frontend) and MMS spelling
+    alignment_config.py     ALIGNMENT_* settings and neural availability
+    sync_confidence.py      per-line confidence from the vocal stem
+    capabilities.py         what this server can run (GET /api/capabilities)
+    audio_mixer.py          key shift, guide vocal blend, preview vs final quality
+    ass_generator.py        SubStation Alpha subtitles (word sweep, duets, countdowns)
+    video_renderer.py       FFmpeg video render with bundled fonts
+    waveform.py             cached waveform peaks for the scrubber
+    chord_detector.py, vocal_analyzer.py, downloader.py, youtube_uploader.py
+  workers/
+    roformer_worker.py      RoFormer separation in its own process
+    ctc_align_worker.py     MMS forced alignment in its own process
+  tools/                  fetch_models, benchmark_sync, benchmark_separation, seed_demo
+  assets/                 bundled Sora fonts and their licence
+  tests/                  pytest suites (unit, route, adversarial, E2E tiers)
 frontend/src/
-├── App.tsx
-│   ├── StudioHeader (Navbar, User Profile, Help '?' trigger)
-│   ├── TrackSearch (Landing & Intake)
-│   │   ├── ProjectLibrary (Search, status filter, sort, edit metadata, delete)
-│   │   └── LocalAudioUploader (Local audio file drag-and-drop intake)
-│   ├── ProcessingView (Active job progress & error states)
-│   ├── Studio Workspace
-│   │   ├── StudioMetaHeader (Track title, artist, back button, edit)
-│   │   ├── AudioControls (Playback transport)
-│   │   │   ├── WaveformScrubber (Interactive SVG waveform & click/drag seek)
-│   │   │   ├── PlaybackSpeedControl (0.5x..1.5x variable speed selector)
-│   │   │   ├── MasterVolumeControl (Volume slider & mute)
-│   │   │   ├── PitchTranspositionControl (-12..+12 semitones & Smart Key trigger)
-│   │   │   ├── VocalRangeRecommenderModal (Detected vocal range/key, voice presets & 1-click shift)
-│   │   │   ├── GuideVocalControl (0%..50% blend)
-│   │   │   ├── AudioMixActionsBar (Apply mix, reset)
-│   │   │   └── AudioPlaybackErrorBanner (Auto-recovery banner)
-│   │   ├── VisualThemePicker (Preset themes, custom sung/unsung colors, font scaling, Custom BG)
-│   │   ├── LyricTimelineEditor (Word-by-word editor & power tools)
-│   │   │   ├── TimelineLineCard (2-row mobile layout, ±0.2s nudge, singer cycle, edit text, delete)
-│   │   │   ├── ExpandedWordEditor (Sub-line word timing editor)
-│   │   │   ├── DuetAssignmentModal (Range, alternating, and pause-clustering auto-split duet assignment)
-│   │   │   ├── BatchOffsetModal (Shift all or selected-onward timestamps)
-│   │   │   ├── TapToSyncBanner (Live line & word beat-stamping mode [T])
-│   │   │   ├── LyricReplacementModal (In-studio LRC/text upload & LRCLIB re-query)
-│   │   │   └── TimelineModals (Insert line modal, discard confirmation)
-│   │   ├── LyricDisplay (Live karaoke lyric sweep, Duet badges, Gap Countdown & Fullscreen TV Stage Mode [F])
-│   │   │   └── BeatVisualizer (60fps HTML5 Canvas & Web Audio AnalyserNode frequency visualizer [V])
-│   │   └── Tooltip (Accessible hover/focus tooltips with <kbd> hotkey badges)
-│   └── StudioModals (Global dialog manager)
-│       ├── AuthModal (Password login)
-│       ├── ExportModal (MP4 render, visualizer/countdown toggles, stem downloads, .lrc/.ass downloads, YouTube kit)
-│       │   ├── ExportAudioSection (Direct instrumental, vocals, and master audio downloads)
-│       │   ├── ExportSubtitleSection (.lrc / .ass instant export buttons)
-│       │   └── ExportYouTubeKit (SEO title, description, tags, chapters)
-│       ├── HelpModal (In-app usage guide & keyboard shortcuts reference)
-│       ├── EditMetadataModal (Inline title & artist editing)
-│       └── DeleteConfirmModal (Project deletion confirmation)
+  App.tsx                 providers + AppContent (library, processing or studio)
+  types.ts, api.ts
+  theme/                  app themes, stage presets, persisted stage settings
+  context/                AppThemeContext
+  components/
+    ui/                   design-system primitives
+    studio/, transport/, stage/, timeline/, audio/, export/, quality/,
+    commandPalette/, track-search/ and top-level views and dialogs
+  hooks/                  audio, mix, polling, editor, palette, quality and shortcut hooks
+  utils/                  pure helpers (format, lyrics, review, quality, manual edits…)
+  tests/                  Vitest suites
+docs/                     this guide, screenshots
 ```
-
-### State Management & Custom Hooks (`frontend/src/hooks/`)
-- **`useKeyboardShortcuts`**: Manages global hotkeys:
-  - <kbd>Space</kbd>: Play / pause master audio.
-  - <kbd>←</kbd> / <kbd>→</kbd>: Seek backward / forward 5 seconds.
-  - <kbd>M</kbd>: Mute / unmute audio.
-  - <kbd>F</kbd>: Toggle Fullscreen TV Stage Mode.
-  - <kbd>V</kbd>: Toggle Beat-Reactive Audio Visualizer (with explicit `!e.shiftKey` modifier guard).
-  - <kbd>?</kbd> (<kbd>Shift</kbd>+<kbd>/</kbd>): Toggle In-App Help & Usage Guide modal.
-  - Hotkeys are isolated: automatically disabled when focus is inside text inputs (`<input>`, `<textarea>`, `<select>`, `contenteditable`) or when any modal dialog is open.
-- **`useFocusTrap`**: Implements WAI-ARIA dialog focus trapping. Loops <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> within active modal boundaries, restores previous focus on close, and dismisses on <kbd>Escape</kbd>.
-- **`useToast`**: Thread-safe notification system supporting auto-dismiss timers, manual dismissal, and hover-pause timer suspension.
-- **`useInterpolatedTime`**: Runs a `requestAnimationFrame` loop that interpolates audio element `currentTime` (scaled by `playbackRate`) for smooth 60fps lyric sweep highlights without jitter caused by low-frequency `timeupdate` events.
-- **`useTimelineAutoScroll`**: Automatically adjusts `scrollTop` to keep the active highlighted lyric line comfortably visible during continuous playback, yielding cleanly to manual user touch or scroll gestures.
-- **`useLyricEditorState`**: Tracks dirty state (`isDirty`), line insertions, line deletions, timestamp nudging, per-line and bulk/auto Duet singer role assignments (`singer1`, `singer2`, `both`), batch timestamp offsets, live Line and Word Tap-to-Sync stamping (backed by `utils/tapSync.ts`), and automatic word-level timing recalculation.
-- **`useLyricHistory`**: Maintains a bounded 50-step Undo/Redo snapshot history stack with <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> (<kbd>Cmd+Shift+Z</kbd>) keyboard listener integration.
-- **`useTapCursorHistory`**: Coordinates Line and Word Tap-to-Sync mode selection, active target line and word cursor coordinates, a synchronized 50-step Undo/Redo cursor history stack, and isolated <kbd>T</kbd> hotkey handling.
-- **`useVisualTheme`**: Manages visual theme selection, custom sung/unsung hex color overrides, and lyric font size scaling (`0.75x`–`1.5x`).
-- **`useStudioAudio`**: Coordinates audio playback transport, variable `playbackRate` (`0.5x`–`1.5x`), volume clamping, mute state persistence in `localStorage`, and Web Audio `AnalyserNode` binding (`WeakMap<HTMLMediaElement, MediaElementAudioSourceNode>`) for the 60fps `BeatVisualizer`.
-- **`useStudioAuth`**: Manages session token storage, HTTP header injection, and broadcasts unauthorized events (`AUTH_UNAUTHORIZED_EVENT`) to trigger the login modal upon session expiry.
 
 ---
 
-## 4. Request Lifecycle & Background Worker Pipeline
+## 2. Backend
 
-### 4.1 Audio Intake, Stem Separation & Vocal Range Analysis
-1. **Intake Trigger**: User provides a YouTube URL/ID via `TrackSearch` or uploads a local `.mp3`/`.wav`/`.flac` file via `LocalAudioUploader`.
-2. **Validation**: The backend validates URL format or verifies container magic bytes (e.g. `RIFF` for WAV, `ID3` for MP3, `fLaC` for FLAC) and enforces size ceilings (HTTP 413).
-3. **Queueing**: Project record is created in `projects.json` with status `"queued"`. A background worker acquires a slot in `MAX_CONCURRENT_JOBS`.
-4. **Stem Separation**: Demucs v4 runs in a subprocess to separate audio into `vocals.wav` and `instrumental.wav`. Non-blocking pipe buffering prevents OS deadlock.
-5. **Lyric Ingestion & Candidate Verification**: `LyricsService` normalizes metadata and queries LRCLIB / `syncedlyrics` across a 6-stage fallback ladder, ranking candidates by similarity, completeness, and duration proximity.
-6. **Acoustic Alignment, Vocal Range & Chord Analysis**: `AudioAligner` cross-checks LRC timestamps via FFT cross-correlation to recover global timing offsets, snaps line boundaries to vocal phrase onsets/releases (or partitions untimed lines across detected phrases), and aligns sub-line words via spectral flux, voiced harmonic gating, and syllable-aware dynamic programming, while `VocalAnalyzer` and `ChordDetector` extract $F_0$ pitch bounds, tessitura, musical key, and time-aligned chord progressions.
-7. **Master Mix**: Initial master audio is synthesized, and project status transitions to `"ready"`.
+### 2.1 Application entry point
 
-### 4.2 Interactive Editing, Duet Assignment, Smart Key & Subtitle Export
-1. **Interactive Nudging, Duet Split & Power Tools**: The user adjusts line timings in `LyricTimelineEditor`, cycles or bulk-assigns singer roles (`singer1`, `singer2`, `both`) via `DuetAssignmentModal`, uses Undo/Redo, shifts lines in bulk via `BatchOffsetModal`, stamps lines or words live during playback with `TapToSyncBanner`, replaces/realigns lyrics via `LyricReplacementModal`, or applies an optimal semitone transposition via `VocalRangeRecommenderModal`.
-2. **Instant Audio & Subtitle Downloads**: The user opens `ExportModal` to download isolated audio stems (`instrumental.wav`, `vocals.wav`, `master.wav`) or standalone `.lrc` and `.ass` subtitles:
-   - Backend formats subtitle content dynamically from active project lines.
-   - For `.ass`, active theme colors (or custom sung/unsung overrides), multi-singer duet styles (`KaraokeLineX_Singer2`, `KaraokeLineX_Both`), $\ge 4.0\text{s}$ instrumental gap countdown cues, font size scaling, and resolution (`1920x1080` or `1080x1920`) are burned into `[V4+ Styles]` and `[Events]`.
-   - Files download immediately with RFC 5987 / 6266 UTF-8 headers without requiring a video render.
+`backend/main.py` builds the FastAPI app, installs the middleware (security headers, CORS, session authentication), mounts static media and the built frontend, includes the routers, and creates the shared service singletons (`separator`, `aligner`, `audio_mixer`, `lyrics_service`, `video_renderer`, …). Tests monkeypatch these singletons, so services are always reached through `backend.main` at call time.
 
-### 4.3 1080p60 Video Rendering
-1. **Render Request**: The user selects an aspect ratio (`16:9` widescreen or `9:16` vertical Shorts), visual preset / background, and optional countdown / beat-reactive visualizer flags.
-2. **Worker Concurrency**: Job enters `"queued"` state until a worker slot is available.
-3. **ASS Synthesis**: `ass_generator.py` generates the subtitle script with `\kf` karaoke wipe tags, multi-singer styles, and instrumental gap countdown events.
-4. **FFmpeg Multiplexing**: FFmpeg composites the audio, background image/video loop, optional beat-reactive frequency visualizer overlay, and ASS subtitles into an MP4 container with H.264 video and 320 kbps AAC audio.
-5. **Completion**: Verified with `ffprobe`, status becomes `"completed"`, and output is ready for download.
+**Authentication.** When `APP_PASSWORD` is set, every `/api/*` request except `/api/health`, `/api/system/update` and `/api/auth/*`, and every `/static/*` file, needs a session: an HMAC-signed token from `POST /api/auth/login` (also set as an `HttpOnly` cookie), the `X-App-Password` header, or `Authorization: Bearer`. Failed logins are rate limited per IP (`LOGIN_RATE_LIMIT_*`, HTTP 429).
+
+**Static media.**
+
+| Mount | Folder | Contents |
+| :--- | :--- | :--- |
+| `/static/downloads` | `downloads/` | original audio, cover art |
+| `/static/stems` | `stems/<track>/` | `vocals.wav`, `instrumental.wav`, custom instrumentals |
+| `/static/output` | `output/` | master mixes, rendered videos |
+| `/static/backgrounds` | `backgrounds/` | uploaded stage and video backdrops |
+| `/` | `frontend/dist` | the built single-page app |
+
+Stem and master URLs carry a `?v=` version after a re-separation or remix so browsers never play a stale file.
+
+### 2.2 API
+
+| Method and path | Purpose |
+| :--- | :--- |
+| `GET /api/health`, `POST /api/health`, `POST /api/system/update` | version and update check |
+| `GET /api/auth/status`, `POST /api/auth/login`, `POST /api/auth/logout` | session handling |
+| `GET /api/capabilities` | separation presets and lyric aligner this server can run, with reasons |
+| `POST /api/search` | YouTube search |
+| `POST /api/process` | start the YouTube pipeline (`separation_quality` optional) |
+| `POST /api/upload-track` (alias `/api/upload-audio`) | start the upload pipeline (form field `separation_quality`) |
+| `POST /api/upload-instrumental`, `POST /api/upload-background` | custom backing track, stage backdrop |
+| `GET /api/projects`, `GET /api/project/{id}` | library, one song (settles jobs left by a restart) |
+| `PATCH /api/project/{id}`, `POST /api/project/{id}/metadata` | title and artist |
+| `POST /api/project/{id}/lyrics` | save edited lines |
+| `GET /api/project/{id}/lyrics/candidates` | LRCLIB candidates |
+| `POST /api/project/{id}/realign-lyrics` | new lyrics, LRCLIB re-fetch, or current `lines`; `background: true` queues a sync job (202) |
+| `POST /api/project/{id}/realign-lyrics/cancel` | cancel the sync job |
+| `POST /api/project/{id}/realign-line` | re-time one line; saves nothing |
+| `POST /api/project/{id}/reseparate` (202), `…/reseparate/cancel` | re-make stems at another preset |
+| `GET`/`POST /api/project/{id}/vocal-range`, `POST …/recommend-key` | vocal range analysis, Smart Key |
+| `GET`/`POST /api/project/{id}/chords`, `POST …/chords/detect` | chords (transposed), edits, re-detection |
+| `POST /api/project/{id}/mix` | key and guide vocal remix (cached per setting) |
+| `GET /api/project/{id}/waveform` | waveform peaks (`bins`, cached by stem mtime) |
+| `POST /api/project/{id}/render`, `POST …/cancel-render` | video render |
+| `POST /api/project/{id}/cancel`, `DELETE /api/project/{id}` | cancel processing, delete a song and its files |
+| `GET /api/project/{id}/export/{lrc,ass,chord-sheet}`, `…/export/audio/{stem}` | exports |
+| `GET /api/project/{id}/youtube-package` | YouTube title, description, tags and chapters |
+
+### 2.3 Persistence and concurrency
+
+- **Store.** Projects live in `projects.json`, written atomically with a `.bak` copy for recovery. All writes take `PROJECTS_LOCK`. A project dict can be replaced by a fresh copy from disk at any time, so background jobs look the project up again before every write instead of keeping a reference.
+- **Job slots.** `WORKER_SEMAPHORE` (`MAX_CONCURRENT_JOBS`, default 2) bounds intake pipelines, renders, re-separations and background re-alignments. `lyric_sync.ALIGN_SEMAPHORE` (`MAX_CONCURRENT_ALIGN_JOBS`, default 1) bounds neural alignment passes, which load a large model: pipelines wait for a slot, while a single-line re-align falls back to DSP when the slot is busy.
+- **Cancellation.** `active_cancellations` maps keys to `threading.Event`s: `{id}` (pipeline), `{id}_render`, `{id}_reseparate`, `{id}_sync`. Deleting a song sets all of them, then removes its files, including staged stems.
+
+### 2.4 Intake pipeline
+
+`pipeline.run_pipeline` (YouTube) and `run_local_pipeline` (upload) move a project through these statuses (the progress bands drive the processing view):
+
+| Status | Progress | Work |
+| :--- | :--- | :--- |
+| `queued` / `processing` / `downloading` | 5–34 | fetch audio and metadata |
+| `separating` | 35–70 | stems at the song's preset (`separate_project_stems`), then vocal range and chords |
+| `fetching_lyrics` | 72 | LRCLIB / syncedlyrics, or the custom lyrics |
+| `aligning` | 82–91 | `sync_lyrics` (DSP, then neural when available) |
+| `mixing` | 92 | first master mix |
+| `ready` | 100 | the studio opens |
+
+Status details never contain "chord" or "range" during separation; the processing view uses those words to advance its stepper.
+
+### 2.5 Background jobs on a finished song
+
+Both jobs keep their state on the project (`separation_job`, `sync_job`: `id`, `status` queued/running/done/error/cancelled, `progress`, `detail`, `error`, timestamps), so the studio just polls the project. `background_jobs.conflict_reason` stops a job from starting while the other runs or while the song is still processing (409), and a job left `running` by a server restart is marked as interrupted on the next read.
+
+**Re-separation** (`reseparation.py`). Separates into `stems/.staging/<audio_id>/<job>` (progress 0–80), swaps the new stems in with `os.replace`, keeps a custom instrumental, refreshes the vocal range, re-detects chords only when asked (or when there are none), optionally re-times the lyrics, and renders a new versioned master mix. A cancelled or failed run leaves the song exactly as it was.
+
+**Background re-alignment** (`realignment.py`). The route works out the lyrics first (so input errors come back as 400s), then queues `sync_lyrics` with the server's configured engine. When it finishes, the lines are stored only if nobody saved other lines meanwhile (a digest of the lines is compared); otherwise the job ends with "your edits were kept". Re-timing existing lines keeps word timing that came with the lyrics file (`align_method: "lrc"`).
+
+### 2.6 Stem separation
+
+**Presets** (`separation_presets.py`):
+
+| Preset | Engine | Models | Parameters |
+| :--- | :--- | :--- | :--- |
+| `fast` | Demucs | `htdemucs` | `--shifts 1 --overlap 0.25 --int24 --clip-mode clamp` (Demucs 4.1+) |
+| `balanced` | RoFormer | `vocals_mel_band_roformer.ckpt` | overlap 2 |
+| `best` | RoFormer ensemble | Mel-Band + `model_bs_roformer_ep_317_sdr_12.9755.ckpt` | overlap 4, waveform average |
+
+Availability is decided without importing PyTorch: package metadata (`find_spec`, versions) plus whether the weights are cached or may be downloaded. `separate_stems(audio_path, track_id, model_name, duration, progress_callback, cancel_event)` resolves a preset (or a raw Demucs model name), walks the fallback chain best → balanced → fast, skips plans that cannot run, and falls back on any failure that is not a cancellation. Valid cached stems are reused without running anything. The result includes provenance (`preset`, `engine`, `models`, `label`, `requested`, `fallback_reason`, `elapsed_seconds`), stored on the project as `separation`.
+
+**Engine processes.** Both engines run as child processes with stdout discarded and stderr parsed line by line (`ProgressTracker`): tqdm bars, model download bars ("Downloading model weights… (N%)") and JSON events. `ProcessWatchdog` terminates (then kills after 10 s) a process that is cancelled, exceeds `SEPARATION_TIMEOUT_SEC`, or prints nothing for `SEPARATION_STALL_SEC`. Errors read "Demucs failed (exit N): …" or "RoFormer separation failed …" with a friendly hint (out of memory, disk full, weights missing) and the last lines of stderr.
+
+**RoFormer worker protocol** (`python -u -m backend.workers.roformer_worker`):
+
+```
+--audio IN --out DIR --models M1 [M2] --overlap N --model-dir D --allow-download 0|1
+[--ensemble avg_wave] [--download-only]
+```
+
+It runs one `audio_separator` pass per model into `DIR/passN`, averages ensemble stems, and writes `DIR/vocals.wav` and `DIR/no_vocals.wav`. Stderr carries `{"event": "stage" | "download" | "error", …}` lines. Exit codes: `0` ok, `2` usage, `3` weights missing (downloads disabled), `4` import error, `5` failed.
+
+### 2.7 Lyric sync
+
+**Lyrics** (`lyrics.py`). LRCLIB first, then `syncedlyrics` in a bounded executor; untimed results count as plain lyrics. LRC parsing honours `[offset:]` (positive means earlier) and enhanced `<mm:ss.xx>` word tags. Plain text drops section headings such as `[Chorus]`.
+
+**Orchestrator** (`lyric_sync.sync_lyrics(vocals_path, lines, *, lyric_data, engine, progress, cancel_event)`):
+
+1. **DSP pass.** `aligner.align_lyrics(vocals_path, lines)`. Plain lyrics get a second, timed pass that snaps each line to its sung phrase (`ALIGN_REFINE_PLAIN`).
+2. **Engine choice.** `ALIGNMENT_ENGINE` auto / ctc / dsp. Neural alignment needs torch and torchaudio 2.10+ and the MMS model (cached, or downloadable when `ALIGNMENT_ALLOW_DOWNLOAD=1`).
+3. **Neural pass.** All lines go to one worker process, each with a window around its DSP timing (±0.75 s, split halfway into the gaps), waiting for an `ALIGN_SEMAPHORE` slot.
+4. **Merge.** Per line, neural word timing replaces the DSP estimate when the line aligned, its score is at least `ALIGNMENT_MIN_CONFIDENCE` (0.45) and at least 70% of its words were placed; missing words are shared out between neighbours and timing stays monotonic. Lines with word timing from the lyrics file keep it. If the worker fails, the whole song keeps the DSP timing and the reason is recorded.
+5. **Confidence** (`sync_confidence.py`). Vocal activity and onsets are measured once per stem (10 ms grid, cached by path, size and mtime). DSP lines score 0.5 × coverage + 0.5 × onset agreement (Gaussian, σ = 60 ms); neural lines blend 0.6 × model score with 0.4 × that evidence; lyrics-file lines keep at least 0.9; no-audio fallbacks get 0.2.
+6. **Output.** Lines gain `confidence` and `align_method` (ctc, dsp, lrc, fallback; the editor adds manual). The project gets a `sync_report` (engine, fallback reason, line counts per method, low-confidence count, mean confidence, elapsed time) and `lyric_timing` (`source_word`, `source_line`, `aligned`, `none`). `is_synced` stays false for plain lyrics; the UI reads `lyric_timing`.
+
+**CTC worker protocol** (`python -u -m backend.workers.ctc_align_worker --request REQ.json --response RES.json`):
+
+```jsonc
+// request
+{"version": 1, "audio": "/abs/vocals.wav", "model_dir": "/models/mms_fa", "allow_download": true,
+ "lines": [{"index": 0, "window_start": 9.45, "window_end": 14.6, "words": ["every", "window", ""]}]}
+// response
+{"version": 1, "model": "MMS_FA",
+ "lines": [{"index": 0, "status": "ok", "error": null, "line_score": 0.83, "star_ratio": 0.12,
+            "words": [{"start": 10.21, "end": 10.58, "score": 0.91}, {"start": 10.6, "end": 11.0, "score": 0.77}, null]}]}
+```
+
+Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (numbers via `num2words`, other scripts via `uroman` when installed); an empty spelling means the word cannot be aligned. Each window is aligned as `* word … *` so the star token absorbs anything that is not the line. Exit codes match the RoFormer worker; a timeout (`ALIGNMENT_TIMEOUT_SEC`) or stall (`ALIGNMENT_STALL_SEC`) stops it.
+
+**Single-line re-align** (`line_realign.py`, `POST …/realign-line`). The search window is the line ± `search_window` (default 1.5 s, at most 3 s), never past the neighbouring lines of the same voice. Candidate starts are the line's current start and every phrase start (singing after 0.12 s of quiet) in the window; each scores vocal coverage over the line's length, plus quiet just before it, minus distance moved. The end snaps to the nearest release (0.25 s of quiet). DSP word timing reads only the window's audio. When the neural aligner is ready and has a free slot, it searches the whole window too and wins if confident. The response is `{status: ok | not_found, line, engine, elapsed, fallback_reason, detail, window}`.
+
+### 2.8 Mixing, subtitles and rendering
+
+- **Mixer.** `audio_mixer.mix_and_shift` blends the guide vocal with `amix … normalize=0` plus `alimiter`, so the backing track keeps its level. A `MIX_QUALITY` context variable picks the pitch shifter: fast resampling for previews, Rubber Band (`pitchq=quality`, formants preserved on the guide vocal) for renders, with a fallback graph for older FFmpeg builds. `/mix` results are cached by file name while newer than the stems.
+- **Subtitles.** `ass_generator` writes word sweeps on absolute centisecond boundaries with `{\k}` spacers for gaps, so exported highlights stay on time; duet colours and stage presets match the studio.
+- **Video.** `render_worker` mixes at final quality and renders 1080p60 (16:9 or 9:16) through FFmpeg with libass, using the bundled Sora fonts (`backend/assets/fonts`) and the stage's backdrop colour.
 
 ---
 
-## 5. Testing Architecture & Quality Methodology
+## 3. Frontend
 
-Karaoke Studio employs an **opaque-box, requirements-driven testing philosophy** to rigorously validate user-facing behavior, API interface contracts, and media processing pipelines without coupling tests to internal private functions.
+### 3.1 Design system
 
-### Core Testing Principles
-1. **Opaque-Box Contract Verification**: Assertions originate strictly from public HTTP endpoints, API schemas, and DOM interfaces.
-2. **Hermetic & Deterministic Execution**: External network interactions (`yt-dlp` YouTube extraction and LRCLIB lyric queries) are intercepted by deterministic mock fixtures in `conftest.py`. No live internet connection is required.
-3. **Real Media Processing**: While heavy AI inference (Demucs) and internet downloads are mocked with instantaneous synthetic audio generators, **real audio filters and video rendering engines (FFmpeg, ASS subtitle synthesis, YIN $F_0$ pitch analysis, acoustic envelope analysis)** execute on actual valid WAV audio and PNG/JPEG visual assets.
-4. **Adversarial Resilience & Defensive Validation**: Boundary tests actively stress the system with invalid parameters, out-of-range semitones, 0-byte files, oversized payloads (HTTP 413), malformed URLs, Unicode/CJK/emoji text, and concurrent multithreaded writes.
+- **Tokens.** Each app theme (`theme/appThemes.ts`) defines colours, fonts, radii, borders and shadows, applied as CSS variables on `<html>` (`--theme-*`, `--app-*`), with `--theme-<colour>-rgb` channels, semantic colours (success, warning, danger, info, focus, overlay) and effects (`--theme-gradient-accent`, `--theme-gradient-stage`, `--theme-glass-alpha`). Tailwind maps `theme.*` colours to `rgb(var(--theme-<c>-rgb) / <alpha>)`, so opacity utilities work in every theme.
+- **Themes.** Five app themes: **Afterglow** (default: ink surfaces, violet-to-pink accent, gold sung lyrics, Sora and Inter), Basement Flyer, Reel-to-Reel '74, Midnight KTV Booth and Monolith Press. Nine stage presets (`theme/stagePresets.ts`) set the karaoke colours, font and backdrop; Afterglow is listed first.
+- **Primitives** (`components/ui`): Button, IconButton, Panel, SegmentedControl, Tabs, Dialog (with header, body and footer), Menu, Slider, Switch, Checkbox, Badge, Field, Kbd, Spinner, ProgressBar / ProgressRing, Skeleton, EmptyState, VisuallyHidden. Interactive primitives keep 44 px touch targets and tighten from `md:` up. Dialogs render only while open, put the close button first, trap focus and close on backdrop click unless they are gates (sign-in). `utils/cn.ts` merges classes with the custom token classes registered.
 
-### Backend Test Architecture
+### 3.2 Studio layout
 
-The backend test suite is organized into domain unit/integration suites and a 5-tier E2E testing framework (4,528 total tests):
+- `App` wraps `AppContent` in the palette and theme providers. `AppContent` shows the library (`TrackSearch`), the `ProcessingView`, or the `StudioWorkspace`.
+- **Header** (`StudioHeader`): brand, palette trigger, render badge, app theme picker, help, profile, New Song and the single Export button.
+- **Workspace** (`studio/StudioWorkspace.tsx`): on desktop a grid of the main column (song header, stage and timeline) and the inspector aside (Audio Mix and Stage Look panels); on phones three tabs (Stage, Timeline, Mix & Theme). The song header carries the sync badge (fidelity, mean confidence, auto-aligned) and the stems badge.
+- **Transport** (`transport/TransportDock.tsx`): the only `<audio>` element (it never remounts), waveform scrubber, play, time, speed, key stepper and volume; fixed at the bottom on phones. It publishes `--dock-height` so toasts sit above it.
 
-```
-backend/tests/
-├── conftest.py                             # Root fixtures, client setup, synthetic assets
-├── test_adversarial_ass_countdown.py       # Adversarial ASS gap countdown & boundary tests
-├── test_adversarial_r1_lyrics.py           # Adversarial multi-stage lyric query & scoring tests
-├── test_aligner.py                         # Acoustic phrase snapping & spectral word alignment tests
-├── test_aligner_benchmark.py               # Global offset, phrase boundary & syllable MAE benchmarks
-├── test_aligner_m3_adversarial.py          # Line boundary snapping & untimed phrase adversarial tests
-├── test_aligner_m4_adversarial.py          # Spectral flux & voiced harmonic gating adversarial tests
-├── test_api_boundary_fuzzing.py            # HTTP boundary input fuzzing (mix, intake, lyrics)
-├── test_api_routes.py                      # Comprehensive API route contract tests
-├── test_api_vocal_range.py                 # Vocal range API, auto-backfill & key recommender tests
-├── test_audio_stem_exports.py              # Direct audio stem download routes & header tests
-├── test_auth_and_scoping.py                # Session authentication & user scoping tests
-├── test_auth_security_adversarial.py       # HMAC forgery, replay, & brute-force rate limit stress
-├── test_backend_adversarial_stress.py      # Adversarial stress for stem exports, realignment & ASS
-├── test_challenger2_stress.py              # Adversarial stress for vocal range & key recommendation
-├── test_downloader.py                      # yt-dlp wrapper & metadata extraction tests
-├── test_e2e_linesync_integration.py        # Cross-layer E2E line-by-line vs word sweep export & render tests
-├── test_e2e_lyrics_aligner_sync.py         # 4-tier E2E lyric retrieval & acoustic sync benchmark suite
-├── test_line_sync_ass.py                   # Line-by-line vs word sweep ASS generator & export endpoint tests
-├── test_lyric_realignment.py               # In-studio lyric replacement & realignment tests
-├── test_lyrics.py                          # Multi-stage LRCLIB fallback, candidate ranking & LRC tests
-├── test_m2_adversarial.py                  # Multi-singer duet schema, aligner & ASS adversarial tests
-├── test_m3_challenger_video_matrix.py      # 16:9 & 9:16 FFmpeg visualizer & countdown matrix tests
-├── test_media_subprocess_stress.py         # Subprocess pipe deadlock, timeout & zombie tests
-├── test_mixer.py                           # FFmpeg pitch transposition & guide vocal blend tests
-├── test_project_lifecycle_adversarial.py   # Path traversal, prefix isolation, & delete race tests
-├── test_security_and_storage.py            # Security headers & project store recovery tests
-├── test_separator.py                       # Demucs isolation & cache reuse tests
-├── test_subtitle_export_adversarial.py     # RFC 5987 headers, centisecond rollover, & export tests
-├── test_theme_ass_fuzz.py                  # Fuzzing & boundary stress for theme presets & ASS styles
-├── test_theme_export_parity.py             # Stage theme preset & ASS export parity tests
-├── test_theme_styling.py                   # Custom hex-to-ASS color, duet styles & font scaling tests
-├── test_tier5_adversarial_final_1.py       # Tier 5 adversarial stress for lyric normalization & aligner
-├── test_tier5_adversarial_final_2.py       # Tier 5 adversarial stress for spectral DP & boundary invariants
-├── test_video_renderer.py                  # FFmpeg video muxing, visualizer & ASS burning tests
-├── test_vocal_analyzer.py                  # YIN F0 pitch tracking, chroma key & preset unit tests
-├── test_vocal_analyzer_adversarial.py      # Silent, unvoiced, NaN/Inf & extreme pitch boundary tests
-├── test_worker_concurrency.py              # Worker semaphore queueing & slot release tests
-├── test_worker_concurrency_stress.py       # 20-thread concurrency & worker stress tests
-├── test_youtube.py                         # YouTube URL validation & ID extraction tests
-└── e2e/                                    # 5-Tier End-to-End Suite
-    ├── conftest.py                         # Hermetic mocks, synthetic WAV/PNG generators
-    ├── test_e2e_tier1_features.py          # Tier 1: Core Feature Coverage (>=5 tests per feature)
-    ├── test_e2e_tier2_boundaries.py        # Tier 2: Boundary & Corner Cases (>=5 tests per feature)
-    ├── test_e2e_tier3_pairwise.py          # Tier 3: Cross-Feature Pairwise Combinations
-    ├── test_e2e_tier4_scenarios.py         # Tier 4: Real-World User Workflow Scenarios
-    └── test_e2e_tier5_adversarial_backend.py# Tier 5: White-Box Adversarial Backend Suite
-```
+### 3.3 State and hooks
 
-#### The 5 E2E Tiers
-- **Tier 1: Core Feature Coverage**: Exhaustive verification of standard happy paths across all 8 major application subsystems (Audio Intake, Stem Separation, Lyrics Processing, Timeline Alignment, Audio Mixing, Video Rendering, Security/Auth, Projects Persistence).
-- **Tier 2: Boundary & Corner Cases**: Hardens all 8 features against edge inputs, anomalous states, and adversarial attacks (0-byte files, 5000+ char lines, sub-tenth-second audio, extreme pitch shifts, oversized payloads).
-- **Tier 3: Cross-Feature Combinations**: Validates pairwise feature interactions and state transitions across subsystem boundaries (e.g. custom lyrics + pitch transposition + video rendering).
-- **Tier 4: Canonical Application Scenarios**: Simulates full real-world user workflows:
-  1. *Golden Path*: YouTube intake -> stem separation -> lyrics fetch -> alignment -> playback -> 1080p60 MP4 render -> YouTube SEO kit.
-  2. *Social Media Creator Studio*: Custom plain text lyrics -> +3 semitones pitch shift & 15% guide vocal -> 1080x1920 background -> timeline nudging -> 9:16 vertical MP4 export.
-  3. *Musician Self-Produced Backing Track*: Direct studio WAV upload -> custom lyric submission -> -1 semitone shift -> 1080p60 video export.
-  4. *Multi-User Studio Collaboration*: Passphrase gate protection -> Alice and Bob user isolation via `scope=my` -> unauthenticated visitors blocked -> session logout.
-  5. *Fault-Tolerant Operator*: Mid-flight intake pipeline cancellation -> restart resilience -> mid-flight render cancellation -> re-render with new styling.
-  6. *International Multilingual Production*: Japanese Kanji, Hiragana, English Romaji, and emoji stage cues ("🌸 桜の雨 (Sakura Rain)") -> custom ASS subtitle styling -> UTF-8 preservation -> YouTube metadata kit export.
-- **Tier 5: White-Box Adversarial Hardening**: Deep integration stress testing covering pipeline edge conditions, process concurrency, and state machine recovery.
+| Hook | Role |
+| :--- | :--- |
+| `useProjectPolling` | polls the song while a pipeline, render, `separation_job` or `sync_job` is active |
+| `useStudioAudio` | transport state; keeps the position and play state when the master URL changes |
+| `useMixController` | requested vs applied key and guide level; debounced `/mix`, latest request wins |
+| `useVisualTheme` + `stageSettingsStorage` | stage look, persisted in `karaoke_stage_settings_v1` |
+| `useLyricEditorState`, `useLyricHistory`, `useTapCursorHistory` | timeline editing, 50-step undo, tap-to-sync |
+| `useTimelineFilter` + `utils/timelineReview` | "Needs review" (confidence < 60%, missing or tiny words, overlaps) |
+| `useCapabilities` | `/api/capabilities`, fetched on first use and shared |
+| `useTrackIntake` | starts songs; remembers the chosen separation quality |
+| `useQualityJobs` | starts and cancels re-separation and background re-alignment; outcome toasts |
+| `useLineRealign` | "Re-align this line", applied as an undoable edit |
+| `useSyncJobResult` | holds a finished re-alignment back while the editor has unsaved edits |
+| `useMediaSession` | metadata, play/pause/seek/stop and previous/next line from media keys |
+| `useKeyboardShortcuts` | global shortcuts, ignored while typing or while any dialog is open |
 
-### Frontend Test Architecture
+**Hand edits.** The editor routes hand edits through a setter that compares each line's content (text, times, words) with the previous state: changed lines become `align_method: "manual"` and lose their confidence, and a line edited back to its saved content gets its saved metadata back (`utils/manualEdits.ts`). Aligner results, undo/redo and server updates bypass it.
 
-The frontend test suite in `frontend/src/tests/` provides exhaustive component, responsive layout, accessibility, and integration coverage across 78 test modules (1,649 total tests):
+### 3.4 Command palette
 
-```
-frontend/src/tests/
-├── AppThemeEngine.test.tsx                 # Theme engine tokens, CSS variables, zero-FOUC & persistence
-├── AppThemePicker.test.tsx                 # Accessible header theme picker listbox & keyboard navigation
-├── AppThemeSystem.test.tsx                 # 4-tier E2E theme system, 4D rubric & stage sync suite
-├── AudioControls.test.tsx                  # Transport, pitch stepper, vocal range & guide vocal blend
-├── AuthModal.test.tsx                      # Login modal form, error state, password submission
-├── BeatVisualizer.test.tsx                 # 60fps canvas visualizer, AnalyserNode & V hotkey tests
-├── Challenger2Stress.test.tsx              # Vocal range & Smart Key UI stress & responsive tests
-├── ErrorBoundary.test.tsx                  # React error boundary fallback rendering
-├── ExportAudioSection.test.tsx             # Direct instrumental, vocals, and master audio downloads
-├── ExportModal.test.tsx                    # Render triggers, visualizer/countdown flags, subtitle downloads
-├── FullscreenStageAndThemes.test.tsx       # Fullscreen TV stage, custom color pickers, font scaling
-├── HelpDialogAccessibility.test.tsx        # Help modal ARIA attributes, focus trap, dismiss
-├── HelpModal.test.tsx                      # Help modal sections, shortcuts table, usage guide
-├── HelpModalShortcutsStress.test.tsx       # Rapid hotkey toggling & input isolation stress
-├── LineSyncMode.test.tsx                   # Line-by-line vs word sweep preview, stage & export tests
-├── LyricDisplay.test.tsx                   # Synchronized lyric line, duet badges & gap countdown rendering
-├── LyricTimelineEditor.test.tsx            # Inline editing, line nudge, singer cycle, dirty state tracking
-├── LyricTimelinePowerTools.test.tsx        # Undo/redo stack, batch offset, line/word tap-to-sync, lyric re-import
-├── PlaybackSpeedControl.test.tsx           # Variable playback speed (0.5x..1.5x) & radio semantics
-├── ProjectLibrarySearchSort.test.tsx       # Library real-time search, status filtering & sorting
-├── StudioLifecycle.test.tsx                # App state transitions & project loading
-├── ThemePickerAndViews.test.tsx            # Multi-view theme styling across Library, Studio & Modals
-├── Toast.test.tsx                          # Toast notification rendering & timers
-├── Tooltip.test.tsx                        # Tooltip hover/focus, Escape dismiss, hotkey badges
-├── TooltipStress.test.tsx                  # Rapid hover/focus churn & disabled state sync
-├── TrackSearch.test.tsx                    # YouTube search, local audio intake, library cards
-├── VisualThemeSync.test.tsx                # Bidirectional app-to-stage theme sync & custom overrides
-├── VocalRangeRecommenderModal.test.tsx     # Voice presets, custom range & 1-click transposition modal
-├── WaveformScrubber.test.tsx               # Interactive waveform rendering & drag seek scrubbing
-├── adversarialDuetStress.test.tsx          # Duet bulk/auto-split, undo/redo & 320px touch target stress
-├── adversarialGapCountdown.test.tsx        # Gap countdown boundary & playback rate interpolation stress
-├── api.test.ts                             # API client, token persistence, error handling
-├── appStateTransitions.test.tsx            # View transitions (Landing -> Search -> Processing -> Ready)
-├── audioPlaybackAndSync.test.tsx           # Audio volume clamping & RAF interpolation sync
-├── errorBoundaryAdversarial.test.tsx       # Thrown non-Error objects & media error translation
-├── frontendIntegrationAdversarial.test.tsx # Tier 5 comprehensive white-box integration suite
-├── gapDetection.test.ts                    # Intro & inter-line gap (>=4.0s) detection unit tests
-├── keyboardAccessibilityShortcuts.test.tsx # Global hotkeys, focus trapping, input isolation
-├── layoutGeometryTouchTargets.test.tsx     # Bounding rect assertions & touch target >=44px
-├── lyrics.test.ts                          # Word token timing recalculation unit tests
-├── lyricsTimingInvariants.test.ts          # Contiguous monotonic non-overlapping invariants
-├── m3ChallengerAdversarial.test.tsx        # Visualizer, Shift+V guard & countdown adversarial tests
-├── mobileViewportErgonomics.test.tsx       # 320px viewport truncation, hit targets, wrapping
-├── modalDialogsResponsive.test.tsx         # Modal dialog responsiveness across breakpoints
-├── projectCardModalInteractions.test.tsx   # Card click bubbling isolation & double-click guards
-├── responsiveLayout.test.tsx               # Breakpoints (320px, 375px, 768px, 1280px) overflow
-├── studioAdversarialStress.test.tsx        # Adversarial boundary stress across R1-R5 upgrades
-├── studioControlsTouchErgonomics.test.tsx  # Studio dashboard touch target ergonomics (>=44px)
-├── subtitleExportAccessibility.test.tsx    # Subtitle download button accessibility & parameters
-├── subtitleExportDownloads.test.tsx        # Simulated blob anchor downloads & DOM cleanup
-├── tapSync.test.ts                         # Pure line & word tap-sync engine & monotonic boundary tests
-├── timelineAutoScrollAndTouch.test.tsx     # 2-row mobile line cards & auto-scroll sync
-├── timelineLineStructureEditing.test.tsx   # Line insertion (above/below) & deletion invariants
-├── toastAndAuthAdversarial.test.tsx        # Toast hover-pause & 401 unauthorized bus
-├── tooltipAccessibilitySemantics.test.tsx  # WAI-ARIA tooltip semantics & aria-describedby links
-├── useFocusTrap.test.tsx                   # Focus loop & restoration unit tests
-├── useKeyboardShortcuts.test.ts            # Shortcut listener & input isolation unit tests
-├── useProjectPolling.test.ts               # Polling exponential backoff & retry tests
-├── useTapCursorHistory.test.ts             # Bounded 50-step tap cursor undo/redo & T hotkey isolation tests
-├── vocalRange.test.ts                      # Pitch/MIDI/SPN conversion & transposition unit tests
-└── vocalRangeAdversarial.test.ts           # Unvoiced, extreme Hz & custom bound adversarial tests
-```
+`commandPalette/` holds a registry: components register commands (`useRegisterCommands(scope, commands)`) and searchable sources (songs, lyric lines) while mounted, and the palette reads them when it opens. <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> toggles it unless another dialog or the sign-in gate is open. Ranking puts prefix matches first, then word starts, substrings and loose subsequences; results are capped at 50 and recent commands are kept in `karaoke_palette_recent`. Studio commands cover playback, stage, mix (including "Improve stem separation…"), themes, navigation, song actions, and the timeline's lyric tools (save, undo, tap-to-sync, re-align the selected line or all lines, cancel a re-alignment).
 
-### Quality Gates & Verification Commands
+### 3.5 Stage
 
-All changes in the repository must pass the full suite of automated quality gates:
+`LyricDisplay` composes `stage/StageBackground` (base colour, blurred album art, custom image or video, scrim), `StageToolbar`, `StageLyrics` (word sweep or line mode) and `StageFloatingControls` for fullscreen. The preview uses the same backdrop colour, album-art treatment, duet colours and font as the exported video and subtitles.
 
-```bash
-# 1. Backend Verification
-./venv/bin/pytest                            # Baseline: >=4,528 passed, 0 failed, >90% coverage
-./venv/bin/ruff check backend                # Zero lint violations
-./venv/bin/ruff format --check backend       # Zero formatting diffs
+---
 
-# 2. Frontend Verification (inside frontend/)
-cd frontend
-npm test -- --run                            # Baseline: >=1,649 passed across 78 suites, 0 failed
-npm run lint                                 # Zero ESLint warnings
-npm run format:check                         # Zero Prettier diffs
-npm run build                                # Zero TypeScript or Vite compilation errors
-```
+## 4. Testing
+
+- **Backend** (`pytest`). `tests/conftest.py` gives every test an isolated data folder and a hermetic ML setup: `SEPARATION_QUALITY=fast`, `ALIGNMENT_ENGINE=dsp`, downloads off, model folders under the test's temp directory, `HF_HUB_OFFLINE=1`, and Demucs quality-flag detection off. Engines that need weights are exercised through fake worker processes and stand-in packages, so the suite runs offline. CPU-budget tests guard the DSP aligner's speed.
+- **Frontend** (Vitest, jsdom). Contracts enforced by tests include unique accessible names in the studio at phone and desktop widths, 44 px touch targets, the dialog contract, a single never-remounting audio element, and design-token usage (no fixed palette colours in components).
+- **Gates.**
+
+  ```bash
+  ruff check backend && ruff format --check backend && pytest
+  cd frontend && npm run lint && npm run format:check && npx tsc -p . --noEmit && npm test && npm run build
+  ```
+
+- **Real-model checks** (on a machine that can download the weights): `backend/tools/fetch_models.py`, `benchmark_sync.py` (word error and confidence-vs-error against hand-timed words) and `benchmark_separation.py` (SI-SDR per preset against reference stems).
