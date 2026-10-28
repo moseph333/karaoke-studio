@@ -164,7 +164,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       });
     });
 
-    it('C1.5: Stage floating controls include stage-sync-mode-toggle and toggle modes dynamically', async () => {
+    it('C1.5: Stage toolbar highlight selector stays available in TV stage and switches modes', async () => {
       const user = userEvent.setup();
       const onSyncModeChange = vi.fn();
       render(
@@ -179,14 +179,12 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
 
       // Enter stage mode
       fireEvent.keyDown(window, { key: 'f' });
-      const stageSyncBtn = screen.getByTestId('stage-sync-mode-toggle');
-      expect(stageSyncBtn).toBeInTheDocument();
-      expect(stageSyncBtn).toHaveTextContent('LINE');
-      expect(stageSyncBtn).toHaveAttribute('aria-pressed', 'true');
-      expect(stageSyncBtn).toHaveAttribute('aria-label', 'Switch to Word Sweep mode');
+      const lineBtn = screen.getByTestId('sync-mode-line');
+      expect(lineBtn).toHaveTextContent('Line');
+      expect(lineBtn).toHaveAttribute('aria-pressed', 'true');
+      expect(lineBtn).toHaveAttribute('aria-label', 'Line highlight');
 
-      // Click toggle
-      await user.click(stageSyncBtn);
+      await user.click(screen.getByTestId('sync-mode-word'));
       expect(onSyncModeChange).toHaveBeenCalledWith('word');
     });
 
@@ -267,7 +265,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
 
       const badge = screen.getByTestId('active-singer-badge');
       expect(badge).toHaveAttribute('data-singer', 'both');
-      expect(badge).toHaveTextContent('👥 Both / Duet');
+      expect(badge).toHaveTextContent('Both / Duet');
 
       // Active words illuminate in bothSungColor
       sampleLines[2].words.forEach((_, idx) => {
@@ -306,9 +304,11 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
     it('C2.1: LyricDisplay preview header buttons have >= 44px min dimensions', () => {
       render(<LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="line" />);
 
-      const syncToggle = screen.getByTestId('sync-mode-toggle');
-      expect(syncToggle.className).toContain('min-h-[44px]');
-      expect(syncToggle.className).toContain('min-w-[44px]');
+      for (const id of ['sync-mode-word', 'sync-mode-line']) {
+        const btn = screen.getByTestId(id);
+        expect(btn.className).toContain('min-h-[44px]');
+        expect(btn.className).toContain('min-w-[44px]');
+      }
 
       const vizToggle = screen.getByTestId('toggle-visualizer-btn');
       expect(vizToggle.className).toContain('min-h-[44px]');
@@ -337,20 +337,23 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       expect(playPause.className).toContain('min-h-[44px]');
       expect(playPause.className).toContain('min-w-[44px]');
 
-      const stageSync = screen.getByTestId('stage-sync-mode-toggle');
+      const stageSync = screen.getByTestId('sync-mode-word');
       expect(stageSync.className).toContain('min-h-[44px]');
       expect(stageSync.className).toContain('min-w-[44px]');
 
-      const stageExit = screen.getByTestId('stage-exit-btn');
+      // Leaving the stage happens through the toolbar's fullscreen toggle
+      const stageExit = screen.getByTestId('stage-fullscreen-toggle');
+      expect(stageExit).toHaveAttribute('aria-label', 'Exit fullscreen stage (F)');
       expect(stageExit.className).toContain('min-h-[44px]');
       expect(stageExit.className).toContain('min-w-[44px]');
+      expect(screen.queryByTestId('stage-exit-btn')).not.toBeInTheDocument();
 
       const chordToggle = screen.getByTestId('chord-bar-toggle');
       expect(chordToggle.className).toContain('min-h-[44px]');
       expect(chordToggle.className).toContain('min-w-[44px]');
     });
 
-    it('C2.3: VisualThemePicker sync mode buttons meet >= 44px touch target requirement', () => {
+    it('C2.3: VisualThemePicker format and lyric size buttons meet the touch target requirement', () => {
       render(
         <VisualThemePicker
           selectedTheme={THEMES[0]}
@@ -358,17 +361,13 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
           onCustomBgUploaded={vi.fn()}
-          syncMode="word"
         />
       );
 
-      const wordBtn = screen.getByTestId('sync-mode-word');
-      expect(wordBtn.className).toContain('min-h-[44px]');
-      expect(wordBtn.className).toContain('min-w-[44px]');
-
-      const lineBtn = screen.getByTestId('sync-mode-line');
-      expect(lineBtn.className).toContain('min-h-[44px]');
-      expect(lineBtn.className).toContain('min-w-[44px]');
+      for (const name of [/16:9 Widescreen/, /9:16 Shorts/, 'Scale 1x', 'Scale 1.5x']) {
+        const btn = screen.getByRole('button', { name });
+        expect(btn.className).toContain('min-h-[44px]');
+      }
     });
 
     it('C2.4: ExportModal video render sync mode buttons meet >= 44px touch target requirement', () => {
@@ -414,19 +413,11 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       const container = document.createElement('div');
       document.body.appendChild(container);
 
-      render(
-        <VisualThemePicker
-          selectedTheme={THEMES[0]}
-          onSelectTheme={vi.fn()}
-          aspectRatio="16:9"
-          onChangeAspectRatio={vi.fn()}
-          onCustomBgUploaded={vi.fn()}
-          syncMode="line"
-        />,
-        { container }
-      );
+      render(<LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="line" />, {
+        container,
+      });
 
-      // Inspect sync-mode-selector specifically
+      // Inspect the stage toolbar sync-mode-selector specifically
       const selector = screen.getByTestId('sync-mode-selector');
       const res = assertTouchTargets(selector, 44);
       expect(res.total).toBe(2);
@@ -440,54 +431,46 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
   // Focus Area 3: ARIA Attributes & Accessibility Semantics
   // =========================================================================
   describe('Focus Area 3: ARIA Attributes & Accessibility Semantics', () => {
-    it('C3.1: Preview header sync mode toggle has valid aria-pressed and aria-label in word vs line mode', () => {
+    it('C3.1: Stage toolbar highlight buttons expose aria-pressed and labels in word vs line mode', () => {
       const { rerender } = render(
         <LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="word" />
       );
 
-      const btnWord = screen.getByTestId('sync-mode-toggle');
-      expect(btnWord).toHaveAttribute('aria-pressed', 'false');
-      expect(btnWord).toHaveAttribute('aria-label', 'Switch to Line-by-Line mode');
+      expect(screen.getByTestId('sync-mode-word')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('sync-mode-word')).toHaveAttribute(
+        'aria-label',
+        'Word sweep highlight'
+      );
+      expect(screen.getByTestId('sync-mode-line')).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByTestId('sync-mode-line')).toHaveAttribute('aria-label', 'Line highlight');
 
       rerender(<LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="line" />);
-      const btnLine = screen.getByTestId('sync-mode-toggle');
-      expect(btnLine).toHaveAttribute('aria-pressed', 'true');
-      expect(btnLine).toHaveAttribute('aria-label', 'Switch to Word Sweep mode');
+      expect(screen.getByTestId('sync-mode-word')).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByTestId('sync-mode-line')).toHaveAttribute('aria-pressed', 'true');
     });
 
-    it('C3.2: TV Stage floating sync mode toggle has valid aria-pressed and aria-label', () => {
+    it('C3.2: The same highlight selector reflects the mode inside the TV stage', () => {
       const { rerender } = render(
         <LyricDisplay lines={sampleLines} currentTime={4.5} duration={60} syncMode="word" />
       );
 
       fireEvent.keyDown(window, { key: 'f' });
-      const stageBtnWord = screen.getByTestId('stage-sync-mode-toggle');
-      expect(stageBtnWord).toHaveAttribute('aria-pressed', 'false');
-      expect(stageBtnWord).toHaveAttribute('aria-label', 'Switch to Line-by-Line mode');
+      expect(screen.getAllByTestId('sync-mode-selector')).toHaveLength(1);
+      expect(screen.getByTestId('sync-mode-word')).toHaveAttribute('aria-pressed', 'true');
 
       rerender(
         <LyricDisplay lines={sampleLines} currentTime={4.5} duration={60} syncMode="line" />
       );
-      const stageBtnLine = screen.getByTestId('stage-sync-mode-toggle');
-      expect(stageBtnLine).toHaveAttribute('aria-pressed', 'true');
-      expect(stageBtnLine).toHaveAttribute('aria-label', 'Switch to Word Sweep mode');
+      expect(screen.getByTestId('sync-mode-line')).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.queryByTestId('stage-sync-mode-toggle')).not.toBeInTheDocument();
     });
 
-    it('C3.3: VisualThemePicker segmented control has role="group", aria-label, and aria-pressed attributes', () => {
-      render(
-        <VisualThemePicker
-          selectedTheme={THEMES[0]}
-          onSelectTheme={vi.fn()}
-          aspectRatio="16:9"
-          onChangeAspectRatio={vi.fn()}
-          onCustomBgUploaded={vi.fn()}
-          syncMode="line"
-        />
-      );
+    it('C3.3: Stage toolbar highlight selector is a labelled group of pressed-state buttons', () => {
+      render(<LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="line" />);
 
       const group = screen.getByTestId('sync-mode-selector');
       expect(group).toHaveAttribute('role', 'group');
-      expect(group).toHaveAttribute('aria-label', 'Lyric synchronization display mode');
+      expect(group).toHaveAttribute('aria-label', 'Lyric highlight mode');
 
       const wordBtn = screen.getByTestId('sync-mode-word');
       const lineBtn = screen.getByTestId('sync-mode-line');
@@ -624,7 +607,6 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
           onCustomBgUploaded={vi.fn()}
-          syncMode="line"
         />
       );
 
@@ -892,8 +874,6 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
               aspectRatio={theme.aspectRatio}
               onChangeAspectRatio={theme.setAspectRatio}
               onCustomBgUploaded={theme.setCustomBgId}
-              syncMode={theme.syncMode}
-              onSyncModeChange={theme.setSyncMode}
             />
             <button data-testid="open-export-btn" onClick={() => setIsExportOpen(true)}>
               Open Export

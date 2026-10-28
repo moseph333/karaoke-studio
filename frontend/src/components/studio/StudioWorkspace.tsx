@@ -101,6 +101,8 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           onSeek={audio.handleSeek}
           onSaveLines={onSaveLines}
           albumArtUrl={project.thumbnail_url}
+          backgroundMedia={theme.stageBackground}
+          selectedTheme={theme.selectedTheme}
           themeSungColor={theme.activeSungColor}
           themeUnsungColor={theme.activeUnsungColor}
           onDirtyChange={onLyricsDirtyChange}
@@ -177,8 +179,6 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
           fontSizeScale={theme.fontSizeScale}
           onFontSizeScaleChange={theme.setFontSizeScale}
           onResetThemeDefaults={theme.resetThemeDefaults}
-          syncMode={theme.syncMode}
-          onSyncModeChange={theme.setSyncMode}
         />
       </div>
     </aside>

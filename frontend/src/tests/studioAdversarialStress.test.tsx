@@ -835,7 +835,11 @@ describe('Studio Adversarial Stress Testing', () => {
 
       fireEvent.click(toggleBtn);
       expect(stage).toHaveAttribute('data-fullscreen', 'true');
-      expect(stage.className).toContain('fixed inset-0 z-50 bg-slate-950 w-screen h-screen');
+      // The pseudo-fullscreen overlay covers the viewport on its own (no native API needed)
+      const classes = stage.className.split(/\s+/);
+      for (const token of ['fixed', 'inset-0', 'z-50', 'w-screen', 'h-screen', 'bg-theme-bg']) {
+        expect(classes).toContain(token);
+      }
     });
 
     it('resets idle timer on mouse movements during playback, hiding only after 3000ms idle, and stays visible when paused', () => {

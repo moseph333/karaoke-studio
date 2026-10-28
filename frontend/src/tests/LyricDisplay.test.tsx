@@ -188,7 +188,9 @@ describe('LyricDisplay Multi-Singer Duet Presentations (Requirement R2)', () => 
     const badge = screen.getByTestId('active-singer-badge');
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveAttribute('data-singer', 'singer1');
-    expect(badge).toHaveTextContent('🎤 Singer 1 / Lead');
+    expect(badge).toHaveTextContent('Singer 1 / Lead');
+    // Icons are decorative SVGs, not emoji characters
+    expect(badge.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
 
     const sungOverlay = screen.getByTestId('word-sung-0');
     expect(sungOverlay).toHaveStyle({ color: '#fbbf24' });
@@ -197,36 +199,36 @@ describe('LyricDisplay Multi-Singer Duet Presentations (Requirement R2)', () => 
     expect(nextTag).toBeInTheDocument();
     expect(nextTag).toHaveAttribute('data-singer', 'singer2');
     expect(nextTag).toHaveTextContent('[Singer 2]');
-    expect(nextTag).toHaveStyle({ color: '#ec4899' });
+    expect(nextTag).toHaveStyle({ color: '#ff00b3' });
   });
 
-  it('renders Singer 2 with Vibrant Pink / Coral (#ec4899) and Partner badge', () => {
+  it('renders Singer 2 with the export default magenta (#ff00b3) and Partner badge', () => {
     render(<LyricDisplay lines={duetLines} currentTime={7.0} />);
 
     const badge = screen.getByTestId('active-singer-badge');
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveAttribute('data-singer', 'singer2');
-    expect(badge).toHaveTextContent('🎤 Singer 2 / Partner');
+    expect(badge).toHaveTextContent('Singer 2 / Partner');
 
     const sungOverlay = screen.getByTestId('word-sung-0');
-    expect(sungOverlay).toHaveStyle({ color: '#ec4899' });
+    expect(sungOverlay).toHaveStyle({ color: '#ff00b3' });
 
     const nextTag = screen.getByTestId('next-singer-tag');
     expect(nextTag).toHaveAttribute('data-singer', 'both');
     expect(nextTag).toHaveTextContent('[Both / Duet]');
-    expect(nextTag).toHaveStyle({ color: '#10b981' });
+    expect(nextTag).toHaveStyle({ color: '#7bfa50' });
   });
 
-  it('renders Both / Duet with Emerald Green (#10b981) and Duet icon badge', () => {
+  it('renders Both / Duet with the export default green (#7bfa50) and Duet icon badge', () => {
     render(<LyricDisplay lines={duetLines} currentTime={11.0} />);
 
     const badge = screen.getByTestId('active-singer-badge');
     expect(badge).toBeInTheDocument();
     expect(badge).toHaveAttribute('data-singer', 'both');
-    expect(badge).toHaveTextContent('👥 Both / Duet');
+    expect(badge).toHaveTextContent('Both / Duet');
 
     const sungOverlay = screen.getByTestId('word-sung-0');
-    expect(sungOverlay).toHaveStyle({ color: '#10b981' });
+    expect(sungOverlay).toHaveStyle({ color: '#7bfa50' });
   });
 
   it('gracefully normalizes string aliases (partner, unison, duet) and defaults unset lines to singer1', () => {
@@ -252,7 +254,7 @@ describe('LyricDisplay Multi-Singer Duet Presentations (Requirement R2)', () => 
     render(<LyricDisplay lines={aliasedLines} currentTime={2.0} />);
     const badge = screen.getByTestId('active-singer-badge');
     expect(badge).toHaveAttribute('data-singer', 'singer2');
-    expect(badge).toHaveTextContent('🎤 Singer 2 / Partner');
+    expect(badge).toHaveTextContent('Singer 2 / Partner');
 
     const nextTag = screen.getByTestId('next-singer-tag');
     expect(nextTag).toHaveAttribute('data-singer', 'both');

@@ -38,6 +38,22 @@ export function cssToAssColor(cssColor: string, defaultAss = '&H0000D7FF'): stri
   return defaultAss;
 }
 
+export interface StageBackgroundMedia {
+  url: string;
+  kind: 'image' | 'video';
+}
+
+/** Static URL and media kind for an uploaded stage background id. */
+export function stageBackgroundFromId(
+  bgId: string | null | undefined
+): StageBackgroundMedia | null {
+  if (!bgId) return null;
+  return {
+    url: `/static/backgrounds/${encodeURIComponent(bgId)}`,
+    kind: /\.(mp4|webm|mov|m4v)$/i.test(bgId) ? 'video' : 'image',
+  };
+}
+
 export interface UseVisualThemeReturn {
   selectedTheme: VisualTheme;
   setSelectedTheme: (theme: VisualTheme) => void;
@@ -56,6 +72,8 @@ export interface UseVisualThemeReturn {
   resetThemeDefaults: () => void;
   activeSungColor: string;
   activeUnsungColor: string;
+  /** Uploaded background shown behind the stage lyrics, if any. */
+  stageBackground: StageBackgroundMedia | null;
   effectiveTheme: VisualTheme & { font_size_scale: number; sync_mode?: SyncDisplayMode };
 }
 
@@ -98,6 +116,8 @@ export function useVisualTheme(initialTheme?: VisualTheme): UseVisualThemeReturn
       }
     }
   }, [appThemeContext, activePresetId, selectedTheme.id]);
+
+  const stageBackground = useMemo(() => stageBackgroundFromId(customBgId), [customBgId]);
 
   const activeSungColor = customSungColor ?? selectedTheme.previewSung;
   const activeUnsungColor = customUnsungColor ?? selectedTheme.previewUnsung;
@@ -169,6 +189,7 @@ export function useVisualTheme(initialTheme?: VisualTheme): UseVisualThemeReturn
     resetThemeDefaults,
     activeSungColor,
     activeUnsungColor,
+    stageBackground,
     effectiveTheme,
   };
 }

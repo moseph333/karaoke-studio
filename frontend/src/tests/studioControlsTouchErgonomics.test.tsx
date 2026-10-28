@@ -9,6 +9,7 @@ import { TransportDock } from '../components/transport/TransportDock';
 import { VisualThemePicker, THEMES } from '../components/VisualThemePicker';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { LyricLine, ProjectState } from '../types';
+import { expectTouchTarget } from './responsiveTestUtils';
 
 describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touch Controls)', () => {
   beforeEach(() => {
@@ -405,9 +406,12 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
     it('wraps active lyric text without clipping or colliding with the Live Preview badge', () => {
       render(<LyricDisplay lines={sampleLines} currentTime={2.5} aspectRatio="9:16" />);
 
-      // Live Badge is positioned top-2.5 left-2.5
-      const liveBadge = screen.getByText(/live visual preview/i).closest('div');
-      expect(liveBadge).toHaveClass('absolute', 'top-2.5', 'left-2.5');
+      // The live badge sits in the overlay toolbar pinned to the top edge of the stage
+      const toolbar = screen.getByTestId('stage-toolbar');
+      expect(within(toolbar).getByText(/live preview/i)).toBeInTheDocument();
+      expect(toolbar).toHaveClass('absolute', 'inset-x-0', 'top-0');
+      // ...and the stage reserves top padding so lyrics never slide under it
+      expect(screen.getByTestId('lyric-display-stage')).toHaveClass('pt-16');
 
       // Active lyrics line has flex-wrap and responsive typography
       const activeLine = screen.getByTestId('active-lyrics-line');
@@ -437,8 +441,10 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       const widescreenBtn = screen.getByRole('button', { name: /16:9 widescreen/i });
 
       // Hit targets >= 40px
-      expect(shortsBtn).toHaveClass('min-h-[40px]');
-      expect(widescreenBtn).toHaveClass('min-h-[40px]');
+      expectTouchTarget(shortsBtn, 40);
+      expectTouchTarget(widescreenBtn, 40);
+      expect(widescreenBtn).toHaveAttribute('aria-pressed', 'true');
+      expect(shortsBtn).toHaveAttribute('aria-pressed', 'false');
 
       // Click 9:16 Shorts
       await user.click(shortsBtn);

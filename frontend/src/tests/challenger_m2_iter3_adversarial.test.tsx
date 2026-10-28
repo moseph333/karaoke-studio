@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import App from '../App';
 import { ToastProvider } from '../hooks/useToast';
 import { LyricDisplay } from '../components/LyricDisplay';
@@ -183,10 +183,13 @@ describe('Empirical Challenger: Milestone 2 Iteration 3 Scope', () => {
       const floatingControls = screen.getByTestId('stage-floating-controls');
       expect(floatingControls).toBeInTheDocument();
 
-      // Locate floating chord toggle button
-      const chordToggleBtn = screen.getByTestId('chord-bar-toggle');
-      expect(chordToggleBtn).toBeInTheDocument();
-      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Show Live Chord Bar (C)');
+      // The chord toggle lives once in the stage toolbar (not duplicated into the playback bar)
+      expect(screen.getAllByTestId('chord-bar-toggle')).toHaveLength(1);
+      const chordToggleBtn = within(screen.getByTestId('stage-toolbar')).getByTestId(
+        'chord-bar-toggle'
+      );
+      // Toggle semantics: a stable name with the state carried by aria-pressed
+      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Chord bar');
       expect(chordToggleBtn).toHaveAttribute('aria-pressed', 'false');
 
       // Verify touch target dimension classes (min-h-[44px] min-w-[44px])
@@ -200,14 +203,14 @@ describe('Empirical Challenger: Milestone 2 Iteration 3 Scope', () => {
       fireEvent.click(chordToggleBtn);
 
       expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
-      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Hide Live Chord Bar (C)');
+      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Chord bar');
       expect(chordToggleBtn).toHaveAttribute('aria-pressed', 'true');
 
       // Click again to hide ChordBar
       fireEvent.click(chordToggleBtn);
 
       expect(screen.queryByTestId('chord-bar')).not.toBeInTheDocument();
-      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Show Live Chord Bar (C)');
+      expect(chordToggleBtn).toHaveAttribute('aria-label', 'Chord bar');
       expect(chordToggleBtn).toHaveAttribute('aria-pressed', 'false');
     });
 

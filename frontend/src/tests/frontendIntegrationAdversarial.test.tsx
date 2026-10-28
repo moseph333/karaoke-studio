@@ -783,7 +783,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         </ToastProvider>
       );
 
-      expect(screen.getByText(/Active \(active_bg_id\)/i)).toBeInTheDocument();
+      // The active background is named in the Look panel and the upload button offers a replacement
+      expect(screen.getByText('active_bg_id')).toHaveAttribute('title', 'active_bg_id');
+      expect(screen.getByRole('button', { name: /^Replace$/ })).toBeInTheDocument();
       const resetBtn = screen.getByRole('button', { name: /Reset to Album Art/i });
       await user.click(resetBtn);
 

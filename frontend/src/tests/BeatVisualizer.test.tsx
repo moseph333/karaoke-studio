@@ -108,7 +108,7 @@ describe('Beat-Reactive Audio Visualizer & Hotkeys (Requirement R3 / M3)', () =>
       expect(inspection.failed).toHaveLength(0);
     });
 
-    it('renders toggle-visualizer-btn in Stage Mode floating controls when fullscreen', () => {
+    it('keeps a single toggle-visualizer-btn in the stage toolbar when fullscreen', () => {
       const onToggle = vi.fn();
       render(
         <LyricDisplay
@@ -126,9 +126,12 @@ describe('Beat-Reactive Audio Visualizer & Hotkeys (Requirement R3 / M3)', () =>
 
       const floatingControls = screen.getByTestId('stage-floating-controls');
       expect(floatingControls).toBeInTheDocument();
+      // View toggles are not duplicated into the playback bar
+      expect(within(floatingControls).queryByTestId('toggle-visualizer-btn')).toBeNull();
 
-      const stageToggleBtn = within(floatingControls).getByTestId('toggle-visualizer-btn');
-      expect(stageToggleBtn).toBeInTheDocument();
+      const toolbar = screen.getByTestId('stage-toolbar');
+      const stageToggleBtn = within(toolbar).getByTestId('toggle-visualizer-btn');
+      expect(screen.getAllByTestId('toggle-visualizer-btn')).toHaveLength(1);
       expect(stageToggleBtn).toHaveAttribute('aria-pressed', 'true');
 
       fireEvent.click(stageToggleBtn);
