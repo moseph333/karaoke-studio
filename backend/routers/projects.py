@@ -761,6 +761,10 @@ def realign_lyrics(
         aligned_lines = result.lines
 
         with PROJECTS_LOCK:
+            # Aligning took a while and the project dict may have been reloaded meanwhile
+            proj = find_project(pid)
+            if not proj:
+                raise HTTPException(status_code=404, detail="Project not found")
             realignment.store_aligned_lines(main_mod, proj, aligned_lines)
             if mode == "lines":
                 if proj.get("lyric_timing") in (None, "none"):

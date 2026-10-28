@@ -1,5 +1,6 @@
 """Re-timing lyrics after the fact: one line at a time, or the whole song in the background."""
 
+import copy
 import itertools
 import threading
 import time
@@ -348,6 +349,30 @@ def test_current_lines_can_be_retimed_within_the_request(client, song):
     empty = client.post("/api/project/rl1/realign-lyrics", json={"lines": []})
     assert empty.status_code == 400
     assert empty.json()["detail"] == "Must provide either custom_lyrics or fetch_lrclib=True"
+
+
+def test_retiming_within_the_request_stores_into_the_project_as_it_is_now(
+    client, song, monkeypatch
+):
+    from backend.routers import projects as projects_router
+
+    real_sync = projects_router.sync_lyrics
+
+    def project_reloaded_meanwhile(*args, **kwargs):
+        result = real_sync(*args, **kwargs)
+        # Another request reloaded the projects from disk while this one was aligning
+        main_mod.projects["rl1"] = copy.deepcopy(main_mod.projects["rl1"])
+        return result
+
+    monkeypatch.setattr(projects_router, "sync_lyrics", project_reloaded_meanwhile)
+    lines = [dict(line) for line in song["lines"]]
+    res = client.post("/api/project/rl1/realign-lyrics", json={"lines": lines})
+    assert res.status_code == 200
+
+    stored = main_mod.projects["rl1"]
+    assert stored is not song
+    assert stored["lines"][1]["start_time"] == pytest.approx(6.0, abs=0.15)
+    assert stored["sync_report"] == res.json()["sync_report"]
 
 
 @pytest.mark.parametrize(
