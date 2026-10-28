@@ -33,6 +33,10 @@ export interface WaveformScrubberProps {
   lines?: LyricLine[];
   isPlaying?: boolean;
   className?: string;
+  /** Pre-computed normalized peaks (0-1); skips client-side decoding when provided. */
+  peaks?: number[] | null;
+  /** Render lyric line start markers along the track. */
+  showMarkers?: boolean;
 }
 
 const BAR_COUNT = 100;
@@ -44,10 +48,13 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   audioUrl,
   lines,
   className = '',
+  peaks,
+  showMarkers = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [decodedPeaks, setDecodedPeaks] = useState<number[] | null>(null);
+  const [hoverRatio, setHoverRatio] = useState<number | null>(null);
 
   // Mode A: Instant deterministic energy envelope (0ms, no network, runs everywhere)
   const fallbackBars = useMemo(() => {
@@ -77,6 +84,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   // Mode B: Web Audio API peak extraction if AudioContext is available
   useEffect(() => {
     const targetUrl = audioUrl;
+    if (peaks && peaks.length > 0) return;
     if (!targetUrl || typeof window === 'undefined') return;
     const AudioContextClass =
       window.AudioContext ||
@@ -134,9 +142,32 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       isCancelled = true;
       abortController.abort();
     };
-  }, [audioUrl]);
+  }, [audioUrl, peaks]);
 
-  const bars = decodedPeaks || fallbackBars;
+  const providedBars = useMemo(() => {
+    if (!peaks || peaks.length === 0) return null;
+    if (peaks.length === BAR_COUNT) return peaks.map((p) => Math.min(1, Math.max(0.12, p)));
+    // Resample arbitrary-length peaks to BAR_COUNT buckets (max per bucket)
+    const out: number[] = [];
+    for (let i = 0; i < BAR_COUNT; i++) {
+      const start = Math.floor((i / BAR_COUNT) * peaks.length);
+      const end = Math.max(start + 1, Math.floor(((i + 1) / BAR_COUNT) * peaks.length));
+      let m = 0;
+      for (let j = start; j < end && j < peaks.length; j++) m = Math.max(m, peaks[j] || 0);
+      out.push(Math.min(1, Math.max(0.12, m)));
+    }
+    return out;
+  }, [peaks]);
+
+  const bars = providedBars || decodedPeaks || fallbackBars;
+
+  const markerPercents = useMemo(() => {
+    if (!showMarkers || !lines || !Number.isFinite(duration) || duration <= 0) return [];
+    return lines
+      .map((l) => (typeof l.start_time === 'number' ? l.start_time : l.start) ?? -1)
+      .filter((t) => t >= 0 && t <= duration)
+      .map((t) => (t / duration) * 100);
+  }, [showMarkers, lines, duration]);
   const progressPercent =
     Number.isFinite(duration) && duration > 0
       ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
@@ -182,6 +213,12 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (containerRef.current && e.pointerType !== 'touch') {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width > 0 && Number.isFinite(e.clientX)) {
+        setHoverRatio(Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)));
+      }
+    }
     if (isDragging) {
       const clientX = e.clientX ?? (e.nativeEvent as unknown as MouseEvent)?.clientX;
       if (clientX !== undefined && !isNaN(clientX)) {
@@ -220,7 +257,8 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className={`relative h-14 w-full bg-theme-bg border border-theme-border-subtle rounded-theme-lg overflow-hidden cursor-pointer flex items-end px-1 gap-[2px] group select-none touch-none ${className}`}
+      onPointerLeave={() => setHoverRatio(null)}
+      className={`group relative flex h-14 w-full cursor-pointer select-none items-center gap-[2px] overflow-hidden rounded-theme-md px-0.5 touch-none ${className}`}
     >
       {/* Waveform Bars */}
       {bars.map((height, i) => {
@@ -230,20 +268,49 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
           <div
             key={i}
             data-testid="waveform-bar"
-            className={`flex-1 rounded-theme-pill transition-colors duration-75 ${
+            data-played={isPlayed ? 'true' : 'false'}
+            className={`flex-1 rounded-full transition-colors duration-100 ${
               isPlayed
-                ? 'from-cyan-500 bg-theme-sung'
-                : 'bg-slate-700 bg-theme-surface-raised group-hover:bg-theme-border'
+                ? 'bg-theme-sung'
+                : 'bg-theme-text-muted/25 group-hover:bg-theme-text-muted/35'
             }`}
             style={{ height: `${Math.max(12, Math.round(height * 100))}%` }}
           />
         );
       })}
 
+      {/* Lyric line markers */}
+      {markerPercents.map((pct, i) => (
+        <span
+          key={`m-${i}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-theme-highlight/70"
+          style={{ left: `${pct}%` }}
+        />
+      ))}
+
+      {/* Hover position indicator */}
+      {hoverRatio !== null && Number.isFinite(duration) && duration > 0 && !isDragging && (
+        <>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-1 z-10 w-px bg-theme-text/50"
+            style={{ left: `${hoverRatio * 100}%` }}
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-0.5 z-30 -translate-x-1/2 rounded-theme-sm bg-theme-surface-raised px-1.5 py-0.5 font-mono text-[10px] text-theme-text shadow-theme-sm"
+            style={{ left: `${Math.min(96, Math.max(4, hoverRatio * 100))}%` }}
+          >
+            {formatTime(hoverRatio * duration)}
+          </span>
+        </>
+      )}
+
       {/* Playhead Progress Needle */}
       <div
         data-testid="waveform-playhead"
-        className="absolute top-0 bottom-0 w-0.5 bg-theme-accent shadow-theme-glow pointer-events-none z-10"
+        className="pointer-events-none absolute inset-y-0 z-10 w-0.5 rounded-full bg-theme-text shadow-theme-glow"
         style={{ left: `${progressPercent}%` }}
       />
 
@@ -271,7 +338,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
           aria-valuemax={Number.isFinite(duration) && duration > 0 ? Math.round(duration) : 100}
           aria-valuenow={Math.round(currentTime)}
           aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
-          className="w-full h-full opacity-0 cursor-pointer z-20 touch-none py-2"
+          className="w-full h-full min-h-[44px] opacity-0 cursor-pointer z-20 touch-none py-2"
         />
       </Tooltip>
     </div>

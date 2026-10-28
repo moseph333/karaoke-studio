@@ -4,6 +4,7 @@ import { render, screen, act, fireEvent, within, waitFor } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
 import { AudioControls } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 import App from '../App';
 import { LyricLine } from '../types';
 import * as apiModule from '../api';
@@ -323,16 +324,17 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
       const onTogglePlay = vi.fn();
 
       render(
-        <AudioControls
-          projectId="proj-m2-test"
-          masterAudioUrl="/audio/test.wav"
-          currentTime={15.0}
-          duration={180.0}
-          isPlaying={false}
-          onTogglePlay={onTogglePlay}
-          onSeek={onSeek}
-          onMixChange={onMixChange}
-        />
+        <div>
+          <TransportDock
+            masterAudioUrl="/audio/test.wav"
+            currentTime={15.0}
+            duration={180.0}
+            isPlaying={false}
+            onTogglePlay={onTogglePlay}
+            onSeek={onSeek}
+          />
+          <AudioControls projectId="proj-m2-test" onMixChange={onMixChange} />
+        </div>
       );
 
       // Restart button >= 44px
@@ -360,20 +362,20 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
       for (let i = 0; i < 15; i++) {
         await user.click(pitchUpBtn);
       }
-      expect(screen.getByText('+12 semitones')).toBeInTheDocument();
+      expect(screen.getByText('12 semitones up')).toBeInTheDocument();
 
       // Reset pitch back to 0
       await user.click(pitchResetBtn);
-      expect(screen.getByText('0 (Original)')).toBeInTheDocument();
+      expect(screen.getByText('Original key')).toBeInTheDocument();
 
       // Pitch boundary clamping: click -1 15 times -> should clamp at -12 semitones
       for (let i = 0; i < 15; i++) {
         await user.click(pitchDownBtn);
       }
-      expect(screen.getByText('-12 semitones')).toBeInTheDocument();
+      expect(screen.getByText('12 semitones down')).toBeInTheDocument();
     });
 
-    it('executes "Apply Audio Mix" and triggers instrumental file replacement workflow', async () => {
+    it('re-mixes automatically after the instrumental file replacement workflow', async () => {
       const user = userEvent.setup();
       const onMixChange = vi.fn().mockResolvedValue(undefined);
       const onCustomInstrumentalUploaded = vi.fn();
@@ -391,34 +393,20 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
       render(
         <AudioControls
           projectId="proj-m2-test"
-          masterAudioUrl="/audio/test.wav"
-          currentTime={15.0}
-          duration={180.0}
-          isPlaying={false}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
           onMixChange={onMixChange}
+          mixDebounceMs={0}
           onCustomInstrumentalUploaded={onCustomInstrumentalUploaded}
         />
       );
 
-      // Verify Apply Audio Mix button styling and touch target
-      const applyMixBtn = screen.getByRole('button', {
-        name: /apply audio mix settings to playback/i,
-      });
-      expect(applyMixBtn).toHaveClass('min-h-[44px]');
-      expect(applyMixBtn).toHaveClass('w-full');
-      expect(applyMixBtn).toHaveClass('sm:w-auto');
+      // No manual "Apply Audio Mix" step exists anymore
+      expect(
+        screen.queryByRole('button', { name: /apply audio mix settings to playback/i })
+      ).not.toBeInTheDocument();
 
-      // Click Apply Audio Mix
-      await user.click(applyMixBtn);
-      expect(onMixChange).toHaveBeenCalledTimes(1);
-
-      // Verify Replace Instrumental File button styling and touch target
+      // Verify Replace Instrumental File button touch target
       const replaceBtn = screen.getByRole('button', { name: /replace instrumental file/i });
       expect(replaceBtn).toHaveClass('min-h-[44px]');
-      expect(replaceBtn).toHaveClass('w-full');
-      expect(replaceBtn).toHaveClass('sm:w-auto');
 
       // Locate hidden file input and simulate file selection
       const fileInput = screen.getByLabelText(
@@ -437,6 +425,8 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
         expect.objectContaining({ method: 'POST' })
       );
       expect(onCustomInstrumentalUploaded).toHaveBeenCalledWith('/audio/custom_inst.wav');
+      // The new instrumental is mixed in without a manual apply step
+      await waitFor(() => expect(onMixChange).toHaveBeenCalledTimes(1));
     });
 
     it('verifies keyboard shortcuts (Space, M, ArrowLeft, ArrowRight) in Studio Dashboard and honors form/modal isolation', async () => {
@@ -491,7 +481,7 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
 
       // Wait for Studio Dashboard to render with project title in song meta header
       await waitFor(() => {
-        expect(screen.getByText(/Queen • 15 lyric lines detected/i)).toBeInTheDocument();
+        expect(screen.getByText(/Queen · 15 lines/i)).toBeInTheDocument();
       });
 
       // Transport button starts with "Start playback"

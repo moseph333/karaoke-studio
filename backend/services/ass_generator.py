@@ -319,9 +319,7 @@ def generate_ass_content(
     # Resolve Singer 2 and Both sung colors: explicit arg > style_config > preset > defaults
     preset = VISUAL_THEMES.get(eff_theme_id or "", {}) if eff_theme_id else {}
     s2_raw = (
-        singer2_color
-        or (style_config or {}).get("singer2_color")
-        or preset.get("singer2_color")
+        singer2_color or (style_config or {}).get("singer2_color") or preset.get("singer2_color")
     )
     singer2_color_val = (
         css_to_ass_color(s2_raw, default=DEFAULT_SINGER2_COLOR) if s2_raw else DEFAULT_SINGER2_COLOR

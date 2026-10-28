@@ -44,14 +44,18 @@ describe('WaveformScrubber', () => {
     render(<WaveformScrubber {...defaultProps} currentTime={50} duration={100} />);
 
     const bars = screen.getAllByTestId('waveform-bar');
-    // First 50 bars should be played
-    expect(bars[0].className).toContain('from-cyan-500');
-    expect(bars[25].className).toContain('from-cyan-500');
-    expect(bars[49].className).toContain('from-cyan-500');
+    // First 50 bars should be played (sung color token)
+    for (const i of [0, 25, 49]) {
+      expect(bars[i]).toHaveAttribute('data-played', 'true');
+      expect(bars[i].className).toContain('bg-theme-sung');
+    }
 
-    // Remaining bars should have unplayed color
-    expect(bars[55].className).toContain('bg-slate-700');
-    expect(bars[99].className).toContain('bg-slate-700');
+    // Remaining bars use the muted unplayed token
+    for (const i of [55, 99]) {
+      expect(bars[i]).toHaveAttribute('data-played', 'false');
+      expect(bars[i].className).toContain('bg-theme-text-muted/25');
+      expect(bars[i].className).not.toContain('bg-theme-sung');
+    }
   });
 
   it('provides an internal accessible slider preserving accessibility assertions', () => {

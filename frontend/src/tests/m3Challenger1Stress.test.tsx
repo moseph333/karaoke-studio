@@ -154,11 +154,12 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
       expect(headerDiv?.className).not.toContain('overflow-x-hidden');
       expect(headerDiv?.className).toContain('min-w-0');
 
-      // Verify right action cluster uses flex-wrap sm:flex-nowrap and shrink-0 without clipping AppThemePicker
+      // Verify right action cluster wraps (rather than clipping AppThemePicker) on tiny screens
       const actionCluster = headerDiv?.children[1];
       expect(actionCluster?.className).toContain('flex-wrap');
+      expect(actionCluster?.className).toContain('sm:flex-nowrap');
       expect(actionCluster?.className).not.toContain('overflow-x-hidden');
-      expect(actionCluster?.className).toContain('shrink-0');
+      expect(actionCluster?.className).toContain('min-w-0');
 
       // Verify render progress badge is rendered
       const badge = screen.getByTestId('header-render-progress');
@@ -166,7 +167,7 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
       expect(badge).toHaveTextContent(/87%/);
     });
 
-    it('renders prominent mobile export trigger with touch target >= 44x44px on mobile', () => {
+    it('renders a single export trigger with touch target >= 44x44px on mobile', () => {
       setTestViewport(375, 667);
       render(
         <AppThemeProvider>
@@ -182,13 +183,12 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      const mobileExportBtn = screen.getByTestId('mobile-header-export-btn');
-      expect(mobileExportBtn).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Open export dialog' })).toHaveLength(1);
+      const mobileExportBtn = screen.getByTestId('studio-export-btn');
       expect(mobileExportBtn.className).toContain('min-h-[44px]');
       expect(mobileExportBtn.className).toContain('min-w-[44px]');
-      expect(mobileExportBtn.className).toContain('flex');
-      expect(mobileExportBtn.className).toContain('md:hidden');
-      expect(mobileExportBtn).toHaveAttribute('aria-label', 'Export Video');
+      expect(mobileExportBtn.className).not.toContain('md:hidden');
+      expect(mobileExportBtn).toHaveAttribute('aria-label', 'Open export dialog');
     });
 
     it('strictly respects export callback precedence: onExportClick > onOpenExportModal > onStartRender', () => {
@@ -214,7 +214,7 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      fireEvent.click(screen.getByTestId('mobile-header-export-btn'));
+      fireEvent.click(screen.getByTestId('studio-export-btn'));
       expect(onExportClickMock).toHaveBeenCalledTimes(1);
       expect(onOpenExportModalMock).not.toHaveBeenCalled();
       expect(onStartRenderMock).not.toHaveBeenCalled();
@@ -238,7 +238,7 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      fireEvent.click(screen.getByTestId('mobile-header-export-btn'));
+      fireEvent.click(screen.getByTestId('studio-export-btn'));
       expect(onOpenExportModalMockB).toHaveBeenCalledTimes(1);
       expect(onStartRenderMockB).not.toHaveBeenCalled();
       unmountB();
@@ -259,11 +259,11 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      fireEvent.click(screen.getByTestId('mobile-header-export-btn'));
+      fireEvent.click(screen.getByTestId('studio-export-btn'));
       expect(onStartRenderMockC).toHaveBeenCalledTimes(1);
     });
 
-    it('handles rapid sequential clicking on mobile export trigger without exception', () => {
+    it('handles rapid sequential clicking on the export trigger without exception', () => {
       setTestViewport(375, 667);
       const onExportClickMock = vi.fn();
 
@@ -282,7 +282,7 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      const btn = screen.getByTestId('mobile-header-export-btn');
+      const btn = screen.getByTestId('studio-export-btn');
       for (let i = 0; i < 10; i++) {
         fireEvent.click(btn);
       }
@@ -305,10 +305,8 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      expect(screen.queryByTestId('mobile-header-export-btn')).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: /Render & Export Video/i })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('studio-export-btn')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
 
       const processingProject: ProjectState = {
         ...sampleProject,
@@ -329,10 +327,8 @@ describe('M3 Challenger 1: Adversarial Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      expect(screen.queryByTestId('mobile-header-export-btn')).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: /Render & Export Video/i })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByTestId('studio-export-btn')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /export/i })).not.toBeInTheDocument();
     });
   });
 

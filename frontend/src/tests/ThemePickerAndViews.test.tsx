@@ -16,6 +16,7 @@ import { AppThemeProvider } from '../context/AppThemeContext';
 import { StudioHeader } from '../components/StudioHeader';
 import { StudioMetaHeader } from '../components/StudioMetaHeader';
 import { AudioControls } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { TrackSearch } from '../components/TrackSearch';
 import {
@@ -299,7 +300,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
       expect(document.documentElement.style.getPropertyValue('--theme-text')).toBe('#111111');
     });
 
-    it('updates StudioMetaHeader and AudioControls when switching from Punk to 70s Tape', () => {
+    it('updates StudioMetaHeader, AudioControls and TransportDock when switching from Punk to 70s Tape', () => {
       render(
         <AppThemeProvider initialThemeId="punk_diy">
           <StudioMetaHeader
@@ -309,8 +310,8 @@ describe('ThemePickerAndViews Integration Suite', () => {
             onOpenExportModal={vi.fn()}
             onStartRender={vi.fn()}
           />
-          <AudioControls
-            projectId={mockProject.id}
+          <AudioControls projectId={mockProject.id} onMixChange={vi.fn()} />
+          <TransportDock
             masterAudioUrl={mockProject.master_audio_url}
             lines={mockProject.lines}
             currentTime={2.5}
@@ -318,7 +319,6 @@ describe('ThemePickerAndViews Integration Suite', () => {
             isPlaying={false}
             onTogglePlay={vi.fn()}
             onSeek={vi.fn()}
-            onMixChange={vi.fn()}
           />
         </AppThemeProvider>
       );

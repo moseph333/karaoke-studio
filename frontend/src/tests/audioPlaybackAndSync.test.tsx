@@ -2,11 +2,8 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, renderHook, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import {
-  AudioControls,
-  MASTER_VOLUME_STORAGE_KEY,
-  MASTER_MUTED_STORAGE_KEY,
-} from '../components/AudioControls';
+import { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
@@ -23,23 +20,21 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
   });
 
   // =========================================================================
-  // Feature 42: Master Volume & Mute Controls (AudioControls.tsx)
+  // Feature 42: Master Volume & Mute Controls (TransportDock)
   // =========================================================================
   describe('Feature 42: Master Volume & Mute Controls Adversarial Challenges', () => {
     const baseAudioProps = {
-      projectId: 'proj-adv-volume-test',
       masterAudioUrl: '/media/adv-audio.wav',
       currentTime: 12.0,
       duration: 180.0,
       isPlaying: false,
       onTogglePlay: vi.fn(),
       onSeek: vi.fn(),
-      onMixChange: vi.fn(),
     };
 
     it('clamps volume slider to [0.0, 1.0] when out-of-bounds or invalid values are injected', () => {
       const onVolumeChange = vi.fn();
-      render(<AudioControls {...baseAudioProps} onVolumeChange={onVolumeChange} />);
+      render(<TransportDock {...baseAudioProps} onVolumeChange={onVolumeChange} />);
 
       const slider = screen.getByRole('slider', { name: /master volume/i }) as HTMLInputElement;
       const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
@@ -60,12 +55,12 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
     });
 
     it('falls back safely to default 1.0 or clamps when initialVolume is NaN or out-of-bounds', () => {
-      const { unmount } = render(<AudioControls {...baseAudioProps} initialVolume={NaN} />);
+      const { unmount } = render(<TransportDock {...baseAudioProps} initialVolume={NaN} />);
       const slider = screen.getByRole('slider', { name: /master volume/i }) as HTMLInputElement;
       expect(slider.value).toBe('1');
       unmount();
 
-      render(<AudioControls {...baseAudioProps} initialVolume={-5} />);
+      render(<TransportDock {...baseAudioProps} initialVolume={-5} />);
       const sliderClampedLow = screen.getByRole('slider', {
         name: /master volume/i,
       }) as HTMLInputElement;
@@ -73,7 +68,7 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
     });
 
     it('correctly handles volume boundary extremes (exact 0.0, 0.5, 1.0) and percentage display', () => {
-      render(<AudioControls {...baseAudioProps} initialVolume={0.0} />);
+      render(<TransportDock {...baseAudioProps} initialVolume={0.0} />);
 
       const slider = screen.getByRole('slider', { name: /master volume/i }) as HTMLInputElement;
       const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
@@ -107,7 +102,7 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
 
       // Case A: Initial volume is non-zero (0.42). Mute -> Unmute restores 0.42.
       const { unmount } = render(
-        <AudioControls
+        <TransportDock
           {...baseAudioProps}
           initialVolume={0.42}
           onVolumeChange={onVolumeChange}
@@ -136,7 +131,7 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
 
       // Case B: Initial volume is 0.0. Unmuting from 0 must restore sensible fallback 1.0.
       render(
-        <AudioControls
+        <TransportDock
           {...baseAudioProps}
           initialVolume={0.0}
           onVolumeChange={onVolumeChange}
@@ -161,7 +156,7 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
       const user = userEvent.setup();
       const onVolumeChange = vi.fn();
       render(
-        <AudioControls {...baseAudioProps} initialVolume={0.65} onVolumeChange={onVolumeChange} />
+        <TransportDock {...baseAudioProps} initialVolume={0.65} onVolumeChange={onVolumeChange} />
       );
 
       const slider = screen.getByRole('slider', { name: /master volume/i });
@@ -184,7 +179,7 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
     it('auto-unmutes when adjusting volume slider up while muted, but stays muted if dragged to 0', () => {
       const onMuteChange = vi.fn();
       render(
-        <AudioControls
+        <TransportDock
           {...baseAudioProps}
           initialVolume={0.5}
           initialMuted={true}
@@ -211,7 +206,7 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
 
     it('synchronizes bidirectional state when external audioRef is provided', () => {
       const externalAudioRef = { current: document.createElement('audio') };
-      render(<AudioControls {...baseAudioProps} audioRef={externalAudioRef} initialVolume={0.3} />);
+      render(<TransportDock {...baseAudioProps} audioRef={externalAudioRef} initialVolume={0.3} />);
 
       // External ref volume should have been set to 0.3
       expect(externalAudioRef.current.volume).toBe(0.3);
@@ -229,7 +224,7 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
 
       corruptedVolumes.forEach((badVal) => {
         localStorage.setItem(MASTER_VOLUME_STORAGE_KEY, badVal);
-        const { unmount } = render(<AudioControls {...baseAudioProps} />);
+        const { unmount } = render(<TransportDock {...baseAudioProps} />);
         const slider = screen.getByRole('slider', { name: /master volume/i }) as HTMLInputElement;
         expect(slider.value).toBe('1');
         expect(screen.getAllByText('100%').length).toBeGreaterThanOrEqual(1);
@@ -238,7 +233,7 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
 
       // Test corrupted muted entries (anything not exactly 'true' is treated as false)
       localStorage.setItem(MASTER_MUTED_STORAGE_KEY, 'yes');
-      const { unmount: unmountMuted } = render(<AudioControls {...baseAudioProps} />);
+      const { unmount: unmountMuted } = render(<TransportDock {...baseAudioProps} />);
       expect(screen.getByRole('button', { name: /mute audio/i })).toBeInTheDocument();
       unmountMuted();
     });
@@ -253,7 +248,7 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
 
       // Component should render without throwing
       expect(() => {
-        render(<AudioControls {...baseAudioProps} />);
+        render(<TransportDock {...baseAudioProps} />);
       }).not.toThrow();
 
       const slider = screen.getByRole('slider', { name: /master volume/i });

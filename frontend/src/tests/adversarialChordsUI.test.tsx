@@ -28,7 +28,6 @@ import { HelpModal } from '../components/HelpModal';
 import { AuthModal } from '../components/AuthModal';
 import { ExportModal } from '../components/ExportModal';
 import { LyricDisplay } from '../components/LyricDisplay';
-import { AudioControls } from '../components/AudioControls';
 import { ChordSegment, LyricLine, ProjectState } from '../types';
 import {
   setTestViewport,
@@ -599,26 +598,25 @@ describe('Milestone 2 Empirical Challenger: Adversarial Stress Suite', () => {
       assertZeroHorizontalOverflow(container, 320);
     });
 
-    it('3.6: AudioControls with chord-bar-toggle at 320px has zero horizontal overflow and >=44px button', () => {
+    it('3.6: stage toolbar chord-bar-toggle at 320px has zero horizontal overflow and >=44px button', () => {
       setTestViewport(320, 568);
+      const onToggleChordBar = vi.fn();
       const { container } = render(
         <div style={{ width: 320, overflow: 'hidden' }}>
-          <AudioControls
-            projectId="p1"
+          <LyricDisplay
+            lines={[]}
             currentTime={1.0}
-            duration={100}
-            isPlaying={false}
-            onTogglePlay={vi.fn()}
-            onSeek={vi.fn()}
-            onMixChange={vi.fn()}
-            initialSemitones={0}
+            chords={sampleChords}
             showChordBar={true}
-            onToggleChordBar={vi.fn()}
+            onToggleChordBar={onToggleChordBar}
           />
         </div>
       );
 
       const chordToggleBtn = screen.getByTestId('chord-bar-toggle');
+      expect(chordToggleBtn).toHaveAttribute('aria-pressed', 'true');
+      fireEvent.click(chordToggleBtn);
+      expect(onToggleChordBar).toHaveBeenCalledTimes(1);
       expect(chordToggleBtn).toBeInTheDocument();
       expect(chordToggleBtn.className).toContain('min-h-[44px]');
       expect(chordToggleBtn.className).toContain('min-w-[44px]');

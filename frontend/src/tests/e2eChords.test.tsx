@@ -604,13 +604,9 @@ describe('E2E Chords & Harmonic Progression Workstation', () => {
           <div>
             <AudioControls
               projectId={mockProject.id}
-              currentTime={0}
-              duration={mockProject.duration ?? 10.0}
-              isPlaying={false}
-              onTogglePlay={vi.fn()}
-              onSeek={vi.fn()}
-              initialSemitones={semitones}
-              onMixChange={(semi) => setSemitones(semi)}
+              semitones={semitones}
+              guideVolume={0}
+              onSemitonesChange={setSemitones}
             />
             <ChordBar
               chords={mockChordProgression}
@@ -623,6 +619,11 @@ describe('E2E Chords & Harmonic Progression Workstation', () => {
 
       render(<StudioMixHarness />);
       expect(screen.getByTestId('active-chord-badge')).toHaveTextContent('C');
+
+      // Requested keys transpose chords immediately, before the server re-mix lands
+      fireEvent.click(screen.getByRole('button', { name: /increase pitch by one semitone/i }));
+      fireEvent.click(screen.getByRole('button', { name: /increase pitch by one semitone/i }));
+      expect(screen.getByTestId('active-chord-badge')).toHaveTextContent('D');
     });
 
     it('Tier 3.2: ChordBar embeds cleanly alongside LyricDisplay in Studio Mode', () => {

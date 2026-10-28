@@ -5,9 +5,11 @@ import os
 import threading
 import time
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
+from backend.config import OUTPUT_DIR
 from backend.project_store import (
     PROJECTS_LOCK,
     cleanup_project_disk_artifacts,
@@ -728,6 +730,42 @@ def realign_lyrics(project_id: str, req: RealignLyricsRequest):
         raise HTTPException(status_code=500, detail=f"Failed to realign lyrics: {e}") from e
 
 
+# Smallest plausible WAV render: anything at or below a bare RIFF header is a broken file
+_MIN_MIX_BYTES = 44
+
+
+def reusable_mix_path(output_dir, output_filename: str, sources: list) -> str | None:
+    """
+    Return a previously rendered mix when it can be served again: it exists, is more
+    than a bare WAV header, and is newer than every source stem (a replaced instrumental
+    or re-separated stems invalidate it).
+    """
+    if not isinstance(output_dir, (str, os.PathLike)):
+        return None
+    candidate = Path(output_dir) / output_filename
+    try:
+        stat = candidate.stat()
+    except OSError:
+        return None
+    if stat.st_size <= _MIN_MIX_BYTES:
+        return None
+    for source in sources:
+        try:
+            if source and os.path.getmtime(source) > stat.st_mtime:
+                return None
+        except OSError:
+            continue
+    return str(candidate)
+
+
+def mix_version(path: str) -> int:
+    """Millisecond modification stamp used to cache-bust the master audio URL."""
+    try:
+        return os.stat(path).st_mtime_ns // 1_000_000
+    except OSError:
+        return int(time.time() * 1000)
+
+
 @router.post("/api/project/{project_id}/mix")
 def mix_audio(project_id: str, req: MixRequest):
     import backend.main as main_mod
@@ -743,16 +781,27 @@ def mix_audio(project_id: str, req: MixRequest):
     track_id = proj.get("track_id") or proj.get("id") or "track"
     output_filename = f"{track_id}_mix_{req.semitones}_{int(req.guide_volume * 100)}.wav"
 
-    master_path = main_mod.audio_mixer.mix_and_shift(
-        instrumental_path=proj["instrumental_path"],
-        vocals_path=proj.get("vocals_path"),
-        semitones=req.semitones,
-        guide_volume=req.guide_volume,
-        output_filename=output_filename,
-    )
+    # Key / guide changes revisit the same few combinations: reuse renders that are
+    # still newer than their stems instead of re-running FFmpeg.
+    sources = [inst_path]
+    if req.guide_volume > 0.001 and proj.get("vocals_path"):
+        sources.append(proj["vocals_path"])
+    output_dir = getattr(main_mod, "OUTPUT_DIR", OUTPUT_DIR)
+    master_path = reusable_mix_path(output_dir, output_filename, sources)
+    if master_path:
+        logger.info(f"Reusing cached mix {output_filename} for project {project_id}")
+    else:
+        master_path = main_mod.audio_mixer.mix_and_shift(
+            instrumental_path=proj["instrumental_path"],
+            vocals_path=proj.get("vocals_path"),
+            semitones=req.semitones,
+            guide_volume=req.guide_volume,
+            output_filename=output_filename,
+        )
 
     proj["master_audio_path"] = master_path
-    proj["master_audio_url"] = f"/static/output/{output_filename}"
+    # Versioned URL: a re-render under the same name must not be served from browser cache
+    proj["master_audio_url"] = f"/static/output/{output_filename}?v={mix_version(master_path)}"
     proj["semitones"] = req.semitones
     proj["guide_volume"] = req.guide_volume
     save_projects()

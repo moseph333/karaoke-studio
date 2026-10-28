@@ -500,11 +500,6 @@ describe('Milestone 3 Challenger 2: Adversarial Evaluation of Layout Geometry & 
       const { container } = render(
         <AudioControls
           projectId="test-proj"
-          isPlaying={false}
-          currentTime={10}
-          duration={120}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
           onMixChange={vi.fn()}
           initialSemitones={0}
           initialGuideVolume={0}
@@ -520,11 +515,11 @@ describe('Milestone 3 Challenger 2: Adversarial Evaluation of Layout Geometry & 
         expect(res.failed).toHaveLength(0);
       });
 
-      // Characterization finding: assertTouchTargets on whole container selects
-      // range slider inputs and Tailwind 'hidden' file inputs (which lack inline display:none in JSDOM)
+      // Characterization finding: assertTouchTargets on whole container also selects the
+      // Tailwind 'hidden' file input (which lacks inline display:none in JSDOM)
       const containerResult = assertTouchTargets(container, 44);
       const failedTypes = containerResult.failed.map((f) => f.element.tagName.toLowerCase());
-      // Every single failure is an <input> (range slider or hidden file input), NOT a button
+      // Every single failure is an <input> (the hidden file input), NOT a button or slider
       expect(failedTypes.every((t) => t === 'input')).toBe(true);
     });
 

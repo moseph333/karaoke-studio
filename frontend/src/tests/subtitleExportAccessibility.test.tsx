@@ -487,15 +487,15 @@ describe('Milestone 2 Challenger 2: Frontend & Accessibility Adversarial Suite (
         expect(screen.getByText('Adversarial Test Track')).toBeInTheDocument();
       });
 
-      // Export Subtitles button
-      const exportBtn = screen.getByRole('button', {
-        name: /export subtitles and studio package/i,
-      });
+      // Single Export entry point (subtitles, video, stems, YouTube kit)
+      const exportBtn = screen.getByRole('button', { name: 'Open export dialog' });
       expect(exportBtn.className).toContain('min-h-[44px]');
+      expect(exportBtn.className).toContain('min-w-[44px]');
 
-      // Render 1080p Video button
-      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
-      expect(renderBtn.className).toContain('min-h-[44px]');
+      // Edit details button
+      const editBtn = screen.getByRole('button', { name: /edit song details/i });
+      expect(editBtn.className).toContain('min-h-[44px]');
+      expect(editBtn.className).toContain('min-w-[44px]');
 
       // Delete project button
       const deleteBtn = screen.getByRole('button', { name: /delete project/i });

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, renderHook } from '@testing-library/react';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { AudioControls } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { ExportModal } from '../components/ExportModal';
 import {
@@ -196,21 +197,20 @@ describe('M3 Challenger 2: Adversarial Stress Suite', () => {
   });
 
   describe('Touch Targets (>= 44px)', () => {
-    it('AudioControls toggle-visualizer-btn has min 44px touch target', () => {
+    it('the visualizer toggle lives once, in the stage toolbar, with a min 44px touch target', () => {
       render(
-        <AudioControls
-          projectId="test-viz"
-          currentTime={0}
-          duration={100}
-          isPlaying={false}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
-          onMixChange={vi.fn()}
-          showVisualizer={false}
-          onToggleVisualizer={vi.fn()}
-        />
+        <div>
+          <AudioControls projectId="test-viz" onMixChange={vi.fn()} />
+          <LyricDisplay
+            lines={mockLines}
+            currentTime={0}
+            showVisualizer={false}
+            onToggleVisualizer={vi.fn()}
+          />
+        </div>
       );
 
+      expect(screen.getAllByTestId('toggle-visualizer-btn')).toHaveLength(1);
       const btn = screen.getByTestId('toggle-visualizer-btn');
       expect(btn).toBeInTheDocument();
       const cls = btn.className;
@@ -295,20 +295,19 @@ describe('M3 Challenger 2: Adversarial Stress Suite', () => {
       assertZeroHorizontalOverflow(container, 320);
     });
 
-    it('AudioControls has zero horizontal overflow at 320px', () => {
+    it('AudioControls (Mix inspector) and TransportDock have zero horizontal overflow at 320px', () => {
       setTestViewport(320, 568);
       const { container } = render(
-        <AudioControls
-          projectId="test-viz"
-          currentTime={0}
-          duration={100}
-          isPlaying={false}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
-          onMixChange={vi.fn()}
-          showVisualizer={true}
-          onToggleVisualizer={vi.fn()}
-        />
+        <div>
+          <AudioControls projectId="test-viz" initialSemitones={-7} onMixChange={vi.fn()} />
+          <TransportDock
+            currentTime={0}
+            duration={100}
+            isPlaying={false}
+            onTogglePlay={vi.fn()}
+            onSeek={vi.fn()}
+          />
+        </div>
       );
       assertZeroHorizontalOverflow(container, 320);
     });

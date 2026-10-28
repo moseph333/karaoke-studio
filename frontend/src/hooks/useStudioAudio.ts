@@ -5,7 +5,7 @@
  * play/pause transport, seeking, and mute synchronization for the studio dashboard.
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
 import { ProjectState } from '../types';
 
 export interface UseStudioAudioReturn {
@@ -26,6 +26,10 @@ export interface UseStudioAudioReturn {
   handleTogglePlay: () => void;
   handleSeek: (time: number) => void;
   handleToggleMute: () => void;
+  /** Live playback position read straight from the media element (falls back to state). */
+  getCurrentTime: () => number;
+  /** Seek to `time` as soon as the media element has loaded (e.g. deep links `?t=`). */
+  queueSeek: (time: number) => void;
 }
 
 // Module-level registry to prevent calling createMediaElementSource more than once on the same element
@@ -48,6 +52,35 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+
+  // Source-swap bookkeeping: when the master mix URL changes (re-pitch, guide blend,
+  // re-separation) the element reloads from 0; restore position and play state afterwards.
+  const lastTimeRef = useRef(0);
+  const isPlayingRef = useRef(false);
+  const restoreRef = useRef<{ time: number; play: boolean } | null>(null);
+  const prevSourceRef = useRef<string | undefined>(project?.master_audio_url);
+  isPlayingRef.current = isPlaying;
+
+  useLayoutEffect(() => {
+    const nextSource = project?.master_audio_url;
+    const prevSource = prevSourceRef.current;
+    prevSourceRef.current = nextSource;
+    if (prevSource && nextSource && prevSource !== nextSource) {
+      restoreRef.current = { time: lastTimeRef.current, play: isPlayingRef.current };
+    } else if (!nextSource) {
+      restoreRef.current = null;
+    }
+  }, [project?.master_audio_url]);
+
+  const prevProjectIdRef = useRef<string | undefined>(project?.id);
+  useLayoutEffect(() => {
+    if (prevProjectIdRef.current !== project?.id) {
+      prevProjectIdRef.current = project?.id;
+      // New project: forget a source-swap restore captured for the previous song
+      if (restoreRef.current?.play) restoreRef.current = null;
+      if (!restoreRef.current) lastTimeRef.current = 0;
+    }
+  }, [project?.id]);
 
   // Safely initialize or re-attach Web Audio AnalyserNode to audioRef
   const initWebAudio = useCallback(() => {
@@ -115,18 +148,55 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
+      // Ignore the reset-to-zero updates emitted while a swapped source reloads
+      if (restoreRef.current) return;
+      lastTimeRef.current = audioRef.current.currentTime;
       setCurrentTime(audioRef.current.currentTime);
     }
   };
 
   const handleLoadedMetadata = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-      setIsMuted(audioRef.current.muted);
-      audioRef.current.playbackRate = playbackRate;
+    const audioEl = audioRef.current;
+    if (audioEl) {
+      setDuration(audioEl.duration);
+      setIsMuted(audioEl.muted);
+      audioEl.playbackRate = playbackRate;
       initWebAudio();
+      const restore = restoreRef.current;
+      if (restore) {
+        restoreRef.current = null;
+        const maxTime = Number.isFinite(audioEl.duration) ? audioEl.duration : restore.time;
+        const target = Math.max(0, Math.min(restore.time, maxTime));
+        audioEl.currentTime = target;
+        lastTimeRef.current = target;
+        setCurrentTime(target);
+        if (restore.play) {
+          const playPromise = audioEl.play();
+          if (playPromise && typeof playPromise.then === 'function') {
+            playPromise.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+          }
+        }
+      }
     }
   };
+
+  const queueSeek = useCallback((time: number) => {
+    if (!Number.isFinite(time) || time < 0) return;
+    lastTimeRef.current = time;
+    setCurrentTime(time);
+    const el = audioRef.current;
+    if (el && el.readyState >= 1) {
+      el.currentTime = time;
+      return;
+    }
+    restoreRef.current = { time, play: false };
+  }, []);
+
+  const getCurrentTime = useCallback(() => {
+    const el = audioRef.current;
+    if (el && Number.isFinite(el.currentTime)) return el.currentTime;
+    return lastTimeRef.current;
+  }, []);
 
   const handleTogglePlay = useCallback(() => {
     if (!project || project.status !== 'ready') return;
@@ -163,6 +233,8 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
         const maxDuration = Math.max(0, duration || audioRef.current.duration || 0);
         const clamped = Math.max(0, Math.min(maxDuration, time));
         audioRef.current.currentTime = clamped;
+        lastTimeRef.current = clamped;
+        if (restoreRef.current) restoreRef.current = { ...restoreRef.current, time: clamped };
         setCurrentTime(clamped);
       }
     },
@@ -197,5 +269,7 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
     handleTogglePlay,
     handleSeek,
     handleToggleMute,
+    getCurrentTime,
+    queueSeek,
   };
 }

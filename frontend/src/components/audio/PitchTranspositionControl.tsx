@@ -1,13 +1,19 @@
 /**
  * Pitch Transposition Control Component
  *
- * Provides semitone pitch shifting steppers (-12 to +12 semitones), instant key reset,
- * vocal range analysis summary badge, and launcher for the Smart Key Recommender modal.
+ * Semitone key steppers (-12 to +12), a key position meter, instant reset, the detected
+ * vocal range summary and the Smart Key Recommender launcher. Key changes apply
+ * automatically; the status pill reports a queued or in-flight re-pitch.
  */
 
 import React from 'react';
-import { Sliders, Sparkles, Mic } from 'lucide-react';
+import { Minus, Plus, Sparkles, Mic, RotateCcw } from 'lucide-react';
 import { Tooltip } from '../Tooltip';
+import { Spinner } from '../ui/Spinner';
+import { Badge } from '../ui/Badge';
+import { focusRing } from '../ui/variants';
+import { cn } from '../../utils/cn';
+import { formatSemitonesShort } from '../../utils/format';
 import { VocalRangeData } from '../../types';
 
 export interface PitchTranspositionControlProps {
@@ -18,8 +24,26 @@ export interface PitchTranspositionControlProps {
   onOpenRecommender?: () => void;
   onAnalyzeVocalRange?: () => void;
   isAnalyzingRange?: boolean;
+  /** A key change is waiting for the debounced re-pitch. */
   isMixPending?: boolean;
+  /** Last key applied to the master mix; pending is inferred when it differs. */
   appliedSemitones?: number;
+  /** The server is re-rendering the master mix. */
+  isRemixing?: boolean;
+}
+
+const MIN_SEMITONES = -12;
+const MAX_SEMITONES = 12;
+
+const stepperClass = cn(
+  'flex min-h-[44px] min-w-[44px] md:min-h-[40px] md:min-w-[40px] items-center justify-center rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-subtle active:scale-95 disabled:cursor-not-allowed disabled:opacity-40',
+  focusRing
+);
+
+function describeSemitones(semitones: number): string {
+  if (semitones === 0) return 'Original key';
+  const n = Math.abs(semitones);
+  return `${n} semitone${n === 1 ? '' : 's'} ${semitones > 0 ? 'up' : 'down'}`;
 }
 
 export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps> = ({
@@ -32,102 +56,113 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
   isAnalyzingRange = false,
   isMixPending,
   appliedSemitones,
+  isRemixing = false,
 }) => {
   const isPending =
     isMixPending !== undefined
       ? isMixPending
-      : appliedSemitones !== undefined
-        ? semitones !== appliedSemitones
-        : semitones !== 0;
+      : appliedSemitones !== undefined && semitones !== appliedSemitones;
+  const meterPosition = ((semitones - MIN_SEMITONES) / (MAX_SEMITONES - MIN_SEMITONES)) * 100;
+  const hasRange = Boolean(
+    vocalRange && vocalRange.is_voiced && vocalRange.lowest_note && vocalRange.highest_note
+  );
 
   return (
-    <div className="flex flex-col gap-1.5 p-3 rounded-xl bg-theme-surface/80 bg-slate-950/60 border border-theme-border/80 border-slate-800/80">
-      <div className="flex items-center justify-between text-xs gap-2">
-        <span className="text-theme-text-muted text-slate-400 flex items-center gap-1.5 font-medium">
-          <Sliders className="w-3.5 h-3.5 text-theme-accent text-cyan-400" aria-hidden="true" />
-          Pitch Transposition
+    <div className="flex flex-col gap-3" data-testid="pitch-transposition-control">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-theme-text-muted">
+          Key
         </span>
-        <div className="flex items-center gap-2">
-          {isPending && (
-            <span
-              data-testid="pitch-pending-mix-badge"
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-semibold tracking-wide"
-              title="Key transposition is queued. Click 'Apply Audio Mix' below to re-process audio."
-            >
-              <span
-                className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"
-                aria-hidden="true"
-              />
-              Pending Mix / Click Apply
-            </span>
-          )}
-          <span
-            className={`font-mono font-bold ${
-              semitones === 0
-                ? 'text-theme-text-muted text-slate-300'
-                : 'text-theme-accent text-cyan-400'
-            }`}
+        {(isRemixing || isPending) && (
+          <Badge
+            data-testid="pitch-pending-mix-badge"
+            tone={isRemixing ? 'accent' : 'neutral'}
+            icon={isRemixing ? <Spinner className="h-3 w-3" /> : undefined}
+            dot={!isRemixing}
+            pulse={!isRemixing}
+            title={
+              isRemixing
+                ? 'Re-rendering the mix in the new key'
+                : 'The new key applies automatically in a moment'
+            }
           >
-            {semitones === 0 ? '0 (Original)' : `${semitones > 0 ? '+' : ''}${semitones} semitones`}
-          </span>
-        </div>
+            {isRemixing ? 'Re-pitching…' : 'Applying…'}
+          </Badge>
+        )}
       </div>
 
-      {/* Steppers */}
-      <div className="flex items-center gap-2 mt-1">
-        <Tooltip content="Lower key by 1 semitone (-12 min)" position="top" className="flex-1">
+      <div className="flex items-center gap-2">
+        <Tooltip content="Lower key by 1 semitone (-12 min)" position="top">
           <button
             type="button"
             onClick={() => onSemitoneChange(-1)}
+            disabled={semitones <= MIN_SEMITONES}
             aria-label="Decrease pitch by one semitone"
-            className="w-full min-h-[44px] py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-mono text-sm font-bold flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className={stepperClass}
           >
-            -1
+            <Minus className="h-4 w-4" aria-hidden="true" />
           </button>
         </Tooltip>
 
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-theme-md bg-theme-surface-subtle px-3 py-2">
+          <span
+            data-testid="pitch-readout"
+            aria-hidden="true"
+            className={cn(
+              'font-theme-heading text-2xl font-semibold tabular-nums leading-none',
+              semitones === 0 ? 'text-theme-text' : 'text-theme-highlight'
+            )}
+          >
+            {formatSemitonesShort(semitones)}
+          </span>
+          <span
+            data-testid="pitch-readout-caption"
+            aria-live="polite"
+            className="text-[11px] leading-none text-theme-text-muted"
+          >
+            {describeSemitones(semitones)}
+          </span>
+          <span
+            aria-hidden="true"
+            className="relative mt-0.5 h-1 w-full rounded-full bg-theme-border-subtle"
+          >
+            <span className="absolute inset-y-0 left-1/2 w-px bg-theme-text-muted/50" />
+            <span
+              className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-accent shadow-theme-glow transition-[left] duration-200"
+              style={{ left: `${meterPosition}%` }}
+            />
+          </span>
+        </div>
+
+        <Tooltip content="Raise key by 1 semitone (+12 max)" position="top">
+          <button
+            type="button"
+            onClick={() => onSemitoneChange(1)}
+            disabled={semitones >= MAX_SEMITONES}
+            aria-label="Increase pitch by one semitone"
+            className={stepperClass}
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </Tooltip>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Tooltip content="Reset pitch to original key (0 semitones)" position="top">
           <button
             type="button"
             onClick={onResetPitch}
+            disabled={semitones === 0}
             aria-label="Reset pitch to original key"
-            className="px-2.5 min-h-[44px] py-2.5 rounded-md bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 text-xs font-bold flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className={cn(
+              'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md px-2.5 text-xs font-semibold text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text disabled:cursor-not-allowed disabled:opacity-40',
+              focusRing
+            )}
           >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
             Reset
           </button>
         </Tooltip>
-
-        <Tooltip content="Raise key by 1 semitone (+12 max)" position="top" className="flex-1">
-          <button
-            type="button"
-            onClick={() => onSemitoneChange(1)}
-            aria-label="Increase pitch by one semitone"
-            className="w-full min-h-[44px] py-2.5 rounded-md bg-slate-800 hover:bg-slate-700 text-white font-mono text-sm font-bold flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400"
-          >
-            +1
-          </button>
-        </Tooltip>
-      </div>
-
-      {/* Vocal Range Summary Badge & Recommender Launcher (>=44px touch target) */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 mt-1 border-t border-slate-800/60 text-xs">
-        {vocalRange && vocalRange.is_voiced && vocalRange.lowest_note && vocalRange.highest_note ? (
-          <div
-            className="flex items-center gap-1.5 text-slate-300 text-[11px] min-w-0"
-            title={`Sung range: ${vocalRange.lowest_note} to ${vocalRange.highest_note}, Estimated Key: ${vocalRange.estimated_key}`}
-          >
-            <Mic className="w-3.5 h-3.5 text-cyan-400 shrink-0" aria-hidden="true" />
-            <span className="font-mono text-cyan-300 font-semibold truncate">
-              {vocalRange.lowest_note}–{vocalRange.highest_note}
-            </span>
-            <span className="text-slate-600">•</span>
-            <span className="text-slate-400 truncate">{vocalRange.estimated_key}</span>
-          </div>
-        ) : vocalRange && !vocalRange.is_voiced ? (
-          <span className="text-slate-500 italic text-[11px]">No vocals detected</span>
-        ) : (
-          <span className="text-slate-500 text-[11px]">Range unanalyzed</span>
-        )}
 
         <button
           type="button"
@@ -136,11 +171,40 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
           aria-label={
             vocalRange ? 'Open Smart Key Recommender' : 'Analyze vocal range or open recommender'
           }
-          className="min-h-[44px] px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[11px] font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-400 disabled:opacity-50"
+          className={cn(
+            'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md border border-theme-accent/40 bg-theme-accent/10 px-2.5 text-xs font-semibold text-theme-highlight transition-colors hover:bg-theme-accent/20 disabled:opacity-50',
+            focusRing
+          )}
         >
-          <Sparkles className="w-3.5 h-3.5 text-cyan-400" aria-hidden="true" />
+          {isAnalyzingRange ? (
+            <Spinner className="h-3.5 w-3.5" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
           <span>{isAnalyzingRange ? 'Analyzing...' : 'Smart Recommender'}</span>
         </button>
+      </div>
+
+      <div className="flex min-w-0 items-center gap-2 rounded-theme-md border border-theme-border-subtle px-2.5 py-2 text-xs">
+        <Mic className="h-3.5 w-3.5 shrink-0 text-theme-text-muted" aria-hidden="true" />
+        {hasRange && vocalRange ? (
+          <span
+            className="flex min-w-0 items-center gap-1.5"
+            title={`Sung range: ${vocalRange.lowest_note} to ${vocalRange.highest_note}, Estimated Key: ${vocalRange.estimated_key}`}
+          >
+            <span className="truncate font-mono font-semibold text-theme-text">
+              {vocalRange.lowest_note}–{vocalRange.highest_note}
+            </span>
+            <span className="text-theme-text-muted" aria-hidden="true">
+              ·
+            </span>
+            <span className="truncate text-theme-text-muted">{vocalRange.estimated_key}</span>
+          </span>
+        ) : vocalRange && !vocalRange.is_voiced ? (
+          <span className="italic text-theme-text-muted">No vocals detected</span>
+        ) : (
+          <span className="text-theme-text-muted">Range unanalyzed</span>
+        )}
       </div>
     </div>
   );

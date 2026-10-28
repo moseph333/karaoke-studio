@@ -9,6 +9,7 @@ import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 import { EditMetadataModal } from '../components/EditMetadataModal';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
 import { AudioControls } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 import { VisualThemePicker, THEMES } from '../components/VisualThemePicker';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { LyricLine, ProjectState } from '../types';
@@ -534,22 +535,26 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
   // 6. Studio Dashboard Interactive Components
   // ---------------------------------------------------------------------------
   describe('Studio Dashboard Responsive Components', () => {
-    describe('AudioControls Transport & Mixer', () => {
+    describe('TransportDock & Mix inspector', () => {
       BREAKPOINTS.forEach((bp) => {
-        it(`renders AudioControls with zero overflow at ${bp.name} (${bp.width}px)`, () => {
+        it(`renders TransportDock and AudioControls with zero overflow at ${bp.name} (${bp.width}px)`, () => {
           setTestViewport(bp.width, bp.height);
           const { container } = render(
-            <AudioControls
-              projectId="test-project-ready"
-              isPlaying={false}
-              currentTime={15}
-              duration={180}
-              onTogglePlay={vi.fn()}
-              onSeek={vi.fn()}
-              onMixChange={vi.fn()}
-              initialSemitones={0}
-              initialGuideVolume={0}
-            />
+            <div>
+              <AudioControls
+                projectId="test-project-ready"
+                onMixChange={vi.fn()}
+                initialSemitones={0}
+                initialGuideVolume={0}
+              />
+              <TransportDock
+                isPlaying={false}
+                currentTime={15}
+                duration={180}
+                onTogglePlay={vi.fn()}
+                onSeek={vi.fn()}
+              />
+            </div>
           );
 
           assertZeroHorizontalOverflow(container, bp.width);
@@ -562,17 +567,21 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
       it('provides >=44px touch targets on transport and pitch controls', () => {
         setTestViewport(320, 568);
         render(
-          <AudioControls
-            projectId="test-project-ready"
-            isPlaying={false}
-            currentTime={15}
-            duration={180}
-            onTogglePlay={vi.fn()}
-            onSeek={vi.fn()}
-            onMixChange={vi.fn()}
-            initialSemitones={0}
-            initialGuideVolume={0}
-          />
+          <div>
+            <AudioControls
+              projectId="test-project-ready"
+              onMixChange={vi.fn()}
+              initialSemitones={0}
+              initialGuideVolume={0}
+            />
+            <TransportDock
+              isPlaying={false}
+              currentTime={15}
+              duration={180}
+              onTogglePlay={vi.fn()}
+              onSeek={vi.fn()}
+            />
+          </div>
         );
 
         const playBtn = screen.getByRole('button', { name: /start playback/i });
@@ -586,6 +595,12 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
         const muteBtn = screen.getByRole('button', { name: /mute audio/i });
         expect(muteBtn.className).toContain('min-w-[44px]');
         expect(muteBtn.className).toContain('min-h-[44px]');
+
+        for (const name of [/decrease pitch/i, /increase pitch/i]) {
+          const btn = screen.getByRole('button', { name });
+          expect(btn.className).toContain('min-w-[44px]');
+          expect(btn.className).toContain('min-h-[44px]');
+        }
       });
     });
 

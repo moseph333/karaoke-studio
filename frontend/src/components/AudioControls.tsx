@@ -1,149 +1,171 @@
 /**
- * Audio Controls Component
+ * Audio Controls Component (Mix inspector)
  *
- * Coordinates playback transport, timeline scrubbing, volume persistence,
- * pitch transposition, guide vocal blending, and custom instrumental replacement.
- * Integrates native HTMLMediaElement event lifecycle with global keyboard shortcuts.
+ * Key transposition with the Smart Key Recommender, guide vocal blend and the
+ * instrumental source. Playback itself lives in the TransportDock.
+ *
+ * Works controlled (App passes `semitones` / `guideVolume` from useMixController) or
+ * standalone, where it keeps its own state and applies changes through `onMixChange`
+ * after a short debounce.
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Play, Pause, RotateCcw, Activity, Music2 } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
-import {
-  MASTER_VOLUME_STORAGE_KEY,
-  MASTER_MUTED_STORAGE_KEY,
-  getStoredMasterVolume,
-  setStoredMasterVolume,
-  getStoredMasterMuted,
-  setStoredMasterMuted,
-} from '../utils/volumeStorage';
+import { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY } from '../utils/volumeStorage';
 import { parseMediaError, type AudioPlaybackError } from '../utils/audioErrors';
-import { MasterVolumeControl } from './audio/MasterVolumeControl';
 import { PitchTranspositionControl } from './audio/PitchTranspositionControl';
 import { GuideVocalControl } from './audio/GuideVocalControl';
-import { AudioPlaybackErrorBanner } from './audio/AudioPlaybackErrorBanner';
 import { AudioMixActionsBar } from './audio/AudioMixActionsBar';
-import { WaveformScrubber } from './audio/WaveformScrubber';
-import { PlaybackSpeedControl } from './audio/PlaybackSpeedControl';
-import { Tooltip } from './Tooltip';
-import { VocalRangeData } from '../types';
 import { VocalRangeRecommenderModal } from './audio/VocalRangeRecommenderModal';
+import { Panel } from './ui/Panel';
+import { VocalRangeData } from '../types';
+import { formatSemitones } from '../utils/format';
 
 export { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY };
 export { parseMediaError, type AudioPlaybackError };
 
+const SEMITONE_LIMIT = 12;
+const GUIDE_LIMIT = 0.5;
+const STANDALONE_DEBOUNCE_MS = 500;
+
+const clampSemitones = (n: number) =>
+  Math.max(-SEMITONE_LIMIT, Math.min(SEMITONE_LIMIT, Math.round(Number.isFinite(n) ? n : 0)));
+
 export interface AudioControlsProps {
   projectId: string;
-  masterAudioUrl?: string;
   instrumentalUrl?: string;
   vocalsUrl?: string;
-  lines?: Array<{
-    id?: number;
-    text?: string;
-    start?: number;
-    end?: number;
-    start_time?: number;
-    end_time?: number;
-  }>;
-  currentTime: number;
-  duration: number;
-  isPlaying: boolean;
-  onTogglePlay: () => void;
-  onSeek: (time: number) => void;
-  onMixChange: (semitones: number, guideVolume: number) => void;
-  onCustomInstrumentalUploaded?: (url: string) => void;
-  // Controls state synchronization (PROJECT.md Feature 38)
+  /** Controlled key offset (requested, not necessarily applied yet). */
+  semitones?: number;
+  /** Controlled guide vocal level (0-0.5). */
+  guideVolume?: number;
+  onSemitonesChange?: (semitones: number) => void;
+  onGuideVolumeChange?: (volume: number) => void;
+  /** Fires when the guide slider is released. */
+  onGuideVolumeCommit?: (volume: number) => void;
+  /** True while the master mix is being re-rendered. */
+  isRemixing?: boolean;
+  /** True while a requested change waits for its debounced apply. */
+  isMixPending?: boolean;
+  /** Re-render the master mix now (used after replacing the instrumental). */
+  onRequestRemix?: () => void;
+  /** Standalone mode: initial values and the debounced apply callback. */
   initialSemitones?: number;
   initialGuideVolume?: number;
-  // Master volume and mute controls (PROJECT.md Feature 42)
-  initialVolume?: number;
-  initialMuted?: boolean;
-  onVolumeChange?: (volume: number) => void;
-  onMuteChange?: (isMuted: boolean) => void;
-  // Playback rate controls (Requirement R2)
-  playbackRate?: number;
-  onPlaybackRateChange?: (rate: number) => void;
-  // Audio playback bindings & resilience (Dispatch Feature 38)
-  audioRef?: React.RefObject<HTMLAudioElement>;
-  onTimeUpdate?: () => void;
-  onLoadedMetadata?: () => void;
-  onEnded?: () => void;
-  onPlaybackError?: (error: AudioPlaybackError) => void;
-  onRetryPlayback?: () => void;
-  // Vocal range & Smart key recommender (Requirement R1)
+  onMixChange?: (semitones: number, guideVolume: number) => void | Promise<void>;
+  mixDebounceMs?: number;
+  onCustomInstrumentalUploaded?: (url: string) => void;
+  // Vocal range & Smart key recommender
   vocalRange?: VocalRangeData | null;
   onAnalyzeVocalRange?: () => void | Promise<void>;
   isAnalyzingRange?: boolean;
-  // Beat-reactive audio visualizer (Requirement R3)
-  showVisualizer?: boolean;
-  onToggleVisualizer?: () => void;
-  // Harmonic Chord Bar (Requirement R2)
-  showChordBar?: boolean;
-  onToggleChordBar?: () => void;
-  onSemitonesChange?: (semitones: number) => void;
+  className?: string;
 }
 
 export const AudioControls: React.FC<AudioControlsProps> = ({
   projectId,
-  masterAudioUrl,
-  lines,
-  currentTime,
-  duration,
-  isPlaying,
-  onTogglePlay,
-  onSeek,
-  onMixChange,
-  onCustomInstrumentalUploaded,
+  instrumentalUrl,
+  semitones: semitonesProp,
+  guideVolume: guideVolumeProp,
+  onSemitonesChange,
+  onGuideVolumeChange,
+  onGuideVolumeCommit,
+  isRemixing: isRemixingProp,
+  isMixPending,
+  onRequestRemix,
   initialSemitones = 0,
   initialGuideVolume = 0.0,
-  initialVolume,
-  initialMuted,
-  onVolumeChange,
-  onMuteChange,
-  playbackRate: propPlaybackRate,
-  onPlaybackRateChange,
-  audioRef,
-  onTimeUpdate,
-  onLoadedMetadata,
-  onEnded,
-  onPlaybackError,
-  onRetryPlayback,
+  onMixChange,
+  mixDebounceMs = STANDALONE_DEBOUNCE_MS,
+  onCustomInstrumentalUploaded,
   vocalRange: propVocalRange,
   onAnalyzeVocalRange: propOnAnalyze,
   isAnalyzingRange: propIsAnalyzing,
-  showVisualizer,
-  onToggleVisualizer,
-  showChordBar,
-  onToggleChordBar,
-  onSemitonesChange,
+  className,
 }) => {
   const { toast } = useToast();
-  const [semitones, setSemitones] = useState(initialSemitones);
-  const [guideVolume, setGuideVolume] = useState(initialGuideVolume);
-  const [isApplyingMix, setIsApplyingMix] = useState(false);
-  const [uploadingInst, setUploadingInst] = useState(false);
-  const [playbackError, setPlaybackError] = useState<AudioPlaybackError | null>(null);
-  const [playbackRate, setPlaybackRate] = useState<number>(propPlaybackRate ?? 1.0);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const internalAudioRef = useRef<HTMLAudioElement | null>(null);
-  const resolvedAudioRef = audioRef || internalAudioRef;
+  const [uploadingInst, setUploadingInst] = useState(false);
 
-  // Master Volume & Mute State
-  const [volume, setVolume] = useState<number>(() =>
-    initialVolume !== undefined && !isNaN(initialVolume)
-      ? Math.max(0, Math.min(1, initialVolume))
-      : getStoredMasterVolume(1.0)
+  // Standalone state (ignored when the matching prop is controlled)
+  const [localSemitones, setLocalSemitones] = useState(() => clampSemitones(initialSemitones));
+  const [localGuide, setLocalGuide] = useState(initialGuideVolume);
+  const [isApplyingLocal, setIsApplyingLocal] = useState(false);
+  const isSemitonesControlled = semitonesProp !== undefined;
+  const isGuideControlled = guideVolumeProp !== undefined;
+  const semitones = isSemitonesControlled ? clampSemitones(semitonesProp) : localSemitones;
+  const guideVolume = isGuideControlled ? guideVolumeProp : localGuide;
+  const isRemixing = isRemixingProp ?? isApplyingLocal;
+
+  useEffect(() => {
+    setLocalSemitones(clampSemitones(initialSemitones));
+  }, [initialSemitones, projectId]);
+
+  useEffect(() => {
+    setLocalGuide(initialGuideVolume);
+  }, [initialGuideVolume, projectId]);
+
+  // Debounced standalone apply through onMixChange
+  const latestRef = useRef({ semitones, guideVolume });
+  latestRef.current = { semitones, guideVolume };
+  const applyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onMixChangeRef = useRef(onMixChange);
+  onMixChangeRef.current = onMixChange;
+
+  useEffect(
+    () => () => {
+      if (applyTimerRef.current) clearTimeout(applyTimerRef.current);
+    },
+    []
   );
-  const [isMuted, setIsMuted] = useState<boolean>(() =>
-    initialMuted !== undefined ? initialMuted : getStoredMasterMuted(false)
-  );
 
-  // Preserve last non-zero volume for smart unmute restoration
-  const previousVolumeRef = useRef<number>(volume > 0 ? volume : 1.0);
+  const scheduleStandaloneApply = useCallback(() => {
+    if (!onMixChangeRef.current) return;
+    if (applyTimerRef.current) clearTimeout(applyTimerRef.current);
+    applyTimerRef.current = setTimeout(async () => {
+      applyTimerRef.current = null;
+      const apply = onMixChangeRef.current;
+      if (!apply) return;
+      setIsApplyingLocal(true);
+      try {
+        await apply(latestRef.current.semitones, latestRef.current.guideVolume);
+      } catch (err) {
+        console.error('Failed to apply audio mix:', err);
+        toast.error('Failed to apply audio mix.');
+      } finally {
+        setIsApplyingLocal(false);
+      }
+    }, mixDebounceMs);
+  }, [mixDebounceMs, toast]);
 
-  // Vocal Range Recommender & Analysis State (R1)
+  const updateSemitones = (next: number) => {
+    const clamped = clampSemitones(next);
+    if (!isSemitonesControlled) {
+      setLocalSemitones(clamped);
+      latestRef.current = { ...latestRef.current, semitones: clamped };
+      scheduleStandaloneApply();
+    }
+    onSemitonesChange?.(clamped);
+  };
+
+  const updateGuide = (next: number) => {
+    const clamped = Math.max(0, Math.min(GUIDE_LIMIT, next));
+    if (!isGuideControlled) setLocalGuide(clamped);
+    onGuideVolumeChange?.(clamped);
+  };
+
+  const commitGuide = (next: number) => {
+    const clamped = Math.max(0, Math.min(GUIDE_LIMIT, next));
+    if (!isGuideControlled) {
+      latestRef.current = { ...latestRef.current, guideVolume: clamped };
+      scheduleStandaloneApply();
+    }
+    onGuideVolumeCommit?.(clamped);
+  };
+
+  // Vocal Range Recommender & Analysis State
   const [isRecommenderOpen, setIsRecommenderOpen] = useState(false);
   const [internalVocalRange, setInternalVocalRange] = useState<VocalRangeData | null>(
     propVocalRange ?? null
@@ -151,9 +173,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   const [internalIsAnalyzing, setInternalIsAnalyzing] = useState(false);
 
   useEffect(() => {
-    if (propVocalRange !== undefined) {
-      setInternalVocalRange(propVocalRange);
-    }
+    if (propVocalRange !== undefined) setInternalVocalRange(propVocalRange);
   }, [propVocalRange]);
 
   const activeVocalRange = propVocalRange !== undefined ? propVocalRange : internalVocalRange;
@@ -180,182 +200,18 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
     }
   }, [propOnAnalyze, projectId, toast]);
 
-  const handleApplyTransposition = async (newSemitones: number) => {
-    const clamped = Math.max(-12, Math.min(12, newSemitones));
-    setSemitones(clamped);
-    onSemitonesChange?.(clamped);
-    try {
-      await onMixChange(clamped, guideVolume);
-      toast.success(
-        `Transposition applied: ${clamped === 0 ? 'Original Key' : (clamped > 0 ? '+' : '') + clamped + ' semitones'}`
-      );
-    } catch (err) {
-      console.error('Failed to apply key transposition mix:', err);
-      toast.error('Failed to apply key transposition mix.');
-    }
+  const handleApplyTransposition = (newSemitones: number) => {
+    const clamped = clampSemitones(newSemitones);
+    updateSemitones(clamped);
+    toast.success(`Key set to ${formatSemitones(clamped, 'the original key')}`);
   };
 
-  useEffect(() => {
-    if (propPlaybackRate !== undefined && !isNaN(propPlaybackRate)) {
-      setPlaybackRate(propPlaybackRate);
+  const requestRemix = () => {
+    if (onRequestRemix) {
+      onRequestRemix();
+    } else if (onMixChangeRef.current) {
+      scheduleStandaloneApply();
     }
-  }, [propPlaybackRate]);
-
-  const handlePlaybackRateChange = (rate: number) => {
-    setPlaybackRate(rate);
-    if (resolvedAudioRef.current) {
-      resolvedAudioRef.current.playbackRate = rate;
-    }
-    onPlaybackRateChange?.(rate);
-  };
-
-  // Sync state when props change
-  useEffect(() => {
-    setSemitones(initialSemitones);
-    setGuideVolume(initialGuideVolume);
-  }, [initialSemitones, initialGuideVolume, projectId]);
-
-  useEffect(() => {
-    if (initialVolume !== undefined && !isNaN(initialVolume)) {
-      const clamped = Math.max(0, Math.min(1, initialVolume));
-      setVolume(clamped);
-      if (clamped > 0) previousVolumeRef.current = clamped;
-    }
-  }, [initialVolume]);
-
-  useEffect(() => {
-    if (initialMuted !== undefined) setIsMuted(initialMuted);
-  }, [initialMuted]);
-
-  // Synchronize audio element when it mounts or when audio URL changes
-  useEffect(() => {
-    if (resolvedAudioRef.current) {
-      resolvedAudioRef.current.volume = volume;
-      resolvedAudioRef.current.muted = isMuted;
-      resolvedAudioRef.current.playbackRate = playbackRate;
-    }
-  }, [resolvedAudioRef, masterAudioUrl, volume, isMuted, playbackRate]);
-
-  // Clear error when master audio url changes
-  useEffect(() => {
-    setPlaybackError(null);
-  }, [masterAudioUrl]);
-
-  const handleSemitoneChange = (delta: number) => {
-    const next = Math.max(-12, Math.min(12, semitones + delta));
-    setSemitones(next);
-    onSemitonesChange?.(next);
-  };
-
-  const handleApplyAudioMix = async () => {
-    setIsApplyingMix(true);
-    setPlaybackError(null);
-    try {
-      await onMixChange(semitones, guideVolume);
-    } finally {
-      setIsApplyingMix(false);
-    }
-  };
-
-  const handleAudioError = (e: React.SyntheticEvent<HTMLAudioElement, Event>) => {
-    const mediaError = e.currentTarget.error;
-    const parsed = parseMediaError(mediaError);
-    setPlaybackError(parsed);
-    if (isPlaying) onTogglePlay();
-    onPlaybackError?.(parsed);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('karaoke_audio_error', { detail: parsed }));
-    }
-  };
-
-  // Bidirectional audio element sync: fires on native volumechange
-  const handleAudioVolumeChange = (e: React.SyntheticEvent<HTMLAudioElement>) => {
-    const audioEl = e.currentTarget;
-    if (audioEl.volume !== volume) {
-      setVolume(audioEl.volume);
-      if (audioEl.volume > 0) previousVolumeRef.current = audioEl.volume;
-      setStoredMasterVolume(audioEl.volume);
-      onVolumeChange?.(audioEl.volume);
-    }
-    if (audioEl.muted !== isMuted) {
-      setIsMuted(audioEl.muted);
-      setStoredMasterMuted(audioEl.muted);
-      onMuteChange?.(audioEl.muted);
-    }
-  };
-
-  const handleVolumeSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    const clamped = Math.max(0, Math.min(1, isNaN(val) ? 0 : val));
-    setVolume(clamped);
-    setStoredMasterVolume(clamped);
-    if (clamped > 0) previousVolumeRef.current = clamped;
-    if (resolvedAudioRef.current) resolvedAudioRef.current.volume = clamped;
-    onVolumeChange?.(clamped);
-
-    // Slider adjustments while muted automatically unmute (if volume > 0)
-    if (isMuted && clamped > 0) {
-      setIsMuted(false);
-      setStoredMasterMuted(false);
-      if (resolvedAudioRef.current) resolvedAudioRef.current.muted = false;
-      onMuteChange?.(false);
-    }
-  };
-
-  const handleToggleMute = useCallback(() => {
-    if (isMuted || volume === 0) {
-      // Unmuting: restore previous non-zero volume (or default 1.0)
-      const restored = previousVolumeRef.current > 0 ? previousVolumeRef.current : 1.0;
-      setIsMuted(false);
-      setStoredMasterMuted(false);
-      setVolume(restored);
-      setStoredMasterVolume(restored);
-
-      if (resolvedAudioRef.current) {
-        resolvedAudioRef.current.muted = false;
-        resolvedAudioRef.current.volume = restored;
-      }
-
-      onMuteChange?.(false);
-      onVolumeChange?.(restored);
-    } else {
-      // Muting: preserve current volume
-      if (volume > 0) {
-        previousVolumeRef.current = volume;
-      }
-      setIsMuted(true);
-      setStoredMasterMuted(true);
-
-      if (resolvedAudioRef.current) {
-        resolvedAudioRef.current.muted = true;
-      }
-
-      onMuteChange?.(true);
-    }
-  }, [isMuted, volume, onMuteChange, onVolumeChange, resolvedAudioRef]);
-
-  // Listen for global custom event for keyboard shortcut integration
-  useEffect(() => {
-    const handleGlobalToggleMute = () => {
-      handleToggleMute();
-    };
-    window.addEventListener('karaoke_toggle_mute', handleGlobalToggleMute);
-    return () => window.removeEventListener('karaoke_toggle_mute', handleGlobalToggleMute);
-  }, [handleToggleMute]);
-
-  const handleRetryPlayback = () => {
-    setPlaybackError(null);
-    if (resolvedAudioRef.current) {
-      resolvedAudioRef.current.load();
-      resolvedAudioRef.current.volume = volume;
-      resolvedAudioRef.current.muted = isMuted;
-      resolvedAudioRef.current.playbackRate = playbackRate;
-      if (currentTime > 0) {
-        resolvedAudioRef.current.currentTime = currentTime;
-      }
-      resolvedAudioRef.current.play()?.catch(() => {});
-    }
-    onRetryPlayback?.();
   };
 
   const handleInstrumentalUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -378,198 +234,51 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         onCustomInstrumentalUploaded(data.instrumental_url);
         toast.success('Custom instrumental uploaded successfully');
       }
-      handleApplyAudioMix();
+      requestRemix();
     } catch (err) {
       console.error('Error uploading instrumental:', err);
       toast.error('Could not upload instrumental file.');
     } finally {
       setUploadingInst(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const formatTime = (secs: number) => {
-    if (isNaN(secs) || secs < 0) return '0:00';
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
   return (
-    <div className="bg-theme-surface border border-theme-border rounded-theme-xl p-5 shadow-theme-lg backdrop-blur-md">
-      {/* Native Master Audio Element */}
-      {masterAudioUrl && (
-        <audio
-          ref={resolvedAudioRef}
-          data-testid="audio-element"
-          src={masterAudioUrl}
-          crossOrigin="use-credentials"
-          onPlay={() => setPlaybackError(null)}
-          onTimeUpdate={onTimeUpdate}
-          onLoadedMetadata={onLoadedMetadata}
-          onEnded={onEnded}
-          onError={handleAudioError}
-          onVolumeChange={handleAudioVolumeChange}
-          className="hidden"
-          aria-hidden="true"
-        />
-      )}
-
-      {/* Playback Error Alert Banner */}
-      {playbackError && (
-        <AudioPlaybackErrorBanner
-          playbackError={playbackError}
-          onRetryPlayback={handleRetryPlayback}
-        />
-      )}
-
-      {/* Player Header & Main Scrub Bar */}
-      <div className="flex flex-col gap-2 mb-5">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs text-theme-text-muted font-mono">
-          <span>{formatTime(currentTime)}</span>
-          <div className="flex items-center gap-3">
-            <span className="text-theme-text-muted hidden md:inline">
-              Master Mix (
-              {semitones !== 0 ? `${semitones > 0 ? '+' : ''}${semitones} st` : 'Original Key'})
-            </span>
-            <PlaybackSpeedControl
-              playbackRate={playbackRate}
-              onPlaybackRateChange={handlePlaybackRateChange}
-            />
-          </div>
-          <span>{formatTime(duration)}</span>
-        </div>
-
-        {/* Interactive Waveform Scrubber */}
-        <WaveformScrubber
-          currentTime={currentTime}
-          duration={duration}
-          onSeek={onSeek}
-          audioUrl={masterAudioUrl}
-          lines={lines}
-          isPlaying={isPlaying}
-        />
-      </div>
-
-      {/* Control Buttons & Sliders Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
-        {/* Play/Pause & Transport */}
-        <div className="flex items-center gap-3">
-          <Tooltip
-            content={isPlaying ? 'Pause playback' : 'Start playback'}
-            hotkey="Space"
-            position="top"
-          >
-            <button
-              type="button"
-              onClick={onTogglePlay}
-              aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
-              className="w-12 h-12 rounded-theme-pill bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text border border-theme-border flex items-center justify-center shadow-theme-md transition-transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-theme-accent"
-            >
-              {isPlaying ? (
-                <Pause className="w-5 h-5 fill-current" aria-hidden="true" />
-              ) : (
-                <Play className="w-5 h-5 fill-current ml-0.5" aria-hidden="true" />
-              )}
-            </button>
-          </Tooltip>
-
-          <Tooltip content="Restart track from beginning" position="top">
-            <button
-              type="button"
-              onClick={() => onSeek(0)}
-              aria-label="Restart track from beginning"
-              className="min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-theme-md bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent"
-            >
-              <RotateCcw className="w-4 h-4" aria-hidden="true" />
-            </button>
-          </Tooltip>
-
-          <Tooltip
-            content={showVisualizer ? 'Disable Beat Visualizer (V)' : 'Enable Beat Visualizer (V)'}
-            hotkey="V"
-            position="top"
-          >
-            <button
-              type="button"
-              data-testid="toggle-visualizer-btn"
-              aria-label={showVisualizer ? 'Disable Beat Visualizer' : 'Enable Beat Visualizer'}
-              aria-pressed={Boolean(showVisualizer)}
-              onClick={onToggleVisualizer}
-              className={`min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-theme-md border transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent ${
-                showVisualizer
-                  ? 'bg-theme-accent/20 border-theme-accent text-theme-accent shadow-theme-sm'
-                  : 'bg-theme-surface-subtle hover:bg-theme-surface-raised text-theme-text-muted border-theme-border-subtle'
-              }`}
-            >
-              <Activity className="w-4 h-4" aria-hidden="true" />
-            </button>
-          </Tooltip>
-
-          <Tooltip
-            content={showChordBar ? 'Hide Live Chord Bar (C)' : 'Show Live Chord Bar (C)'}
-            hotkey="C"
-            position="top"
-          >
-            <button
-              type="button"
-              data-testid="chord-bar-toggle"
-              aria-label={showChordBar ? 'Hide Live Chord Bar' : 'Show Live Chord Bar'}
-              aria-pressed={Boolean(showChordBar)}
-              onClick={onToggleChordBar}
-              className={`min-h-[44px] min-w-[44px] p-2.5 flex items-center justify-center rounded-theme-md border transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent ${
-                showChordBar
-                  ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-theme-sm'
-                  : 'bg-theme-surface-subtle hover:bg-theme-surface-raised text-theme-text-muted border-theme-border-subtle'
-              }`}
-            >
-              <Music2 className="w-4 h-4" aria-hidden="true" />
-            </button>
-          </Tooltip>
-
-          <div className="text-xs text-theme-text-muted">
-            <p className="font-semibold text-theme-text font-theme-heading">Karaoke Playback</p>
-            <p className="text-[11px] text-theme-text-muted font-theme-body">
-              Sync with video timeline
-            </p>
-          </div>
-        </div>
-
-        {/* Master Volume Controls (Feature 42) */}
-        <MasterVolumeControl
-          volume={volume}
-          isMuted={isMuted}
-          onToggleMute={handleToggleMute}
-          onVolumeSliderChange={handleVolumeSliderChange}
-        />
-
-        {/* Pitch Shift Controls */}
+    <Panel
+      title="Audio mix"
+      description="Changes apply automatically"
+      icon={<SlidersHorizontal className="h-4 w-4" />}
+      className={className}
+      data-testid="audio-mix-panel"
+    >
+      <div className="flex flex-col gap-5">
         <PitchTranspositionControl
           semitones={semitones}
-          onSemitoneChange={handleSemitoneChange}
-          onResetPitch={() => {
-            setSemitones(0);
-            onSemitonesChange?.(0);
-          }}
+          onSemitoneChange={(delta) => updateSemitones(semitones + delta)}
+          onResetPitch={() => updateSemitones(0)}
           vocalRange={activeVocalRange}
           onOpenRecommender={() => setIsRecommenderOpen(true)}
           onAnalyzeVocalRange={handleAnalyzeVocalRange}
           isAnalyzingRange={activeIsAnalyzing}
+          isMixPending={isMixPending ?? false}
+          isRemixing={isRemixing}
         />
 
-        {/* Guide Vocal Level & Custom Track */}
-        <GuideVocalControl guideVolume={guideVolume} onGuideVolumeChange={setGuideVolume} />
+        <GuideVocalControl
+          guideVolume={guideVolume}
+          onGuideVolumeChange={updateGuide}
+          onGuideVolumeCommit={commitGuide}
+        />
+
+        <AudioMixActionsBar
+          uploadingInst={uploadingInst}
+          fileInputRef={fileInputRef}
+          onInstrumentalUpload={handleInstrumentalUpload}
+          isCustomInstrumental={Boolean(instrumentalUrl && instrumentalUrl.includes('custom_inst'))}
+        />
       </div>
 
-      {/* Bottom Bar: Apply Mix & Custom Instrumental Upload */}
-      <AudioMixActionsBar
-        isApplyingMix={isApplyingMix}
-        uploadingInst={uploadingInst}
-        fileInputRef={fileInputRef}
-        onApplyAudioMix={handleApplyAudioMix}
-        onInstrumentalUpload={handleInstrumentalUpload}
-      />
-
-      {/* Vocal Range Recommender Modal */}
       <VocalRangeRecommenderModal
         isOpen={isRecommenderOpen}
         onClose={() => setIsRecommenderOpen(false)}
@@ -579,6 +288,6 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         onAnalyzeVocalRange={handleAnalyzeVocalRange}
         isAnalyzing={activeIsAnalyzing}
       />
-    </div>
+    </Panel>
   );
 };

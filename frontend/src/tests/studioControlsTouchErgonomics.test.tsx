@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
 import { AudioControls } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 import { VisualThemePicker, THEMES } from '../components/VisualThemePicker';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { LyricLine, ProjectState } from '../types';
@@ -317,20 +318,23 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
     });
   });
 
-  describe('Focus Area 3: AudioControls Transport & Touch Targets', () => {
-    const audioProps = {
-      projectId: 'proj-m2',
+  describe('Focus Area 3: Transport Dock, Mix Inspector & Touch Targets', () => {
+    const dockProps = {
       masterAudioUrl: '/media/audio.mp3',
       currentTime: 30,
       duration: 180,
       isPlaying: false,
       onTogglePlay: vi.fn(),
       onSeek: vi.fn(),
-      onMixChange: vi.fn(),
     };
 
     it('ensures transport buttons (restart, play/pause, mute, pitch) satisfy >=44px hit targets', () => {
-      render(<AudioControls {...audioProps} />);
+      render(
+        <div>
+          <TransportDock {...dockProps} />
+          <AudioControls projectId="proj-m2" onMixChange={vi.fn()} />
+        </div>
+      );
 
       // Play/Pause button
       const playBtn = screen.getByRole('button', { name: /start playback/i });
@@ -355,7 +359,7 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
     });
 
     it('configures timeline scrubber with touch-none to prevent vertical scrolling capture', () => {
-      render(<AudioControls {...audioProps} />);
+      render(<TransportDock {...dockProps} />);
 
       const scrubber = screen.getByRole('slider', { name: /audio timeline position/i });
       expect(scrubber).toBeInTheDocument();
@@ -363,22 +367,21 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       expect(scrubber).toHaveClass('py-2');
     });
 
-    it('wraps bottom action controls cleanly on mobile viewports with min-h-[44px] full-width buttons', () => {
+    it('applies mix changes automatically and keeps the instrumental row wrapping on mobile', () => {
       render(
         <div style={{ width: '320px' }}>
-          <AudioControls {...audioProps} />
+          <AudioControls projectId="proj-m2" onMixChange={vi.fn()} />
         </div>
       );
 
-      const applyMixBtn = screen.getByRole('button', { name: /apply audio mix settings/i });
+      // No manual apply step anymore
+      expect(screen.queryByRole('button', { name: /apply audio mix/i })).not.toBeInTheDocument();
+
       const replaceInstBtn = screen.getByRole('button', { name: /replace instrumental file/i });
+      expect(replaceInstBtn).toHaveClass('min-h-[44px]');
 
-      expect(applyMixBtn).toHaveClass('min-h-[44px]', 'w-full', 'sm:w-auto');
-      expect(replaceInstBtn).toHaveClass('min-h-[44px]', 'w-full', 'sm:w-auto');
-
-      // Containers must stack vertically on mobile
-      const leftCol = applyMixBtn.closest('div');
-      expect(leftCol).toHaveClass('flex', 'flex-col', 'sm:flex-row', 'w-full', 'sm:w-auto');
+      // The source row wraps instead of overflowing on narrow screens
+      expect(replaceInstBtn.parentElement).toHaveClass('flex', 'flex-wrap');
     });
   });
 
@@ -505,7 +508,7 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       expect(stage).toHaveClass('aspect-video');
     });
 
-    it('renders responsive song meta header with line-clamping and full-width Render Video button on mobile', async () => {
+    it('renders responsive song meta header with line-clamping and a touch-friendly Export button on mobile', async () => {
       window.history.pushState({}, '', '/?project=mock-proj-1');
 
       vi.spyOn(globalThis, 'fetch').mockImplementation(async (url: RequestInfo | URL) => {
@@ -525,14 +528,13 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
         </div>
       );
 
-      // Render 1080p Video button
-      const renderBtn = await screen.findByRole('button', { name: /render 1080p video/i });
-      expect(renderBtn).toBeInTheDocument();
-      expect(renderBtn).toHaveClass('min-h-[44px]', 'w-full', 'sm:w-auto');
+      // Export entry point (video, subtitles, stems) lives in the top bar
+      const exportBtn = await screen.findByRole('button', { name: 'Open export dialog' });
+      expect(exportBtn).toHaveClass('min-h-[44px]', 'min-w-[44px]');
 
-      // Title header
+      // Title header clamps to two lines on phones and one line from sm up
       const titleHeader = screen.getByText('Bohemian Rhapsody (Epic 1080p Remaster)');
-      expect(titleHeader).toHaveClass('break-words', 'line-clamp-2', 'sm:line-clamp-none');
+      expect(titleHeader).toHaveClass('break-words', 'line-clamp-2', 'sm:line-clamp-1');
     });
   });
 
@@ -571,17 +573,7 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
 
     it('enforces strict [-12, +12] pitch bounds when subjected to 25 consecutive shift clicks', async () => {
       const user = userEvent.setup();
-      render(
-        <AudioControls
-          projectId="test-pitch-stress"
-          currentTime={0}
-          duration={100}
-          isPlaying={false}
-          onTogglePlay={vi.fn()}
-          onSeek={vi.fn()}
-          onMixChange={vi.fn()}
-        />
-      );
+      render(<AudioControls projectId="test-pitch-stress" onMixChange={vi.fn()} />);
 
       const pitchUp = screen.getByRole('button', { name: /increase pitch by one semitone/i });
       const pitchDown = screen.getByRole('button', { name: /decrease pitch by one semitone/i });
@@ -590,18 +582,18 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       for (let i = 0; i < 25; i++) {
         await user.click(pitchUp);
       }
-      expect(screen.getByText('+12 semitones')).toBeInTheDocument();
+      expect(screen.getByText('12 semitones up')).toBeInTheDocument();
 
       // Click -1 35 times -> reaches -12 bound
       for (let i = 0; i < 35; i++) {
         await user.click(pitchDown);
       }
-      expect(screen.getByText('-12 semitones')).toBeInTheDocument();
+      expect(screen.getByText('12 semitones down')).toBeInTheDocument();
 
-      // Click Reset -> 0 (Original)
+      // Click Reset -> original key
       const pitchReset = screen.getByRole('button', { name: /reset pitch to original key/i });
       await user.click(pitchReset);
-      expect(screen.getByText('0 (Original)')).toBeInTheDocument();
+      expect(screen.getByText('Original key')).toBeInTheDocument();
     });
 
     it('renders 0-duration line and empty words array without division by zero or NaN', () => {

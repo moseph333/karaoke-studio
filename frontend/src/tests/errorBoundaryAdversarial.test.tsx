@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { AudioControls, parseMediaError } from '../components/AudioControls';
+import { parseMediaError } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 
 // Component that conditionally throws for ErrorBoundary testing
 const ProblemChild: React.FC<{
@@ -226,16 +227,14 @@ describe('M4 Challenger 1: ErrorBoundary Stress & Adversarial Suite', () => {
   });
 });
 
-describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', () => {
+describe('M4 Challenger 1: TransportDock MediaError Stress & Recovery Suite', () => {
   const defaultAudioProps = {
-    projectId: 'adversarial-proj-999',
     masterAudioUrl: '/static/test-track.wav',
     currentTime: 30,
     duration: 180,
     isPlaying: false,
     onTogglePlay: vi.fn(),
     onSeek: vi.fn(),
-    onMixChange: vi.fn(),
   };
 
   beforeEach(() => {
@@ -276,7 +275,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
 
   it('Scenario 12: simulates MediaError code 1 (MEDIA_ERR_ABORTED) on <audio onError>', () => {
     const onPlaybackError = vi.fn();
-    render(<AudioControls {...defaultAudioProps} onPlaybackError={onPlaybackError} />);
+    render(<TransportDock {...defaultAudioProps} onPlaybackError={onPlaybackError} />);
 
     const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
     Object.defineProperty(audioEl, 'error', {
@@ -300,7 +299,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
 
   it('Scenario 13: resets playback state (calls onTogglePlay) when error occurs while playing', () => {
     const onTogglePlay = vi.fn();
-    render(<AudioControls {...defaultAudioProps} isPlaying={true} onTogglePlay={onTogglePlay} />);
+    render(<TransportDock {...defaultAudioProps} isPlaying={true} onTogglePlay={onTogglePlay} />);
 
     const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
     Object.defineProperty(audioEl, 'error', {
@@ -317,7 +316,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
 
   it('Scenario 14: does NOT call onTogglePlay if error occurs while already paused', () => {
     const onTogglePlay = vi.fn();
-    render(<AudioControls {...defaultAudioProps} isPlaying={false} onTogglePlay={onTogglePlay} />);
+    render(<TransportDock {...defaultAudioProps} isPlaying={false} onTogglePlay={onTogglePlay} />);
 
     const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
     Object.defineProperty(audioEl, 'error', {
@@ -336,7 +335,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
     const eventHandler = vi.fn();
     window.addEventListener('karaoke_audio_error', eventHandler);
 
-    render(<AudioControls {...defaultAudioProps} />);
+    render(<TransportDock {...defaultAudioProps} />);
     const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
     Object.defineProperty(audioEl, 'error', {
       value: { code: 4, message: 'File not found' },
@@ -355,7 +354,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
   });
 
   it('Scenario 16: clears error banner when masterAudioUrl changes to a new track', () => {
-    const { rerender } = render(<AudioControls {...defaultAudioProps} />);
+    const { rerender } = render(<TransportDock {...defaultAudioProps} />);
     const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
 
     Object.defineProperty(audioEl, 'error', {
@@ -368,7 +367,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
     expect(screen.getByRole('alert')).toBeInTheDocument();
 
     // Change masterAudioUrl prop
-    rerender(<AudioControls {...defaultAudioProps} masterAudioUrl="/static/new-track.wav" />);
+    rerender(<TransportDock {...defaultAudioProps} masterAudioUrl="/static/new-track.wav" />);
 
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -377,7 +376,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
     const user = userEvent.setup();
     const onRetryPlayback = vi.fn();
     render(
-      <AudioControls {...defaultAudioProps} onRetryPlayback={onRetryPlayback} currentTime={45} />
+      <TransportDock {...defaultAudioProps} onRetryPlayback={onRetryPlayback} currentTime={45} />
     );
 
     const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
@@ -403,7 +402,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
   // ---------------------------------------------------------------------------
 
   it('Scenario 18: [REMEDIATED] in-place error banner renders with data-testid="audio-error-banner"', () => {
-    render(<AudioControls {...defaultAudioProps} />);
+    render(<TransportDock {...defaultAudioProps} />);
     const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
 
     Object.defineProperty(audioEl, 'error', {
@@ -419,7 +418,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
   });
 
   it('Scenario 19: [REMEDIATED] error banner dismisses on successful playback recovery (onPlay)', () => {
-    render(<AudioControls {...defaultAudioProps} />);
+    render(<TransportDock {...defaultAudioProps} />);
     const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
 
     // Trigger error state
@@ -438,14 +437,14 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
     // REMEDIATED BEHAVIOR:
     // DISPATCH.md line 17 explicitly required:
     //   "Verifies error banner dismisses on retry or successful playback"
-    // AudioControls.tsx attaches onPlay to clear playbackError:
+    // TransportDock attaches onPlay to clear playbackError:
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByTestId('audio-error-banner')).toBeNull();
   });
 
   it('Scenario 20: [REMEDIATED] Retry playback action calls load() and attempts playback resumption via play()', async () => {
     const user = userEvent.setup();
-    render(<AudioControls {...defaultAudioProps} />);
+    render(<TransportDock {...defaultAudioProps} />);
     const audioEl = screen.getByTestId('audio-element') as HTMLAudioElement;
 
     Object.defineProperty(audioEl, 'error', {
@@ -459,7 +458,7 @@ describe('M4 Challenger 1: AudioControls MediaError Stress & Recovery Suite', ()
     await user.click(retryBtn);
 
     // REMEDIATED BEHAVIOR:
-    // AudioControls.tsx handleRetryPlayback calls load() and attempts playback via play():
+    // TransportDock handleRetryPlayback calls load() and attempts playback via play():
     expect(audioEl.load).toHaveBeenCalledTimes(1);
     expect(audioEl.play).toHaveBeenCalledTimes(1);
   });

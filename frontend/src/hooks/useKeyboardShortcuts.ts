@@ -13,7 +13,7 @@
  * - 'R': replay current active line from its start time
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { LyricLine } from '../types';
 
 export interface UseKeyboardShortcutsOptions {
@@ -170,7 +170,9 @@ export function useKeyboardShortcuts({
     precisionSeeking,
   });
 
-  useEffect(() => {
+  // Sync in the commit phase so a keypress right after a re-render never sees stale
+  // handlers (e.g. a second Space press toggling play again instead of pausing).
+  useLayoutEffect(() => {
     optionsRef.current = {
       onTogglePlay,
       onSeek,

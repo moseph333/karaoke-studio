@@ -47,7 +47,7 @@ import { VisualThemePicker, THEMES } from '../components/VisualThemePicker';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { ExportModal } from '../components/ExportModal';
 import { ExportSubtitleSection } from '../components/export/ExportSubtitleSection';
-import { AudioControls } from '../components/AudioControls';
+import { TransportDock } from '../components/transport/TransportDock';
 import { DeleteConfirmModal } from '../components/DeleteConfirmModal';
 
 // API Module
@@ -595,19 +595,17 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         expect(screen.getByTestId('app-theme-picker-trigger')).toBeInTheDocument();
       });
 
-      it('F6.2: AudioControls transport bar adapts styling with active theme tokens', () => {
+      it('F6.2: TransportDock adapts styling with active theme tokens', () => {
         const audioRef = { current: document.createElement('audio') };
         render(
           <AppThemeProvider>
-            <AudioControls
-              projectId={mockProjectState.id}
+            <TransportDock
               audioRef={audioRef}
               currentTime={12.0}
               duration={180.0}
               isPlaying={false}
               onTogglePlay={vi.fn()}
               onSeek={vi.fn()}
-              onMixChange={vi.fn()}
             />
           </AppThemeProvider>
         );
@@ -1789,15 +1787,13 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
         themeContext = useAppTheme();
         return (
           <div>
-            <AudioControls
-              projectId={mockProjectState.id}
+            <TransportDock
               audioRef={audioRef}
               currentTime={45.2}
               duration={180.0}
               isPlaying={true}
               onTogglePlay={vi.fn()}
               onSeek={vi.fn()}
-              onMixChange={vi.fn()}
             />
             <LyricDisplay
               lines={sampleLyricLines}

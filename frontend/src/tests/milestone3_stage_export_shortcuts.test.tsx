@@ -198,33 +198,33 @@ describe('Milestone 3 — UX-5: TV Stage Mode Controls, Theme Integration & Pitc
   });
 
   describe('PitchTranspositionControl Visual Feedback', () => {
-    it('displays "Pending Mix / Click Apply" amber badge when semitones !== 0', () => {
+    it('shows a queued badge only while a key change waits to be applied', () => {
       const { rerender } = render(
         <PitchTranspositionControl
-          semitones={0}
+          semitones={2}
+          appliedSemitones={2}
           onSemitoneChange={vi.fn()}
           onResetPitch={vi.fn()}
         />
       );
 
-      // At 0 semitones (original key), pending badge is not rendered
+      // Applied key matches the requested key: nothing pending
       expect(screen.queryByTestId('pitch-pending-mix-badge')).not.toBeInTheDocument();
-      expect(screen.queryByText(/Pending Mix \/ Click Apply/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Click Apply/i)).not.toBeInTheDocument();
 
-      // Shift to +2 semitones without applying mix
+      // Step to +3 before the debounced re-pitch runs
       rerender(
         <PitchTranspositionControl
-          semitones={2}
+          semitones={3}
+          appliedSemitones={2}
           onSemitoneChange={vi.fn()}
           onResetPitch={vi.fn()}
         />
       );
 
       const badge = screen.getByTestId('pitch-pending-mix-badge');
-      expect(badge).toBeInTheDocument();
-      expect(badge).toHaveTextContent('Pending Mix / Click Apply');
-      expect(badge.className).toContain('bg-amber-500/20');
-      expect(badge.className).toContain('text-amber-300');
+      expect(badge).toHaveTextContent('Applying…');
+      expect(badge).toHaveAttribute('title', expect.stringMatching(/automatically/i));
     });
 
     it('respects explicit isMixPending prop when provided', () => {
