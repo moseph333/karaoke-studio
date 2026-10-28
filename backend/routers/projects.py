@@ -7,7 +7,7 @@ import time
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 
 from backend.config import OUTPUT_DIR
 from backend.project_store import (
@@ -31,6 +31,13 @@ from backend.schemas import (
     RenderRequest,
     SearchRequest,
     VocalRangeData,
+)
+from backend.services.waveform import (
+    DEFAULT_BINS,
+    MAX_BINS,
+    MIN_BINS,
+    WaveformUnavailable,
+    compute_peaks,
 )
 
 logger = logging.getLogger("karaoke_backend")
@@ -807,6 +814,42 @@ def mix_audio(project_id: str, req: MixRequest):
     save_projects()
 
     return {"status": "ok", "master_audio_url": proj["master_audio_url"]}
+
+
+@router.get("/api/project/{project_id}/waveform")
+def get_project_waveform(
+    project_id: str,
+    bins: int = Query(DEFAULT_BINS, ge=MIN_BINS, le=MAX_BINS, description="Number of peaks"),
+):
+    """Loudness overview of the audio the studio plays (normalized 0-1 peaks).
+
+    Prefers the current master mix, then the instrumental stem, then the original upload;
+    results are cached until the file changes.
+    """
+    proj = get_project_or_404(project_id)
+    candidates = (
+        ("master", proj.get("master_audio_path")),
+        ("instrumental", proj.get("instrumental_path")),
+        ("original", proj.get("audio_path")),
+    )
+    for source, path in candidates:
+        if not path or not os.path.isfile(path):
+            continue
+        try:
+            peaks, duration = compute_peaks(path, bins)
+        except WaveformUnavailable as exc:
+            logger.info(f"Waveform source {source} unusable for {project_id}: {exc}")
+            continue
+        return {
+            "project_id": project_id,
+            "source": source,
+            "bins": len(peaks),
+            "duration": duration,
+            "peaks": peaks,
+        }
+    raise HTTPException(
+        status_code=409, detail="Waveform is not available until the audio is ready"
+    )
 
 
 @router.post("/api/project/{project_id}/render")
