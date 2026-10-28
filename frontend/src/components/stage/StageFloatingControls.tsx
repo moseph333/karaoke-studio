@@ -63,7 +63,7 @@ export const StageFloatingControls: React.FC<StageFloatingControlsProps> = ({
       aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
       onClick={() => onTogglePlay?.()}
       className={cn(
-        'flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-transform active:scale-95',
+        'flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-transform active:scale-95',
         focusRing
       )}
     >

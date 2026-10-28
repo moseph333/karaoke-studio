@@ -215,7 +215,11 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
           </div>
         ) : (
           <div className="flex w-full min-w-0 items-center gap-1.5 @[720px]:flex-1">
-            <Tooltip content={`Current part: ${singer.label}. Click to cycle role`} position="top">
+            <Tooltip
+              content={`Current part: ${singer.label}. Click to cycle role`}
+              position="top"
+              portal
+            >
               <button
                 type="button"
                 onClick={(e) => {
@@ -272,7 +276,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
             )}
-            <Tooltip content="Edit lyric text inline" position="top">
+            <Tooltip content="Edit lyric text inline" position="top" portal>
               <button
                 type="button"
                 onClick={() => onStartEditing(line)}
@@ -293,7 +297,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               calm
             )}
           >
-            <Tooltip content="Nudge line 0.2s earlier" position="top">
+            <Tooltip content="Nudge line 0.2s earlier" position="top" portal>
               <button
                 type="button"
                 onClick={() => onNudgeLine(line.id, -0.2)}
@@ -303,7 +307,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 <Rewind className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             </Tooltip>
-            <Tooltip content="Fine-nudge line 0.05s earlier" position="top">
+            <Tooltip content="Fine-nudge line 0.05s earlier" position="top" portal>
               <button
                 type="button"
                 onClick={() => onNudgeLine(line.id, -0.05)}
@@ -313,7 +317,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 -0.05s
               </button>
             </Tooltip>
-            <Tooltip content="Fine-nudge line 0.05s later" position="top">
+            <Tooltip content="Fine-nudge line 0.05s later" position="top" portal>
               <button
                 type="button"
                 onClick={() => onNudgeLine(line.id, 0.05)}
@@ -323,7 +327,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 +0.05s
               </button>
             </Tooltip>
-            <Tooltip content="Nudge line 0.2s later" position="top">
+            <Tooltip content="Nudge line 0.2s later" position="top" portal>
               <button
                 type="button"
                 onClick={() => onNudgeLine(line.id, 0.2)}
@@ -338,7 +342,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
           <div className="flex items-center gap-px">
             {/* Narrow cards reach insert/delete through the More menu instead */}
             <div className={cn('hidden items-center gap-px @[480px]:flex', calm)}>
-              <Tooltip content="Insert lyric line above" position="top">
+              <Tooltip content="Insert lyric line above" position="top" portal>
                 <button
                   type="button"
                   onClick={() => onInsertLineAbove(idx)}
@@ -352,7 +356,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   </span>
                 </button>
               </Tooltip>
-              <Tooltip content="Insert lyric line below" position="top">
+              <Tooltip content="Insert lyric line below" position="top" portal>
                 <button
                   type="button"
                   onClick={() => onInsertLineBelow(idx)}
@@ -366,7 +370,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   </span>
                 </button>
               </Tooltip>
-              <Tooltip content="Delete lyric line from timeline" position="top">
+              <Tooltip content="Delete lyric line from timeline" position="top" portal>
                 <button
                   type="button"
                   onClick={() => onDeleteLine(line)}

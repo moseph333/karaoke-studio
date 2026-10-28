@@ -8,6 +8,48 @@
 import React, { useEffect, useState } from 'react';
 import { Toast, ToastType } from '../types';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { cn } from '../utils/cn';
+import { focusRing } from './ui/variants';
+
+const TOAST_VARIANTS: Record<
+  ToastType,
+  {
+    Icon: typeof Info;
+    border: string;
+    icon: string;
+    role: 'status' | 'alert';
+    live: 'polite' | 'assertive';
+  }
+> = {
+  success: {
+    Icon: CheckCircle2,
+    border: 'border-theme-success/45',
+    icon: 'text-theme-success',
+    role: 'status',
+    live: 'polite',
+  },
+  error: {
+    Icon: AlertCircle,
+    border: 'border-theme-danger/55',
+    icon: 'text-theme-danger',
+    role: 'alert',
+    live: 'assertive',
+  },
+  warning: {
+    Icon: AlertTriangle,
+    border: 'border-theme-warning/45',
+    icon: 'text-theme-warning',
+    role: 'status',
+    live: 'polite',
+  },
+  info: {
+    Icon: Info,
+    border: 'border-theme-info/45',
+    icon: 'text-theme-info',
+    role: 'status',
+    live: 'polite',
+  },
+};
 
 interface ToastItemProps {
   toast: Toast;
@@ -28,65 +70,32 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
     return () => clearTimeout(timer);
   }, [toast.id, toast.duration, isPaused, onDismiss]);
 
-  const getVariantStyles = (type: ToastType) => {
-    switch (type) {
-      case 'success':
-        return {
-          container: 'bg-slate-900/95 border-emerald-500/50 text-emerald-200 shadow-emerald-950/40',
-          icon: (
-            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" aria-hidden="true" />
-          ),
-          ariaRole: 'status' as const,
-          ariaLive: 'polite' as const,
-        };
-      case 'error':
-        return {
-          container: 'bg-slate-900/95 border-rose-500/60 text-rose-200 shadow-rose-950/40',
-          icon: (
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" aria-hidden="true" />
-          ),
-          ariaRole: 'alert' as const,
-          ariaLive: 'assertive' as const,
-        };
-      case 'warning':
-        return {
-          container: 'bg-slate-900/95 border-amber-500/50 text-amber-200 shadow-amber-950/40',
-          icon: (
-            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
-          ),
-          ariaRole: 'status' as const,
-          ariaLive: 'polite' as const,
-        };
-      case 'info':
-      default:
-        return {
-          container: 'bg-slate-900/95 border-cyan-500/50 text-cyan-200 shadow-cyan-950/40',
-          icon: <Info className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" aria-hidden="true" />,
-          ariaRole: 'status' as const,
-          ariaLive: 'polite' as const,
-        };
-    }
-  };
-
-  const style = getVariantStyles(toast.type);
+  const style = TOAST_VARIANTS[toast.type] ?? TOAST_VARIANTS.info;
+  const Icon = style.Icon;
 
   return (
     <div
-      role={style.ariaRole}
-      aria-live={style.ariaLive}
+      role={style.role}
+      aria-live={style.live}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      className={`pointer-events-auto flex items-start gap-3 p-4 rounded-2xl border shadow-xl backdrop-blur-md transition-all duration-300 w-full max-w-sm ${style.container}`}
+      className={cn(
+        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-theme-lg border bg-theme-surface-raised/95 p-3.5 text-theme-text shadow-theme-lg backdrop-blur-md motion-safe:animate-fade-in',
+        style.border
+      )}
     >
-      {style.icon}
-      <div className="flex-1 text-xs font-medium leading-relaxed break-words">{toast.message}</div>
+      <Icon className={cn('mt-0.5 h-5 w-5 shrink-0', style.icon)} aria-hidden="true" />
+      <div className="min-w-0 flex-1 break-words pt-0.5 text-sm leading-snug">{toast.message}</div>
       <button
         type="button"
         onClick={() => onDismiss(toast.id)}
         aria-label="Dismiss notification"
-        className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors shrink-0 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        className={cn(
+          '-m-1 inline-flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-theme-md text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text',
+          focusRing
+        )}
       >
-        <X className="w-4 h-4" aria-hidden="true" />
+        <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   );
@@ -102,7 +111,7 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"
+      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--dock-height,0px)+1rem)] z-[60] flex flex-col items-center gap-2.5 px-4 sm:inset-x-auto sm:right-5 sm:w-full sm:max-w-sm sm:items-end sm:px-0"
       aria-label="Notifications"
     >
       {toasts.map((toast) => (

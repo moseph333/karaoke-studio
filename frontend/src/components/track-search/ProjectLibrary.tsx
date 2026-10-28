@@ -431,7 +431,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                     </span>
                     <span
                       aria-hidden="true"
-                      className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-gradient-accent text-theme-accent-text opacity-0 shadow-theme-glow transition-opacity group-hover:opacity-100"
+                      className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text opacity-0 shadow-theme-glow transition-opacity group-hover:opacity-100"
                     >
                       <Play className="ml-0.5 h-4 w-4 fill-current" />
                     </span>

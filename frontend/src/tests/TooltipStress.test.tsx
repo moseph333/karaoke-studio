@@ -459,9 +459,9 @@ describe('Tooltip Empirical Stress & Adversarial Suite', () => {
       expect(kbd).not.toBeNull();
       expect(kbd).toHaveTextContent('Space');
       expect(kbd).toHaveClass('font-mono');
-      expect(kbd).toHaveClass('text-cyan-300');
-      expect(kbd).toHaveClass('bg-slate-800');
-      expect(kbd).toHaveClass('border-slate-700');
+      expect(kbd).toHaveClass('text-theme-highlight');
+      expect(kbd).toHaveClass('bg-theme-surface-subtle');
+      expect(kbd).toHaveClass('border-theme-border-subtle');
     });
 
     it('renders array of 2 hotkeys ["←", "→"] cleanly', () => {
@@ -480,7 +480,7 @@ describe('Tooltip Empirical Stress & Adversarial Suite', () => {
       expect(kbds[1]).toHaveTextContent('→');
       kbds.forEach((k) => {
         expect(k).toHaveClass('font-mono');
-        expect(k).toHaveClass('text-cyan-300');
+        expect(k).toHaveClass('text-theme-highlight');
       });
     });
 

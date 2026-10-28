@@ -35,7 +35,7 @@ export const ExportCheckOption: React.FC<ExportCheckOptionProps> = ({
       <span
         aria-hidden="true"
         className={cn(
-          'pointer-events-none grid h-5 w-5 place-items-center rounded-[6px] border-2 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-theme-focus peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-theme-bg',
+          'pointer-events-none grid h-5 w-5 place-items-center rounded-[min(6px,var(--theme-radius-sm))] border-2 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-theme-focus peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-theme-bg',
           checked
             ? 'border-transparent bg-theme-accent text-theme-accent-text'
             : 'border-theme-border bg-theme-surface-subtle'

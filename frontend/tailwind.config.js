@@ -59,6 +59,8 @@ export default {
         'theme-glow': 'var(--theme-shadow-glow)',
       },
       borderWidth: {
+        // Plain `border` / `border-t` / `divide-y` follow the active theme's stroke weight.
+        DEFAULT: 'var(--theme-border-width, 1px)',
         theme: 'var(--theme-border-width)',
         'theme-thick': 'var(--theme-border-width-thick)',
       },

@@ -11,6 +11,8 @@ import React, { useState } from 'react';
 import { ChordSegment } from '../types';
 import { transposeChord, NO_CHORD_VALUES } from '../utils/chords';
 import { Edit2, Check, X } from 'lucide-react';
+import { cn } from '../utils/cn';
+import { focusRing } from './ui/variants';
 
 export interface ChordBarProps {
   chords?: ChordSegment[];
@@ -90,7 +92,10 @@ export const ChordBar: React.FC<ChordBarProps> = ({
       data-testid="chord-bar"
       role="region"
       aria-label="Harmonic Chord Progression"
-      className={`chord-bar-container w-full max-w-full flex items-center gap-2 p-2 bg-slate-900/90 border border-slate-800 rounded-xl select-none min-h-[44px] overflow-hidden ${className}`}
+      className={cn(
+        'chord-bar-container flex min-h-[44px] w-full max-w-full select-none items-center gap-2 overflow-hidden rounded-theme-lg border border-white/15 bg-black/45 p-1.5 text-white shadow-theme-sm backdrop-blur-md',
+        className
+      )}
     >
       {/* Active Chord Cue Badge */}
       {editingIndex !== null && editingIndex === activeIndex ? (
@@ -105,7 +110,7 @@ export const ChordBar: React.FC<ChordBarProps> = ({
               if (e.key === 'Enter') handleSaveEdit();
               if (e.key === 'Escape') handleCancelEdit();
             }}
-            className="w-16 px-2 py-1 text-center font-bold text-cyan-300 bg-slate-800 border border-cyan-500 rounded min-h-[44px] focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            className="min-h-[44px] w-16 rounded-theme-md border border-white/30 bg-black/60 px-2 py-1 text-center font-bold text-white focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60"
             autoFocus
           />
           <button
@@ -113,18 +118,24 @@ export const ChordBar: React.FC<ChordBarProps> = ({
             data-testid="save-chord-edit-btn"
             aria-label="Confirm chord edit"
             onClick={handleSaveEdit}
-            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded bg-cyan-600 hover:bg-cyan-500 text-white"
+            className={cn(
+              'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-md bg-theme-accent p-2 text-theme-accent-text transition-colors hover:bg-theme-accent-hover',
+              focusRing
+            )}
           >
-            <Check className="w-4 h-4" />
+            <Check className="h-4 w-4" aria-hidden="true" />
           </button>
           <button
             type="button"
             data-testid="cancel-chord-edit-btn"
             aria-label="Cancel chord edit"
             onClick={handleCancelEdit}
-            className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded bg-slate-700 hover:bg-slate-600 text-slate-300"
+            className={cn(
+              'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-md bg-white/10 p-2 text-white/80 transition-colors hover:bg-white/20 hover:text-white',
+              focusRing
+            )}
           >
-            <X className="w-4 h-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       ) : (
@@ -132,7 +143,7 @@ export const ChordBar: React.FC<ChordBarProps> = ({
           <div
             data-testid="active-chord-badge"
             aria-label={`Active chord: ${activeChordDisplay}`}
-            className="active-chord font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-3 py-1.5 rounded min-h-[44px] min-w-[44px] flex items-center justify-center text-lg shrink-0"
+            className="active-chord flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md bg-gradient-accent px-3 py-1.5 text-lg font-bold text-theme-accent-text shadow-theme-glow"
           >
             {activeChordDisplay}
           </div>
@@ -142,9 +153,12 @@ export const ChordBar: React.FC<ChordBarProps> = ({
               data-testid="edit-active-chord-btn"
               aria-label={`Edit chord ${activeChordDisplay}`}
               onClick={() => handleStartEdit(activeIndex, activeSegment.chord)}
-              className="ml-1 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-500 hover:text-cyan-400 rounded focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              className={cn(
+                'ml-1 flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-md p-2 text-white/60 transition-colors hover:bg-white/10 hover:text-white',
+                focusRing
+              )}
             >
-              <Edit2 className="w-3.5 h-3.5" />
+              <Edit2 className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -153,14 +167,14 @@ export const ChordBar: React.FC<ChordBarProps> = ({
       {/* Upcoming Chords Strip */}
       <div
         data-testid="upcoming-chords"
-        className="upcoming flex items-center gap-2 text-slate-400 text-sm overflow-hidden flex-1 min-w-0"
+        className="upcoming flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm text-white/70"
       >
         {upcomingSegments.map((s, idx) => (
           <span
             key={s.id || idx}
             data-testid="upcoming-chord-cue"
             onClick={() => onSeek?.(s.start)}
-            className="px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-300 font-medium text-xs sm:text-sm shrink-0 cursor-pointer hover:bg-slate-700 transition-colors"
+            className="shrink-0 cursor-pointer rounded-theme-md border border-white/15 bg-white/5 px-2 py-1 text-xs font-semibold text-white/85 transition-colors hover:bg-white/15 sm:text-sm"
           >
             {transposeChord(s.chord, semitones, keyHint)}
           </span>

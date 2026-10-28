@@ -352,12 +352,96 @@ describe('Tooltip Component', () => {
 
     fireEvent.focus(screen.getByRole('button', { name: 'Paper Button' }));
     const tooltip = screen.getByRole('tooltip');
-    expect(tooltip.style.backgroundColor).toBe('var(--theme-surface, #020617)');
-    expect(tooltip.style.color).toBe('var(--theme-text, #f1f5f9)');
-    expect(tooltip.style.borderColor).toBe('var(--theme-border, #334155)');
+    // Surface, text and border come from the active theme's tokens, so every theme pairs
+    // its own readable text with its own surface.
+    expect(tooltip).toHaveClass(
+      'bg-theme-surface-raised/95',
+      'text-theme-text',
+      'border-theme-border'
+    );
+    expect(tooltip.className).not.toMatch(/\b(bg|text|border)-(slate|cyan)-/);
 
     const kbd = tooltip.querySelector('kbd') as HTMLElement;
-    expect(kbd.style.backgroundColor).toBe('var(--theme-surface-subtle, #1e293b)');
-    expect(kbd.style.color).toBe('var(--theme-accent, #67e8f9)');
+    expect(kbd).toHaveClass('bg-theme-surface-subtle', 'text-theme-highlight');
+    expect(kbd.className).not.toMatch(/\b(bg|text|border)-(slate|cyan)-/);
+  });
+
+  describe('portal mode', () => {
+    const rect = (x: number, y: number, width: number, height: number) =>
+      ({
+        x,
+        y,
+        left: x,
+        top: y,
+        right: x + width,
+        bottom: y + height,
+        width,
+        height,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('renders the bubble in document.body with fixed coordinates and closes on scroll', () => {
+      const { container } = render(
+        <div style={{ overflow: 'hidden' }}>
+          <Tooltip content="Portaled tip" portal delayMs={0}>
+            <button type="button">Row action</button>
+          </Tooltip>
+        </div>
+      );
+      const trigger = screen.getByRole('button', { name: 'Row action' });
+      fireEvent.focus(trigger);
+
+      const tip = screen.getByRole('tooltip');
+      expect(container.contains(tip)).toBe(false);
+      expect(tip.parentElement).toBe(document.body);
+      expect(tip).toHaveClass('fixed');
+      expect(tip).not.toHaveClass('invisible');
+      expect(trigger).toHaveAttribute('aria-describedby', tip.id);
+
+      fireEvent.scroll(window);
+      expect(screen.queryByRole('tooltip')).toBeNull();
+    });
+
+    it('flips a top tooltip below its trigger when there is no room above', () => {
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+        this: HTMLElement
+      ) {
+        return this.getAttribute('role') === 'tooltip'
+          ? rect(0, 0, 120, 30)
+          : rect(100, 10, 40, 40);
+      });
+      render(
+        <Tooltip content="Flip me" portal position="top" delayMs={0}>
+          <button type="button">Top edge</button>
+        </Tooltip>
+      );
+      fireEvent.focus(screen.getByRole('button', { name: 'Top edge' }));
+      const tip = screen.getByRole('tooltip');
+      expect(parseFloat(tip.style.top)).toBe(10 + 40 + 8);
+      expect(parseFloat(tip.style.left)).toBe(100 + 20 - 60);
+    });
+
+    it('clamps the bubble inside the viewport near the right edge', () => {
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+        this: HTMLElement
+      ) {
+        return this.getAttribute('role') === 'tooltip'
+          ? rect(0, 0, 200, 30)
+          : rect(window.innerWidth - 30, 300, 24, 24);
+      });
+      render(
+        <Tooltip content="Edge tip" portal position="top" delayMs={0}>
+          <button type="button">Right edge</button>
+        </Tooltip>
+      );
+      fireEvent.focus(screen.getByRole('button', { name: 'Right edge' }));
+      const tip = screen.getByRole('tooltip');
+      expect(parseFloat(tip.style.left)).toBe(window.innerWidth - 200 - 8);
+      expect(parseFloat(tip.style.top)).toBe(300 - 8 - 30);
+    });
   });
 });

@@ -39,7 +39,7 @@ export const Switch: React.FC<SwitchProps> = ({
         data-testid={testId}
         onClick={() => onChange(!checked)}
         className={cn(
-          'relative inline-flex h-6 w-11 min-w-[44px] shrink-0 items-center rounded-full border transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50',
+          'relative inline-flex h-6 w-11 min-w-[44px] shrink-0 items-center rounded-theme-pill border transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-50',
           checked
             ? 'border-transparent bg-theme-accent'
             : 'border-theme-border bg-theme-surface-raised',
@@ -49,7 +49,7 @@ export const Switch: React.FC<SwitchProps> = ({
         <span
           aria-hidden="true"
           className={cn(
-            'inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+            'inline-block h-4 w-4 rounded-theme-pill bg-white shadow-theme-sm transition-transform duration-200',
             checked ? 'translate-x-6' : 'translate-x-1'
           )}
         />
