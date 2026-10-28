@@ -48,6 +48,12 @@ class TestCssToAssColor:
         # Already ASS format
         assert css_to_ass_color("&H0000D7FF") == "&H0000D7FF"
         assert css_to_ass_color("&h00ffffff") == "&H00FFFFFF"
+        assert css_to_ass_color("&HFFFFFF") == "&HFFFFFF"
+        assert css_to_ass_color("&H00FFFFFF&") == "&H00FFFFFF"
+
+    def test_text_dressed_as_an_ass_color_falls_back(self):
+        for bad in ("&H00FF00FF,Arial,1", "&H00FFFFFF\nDialogue: 0", "&HGGGGGG", "&H12345"):
+            assert css_to_ass_color(bad, default="&H00FFFFFF") == "&H00FFFFFF"
 
     def test_invalid_input_fallback(self):
         assert css_to_ass_color("") == "&H0000D7FF"
