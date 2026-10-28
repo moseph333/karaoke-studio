@@ -1,15 +1,15 @@
 /**
  * Timeline Modals Component
  *
- * Renders focus-trapped dialogs for discarding unsaved timing changes
- * and confirming line deletions in the lyric timeline editor.
+ * Confirmation dialogs for discarding unsaved timing changes and deleting a lyric line.
  */
 
 import React from 'react';
 import { AlertTriangle, Trash2 } from 'lucide-react';
 import { LyricLine } from '../../types';
-import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { formatLineTime } from '../../utils/lyrics';
+import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
+import { Button } from '../ui/Button';
 
 export interface TimelineModalsProps {
   showDiscardModal: boolean;
@@ -27,107 +27,73 @@ export const TimelineModals: React.FC<TimelineModalsProps> = ({
   lineToDelete,
   onCloseDelete,
   onConfirmDelete,
-}) => {
-  const discardModalRef = useFocusTrap<HTMLDivElement>({
-    isOpen: showDiscardModal,
-    onClose: onCloseDiscard,
-  });
+}) => (
+  <>
+    <Dialog
+      open={showDiscardModal}
+      onClose={onCloseDiscard}
+      titleId="discard-dialog-title"
+      descriptionId="discard-dialog-desc"
+      variant="center"
+      size="md"
+    >
+      <DialogHeader
+        title="Discard Unsaved Timing Changes?"
+        titleId="discard-dialog-title"
+        icon={<AlertTriangle className="h-5 w-5" />}
+        iconTone="warning"
+        sticky={false}
+      />
+      <p id="discard-dialog-desc" className="text-sm leading-relaxed text-theme-text-muted">
+        You have made modifications to lyric timing boundaries that have not been saved to the
+        server. Discarding will revert all line and word timings back to the last saved state.
+      </p>
+      <DialogFooter>
+        <Button variant="secondary" fullWidth="mobile" onClick={onCloseDiscard}>
+          Keep Editing
+        </Button>
+        <Button variant="destructive" fullWidth="mobile" onClick={onConfirmDiscard}>
+          Discard Changes
+        </Button>
+      </DialogFooter>
+    </Dialog>
 
-  const deleteModalRef = useFocusTrap<HTMLDivElement>({
-    isOpen: Boolean(lineToDelete),
-    onClose: onCloseDelete,
-  });
-
-  return (
-    <>
-      {/* Discard Changes Confirmation Modal */}
-      {showDiscardModal && (
-        <div
-          ref={discardModalRef}
-          tabIndex={-1}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="discard-dialog-title"
-          aria-describedby="discard-dialog-desc"
-        >
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-amber-400">
-              <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <AlertTriangle className="w-5 h-5 text-amber-400" />
-              </div>
-              <h3 id="discard-dialog-title" className="text-base font-bold text-white">
-                Discard Unsaved Timing Changes?
-              </h3>
-            </div>
-            <p id="discard-dialog-desc" className="text-xs text-slate-300 leading-relaxed">
-              You have made modifications to lyric timing boundaries that have not been saved to the
-              server. Discarding will revert all line and word timings back to the last saved state.
-            </p>
-            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={onCloseDiscard}
-                className="w-full sm:w-auto min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 flex items-center justify-center"
-              >
-                Keep Editing
-              </button>
-              <button
-                type="button"
-                onClick={onConfirmDiscard}
-                className="w-full sm:w-auto min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 focus:outline-none focus:ring-2 focus:ring-rose-400 flex items-center justify-center"
-              >
-                Discard Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Line Confirmation Modal */}
+    <Dialog
+      open={Boolean(lineToDelete)}
+      onClose={onCloseDelete}
+      titleId="delete-line-dialog-title"
+      descriptionId="delete-line-dialog-desc"
+      variant="center"
+      size="md"
+    >
       {lineToDelete && (
-        <div
-          ref={deleteModalRef}
-          tabIndex={-1}
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-line-dialog-title"
-          aria-describedby="delete-line-dialog-desc"
-        >
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3 text-rose-400">
-              <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                <Trash2 className="w-5 h-5 text-rose-400" />
-              </div>
-              <h3 id="delete-line-dialog-title" className="text-base font-bold text-white">
-                Delete Lyric Line?
-              </h3>
-            </div>
-            <p id="delete-line-dialog-desc" className="text-xs text-slate-300 leading-relaxed">
-              Are you sure you want to delete line {lineToDelete.id}: &ldquo;{lineToDelete.text}
-              &rdquo; ({formatLineTime(lineToDelete.start_time)}s to{' '}
-              {formatLineTime(lineToDelete.end_time)}s)?
-            </p>
-            <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={onCloseDelete}
-                className="w-full sm:w-auto min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-slate-500 flex items-center justify-center"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => onConfirmDelete(lineToDelete.id)}
-                className="w-full sm:w-auto min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all shadow-md shadow-rose-600/20 focus:outline-none focus:ring-2 focus:ring-rose-400 flex items-center justify-center"
-              >
-                Delete Line
-              </button>
-            </div>
-          </div>
-        </div>
+        <>
+          <DialogHeader
+            title="Delete Lyric Line?"
+            titleId="delete-line-dialog-title"
+            icon={<Trash2 className="h-5 w-5" />}
+            iconTone="danger"
+            sticky={false}
+          />
+          <p id="delete-line-dialog-desc" className="text-sm leading-relaxed text-theme-text-muted">
+            Are you sure you want to delete line {lineToDelete.id}: &ldquo;{lineToDelete.text}
+            &rdquo; ({formatLineTime(lineToDelete.start_time)}s to{' '}
+            {formatLineTime(lineToDelete.end_time)}s)?
+          </p>
+          <DialogFooter>
+            <Button variant="secondary" fullWidth="mobile" onClick={onCloseDelete}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              fullWidth="mobile"
+              onClick={() => onConfirmDelete(lineToDelete.id)}
+            >
+              Delete Line
+            </Button>
+          </DialogFooter>
+        </>
       )}
-    </>
-  );
-};
+    </Dialog>
+  </>
+);

@@ -103,9 +103,35 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
       expect(screen.getByText('Escape')).toBeInTheDocument();
       expect(screen.getByText(/close modal dialogs/i)).toBeInTheDocument();
 
-      // Tab cycling
-      expect(screen.getByText(/tab \/ shift\+tab/i)).toBeInTheDocument();
+      // Tab cycling: keys render as separate badges ("Tab" / "Shift" + "Tab")
+      const focusRow = screen.getByText('Focus Navigation').closest('li') as HTMLElement;
+      expect(focusRow).not.toBeNull();
+      const focusKeys = Array.from(focusRow.querySelectorAll('kbd')).map((k) => k.textContent);
+      expect(focusKeys).toEqual(['Tab', 'Shift', 'Tab']);
+      expect(focusRow.textContent).toMatch(/Tab\s*\/\s*Shift\s*\+\s*Tab/);
       expect(screen.getByText(/navigate interactive controls/i)).toBeInTheDocument();
+    });
+
+    it('groups shortcuts into labelled lists including the power-user rows', () => {
+      render(<HelpModal isOpen={true} onClose={onClose} initialTab="shortcuts" />);
+
+      for (const group of ['Playback', 'Lyrics', 'Stage', 'General']) {
+        expect(screen.getByRole('list', { name: `${group} shortcuts` })).toBeInTheDocument();
+      }
+
+      const keysFor = (label: string) => {
+        const row = screen.getByText(label).closest('li') as HTMLElement;
+        return Array.from(row.querySelectorAll('kbd')).map((k) => k.textContent);
+      };
+      expect(keysFor('Fine Seek ±1 Second')).toEqual(['Shift', '←', '→']);
+      expect(keysFor('Jump ±15 Seconds')).toEqual(['Alt', '←', '→']);
+      expect(keysFor('Previous / Next Line')).toEqual(['[', ']']);
+      expect(keysFor('Replay Line')).toEqual(['R']);
+      const undoKeys = keysFor('Undo / Redo Edits');
+      expect(undoKeys).toHaveLength(4);
+      expect(undoKeys[1]).toBe('Z');
+      expect(undoKeys[3]).toBe('Y');
+      expect(['⌘', 'Ctrl']).toContain(undoKeys[0]);
     });
 
     it('renders single-key shortcut isolation callout note', () => {

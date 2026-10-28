@@ -220,7 +220,7 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
       assertZeroHorizontalOverflow(container, 320);
     });
 
-    it('prevents header collision between long title and absolute close button with pr-12 and truncation', () => {
+    it('prevents header collision between long title and the close button with flex flow and clamping', () => {
       setTestViewport(320, 568);
       render(
         <ExportModal project={completedProjectWithLongMeta} isOpen={true} onClose={vi.fn()} />
@@ -228,14 +228,22 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
 
       const title = screen.getByRole('heading', { level: 2, name: /export & youtube package/i });
       expect(title).toBeInTheDocument();
-      expect(title.className).toContain('truncate');
+      // Long titles wrap to at most two lines on phones and truncate from the sm breakpoint up.
+      expect(title.className).toContain('line-clamp-2');
+      expect(title.className).toContain('sm:truncate');
 
-      // Header container must have pr-12 to reserve clearance for the 44px close button at right-3
-      const headerContainer = title.closest('.border-b');
-      expect(headerContainer).not.toBeNull();
-      expect(headerContainer?.className).toContain('pr-12');
+      // The title column shrinks (min-w-0 flex-1) so a long title truncates, while the close
+      // button shares the header's flex row and never shrinks or overlaps it.
+      const titleColumn = title.parentElement as HTMLElement;
+      expect(titleColumn.className).toContain('min-w-0');
+      expect(titleColumn.className).toContain('flex-1');
+      const headerRow = titleColumn.parentElement as HTMLElement;
+      expect(headerRow.className).toMatch(/(^|\s)flex(\s|$)/);
 
       const closeBtn = screen.getByRole('button', { name: /close export dialog/i });
+      expect(headerRow.contains(closeBtn)).toBe(true);
+      expect(closeBtn.className).not.toMatch(/(^|\s)absolute(\s|$)/);
+      expect(closeBtn.closest('.shrink-0')).not.toBeNull();
       expect(closeBtn.className).toContain('min-w-[44px]');
       expect(closeBtn.className).toContain('min-h-[44px]');
     });
@@ -480,7 +488,7 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
       assertZeroHorizontalOverflow(container, 320);
     });
 
-    it('renders video player in completed state with aspect-video and object-contain at 320px', () => {
+    it('renders video player in completed state with a 16:9 frame and object-contain at 320px', () => {
       setTestViewport(320, 568);
       const { container } = render(
         <ExportModal project={completedProjectWithLongMeta} isOpen={true} onClose={vi.fn()} />
@@ -492,8 +500,9 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
       expect(video?.className).toContain('h-full');
       expect(video?.className).toContain('object-contain');
 
+      // The preview frame follows the rendered video's shape, defaulting to 16:9.
       const videoWrapper = video?.parentElement as HTMLElement;
-      expect(videoWrapper.className).toContain('aspect-video');
+      expect(Number(videoWrapper.style.aspectRatio)).toBeCloseTo(16 / 9, 3);
       expect(videoWrapper.className).toContain('w-full');
 
       assertZeroHorizontalOverflow(container, 320);

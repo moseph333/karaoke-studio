@@ -449,9 +449,19 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
 
       expect(closeBtn.tabIndex).not.toBe(-1);
       expect(shortcutsTab.tabIndex).not.toBe(-1);
-      expect(guideTab.tabIndex).not.toBe(-1);
       expect(tabpanel.tabIndex).toBe(0);
       expect(footerBtn.tabIndex).not.toBe(-1);
+
+      // WAI-ARIA tabs use a roving tabindex: only the selected tab sits in the Tab sequence and
+      // the other tab is reached with the arrow keys.
+      expect(guideTab.tabIndex).toBe(-1);
+      act(() => {
+        shortcutsTab.focus();
+      });
+      fireEvent.keyDown(shortcutsTab, { key: 'ArrowRight' });
+      expect(document.activeElement).toBe(guideTab);
+      expect(guideTab).toHaveAttribute('aria-selected', 'true');
+      expect(guideTab.tabIndex).toBe(0);
     });
   });
 

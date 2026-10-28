@@ -11,6 +11,17 @@ import { ProjectState, VisualTheme, SyncDisplayMode } from '../../types';
 import { apiFetch } from '../../api';
 import { Tooltip } from '../Tooltip';
 import { useToast } from '../../hooks/useToast';
+import { parseContentDispositionFilename } from '../../utils/download';
+import { cn } from '../../utils/cn';
+import { SegmentedControl } from '../ui/SegmentedControl';
+import { ExportCheckOption } from './ExportCheckOption';
+import {
+  EXPORT_DOWNLOAD_BTN,
+  EXPORT_ERROR,
+  EXPORT_HEADING,
+  EXPORT_PILL,
+  EXPORT_SECTION,
+} from './exportStyles';
 
 export interface ExportSubtitleSectionProps {
   project: ProjectState;
@@ -96,23 +107,9 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
       }
 
       const blob = await res.blob();
-      let filename = `${project.artist || 'Karaoke'} - ${project.title || 'Track'}.${format}`;
-      const disposition = res.headers.get('Content-Disposition');
-      if (disposition) {
-        const rfcMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-        if (rfcMatch && rfcMatch[1]) {
-          try {
-            filename = decodeURIComponent(rfcMatch[1]);
-          } catch {
-            filename = rfcMatch[1];
-          }
-        } else {
-          const stdMatch = disposition.match(/filename="?([^";]+)"?/i);
-          if (stdMatch && stdMatch[1]) {
-            filename = stdMatch[1];
-          }
-        }
-      }
+      const filename =
+        parseContentDispositionFilename(res.headers.get('Content-Disposition')) ||
+        `${project.artist || 'Karaoke'} - ${project.title || 'Track'}.${format}`;
 
       if (
         typeof window !== 'undefined' &&
@@ -159,158 +156,137 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
     }
   };
 
+  const busy = downloadingLrc || downloadingAss;
+  const keyLabel = semitones >= 0 ? `+${semitones}` : `${semitones}`;
+
   return (
-    <div className="p-3.5 sm:p-5 rounded-2xl bg-slate-950/60 border border-slate-800/80 mb-6 space-y-3.5">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <FileText className="w-5 h-5 text-cyan-400 shrink-0" aria-hidden="true" />
-          <h3 className="text-sm sm:text-base font-bold text-white font-['Montserrat'] truncate">
-            Synchronized Subtitles (.LRC & .ASS)
-          </h3>
-        </div>
+    <section aria-labelledby="export-subtitles-heading" className={EXPORT_SECTION}>
+      <div className="flex items-start justify-between gap-2">
+        <h3 id="export-subtitles-heading" className={EXPORT_HEADING}>
+          <FileText className="h-5 w-5 shrink-0 text-theme-highlight" aria-hidden="true" />
+          Synchronized Subtitles (.LRC & .ASS)
+        </h3>
         {project?.lines && (
-          <span className="text-[11px] font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full shrink-0">
+          <span
+            className={cn(
+              EXPORT_PILL,
+              'border-theme-accent/30 bg-theme-accent/10 text-theme-highlight'
+            )}
+          >
             {project.lines.length} lines
           </span>
         )}
       </div>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-theme-text-muted">
         Export standalone karaoke subtitle files for media players, video editors, or live
         performances without waiting for video rendering.
       </p>
 
-      {/* Options Row: Chords in Subtitles & Sync Mode */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-1">
-        <label
-          data-testid="include-chords-subtitle-container"
-          className="flex items-center gap-2.5 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors w-full sm:w-auto"
-        >
-          <input
-            type="checkbox"
-            data-testid="include-chords-subtitle-checkbox"
-            checked={includeChords}
-            onChange={(e) => setIncludeChords(e.target.checked)}
-            className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-slate-700 bg-slate-800 text-purple-500 focus:ring-purple-400 focus:ring-offset-slate-900 cursor-pointer"
-            aria-label="Include Harmonic Chords in Subtitles (.ass)"
-          />
-          <span className="text-xs sm:text-sm font-medium text-slate-300">
-            Include Harmonic Chords in Subtitles (.ass)
-          </span>
-        </label>
+      <div className="flex flex-col items-stretch justify-between gap-2 pt-1 sm:flex-row sm:items-center">
+        <ExportCheckOption
+          label="Include Harmonic Chords in Subtitles (.ass)"
+          checked={includeChords}
+          onChange={setIncludeChords}
+          testId="include-chords-subtitle-checkbox"
+          containerTestId="include-chords-subtitle-container"
+        />
 
-        {/* Subtitle Sync Mode Selector */}
-        <div
-          data-testid="subtitle-sync-mode-selector"
-          role="group"
-          aria-label="Subtitle synchronization mode"
-          className="inline-flex p-1 rounded-xl bg-slate-900/90 border border-slate-800"
-        >
-          <button
-            type="button"
-            data-testid="subtitle-sync-mode-word"
-            aria-pressed={activeSyncMode !== 'line'}
-            aria-label="Word Sweep progressive karaoke subtitles"
-            onClick={() => handleSyncModeChange('word')}
-            className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
-              activeSyncMode !== 'line'
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-            Word Sweep (\kf)
-          </button>
-          <button
-            type="button"
-            data-testid="subtitle-sync-mode-line"
-            aria-pressed={activeSyncMode === 'line'}
-            aria-label="Line-by-Line solid highlight subtitles"
-            onClick={() => handleSyncModeChange('line')}
-            className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
-              activeSyncMode === 'line'
-                ? 'bg-cyan-500 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <AlignLeft className="w-3.5 h-3.5" aria-hidden="true" />
-            Line-by-Line
-          </button>
-        </div>
+        <SegmentedControl<SyncDisplayMode>
+          testId="subtitle-sync-mode-selector"
+          ariaLabel="Subtitle synchronization mode"
+          value={activeSyncMode === 'line' ? 'line' : 'word'}
+          onChange={handleSyncModeChange}
+          size="sm"
+          tone="neutral"
+          className="self-start sm:self-auto"
+          optionClassName="min-w-[44px]"
+          options={[
+            {
+              value: 'word',
+              label: 'Word Sweep (\\kf)',
+              ariaLabel: 'Word Sweep progressive karaoke subtitles',
+              testId: 'subtitle-sync-mode-word',
+              icon: <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />,
+            },
+            {
+              value: 'line',
+              label: 'Line-by-Line',
+              ariaLabel: 'Line-by-Line solid highlight subtitles',
+              testId: 'subtitle-sync-mode-line',
+              icon: <AlignLeft className="h-3.5 w-3.5" aria-hidden="true" />,
+            },
+          ]}
+        />
       </div>
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
-        {/* Download .LRC Button */}
-        <Tooltip
-          content="Download synchronized .LRC file"
-          position="top"
-          className="flex-1 w-full sm:w-auto"
-        >
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3">
+        <Tooltip content="Download synchronized .LRC file" position="top" className="w-full">
           <button
             type="button"
             onClick={() => handleDownloadSubtitle('lrc')}
-            disabled={downloadingLrc || downloadingAss}
+            disabled={busy}
             aria-label="Download .lrc subtitles"
-            className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 active:bg-slate-700 border border-slate-700 hover:border-cyan-500/50 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-between gap-2.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className={cn(EXPORT_DOWNLOAD_BTN, 'hover:border-theme-accent/50')}
           >
-            <div className="flex items-center gap-2 min-w-0 text-left">
+            <span className="flex min-w-0 items-center gap-2.5 text-left">
               {downloadingLrc ? (
-                <Loader2 className="w-4 h-4 text-cyan-400 animate-spin shrink-0" />
+                <Loader2
+                  className="h-4 w-4 shrink-0 text-theme-highlight animate-spin"
+                  aria-hidden="true"
+                />
               ) : (
-                <FileText className="w-4 h-4 text-cyan-400 shrink-0" />
+                <FileText className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
               )}
-              <div className="min-w-0">
-                <span className="font-bold text-xs sm:text-sm text-white block">Download .LRC</span>
-                <span className="text-[10px] text-slate-400 block truncate">
+              <span className="min-w-0">
+                <span className="block text-xs font-bold text-theme-text sm:text-sm">
+                  Download .LRC
+                </span>
+                <span className="block truncate text-[10px] text-theme-text-muted">
                   [mm:ss.xx] Timestamps
                 </span>
-              </div>
-            </div>
-            <Download className="w-4 h-4 text-cyan-400 shrink-0" aria-hidden="true" />
+              </span>
+            </span>
+            <Download className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
           </button>
         </Tooltip>
 
-        {/* Download .ASS Button */}
-        <Tooltip
-          content="Download formatted .ASS subtitles"
-          position="top"
-          className="flex-1 w-full sm:w-auto"
-        >
+        <Tooltip content="Download formatted .ASS subtitles" position="top" className="w-full">
           <button
             type="button"
             onClick={() => handleDownloadSubtitle('ass')}
-            disabled={downloadingLrc || downloadingAss}
+            disabled={busy}
             aria-label="Download .ass subtitles"
-            className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 active:bg-slate-700 border border-slate-700 hover:border-purple-500/50 text-white font-semibold text-xs sm:text-sm transition-all flex items-center justify-between gap-2.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className={cn(EXPORT_DOWNLOAD_BTN, 'hover:border-theme-secondary/50')}
           >
-            <div className="flex items-center gap-2 min-w-0 text-left">
+            <span className="flex min-w-0 items-center gap-2.5 text-left">
               {downloadingAss ? (
-                <Loader2 className="w-4 h-4 text-purple-400 animate-spin shrink-0" />
+                <Loader2
+                  className="h-4 w-4 shrink-0 text-theme-secondary animate-spin"
+                  aria-hidden="true"
+                />
               ) : (
-                <Sparkles className="w-4 h-4 text-purple-400 shrink-0" />
+                <Sparkles className="h-4 w-4 shrink-0 text-theme-secondary" aria-hidden="true" />
               )}
-              <div className="min-w-0">
-                <span className="font-bold text-xs sm:text-sm text-white block">Download .ASS</span>
-                <span className="text-[10px] text-slate-400 block truncate">
-                  {activeSyncMode === 'line' ? 'Line-by-Line' : 'Karaoke \\kf'} • {aspectRatio} •{' '}
-                  {includeChords
-                    ? `Chords (${semitones >= 0 ? `+${semitones}` : semitones}st)`
-                    : selectedTheme?.name || 'Theme'}
+              <span className="min-w-0">
+                <span className="block text-xs font-bold text-theme-text sm:text-sm">
+                  Download .ASS
                 </span>
-              </div>
-            </div>
-            <Download className="w-4 h-4 text-purple-400 shrink-0" aria-hidden="true" />
+                <span className="block truncate text-[10px] text-theme-text-muted">
+                  {activeSyncMode === 'line' ? 'Line-by-Line' : 'Karaoke \\kf'} • {aspectRatio} •{' '}
+                  {includeChords ? `Chords (${keyLabel}st)` : selectedTheme?.name || 'Theme'}
+                </span>
+              </span>
+            </span>
+            <Download className="h-4 w-4 shrink-0 text-theme-secondary" aria-hidden="true" />
           </button>
         </Tooltip>
       </div>
 
       {downloadError && (
-        <div
-          role="alert"
-          className="text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-xl font-mono break-words"
-        >
+        <div role="alert" className={EXPORT_ERROR}>
           {downloadError}
         </div>
       )}
-    </div>
+    </section>
   );
 };

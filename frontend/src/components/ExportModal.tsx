@@ -1,16 +1,15 @@
 /**
  * Export Modal Component
  *
- * Orchestrates video rendering lifecycle (queued, rendering, error, completed),
- * preview player, video download, YouTube studio launch, and mounts standalone
- * subtitle export and YouTube metadata kit subcomponents.
+ * The export hub, ordered by what people export most: the karaoke video (render options,
+ * live progress, preview and download), then subtitles, audio stems, the musician chord
+ * sheet and the YouTube metadata kit.
  */
 
 import React, { useState, useEffect } from 'react';
 import {
   Download,
   ExternalLink,
-  X,
   Film,
   Sparkles,
   Youtube,
@@ -20,15 +19,29 @@ import {
   Music,
   Loader2,
   AlignLeft,
+  AlertCircle,
 } from 'lucide-react';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
-import { useFocusTrap } from '../hooks/useFocusTrap';
 import { ExportSubtitleSection } from './export/ExportSubtitleSection';
 import { ExportAudioSection } from './export/ExportAudioSection';
 import { ExportYouTubeKit } from './export/ExportYouTubeKit';
+import { ExportCheckOption } from './export/ExportCheckOption';
+import {
+  EXPORT_DOWNLOAD_BTN,
+  EXPORT_ERROR,
+  EXPORT_HEADING,
+  EXPORT_PILL,
+  EXPORT_SECTION,
+} from './export/exportStyles';
 import { Tooltip } from './Tooltip';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
+import { Dialog, DialogHeader } from './ui/Dialog';
+import { Button } from './ui/Button';
+import { ProgressBar } from './ui/Progress';
+import { SegmentedControl } from './ui/SegmentedControl';
+import { focusRing } from './ui/variants';
+import { cn } from '../utils/cn';
 
 export interface ExportModalProps {
   project: ProjectState;
@@ -76,6 +89,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [downloadingChordSheet, setDownloadingChordSheet] = useState(false);
   const [chordSheetError, setChordSheetError] = useState<string | null>(null);
   const [renderSyncMode, setRenderSyncMode] = useState<SyncDisplayMode>(syncMode || 'word');
+  const [videoAspect, setVideoAspect] = useState<number | null>(null);
 
   useEffect(() => {
     if (syncMode) {
@@ -211,19 +225,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     }
   };
 
-  const modalRef = useFocusTrap<HTMLDivElement>({
-    isOpen,
-    onClose,
-  });
-
-  // Re-render every second while rendering to keep heartbeat and elapsed timer live
+  // Re-render every second while open to keep heartbeat and elapsed timers live
   useEffect(() => {
     if (!isOpen) return;
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(interval);
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setVideoAspect(null);
+  }, [project.video_url]);
 
   const isRendering = project.render_status === 'queued' || project.render_status === 'rendering';
   const isCompleted = project.render_status === 'completed';
@@ -245,63 +256,246 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   };
 
   const yt = project.youtube_package;
+  // Size the preview from the rendered file once known; until then trust the format setting.
+  const previewAspect = videoAspect ?? (aspectRatio === '9:16' ? 9 / 16 : 16 / 9);
+  const isPortraitPreview = previewAspect < 1;
+  const keyLabel = semitones >= 0 ? `+${semitones}` : `${semitones}`;
 
   return (
-    <div
-      ref={modalRef}
-      tabIndex={-1}
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="export-modal-title"
-      aria-describedby="export-modal-desc"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      titleId="export-modal-title"
+      descriptionId="export-modal-desc"
+      size="3xl"
+      showDragHandle
     >
-      <div className="bg-theme-surface border border-theme-border rounded-t-2xl sm:rounded-theme-xl rounded-b-none sm:rounded-b-theme-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-theme-lg p-4 sm:p-6 relative flex flex-col pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
-        <div
-          data-testid="bottom-sheet-drag-handle"
-          className="w-10 h-1 bg-slate-700 rounded-full mx-auto my-2 sm:hidden shrink-0"
-        />
-        <Tooltip
-          content="Close export dialog"
-          position="bottom"
-          className="absolute top-3 right-3 sm:top-5 sm:right-5"
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close export dialog"
-            className="min-w-[44px] min-h-[44px] p-2.5 rounded-theme-pill bg-theme-surface-subtle hover:bg-theme-surface-raised border border-theme-border-subtle text-theme-text-muted hover:text-theme-text transition-colors focus:outline-none focus:ring-2 focus:ring-theme-accent flex items-center justify-center"
-          >
-            <X className="w-5 h-5" aria-hidden="true" />
-          </button>
-        </Tooltip>
+      <DialogHeader
+        title="Export & YouTube Package"
+        titleId="export-modal-title"
+        description={`${project.title} • ${project.artist}`}
+        descriptionId="export-modal-desc"
+        icon={<Film className="h-5 w-5" />}
+        onClose={onClose}
+        closeLabel="Close export dialog"
+      />
 
-        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-theme-border-subtle pr-12">
-          <div className="p-2.5 rounded-theme-md bg-theme-accent/10 text-theme-accent border border-theme-accent/30 shrink-0">
-            <Film className="w-6 h-6" aria-hidden="true" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2
-              id="export-modal-title"
-              className="text-lg sm:text-xl font-bold text-theme-text font-theme-heading truncate sm:whitespace-normal"
+      <div className="space-y-5">
+        {/* 1. Karaoke video */}
+        <section aria-labelledby="export-video-heading" className={EXPORT_SECTION}>
+          <div className="flex items-center justify-between gap-2">
+            <h3 id="export-video-heading" className={EXPORT_HEADING}>
+              <Film className="h-5 w-5 text-theme-highlight" aria-hidden="true" />
+              {isRendering
+                ? 'Rendering High-Definition Karaoke Video...'
+                : isCompleted
+                  ? 'Your Video Is Ready!'
+                  : isError
+                    ? 'Rendering Encountered an Error'
+                    : 'Full Video Render'}
+            </h3>
+            <span
+              className={cn(
+                EXPORT_PILL,
+                'border-theme-border-subtle font-mono font-normal text-theme-text-muted'
+              )}
             >
-              Export & YouTube Package
-            </h2>
-            <p
-              id="export-modal-desc"
-              className="text-xs text-theme-text-muted font-theme-body truncate"
-            >
-              {project.title} • {project.artist}
-            </p>
+              {aspectRatio === '9:16' ? '9:16 Shorts' : '16:9'} · 1080p60
+            </span>
           </div>
-        </div>
 
-        {/* Dedicated Standalone Subtitle Export Section (Always Available) */}
+          {isIdle && (
+            <div className="space-y-4">
+              <p className="text-xs text-theme-text-muted">
+                Synthesize a 1080p60 MP4 karaoke video with progressive subtitle wipe animations,
+                visual theme, and high-fidelity audio.
+              </p>
+
+              <div className="flex flex-col items-center gap-3 sm:flex-row">
+                <ExportCheckOption
+                  label="Include Audio Visualizer"
+                  checked={includeVisualizer}
+                  onChange={setIncludeVisualizer}
+                  testId="toggle-export-visualizer"
+                  containerTestId="toggle-export-visualizer-container"
+                />
+                <ExportCheckOption
+                  label="Burn Chords into Video"
+                  checked={includeChords}
+                  onChange={setIncludeChords}
+                  testId="include-chords-video-checkbox"
+                  containerTestId="include-chords-video-container"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-theme-text-muted">Sync Display:</span>
+                <SegmentedControl<SyncDisplayMode>
+                  ariaLabel="Video render synchronization mode"
+                  testId="export-sync-mode-selector"
+                  value={renderSyncMode}
+                  onChange={handleSyncModeChange}
+                  tone="neutral"
+                  size="sm"
+                  options={[
+                    {
+                      value: 'word',
+                      label: 'Word Sweep (\\kf)',
+                      ariaLabel: 'Word Sweep video render',
+                      testId: 'export-sync-mode-word',
+                      icon: <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />,
+                    },
+                    {
+                      value: 'line',
+                      label: 'Line-by-Line (Solid)',
+                      ariaLabel: 'Line-by-Line video render',
+                      testId: 'export-sync-mode-line',
+                      icon: <AlignLeft className="h-3.5 w-3.5" aria-hidden="true" />,
+                    },
+                  ]}
+                  optionClassName="min-w-[44px]"
+                />
+              </div>
+
+              <Tooltip
+                content="Render 1080p60 MP4 video"
+                position="top"
+                className="w-full sm:w-auto"
+              >
+                <Button
+                  variant="gradient"
+                  fullWidth="mobile"
+                  onClick={handleStartRenderClick}
+                  aria-label="Start video render"
+                  leftIcon={<Film className="h-4 w-4" aria-hidden="true" />}
+                >
+                  Render 1080p Video
+                </Button>
+              </Tooltip>
+            </div>
+          )}
+
+          {isRendering && (
+            <div className="space-y-4" role="status" aria-live="polite">
+              <div className="inline-flex items-center gap-2 rounded-theme-pill border border-theme-success/35 bg-theme-success/10 px-3.5 py-1.5 text-xs font-medium text-theme-success">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-theme-success opacity-75 motion-safe:animate-ping" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-theme-success" />
+                </span>
+                <span>FFmpeg Encoder Active • {getHeartbeatText(project.render_heartbeat)}</span>
+              </div>
+              <p className="break-words rounded-theme-md border border-theme-border-subtle bg-theme-surface px-3 py-2 font-mono text-xs text-theme-text-muted">
+                {project.render_detail ||
+                  'Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.'}
+              </p>
+              <div className="space-y-2">
+                <ProgressBar
+                  value={Math.max(5, project.render_progress || 5)}
+                  label="Video render progress"
+                  tone="gradient"
+                />
+                <div className="flex flex-col justify-between gap-2 px-1 font-mono text-xs text-theme-text-muted sm:flex-row sm:items-center">
+                  <span className="flex items-center gap-1.5 text-theme-highlight">
+                    <Activity className="h-3.5 w-3.5" aria-hidden="true" />
+                    {project.render_progress || 5}% Complete
+                  </span>
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" aria-hidden="true" />
+                      Elapsed: {formatTimer(project.render_elapsed_seconds)}
+                    </span>
+                    <span className="text-theme-text">
+                      Est. remaining:{' '}
+                      {project.render_eta_seconds !== undefined &&
+                      project.render_eta_seconds !== null
+                        ? `~${formatTimer(project.render_eta_seconds)}`
+                        : 'Calculating...'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={onCancelRender}
+                leftIcon={<XCircle className="h-3.5 w-3.5 text-theme-danger" aria-hidden="true" />}
+              >
+                Cancel Render
+              </Button>
+            </div>
+          )}
+
+          {isError && (
+            <div className="flex items-start gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3.5 text-left">
+              <AlertCircle
+                className="mt-0.5 h-4 w-4 shrink-0 text-theme-danger"
+                aria-hidden="true"
+              />
+              <p className="break-words font-mono text-xs text-theme-danger">
+                {project.render_error || 'Unknown rendering error'}
+              </p>
+            </div>
+          )}
+
+          {isCompleted && (
+            <div className="space-y-4">
+              {project.video_url && (
+                <div
+                  className={cn(
+                    'w-full overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-black shadow-theme-md',
+                    isPortraitPreview && 'mx-auto max-w-xs'
+                  )}
+                  style={{ aspectRatio: previewAspect }}
+                >
+                  <video
+                    src={project.video_url}
+                    crossOrigin="use-credentials"
+                    controls
+                    className="h-full w-full object-contain"
+                    onLoadedMetadata={(e) => {
+                      const { videoWidth, videoHeight } = e.currentTarget;
+                      if (videoWidth > 0 && videoHeight > 0)
+                        setVideoAspect(videoWidth / videoHeight);
+                    }}
+                  />
+                </div>
+              )}
+              <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+                <p className="text-xs text-theme-text-muted">
+                  High-bitrate 1080p60 MP4 with AAC 320kbps stereo audio.
+                </p>
+                <div className="flex w-full flex-col items-stretch gap-2.5 sm:w-auto sm:flex-row sm:items-center">
+                  <a
+                    href={project.video_url}
+                    download={`${project.artist || 'Karaoke'} - ${project.title || 'Track'}.mp4`}
+                    onClick={() => toast.success('Download started!')}
+                    className={cn(
+                      'flex min-h-[44px] w-full items-center justify-center gap-2 rounded-theme-md bg-gradient-accent px-5 py-2.5 text-sm font-bold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 sm:w-auto',
+                      focusRing
+                    )}
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Download Video (.mp4)
+                  </a>
+                  <a
+                    href="https://studio.youtube.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className={cn(
+                      'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-4 py-2.5 text-sm font-medium text-theme-text transition-colors hover:border-theme-border sm:w-auto',
+                      focusRing
+                    )}
+                  >
+                    <Youtube className="h-4 w-4 text-theme-danger" aria-hidden="true" />
+                    Open YouTube Studio
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* 2. Subtitles */}
         <ExportSubtitleSection
           project={project}
           selectedTheme={selectedTheme}
@@ -316,324 +510,78 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           onSyncModeChange={handleSyncModeChange}
         />
 
-        {/* Dedicated Standalone Chord & Lyric Sheet Download Section */}
-        <div className="p-3.5 sm:p-5 rounded-theme-lg bg-theme-bg border border-theme-border-subtle mb-6 space-y-3.5 shadow-theme-sm">
+        {/* 3. Audio stems */}
+        <ExportAudioSection project={project} />
+
+        {/* 4. Chord & lyric sheet */}
+        <section aria-labelledby="export-chord-sheet-heading" className={EXPORT_SECTION}>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Music className="w-5 h-5 text-amber-400 shrink-0" aria-hidden="true" />
-              <h3 className="text-sm sm:text-base font-bold text-theme-text font-theme-heading truncate">
-                Musician Chord & Lyric Sheet
-              </h3>
-            </div>
+            <h3 id="export-chord-sheet-heading" className={cn(EXPORT_HEADING, 'truncate')}>
+              <Music className="h-5 w-5 shrink-0 text-theme-warning" aria-hidden="true" />
+              Musician Chord & Lyric Sheet
+            </h3>
             {project?.chords && project.chords.length > 0 && (
-              <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-theme-pill shrink-0">
+              <span
+                className={cn(
+                  EXPORT_PILL,
+                  'border-theme-warning/30 bg-theme-warning/10 text-theme-warning'
+                )}
+              >
                 {project.chords.length} chords
               </span>
             )}
           </div>
-          <p className="text-xs text-theme-text-muted font-theme-body">
+          <p className="text-xs text-theme-text-muted">
             Export an aligned, plain-text/Markdown chord and lyric lead sheet transposed to your
-            active key ({semitones >= 0 ? `+${semitones}` : semitones} st) for guitar, piano, and
-            live performance.
+            active key ({keyLabel} st) for guitar, piano, and live performance.
           </p>
-
-          <div>
-            <Tooltip
-              content="Download transposed chord & lyric sheet"
-              position="top"
-              className="w-full sm:w-auto"
+          <Tooltip
+            content="Download transposed chord & lyric sheet"
+            position="top"
+            className="w-full sm:w-auto"
+          >
+            <button
+              type="button"
+              data-testid="download-chord-sheet-btn"
+              onClick={handleDownloadChordSheet}
+              disabled={downloadingChordSheet}
+              aria-label="Download Chord & Lyric Sheet"
+              className={cn(
+                EXPORT_DOWNLOAD_BTN,
+                'hover:border-theme-warning/50 sm:w-auto sm:justify-start'
+              )}
             >
-              <button
-                type="button"
-                data-testid="download-chord-sheet-btn"
-                onClick={handleDownloadChordSheet}
-                disabled={downloadingChordSheet}
-                aria-label="Download Chord & Lyric Sheet"
-                className="w-full sm:w-auto min-h-[44px] px-4 py-2.5 rounded-theme-md bg-theme-surface-subtle hover:bg-theme-surface-raised active:bg-theme-surface border border-theme-border-subtle hover:border-amber-500/50 text-theme-text font-semibold text-xs sm:text-sm transition-all flex items-center justify-between sm:justify-start gap-3 shadow-theme-sm disabled:opacity-50 disabled:cursor-not-allowed font-theme-heading"
-              >
-                <div className="flex items-center gap-2.5 min-w-0 text-left">
-                  {downloadingChordSheet ? (
-                    <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
-                  ) : (
-                    <Music className="w-4 h-4 text-amber-400 shrink-0" />
-                  )}
-                  <div className="min-w-0">
-                    <span className="font-bold text-xs sm:text-sm text-theme-text block">
-                      Download Chord & Lyric Sheet
-                    </span>
-                    <span className="text-[10px] text-theme-text-muted block truncate font-theme-body">
-                      Aligned Chords • {semitones >= 0 ? `+${semitones}` : semitones} st • UTF-8
-                    </span>
-                  </div>
+              <div className="flex min-w-0 items-center gap-2.5 text-left">
+                {downloadingChordSheet ? (
+                  <Loader2
+                    className="h-4 w-4 shrink-0 text-theme-warning animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <Music className="h-4 w-4 shrink-0 text-theme-warning" aria-hidden="true" />
+                )}
+                <div className="min-w-0">
+                  <span className="block text-xs font-bold text-theme-text sm:text-sm">
+                    Download Chord & Lyric Sheet
+                  </span>
+                  <span className="block truncate text-[10px] text-theme-text-muted">
+                    Aligned Chords • {keyLabel} st • UTF-8
+                  </span>
                 </div>
-                <Download className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
-              </button>
-            </Tooltip>
-          </div>
-
+              </div>
+              <Download className="h-4 w-4 shrink-0 text-theme-warning" aria-hidden="true" />
+            </button>
+          </Tooltip>
           {chordSheetError && (
-            <div
-              role="alert"
-              className="text-xs text-red-400 bg-red-950/40 border border-red-800/60 p-2.5 rounded-theme-md font-mono break-words"
-            >
+            <div role="alert" className={EXPORT_ERROR}>
               {chordSheetError}
             </div>
           )}
-        </div>
+        </section>
 
-        {/* Dedicated Standalone Audio Stem Downloads (Always Available) */}
-        <ExportAudioSection project={project} />
-
-        {/* 1. Idle Video State (Before Video Render Started) */}
-        {isIdle && (
-          <div className="p-5 rounded-theme-lg bg-theme-bg border border-theme-border-subtle text-center space-y-4 shadow-theme-sm">
-            <div className="p-3 w-12 h-12 rounded-theme-pill bg-theme-accent/10 border border-theme-accent/30 text-theme-accent mx-auto flex items-center justify-center shadow-theme-sm">
-              <Film className="w-6 h-6" aria-hidden="true" />
-            </div>
-            <div className="max-w-md mx-auto">
-              <h3 className="text-base font-bold text-theme-text font-theme-heading">
-                Full Video Render
-              </h3>
-              <p className="text-xs text-theme-text-muted font-theme-body mt-1">
-                Synthesize a 1080p60 MP4 karaoke video with progressive subtitle wipe animations,
-                visual theme, and high-fidelity audio.
-              </p>
-            </div>
-
-            {/* Render Option Toggles */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-1">
-              <label
-                data-testid="toggle-export-visualizer-container"
-                className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-theme-md bg-theme-surface border border-theme-border-subtle hover:border-theme-border transition-colors w-full sm:w-auto justify-center sm:justify-start shadow-theme-sm"
-              >
-                <input
-                  type="checkbox"
-                  data-testid="toggle-export-visualizer"
-                  checked={includeVisualizer}
-                  onChange={(e) => setIncludeVisualizer(e.target.checked)}
-                  className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-theme-border-subtle bg-theme-surface-subtle text-theme-accent focus:ring-theme-accent cursor-pointer"
-                  aria-label="Include Audio Visualizer"
-                />
-                <span className="text-xs sm:text-sm font-medium text-theme-text font-theme-body">
-                  Include Audio Visualizer
-                </span>
-              </label>
-
-              <label
-                data-testid="include-chords-video-container"
-                className="flex items-center gap-3 cursor-pointer select-none min-h-[44px] min-w-[44px] px-3.5 py-2 rounded-theme-md bg-theme-surface border border-theme-border-subtle hover:border-theme-border transition-colors w-full sm:w-auto justify-center sm:justify-start shadow-theme-sm"
-              >
-                <input
-                  type="checkbox"
-                  data-testid="include-chords-video-checkbox"
-                  checked={includeChords}
-                  onChange={(e) => setIncludeChords(e.target.checked)}
-                  className="min-h-[44px] min-w-[44px] w-5 h-5 rounded border-theme-border-subtle bg-theme-surface-subtle text-purple-500 focus:ring-purple-400 cursor-pointer"
-                  aria-label="Burn Chords into Video"
-                />
-                <span className="text-xs sm:text-sm font-medium text-theme-text font-theme-body">
-                  Burn Chords into Video
-                </span>
-              </label>
-            </div>
-
-            {/* Video Render Sync Mode Selector */}
-            <div className="flex items-center justify-center gap-2 pt-1">
-              <span className="text-xs text-theme-text-muted font-medium font-theme-body">
-                Sync Display:
-              </span>
-              <div
-                data-testid="export-sync-mode-selector"
-                role="group"
-                aria-label="Video render synchronization mode"
-                className="inline-flex p-1 rounded-theme-md bg-theme-surface border border-theme-border-subtle shadow-theme-sm"
-              >
-                <button
-                  type="button"
-                  data-testid="export-sync-mode-word"
-                  aria-pressed={renderSyncMode === 'word'}
-                  aria-label="Word Sweep video render"
-                  onClick={() => handleSyncModeChange('word')}
-                  className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-theme-sm text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent font-theme-heading ${
-                    renderSyncMode === 'word'
-                      ? 'bg-theme-accent text-theme-accent-text font-bold shadow-theme-sm'
-                      : 'text-theme-text-muted hover:text-theme-text'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-                  Word Sweep (\kf)
-                </button>
-                <button
-                  type="button"
-                  data-testid="export-sync-mode-line"
-                  aria-pressed={renderSyncMode === 'line'}
-                  aria-label="Line-by-Line video render"
-                  onClick={() => handleSyncModeChange('line')}
-                  className={`min-h-[44px] min-w-[44px] px-3 py-1.5 rounded-theme-sm text-xs font-semibold flex items-center gap-1.5 transition-all focus:outline-none focus:ring-2 focus:ring-theme-accent font-theme-heading ${
-                    renderSyncMode === 'line'
-                      ? 'bg-theme-accent text-theme-accent-text font-bold shadow-theme-sm'
-                      : 'text-theme-text-muted hover:text-theme-text'
-                  }`}
-                >
-                  <AlignLeft className="w-3.5 h-3.5" aria-hidden="true" />
-                  Line-by-Line (Solid)
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Tooltip
-                content="Render 1080p60 MP4 video"
-                position="top"
-                className="w-full sm:w-auto"
-              >
-                <button
-                  type="button"
-                  onClick={handleStartRenderClick}
-                  aria-label="Start video render"
-                  className="min-h-[44px] px-5 py-2.5 rounded-theme-md bg-theme-accent hover:bg-theme-accent-hover text-theme-accent-text font-bold text-xs sm:text-sm transition-all shadow-theme-sm border border-theme-border inline-flex items-center justify-center gap-2 w-full sm:w-auto font-theme-heading"
-                >
-                  <Film className="w-4 h-4" />
-                  Render 1080p Video
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-        )}
-
-        {/* 2. Rendering In-Progress State */}
-        {isRendering && (
-          <div className="py-10 text-center space-y-6" role="status" aria-live="polite">
-            <div className="relative w-20 h-20 mx-auto">
-              <div className="w-full h-full border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin motion-reduce:animate-none"></div>
-              <Sparkles
-                className="absolute inset-0 m-auto w-7 h-7 text-cyan-400 animate-pulse motion-reduce:animate-none"
-                aria-hidden="true"
-              />
-            </div>
-
-            {/* Heartbeat Badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span>FFmpeg Encoder Active • {getHeartbeatText(project.render_heartbeat)}</span>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-bold text-white font-['Montserrat']">
-                Rendering High-Definition Karaoke Video...
-              </h3>
-              <p className="text-xs text-slate-300 mt-2 font-mono max-w-md mx-auto bg-slate-950/60 py-2 px-3 rounded-xl border border-slate-800">
-                {project.render_detail ||
-                  'Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.'}
-              </p>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="max-w-md mx-auto space-y-2">
-              <div className="w-full bg-slate-950 border border-slate-800 h-3 rounded-full overflow-hidden p-0.5 shadow-inner">
-                <div
-                  className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 shadow-lg shadow-cyan-500/30"
-                  style={{ width: `${Math.max(5, project.render_progress || 5)}%` }}
-                ></div>
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400 px-1 font-mono">
-                <span className="flex items-center gap-1.5 text-cyan-400">
-                  <Activity className="w-3.5 h-3.5" />
-                  {project.render_progress || 5}% Complete
-                </span>
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-slate-500" />
-                    Elapsed: {formatTimer(project.render_elapsed_seconds)}
-                  </span>
-                  <span className="text-slate-200">
-                    Est. remaining:{' '}
-                    {project.render_eta_seconds !== undefined && project.render_eta_seconds !== null
-                      ? `~${formatTimer(project.render_eta_seconds)}`
-                      : 'Calculating...'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Cancel Render Option */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={onCancelRender}
-                className="px-4 py-2 min-h-[44px] rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all inline-flex items-center justify-center gap-1.5"
-              >
-                <XCircle className="w-3.5 h-3.5 text-red-400" />
-                Cancel Render
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 2. Error State */}
-        {isError && (
-          <div className="p-6 bg-red-950/40 border border-red-800/60 rounded-2xl text-center space-y-3">
-            <h3 className="text-base font-bold text-red-400">Rendering Encountered an Error</h3>
-            <p className="text-xs text-red-300 font-mono">
-              {project.render_error || 'Unknown rendering error'}
-            </p>
-          </div>
-        )}
-
-        {/* 3. Completed State: Video Player + YouTube Kit */}
-        {isCompleted && (
-          <div className="space-y-6">
-            {/* Video Player */}
-            {project.video_url && (
-              <div className="aspect-video w-full rounded-2xl overflow-hidden bg-black border border-slate-800 shadow-xl">
-                <video
-                  src={project.video_url}
-                  crossOrigin="use-credentials"
-                  controls
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            )}
-
-            {/* Download Buttons */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 bg-slate-950/70 border border-slate-800 rounded-2xl">
-              <div>
-                <h4 className="text-sm font-bold text-white">Your Video Is Ready!</h4>
-                <p className="text-xs text-slate-400">
-                  High-bitrate 1080p60 MP4 with AAC 320kbps stereo audio.
-                </p>
-              </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
-                <a
-                  href={project.video_url}
-                  download={`${project.artist || 'Karaoke'} - ${project.title || 'Track'}.mp4`}
-                  onClick={() => toast.success('Download started!')}
-                  className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 min-h-[44px] w-full sm:w-auto"
-                >
-                  <Download className="w-4 h-4" />
-                  Download Video (.mp4)
-                </a>
-                <a
-                  href="https://studio.youtube.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium text-sm transition-all flex items-center justify-center gap-1.5 shadow-md shadow-red-600/20 min-h-[44px] w-full sm:w-auto"
-                >
-                  <Youtube className="w-4 h-4" />
-                  Open YouTube Studio
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </div>
-
-            {/* YouTube Ready-To-Copy Metadata Kit */}
-            {yt && <ExportYouTubeKit youtubePackage={yt} />}
-          </div>
-        )}
+        {/* 5. YouTube metadata kit (after a completed render) */}
+        {isCompleted && yt && <ExportYouTubeKit youtubePackage={yt} />}
       </div>
-    </div>
+    </Dialog>
   );
 };

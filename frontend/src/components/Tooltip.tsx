@@ -8,6 +8,7 @@
 
 import React, { useState, useRef, useEffect, useId, useCallback } from 'react';
 import clsx from 'clsx';
+import { isQuietFocus } from '../utils/focusIntent';
 
 export interface TooltipProps {
   /** Descriptive tooltip text or element */
@@ -133,7 +134,9 @@ export const Tooltip: React.FC<TooltipProps> = ({
       children.props.onMouseLeave?.(e);
     },
     onFocus: (e: React.FocusEvent) => {
-      show(true);
+      // Skip focus placed by code (e.g. a dialog's initial focus) so tooltips appear only
+      // for keyboard navigation and hover.
+      if (!isQuietFocus(e.target)) show(true);
       children.props.onFocus?.(e);
     },
     onBlur: (e: React.FocusEvent) => {

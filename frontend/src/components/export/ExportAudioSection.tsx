@@ -11,6 +11,10 @@ import { ProjectState } from '../../types';
 import { apiFetch } from '../../api';
 import { Tooltip } from '../Tooltip';
 import { useToast } from '../../hooks/useToast';
+import { parseContentDispositionFilename } from '../../utils/download';
+import { cn } from '../../utils/cn';
+import { focusRing } from '../ui/variants';
+import { EXPORT_ERROR, EXPORT_HEADING, EXPORT_SECTION } from './exportStyles';
 
 export interface ExportAudioSectionProps {
   project: ProjectState;
@@ -23,7 +27,7 @@ interface StemOption {
   label: string;
   badge: string;
   description: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
 }
 
 const STEM_OPTIONS: StemOption[] = [
@@ -69,24 +73,9 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
       }
 
       const blob = await res.blob();
-      let filename = `${project.artist || 'Karaoke'} - ${project.title || 'Track'} (${stemType}).wav`;
-      const disposition = res.headers.get('Content-Disposition');
-
-      if (disposition) {
-        const rfcMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-        if (rfcMatch && rfcMatch[1]) {
-          try {
-            filename = decodeURIComponent(rfcMatch[1]);
-          } catch {
-            filename = rfcMatch[1];
-          }
-        } else {
-          const stdMatch = disposition.match(/filename="?([^";]+)"?/i);
-          if (stdMatch && stdMatch[1]) {
-            filename = stdMatch[1];
-          }
-        }
-      }
+      const filename =
+        parseContentDispositionFilename(res.headers.get('Content-Disposition')) ||
+        `${project.artist || 'Karaoke'} - ${project.title || 'Track'} (${stemType}).wav`;
 
       if (
         typeof window !== 'undefined' &&
@@ -128,52 +117,45 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
   const isReady = project.status === 'ready';
 
   return (
-    <div className="bg-slate-950/40 border border-slate-800/60 rounded-2xl p-4 sm:p-5 mb-5 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-            <Volume2 className="w-4 h-4" aria-hidden="true" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-white">Direct Audio Stem Downloads</h3>
-            <p className="text-xs text-slate-400">
-              Download isolated high-fidelity stems or active master audio
-            </p>
-          </div>
-        </div>
+    <section aria-labelledby="export-stems-heading" className={EXPORT_SECTION}>
+      <div className="space-y-1">
+        <h3 id="export-stems-heading" className={EXPORT_HEADING}>
+          <Volume2 className="h-5 w-5 shrink-0 text-theme-success" aria-hidden="true" />
+          Direct Audio Stem Downloads
+        </h3>
+        <p className="text-xs text-theme-text-muted">
+          Download isolated high-fidelity stems or active master audio
+        </p>
       </div>
 
       {downloadError && (
-        <div
-          role="alert"
-          className="flex items-center gap-2 p-3 rounded-xl bg-red-950/40 border border-red-800/50 text-red-300 text-xs font-mono"
-        >
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+        <div role="alert" className={cn(EXPORT_ERROR, 'flex items-center gap-2')}>
+          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span className="flex-1">{downloadError}</span>
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {STEM_OPTIONS.map((stem) => {
           const Icon = stem.icon;
           const isDownloading = downloadingStem === stem.id;
 
           return (
-            <div
+            <li
               key={stem.id}
-              className="flex flex-col justify-between p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all gap-3"
+              className="flex flex-col justify-between gap-3 rounded-theme-md border border-theme-border-subtle bg-theme-surface p-3.5 transition-colors hover:border-theme-border"
             >
               <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Icon className="w-3.5 h-3.5 text-cyan-400" />
-                    {stem.label}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
-                    {stem.badge}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 leading-tight">{stem.description}</p>
+                <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-theme-text-muted">
+                  {stem.badge}
+                </span>
+                <span className="flex items-center gap-1.5 text-sm font-bold text-theme-text">
+                  <Icon className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
+                  {stem.label}
+                </span>
+                <p className="text-[11px] leading-tight text-theme-text-muted">
+                  {stem.description}
+                </p>
               </div>
 
               <Tooltip content={`Download ${stem.label}`} position="top" className="w-full">
@@ -182,25 +164,31 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
                   onClick={() => handleDownloadStem(stem.id)}
                   disabled={!isReady || downloadingStem !== null}
                   aria-label={`Download ${stem.label}`}
-                  className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed border border-slate-700/60 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  className={cn(
+                    'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-3 py-2 text-xs font-semibold text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-subtle disabled:cursor-not-allowed disabled:opacity-50',
+                    focusRing
+                  )}
                 >
                   {isDownloading ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                      <Loader2
+                        className="h-3.5 w-3.5 text-theme-highlight animate-spin"
+                        aria-hidden="true"
+                      />
                       Downloading...
                     </>
                   ) : (
                     <>
-                      <Download className="w-3.5 h-3.5 text-cyan-400" />
+                      <Download className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
                       Download .wav
                     </>
                   )}
                 </button>
               </Tooltip>
-            </div>
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 };

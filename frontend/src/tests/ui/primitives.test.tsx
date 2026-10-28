@@ -52,6 +52,21 @@ describe('Button', () => {
   });
 });
 
+describe('Button variants (destructive)', () => {
+  it('renders destructive actions on danger tokens with inverse text', () => {
+    render(<Button variant="destructive">Delete Project</Button>);
+    const btn = screen.getByRole('button', { name: 'Delete Project' });
+    expect(btn.className).toContain('bg-theme-danger');
+    expect(btn.className).toContain('text-theme-text-inverse');
+    expectTouchTarget(btn, 44);
+  });
+
+  it('keeps short text buttons at least 44px wide', () => {
+    render(<Button size="sm">OK</Button>);
+    expect(screen.getByRole('button', { name: 'OK' }).className).toContain('min-w-[44px]');
+  });
+});
+
 describe('IconButton', () => {
   it('exposes the label as accessible name and reflects pressed state', () => {
     render(<IconButton icon={<span>i</span>} label="Beat visualizer" pressed tooltip={false} />);
@@ -222,6 +237,54 @@ describe('Dialog', () => {
     expect(dialog.className).toContain('z-[100]');
     fireEvent.keyDown(window, { key: 'Escape' });
     fireEvent.click(dialog);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not pop the close tooltip for the automatic initial focus', () => {
+    render(<Demo />);
+    const closeBtn = screen.getByRole('button', { name: 'Close demo dialog' });
+    expect(document.activeElement).toBe(closeBtn);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+    // Keyboard focus still shows it.
+    fireEvent.blur(closeBtn);
+    fireEvent.focus(closeBtn);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Close demo dialog');
+  });
+
+  it('shows a tooltip for the close button and can disable it while busy', () => {
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <Dialog open onClose={onClose} titleId="busy-title">
+        <DialogHeader
+          title="Busy Dialog"
+          titleId="busy-title"
+          onClose={onClose}
+          closeLabel="Close busy dialog"
+          icon={<span>!</span>}
+          iconTone="danger"
+        />
+      </Dialog>
+    );
+    const closeBtn = screen.getByRole('button', { name: 'Close busy dialog' });
+    fireEvent.focus(closeBtn);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Close busy dialog');
+    fireEvent.blur(closeBtn);
+    expect(screen.getByText('!').parentElement?.className).toContain('text-theme-danger');
+
+    rerender(
+      <Dialog open onClose={onClose} titleId="busy-title">
+        <DialogHeader
+          title="Busy Dialog"
+          titleId="busy-title"
+          onClose={onClose}
+          closeLabel="Close busy dialog"
+          closeDisabled
+        />
+      </Dialog>
+    );
+    const disabledClose = screen.getByRole('button', { name: 'Close busy dialog' });
+    expect(disabledClose).toBeDisabled();
+    fireEvent.click(disabledClose);
     expect(onClose).not.toHaveBeenCalled();
   });
 

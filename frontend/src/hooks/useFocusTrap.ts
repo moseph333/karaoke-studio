@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { focusQuietly } from '../utils/focusIntent';
 
 export const FOCUSABLE_SELECTOR = [
   'a[href]',
@@ -61,15 +62,15 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
       }
 
       if (initialFocusRef?.current) {
-        initialFocusRef.current.focus();
+        focusQuietly(initialFocusRef.current);
         return container.contains(document.activeElement);
       }
 
       const focusable = getFocusableElements(container);
       if (focusable.length > 0) {
-        focusable[0].focus();
+        focusQuietly(focusable[0]);
       } else {
-        container.focus();
+        focusQuietly(container);
       }
       return container.contains(document.activeElement) || document.activeElement === container;
     };
@@ -87,7 +88,7 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
       }
       const prevEl = previousActiveElementRef.current;
       if (prevEl && typeof prevEl.focus === 'function' && prevEl.isConnected) {
-        prevEl.focus();
+        focusQuietly(prevEl);
       }
     };
   }, [isOpen, initialFocusRef, triggerRef]);
