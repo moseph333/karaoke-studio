@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { Mic2, ArrowLeft, User, HelpCircle, Upload } from 'lucide-react';
+import { Mic2, ArrowLeft, User, HelpCircle, Upload, Search } from 'lucide-react';
 import { ProjectState } from '../types';
 import { Tooltip } from './Tooltip';
 import { AppThemePicker } from './AppThemePicker';
@@ -14,6 +14,8 @@ import { Spinner } from './ui/Spinner';
 import { Kbd } from './ui/Kbd';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
+import { modKeyLabel } from '../utils/platform';
+import { useCommandPalette } from './commandPalette/context';
 
 export interface StudioHeaderProps {
   currentUser: string;
@@ -47,6 +49,8 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
   onExportClick,
 }) => {
   const handleExport = onExportClick || onOpenExportModal || onStartRender;
+  const palette = useCommandPalette();
+  const paletteHotkey = modKeyLabel() === '⌘' ? '⌘K' : 'Ctrl+K';
   const isRendering =
     project && (project.render_status === 'rendering' || project.render_status === 'queued');
 
@@ -109,6 +113,30 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
                 View
               </button>
             </div>
+          )}
+
+          {palette && (
+            <Tooltip
+              content="Search commands, songs and lyrics"
+              hotkey={paletteHotkey}
+              position="bottom"
+            >
+              <button
+                type="button"
+                onClick={palette.open}
+                aria-label={`Open command palette (${paletteHotkey})`}
+                className={cn(
+                  headerButton,
+                  'min-w-[44px] justify-center border-theme-border-subtle bg-theme-surface/60 px-2 text-theme-text-muted hover:border-theme-border hover:text-theme-text md:min-w-[36px] lg:min-w-[190px] lg:justify-between lg:px-2.5'
+                )}
+              >
+                <span className="flex items-center gap-2">
+                  <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="hidden font-medium lg:inline">Search…</span>
+                </span>
+                <Kbd keys={['Mod', 'K']} className="hidden lg:inline-flex" />
+              </button>
+            </Tooltip>
           )}
 
           <AppThemePicker />

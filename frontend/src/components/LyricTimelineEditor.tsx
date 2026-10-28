@@ -9,6 +9,7 @@ import { useTimelineAutoScroll } from '../hooks/useTimelineAutoScroll';
 import { useLyricEditorState } from '../hooks/useLyricEditorState';
 import { useTimelineFilter } from '../hooks/useTimelineFilter';
 import { useStableHandlers } from '../hooks/useStableHandlers';
+import { useTimelineCommands } from '../hooks/useTimelineCommands';
 import { TimelineLineCard } from './timeline/TimelineLineCard';
 import { TimelineToolbar } from './timeline/TimelineToolbar';
 import { TimelineModals } from './timeline/TimelineModals';
@@ -125,6 +126,32 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
       handleUserScrollInteraction();
   };
 
+  const toggleTapToSync = () => {
+    ed.setIsTapToSyncActive(!ed.isTapToSyncActive);
+    ed.setTapTargetIndex(0);
+    ed.setTapTargetWordIndex(0);
+  };
+  useTimelineCommands({
+    lines: ed.editableLines,
+    hasUnsavedChanges: ed.hasUnsavedChanges,
+    canUndo: ed.canUndo,
+    canRedo: ed.canRedo,
+    isTapToSyncActive: ed.isTapToSyncActive,
+    reviewCount: review.reviewCount,
+    filter: review.filter,
+    onSave: ed.handleSave,
+    onDiscard: () => ed.setShowDiscardModal(true),
+    onUndo: ed.handleUndo,
+    onRedo: ed.handleRedo,
+    onOpenOffset: () => setShowBatchModal(true),
+    onOpenDuet: () => setShowDuetModal(true),
+    onOpenReplace: () => setShowReplaceModal(true),
+    onToggleTapToSync: toggleTapToSync,
+    onFilterChange: review.setFilter,
+    onAddLine: ed.handleInsertLineAtEnd,
+    onGoToLine: (line) => rowHandlers.onLineClick(line, false),
+  });
+
   const selectedIndex = ed.editableLines.findIndex((l) => l.id === ed.selectedLineId);
   const activeLineIdx = selectedIndex >= 0 ? selectedIndex : 0;
   const isEmpty = ed.editableLines.length === 0;
@@ -162,11 +189,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
             onOpenDuet={() => setShowDuetModal(true)}
             onOpenReplace={() => setShowReplaceModal(true)}
             isTapToSyncActive={ed.isTapToSyncActive}
-            onToggleTapToSync={() => {
-              ed.setIsTapToSyncActive(!ed.isTapToSyncActive);
-              ed.setTapTargetIndex(0);
-              ed.setTapTargetWordIndex(0);
-            }}
+            onToggleTapToSync={toggleTapToSync}
             onDiscard={() => ed.setShowDiscardModal(true)}
             onSave={ed.handleSave}
             filter={review.filter}

@@ -113,7 +113,10 @@ export function isOtherModalActive(): boolean {
 /**
  * Helper to locate active lyric line index by current playhead timestamp.
  */
-export function findActiveLineIndex(lines: LyricLine[], time: number): number {
+export function findActiveLineIndex(
+  lines: ReadonlyArray<Pick<LyricLine, 'start_time' | 'end_time'>>,
+  time: number
+): number {
   if (!lines || lines.length === 0) return -1;
   if (time < lines[0].start_time) return 0;
   if (time >= lines[lines.length - 1].start_time) return lines.length - 1;

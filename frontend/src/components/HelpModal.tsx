@@ -71,6 +71,13 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
         scope: 'Studio Workspace',
       },
       {
+        keys: ['⏮', '⏯', '⏭'],
+        label: 'Media Keys',
+        description:
+          'Play / pause and step through lyric lines from keyboard media keys, headsets or the lock screen',
+        scope: 'System',
+      },
+      {
         keys: ['M'],
         label: 'Mute / Unmute',
         description: 'Toggle master mute / unmute audio playback',
@@ -133,6 +140,12 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: 'General',
     items: [
+      {
+        keys: ['Mod', '+', 'K'],
+        label: 'Command Palette',
+        description: 'Search every command, song and lyric line from anywhere',
+        scope: 'Global',
+      },
       {
         keys: ['?'],
         label: 'Toggle Help Modal',

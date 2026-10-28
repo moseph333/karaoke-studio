@@ -5,15 +5,16 @@
  * state transitions, active studio dashboard, global keyboard shortcuts, and dialog modals.
  */
 
-import React, { useState, useEffect, useCallback, useRef, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { TrackSearch } from './components/TrackSearch';
 import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
 import { StudioModals } from './components/StudioModals';
 import { StudioWorkspace } from './components/studio/StudioWorkspace';
 import { TransportDock } from './components/transport/TransportDock';
-import { LyricLine, ChordSegment, SyncDisplayMode, StudioWorkspaceTab } from './types';
-import { useChordHistory } from './hooks/useChordHistory';
+import { LyricLine, SyncDisplayMode, StudioWorkspaceTab } from './types';
+import { useProjectChords } from './hooks/useProjectChords';
+import { useTrackIntake } from './hooks/useTrackIntake';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useToast } from './hooks/useToast';
@@ -22,6 +23,8 @@ import { useStudioAudio } from './hooks/useStudioAudio';
 import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
 import { useMixController } from './hooks/useMixController';
+import { useStudioCommands } from './hooks/useStudioCommands';
+import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
 import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
 import { cn } from './utils/cn';
 
@@ -29,7 +32,6 @@ export const AppContent: React.FC = () => {
   const { toast } = useToast();
   useAppTheme();
   const { project, setProject, isReconnecting, retryPolling } = useProjectPolling(null);
-  const [loading, setLoading] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isLyricsDirty, setIsLyricsDirty] = useState(false);
   const [showStudioDeleteModal, setShowStudioDeleteModal] = useState(false);
@@ -102,7 +104,15 @@ export const AppContent: React.FC = () => {
   };
 
   const isStudioReady = Boolean(project && project.status === 'ready');
-  const [initialChords, setInitialChords] = useState<ChordSegment[]>([]);
+  const { chordHistory, handleEditChord } = useProjectChords({
+    project,
+    setProject,
+    isStudioReady,
+  });
+  const { loading, handleSelectTrack, handleUploadTrack } = useTrackIntake({
+    currentUser,
+    setProject,
+  });
 
   const handleToggleChordBar = theme.toggleChordBar;
   const handleToggleVisualizer = theme.toggleVisualizer;
@@ -138,108 +148,6 @@ export const AppContent: React.FC = () => {
     });
   }, []);
 
-  // Load chords for project when ready
-  useEffect(() => {
-    if (!project?.id || project.status !== 'ready') return;
-    if (project.chords && project.chords.length > 0) return;
-
-    apiFetch(`/api/project/${project.id}/chords`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.chords && Array.isArray(data.chords)) {
-          setInitialChords(data.chords);
-          setProject((prev) =>
-            prev && prev.id === data.project_id ? { ...prev, chords: data.chords } : prev
-          );
-        }
-      })
-      .catch((e) => console.error('Failed to load project chords', e));
-  }, [project?.id, project?.status, project?.chords, setProject]);
-
-  // Sync initial baseline chords when project changes or chords arrive
-  const prevProjectIdRef = useRef<string | undefined>(project?.id);
-  useEffect(() => {
-    if (!project?.id) {
-      setInitialChords([]);
-      prevProjectIdRef.current = undefined;
-    } else if (prevProjectIdRef.current !== project.id) {
-      prevProjectIdRef.current = project.id;
-      setInitialChords(project.chords && project.chords.length > 0 ? project.chords : []);
-    } else if (project.chords && project.chords.length > 0 && initialChords.length === 0) {
-      setInitialChords(project.chords);
-    }
-  }, [project?.id, project?.chords, initialChords.length]);
-
-  const chordHistoryRef = useRef<ReturnType<typeof useChordHistory> | null>(null);
-
-  // Save edited chord progression to backend
-  const handleSaveChords = useCallback(
-    async (updatedChords?: ChordSegment[]): Promise<boolean> => {
-      if (!project?.id) return false;
-      const chordsToSave = updatedChords ?? project.chords ?? [];
-      try {
-        const res = await apiFetch(`/api/project/${project.id}/chords`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chords: chordsToSave }),
-        });
-        if (res.ok) {
-          const data = await res.json().catch(() => null);
-          const savedChords = (data?.chords as ChordSegment[]) || chordsToSave;
-          setProject((prev) => (prev ? { ...prev, chords: savedChords } : null));
-          chordHistoryRef.current?.updateBaseline(savedChords);
-          toast.success('Chord progression saved');
-          return true;
-        } else {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || 'Failed to save chords');
-        }
-      } catch (err: unknown) {
-        console.error('Failed to save chords:', err);
-        toast.error(err instanceof Error ? err.message : 'Error saving chords');
-        throw err;
-      }
-    },
-    [project?.id, project?.chords, setProject, toast]
-  );
-
-  // 50-step bounded Undo / Redo history stack hook
-  const chordHistory = useChordHistory({
-    projectId: project?.id,
-    initialChords,
-    currentChords: project?.chords,
-    enabled: isStudioReady,
-    onApplySnapshot: (restoredChords) => {
-      setProject((prev) => (prev ? { ...prev, chords: restoredChords } : null));
-      handleSaveChords(restoredChords).catch((e) =>
-        console.error('Failed to persist snapshot chords', e)
-      );
-    },
-    onSaveSuccess: (savedChords) => {
-      setProject((prev) => (prev ? { ...prev, chords: savedChords } : null));
-    },
-  });
-  chordHistoryRef.current = chordHistory;
-
-  // Inline chord cue modification handler
-  const handleEditChord = useCallback(
-    async (index: number, newChord: string) => {
-      if (!project?.chords || index < 0 || index >= project.chords.length) return;
-      const current = project.chords;
-      chordHistory.pushSnapshot(current);
-
-      const updated = current.map((c, i) => (i === index ? { ...c, chord: newChord } : c));
-      setProject((prev) => (prev ? { ...prev, chords: updated } : null));
-
-      try {
-        await handleSaveChords(updated);
-      } catch (e) {
-        console.error('Failed to persist edited chord', e);
-      }
-    },
-    [project?.chords, chordHistory, handleSaveChords, setProject]
-  );
-
   useKeyboardShortcuts({
     onTogglePlay: isStudioReady ? audio.handleTogglePlay : undefined,
     onSeek: isStudioReady ? audio.handleSeek : undefined,
@@ -257,78 +165,6 @@ export const AppContent: React.FC = () => {
     enabled: !showAuthModal,
     seekStep: 5,
   });
-
-  // Start processing a new track
-  const handleSelectTrack = async (urlOrId: string, customLyrics?: string) => {
-    setLoading(true);
-    try {
-      const res = await apiFetch('/api/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url_or_id: urlOrId,
-          custom_lyrics: customLyrics,
-          created_by: currentUser || 'Friend',
-        }),
-      });
-      if (!res.ok) throw new Error('Failed to initiate processing');
-      const data = await res.json();
-      setProject({
-        id: data.project_id,
-        status: 'queued',
-        progress: 5,
-        lines: [],
-        semitones: 0,
-        guide_volume: 0,
-      });
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Error processing track');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Start processing an uploaded local audio track
-  const handleUploadTrack = async (params: {
-    file: File;
-    title?: string;
-    artist?: string;
-    customLyrics?: string;
-    createdBy?: string;
-  }) => {
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', params.file);
-      if (params.title) formData.append('title', params.title);
-      if (params.artist) formData.append('artist', params.artist);
-      if (params.customLyrics) formData.append('custom_lyrics', params.customLyrics);
-      formData.append('created_by', params.createdBy || currentUser || 'Friend');
-
-      const res = await apiFetch('/api/upload-track', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Failed to upload audio track');
-      }
-      const data = await res.json();
-      setProject({
-        id: data.project_id,
-        status: 'queued',
-        progress: 5,
-        lines: [],
-        semitones: 0,
-        guide_volume: 0,
-      });
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Error uploading audio track');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Save edited lyric timings to backend
   const handleSaveLines = async (updatedLines: LyricLine[]) => {
@@ -415,6 +251,30 @@ export const AppContent: React.FC = () => {
     toast.success('Project deleted successfully');
   };
 
+  const resetToLibrary = () => {
+    setProject(null);
+    setActiveWorkspaceTab('stage');
+  };
+
+  useStudioCommands({
+    project,
+    isStudioReady,
+    hasUnsavedEdits: isLyricsDirty || chordHistory.isDirty,
+    audio,
+    mix,
+    theme,
+    onOpenExport: () => setIsExportOpen(true),
+    onOpenEdit: () => setShowStudioEditModal(true),
+    onOpenDelete: () => setShowStudioDeleteModal(true),
+    onOpenHelp: () => setShowHelpModal(true),
+    onNewSong: resetToLibrary,
+    onOpenProject: (p) => {
+      setProject(p);
+      setActiveWorkspaceTab('stage');
+    },
+    onSelectTab: setActiveWorkspaceTab,
+  });
+
   const handleStudioMetadataSaved = (updated: { id: string; title: string; artist: string }) => {
     setProject((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
     setShowStudioEditModal(false);
@@ -442,10 +302,7 @@ export const AppContent: React.FC = () => {
           isLyricsDirty={isLyricsDirty || chordHistory.isDirty}
           onOpenHelp={() => setShowHelpModal((prev) => !prev)}
           onOpenAuth={() => setShowAuthModal(true)}
-          onNewSong={() => {
-            setProject(null);
-            setActiveWorkspaceTab('stage');
-          }}
+          onNewSong={resetToLibrary}
           isExportModalOpen={isExportOpen}
           onOpenExportModal={() => setIsExportOpen(true)}
         />
@@ -531,6 +388,9 @@ export const AppContent: React.FC = () => {
             semitones={mix.semitones}
             isRemixing={mix.isRemixing}
             onOpenMixSettings={handleOpenMixSettings}
+            mediaTitle={project.title}
+            mediaArtist={project.artist}
+            mediaArtworkUrl={project.thumbnail_url}
           />
         )}
       </div>
@@ -570,14 +430,12 @@ export const AppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   const existingContext = useContext(AppThemeContext);
-  if (existingContext) {
-    return <AppContent />;
-  }
-  return (
-    <AppThemeProvider>
+  const content = (
+    <CommandPaletteProvider>
       <AppContent />
-    </AppThemeProvider>
+    </CommandPaletteProvider>
   );
+  return existingContext ? content : <AppThemeProvider>{content}</AppThemeProvider>;
 };
 
 export default App;
