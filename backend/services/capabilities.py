@@ -1,4 +1,5 @@
-"""What this server can do right now, for the UI's quality pickers.
+"""What this server can do right now, for the UI's quality pickers: separation presets and
+the lyric alignment engine.
 
 Detection only inspects installed package metadata and files on disk; it never imports
 PyTorch, so the endpoint stays fast and safe to call on every page load.
@@ -6,6 +7,7 @@ PyTorch, so the endpoint stays fast and safe to call on every page load.
 
 from typing import Any
 
+from backend.services.alignment_config import alignment_capabilities
 from backend.services.separation_presets import (
     CPU_REALTIME_FACTORS,
     PRESET_IDS,
@@ -56,4 +58,4 @@ def separation_capabilities() -> dict[str, Any]:
 
 
 def get_capabilities() -> dict[str, Any]:
-    return {"separation": separation_capabilities()}
+    return {"separation": separation_capabilities(), "alignment": alignment_capabilities()}

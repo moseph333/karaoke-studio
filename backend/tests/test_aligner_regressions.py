@@ -91,7 +91,7 @@ def test_blockwise_energy_matches_a_running_sum(size, monkeypatch):
         cumulative = np.concatenate(([0.0], np.cumsum(signal.astype(np.float64) ** 2)))
         starts = np.arange(frames) * hop
         expected = (cumulative[starts + frame] - cumulative[starts]) / frame
-        got = aligner_mod._frame_mean_square(signal, frame, hop, frames)
+        got = aligner_mod.frame_mean_square(signal, frame, hop, frames)
         np.testing.assert_allclose(got, expected.astype(np.float32), rtol=1e-5, atol=1e-9)
     assert aligner_mod._signal_variance(signal) == pytest.approx(
         float(np.var(signal.astype(np.float64))) if size else 0.0, rel=1e-6, abs=1e-12

@@ -8,6 +8,7 @@ import {
   formatLineTime,
 } from '../utils/lyrics';
 import { LyricLine } from '../types';
+import tokenizeCases from './fixtures/tokenize_cases.json';
 
 describe('lyrics utility module (Milestone 3)', () => {
   describe('round3, sanitizeTimestamp, formatLineTime', () => {
@@ -303,5 +304,13 @@ describe('lyrics utility module (Milestone 3)', () => {
       expect(res.start_time).toBe(12.5);
       expect(res.end_time).toBe(14.0);
     });
+  });
+});
+
+describe('tokenizeLyricText shared cases', () => {
+  // The same cases run against the backend tokenizer (backend/services/lyric_tokenize.py),
+  // so words the server aligns line up with the words the editor shows.
+  it.each(tokenizeCases)('tokenizes %j like the server', ({ text, tokens }) => {
+    expect(tokenizeLyricText(text)).toEqual(tokens);
   });
 });

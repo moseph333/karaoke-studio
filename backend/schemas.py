@@ -4,7 +4,14 @@ import math
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from backend.services.downloader import TrackDownloader
 from backend.services.separation_presets import PRESET_IDS, normalize_preset
@@ -163,6 +170,25 @@ class LyricLineSchema(BaseModel):
         default="singer1",
         description="Singer part assignment: 'singer1' (Singer 1 / Lead), 'singer2' (Singer 2 / Partner), or 'both' (Both / Unison)",
     )
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        allow_inf_nan=False,
+        description="How well the vocal stem supports this line's timing (0-1), when measured",
+    )
+    align_method: Literal["ctc", "dsp", "lrc", "fallback", "manual"] | None = Field(
+        default=None,
+        description="How the line was timed (neural, DSP, from the lyrics, fallback, by hand)",
+    )
+
+    @model_serializer(mode="wrap")
+    def _drop_unset_timing_metadata(self, handler):
+        data = handler(self)
+        for key in ("confidence", "align_method"):
+            if data.get(key) is None:
+                data.pop(key, None)
+        return data
 
     @field_validator("singer", mode="before")
     @classmethod

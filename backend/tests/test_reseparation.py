@@ -63,6 +63,13 @@ def test_capabilities_when_roformer_is_ready(client, monkeypatch):
     }
 
 
+def test_capabilities_describe_the_alignment_engine(client):
+    alignment = client.get("/api/capabilities").json()["alignment"]
+    assert alignment["requested"] == alignment["effective"] == "dsp"  # pinned by the test env
+    assert alignment["downloads_allowed"] is False
+    assert "CC-BY-NC" in alignment["license_note"]
+
+
 def test_capabilities_need_a_login(unauth_client):
     assert unauth_client.get("/api/capabilities").status_code == 401
 
