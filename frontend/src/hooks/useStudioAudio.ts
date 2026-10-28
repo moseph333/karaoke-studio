@@ -194,7 +194,9 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
 
   const getCurrentTime = useCallback(() => {
     const el = audioRef.current;
-    if (el && Number.isFinite(el.currentTime)) return el.currentTime;
+    // While a swapped source reloads (or a seek waits for metadata) the element clock
+    // reads 0, so report the position that will be restored instead.
+    if (el && !restoreRef.current && Number.isFinite(el.currentTime)) return el.currentTime;
     return lastTimeRef.current;
   }, []);
 

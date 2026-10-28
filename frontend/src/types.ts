@@ -25,6 +25,9 @@ export interface BulkAssignOptions {
   pauseThreshold?: number;
 }
 
+/** How a line's word timings were produced. */
+export type AlignMethod = 'ctc' | 'dsp' | 'lrc' | 'fallback' | 'manual';
+
 export interface LyricLine {
   id: number;
   text: string;
@@ -32,6 +35,9 @@ export interface LyricLine {
   end_time: number;
   words: WordTiming[];
   singer?: SingerRole;
+  /** Alignment confidence from 0 to 1, when the server measured one. */
+  confidence?: number;
+  align_method?: AlignMethod;
 }
 
 export interface LyricLineDraft {

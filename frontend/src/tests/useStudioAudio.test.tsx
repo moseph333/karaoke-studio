@@ -181,4 +181,13 @@ describe('useStudioAudio', () => {
     el.currentTime = 64.25;
     expect(hook.getCurrentTime()).toBe(64.25);
   });
+
+  it('getCurrentTime reports the pending position while a seek waits for metadata', () => {
+    render(<Harness project={baseProject} />);
+    const el = screen.getByTestId('harness-audio') as HTMLAudioElement;
+    // jsdom media never loads metadata, so the deep-link seek stays queued
+    act(() => hook.queueSeek(33));
+    expect(el.currentTime).toBe(0);
+    expect(hook.getCurrentTime()).toBe(33);
+  });
 });

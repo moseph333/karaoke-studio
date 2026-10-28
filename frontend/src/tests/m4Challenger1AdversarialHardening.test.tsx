@@ -676,7 +676,8 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
 
       const playJumpBtn = screen.getByRole('button', { name: /jump to line/i });
       expect(playJumpBtn.className).toMatch(/min-h-\[44px\]/);
-      expect(playJumpBtn.className).toMatch(/w-full/);
+      // Fills the free width of the row
+      expect(playJumpBtn.className).toMatch(/\bflex-1\b/);
 
       const nudgeButtons = screen.getAllByRole('button', { name: /nudge line/i });
       expect(nudgeButtons.length).toBeGreaterThanOrEqual(4);

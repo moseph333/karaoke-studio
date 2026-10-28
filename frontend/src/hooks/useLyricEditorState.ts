@@ -21,6 +21,8 @@ import { useTapCursorHistory } from './useTapCursorHistory';
 export interface UseLyricEditorStateOptions {
   lines: LyricLine[];
   currentTime: number;
+  /** Live playback clock used for taps and new-line placement. */
+  getCurrentTime?: () => number;
   duration: number;
   onSaveLines: (updatedLines: LyricLine[]) => Promise<void | boolean> | void;
   onDirtyChange?: (isDirty: boolean) => void;
@@ -29,6 +31,7 @@ export interface UseLyricEditorStateOptions {
 export function useLyricEditorState({
   lines,
   currentTime,
+  getCurrentTime,
   duration,
   onSaveLines,
   onDirtyChange,
@@ -94,6 +97,7 @@ export function useLyricEditorState({
   } = useTapCursorHistory({
     editableLines,
     currentTime,
+    getCurrentTime,
     duration,
     pushSnapshot,
     setEditableLines,
@@ -344,10 +348,11 @@ export function useLyricEditorState({
 
   const insertLineHelper = (insertIdx: number, afterIdx: number) => {
     pushSnapshot(editableLines);
+    const live = getCurrentTime?.();
     const { start_time, end_time } = calculateLineInsertTimes(
       editableLines,
       afterIdx,
-      currentTime,
+      typeof live === 'number' && Number.isFinite(live) ? live : currentTime,
       duration
     );
     const text = 'New lyric line';

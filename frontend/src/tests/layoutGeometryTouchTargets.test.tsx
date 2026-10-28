@@ -8,6 +8,7 @@ import {
   detectHorizontalOverflow,
   assertZeroHorizontalOverflow,
   assertTouchTargets,
+  expectTouchTarget,
 } from './responsiveTestUtils';
 import { AuthModal } from '../components/AuthModal';
 import { ExportModal } from '../components/ExportModal';
@@ -562,13 +563,11 @@ describe('Milestone 3 Challenger 2: Adversarial Evaluation of Layout Geometry & 
 
       // Verify nudge buttons meet >=40px touch standard
       const nudgeBtns = screen.getAllByRole('button', { name: /nudge line/i });
-      nudgeBtns.forEach((btn) => {
-        expect(btn.className).toContain('min-h-[40px]');
-      });
+      nudgeBtns.forEach((btn) => expectTouchTarget(btn, 40));
 
       // Verify line select button meets >=40px
       const lineBtn = screen.getByRole('button', { name: /select line/i });
-      expect(lineBtn.className).toContain('min-h-[40px]');
+      expectTouchTarget(lineBtn, 40);
 
       assertZeroHorizontalOverflow(container, 320);
     });

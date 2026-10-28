@@ -1,41 +1,23 @@
 /** Lyric Timeline Editor: Line/word timing, editing, duet parts, undo/redo, tap sync */
 
 import React, { useMemo, useState } from 'react';
+import { CheckCircle2, Plus } from 'lucide-react';
 import { LyricLine, WordTiming, StudioWorkspaceTab } from '../types';
-import {
-  Edit3,
-  Check,
-  RotateCcw,
-  RotateCw,
-  Loader2,
-  Plus,
-  Clock,
-  Radio,
-  FileText,
-  Users,
-} from 'lucide-react';
 import { LyricDisplay, LyricDisplayProps } from './LyricDisplay';
 import { recalculateWordTimings, getActiveWordLocation } from '../utils/lyrics';
 import { useTimelineAutoScroll } from '../hooks/useTimelineAutoScroll';
 import { useLyricEditorState } from '../hooks/useLyricEditorState';
+import { useTimelineFilter } from '../hooks/useTimelineFilter';
+import { useStableHandlers } from '../hooks/useStableHandlers';
 import { TimelineLineCard } from './timeline/TimelineLineCard';
+import { TimelineToolbar } from './timeline/TimelineToolbar';
 import { TimelineModals } from './timeline/TimelineModals';
 import { BatchOffsetModal } from './timeline/BatchOffsetModal';
 import { TapToSyncBanner } from './timeline/TapToSyncBanner';
 import { LyricReplacementModal } from './timeline/LyricReplacementModal';
 import { DuetAssignmentModal } from './timeline/DuetAssignmentModal';
-import { Tooltip } from './Tooltip';
-import {
-  S_RESUME_BTN,
-  S_ICON_BTN,
-  S_ACTION_BTN,
-  S_DUET_BTN,
-  S_DISCARD_BTN,
-  S_SAVE_BTN,
-  S_ADD_FIRST_BTN,
-  S_ADD_LINE_BTN,
-  S_TAP_SYNC_BTN,
-} from './timeline/timelineStyles';
+import { Button } from './ui/Button';
+import { S_ADD_LINE_BTN, S_RESUME_PILL, S_SCROLL_AREA } from './timeline/timelineStyles';
 
 export { recalculateWordTimings };
 
@@ -51,6 +33,8 @@ export interface LyricTimelineEditorProps extends LyricDisplayProps {
   trackTitle?: string;
   trackArtist?: string;
   activeWorkspaceTab?: StudioWorkspaceTab;
+  /** Live playback clock, more precise than `currentTime`, for taps and playhead snaps. */
+  getCurrentTime?: () => number;
 }
 
 export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) => {
@@ -62,11 +46,13 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     trackTitle = 'Track',
     trackArtist = 'Artist',
     activeWorkspaceTab,
+    getCurrentTime,
   } = props;
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [showDuetModal, setShowDuetModal] = useState(false);
   const ed = useLyricEditorState(props);
+  const review = useTimelineFilter(ed.editableLines);
   const effectiveProjectId =
     projectId || new URLSearchParams(window.location.search).get('project') || '';
   const activeLineIndex = ed.editableLines.findIndex(
@@ -98,15 +84,34 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     selectedLineId: ed.selectedLineId,
   });
 
-  const handleLineClick = (line: LyricLine, isExpanded: boolean) => {
-    resumeAutoScroll();
-    onSeek(line.start_time);
-    ed.setSelectedLineId(isExpanded ? null : line.id);
-  };
-  const handleWordClick = (w: WordTiming) => {
-    resumeAutoScroll();
-    onSeek(w.start_time);
-  };
+  // Stable identities let memoized rows skip re-rendering on every playback tick.
+  const rowHandlers = useStableHandlers({
+    onLineClick: (line: LyricLine, isExpanded: boolean) => {
+      resumeAutoScroll();
+      onSeek(line.start_time);
+      ed.setSelectedLineId(isExpanded ? null : line.id);
+    },
+    onWordClick: (w: WordTiming) => {
+      resumeAutoScroll();
+      onSeek(w.start_time);
+    },
+    onStartEditing: ed.handleStartEditing,
+    onCommitEditing: ed.handleCommitEditing,
+    onCancelEditing: ed.handleCancelEditing,
+    onSetEditingText: ed.setEditingText,
+    onNudgeLine: ed.nudgeLine,
+    onInsertLineAbove: ed.handleInsertLineAbove,
+    onInsertLineBelow: ed.handleInsertLineBelow,
+    onDeleteLine: ed.setLineToDelete,
+    onToggleExpand: (id: number) => ed.setSelectedLineId((cur) => (cur === id ? null : id)),
+    onNudgeWord: ed.nudgeWord,
+    onNudgeWordBoundary: ed.nudgeWordBoundary,
+    onUpdateWordTiming: ed.updateWordTiming,
+    onCycleSinger: ed.handleCycleLineSinger,
+    onSetSinger: ed.handleSetLineSinger,
+    getCurrentTime: () => getCurrentTime?.() ?? currentTime,
+  });
+
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement)?.closest('button, input, select, textarea, [role="button"]'))
       return;
@@ -122,8 +127,9 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
 
   const selectedIndex = ed.editableLines.findIndex((l) => l.id === ed.selectedLineId);
   const activeLineIdx = selectedIndex >= 0 ? selectedIndex : 0;
+  const isEmpty = ed.editableLines.length === 0;
   return (
-    <div className="flex flex-col gap-6 studio:h-full studio:min-h-0 studio:gap-3">
+    <div className="flex flex-col gap-4 studio:h-full studio:min-h-0 studio:gap-3">
       <div
         id="workspace-panel-stage"
         role="tabpanel"
@@ -143,167 +149,33 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
         data-testid="studio-panel-timeline"
         className={`${panelCls(activeWorkspaceTab, 'timeline')} studio:min-h-0 studio:flex-1`}
       >
-        <div className="bg-theme-surface border border-theme-border rounded-theme-xl p-3 sm:p-5 shadow-theme-lg space-y-3 studio:flex studio:h-full studio:flex-col studio:gap-3 studio:space-y-0">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-theme-border-subtle">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-base font-bold text-theme-text font-theme-heading flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-theme-accent" />
-                  Word-by-Word Timeline Editor
-                </h3>
-                {ed.hasUnsavedChanges && (
-                  <span
-                    data-testid="dirty-indicator"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-theme-pill bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold"
-                    title="You have unsaved lyric or timing changes"
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                    Unsaved Changes
-                  </span>
-                )}
-                {isUserScrolling && (
-                  <button
-                    type="button"
-                    onClick={resumeAutoScroll}
-                    className={S_RESUME_BTN}
-                    title="Auto-scroll is paused. Click to resume."
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-theme-accent animate-pulse" />
-                    Auto-scroll paused • Click to resume
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-theme-text-muted font-theme-body mt-0.5 studio:hidden">
-                Click any line to jump audio. Nudge words or lines to fine-tune sync with the beat.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5 justify-end">
-              <Tooltip content="Undo lyric change (Ctrl+Z)" position="top">
-                <button
-                  type="button"
-                  data-testid="undo-lyrics-btn"
-                  aria-label="Undo lyric change (Ctrl+Z)"
-                  onClick={ed.handleUndo}
-                  disabled={!ed.canUndo || ed.isSaving}
-                  className={S_ICON_BTN}
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-              </Tooltip>
-              <Tooltip content="Redo lyric change (Ctrl+Y)" position="top">
-                <button
-                  type="button"
-                  data-testid="redo-lyrics-btn"
-                  aria-label="Redo lyric change (Ctrl+Y)"
-                  onClick={ed.handleRedo}
-                  disabled={!ed.canRedo || ed.isSaving}
-                  className={S_ICON_BTN}
-                >
-                  <RotateCw className="w-3.5 h-3.5" />
-                </button>
-              </Tooltip>
-              <Tooltip content="Batch shift timestamps" position="top">
-                <button
-                  type="button"
-                  data-testid="batch-offset-btn"
-                  aria-label="Batch offset timestamps"
-                  onClick={() => setShowBatchModal(true)}
-                  disabled={ed.isSaving || ed.editableLines.length === 0}
-                  className={S_ACTION_BTN}
-                >
-                  <Clock className="w-3.5 h-3.5 text-theme-accent" />
-                  <span className="hidden xl:inline">Offset</span>
-                </button>
-              </Tooltip>
-              <Tooltip content="Assign duet singer parts" position="top">
-                <button
-                  type="button"
-                  data-testid="duet-assign-btn"
-                  aria-label="Assign duet roles / singer parts"
-                  onClick={() => setShowDuetModal(true)}
-                  disabled={ed.isSaving || ed.editableLines.length === 0}
-                  className={S_DUET_BTN}
-                >
-                  <Users className="w-3.5 h-3.5 text-pink-400" />
-                  <span className="hidden xl:inline">Duet Parts</span>
-                </button>
-              </Tooltip>
-              <Tooltip content="Live tap-to-sync mode (T)" position="top">
-                <button
-                  type="button"
-                  data-testid="tap-to-sync-btn"
-                  aria-label="Live tap to sync mode (T)"
-                  onClick={() => {
-                    ed.setIsTapToSyncActive(!ed.isTapToSyncActive);
-                    ed.setTapTargetIndex(0);
-                    ed.setTapTargetWordIndex(0);
-                  }}
-                  className={`${S_TAP_SYNC_BTN} ${
-                    ed.isTapToSyncActive
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-300 shadow-theme-sm'
-                      : 'bg-theme-surface-subtle hover:bg-theme-surface-raised border-theme-border-subtle text-theme-text-muted hover:text-theme-text'
-                  }`}
-                >
-                  <Radio
-                    className={`w-3.5 h-3.5 ${ed.isTapToSyncActive ? 'animate-pulse text-amber-400' : 'text-theme-text-muted'}`}
-                  />
-                  <span className="hidden xl:inline">Tap Sync</span>
-                </button>
-              </Tooltip>
-              <Tooltip content="Replace or re-align lyrics" position="top">
-                <button
-                  type="button"
-                  data-testid="replace-lyrics-btn"
-                  aria-label="Replace text or re-align lyrics"
-                  onClick={() => setShowReplaceModal(true)}
-                  disabled={ed.isSaving}
-                  className={S_ACTION_BTN}
-                >
-                  <FileText className="w-3.5 h-3.5 text-theme-accent" />
-                  <span className="hidden xl:inline">Re-import</span>
-                </button>
-              </Tooltip>
-              {ed.hasUnsavedChanges && (
-                <>
-                  <Tooltip content="Discard unsaved lyric edits" position="top">
-                    <button
-                      type="button"
-                      data-testid="discard-changes-btn"
-                      onClick={() => ed.setShowDiscardModal(true)}
-                      disabled={ed.isSaving}
-                      className={S_DISCARD_BTN}
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Discard Changes
-                    </button>
-                  </Tooltip>
-                  <Tooltip content="Save lyrics & timing changes to server" position="top">
-                    <button
-                      type="button"
-                      data-testid="save-lyrics-btn"
-                      aria-label="Save Timing Changes - Save Lyrics & Timing Changes"
-                      onClick={ed.handleSave}
-                      disabled={ed.isSaving}
-                      className={S_SAVE_BTN}
-                    >
-                      {ed.isSaving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" /> Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Check className="w-4 h-4" /> Save Lyrics & Timing Changes
-                          <span className="sr-only">Save Timing Changes</span>
-                          <span className="sr-only">Save Lyrics</span>
-                        </>
-                      )}
-                    </button>
-                  </Tooltip>
-                </>
-              )}
-            </div>
-          </div>
+        <div className="@container relative flex flex-col gap-2.5 rounded-theme-xl border border-theme-border-subtle bg-theme-surface p-3 shadow-theme-md sm:p-4 studio:h-full studio:min-h-0">
+          <TimelineToolbar
+            lineCount={ed.editableLines.length}
+            hasUnsavedChanges={ed.hasUnsavedChanges}
+            isSaving={ed.isSaving}
+            canUndo={ed.canUndo}
+            canRedo={ed.canRedo}
+            onUndo={ed.handleUndo}
+            onRedo={ed.handleRedo}
+            onOpenOffset={() => setShowBatchModal(true)}
+            onOpenDuet={() => setShowDuetModal(true)}
+            onOpenReplace={() => setShowReplaceModal(true)}
+            isTapToSyncActive={ed.isTapToSyncActive}
+            onToggleTapToSync={() => {
+              ed.setIsTapToSyncActive(!ed.isTapToSyncActive);
+              ed.setTapTargetIndex(0);
+              ed.setTapTargetWordIndex(0);
+            }}
+            onDiscard={() => ed.setShowDiscardModal(true)}
+            onSave={ed.handleSave}
+            filter={review.filter}
+            onFilterChange={review.setFilter}
+            reviewCount={review.reviewCount}
+          />
+          <p className="text-xs text-theme-text-muted studio:hidden">
+            Click any line to jump audio. Nudge words or lines to fine-tune sync with the beat.
+          </p>
 
           <TapToSyncBanner
             isActive={ed.isTapToSyncActive}
@@ -326,70 +198,87 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
             onTouchMove={handleUserScrollInteraction}
             onPointerDown={handlePointerDown}
             onKeyDown={handleKeyDown}
-            className="max-h-[300px] sm:max-h-[380px] overflow-y-auto space-y-2 pr-1 scroll-smooth focus:outline-none touch-pan-y overscroll-contain studio:max-h-none studio:min-h-0 studio:flex-1"
+            className={S_SCROLL_AREA}
           >
-            {ed.editableLines.length === 0 ? (
-              <div className="text-center py-8 px-4 bg-theme-surface-subtle/50 rounded-theme-lg border border-theme-border-subtle shadow-theme-sm">
-                <p className="text-sm text-theme-text-muted font-theme-body mb-3">
-                  No lyric lines yet.
-                </p>
-                <button
-                  type="button"
+            {isEmpty ? (
+              <div className="rounded-theme-lg border border-dashed border-theme-border-subtle px-4 py-8 text-center">
+                <p className="mb-3 text-sm text-theme-text-muted">No lyric lines yet.</p>
+                <Button
                   onClick={ed.handleInsertLineAtEnd}
                   aria-label="+ Add First Lyric Line"
                   data-testid="add-line-btn"
-                  className={S_ADD_FIRST_BTN}
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<Plus className="h-4 w-4" />}
                 >
-                  <Plus className="w-4 h-4" />+ Add First Lyric Line
-                </button>
+                  + Add First Lyric Line
+                </Button>
+              </div>
+            ) : review.rows.length === 0 ? (
+              <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+                <CheckCircle2 className="h-6 w-6 text-theme-success" aria-hidden="true" />
+                <p className="text-sm text-theme-text">No lines need review.</p>
+                <Button variant="ghost" size="sm" onClick={() => review.setFilter('all')}>
+                  Show all lines
+                </Button>
               </div>
             ) : (
               <>
-                {ed.editableLines.map((line, idx) => (
-                  <TimelineLineCard
-                    key={line.id}
-                    line={line}
-                    idx={idx}
-                    isCurrentlyActive={currentLine?.id === line.id}
-                    currentTime={currentTime}
-                    isExpanded={ed.selectedLineId === line.id}
-                    editingLineId={ed.editingLineId}
-                    editingText={ed.editingText}
-                    activeWordLoc={activeWordLoc}
-                    editInputRef={ed.editInputRef}
-                    onLineClick={handleLineClick}
-                    onWordClick={handleWordClick}
-                    onStartEditing={ed.handleStartEditing}
-                    onCommitEditing={ed.handleCommitEditing}
-                    onCancelEditing={ed.handleCancelEditing}
-                    onSetEditingText={ed.setEditingText}
-                    onNudgeLine={ed.nudgeLine}
-                    onInsertLineAbove={ed.handleInsertLineAbove}
-                    onInsertLineBelow={ed.handleInsertLineBelow}
-                    onDeleteLine={ed.setLineToDelete}
-                    onToggleExpand={(id) =>
-                      ed.setSelectedLineId(ed.selectedLineId === id ? null : id)
-                    }
-                    onNudgeWord={ed.nudgeWord}
-                    onNudgeWordBoundary={ed.nudgeWordBoundary}
-                    onUpdateWordTiming={ed.updateWordTiming}
-                    onCycleSinger={ed.handleCycleLineSinger}
-                  />
-                ))}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={ed.handleInsertLineAtEnd}
-                    aria-label="Add new lyric line"
-                    data-testid="add-line-btn"
-                    className={S_ADD_LINE_BTN}
-                  >
-                    <Plus className="w-4 h-4" /> Add Lyric Line
-                  </button>
-                </div>
+                {review.rows.map(({ line, index }) => {
+                  const isActive = currentLine?.id === line.id;
+                  const isExpanded = ed.selectedLineId === line.id;
+                  const hasActiveWord = activeWordLoc?.lineId === line.id;
+                  const isEditing = ed.editingLineId === line.id;
+                  return (
+                    <TimelineLineCard
+                      key={line.id}
+                      line={line}
+                      idx={index}
+                      isCurrentlyActive={isActive}
+                      isExpanded={isExpanded}
+                      editingLineId={isEditing ? line.id : null}
+                      editingText={isEditing ? ed.editingText : ''}
+                      activeWordLoc={hasActiveWord ? activeWordLoc : null}
+                      currentTime={isExpanded ? currentTime : undefined}
+                      showWords={isActive || isExpanded || hasActiveWord}
+                      issues={review.issuesById.get(line.id)}
+                      editInputRef={ed.editInputRef}
+                      {...rowHandlers}
+                    />
+                  );
+                })}
+                {review.filter === 'all' && (
+                  <div className="pt-1.5">
+                    <button
+                      type="button"
+                      onClick={ed.handleInsertLineAtEnd}
+                      aria-label="Add new lyric line"
+                      data-testid="add-line-btn"
+                      className={S_ADD_LINE_BTN}
+                    >
+                      <Plus className="h-4 w-4" aria-hidden="true" /> Add Lyric Line
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>
+
+          {isUserScrolling && (
+            <button
+              type="button"
+              onClick={resumeAutoScroll}
+              title="Auto-scroll is paused. Click to resume."
+              className={S_RESUME_PILL}
+            >
+              <span
+                aria-hidden="true"
+                className="h-1.5 w-1.5 rounded-full bg-theme-highlight motion-safe:animate-pulse"
+              />
+              Auto-scroll paused
+              <span className="text-theme-text-muted">· Resume</span>
+            </button>
+          )}
         </div>
       </div>
       <TimelineModals

@@ -21,6 +21,8 @@ export interface TapCursorSnapshot {
 export interface UseTapCursorHistoryOptions {
   editableLines: LyricLine[];
   currentTime: number;
+  /** Live playback clock; taps fall back to `currentTime` when omitted. */
+  getCurrentTime?: () => number;
   duration: number;
   pushSnapshot: (lines: LyricLine[]) => void;
   setEditableLines: React.Dispatch<React.SetStateAction<LyricLine[]>>;
@@ -31,6 +33,7 @@ export interface UseTapCursorHistoryOptions {
 export function useTapCursorHistory({
   editableLines,
   currentTime,
+  getCurrentTime,
   duration,
   pushSnapshot,
   setEditableLines,
@@ -53,6 +56,11 @@ export function useTapCursorHistory({
 
   const tapTargetWordIndexRef = useRef(tapTargetWordIndex);
   tapTargetWordIndexRef.current = tapTargetWordIndex;
+
+  // The `currentTime` prop only updates on media timeupdate events (~4 per second), so
+  // read the live clock at the moment of the tap when one is available.
+  const getCurrentTimeRef = useRef(getCurrentTime);
+  getCurrentTimeRef.current = getCurrentTime;
 
   const tapCursorUndoStackRef = useRef<TapCursorSnapshot[]>([]);
   const tapCursorRedoStackRef = useRef<TapCursorSnapshot[]>([]);
@@ -120,13 +128,16 @@ export function useTapCursorHistory({
 
     pushSnapshot(editableLines);
     const currentTarget = editableLines[tapTargetIndex];
+    const liveTime = getCurrentTimeRef.current?.();
+    const tapTime =
+      typeof liveTime === 'number' && Number.isFinite(liveTime) ? liveTime : currentTime;
 
     if (tapSyncMode === 'word') {
       const result = applyWordTap(
         editableLines,
         tapTargetIndex,
         tapTargetWordIndex,
-        currentTime,
+        tapTime,
         duration
       );
 
@@ -144,7 +155,7 @@ export function useTapCursorHistory({
         setSelectedLineId(result.updatedLines[result.nextLineIndex]?.id ?? null);
       }
     } else {
-      const result = applyLineTap(editableLines, tapTargetIndex, currentTime, duration);
+      const result = applyLineTap(editableLines, tapTargetIndex, tapTime, duration);
 
       setEditableLines(result.updatedLines);
 

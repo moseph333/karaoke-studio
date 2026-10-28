@@ -9,6 +9,12 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { ChordSegment } from '../types';
 import { apiFetch } from '../api';
+import {
+  isUndoRoutedElsewhere,
+  noteUndo,
+  noteUndoableEdit,
+  registerUndoScope,
+} from '../utils/undoRouter';
 
 const DEFAULT_EMPTY_CHORDS: ChordSegment[] = [];
 
@@ -128,6 +134,7 @@ export function useChordHistory({
       redoStackRef.current = [];
       setUndoStack([...undoStackRef.current]);
       setRedoStack([]);
+      noteUndoableEdit('chords');
     },
     [maxHistory]
   );
@@ -141,6 +148,7 @@ export function useChordHistory({
     redoStackRef.current.push(cloneChords(targetChords));
     setUndoStack([...undoStackRef.current]);
     setRedoStack([...redoStackRef.current]);
+    noteUndo('chords');
     return cloneChords(previous);
   }, []);
 
@@ -157,6 +165,7 @@ export function useChordHistory({
       }
       setUndoStack([...undoStackRef.current]);
       setRedoStack([...redoStackRef.current]);
+      noteUndoableEdit('chords');
       return cloneChords(next);
     },
     [maxHistory]
@@ -230,6 +239,14 @@ export function useChordHistory({
 
   useEffect(() => {
     if (!enabled) return;
+    return registerUndoScope('chords', {
+      canUndo: () => undoStackRef.current.length > 0,
+      canRedo: () => redoStackRef.current.length > 0,
+    });
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isInputElement(e.target)) return;
@@ -242,11 +259,13 @@ export function useChordHistory({
       const key = e.key.toLowerCase();
       // Undo: Ctrl+Z / Cmd+Z without Shift
       if (key === 'z' && !e.shiftKey) {
+        if (isUndoRoutedElsewhere('chords', 'undo', e)) return;
         e.preventDefault();
         handleUndo();
       }
       // Redo: Ctrl+Y / Cmd+Y or Ctrl+Shift+Z / Cmd+Shift+Z
       else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+        if (isUndoRoutedElsewhere('chords', 'redo', e)) return;
         e.preventDefault();
         handleRedo();
       }

@@ -288,6 +288,103 @@ describe('Menu', () => {
     expect(screen.queryByRole('menu')).toBeNull();
     expect(onEdit).not.toHaveBeenCalled();
   });
+
+  const openButton = (props: React.ComponentProps<'button'>) => (
+    <button type="button" {...props}>
+      Open
+    </button>
+  );
+
+  it('renders radio items with a caption and checked state', () => {
+    const onPick = vi.fn();
+    render(
+      <Menu
+        label="Part"
+        title="Assign singer"
+        items={[
+          { id: 'a', label: 'Lead', checked: true, onSelect: () => onPick('a') },
+          { id: 'b', label: 'Partner', checked: false, onSelect: () => onPick('b') },
+        ]}
+        trigger={openButton}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    expect(screen.getByText('Assign singer')).toHaveAttribute('role', 'presentation');
+    const radios = screen.getAllByRole('menuitemradio');
+    expect(radios.map((r) => r.getAttribute('aria-checked'))).toEqual(['true', 'false']);
+    expect(screen.queryAllByRole('menuitem')).toHaveLength(0);
+    fireEvent.click(radios[1]);
+    expect(onPick).toHaveBeenCalledWith('b');
+  });
+
+  it('portals into document.body with fixed positioning and closes on scroll', () => {
+    const { container } = render(
+      <div style={{ overflow: 'auto' }}>
+        <Menu
+          label="Row"
+          portal
+          items={[{ id: 'x', label: 'Item', onSelect: vi.fn() }]}
+          trigger={openButton}
+        />
+      </div>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open' }));
+    const menu = screen.getByRole('menu', { name: 'Row' });
+    expect(container.contains(menu)).toBe(false);
+    expect(document.body.contains(menu)).toBe(true);
+    expect(menu.style.position).toBe('fixed');
+
+    // Clicking inside the portaled menu does not count as an outside click
+    fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Item' }));
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+
+    fireEvent.scroll(window);
+    expect(screen.queryByRole('menu')).toBeNull();
+  });
+
+  it('returns focus to the trigger on Tab when portaled', () => {
+    render(
+      <Menu
+        label="Row"
+        portal
+        items={[{ id: 'x', label: 'Item', onSelect: vi.fn() }]}
+        trigger={openButton}
+      />
+    );
+    const trigger = screen.getByRole('button', { name: 'Open' });
+    fireEvent.click(trigger);
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Tab' });
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('opens upward when there is no room below the trigger (side="auto")', () => {
+    render(
+      <Menu
+        label="Row"
+        side="auto"
+        items={[
+          { id: 'x', label: 'One', onSelect: vi.fn() },
+          { id: 'y', label: 'Two', onSelect: vi.fn() },
+        ]}
+        trigger={openButton}
+      />
+    );
+    const trigger = screen.getByRole('button', { name: 'Open' });
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+      top: window.innerHeight - 40,
+      bottom: window.innerHeight - 8,
+      left: 10,
+      right: 60,
+      width: 50,
+      height: 32,
+      x: 10,
+      y: window.innerHeight - 40,
+      toJSON: () => ({}),
+    });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('menu').className).toContain('bottom-full');
+  });
 });
 
 describe('Slider', () => {
