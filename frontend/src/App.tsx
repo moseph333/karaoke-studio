@@ -15,6 +15,7 @@ import { TransportDock } from './components/transport/TransportDock';
 import { LyricLine, SyncDisplayMode, StudioWorkspaceTab } from './types';
 import { useProjectChords } from './hooks/useProjectChords';
 import { useTrackIntake } from './hooks/useTrackIntake';
+import { useQualityJobs } from './hooks/useQualityJobs';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useToast } from './hooks/useToast';
@@ -111,10 +112,8 @@ export const AppContent: React.FC = () => {
     isStudioReady,
   });
   const waveformPeaks = useWaveformPeaks(project?.id, isStudioReady);
-  const { loading, handleSelectTrack, handleUploadTrack } = useTrackIntake({
-    currentUser,
-    setProject,
-  });
+  const intake = useTrackIntake({ currentUser, setProject });
+  const quality = useQualityJobs({ project, setProject });
 
   const handleToggleChordBar = theme.toggleChordBar;
   const handleToggleVisualizer = theme.toggleVisualizer;
@@ -275,6 +274,7 @@ export const AppContent: React.FC = () => {
       setActiveWorkspaceTab('stage');
     },
     onSelectTab: setActiveWorkspaceTab,
+    quality,
   });
 
   const handleStudioMetadataSaved = (updated: { id: string; title: string; artist: string }) => {
@@ -319,13 +319,15 @@ export const AppContent: React.FC = () => {
         >
           {!project ? (
             <TrackSearch
-              onSelectTrack={handleSelectTrack}
-              onUploadTrack={handleUploadTrack}
+              onSelectTrack={intake.handleSelectTrack}
+              onUploadTrack={intake.handleUploadTrack}
+              separationQuality={intake.separationQuality}
+              onSeparationQualityChange={intake.setSeparationQuality}
               onOpenProject={(p) => {
                 setProject(p);
                 setActiveWorkspaceTab('stage');
               }}
-              isLoading={loading}
+              isLoading={intake.loading}
               currentUser={currentUser}
               authToken={authToken}
             />
@@ -361,6 +363,7 @@ export const AppContent: React.FC = () => {
               onToggleVisualizer={handleToggleVisualizer}
               showChordBar={showChordBar}
               onToggleChordBar={handleToggleChordBar}
+              quality={quality}
             />
           )}
         </main>
@@ -426,6 +429,8 @@ export const AppContent: React.FC = () => {
         showStudioEditModal={showStudioEditModal}
         onCloseStudioEdit={() => setShowStudioEditModal(false)}
         onStudioMetadataSaved={handleStudioMetadataSaved}
+        quality={quality}
+        hasUnsavedLyricEdits={isLyricsDirty}
       />
     </div>
   );

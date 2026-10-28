@@ -1,18 +1,18 @@
 /**
  * Studio Meta Header Component (song header)
  *
- * Compact header for the open song: album art, title, artist, line count, lyric sync
- * fidelity badge, and quick actions to edit details or delete the project. Exports live
- * in the top bar's Export dialog.
+ * Compact header for the open song: album art, title, artist, line count, a lyric sync
+ * badge (timing fidelity, confidence, auto-aligned), a stems badge, and quick actions to
+ * edit details or delete the project. Exports live in the top bar's Export dialog.
  */
 
 import React from 'react';
 import { Pencil, Trash2, Music } from 'lucide-react';
 import { ProjectState } from '../types';
+import { getLyricSyncFidelity, getStemsBadge } from '../utils/syncStatus';
 import { Tooltip } from './Tooltip';
 import { Badge } from './ui/Badge';
 import { IconButton } from './ui/IconButton';
-import type { BadgeTone } from './ui/variants';
 
 export interface StudioMetaHeaderProps {
   project: ProjectState;
@@ -24,56 +24,13 @@ export interface StudioMetaHeaderProps {
   onStartRender?: () => void;
 }
 
-function getLyricSyncFidelity(project: ProjectState): {
-  label: 'Synced Words' | 'Line Synced' | 'Plain Lyrics';
-  tone: BadgeTone;
-  tooltipText: string;
-} {
-  const lines = project.lines || [];
-  if (lines.length === 0) {
-    return {
-      label: 'Plain Lyrics',
-      tone: 'warning',
-      tooltipText: 'No synchronized timing data detected',
-    };
-  }
-
-  // Check if explicit is_synced is false or if all lines have 0 timestamps
-  const hasLineTimings = lines.some((l) => (l.start_time || 0) > 0 || (l.end_time || 0) > 0);
-  if (project.is_synced === false || !hasLineTimings) {
-    return {
-      label: 'Plain Lyrics',
-      tone: 'warning',
-      tooltipText: 'Lyrics have untimed lines (requires audio alignment)',
-    };
-  }
-
-  // Check if lines have sub-line word timings
-  const hasWordTimings = lines.some(
-    (l) => l.words && l.words.length > 0 && l.words.some((w) => w.end_time > w.start_time)
-  );
-
-  if (hasWordTimings) {
-    return {
-      label: 'Synced Words',
-      tone: 'success',
-      tooltipText: 'High-fidelity word-level karaoke synchronization active',
-    };
-  }
-
-  return {
-    label: 'Line Synced',
-    tone: 'info',
-    tooltipText: 'Line-level timestamp synchronization active',
-  };
-}
-
 export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
   project,
   onOpenEditModal,
   onOpenDeleteModal,
 }) => {
   const syncFidelity = getLyricSyncFidelity(project);
+  const stems = getStemsBadge(project);
   const lineCount = project.lines?.length ?? 0;
 
   return (
@@ -102,8 +59,30 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
             {project.artist} · {lineCount} {lineCount === 1 ? 'line' : 'lines'}
           </p>
           <Tooltip content={syncFidelity.tooltipText} position="bottom">
-            <Badge data-testid="sync-status-badge" tone={syncFidelity.tone} dot>
+            <Badge
+              data-testid="sync-status-badge"
+              tone={syncFidelity.tone}
+              dot
+              pulse={syncFidelity.label === 'Re-aligning'}
+            >
               {syncFidelity.label}
+              {syncFidelity.quality !== null && (
+                <span className="tabular-nums opacity-80">{syncFidelity.quality}%</span>
+              )}
+              {syncFidelity.autoAligned && (
+                <span className="font-medium opacity-80">auto-aligned</span>
+              )}
+            </Badge>
+          </Tooltip>
+          <Tooltip content={stems.tooltip} position="bottom">
+            <Badge
+              data-testid="stems-badge"
+              tone={stems.active ? 'accent' : 'neutral'}
+              dot={stems.active}
+              pulse={stems.active}
+              className="hidden sm:inline-flex"
+            >
+              {stems.text}
             </Badge>
           </Tooltip>
         </div>

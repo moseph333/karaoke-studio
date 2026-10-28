@@ -1,8 +1,9 @@
 /**
  * Audio Controls Component (Mix inspector)
  *
- * Key transposition with the Smart Key Recommender, guide vocal blend and the
- * instrumental source. Playback itself lives in the TransportDock.
+ * Key transposition with the Smart Key Recommender, guide vocal blend, the instrumental
+ * source and, when the app wires it, which model made the stems (with a way to re-make
+ * them). Playback itself lives in the TransportDock.
  *
  * Works controlled (App passes `semitones` / `guideVolume` from useMixController) or
  * standalone, where it keeps its own state and applies changes through `onMixChange`
@@ -19,8 +20,9 @@ import { PitchTranspositionControl } from './audio/PitchTranspositionControl';
 import { GuideVocalControl } from './audio/GuideVocalControl';
 import { AudioMixActionsBar } from './audio/AudioMixActionsBar';
 import { VocalRangeRecommenderModal } from './audio/VocalRangeRecommenderModal';
+import { StemQualityControl } from './quality/StemQualityControl';
 import { Panel } from './ui/Panel';
-import { VocalRangeData } from '../types';
+import { SeparationInfo, SeparationJob, VocalRangeData } from '../types';
 import { formatSemitones } from '../utils/format';
 
 export { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY };
@@ -61,6 +63,13 @@ export interface AudioControlsProps {
   vocalRange?: VocalRangeData | null;
   onAnalyzeVocalRange?: () => void | Promise<void>;
   isAnalyzingRange?: boolean;
+  /** Stems: how they were made, and re-making them (shown when onImproveStems is set). */
+  separation?: SeparationInfo | null;
+  separationJob?: SeparationJob | null;
+  onImproveStems?: () => void;
+  onCancelReseparation?: () => void;
+  /** Why the stems cannot be re-made right now, if another job is busy. */
+  stemsBusyReason?: string | null;
   className?: string;
 }
 
@@ -83,6 +92,11 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   vocalRange: propVocalRange,
   onAnalyzeVocalRange: propOnAnalyze,
   isAnalyzingRange: propIsAnalyzing,
+  separation,
+  separationJob,
+  onImproveStems,
+  onCancelReseparation,
+  stemsBusyReason,
   className,
 }) => {
   const { toast } = useToast();
@@ -277,6 +291,16 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           onInstrumentalUpload={handleInstrumentalUpload}
           isCustomInstrumental={Boolean(instrumentalUrl && instrumentalUrl.includes('custom_inst'))}
         />
+
+        {onImproveStems && (
+          <StemQualityControl
+            separation={separation}
+            job={separationJob}
+            onImprove={onImproveStems}
+            onCancel={onCancelReseparation}
+            busyReason={stemsBusyReason}
+          />
+        )}
       </div>
 
       <VocalRangeRecommenderModal

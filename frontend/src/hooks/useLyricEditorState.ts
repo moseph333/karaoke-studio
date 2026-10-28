@@ -4,9 +4,13 @@
  * Manages mutable lyric lines, line/word nudging, inline text editing,
  * insertion, deletion, dirty state tracking, multi-step undo/redo history,
  * batch offset timestamp shifting, and live tap-to-sync mode.
+ *
+ * Hand edits go through `setEditableLines`, which marks the lines they change as timed by
+ * hand (see utils/manualEdits); aligner results, undo/redo and server updates set the lines
+ * as they are.
  */
 
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { LyricLine, WordTiming, SingerRole, BulkAssignOptions } from '../types';
 import { useToast } from './useToast';
 import { useLyricHistory } from './useLyricHistory';
@@ -17,6 +21,7 @@ import {
   applyBatchOffset,
 } from '../utils/lyrics';
 import { useTapCursorHistory } from './useTapCursorHistory';
+import { markManualEdits } from '../utils/manualEdits';
 
 export interface UseLyricEditorStateOptions {
   lines: LyricLine[];
@@ -37,8 +42,22 @@ export function useLyricEditorState({
   onDirtyChange,
 }: UseLyricEditorStateOptions) {
   const { toast } = useToast();
-  const [editableLines, setEditableLines] = useState<LyricLine[]>(lines);
+  const [editableLines, setRawLines] = useState<LyricLine[]>(lines);
   const [initialLines, setInitialLines] = useState<LyricLine[]>(lines);
+  const initialLinesRef = useRef(initialLines);
+  initialLinesRef.current = initialLines;
+
+  const setEditableLines: React.Dispatch<React.SetStateAction<LyricLine[]>> = useCallback(
+    (update) =>
+      setRawLines((prev) =>
+        markManualEdits(
+          prev,
+          typeof update === 'function' ? update(prev) : update,
+          initialLinesRef.current
+        )
+      ),
+    []
+  );
   const [selectedLineId, setSelectedLineId] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
@@ -53,7 +72,7 @@ export function useLyricEditorState({
   );
 
   const handleApplySnapshot = useCallback((restored: LyricLine[], direction?: 'undo' | 'redo') => {
-    setEditableLines(restored);
+    setRawLines(restored);
     const restoredTargetIndex = restoreTapCursorSnapshotRef.current(direction);
     if (restoredTargetIndex !== null) {
       setSelectedLineId(restored[restoredTargetIndex]?.id ?? null);
@@ -130,7 +149,7 @@ export function useLyricEditorState({
     if (prevLinesRef.current !== lines) {
       prevLinesRef.current = lines;
       if (!hasUnsavedChanges) {
-        setEditableLines(lines);
+        setRawLines(lines);
         setInitialLines(lines);
         clearHistory();
       }
@@ -273,7 +292,7 @@ export function useLyricEditorState({
 
   const handleReplaceLyrics = (newLines: LyricLine[]) => {
     pushSnapshot(editableLines);
-    setEditableLines(newLines);
+    setRawLines(newLines);
     setSelectedLineId(newLines.length > 0 ? newLines[0].id : null);
     setTapTargetIndex(0);
     setTapTargetWordIndex(0);
@@ -295,8 +314,22 @@ export function useLyricEditorState({
     }
   };
 
+  /** Puts a line re-timed by the aligner in place (an undoable edit, not a hand edit). */
+  const applyRealignedLine = (lineId: number, line: LyricLine) => {
+    if (!editableLines.some((l) => l.id === lineId)) return;
+    pushSnapshot(editableLines);
+    setRawLines(editableLines.map((l) => (l.id === lineId ? { ...line, id: lineId } : l)));
+  };
+
+  /** Adopts lines timed by the server (e.g. a finished background re-alignment) as saved. */
+  const adoptServerLines = (serverLines: LyricLine[]) => {
+    setRawLines(serverLines);
+    setInitialLines(serverLines);
+    clearHistory();
+  };
+
   const handleConfirmDiscard = () => {
-    setEditableLines(initialLines);
+    setRawLines(initialLines);
     setEditingLineId(null);
     setEditingText('');
     setLineToDelete(null);
@@ -395,7 +428,7 @@ export function useLyricEditorState({
         })
       );
     },
-    [editableLines, pushSnapshot]
+    [editableLines, pushSnapshot, setEditableLines]
   );
 
   const handleSetLineSinger = useCallback(
@@ -405,7 +438,7 @@ export function useLyricEditorState({
         prev.map((line) => (line.id === lineId ? { ...line, singer } : line))
       );
     },
-    [editableLines, pushSnapshot]
+    [editableLines, pushSnapshot, setEditableLines]
   );
 
   const handleBulkAssignSinger = useCallback(
@@ -466,7 +499,7 @@ export function useLyricEditorState({
       setEditableLines(updated);
       toast.success('Duet parts assigned');
     },
-    [editableLines, pushSnapshot, toast]
+    [editableLines, pushSnapshot, setEditableLines, toast]
   );
 
   return {
@@ -493,6 +526,8 @@ export function useLyricEditorState({
     updateWordTiming,
     handleApplyBatchOffset,
     handleReplaceLyrics,
+    applyRealignedLine,
+    adoptServerLines,
     handleCycleLineSinger,
     handleSetLineSinger,
     handleBulkAssignSinger,

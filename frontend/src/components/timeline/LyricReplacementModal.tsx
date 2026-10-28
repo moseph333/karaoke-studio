@@ -5,7 +5,9 @@
  * 1. Paste plain or LRC lyrics, with a live syntax inspector.
  * 2. Search LRCLIB candidates by title and artist, preview their lines and apply one.
  * 3. Re-fetch from LRCLIB with the song's own metadata.
- * New lyrics are aligned against the existing vocal stem.
+ * 4. Re-time the current lyrics without changing their text.
+ * New lyrics are aligned against the existing vocal stem: right away by the fast aligner, or
+ * in the background by the neural aligner when the server has it.
  */
 
 import React, { useState } from 'react';
@@ -19,10 +21,14 @@ import {
   CheckCircle2,
   Info,
   Music,
+  Wand2,
 } from 'lucide-react';
 import { LyricCandidate, LyricLine } from '../../types';
 import { apiFetch } from '../../api';
 import { useToast } from '../../hooks/useToast';
+import { useCapabilities } from '../../hooks/useCapabilities';
+import type { BackgroundRealignRequest } from '../../hooks/useQualityJobs';
+import { Checkbox } from '../ui/Checkbox';
 import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { SegmentedControl } from '../ui/SegmentedControl';
@@ -40,6 +46,10 @@ export interface LyricReplacementModalProps {
   trackTitle?: string;
   trackArtist?: string;
   onSuccess: (newLines: LyricLine[]) => void;
+  /** The timeline's lines, offered for re-timing without changing the text. */
+  currentLines?: LyricLine[];
+  /** Starts a background re-alignment; offered when the server has the neural aligner. */
+  onStartBackground?: (request: BackgroundRealignRequest) => Promise<unknown>;
 }
 
 export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
@@ -49,8 +59,15 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
   trackTitle = 'Track',
   trackArtist = 'Artist',
   onSuccess,
+  currentLines,
+  onStartBackground,
 }) => {
   const { toast } = useToast();
+  const capabilities = useCapabilities(isOpen && Boolean(onStartBackground));
+  const neural = capabilities?.alignment;
+  const canUseNeural = Boolean(onStartBackground && neural?.ctc_available);
+  const [useNeural, setUseNeural] = useState(true);
+  const inBackground = canUseNeural && useNeural;
   const [activeTab, setActiveTab] = useState<'paste' | 'lrclib'>('paste');
   const [lyricsText, setLyricsText] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -102,6 +119,43 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
 
   const pasteInspector = getPasteInspectorInfo(lyricsText);
 
+  /** Re-aligns `body`: queued for the neural aligner, or answered now by the fast one. */
+  const realign = async (body: BackgroundRealignRequest, done: string, failed: string) => {
+    if (inBackground && onStartBackground) {
+      await onStartBackground(body);
+      toast.info('Re-aligning with the neural aligner in the background. Keep working meanwhile.');
+      onClose();
+      return;
+    }
+    const res = await apiFetch(`/api/project/${projectId}/realign-lyrics`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || failed);
+    }
+    toast.success(done);
+    onSuccess(data.lines || []);
+    onClose();
+  };
+
+  const handleRealignCurrent = async () => {
+    if (!currentLines?.length || !projectId) return;
+    setIsLoading(true);
+    setErrorMsg(null);
+    try {
+      await realign({ lines: currentLines }, 'Lyrics re-aligned', 'Failed to re-align lyrics');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to re-align lyrics';
+      setErrorMsg(msg);
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handlePasteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = lyricsText.trim();
@@ -117,20 +171,11 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const res = await apiFetch(`/api/project/${projectId}/realign-lyrics`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custom_lyrics: trimmed, fetch_lrclib: false }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to realign lyrics');
-      }
-
-      toast.success('Lyrics replaced and aligned successfully');
-      onSuccess(data.lines || []);
-      onClose();
+      await realign(
+        { custom_lyrics: trimmed, fetch_lrclib: false },
+        'Lyrics replaced and aligned successfully',
+        'Failed to realign lyrics'
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to realign lyrics';
       setErrorMsg(msg);
@@ -194,20 +239,11 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
     setErrorMsg(null);
 
     try {
-      const res = await apiFetch(`/api/project/${projectId}/realign-lyrics`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ custom_lyrics: lyricsToApply, fetch_lrclib: false }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to apply candidate lyrics');
-      }
-
-      toast.success('Candidate lyrics applied and realigned successfully');
-      onSuccess(data.lines || []);
-      onClose();
+      await realign(
+        { custom_lyrics: lyricsToApply, fetch_lrclib: false },
+        'Candidate lyrics applied and realigned successfully',
+        'Failed to apply candidate lyrics'
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to apply candidate lyrics';
       setErrorMsg(msg);
@@ -227,20 +263,11 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const res = await apiFetch(`/api/project/${projectId}/realign-lyrics`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fetch_lrclib: true }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to re-query LRCLIB lyrics');
-      }
-
-      toast.success('Lyrics re-fetched from LRCLIB and aligned');
-      onSuccess(data.lines || []);
-      onClose();
+      await realign(
+        { fetch_lrclib: true },
+        'Lyrics re-fetched from LRCLIB and aligned',
+        'Failed to re-query LRCLIB lyrics'
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to re-query LRCLIB';
       setErrorMsg(msg);
@@ -293,6 +320,41 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
             },
           ]}
         />
+
+        {(canUseNeural || neural || (currentLines?.length ?? 0) > 0) && (
+          <div className="divide-y divide-theme-border-subtle rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle/60 px-3">
+            {canUseNeural ? (
+              <Checkbox
+                checked={useNeural}
+                onChange={setUseNeural}
+                label="Use the neural aligner"
+                description="More accurate word timing. It runs in the background, so you can keep working."
+                testId="lyric-replacement-neural"
+              />
+            ) : neural && onStartBackground ? (
+              <p className="py-2 text-[11px] text-theme-text-muted">
+                Aligned by the fast aligner: the neural aligner is not available on this server
+                {neural.reason ? ` (${neural.reason})` : ''}.
+              </p>
+            ) : null}
+            {(currentLines?.length ?? 0) > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="text-xs text-theme-text-muted">
+                  Keep the current text and re-time every line.
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleRealignCurrent}
+                  disabled={isBusy}
+                  leftIcon={<Wand2 className="h-3.5 w-3.5" aria-hidden="true" />}
+                >
+                  Re-align current lyrics
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {errorMsg && (
           <div

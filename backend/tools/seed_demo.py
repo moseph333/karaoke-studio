@@ -2,7 +2,8 @@
 
 Generates synthetic (royalty-free) stems, album art and a ``projects.json`` with:
 
-* ``demo`` - a ready duet song with word timings, chords and a vocal range,
+* ``demo`` - a ready duet song with word timings, chords, a vocal range, Balanced stems
+  and auto-aligned lyrics with per-line confidence (one line flagged for review),
 * ``demo_processing`` - a song mid-way through stem separation,
 * ``demo_error`` - a failed import,
 * a few extra ready songs so the library grid has content.
@@ -54,6 +55,14 @@ CHORD_CYCLE = [
     ("G", (196.00, 246.94, 293.66), 98.00),
 ]
 
+# Per-line sync confidence for the demo song (the 0.52 line shows up under "Needs review")
+LINE_CONFIDENCE = [0.94, 0.91, 0.88, 0.9, 0.86, 0.83, 0.52, 0.89, 0.92, 0.87, 0.9, 0.79]
+
+PRESET_LABELS = {
+    "fast": "Fast · Demucs",
+    "balanced": "Balanced · Mel-Band RoFormer",
+}
+
 MELODY_HZ = [329.63, 349.23, 392.00, 440.00, 392.00, 349.23, 329.63, 293.66, 261.63]
 
 
@@ -78,6 +87,7 @@ def build_lines() -> list[dict]:
             ws = round(start + w_i * step, 3)
             we = round(start + (w_i + 1) * step - 0.06, 3)
             word_items.append({"word": word, "start_time": ws, "end_time": we})
+        confidence = LINE_CONFIDENCE[idx % len(LINE_CONFIDENCE)]
         lines.append(
             {
                 "id": idx + 1,
@@ -86,9 +96,34 @@ def build_lines() -> list[dict]:
                 "end_time": round(start + line_len, 3),
                 "words": word_items,
                 "singer": singer,
+                "confidence": confidence,
+                "align_method": "ctc" if confidence >= 0.6 else "dsp",
             }
         )
     return lines
+
+
+def sync_report(lines: list[dict]) -> dict:
+    confidences = [line["confidence"] for line in lines]
+    methods = [line["align_method"] for line in lines]
+    return {
+        "version": 1,
+        "engine": "ctc",
+        "requested_engine": "auto",
+        "fallback_reason": None,
+        "lyric_source": "custom",
+        "source_timing": "none",
+        "global_offset": None,
+        "lines_total": len(lines),
+        "lines_ctc": methods.count("ctc"),
+        "lines_dsp": methods.count("dsp"),
+        "lines_lrc": 0,
+        "lines_fallback": 0,
+        "low_confidence_lines": sum(1 for c in confidences if c < 0.6),
+        "mean_confidence": round(sum(confidences) / len(confidences), 3),
+        "elapsed_seconds": 41.7,
+        "aligned_at": int(time.time()),
+    }
 
 
 def synth_instrumental() -> np.ndarray:
@@ -190,9 +225,23 @@ def build_chords() -> list[dict]:
     return chords
 
 
-def ready_project(pid: str, title: str, artist: str, cover: str, lines: list[dict]) -> dict:
+def ready_project(
+    pid: str,
+    title: str,
+    artist: str,
+    cover: str,
+    lines: list[dict],
+    quality: str = "fast",
+    auto_aligned: bool = False,
+) -> dict:
     now = time.time()
-    return {
+    if not auto_aligned:
+        # Timing that came with LRCLIB lyrics carries no aligner confidence
+        lines = [
+            {k: v for k, v in line.items() if k not in ("confidence", "align_method")}
+            for line in lines
+        ]
+    project = {
         "id": pid,
         "track_id": "demo",
         "status": "ready",
@@ -238,7 +287,26 @@ def ready_project(pid: str, title: str, artist: str, cover: str, lines: list[dic
         "created_at": now,
         "render_status": "idle",
         "render_progress": 0,
+        "separation_quality": quality,
+        "separation": {
+            "preset": quality,
+            "engine": "roformer" if quality != "fast" else "demucs",
+            "label": PRESET_LABELS[quality],
+            "requested": quality,
+            "fallback_reason": None,
+            "elapsed_seconds": 96 if quality != "fast" else 21,
+            "separated_at": int(now),
+        },
+        "lyric_timing": "source_line",
     }
+    if auto_aligned:
+        project.update(
+            lyric_source="custom",
+            is_synced=False,
+            lyric_timing="aligned",
+            sync_report=sync_report(lines),
+        )
+    return project
 
 
 def main() -> None:
@@ -261,7 +329,15 @@ def main() -> None:
 
     now = time.time()
     projects: dict[str, dict] = {
-        "demo": ready_project("demo", "Neon Skyline", "The Midnight Static", "demo.jpg", lines),
+        "demo": ready_project(
+            "demo",
+            "Neon Skyline",
+            "The Midnight Static",
+            "demo.jpg",
+            lines,
+            quality="balanced",
+            auto_aligned=True,
+        ),
         "demo_b": ready_project("demo_b", "Harbor Lights", "Coastline Echo", "demo_b.jpg", lines),
         "demo_c": ready_project("demo_c", "Ember Hour", "Velvet Arcade", "demo_c.jpg", lines),
         "demo_processing": {
@@ -269,10 +345,11 @@ def main() -> None:
             "track_id": "demo_processing",
             "status": "separating",
             "progress": 48,
-            "status_detail": "Separating vocals from the instrumental",
+            "status_detail": "Mel-Band RoFormer: chunk 12/25 (48%)",
+            "separation_quality": "balanced",
             "eta_seconds": 95,
             "elapsed_seconds": 63,
-            "heartbeat": now + 3600,
+            "heartbeat": int((now + 3600) * 1000),  # milliseconds, fresh for an hour
             "title": "Glasshouse",
             "artist": "Northern Satellites",
             "thumbnail_url": "/static/downloads/demo_d.jpg",
