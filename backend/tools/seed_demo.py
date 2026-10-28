@@ -205,6 +205,12 @@ def ready_project(pid: str, title: str, artist: str, cover: str, lines: list[dic
         "instrumental_url": "/static/stems/demo/instrumental.wav",
         "master_audio_url": "/static/output/demo_master.wav",
         "thumbnail_url": f"/static/downloads/{cover}",
+        # Disk paths let path-based endpoints (waveform, mix, exports) work on the demo
+        "audio_path": str(DOWNLOADS_DIR / "demo.wav"),
+        "vocals_path": str(STEMS_DIR / "demo" / "vocals.wav"),
+        "instrumental_path": str(STEMS_DIR / "demo" / "instrumental.wav"),
+        "master_audio_path": str(OUTPUT_DIR / "demo_master.wav"),
+        "thumbnail_path": str(DOWNLOADS_DIR / cover),
         "lines": lines,
         "lyric_source": "lrclib",
         "is_synced": True,

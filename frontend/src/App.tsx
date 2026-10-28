@@ -24,6 +24,7 @@ import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
 import { useMixController } from './hooks/useMixController';
 import { useStudioCommands } from './hooks/useStudioCommands';
+import { useWaveformPeaks } from './hooks/useWaveformPeaks';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
 import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
 import { cn } from './utils/cn';
@@ -109,6 +110,7 @@ export const AppContent: React.FC = () => {
     setProject,
     isStudioReady,
   });
+  const waveformPeaks = useWaveformPeaks(project?.id, isStudioReady);
   const { loading, handleSelectTrack, handleUploadTrack } = useTrackIntake({
     currentUser,
     setProject,
@@ -388,6 +390,7 @@ export const AppContent: React.FC = () => {
             semitones={mix.semitones}
             isRemixing={mix.isRemixing}
             onOpenMixSettings={handleOpenMixSettings}
+            peaks={waveformPeaks}
             mediaTitle={project.title}
             mediaArtist={project.artist}
             mediaArtworkUrl={project.thumbnail_url}
