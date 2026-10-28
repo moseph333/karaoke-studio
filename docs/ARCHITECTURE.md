@@ -216,7 +216,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 
 ### 2.8 Mixing, subtitles and rendering
 
-- **Mixer.** `audio_mixer.mix_and_shift` blends the guide vocal with `amix … normalize=0` plus `alimiter`, so the backing track keeps its level. A `MIX_QUALITY` context variable picks the pitch shifter: fast resampling for previews, Rubber Band (`pitchq=quality`, formants preserved on the guide vocal) for renders, with a fallback graph for older FFmpeg builds. `/mix` results are cached by file name while newer than the stems.
+- **Mixer.** `audio_mixer.mix_and_shift` blends the guide vocal with `amix … normalize=0` plus `alimiter`, so the backing track keeps its level. A `MIX_QUALITY` context variable picks the pitch shifter: fast resampling for previews, Rubber Band (`pitchq=quality`, formants preserved on the guide vocal) for renders, with a fallback graph for older FFmpeg builds. `/mix` results are cached by file name while newer than the stems and made by the current mixer (`MIX_CACHE_VERSION`, noted in `output/.mix-cache-version`; renders older than that note are made again).
 - **Subtitles.** `ass_generator` writes word sweeps on absolute centisecond boundaries with `{\k}` spacers for gaps, so exported highlights stay on time; duet colours and stage presets match the studio.
 - **Video.** `render_worker` mixes at final quality and renders 1080p60 (16:9 or 9:16) through FFmpeg with libass, using the bundled Sora fonts (`backend/assets/fonts`) and the stage's backdrop colour.
 
