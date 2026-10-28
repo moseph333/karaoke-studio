@@ -2,7 +2,7 @@
  * Studio Modals Orchestration Component
  *
  * Hosts global and studio-scoped modal dialogs (Export, Authentication,
- * Help/Usage Guide, Project Deletion, and Metadata Editing).
+ * Help/Usage Guide, Project Deletion, Metadata Editing and stem re-separation).
  */
 
 import React from 'react';
@@ -11,7 +11,9 @@ import { AuthModal } from './AuthModal';
 import { HelpModal } from './HelpModal';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { EditMetadataModal } from './EditMetadataModal';
+import { ReseparateDialog } from './quality/ReseparateDialog';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
+import type { UseQualityJobsReturn } from '../hooks/useQualityJobs';
 
 export interface StudioModalsProps {
   project: ProjectState | null;
@@ -47,6 +49,9 @@ export interface StudioModalsProps {
   showStudioEditModal: boolean;
   onCloseStudioEdit: () => void;
   onStudioMetadataSaved: (updated: { id: string; title: string; artist: string }) => void;
+  /** Stem re-separation dialog state and actions. */
+  quality?: UseQualityJobsReturn;
+  hasUnsavedLyricEdits?: boolean;
 }
 
 export const StudioModals: React.FC<StudioModalsProps> = ({
@@ -76,6 +81,8 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   showStudioEditModal,
   onCloseStudioEdit,
   onStudioMetadataSaved,
+  quality,
+  hasUnsavedLyricEdits = false,
 }) => {
   return (
     <>
@@ -132,6 +139,17 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
         onClose={onCloseStudioEdit}
         onSaved={onStudioMetadataSaved}
       />
+
+      {/* Re-make the stems at another quality */}
+      {project && quality && (
+        <ReseparateDialog
+          isOpen={quality.isReseparateOpen}
+          onClose={quality.closeReseparate}
+          project={project}
+          hasUnsavedLyricEdits={hasUnsavedLyricEdits}
+          onSubmit={quality.startReseparation}
+        />
+      )}
     </>
   );
 };

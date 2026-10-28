@@ -18,11 +18,13 @@ import {
   Music,
   RefreshCw,
   XCircle,
+  Info,
 } from 'lucide-react';
 import { ProjectState } from '../types';
 import { ProgressRing } from './ui/Progress';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
+import { presetInfo, stemsLabel } from '../utils/quality';
 
 export interface PipelineStage {
   id: string;
@@ -31,7 +33,7 @@ export interface PipelineStage {
 
 export const PIPELINE_STAGES: PipelineStage[] = [
   { id: 'intake', label: 'Audio Intake & Download' },
-  { id: 'demucs', label: 'Demucs Vocal Separation' },
+  { id: 'demucs', label: 'AI Vocal Separation' },
   { id: 'chords', label: 'Vocal Range & Chords' },
   { id: 'lyrics', label: 'Lyric Fetch & Alignment' },
   { id: 'mixing', label: 'Master Stereo Mixing' },
@@ -50,7 +52,7 @@ export const getActivePipelineStage = (status?: string, statusDetail?: string): 
 const DEFAULT_DETAIL: Record<string, string> = {
   processing: 'Preparing audio track...',
   downloading: 'Fetching high-fidelity audio and cover art...',
-  separating: 'Isolating vocals and backing instrumental track with Demucs AI...',
+  separating: 'Isolating the vocals from the backing track...',
   fetching_lyrics: 'Retrieving synchronized lyrics from LRCLIB database...',
   aligning: 'Running forced acoustic alignment for word-by-word timing...',
   mixing: 'Synthesizing master stereo mix...',
@@ -96,6 +98,14 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     isReconnectingProp ?? Boolean(project?.status_detail?.toLowerCase().includes('reconnecting'));
   const currentStageIndex = getActivePipelineStage(project?.status, project?.status_detail);
   const progress = Math.max(0, Math.min(100, project?.progress ?? 0));
+  const stemsEngine = project.separation
+    ? stemsLabel(project.separation)
+    : project.separation_quality
+      ? presetInfo(project.separation_quality).label
+      : null;
+  const isDownloadingModel =
+    /download/i.test(project?.status_detail ?? '') &&
+    /model|weights/i.test(project?.status_detail ?? '');
 
   if (project?.status === 'cancelled') {
     return (
@@ -207,6 +217,22 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
                 'Processing audio track...'}
             </p>
           </div>
+
+          {stemsEngine && (
+            <p className="text-xs text-theme-text-muted" data-testid="processing-stems-engine">
+              Stems: <span className="font-semibold text-theme-text">{stemsEngine}</span>
+            </p>
+          )}
+          {isDownloadingModel && (
+            <p
+              data-testid="processing-model-download"
+              className="mx-auto flex max-w-md items-start gap-2 rounded-theme-md border border-theme-info/35 bg-theme-info/10 p-3 text-left text-xs text-theme-info"
+            >
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              First run on this server: the model is being downloaded once and kept for later songs.
+              This can take a few minutes.
+            </p>
+          )}
 
           <div>
             {isHeartbeatStalled ? (

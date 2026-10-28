@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { CheckCircle2, Plus } from 'lucide-react';
-import { LyricLine, WordTiming, StudioWorkspaceTab } from '../types';
+import { LyricLine, WordTiming, StudioWorkspaceTab, SyncJob } from '../types';
 import { LyricDisplay, LyricDisplayProps } from './LyricDisplay';
 import { recalculateWordTimings, getActiveWordLocation } from '../utils/lyrics';
 import { useTimelineAutoScroll } from '../hooks/useTimelineAutoScroll';
@@ -10,11 +10,16 @@ import { useLyricEditorState } from '../hooks/useLyricEditorState';
 import { useTimelineFilter } from '../hooks/useTimelineFilter';
 import { useStableHandlers } from '../hooks/useStableHandlers';
 import { useTimelineCommands } from '../hooks/useTimelineCommands';
+import { useLineRealign } from '../hooks/useLineRealign';
+import { useSyncJobResult } from '../hooks/useSyncJobResult';
+import { useToast } from '../hooks/useToast';
+import type { BackgroundRealignRequest } from '../hooks/useQualityJobs';
 import { TimelineLineCard } from './timeline/TimelineLineCard';
 import { TimelineToolbar } from './timeline/TimelineToolbar';
 import { TimelineModals } from './timeline/TimelineModals';
 import { BatchOffsetModal } from './timeline/BatchOffsetModal';
 import { TapToSyncBanner } from './timeline/TapToSyncBanner';
+import { SyncJobBanner } from './timeline/SyncJobBanner';
 import { LyricReplacementModal } from './timeline/LyricReplacementModal';
 import { DuetAssignmentModal } from './timeline/DuetAssignmentModal';
 import { Button } from './ui/Button';
@@ -36,6 +41,10 @@ export interface LyricTimelineEditorProps extends LyricDisplayProps {
   activeWorkspaceTab?: StudioWorkspaceTab;
   /** Live playback clock, more precise than `currentTime`, for taps and playhead snaps. */
   getCurrentTime?: () => number;
+  /** Background lyric re-alignment: its state, and starting or cancelling one. */
+  syncJob?: SyncJob | null;
+  onStartBackgroundRealign?: (request: BackgroundRealignRequest) => Promise<unknown>;
+  onCancelRealign?: () => void;
 }
 
 export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) => {
@@ -48,7 +57,11 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     trackArtist = 'Artist',
     activeWorkspaceTab,
     getCurrentTime,
+    syncJob,
+    onStartBackgroundRealign,
+    onCancelRealign,
   } = props;
+  const { toast } = useToast();
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [showDuetModal, setShowDuetModal] = useState(false);
@@ -56,6 +69,31 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
   const review = useTimelineFilter(ed.editableLines);
   const effectiveProjectId =
     projectId || new URLSearchParams(window.location.search).get('project') || '';
+  const realign = useLineRealign({
+    projectId: effectiveProjectId,
+    lines: ed.editableLines,
+    onApply: ed.applyRealignedLine,
+  });
+  const syncResult = useSyncJobResult({
+    syncJob,
+    lines: props.lines,
+    hasUnsavedChanges: ed.hasUnsavedChanges,
+    onAdopt: ed.adoptServerLines,
+  });
+  const isRealignRunning = syncJob?.status === 'queued' || syncJob?.status === 'running';
+  const realignAll = async () => {
+    if (!onStartBackgroundRealign) return;
+    if (ed.hasUnsavedChanges) {
+      toast.warning('Save your lyric edits first, then re-align');
+      return;
+    }
+    try {
+      await onStartBackgroundRealign({ lines: ed.editableLines });
+      toast.info('Re-aligning every line in the background');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not start the re-alignment');
+    }
+  };
   const activeLineIndex = ed.editableLines.findIndex(
     (l) => currentTime >= l.start_time - 1.5 && currentTime <= l.end_time + 1.0
   );
@@ -110,6 +148,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     onUpdateWordTiming: ed.updateWordTiming,
     onCycleSinger: ed.handleCycleLineSinger,
     onSetSinger: ed.handleSetLineSinger,
+    onRealignLine: realign.realignLine,
     getCurrentTime: () => getCurrentTime?.() ?? currentTime,
   });
 
@@ -150,6 +189,14 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     onFilterChange: review.setFilter,
     onAddLine: ed.handleInsertLineAtEnd,
     onGoToLine: (line) => rowHandlers.onLineClick(line, false),
+    onRealignSelected:
+      effectiveProjectId && ed.selectedLineId !== null
+        ? () => void realign.realignLine(ed.selectedLineId as number)
+        : undefined,
+    onRealignAll:
+      onStartBackgroundRealign && ed.editableLines.length > 0 ? () => void realignAll() : undefined,
+    isRealignRunning,
+    onCancelRealign,
   });
 
   const selectedIndex = ed.editableLines.findIndex((l) => l.id === ed.selectedLineId);
@@ -199,6 +246,14 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
           <p className="text-xs text-theme-text-muted studio:hidden">
             Click any line to jump audio. Nudge words or lines to fine-tune sync with the beat.
           </p>
+
+          <SyncJobBanner
+            job={syncJob}
+            onCancel={onCancelRealign}
+            hasReadyResult={syncResult.hasReadyResult}
+            onLoadResult={syncResult.loadResult}
+            onKeepEdits={syncResult.keepEdits}
+          />
 
           <TapToSyncBanner
             isActive={ed.isTapToSyncActive}
@@ -267,6 +322,8 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
                       issues={review.issuesById.get(line.id)}
                       editInputRef={ed.editInputRef}
                       {...rowHandlers}
+                      onRealignLine={effectiveProjectId ? rowHandlers.onRealignLine : undefined}
+                      isRealigning={realign.realigningLineId === line.id}
                     />
                   );
                 })}
@@ -326,6 +383,8 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
         trackTitle={trackTitle}
         trackArtist={trackArtist}
         onSuccess={ed.handleReplaceLyrics}
+        currentLines={ed.editableLines}
+        onStartBackground={onStartBackgroundRealign}
       />
       <DuetAssignmentModal
         isOpen={showDuetModal}

@@ -85,6 +85,41 @@ export interface SeparationInfo {
   separated_at?: number;
 }
 
+/** One separation preset as this server reports it (GET /api/capabilities). */
+export interface SeparationPresetInfo {
+  id: SeparationPreset;
+  label: string;
+  engine: 'demucs' | 'roformer';
+  models: string[];
+  available: boolean;
+  reason?: string | null;
+  weights_cached?: boolean | null;
+  /** Seconds of CPU time per second of audio, roughly. */
+  cpu_realtime_factor: number;
+  gpu_recommended: boolean;
+}
+
+export interface AlignmentCapabilities {
+  requested: 'auto' | 'ctc' | 'dsp';
+  effective: 'ctc' | 'dsp';
+  ctc_available: boolean;
+  reason?: string | null;
+  weights_cached?: boolean;
+  downloads_allowed?: boolean;
+  license_note?: string;
+}
+
+/** What this server can run: separation presets and the lyric aligner. */
+export interface StudioCapabilities {
+  separation: {
+    default: SeparationPreset;
+    effective_default: SeparationPreset;
+    downloads_allowed: boolean;
+    presets: SeparationPresetInfo[];
+  };
+  alignment: AlignmentCapabilities;
+}
+
 export type BackgroundJobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
 
 /** A re-separation running in the background while the song stays usable. */

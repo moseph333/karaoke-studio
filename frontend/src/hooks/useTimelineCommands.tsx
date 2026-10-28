@@ -17,6 +17,8 @@ import {
   Trash2,
   Undo2,
   Users,
+  Wand2,
+  X,
 } from 'lucide-react';
 import { LyricLine } from '../types';
 import {
@@ -48,6 +50,13 @@ export interface UseTimelineCommandsOptions {
   onAddLine: () => void;
   /** Seek to and select a line (used by lyric search results). */
   onGoToLine: (line: LyricLine) => void;
+  /** Re-time the selected line (offered while a line is selected). */
+  onRealignSelected?: () => void;
+  /** Re-time every line in the background with the best aligner on the server. */
+  onRealignAll?: () => void;
+  /** A background re-alignment is running; offers to cancel it instead. */
+  isRealignRunning?: boolean;
+  onCancelRealign?: () => void;
 }
 
 const GROUP = 'Lyrics';
@@ -93,6 +102,36 @@ export function useTimelineCommands(opts: UseTimelineCommandsOptions): void {
       icon: <Redo2 />,
       shortcut: ['Mod', 'Y'],
       run: opts.onRedo,
+    });
+  }
+  if (opts.onRealignSelected) {
+    commands.push({
+      id: 'lyrics-realign-line',
+      title: 'Re-align the selected line',
+      group: GROUP,
+      icon: <Wand2 />,
+      keywords: ['sync', 'timing', 'fix', 'aligner'],
+      run: opts.onRealignSelected,
+    });
+  }
+  if (opts.isRealignRunning && opts.onCancelRealign) {
+    commands.push({
+      id: 'lyrics-realign-cancel',
+      title: 'Cancel lyric re-alignment',
+      group: GROUP,
+      icon: <X />,
+      keywords: ['stop', 'sync', 'timing'],
+      run: opts.onCancelRealign,
+    });
+  } else if (opts.onRealignAll) {
+    commands.push({
+      id: 'lyrics-realign-all',
+      title: 'Re-align all lines in the background',
+      subtitle: 'Uses the best aligner on this server',
+      group: GROUP,
+      icon: <Wand2 />,
+      keywords: ['sync', 'timing', 'neural', 'words', 'auto'],
+      run: opts.onRealignAll,
     });
   }
   commands.push(

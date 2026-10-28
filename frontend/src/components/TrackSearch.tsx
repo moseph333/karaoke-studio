@@ -2,7 +2,8 @@
  * Track Search Component
  *
  * The home screen: a hero intake card (YouTube link/search or local upload, with
- * advanced options such as custom lyrics), search results, and the song library.
+ * advanced options: stem separation quality and custom lyrics), search results, and the
+ * song library.
  */
 
 import React, { useId, useState } from 'react';
@@ -16,14 +17,17 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { SearchResult, ProjectState } from '../types';
+import { SearchResult, ProjectState, SeparationPreset } from '../types';
 import { apiFetch } from '../api';
 import { LocalAudioUploader, type UploadTrackParams } from './track-search/LocalAudioUploader';
 import { ProjectLibrary } from './track-search/ProjectLibrary';
+import { SeparationQualityPicker } from './quality/SeparationQualityPicker';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 import { formatTime } from '../utils/format';
+import { PRESET_NAMES, defaultPreset } from '../utils/quality';
+import { useCapabilities } from '../hooks/useCapabilities';
 
 export type { UploadTrackParams };
 
@@ -34,6 +38,10 @@ export interface TrackSearchProps {
   isLoading: boolean;
   currentUser?: string;
   authToken?: string;
+  /** Stem separation quality for new songs; null uses the server's default. */
+  separationQuality?: SeparationPreset | null;
+  /** Shows the quality picker in Advanced options. */
+  onSeparationQualityChange?: (preset: SeparationPreset) => void;
 }
 
 type IntakeMode = 'youtube' | 'local';
@@ -48,6 +56,8 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   isLoading,
   currentUser = 'Friend',
   authToken = '',
+  separationQuality = null,
+  onSeparationQualityChange,
 }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -57,6 +67,8 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [intakeMode, setIntakeMode] = useState<IntakeMode>('youtube');
   const advancedHintId = useId();
+  // Asked only once the picker is on screen
+  const capabilities = useCapabilities(showAdvanced && Boolean(onSeparationQualityChange));
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +114,14 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const customLyricsCount = customLyrics.trim()
     ? customLyrics.trim().split(/\n+/).filter(Boolean).length
     : 0;
+  const advancedHint = [
+    separationQuality ? `${PRESET_NAMES[separationQuality]} stems` : null,
+    customLyricsCount > 0
+      ? `Custom lyrics · ${customLyricsCount} ${customLyricsCount === 1 ? 'line' : 'lines'}`
+      : 'Custom lyrics',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 font-theme-body text-theme-text sm:space-y-10">
@@ -246,9 +266,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 </span>
                 <span className="flex items-center gap-2 text-xs font-medium text-theme-text-muted">
                   <span id={advancedHintId} className="truncate">
-                    {customLyricsCount > 0
-                      ? `Custom lyrics · ${customLyricsCount} ${customLyricsCount === 1 ? 'line' : 'lines'}`
-                      : 'Custom lyrics'}
+                    {advancedHint}
                   </span>
                   <ChevronDown
                     className={cn(
@@ -264,6 +282,16 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                   id="custom-lyrics-panel"
                   className="space-y-2 border-t border-theme-border-subtle px-4 pb-4 pt-3"
                 >
+                  {onSeparationQualityChange && (
+                    <SeparationQualityPicker
+                      name="intake-separation-quality"
+                      legend="Stem separation quality"
+                      value={separationQuality ?? defaultPreset(capabilities?.separation)}
+                      onChange={onSeparationQualityChange}
+                      capabilities={capabilities?.separation}
+                      className="pb-2"
+                    />
+                  )}
                   <label
                     htmlFor="custom-lyrics-textarea"
                     className="flex items-center gap-1.5 text-xs font-semibold text-theme-text"

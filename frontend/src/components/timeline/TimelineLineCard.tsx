@@ -1,9 +1,9 @@
 /**
  * Timeline Line Card Component
  *
- * One lyric line in the timeline: duet part chip, time range and text (click to seek,
- * double-click to edit), line nudges, insert/delete, a More menu and the expandable
- * word timing editor. Secondary controls fade on hover-capable screens until the row is
+ * One lyric line in the timeline: duet part chip, confidence dot, time range and text (click
+ * to seek, double-click to edit), line nudges, insert/delete, a More menu (with "Re-align
+ * this line") and the expandable word timing editor. Secondary controls fade on hover-capable screens until the row is
  * hovered, focused, active or expanded; touch screens always show them at full strength.
  */
 
@@ -13,16 +13,19 @@ import {
   Check,
   ChevronRight,
   FastForward,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
   Rewind,
   Trash2,
+  WandSparkles,
   X,
 } from 'lucide-react';
 import { LyricLine, SingerRole, WordTiming } from '../../types';
 import { formatLineTime } from '../../utils/lyrics';
 import type { LineIssue } from '../../utils/timelineReview';
+import { confidenceLevel, confidenceText, type ConfidenceLevel } from '../../utils/lineRealign';
 import { cn } from '../../utils/cn';
 import { ExpandedWordEditor, type ActiveWordLocation } from './ExpandedWordEditor';
 import { Tooltip } from '../Tooltip';
@@ -75,7 +78,16 @@ export interface TimelineLineCardProps {
   issues?: LineIssue[];
   /** Show the word chips row (the editor shows it for the active and selected lines). */
   showWords?: boolean;
+  /** Re-time this line against the vocals (row More menu). */
+  onRealignLine?: (lineId: number) => void;
+  isRealigning?: boolean;
 }
+
+const CONFIDENCE_DOT: Record<ConfidenceLevel, string> = {
+  high: 'bg-theme-success',
+  medium: 'bg-theme-warning',
+  low: 'bg-theme-danger',
+};
 
 const NEXT_SINGER: Record<SingerRole, SingerRole> = {
   singer1: 'singer2',
@@ -130,6 +142,8 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
   onSetSinger,
   issues,
   showWords = true,
+  onRealignLine,
+  isRealigning = false,
 }: TimelineLineCardProps) {
   const singerRole = normalizeSingerRole(line.singer);
   const singer = SINGER_CONFIG[singerRole];
@@ -143,6 +157,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
     ? ''
     : 'transition-opacity [@media(hover:hover)]:opacity-60 group-hover/line:opacity-100 group-focus-within/line:opacity-100';
   const issueMessages = issues && issues.length > 0 ? issues.map((i) => i.message) : null;
+  const confidence = confidenceLevel(line.confidence);
 
   return (
     <div
@@ -150,6 +165,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
       data-active-line={isCurrentlyActive ? 'true' : undefined}
       data-singer={singerRole}
       data-needs-review={issueMessages ? 'true' : undefined}
+      data-realigning={isRealigning ? 'true' : undefined}
       className={cn(
         'group/line relative rounded-theme-lg border px-2 py-1.5 transition-colors sm:px-2.5',
         isCurrentlyActive
@@ -253,7 +269,16 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 focusRing
               )}
             >
-              <span className="shrink-0 font-mono text-[11px] tabular-nums text-theme-text-muted">
+              <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] tabular-nums text-theme-text-muted">
+                {confidence && (
+                  <span
+                    aria-hidden="true"
+                    title={confidenceText(line) ?? undefined}
+                    data-testid={`line-confidence-${line.id}`}
+                    data-level={confidence}
+                    className={cn('h-1.5 w-1.5 shrink-0 rounded-full', CONFIDENCE_DOT[confidence])}
+                  />
+                )}
                 {timeRange}
               </span>
               <span
@@ -421,6 +446,23 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   icon: <Trash2 className="h-4 w-4" />,
                   onSelect: () => onDeleteLine(line),
                 },
+                ...(onRealignLine
+                  ? [
+                      {
+                        id: 'realign',
+                        group: 'Timing',
+                        label: isRealigning ? 'Re-aligning…' : 'Re-align this line',
+                        icon: isRealigning ? (
+                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                        ) : (
+                          <WandSparkles className="h-4 w-4" />
+                        ),
+                        disabled: isRealigning,
+                        testId: `line-${line.id}-realign`,
+                        onSelect: () => onRealignLine(line.id),
+                      },
+                    ]
+                  : []),
                 ...(onSetSinger
                   ? (Object.keys(SINGER_CONFIG) as SingerRole[]).map((role) => {
                       const RoleIcon = SINGER_CONFIG[role].Icon;

@@ -31,6 +31,7 @@ import {
   Upload,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react';
 import { ProjectState, StudioWorkspaceTab } from '../types';
 import { apiFetch } from '../api';
@@ -51,6 +52,8 @@ import { formatSemitones } from '../utils/format';
 import type { UseStudioAudioReturn } from './useStudioAudio';
 import type { UseMixControllerReturn } from './useMixController';
 import type { UseVisualThemeReturn } from './useVisualTheme';
+import type { UseQualityJobsReturn } from './useQualityJobs';
+import { stemsLabel } from '../utils/quality';
 
 export interface UseStudioCommandsOptions {
   project: ProjectState | null;
@@ -66,6 +69,8 @@ export interface UseStudioCommandsOptions {
   onNewSong: () => void;
   onOpenProject: (project: ProjectState) => void;
   onSelectTab: (tab: StudioWorkspaceTab) => void;
+  /** Stem re-separation actions (adds "Improve stem separation…"). */
+  quality?: UseQualityJobsReturn;
 }
 
 const SONG_CACHE_MS = 30_000;
@@ -306,6 +311,39 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
         run: () => mix.commitGuideVolume(level.value),
       })
     );
+
+    // Stems: re-make them at another quality, or stop a re-separation
+    const { quality } = opts;
+    const isActive = (status?: string) => status === 'queued' || status === 'running';
+    if (quality && isActive(project.separation_job?.status)) {
+      add({
+        id: 'stems-cancel',
+        title: 'Cancel stem re-separation',
+        subtitle: project.separation_job?.detail,
+        group: 'Mix',
+        icon: <X />,
+        keywords: ['stop', 'separation', 'stems'],
+        run: () => quality.cancelReseparation(),
+      });
+    } else if (quality && !isActive(project.sync_job?.status)) {
+      add({
+        id: 'stems-improve',
+        title: 'Improve stem separation…',
+        subtitle: `Now: ${stemsLabel(project.separation)}`,
+        group: 'Mix',
+        icon: <Sparkles />,
+        keywords: [
+          'separation',
+          'stems',
+          'vocals',
+          'instrumental',
+          'quality',
+          'roformer',
+          'demucs',
+        ],
+        run: quality.openReseparate,
+      });
+    }
 
     // Song
     add({

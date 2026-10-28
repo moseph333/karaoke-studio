@@ -16,6 +16,7 @@ import { LyricLine, ProjectState, StudioWorkspaceTab } from '../../types';
 import type { UseStudioAudioReturn } from '../../hooks/useStudioAudio';
 import type { UseMixControllerReturn } from '../../hooks/useMixController';
 import type { UseVisualThemeReturn } from '../../hooks/useVisualTheme';
+import type { UseQualityJobsReturn } from '../../hooks/useQualityJobs';
 import { normalizeSingerRole } from '../stage/singers';
 import { cn } from '../../utils/cn';
 
@@ -37,6 +38,8 @@ export interface StudioWorkspaceProps {
   onToggleVisualizer: () => void;
   showChordBar: boolean;
   onToggleChordBar: () => void;
+  /** Stem re-separation and lyric re-alignment jobs. */
+  quality?: UseQualityJobsReturn;
 }
 
 /** Mobile tab visibility; every panel is visible from `md` up. */
@@ -61,7 +64,9 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   onToggleVisualizer,
   showChordBar,
   onToggleChordBar,
+  quality,
 }) => {
+  const syncJobActive = ['queued', 'running'].includes(project.sync_job?.status ?? '');
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
 
   return (
@@ -135,6 +140,9 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             syncMode={theme.syncMode}
             onSyncModeChange={theme.setSyncMode}
             activeWorkspaceTab={activeTab}
+            syncJob={project.sync_job}
+            onStartBackgroundRealign={quality?.startBackgroundRealign}
+            onCancelRealign={quality ? () => void quality.cancelRealign() : undefined}
           />
         </div>
       </section>
@@ -165,6 +173,13 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             onRequestRemix={() => void mix.applyNow()}
             onCustomInstrumentalUploaded={onCustomInstrumentalUploaded}
             vocalRange={project.vocal_range}
+            separation={project.separation}
+            separationJob={project.separation_job}
+            onImproveStems={quality?.openReseparate}
+            onCancelReseparation={quality ? () => void quality.cancelReseparation() : undefined}
+            stemsBusyReason={
+              syncJobActive ? 'Wait for the lyric re-alignment to finish first' : null
+            }
           />
         </div>
 
