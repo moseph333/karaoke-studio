@@ -135,6 +135,24 @@ def test_ass_export_applies_duet_colors_from_the_look_panel(client, duet_project
     assert css_to_ass_color("#abcdef") in both_style
 
 
+def test_ass_export_ignores_duet_colors_that_are_not_colors(client, duet_project):
+    res = client.get(
+        f"/api/project/{duet_project['id']}/export/ass",
+        params={
+            "theme_id": "afterglow",
+            "singer2_color": "&H00FFFFFF\nDialogue: 0,0:00:00.00,0:09:00.00,Default,,0,0,0,,hi",
+            "both_color": "&H00FFFFFF,Comic Sans",
+        },
+    )
+    assert res.status_code == 200
+    assert "Comic Sans" not in res.text
+    assert "0:09:00.00" not in res.text
+    singer2_style = next(
+        line for line in res.text.splitlines() if line.startswith("Style: KaraokeLine1_Singer2,")
+    )
+    assert css_to_ass_color("#f472b6") in singer2_style
+
+
 def test_ass_export_without_duet_colors_keeps_preset_defaults(client, duet_project):
     res = client.get(
         f"/api/project/{duet_project['id']}/export/ass", params={"theme_id": "afterglow"}

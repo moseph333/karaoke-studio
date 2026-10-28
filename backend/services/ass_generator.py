@@ -1,6 +1,7 @@
 """Advanced SubStation Alpha (.ass) subtitle file generator supporting progressive karaoke sweep tags (\\kf), responsive 16:9/9:16 layouts, and visual theme styling."""
 
 import math
+import re
 from pathlib import Path
 from typing import Any
 
@@ -104,17 +105,21 @@ DEFAULT_THEME_ID = "modern_gold"
 DEFAULT_SINGER2_COLOR = "&H00B300FF"  # #ff00b3
 DEFAULT_BOTH_COLOR = "&H0050FA7B"  # #7bfa50
 
+_ASS_COLOR_DIGITS = re.compile(r"[0-9A-F]{6}(?:[0-9A-F]{2})?")
+
 
 def css_to_ass_color(color: str, default: str = "&H0000D7FF") -> str:
     """Converts CSS hex color (#RRGGBB or RRGGBB) to ASS color format (&H00BBGGRR).
 
-    If already in &H format, returns as-is.
+    An ASS color (&HBBGGRR or &HAABBGGRR) comes back upper-cased. Anything else gives
+    ``default``, so request text never reaches the subtitle file.
     """
     if not color:
         return default
     c = str(color).strip()
-    if c.startswith("&H") or c.startswith("&h"):
-        return c.upper()
+    if c[:2].upper() == "&H":
+        digits = c[2:].removesuffix("&").upper()
+        return f"&H{digits}" if _ASS_COLOR_DIGITS.fullmatch(digits) else default
     if c.startswith("#"):
         c = c[1:]
     if len(c) == 3:
@@ -344,17 +349,22 @@ def generate_ass_content(
         cfg["secondary_color"] = css_to_ass_color(cfg["secondary_color"], default="&H00FFFFFF")
 
     # Resolve Singer 2 and Both sung colors: explicit arg > style_config > preset > defaults
+    # (a value that is not a color counts as not given)
     preset = VISUAL_THEMES.get(eff_theme_id or "", {}) if eff_theme_id else {}
     s2_raw = (
         singer2_color or (style_config or {}).get("singer2_color") or preset.get("singer2_color")
     )
     singer2_color_val = (
-        css_to_ass_color(s2_raw, default=DEFAULT_SINGER2_COLOR) if s2_raw else DEFAULT_SINGER2_COLOR
+        css_to_ass_color(s2_raw, default=preset.get("singer2_color", DEFAULT_SINGER2_COLOR))
+        if s2_raw
+        else DEFAULT_SINGER2_COLOR
     )
 
     both_raw = both_color or (style_config or {}).get("both_color") or preset.get("both_color")
     both_color_val = (
-        css_to_ass_color(both_raw, default=DEFAULT_BOTH_COLOR) if both_raw else DEFAULT_BOTH_COLOR
+        css_to_ass_color(both_raw, default=preset.get("both_color", DEFAULT_BOTH_COLOR))
+        if both_raw
+        else DEFAULT_BOTH_COLOR
     )
 
     font_name = cfg.get("font_name", "DejaVu Sans")
