@@ -304,10 +304,9 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
 
       render(<ToggleHarness />);
 
-      const toggleBtn = screen.getByTestId('sync-mode-toggle');
       for (let i = 0; i < 50; i++) {
-        await user.click(toggleBtn);
         const expected = i % 2 === 0 ? 'line' : 'word';
+        await user.click(screen.getByTestId(`sync-mode-${expected}`));
         expect(screen.getByTestId('current-mode')).toHaveTextContent(expected);
       }
 
@@ -517,7 +516,7 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
   // Section 6: Fullscreen TV Stage Parity & Keyboard Shortcuts
   // =========================================================================
   describe('Fullscreen TV Stage Parity & Keyboard Navigation', () => {
-    it('ADV-6.1: TV Stage floating controls toggle sync mode and update data-sync-mode attribute', () => {
+    it('ADV-6.1: Stage toolbar switches sync mode in TV stage and updates data-sync-mode attribute', () => {
       const onSyncModeChange = vi.fn();
       render(
         <LyricDisplay
@@ -534,10 +533,11 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
       expect(stage).toHaveAttribute('data-fullscreen', 'true');
       expect(stage).toHaveAttribute('data-sync-mode', 'word');
 
-      // Click TV stage floating toggle button
-      const stageToggle = screen.getByTestId('stage-sync-mode-toggle');
-      expect(stageToggle).toHaveTextContent('WORD');
-      fireEvent.click(stageToggle);
+      // The toolbar highlight selector stays usable in TV stage mode
+      const wordBtn = screen.getByTestId('sync-mode-word');
+      expect(wordBtn).toHaveTextContent('Word');
+      expect(wordBtn).toHaveAttribute('aria-pressed', 'true');
+      fireEvent.click(screen.getByTestId('sync-mode-line'));
       expect(onSyncModeChange).toHaveBeenCalledWith('line');
     });
 
@@ -574,11 +574,28 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
   // =========================================================================
   // Section 7: VisualThemePicker & Hook State
   // =========================================================================
-  describe('VisualThemePicker & useVisualTheme Hook Stress', () => {
-    it('ADV-7.1: Both onChangeSyncMode and onSyncModeChange are called for backward compatibility', () => {
-      const onSyncModeChange = vi.fn();
-      const onChangeSyncMode = vi.fn();
+  describe('Stage Toolbar & useVisualTheme Hook Stress', () => {
+    it('ADV-7.1: Highlight selector falls back to onToggleSyncMode, then to internal state', () => {
+      const onToggleSyncMode = vi.fn();
+      const { unmount } = render(
+        <LyricDisplay
+          lines={standardTestLines}
+          currentTime={11.0}
+          syncMode="word"
+          onToggleSyncMode={onToggleSyncMode}
+        />
+      );
+      fireEvent.click(screen.getByTestId('sync-mode-line'));
+      expect(onToggleSyncMode).toHaveBeenCalledTimes(1);
+      unmount();
 
+      // Uncontrolled stages keep their own mode
+      render(<LyricDisplay lines={standardTestLines} currentTime={11.0} />);
+      const stage = screen.getByTestId('lyric-display-stage');
+      expect(stage).toHaveAttribute('data-sync-mode', 'word');
+    });
+
+    it('ADV-7.1b: The Look panel no longer renders its own highlight selector', () => {
       render(
         <VisualThemePicker
           selectedTheme={THEMES[0]}
@@ -586,17 +603,9 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
           onCustomBgUploaded={vi.fn()}
-          syncMode="word"
-          onSyncModeChange={onSyncModeChange}
-          onChangeSyncMode={onChangeSyncMode}
         />
       );
-
-      const lineBtn = screen.getByTestId('sync-mode-line');
-      fireEvent.click(lineBtn);
-
-      expect(onSyncModeChange).toHaveBeenCalledWith('line');
-      expect(onChangeSyncMode).toHaveBeenCalledWith('line');
+      expect(screen.queryByTestId('sync-mode-selector')).not.toBeInTheDocument();
     });
 
     it('ADV-7.2: document.documentElement receives data-sync-mode attribute matching hook state', () => {

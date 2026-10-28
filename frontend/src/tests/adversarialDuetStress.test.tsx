@@ -560,7 +560,7 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
       expect(btn.className).toContain('min-w-[44px]');
     });
 
-    it('verifies touch target >= 44px on stage-play-pause-btn and stage-exit-btn in Stage Mode', () => {
+    it('verifies touch target >= 44px on stage-play-pause-btn and the exit-fullscreen toggle in Stage Mode', () => {
       render(
         <LyricDisplay
           lines={sampleLines}
@@ -579,7 +579,9 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
       expect(playPauseBtn.className).toContain('min-h-[44px]');
       expect(playPauseBtn.className).toContain('min-w-[44px]');
 
-      const exitBtn = screen.getByTestId('stage-exit-btn');
+      // The toolbar fullscreen toggle doubles as the exit control while fullscreen
+      const exitBtn = screen.getByTestId('stage-fullscreen-toggle');
+      expect(exitBtn).toHaveAccessibleName(/exit fullscreen stage/i);
       expect(exitBtn.className).toContain('min-h-[44px]');
       expect(exitBtn.className).toContain('min-w-[44px]');
     });

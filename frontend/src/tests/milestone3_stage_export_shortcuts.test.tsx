@@ -176,7 +176,7 @@ describe('Milestone 3 — UX-5: TV Stage Mode Controls, Theme Integration & Pitc
       // Should include theme token classes
       expect(stage.className).toContain('bg-theme-bg');
       expect(stage.className).toContain('text-theme-text');
-      expect(stage.className).toContain('font-theme-body');
+      // Stage copy uses the theme heading face (lyrics may override with the preset font)
       expect(stage.className).toContain('font-theme-heading');
       // Should apply custom background style
       expect(stage.style.backgroundColor).toBe('rgb(18, 18, 18)');
@@ -192,8 +192,11 @@ describe('Milestone 3 — UX-5: TV Stage Mode Controls, Theme Integration & Pitc
       expect(cue).toHaveTextContent('2');
       expect(cue).toHaveAttribute('aria-label', expect.stringContaining('Starting in 2 seconds'));
 
-      // Check bullet dot indicator elements are present inside cue
-      expect(cue.textContent).toContain('●');
+      // A decorative draining ring accompanies the count
+      const ring = cue.querySelector('svg');
+      expect(ring).toHaveAttribute('aria-hidden', 'true');
+      expect(ring?.querySelectorAll('circle')).toHaveLength(2);
+      expect(cue).toHaveTextContent(/get ready/i);
     });
   });
 

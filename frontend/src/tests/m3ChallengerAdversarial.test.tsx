@@ -236,13 +236,14 @@ describe('M3 Challenger 2: Adversarial Stress Suite', () => {
       expect(headerBtn.className).toContain('min-h-[44px]');
       expect(headerBtn.className).toContain('min-w-[44px]');
 
-      // In Stage Mode (fullscreen)
+      // In Stage Mode (fullscreen) the same toolbar toggle stays available
       fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
-      const floatingControls = screen.getByTestId('stage-floating-controls');
-      const stageBtn = floatingControls.querySelector(
-        '[data-testid="toggle-visualizer-btn"]'
-      ) as HTMLElement;
+      expect(screen.getByTestId('stage-floating-controls')).toBeInTheDocument();
+      const stageBtn = screen
+        .getByTestId('stage-toolbar')
+        .querySelector('[data-testid="toggle-visualizer-btn"]') as HTMLElement;
       expect(stageBtn).toBeInTheDocument();
+      expect(screen.getAllByTestId('toggle-visualizer-btn')).toHaveLength(1);
       expect(stageBtn.className).toContain('min-h-[44px]');
       expect(stageBtn.className).toContain('min-w-[44px]');
 

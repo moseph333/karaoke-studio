@@ -13,7 +13,9 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   BREAKPOINTS,
+  expectTouchTarget,
 } from './responsiveTestUtils';
+import { DEFAULT_SINGER2_COLOR } from '../theme/stagePresets';
 
 describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () => {
   const sampleLines: LyricLine[] = [
@@ -426,20 +428,20 @@ describe('LyricDisplay Fullscreen TV Stage Multi-Singer Integration (Requirement
     const badge = screen.getByTestId('active-singer-badge');
     expect(badge).toBeInTheDocument();
     expect(badge.className).toContain('scale-110');
-    expect(badge).toHaveTextContent('🎤 Singer 1 / Lead');
+    expect(badge).toHaveTextContent('Singer 1 / Lead');
+    // Singer icon is decorative; the label carries the meaning
+    expect(badge.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
 
-    // Upcoming cue
+    // Upcoming cue uses the duet default for Singer 2
     const nextTag = screen.getByTestId('next-singer-tag');
     expect(nextTag).toHaveTextContent('[Singer 2]');
-    expect(nextTag).toHaveStyle({ color: '#ec4899' });
+    expect(nextTag).toHaveStyle({ color: DEFAULT_SINGER2_COLOR });
 
-    // Floating controls meet >=44px touch targets
-    const playBtn = screen.getByTestId('stage-play-pause-btn');
-    const exitBtn = screen.getByTestId('stage-exit-btn');
-    expect(playBtn.className).toContain('min-h-[44px]');
-    expect(playBtn.className).toContain('min-w-[44px]');
-    expect(exitBtn.className).toContain('min-h-[44px]');
-    expect(exitBtn.className).toContain('min-w-[44px]');
+    // Fullscreen play and exit controls meet >=44px touch targets
+    expectTouchTarget(screen.getByTestId('stage-play-pause-btn'));
+    const exitBtn = screen.getByTestId('stage-fullscreen-toggle');
+    expect(exitBtn).toHaveAccessibleName(/exit fullscreen stage/i);
+    expectTouchTarget(exitBtn);
   });
 
   it('renders Singer 2 Partner color and countdown in Fullscreen TV Stage Mode', () => {
@@ -450,10 +452,10 @@ describe('LyricDisplay Fullscreen TV Stage Multi-Singer Integration (Requirement
 
     const badge = screen.getByTestId('active-singer-badge');
     expect(badge).toHaveAttribute('data-singer', 'singer2');
-    expect(badge).toHaveTextContent('🎤 Singer 2 / Partner');
+    expect(badge).toHaveTextContent('Singer 2 / Partner');
 
     const sungWord = screen.getByTestId('word-sung-0');
-    expect(sungWord).toHaveStyle({ color: '#ec4899' });
+    expect(sungWord).toHaveStyle({ color: DEFAULT_SINGER2_COLOR });
   });
 
   it('has zero horizontal overflow in Stage Mode across all breakpoints down to 320px', () => {

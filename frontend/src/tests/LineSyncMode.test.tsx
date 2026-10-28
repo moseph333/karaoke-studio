@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act, renderHook } from '@testing-library/react';
+import { render, screen, fireEvent, act, renderHook, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { VisualThemePicker, THEMES } from '../components/VisualThemePicker';
@@ -96,7 +96,7 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
       });
     });
 
-    it('T1.3: User toggle controls - Renders sync mode toggle in preview header and triggers onSyncModeChange', async () => {
+    it('T1.3: User toggle controls - Stage toolbar highlight selector triggers onSyncModeChange', async () => {
       const user = userEvent.setup();
       const onSyncModeChange = vi.fn();
       render(
@@ -108,11 +108,18 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
         />
       );
 
-      const toggleBtn = screen.getByTestId('sync-mode-toggle');
-      expect(toggleBtn).toBeInTheDocument();
-      expect(toggleBtn).toHaveAttribute('aria-label', expect.stringContaining('Line-by-Line'));
+      const selector = screen.getByTestId('sync-mode-selector');
+      expect(selector).toHaveAttribute('role', 'group');
+      const wordBtn = within(selector).getByRole('button', { name: 'Word sweep highlight' });
+      const lineBtn = within(selector).getByRole('button', { name: 'Line highlight' });
+      expect(wordBtn).toHaveAttribute('aria-pressed', 'true');
+      expect(lineBtn).toHaveAttribute('aria-pressed', 'false');
 
-      await user.click(toggleBtn);
+      // Re-selecting the active mode is a no-op
+      await user.click(wordBtn);
+      expect(onSyncModeChange).not.toHaveBeenCalled();
+
+      await user.click(lineBtn);
       expect(onSyncModeChange).toHaveBeenCalledWith('line');
     });
 
@@ -143,8 +150,9 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
         expect(wordSpan.style.clipPath).toBe('inset(0 0.00% 0 0)');
       });
 
-      // Floating controls include sync mode toggle in stage mode
-      expect(screen.getByTestId('stage-sync-mode-toggle')).toBeInTheDocument();
+      // The stage toolbar (with its highlight selector) stays available in stage mode
+      expect(screen.getAllByTestId('sync-mode-selector')).toHaveLength(1);
+      expect(screen.getByTestId('sync-mode-line')).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('T1.6: Non-destructive mode toggling - Toggling between "word" and "line" leaves word timestamps untouched', () => {
@@ -317,7 +325,7 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
 
       const badge = screen.getByTestId('active-singer-badge');
       expect(badge).toHaveAttribute('data-singer', 'singer1');
-      expect(badge).toHaveTextContent('🎤 Singer 1 / Lead');
+      expect(badge).toHaveTextContent('Singer 1 / Lead');
 
       const sungSpan = screen.getByTestId('word-sung-0');
       expect(sungSpan).toHaveStyle({ color: '#fbbf24' });
@@ -336,7 +344,7 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
 
       const badge = screen.getByTestId('active-singer-badge');
       expect(badge).toHaveAttribute('data-singer', 'singer2');
-      expect(badge).toHaveTextContent('🎤 Singer 2 / Partner');
+      expect(badge).toHaveTextContent('Singer 2 / Partner');
 
       const sungSpan = screen.getByTestId('word-sung-0');
       expect(sungSpan).toHaveStyle({ color: '#ec4899' });
@@ -355,20 +363,21 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
 
       const badge = screen.getByTestId('active-singer-badge');
       expect(badge).toHaveAttribute('data-singer', 'both');
-      expect(badge).toHaveTextContent('👥 Both / Duet');
+      expect(badge).toHaveTextContent('Both / Duet');
 
       const sungSpan = screen.getByTestId('word-sung-0');
       expect(sungSpan).toHaveStyle({ color: '#10b981' });
       expect(parseFloat(sungSpan.style.width)).toBe(100);
     });
 
-    it('T3.4: Upcoming line rendered below active line in text-slate-400/80 at 75% font size', () => {
+    it('T3.4: Upcoming line rendered below active line in a muted tone at 75% font size', () => {
       render(<LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="line" />);
 
       const upcomingLine = screen.getByTestId('upcoming-lyrics-line');
       expect(upcomingLine).toBeInTheDocument();
       expect(upcomingLine).toHaveTextContent('Second duet partner chorus');
-      expect(upcomingLine.className).toContain('text-slate-400/80');
+      expect(upcomingLine.className).toContain('text-white/55');
+      expect(upcomingLine).toHaveStyle({ fontSize: '0.75em' });
     });
 
     it('T3.5: Instrumental gap countdown (>= 4.0s) displays countdown progress bar and matching singer color in line mode', () => {
@@ -444,30 +453,34 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
       expect(result.current.syncMode).toBe('word');
     });
 
-    it('T4.2: VisualThemePicker renders sync mode toggle buttons with proper ARIA attributes', () => {
-      const onChangeSyncMode = vi.fn();
+    it('T4.2: Highlight mode lives only in the stage toolbar, not in the Look panel', () => {
+      const onSyncModeChange = vi.fn();
       render(
-        <VisualThemePicker
-          selectedTheme={THEMES[0]}
-          onSelectTheme={vi.fn()}
-          aspectRatio="16:9"
-          onChangeAspectRatio={vi.fn()}
-          onCustomBgUploaded={vi.fn()}
-          syncMode="word"
-          onChangeSyncMode={onChangeSyncMode}
-        />
+        <div>
+          <VisualThemePicker
+            selectedTheme={THEMES[0]}
+            onSelectTheme={vi.fn()}
+            aspectRatio="16:9"
+            onChangeAspectRatio={vi.fn()}
+            onCustomBgUploaded={vi.fn()}
+          />
+          <LyricDisplay
+            lines={sampleLines}
+            currentTime={4.5}
+            syncMode="word"
+            onSyncModeChange={onSyncModeChange}
+          />
+        </div>
       );
 
+      expect(screen.getAllByTestId('sync-mode-word')).toHaveLength(1);
       const wordBtn = screen.getByTestId('sync-mode-word');
       const lineBtn = screen.getByTestId('sync-mode-line');
-
-      expect(wordBtn).toBeInTheDocument();
-      expect(lineBtn).toBeInTheDocument();
       expect(wordBtn).toHaveAttribute('aria-pressed', 'true');
       expect(lineBtn).toHaveAttribute('aria-pressed', 'false');
 
       fireEvent.click(lineBtn);
-      expect(onChangeSyncMode).toHaveBeenCalledWith('line');
+      expect(onSyncModeChange).toHaveBeenCalledWith('line');
     });
 
     it('T4.3: Fullscreen TV Stage navigation - Keyboard F enters stage, floating control toggles sync mode, Esc exits stage', () => {
@@ -489,9 +502,8 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
       fireEvent.keyDown(window, { key: 'f' });
       expect(stage).toHaveAttribute('data-fullscreen', 'true');
 
-      // Click floating sync mode toggle in stage mode
-      const stageSyncBtn = screen.getByTestId('stage-sync-mode-toggle');
-      fireEvent.click(stageSyncBtn);
+      // Switch the highlight mode from the stage toolbar while in stage mode
+      fireEvent.click(screen.getByTestId('sync-mode-line'));
       expect(onSyncModeChange).toHaveBeenCalledWith('line');
 
       // Press 'Escape' to exit stage mode
