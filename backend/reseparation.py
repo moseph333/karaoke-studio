@@ -229,6 +229,9 @@ def _swap_in(project_id: str, job_id: str, result: dict, target_dir: Path, audio
     vocals, instrumental = target_dir / "vocals.wav", target_dir / "instrumental.wav"
     os.replace(result["vocals_path"], vocals)
     os.replace(result["instrumental_path"], instrumental)
+    # Dated now, not when the engine wrote them, so mixes made from the old stems are stale
+    os.utime(vocals)
+    os.utime(instrumental)
 
     version = int(time.time() * 1000)
     with PROJECTS_LOCK:
