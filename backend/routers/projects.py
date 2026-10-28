@@ -793,22 +793,43 @@ def realign_lyrics(
 
 # Smallest plausible WAV render: anything at or below a bare RIFF header is a broken file
 _MIN_MIX_BYTES = 44
+# Bump when the mixer's sound changes, so that renders made by the older mixer are made again
+MIX_CACHE_VERSION = "2"
+MIX_CACHE_MARKER = ".mix-cache-version"
+
+
+def mix_cache_epoch(output_dir) -> float:
+    """When this mixer version started rendering into ``output_dir``: the modification time
+    of a marker file holding MIX_CACHE_VERSION, written on first use. Older renders (from
+    Karaoke Studio 1.x, say) are not reused."""
+    marker = Path(output_dir) / MIX_CACHE_MARKER
+    try:
+        if marker.read_text(encoding="utf-8").strip() == MIX_CACHE_VERSION:
+            return marker.stat().st_mtime
+    except OSError:
+        pass
+    try:
+        marker.write_text(MIX_CACHE_VERSION, encoding="utf-8")
+        return marker.stat().st_mtime
+    except OSError:
+        return float("inf")  # nowhere to note the version: render every time
 
 
 def reusable_mix_path(output_dir, output_filename: str, sources: list) -> str | None:
     """
     Return a previously rendered mix when it can be served again: it exists, is more
-    than a bare WAV header, and is newer than every source stem (a replaced instrumental
-    or re-separated stems invalidate it).
+    than a bare WAV header, was made by this mixer version, and is newer than every source
+    stem (a replaced instrumental or re-separated stems invalidate it).
     """
     if not isinstance(output_dir, (str, os.PathLike)):
         return None
+    epoch = mix_cache_epoch(output_dir)
     candidate = Path(output_dir) / output_filename
     try:
         stat = candidate.stat()
     except OSError:
         return None
-    if stat.st_size <= _MIN_MIX_BYTES:
+    if stat.st_size <= _MIN_MIX_BYTES or stat.st_mtime < epoch:
         return None
     for source in sources:
         try:

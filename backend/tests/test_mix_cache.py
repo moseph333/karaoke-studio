@@ -1,5 +1,6 @@
-"""Mix render reuse: POST /api/project/{id}/mix serves an existing render when it is still
-newer than its source stems, and always returns a cache-busting versioned master URL."""
+"""Mix render reuse: POST /api/project/{id}/mix serves an existing render when this mixer
+version made it and it is still newer than its source stems, and always returns a
+cache-busting versioned master URL."""
 
 import os
 import time
@@ -12,7 +13,13 @@ import soundfile as sf
 
 import backend.main as main_mod
 from backend.main import projects
-from backend.routers.projects import mix_version, reusable_mix_path
+from backend.routers.projects import (
+    MIX_CACHE_MARKER,
+    MIX_CACHE_VERSION,
+    mix_cache_epoch,
+    mix_version,
+    reusable_mix_path,
+)
 
 
 def _write_wav(path: Path, seconds: float = 0.5, freq: float = 440.0) -> Path:
@@ -26,6 +33,13 @@ def _write_wav(path: Path, seconds: float = 0.5, freq: float = 440.0) -> Path:
 def _age(path: Path, seconds_ago: float) -> None:
     stamp = time.time() - seconds_ago
     os.utime(path, (stamp, stamp))
+
+
+@pytest.fixture(autouse=True)
+def mixer_in_use_for_an_hour():
+    """This mixer version started rendering into the output folder an hour ago."""
+    mix_cache_epoch(main_mod.OUTPUT_DIR)
+    _age(main_mod.OUTPUT_DIR / MIX_CACHE_MARKER, 3600)
 
 
 @pytest.fixture
@@ -132,6 +146,18 @@ def test_truncated_cached_file_is_rendered_again(client, mix_project, mixer_call
     assert len(mixer_calls) == 1
 
 
+def test_renders_from_an_older_mixer_are_made_again(client, mix_project, mixer_calls):
+    for stem in ("instrumental_path", "vocals_path"):
+        _age(Path(mix_project[stem]), 3 * 3600)
+    # Rendered from these stems by Karaoke Studio 1.x, before this mixer version first ran
+    old = _write_wav(main_mod.OUTPUT_DIR / f"{mix_project['id']}_mix_0_0.wav")
+    _age(old, 2 * 3600)
+
+    _mix(client, mix_project["id"], 0, 0.0)
+    _mix(client, mix_project["id"], 0, 0.0)
+    assert len(mixer_calls) == 1
+
+
 def test_rerender_under_the_same_name_changes_the_url_version(client, mix_project, mixer_calls):
     out = main_mod.OUTPUT_DIR / f"{mix_project['id']}_mix_0_0.wav"
     first = _mix(client, mix_project["id"], 0, 0.0)
@@ -151,10 +177,27 @@ class TestReusableMixPath:
         assert reusable_mix_path(MagicMock(), "x.wav", []) is None
 
     def test_missing_sources_do_not_block_reuse(self, tmp_path):
+        mix_cache_epoch(tmp_path)
         out = _write_wav(tmp_path / "mix.wav")
         assert reusable_mix_path(tmp_path, "mix.wav", [None, str(tmp_path / "gone.wav")]) == str(
             out
         )
+
+    def test_a_new_mixer_version_starts_over(self, tmp_path):
+        marker = tmp_path / MIX_CACHE_MARKER
+        marker.write_text("1", encoding="utf-8")
+        _age(marker, 3600)
+        _age(_write_wav(tmp_path / "mix.wav"), 600)  # made by mixer version 1
+
+        assert reusable_mix_path(tmp_path, "mix.wav", []) is None
+        assert marker.read_text(encoding="utf-8") == MIX_CACHE_VERSION
+        assert mix_cache_epoch(tmp_path) == marker.stat().st_mtime
+
+    def test_an_unwritable_output_folder_never_reuses(self, tmp_path):
+        _write_wav(tmp_path / "mix.wav")
+        (tmp_path / MIX_CACHE_MARKER).mkdir()  # cannot be read or written as a file
+        assert mix_cache_epoch(tmp_path) == float("inf")
+        assert reusable_mix_path(tmp_path, "mix.wav", []) is None
 
     def test_mix_version_falls_back_to_now_for_missing_files(self, tmp_path):
         before = int(time.time() * 1000)
