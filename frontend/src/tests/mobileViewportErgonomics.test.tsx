@@ -187,24 +187,29 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
         expect(screen.getByText(longProjectTitle)).toBeInTheDocument();
       });
 
+      // The title is the card's keyboard-reachable open button and truncates in place
       const cardTitle = screen.getByText(longProjectTitle);
+      expect(cardTitle.tagName).toBe('BUTTON');
       expect(cardTitle.className).toMatch(/truncate/);
+      expect(cardTitle.className).toMatch(/max-w-full/);
 
-      const textWrapper = cardTitle.parentElement;
-      expect(textWrapper?.className).toMatch(/truncate/);
-      expect(textWrapper?.className).toMatch(/flex-1/);
-      expect(textWrapper?.className).toMatch(/min-w-0/);
+      const heading = cardTitle.parentElement;
+      expect(heading?.tagName).toBe('H4');
+      expect(heading?.className).toMatch(/truncate/);
+      expect(heading?.parentElement?.className).toMatch(/min-w-0/);
 
-      // Verify thumbnail and play button have shrink-0
+      // Album art fills a fixed square so long text never stretches the card
       const card = cardTitle.closest('.group');
       expect(card).toBeInTheDocument();
       const thumbnail = card?.querySelector('img');
-      expect(thumbnail?.className).toMatch(/shrink-0/);
+      expect(thumbnail?.className).toMatch(/object-cover/);
+      expect(thumbnail?.parentElement?.className).toMatch(/aspect-square/);
 
-      const playButton = card?.querySelector('.shrink-0.p-2');
-      expect(playButton?.className).toMatch(/shrink-0/);
-      expect(playButton?.className).toMatch(/min-h-\[36px\]/);
-      expect(playButton?.className).toMatch(/min-w-\[36px\]/);
+      // Card actions keep 44px touch targets
+      expectTouchTarget(
+        screen.getByRole('button', { name: `Edit metadata for ${longProjectTitle}` })
+      );
+      expectTouchTarget(screen.getByRole('button', { name: `Delete project ${longProjectTitle}` }));
     });
 
     it('prevents horizontal blowout in Processing & Error views with break-words and responsive timers', async () => {
@@ -249,8 +254,8 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       expect(statusDetail?.textContent).toBe(unbrokenStatus);
       expect(statusDetail?.className).toMatch(/break-words/);
 
-      // Verify timers row has responsive wrap classes
-      const timersRow = statusContainer.querySelector('.flex.flex-col.sm\\:flex-row');
+      // Verify timers row has responsive wrap classes (outside the live region)
+      const timersRow = screen.getByText(/% Complete/i).closest('.justify-between');
       expect(timersRow).toBeInTheDocument();
       expect(timersRow?.className).toMatch(/flex-col/);
       expect(timersRow?.className).toMatch(/sm:flex-row/);
@@ -470,14 +475,12 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       const refreshBtn = screen.getByRole('button', { name: /Refresh/i });
       expect(refreshBtn.className).toMatch(/min-h-\[36px\]/);
 
-      // 5. Project card Play button meets >= 36px width & height
+      // 5. Project card actions meet >= 44px
       await waitFor(() => {
         expect(screen.getByText('Sample Track')).toBeInTheDocument();
       });
-      const card = screen.getByText('Sample Track').closest('.group');
-      const playIcon = card?.querySelector('.shrink-0.p-2');
-      expect(playIcon?.className).toMatch(/min-h-\[36px\]/);
-      expect(playIcon?.className).toMatch(/min-w-\[36px\]/);
+      expectTouchTarget(screen.getByRole('button', { name: 'Edit metadata for Sample Track' }));
+      expectTouchTarget(screen.getByRole('button', { name: 'Delete project Sample Track' }));
     });
   });
 });

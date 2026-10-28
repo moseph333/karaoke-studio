@@ -85,7 +85,7 @@ describe('TrackSearch', () => {
     const user = userEvent.setup();
     render(<TrackSearch {...defaultProps} />);
 
-    const lyricsToggle = screen.getByRole('button', { name: /Provide custom lyrics text/i });
+    const lyricsToggle = screen.getByRole('button', { name: /Advanced options/i });
     await user.click(lyricsToggle);
 
     expect(screen.getByPlaceholderText(/Paste line-by-line lyrics here/i)).toBeInTheDocument();
@@ -130,7 +130,7 @@ describe('TrackSearch', () => {
     await user.click(screen.getByRole('button', { name: /Local Audio File/i }));
 
     // Expand custom lyrics
-    await user.click(screen.getByRole('button', { name: /Provide custom lyrics text/i }));
+    await user.click(screen.getByRole('button', { name: /Advanced options/i }));
     fireEvent.change(screen.getByLabelText(/Custom plain lyrics text/i), {
       target: { value: '[00:01.00] First lyric' },
     });

@@ -507,8 +507,9 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       tabs.forEach((tab) => {
         expect(tab.className).toMatch(/min-h-\[36px\]/);
       });
-      const tabContainer = tabs[0].parentElement?.parentElement;
-      expect(tabContainer?.className).toMatch(/flex-wrap/);
+      const tabList = tabs[0].parentElement;
+      expect(tabList).toHaveAttribute('role', 'tablist');
+      expect(tabList?.className).toMatch(/flex-wrap/);
     });
   });
 
@@ -565,11 +566,12 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       const titleEl = screen.getByText('A'.repeat(120));
       expect(titleEl.className).toMatch(/truncate/);
+      expect(titleEl.className).toMatch(/max-w-full/);
 
-      const textWrapper = titleEl.parentElement;
-      expect(textWrapper?.className).toMatch(/min-w-0/);
-      expect(textWrapper?.className).toMatch(/flex-1/);
-      expect(textWrapper?.className).toMatch(/truncate/);
+      // Heading truncates inside a min-w-0 text block so the grid cell never grows
+      const heading = titleEl.parentElement;
+      expect(heading?.className).toMatch(/truncate/);
+      expect(heading?.parentElement?.className).toMatch(/min-w-0/);
     });
 
     it('verifies calculated minimum widths of navbar components do not exceed 320px viewport', () => {
@@ -696,11 +698,14 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const card = cardTitle.closest('.group');
       expect(card).toBeInTheDocument();
 
-      // Fallback music icon container has shrink-0 and responsive dimensions
-      const fallbackContainer = card?.querySelector('.bg-slate-800');
-      expect(fallbackContainer?.className).toMatch(/shrink-0/);
-      expect(fallbackContainer?.className).toMatch(/w-12/);
-      expect(fallbackContainer?.className).toMatch(/h-12/);
+      // Without album art the square artwork slot shows a decorative fallback, same geometry
+      expect(card?.querySelector('img')).toBeNull();
+      const artSlot = card?.querySelector('.aspect-square');
+      expect(artSlot).toBeInTheDocument();
+      const fallback = artSlot?.firstElementChild;
+      expect(fallback?.className).toMatch(/h-full/);
+      expect(fallback?.className).toMatch(/w-full/);
+      expect(fallback?.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
     });
   });
 });

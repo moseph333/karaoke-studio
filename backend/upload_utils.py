@@ -12,7 +12,7 @@ MAX_IMAGE_BACKGROUND_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 MAX_INSTRUMENTAL_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
 MAX_TRACK_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 ALLOWED_BACKGROUND_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".mp4", ".webm"}
-ALLOWED_AUDIO_EXTS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
+ALLOWED_AUDIO_EXTS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".opus", ".aac"}
 
 
 def sanitize_upload_filename(filename: str | None, default_stem: str = "upload") -> str:
@@ -56,7 +56,7 @@ def validate_audio_header(data: bytes, ext: str) -> bool:
         )
     elif ext == ".flac":
         return data.startswith(b"fLaC")
-    elif ext == ".ogg":
+    elif ext in (".ogg", ".opus"):
         return data.startswith(b"OggS")
     elif ext == ".m4a":
         return len(data) >= 8 and data[4:8] == b"ftyp"

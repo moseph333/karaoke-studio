@@ -53,6 +53,7 @@ export interface ProjectState {
   id: string;
   status:
     | 'queued'
+    | 'processing'
     | 'downloading'
     | 'separating'
     | 'fetching_lyrics'
