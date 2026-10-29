@@ -2,7 +2,8 @@
 the lyric alignment engine.
 
 Detection only inspects installed package metadata and files on disk; it never imports
-PyTorch, so the endpoint stays fast and safe to call on every page load.
+PyTorch, so the endpoint stays fast and safe to call on every page load. Presets that run on
+the cloud GPU (SEPARATION_REMOTE) say so in "runs_on" and report the GPU's speed.
 """
 
 from typing import Any
@@ -11,11 +12,13 @@ from backend.services.alignment_config import alignment_capabilities
 from backend.services.separation_presets import (
     CPU_REALTIME_FACTORS,
     PRESET_IDS,
+    REMOTE_REALTIME_FACTORS,
     configured_preset,
     downloads_allowed,
     fallback_chain,
     plan_status,
     preset_plan,
+    remote_backend,
     weights_cached,
 )
 
@@ -27,6 +30,7 @@ def separation_capabilities() -> dict[str, Any]:
         plan = preset_plan(preset)
         ready, reason = plan_status(plan)
         ready_by_id[preset] = ready
+        remote = plan.engine == "roformer" and remote_backend() is not None
         presets.append(
             {
                 "id": preset,
@@ -35,12 +39,16 @@ def separation_capabilities() -> dict[str, Any]:
                 "models": list(plan.models),
                 "available": ready,
                 "reason": reason,
-                # Demucs fetches its own weights through torch.hub; only RoFormer is tracked
+                # Demucs fetches its own weights through torch.hub, and the cloud GPU keeps its
+                # own; only local RoFormer weights are tracked
                 "weights_cached": weights_cached(plan.models)
-                if plan.engine == "roformer"
+                if plan.engine == "roformer" and not remote
                 else None,
-                "cpu_realtime_factor": CPU_REALTIME_FACTORS[preset],
-                "gpu_recommended": preset == "best",
+                "cpu_realtime_factor": REMOTE_REALTIME_FACTORS[preset]
+                if remote
+                else CPU_REALTIME_FACTORS[preset],
+                "gpu_recommended": preset == "best" and not remote,
+                "runs_on": "cloud-gpu" if remote else None,
             }
         )
 

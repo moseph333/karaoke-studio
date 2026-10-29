@@ -78,14 +78,20 @@ export function formatDurationEstimate(seconds: number): string {
   return `about ${hours < 10 ? hours.toFixed(1) : Math.round(hours)} h`;
 }
 
-/** How long a preset takes on CPU: for this song when its length is known. */
-export function separationEstimate(factor: number, durationSeconds?: number | null): string {
+/** How long a preset takes on CPU, or on the cloud GPU: for this song when its length is
+ * known. */
+export function separationEstimate(
+  factor: number,
+  durationSeconds?: number | null,
+  runsOn?: SeparationPresetInfo['runs_on']
+): string {
+  const where = runsOn === 'cloud-gpu' ? 'on a cloud GPU' : 'on CPU';
   if (durationSeconds && durationSeconds > 0) {
-    return `${formatDurationEstimate(factor * durationSeconds)} on CPU`;
+    return `${formatDurationEstimate(factor * durationSeconds)} ${where}`;
   }
   const times =
     factor < 1 ? `${Math.round(factor * 100) / 100}` : `${Math.round(factor * 10) / 10}`;
-  return `about ${times}× the song's length on CPU`;
+  return `about ${times}× the song's length ${where}`;
 }
 
 /** "Balanced · Mel-Band RoFormer" for the song's stems. Songs made before stem presets

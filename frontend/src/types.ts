@@ -94,9 +94,12 @@ export interface SeparationPresetInfo {
   available: boolean;
   reason?: string | null;
   weights_cached?: boolean | null;
-  /** Seconds of CPU time per second of audio, roughly. */
+  /** Seconds of processing per second of audio, roughly: on CPU, or on the cloud GPU when
+   * runs_on says so. */
   cpu_realtime_factor: number;
   gpu_recommended: boolean;
+  /** "cloud-gpu" when the server hands this preset to a cloud GPU (SEPARATION_REMOTE). */
+  runs_on?: 'cloud-gpu' | null;
 }
 
 export interface AlignmentCapabilities {

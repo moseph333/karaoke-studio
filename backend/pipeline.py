@@ -20,7 +20,7 @@ from backend.services.lyric_sync import sync_lyrics
 from backend.services.separation_presets import (
     PRESET_LABELS,
     configured_preset,
-    estimate_cpu_seconds,
+    estimate_seconds,
     normalize_preset,
 )
 
@@ -56,7 +56,7 @@ def separate_project_stems(
         "separating",
         35,
         f"Preparing {PRESET_LABELS[quality]} stem separation...",
-        max(15, estimate_cpu_seconds(quality, duration)),
+        max(15, estimate_seconds(quality, duration)),
     )
 
     def sep_cb(pct, detail, eta_s):

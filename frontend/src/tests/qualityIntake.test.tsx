@@ -180,6 +180,11 @@ describe('Quality labels and estimates', () => {
     expect(separationEstimate(1.6, 240)).toBe('about 6 min on CPU');
     expect(separationEstimate(0.35)).toBe("about 0.35× the song's length on CPU");
     expect(separationEstimate(6.4)).toBe("about 6.4× the song's length on CPU");
+    expect(separationEstimate(0.4, 240, 'cloud-gpu')).toBe('about 2 min on a cloud GPU');
+    expect(separationEstimate(0.2, null, 'cloud-gpu')).toBe(
+      "about 0.2× the song's length on a cloud GPU"
+    );
+    expect(separationEstimate(1.6, 240, null)).toBe('about 6 min on CPU');
     expect(stemsLabel(undefined)).toBe('Fast · Demucs');
     expect(stemsLabel({ preset: 'balanced' })).toBe('Balanced · Mel-Band RoFormer');
     expect(stemsLabel({ preset: 'best', label: 'Best · custom pair' })).toBe('Best · custom pair');

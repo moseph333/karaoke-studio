@@ -176,6 +176,8 @@ Availability is decided without importing PyTorch: package metadata (`find_spec`
 
 **Engine processes.** Both engines run as child processes with stdout discarded and stderr parsed line by line (`ProgressTracker`): tqdm bars, model download bars ("Downloading model weights… (N%)") and JSON events. `ProcessWatchdog` terminates (then kills after 10 s) a process that is cancelled, exceeds `SEPARATION_TIMEOUT_SEC`, or prints nothing for `SEPARATION_STALL_SEC`. Errors read "Demucs failed (exit N): …" or "RoFormer separation failed …" with a friendly hint (out of memory, disk full, weights missing) and the last lines of stderr.
 
+**Cloud GPU** (`remote_separation.py`, `gpu/modal_app.py`). With `SEPARATION_REMOTE=modal`, RoFormer plans are spawned on the deployed Modal function instead of a local process. It runs the same worker on the first free GPU (`A10G,L40S,L4,T4` by default, fastest first since billing is per second), keeps weights in the `karaoke-models` volume, and puts a start marker and then the worker's stderr on an ephemeral Modal queue, which feeds the same `ProgressTracker`; the stems come back as the call's result. Availability then means the `modal` client and credentials are present (checked offline). Cancel, `SEPARATION_TIMEOUT_SEC` and `SEPARATION_STALL_SEC` cancel the remote call. If the service is unreachable, or no GPU starts the job within `SEPARATION_REMOTE_QUEUE_SEC`, the job raises `RemoteUnavailable`, the other cloud presets are skipped and Fast runs locally. Time estimates use `REMOTE_REALTIME_FACTORS` plus a fixed 30 s for queueing, start-up and transfers, and capabilities report `runs_on: "cloud-gpu"`.
+
 **RoFormer worker protocol** (`python -u -m backend.workers.roformer_worker`):
 
 ```

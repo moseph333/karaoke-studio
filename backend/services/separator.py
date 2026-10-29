@@ -6,6 +6,10 @@ process whose stderr is parsed for progress, while a watchdog thread stops it on
 the overall timeout or after a long silence. When a preset cannot run, or fails, the next
 cheaper one is tried (best -> balanced -> fast) and the reason is recorded in the returned
 provenance.
+
+With SEPARATION_REMOTE set, Balanced and Best run the same worker on a cloud GPU instead
+(remote_separation) and its stderr arrives through a queue. If the GPU service is
+unreachable or no GPU is free in time, the other cloud presets are skipped and Fast runs here.
 """
 
 import logging
@@ -18,21 +22,25 @@ from pathlib import Path
 from typing import Any
 
 from backend.config import STEMS_DIR
+from backend.services import remote_separation
 from backend.services.process_watchdog import (
     ProcessWatchdog,
     duration_text,
     quietly,
     worker_env,
 )
+from backend.services.remote_separation import RemoteUnavailable
 from backend.services.separation_presets import (
     SeparationPlan,
     demucs_supports_quality_flags,
     downloads_allowed,
-    estimate_cpu_seconds,
+    estimate_seconds,
     fallback_chain,
     model_dir,
     model_label,
     plan_status,
+    remote_backend,
+    remote_queue_seconds,
     resolve_plan,
     separation_stall_seconds,
     separation_timeout_seconds,
@@ -201,11 +209,17 @@ class AudioSeparator:
         reasons: list[str] = []
         started = time.monotonic()
         report = _ProgressReporter(progress_callback)
+        remote_down = False
 
         for plan in chain:
             if cancel_event is not None and cancel_event.is_set():
                 raise SeparationCancelled("Stem separation cancelled by user")
             is_last = plan is chain[-1]
+            if remote_down and plan.engine == "roformer" and remote_backend():
+                reasons.append(_short_reason(plan, "skipped, the cloud GPU is unavailable"))
+                if is_last:
+                    raise RuntimeError(f"No separation engine can run: {'; '.join(reasons)}")
+                continue
             ready, why = plan_status(plan)
             if not ready:
                 logger.info(f"Skipping {plan.label} for {track_id}: {why}")
@@ -215,7 +229,7 @@ class AudioSeparator:
                 continue
 
             self._purge_work_dirs(target_dir)
-            eta = estimate_cpu_seconds(plan.preset, duration) if duration else None
+            eta = estimate_seconds(plan.preset, duration) if duration else None
             if reasons:
                 report(5.0, f"Using {plan.label} instead", eta)
             elif plan.engine == "demucs":
@@ -232,6 +246,14 @@ class AudioSeparator:
             except SeparationCancelled:
                 self._purge_work_dirs(target_dir)
                 raise
+            except RemoteUnavailable as exc:
+                self._purge_work_dirs(target_dir)
+                if (cancel_event is not None and cancel_event.is_set()) or is_last:
+                    raise
+                logger.warning(f"{plan.label} could not run on the cloud GPU for {track_id}: {exc}")
+                reasons.append(_short_reason(plan, str(exc)))
+                remote_down = True
+                continue
             except (RuntimeError, OSError) as exc:
                 self._purge_work_dirs(target_dir)
                 if (cancel_event is not None and cancel_event.is_set()) or is_last:
@@ -330,6 +352,9 @@ class AudioSeparator:
         report: _ProgressReporter,
         cancel_event: Any | None,
     ) -> None:
+        if plan.engine == "roformer" and remote_backend():
+            self._run_remote_plan(plan, audio_file, target_dir, report, cancel_event)
+            return
         if plan.engine == "demucs":
             tracker = ProgressTracker(engine_label="Demucs AI", count_unit="seconds")
             extra: dict[str, Any] = {}
@@ -398,6 +423,46 @@ class AudioSeparator:
             raise RuntimeError(message)
         if process.returncode != 0:
             message = _failure_message(plan, process.returncode, tracker)
+            logger.error(message)
+            raise RuntimeError(message)
+
+    def _run_remote_plan(
+        self,
+        plan: SeparationPlan,
+        audio_file: Path,
+        target_dir: Path,
+        report: _ProgressReporter,
+        cancel_event: Any | None,
+    ) -> None:
+        """A RoFormer plan on the cloud GPU: the worker's own stderr, read through a queue."""
+        label = model_label(plan.models[0]) if len(plan.models) == 1 else "RoFormer"
+        tracker = ProgressTracker(plan.passes, engine_label=label, count_unit="chunks")
+        report(5.0, f"Waiting for a cloud GPU for {plan.label}…", None)
+
+        def on_line(line: str) -> None:
+            update = tracker.feed(line)
+            if update is not None:
+                report(*update)
+
+        outcome = remote_separation.run_remote(
+            plan,
+            audio_file,
+            target_dir / ROFORMER_WORK_DIR,
+            on_line,
+            cancel_event,
+            timeout_s=separation_timeout_seconds(),
+            stall_s=separation_stall_seconds(),
+            queue_s=remote_queue_seconds(),
+            on_started=lambda: report(5.0, f"{plan.label} is running on a cloud GPU…", None),
+        )
+        if (cancel_event is not None and cancel_event.is_set()) or outcome.reason == "cancelled":
+            raise SeparationCancelled("RoFormer separation cancelled by user")
+        if outcome.reason in ("timeout", "stalled"):
+            message = _failure_message(plan, outcome.returncode, tracker, outcome.reason)
+            logger.error(message)
+            raise RuntimeError(message)
+        if outcome.returncode != 0:
+            message = _failure_message(plan, outcome.returncode, tracker)
             logger.error(message)
             raise RuntimeError(message)
 

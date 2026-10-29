@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
+from backend.services import remote_separation as remote_mod
 from backend.services import separation_presets as presets
 from backend.services import separator as separator_mod
 from backend.services.process_watchdog import PROJECT_ROOT
@@ -723,4 +724,170 @@ def test_an_aborting_progress_callback_cleans_up_without_falling_back(tmp_path, 
             progress_callback=callback,
         )
     assert len(engines.calls) == 1
+    assert not any(p.is_dir() for p in (tmp_path / "stems" / "trk").iterdir())
+
+
+# ==============================================================================
+# Cloud GPU (SEPARATION_REMOTE=modal)
+# ==============================================================================
+
+
+def test_cloud_gpu_settings_and_estimates(monkeypatch):
+    assert presets.remote_backend() is None
+    assert presets.estimate_seconds("balanced", 100) == presets.estimate_cpu_seconds(
+        "balanced", 100
+    )
+
+    monkeypatch.setenv("SEPARATION_REMOTE", " Modal ")
+    assert presets.remote_backend() == "modal"
+    assert presets.remote_app_name() == "karaoke-studio-gpu"
+    assert presets.remote_queue_seconds() == 300.0
+    monkeypatch.setenv("SEPARATION_REMOTE_APP", "my-gpu")
+    monkeypatch.setenv("SEPARATION_REMOTE_QUEUE_SEC", "60")
+    assert (presets.remote_app_name(), presets.remote_queue_seconds()) == ("my-gpu", 60.0)
+    assert presets.estimate_seconds("balanced", 240) == 78  # 30 s + 240 s x 0.2
+    assert presets.estimate_seconds("best", 240) == 126  # 30 s + 240 s x 0.4
+    assert presets.estimate_seconds("fast", 200) == 70  # Fast still runs here
+
+    monkeypatch.setenv("SEPARATION_REMOTE", "elsewhere")
+    assert presets.remote_backend() is None
+
+
+def test_cloud_gpu_availability_needs_the_client_and_credentials(monkeypatch, tmp_path):
+    monkeypatch.setenv("SEPARATION_REMOTE", "modal")
+    monkeypatch.setenv("HOME", str(tmp_path))
+    installed = {"modal": False}
+    monkeypatch.setattr(presets, "package_available", lambda name: installed.get(name, False))
+    plan = presets.preset_plan("best")
+
+    assert presets.plan_status(plan) == (False, "the modal package is not installed")
+    installed["modal"] = True
+    ready, why = presets.plan_status(plan)
+    assert not ready
+    assert "MODAL_TOKEN_ID" in why
+    # No audio-separator, PyTorch or local weights are needed when the GPU does the work
+    monkeypatch.setenv("MODAL_TOKEN_ID", "ak-test")
+    monkeypatch.setenv("MODAL_TOKEN_SECRET", "as-test")
+    assert presets.plan_status(plan) == (True, None)
+    monkeypatch.delenv("MODAL_TOKEN_ID")
+    (tmp_path / ".modal.toml").write_text("[default]\n")
+    assert presets.plan_status(plan) == (True, None)
+    assert presets.plan_status(presets.preset_plan("fast")) == (True, None)
+
+
+def test_capabilities_report_presets_that_run_on_the_cloud_gpu(monkeypatch):
+    from backend.services.capabilities import separation_capabilities
+
+    monkeypatch.setenv("SEPARATION_REMOTE", "modal")
+    monkeypatch.setenv("SEPARATION_QUALITY", "best")
+    monkeypatch.setenv("MODAL_TOKEN_ID", "ak-test")
+    monkeypatch.setenv("MODAL_TOKEN_SECRET", "as-test")
+    monkeypatch.setattr(presets, "package_available", lambda name: name == "modal")
+
+    caps = separation_capabilities()
+    by_id = {p["id"]: p for p in caps["presets"]}
+    assert caps["effective_default"] == "best"
+    assert by_id["best"]["available"] is True
+    assert by_id["best"]["runs_on"] == "cloud-gpu"
+    assert by_id["best"]["cpu_realtime_factor"] == presets.REMOTE_REALTIME_FACTORS["best"]
+    assert by_id["best"]["gpu_recommended"] is False
+    assert by_id["balanced"]["weights_cached"] is None
+    assert by_id["fast"]["runs_on"] is None
+    assert by_id["fast"]["cpu_realtime_factor"] == presets.CPU_REALTIME_FACTORS["fast"]
+
+
+CLOUD_WORKER_LINES = [
+    '{"event": "stage", "pass": 1, "detail": "Loading model 1"}\n',
+    '{"event": "stage", "pass": 1, "pct": 0, "detail": "Separating with model 1"}\n',
+    "50%|#| 5/10 [00:01<00:01,  1.00s/it]\n",
+    "100%|#| 10/10 [00:02<00:00,  1.00s/it]\n",
+]
+
+
+@pytest.fixture
+def cloud(monkeypatch, engines):
+    """Hands RoFormer plans to a stand-in for the Modal GPU and records each job."""
+    state = types.SimpleNamespace(jobs=[], mode="ok")
+    monkeypatch.setenv("SEPARATION_REMOTE", "modal")
+
+    def run_remote(plan, audio_file, out_dir, on_line, cancel_event, **limits):
+        state.jobs.append({"models": list(plan.models), "audio": audio_file.name, **limits})
+        if state.mode == "unavailable":
+            raise remote_mod.RemoteUnavailable(
+                "no cloud GPU started the job within 5 minutes (SEPARATION_REMOTE_QUEUE_SEC)"
+            )
+        limits["on_started"]()
+        for line in CLOUD_WORKER_LINES:
+            on_line(line)
+        if state.mode == "fail":
+            on_line('{"event": "error", "code": "failed", "detail": "CUDA error: device lost"}\n')
+            return remote_mod.RemoteOutcome(5)
+        if state.mode == "cancelled":
+            return remote_mod.RemoteOutcome(None, "cancelled")
+        _write_wav(out_dir / "vocals.wav", 0.5)
+        _write_wav(out_dir / "no_vocals.wav", -0.5)
+        on_line('{"event": "stage", "pct": 100, "detail": "Stems ready"}\n')
+        return remote_mod.RemoteOutcome(0)
+
+    monkeypatch.setattr(remote_mod, "run_remote", run_remote)
+    return state
+
+
+def test_cloud_gpu_runs_balanced_with_no_local_worker(tmp_path, cloud, engines):
+    result, reports = _separate(tmp_path, "balanced")
+
+    assert engines.calls == []
+    assert len(cloud.jobs) == 1
+    job = cloud.jobs[0]
+    assert (job["models"], job["audio"]) == ([BALANCED_MODEL], "song.wav")
+    assert (job["timeout_s"], job["stall_s"], job["queue_s"]) == (7200.0, 900.0, 300.0)
+    target = tmp_path / "stems" / "trk"
+    assert sorted(p.name for p in target.iterdir()) == ["instrumental.wav", "vocals.wav"]
+    vocals, _ = sf.read(str(target / "vocals.wav"))
+    assert vocals.mean() == pytest.approx(0.5, abs=1e-3)
+    info = result["separation"]
+    assert (info["preset"], info["engine"], info["fallback_reason"]) == (
+        "balanced",
+        "roformer",
+        None,
+    )
+
+    assert reports[0] == (5.0, "Starting Balanced · Mel-Band RoFormer…", 50)  # 30 s + 100 s x 0.2
+    details = [detail for _, detail, _ in reports]
+    assert "Waiting for a cloud GPU for Balanced · Mel-Band RoFormer…" in details
+    assert "Balanced · Mel-Band RoFormer is running on a cloud GPU…" in details
+    assert (50.0, "Mel-Band RoFormer: chunk 5/10 (50%)", 1) in reports
+    assert reports[-1] == (100.0, "Stems ready", None)
+    assert all(_stage_words_ok(detail) for detail in details)
+
+
+def test_a_failed_cloud_job_falls_back_to_fast_here(tmp_path, cloud, engines):
+    cloud.mode = "fail"
+    result, _ = _separate(tmp_path, "balanced")
+
+    assert _engine_modules(engines) == ["demucs"]
+    info = result["separation"]
+    assert (info["preset"], info["requested"]) == ("fast", "balanced")
+    assert info["fallback_reason"] == (
+        "Balanced · Mel-Band RoFormer: RoFormer separation failed (exit 5): CUDA error: device lost"
+    )
+
+
+def test_an_unreachable_cloud_gpu_skips_the_other_cloud_presets(tmp_path, cloud, engines):
+    cloud.mode = "unavailable"
+    result, reports = _separate(tmp_path, "best")
+
+    assert len(cloud.jobs) == 1  # Balanced is not sent to the unreachable GPU again
+    assert _engine_modules(engines) == ["demucs"]
+    reason = result["separation"]["fallback_reason"]
+    assert "Best · RoFormer ensemble: no cloud GPU started the job within 5 minutes" in reason
+    assert "Balanced · Mel-Band RoFormer: skipped, the cloud GPU is unavailable" in reason
+    assert (5.0, "Using Fast · Demucs instead", 35) in reports
+
+
+def test_cancelling_a_cloud_job_does_not_fall_back(tmp_path, cloud, engines):
+    cloud.mode = "cancelled"
+    with pytest.raises(SeparationCancelled, match="cancelled by user"):
+        _separate(tmp_path, "balanced")
+    assert engines.calls == []
     assert not any(p.is_dir() for p in (tmp_path / "stems" / "trk").iterdir())

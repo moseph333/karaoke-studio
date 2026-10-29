@@ -97,7 +97,7 @@ export const SeparationQualityPicker: React.FC<SeparationQualityPickerProps> = (
               <span id={descId} className="space-y-1 text-xs text-theme-text-muted">
                 <span className="block">{PRESET_BLURBS[preset]}</span>
                 <span className="block font-medium text-theme-text/80">
-                  {separationEstimate(info.cpu_realtime_factor, durationSeconds)}
+                  {separationEstimate(info.cpu_realtime_factor, durationSeconds, info.runs_on)}
                   {info.gpu_recommended ? ' · GPU recommended' : ''}
                 </span>
                 {unavailable ? (

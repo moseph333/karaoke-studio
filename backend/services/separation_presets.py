@@ -9,6 +9,10 @@ RoFormer runs in a worker process (backend.workers.roformer_worker) and needs th
 ``audio-separator`` package plus model weights, which download on first use unless
 SEPARATION_ALLOW_DOWNLOAD=0. When a preset cannot run, separation falls back down the chain
 best -> balanced -> fast. Availability checks never import torch.
+
+With SEPARATION_REMOTE=modal, Balanced and Best run on a cloud GPU instead (see
+remote_separation and gpu/modal_app.py), so they need the Modal client and credentials here
+rather than audio-separator, torch or local weights.
 """
 
 import importlib.metadata
@@ -33,6 +37,13 @@ PRESET_LABELS = {
 
 # Rough CPU cost relative to track length (seconds of processing per second of audio)
 CPU_REALTIME_FACTORS = {"fast": 0.35, "balanced": 1.6, "best": 6.4}
+
+# The same on a cloud GPU (measured on an A10G), plus a fixed allowance for waiting for the
+# GPU, starting its container and moving the audio both ways
+REMOTE_REALTIME_FACTORS = {"balanced": 0.2, "best": 0.4}
+REMOTE_OVERHEAD_SECONDS = 30
+REMOTE_BACKENDS = ("modal",)
+DEFAULT_REMOTE_APP = "karaoke-studio-gpu"
 
 MODEL_LABELS = {
     "htdemucs": "Demucs",
@@ -98,6 +109,22 @@ def separation_timeout_seconds() -> float:
 
 def separation_stall_seconds() -> float:
     return _env_float("SEPARATION_STALL_SEC", 900.0)
+
+
+def remote_backend() -> str | None:
+    """SEPARATION_REMOTE: "modal" runs Balanced and Best on a cloud GPU; unset runs them here."""
+    value = (os.getenv("SEPARATION_REMOTE") or "").strip().lower()
+    return value if value in REMOTE_BACKENDS else None
+
+
+def remote_app_name() -> str:
+    """SEPARATION_REMOTE_APP: the deployed Modal app holding the GPU function."""
+    return os.getenv("SEPARATION_REMOTE_APP", "").strip() or DEFAULT_REMOTE_APP
+
+
+def remote_queue_seconds() -> float:
+    """How long a job may wait for a free cloud GPU before it falls back to Fast here."""
+    return _env_float("SEPARATION_REMOTE_QUEUE_SEC", 300.0)
 
 
 def model_dir() -> Path:
@@ -222,8 +249,24 @@ def weights_cached(models: tuple[str, ...], directory: Path | None = None) -> bo
     return all((base / name).is_file() for name in models)
 
 
+def remote_status() -> tuple[bool, str | None]:
+    """Whether the cloud GPU can be asked: the Modal client and credentials are present.
+
+    Deliberately offline, so the capabilities endpoint stays fast; whether the GPU app is
+    deployed and a GPU is free shows when a job runs, which then falls back to Fast here.
+    """
+    if not package_available("modal"):
+        return False, "the modal package is not installed"
+    token = os.getenv("MODAL_TOKEN_ID", "").strip() and os.getenv("MODAL_TOKEN_SECRET", "").strip()
+    if not token and not (Path.home() / ".modal.toml").is_file():
+        return False, "Modal credentials are missing (MODAL_TOKEN_ID and MODAL_TOKEN_SECRET)"
+    return True, None
+
+
 def roformer_status(plan: SeparationPlan) -> tuple[bool, str | None]:
     """Whether a RoFormer plan can run now, and why not."""
+    if remote_backend():
+        return remote_status()
     if not package_available("audio_separator"):
         return False, "audio-separator is not installed (see requirements-ml.txt)"
     if not package_available("torch"):
@@ -243,3 +286,11 @@ def plan_status(plan: SeparationPlan) -> tuple[bool, str | None]:
 def estimate_cpu_seconds(preset: str, duration_seconds: float) -> int:
     factor = CPU_REALTIME_FACTORS.get(preset, CPU_REALTIME_FACTORS["fast"])
     return int(max(1.0, duration_seconds) * factor)
+
+
+def estimate_seconds(preset: str, duration_seconds: float) -> int:
+    """Expected separation time, on the cloud GPU for RoFormer presets when one is set up."""
+    if preset in REMOTE_REALTIME_FACTORS and remote_backend():
+        factor = REMOTE_REALTIME_FACTORS[preset]
+        return int(REMOTE_OVERHEAD_SECONDS + max(1.0, duration_seconds) * factor)
+    return estimate_cpu_seconds(preset, duration_seconds)
