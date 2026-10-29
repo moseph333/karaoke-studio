@@ -59,7 +59,7 @@ def cloud(monkeypatch):
     monkeypatch.setenv("MODAL_TOKEN_ID", "ak-test")
     monkeypatch.setenv("MODAL_TOKEN_SECRET", "as-test")
     monkeypatch.setattr(presets, "package_available", lambda name: name == "modal")
-    state = types.SimpleNamespace(jobs=[], mode="ok")
+    state = types.SimpleNamespace(jobs=[], mode="ok", waited=None)
 
     def run_modal_job(function_name, kwargs, on_line, cancel_event, **limits):
         state.jobs.append({"function": function_name, **kwargs, **limits})
@@ -67,6 +67,8 @@ def cloud(monkeypatch):
             raise RemoteUnavailable(
                 "no cloud CPU started the job within 2 minutes (RENDER_REMOTE_QUEUE_SEC)"
             )
+        if state.waited is not None:
+            limits["on_waiting"](state.waited)
         limits["on_started"]()
         for line in PROGRESS:
             on_line(line)
@@ -120,6 +122,18 @@ def test_exports_render_on_the_cloud_cpu_when_configured(tmp_path, cloud, local_
         "Encoding 1080p60 on a cloud CPU: frame 60 (240 fps, 4.0x speed)",
         None,
     )
+
+
+def test_the_wait_for_a_cloud_cpu_counts_up(tmp_path, cloud, local_ffmpeg):
+    cloud.waited = 12.4
+    _out, reports = _render(tmp_path)
+
+    details = [detail for _, detail, _ in reports]
+    assert details[:3] == [
+        "Waiting for a cloud CPU…",
+        "Waiting for a cloud CPU… 12 s",
+        "Rendering on a cloud CPU…",
+    ]
 
 
 def test_the_prepared_background_is_uploaded_with_the_render(
@@ -183,3 +197,6 @@ def test_cloud_render_settings(monkeypatch):
     monkeypatch.setenv("RENDER_REMOTE_TIMEOUT_SEC", "nonsense")
     assert remote_render.backend() == "modal"
     assert (remote_render.queue_seconds(), remote_render.timeout_seconds()) == (30.0, 3600.0)
+    assert remote_render.prewarm_enabled() is True
+    monkeypatch.setenv("RENDER_REMOTE_PREWARM", "off")
+    assert remote_render.prewarm_enabled() is False

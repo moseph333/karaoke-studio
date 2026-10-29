@@ -5,16 +5,21 @@ builds, on many cores and with the app's bundled fonts in FONTS_DIR. Its `-progr
 come back through modal_jobs for the same progress parsing as a local render, and the MP4 comes
 back as the call's return value. VideoRenderer renders locally instead when this is off, when
 the service is unavailable, or when the cloud render fails.
+
+warm_up() starts a container when the Export dialog opens, so that Modal finds a CPU while
+the options are chosen; the container then waits RENDER_REMOTE_SCALEDOWN_SEC for the render.
 """
 
 import logging
 import os
+import threading
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from backend.services.modal_jobs import RemoteUnavailable, run_modal_job
-from backend.services.separation_presets import remote_status
+from backend.services.separation_presets import remote_app_name, remote_status
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +30,21 @@ FONTS_DIR = "/fonts"
 OUTPUT_NAME = "out.mp4"
 # FFmpeg reports progress twice a second; this much silence means the render is stuck
 STALL_SECONDS = 300.0
+# At most one warm-up a minute, however often the Export dialog opens
+WARMUP_INTERVAL_SECONDS = 60.0
 
-__all__ = ["FONTS_DIR", "OUTPUT_NAME", "RemoteUnavailable", "RenderCancelled", "enabled", "render"]
+_warmup_lock = threading.Lock()
+_last_warmup: float | None = None
+
+__all__ = [
+    "FONTS_DIR",
+    "OUTPUT_NAME",
+    "RemoteUnavailable",
+    "RenderCancelled",
+    "enabled",
+    "render",
+    "warm_up",
+]
 
 
 class RenderCancelled(RuntimeError):
@@ -66,6 +84,39 @@ def timeout_seconds() -> float:
     return _env_float("RENDER_REMOTE_TIMEOUT_SEC", 3600.0)
 
 
+def prewarm_enabled() -> bool:
+    """RENDER_REMOTE_PREWARM (default on): start a cloud CPU when the Export dialog opens."""
+    value = (os.getenv("RENDER_REMOTE_PREWARM") or "1").strip().lower()
+    return value not in ("0", "false", "no", "off")
+
+
+def warm_up() -> str:
+    """Start a cloud CPU for an export that is about to be requested, without waiting for it.
+
+    Returns "warming", "off" (cloud export or warm-ups are off), "recent" (one was started
+    less than a minute ago) or "failed". Never raises: the export itself still works.
+    """
+    global _last_warmup
+    if not prewarm_enabled() or not enabled():
+        return "off"
+    with _warmup_lock:
+        now = time.monotonic()
+        if _last_warmup is not None and now - _last_warmup < WARMUP_INTERVAL_SECONDS:
+            return "recent"
+        _last_warmup = now
+    try:
+        import modal
+
+        modal.Function.from_name(remote_app_name(), FUNCTION_NAME).spawn(warmup=True)
+    except Exception as exc:
+        with _warmup_lock:
+            _last_warmup = None  # let the next open try again
+        logger.warning(f"Could not start a cloud CPU ahead of the export: {exc}")
+        return "failed"
+    logger.info("Started a cloud CPU ahead of an export")
+    return "warming"
+
+
 def render(
     files: dict[str, Path],
     args: list[str],
@@ -73,9 +124,10 @@ def render(
     on_line: Callable[[str], None],
     cancel_event: Any | None,
     on_started: Callable[[], None] | None = None,
+    on_waiting: Callable[[float], None] | None = None,
 ) -> None:
     """Run `ffmpeg *args` on the cloud CPU with files uploaded under their names, writing the
-    result (OUTPUT_NAME there) to output_path.
+    result (OUTPUT_NAME there) to output_path. on_waiting gets the seconds waited for a CPU.
 
     Raises RenderCancelled on cancel, RemoteUnavailable when the service cannot take the job,
     and RuntimeError when the render fails or stops.
@@ -90,6 +142,7 @@ def render(
         stall_s=STALL_SECONDS,
         queue_s=queue_seconds(),
         on_started=on_started,
+        on_waiting=on_waiting,
         resource="CPU",
         queue_setting="RENDER_REMOTE_QUEUE_SEC",
     )

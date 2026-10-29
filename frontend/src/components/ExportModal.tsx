@@ -43,6 +43,8 @@ import { SegmentedControl } from './ui/SegmentedControl';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 
+const RENDER_WARMUP_URL = '/api/render/warmup';
+
 export interface ExportModalProps {
   project: ProjectState;
   isOpen: boolean;
@@ -241,6 +243,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     if (!isOpen) return;
     const interval = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(interval);
+  }, [isOpen]);
+
+  // Have the server start a cloud CPU while options are chosen (it does nothing when exports
+  // render locally). A beacon is fire-and-forget and carries the session cookie; if it fails,
+  // the render simply waits for a CPU itself
+  useEffect(() => {
+    if (!isOpen || typeof navigator === 'undefined' || !navigator.sendBeacon) return;
+    try {
+      navigator.sendBeacon(RENDER_WARMUP_URL);
+    } catch {
+      // Ignored: the warm-up is only a head start
+    }
   }, [isOpen]);
 
   useEffect(() => {

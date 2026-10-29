@@ -36,6 +36,7 @@ from backend.schemas import (
     SearchRequest,
     VocalRangeData,
 )
+from backend.services import remote_render
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.waveform import (
     DEFAULT_BINS,
@@ -955,6 +956,17 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
     bg_tasks.add_task(main_mod.run_video_render, project_id, req)
 
     return {"status": "queued"}
+
+
+@router.post("/api/render/warmup", status_code=202)
+def warm_up_render(bg_tasks: BackgroundTasks):
+    """Start a cloud CPU while the export options are chosen (RENDER_REMOTE=modal and
+    RENDER_REMOTE_PREWARM on). The Export dialog calls this when it opens; the work happens
+    after the response, and nothing happens when exports render here."""
+    cloud = remote_render.prewarm_enabled() and remote_render.enabled()
+    if cloud:
+        bg_tasks.add_task(remote_render.warm_up)
+    return {"status": "warming" if cloud else "local"}
 
 
 @router.post("/api/project/{project_id}/cancel")
