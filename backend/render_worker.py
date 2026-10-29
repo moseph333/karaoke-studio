@@ -191,7 +191,9 @@ def run_video_render(project_id: str, req: RenderRequest):
         proj["render_progress"] = 100
         proj["render_detail"] = "Video export complete!"
         proj["render_eta_seconds"] = 0
-        proj["video_url"] = f"/static/output/{track_id}_karaoke.mp4"
+        # Rendering again overwrites the same file; the version makes browsers fetch the new video
+        # rather than show or download their cached copy of the previous one
+        proj["video_url"] = f"/static/output/{track_id}_karaoke.mp4?v={int(time.time())}"
 
         # Generate YouTube package
         yt_package = main_mod.youtube_service.generate_youtube_package(
