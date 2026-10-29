@@ -305,3 +305,66 @@ describe('exports carry the stage look', () => {
     expect(url).toContain('both_color=%235eead4');
   });
 });
+
+describe('background style', () => {
+  it('keeps a known style and falls back to cover art otherwise', () => {
+    expect(sanitizeStageSettings({ backgroundStyle: 'aurora' }).backgroundStyle).toBe('aurora');
+    expect(sanitizeStageSettings({ backgroundStyle: 'lava' }).backgroundStyle).toBe('artwork');
+    expect(sanitizeStageSettings({ backgroundStyle: ['drift'] }).backgroundStyle).toBe('artwork');
+    expect(DEFAULT_STAGE_SETTINGS.backgroundStyle).toBe('artwork');
+  });
+
+  it('keeps showing an upload saved before background styles existed', () => {
+    expect(sanitizeStageSettings({ customBgId: 'ab12cd34_loop.mp4' })).toMatchObject({
+      backgroundStyle: 'custom',
+      customBgId: 'ab12cd34_loop.mp4',
+    });
+    // A chosen style still wins over a stored upload, and 'custom' needs a file
+    expect(
+      sanitizeStageSettings({ customBgId: 'ab12cd34_loop.mp4', backgroundStyle: 'spectrum' })
+    ).toMatchObject({ backgroundStyle: 'spectrum', customBgId: 'ab12cd34_loop.mp4' });
+    expect(sanitizeStageSettings({ backgroundStyle: 'custom' }).backgroundStyle).toBe('artwork');
+    expect(
+      sanitizeStageSettings({ backgroundStyle: 'custom', customBgId: '../etc/passwd' })
+    ).toMatchObject({ backgroundStyle: 'artwork', customBgId: '' });
+  });
+
+  it('switches to an upload, keeps it while another style is shown, and saves the style', () => {
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }), {
+      wrapper: withAppTheme(),
+    });
+    expect(result.current.backgroundStyle).toBe('artwork');
+
+    act(() => result.current.setCustomBgId('ab12cd34_loop.mp4'));
+    expect(result.current.backgroundStyle).toBe('custom');
+    expect(result.current.stageBackground).toEqual({
+      url: '/static/backgrounds/ab12cd34_loop.mp4',
+      kind: 'video',
+    });
+
+    act(() => result.current.setBackgroundStyle('aurora'));
+    expect(result.current.stageBackground).toBeNull();
+    expect(result.current.customBgId).toBe('ab12cd34_loop.mp4');
+    expect(stored()).toMatchObject({ backgroundStyle: 'aurora', customBgId: 'ab12cd34_loop.mp4' });
+
+    // Removing the upload leaves another chosen style alone...
+    act(() => result.current.setCustomBgId(''));
+    expect(result.current.backgroundStyle).toBe('aurora');
+    // ...and returns from the upload itself to cover art
+    act(() => result.current.setCustomBgId('ab12cd34_poster.png'));
+    act(() => result.current.setCustomBgId(''));
+    expect(result.current.backgroundStyle).toBe('artwork');
+  });
+
+  it('restores the saved style and builds the palette from the preset', () => {
+    seed({ v: 1, backgroundStyle: 'drift', presetId: 'tape_70s', presetSource: 'user' });
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }), {
+      wrapper: withAppTheme(),
+    });
+    expect(result.current.backgroundStyle).toBe('drift');
+    expect(result.current.backgroundPalette).toEqual(['#f59e0b', '#c44a12', '#fef3c7']);
+
+    act(() => result.current.setCustomSinger2Color('#00ff00'));
+    expect(result.current.backgroundPalette[1]).toBe('#00ff00');
+  });
+});

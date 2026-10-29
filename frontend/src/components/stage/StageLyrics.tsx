@@ -11,6 +11,7 @@ import { ChordBar } from '../ChordBar';
 import { ChordSegment, LyricLine, SyncDisplayMode, WordTiming } from '../../types';
 import { cn } from '../../utils/cn';
 import { focusRing } from '../ui/variants';
+import { lyricOutline } from '../../theme/stageBackgrounds';
 import { NormalizedSinger, SINGER_CONFIG } from './singers';
 
 export interface StageGapState {
@@ -131,6 +132,8 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
   const nextConfig = nextSinger ? SINGER_CONFIG[nextSinger] : null;
   const ActiveIcon = activeConfig.Icon;
   const mutedText = tone === 'light' ? 'text-black/55' : 'text-white/55';
+  // The outline the exported video draws around the lyrics
+  const outline = lyricOutline(tone);
 
   const wordProgress = (word: WordTiming) => {
     if (syncMode === 'line') {
@@ -221,7 +224,10 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
                     className={wordButton}
                     title={`${w.word} (${w.start_time.toFixed(2)}s - ${w.end_time.toFixed(2)}s)`}
                   >
-                    <span style={{ color: unsungColor }} className="drop-shadow-md">
+                    <span
+                      style={{ color: unsungColor, textShadow: outline }}
+                      className="drop-shadow-md"
+                    >
                       {w.word}
                     </span>
                     {progress > 0 && (
@@ -265,6 +271,7 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
               >
                 <span
                   style={{
+                    textShadow: outline,
                     color: time >= currentLine.start_time ? activeSungColor : unsungColor,
                     filter:
                       time >= currentLine.start_time
@@ -349,7 +356,7 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
                 {nextConfig.tag}
               </span>
             )}
-            <span>{nextLine.text}</span>
+            <span style={{ textShadow: outline }}>{nextLine.text}</span>
           </p>
         ) : (
           <span className={cn('text-xs sm:text-sm', mutedText)}>-- End of song --</span>

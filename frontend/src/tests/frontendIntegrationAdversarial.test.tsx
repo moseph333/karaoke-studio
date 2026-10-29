@@ -766,7 +766,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       expect(fetchSpy).not.toHaveBeenCalled();
     });
 
-    it('displays active custom background indicator and allows resetting to album art', async () => {
+    it('displays active custom background indicator and allows removing it', async () => {
       const user = userEvent.setup();
       const onCustomBgUploaded = vi.fn();
 
@@ -786,7 +786,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       // The active background is named in the Look panel and the upload button offers a replacement
       expect(screen.getByText('active_bg_id')).toHaveAttribute('title', 'active_bg_id');
       expect(screen.getByRole('button', { name: /^Replace$/ })).toBeInTheDocument();
-      const resetBtn = screen.getByRole('button', { name: /Reset to Album Art/i });
+      const resetBtn = screen.getByRole('button', { name: /Remove uploaded background/i });
       await user.click(resetBtn);
 
       expect(onCustomBgUploaded).toHaveBeenCalledWith('');

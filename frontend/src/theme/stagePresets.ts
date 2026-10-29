@@ -25,6 +25,7 @@ export const THEMES: VisualTheme[] = [
     fontFamily: 'Montserrat, sans-serif',
     stageBg: '#17120a',
     tone: 'dark',
+    backgroundAccents: ['#f97316', '#fde68a'],
   },
   {
     id: 'cyber_cyan',
@@ -38,6 +39,7 @@ export const THEMES: VisualTheme[] = [
     fontFamily: 'Montserrat, sans-serif',
     stageBg: '#061419',
     tone: 'dark',
+    backgroundAccents: ['#3b82f6', '#a78bfa'],
   },
   {
     id: 'neon_pink',
@@ -51,6 +53,7 @@ export const THEMES: VisualTheme[] = [
     fontFamily: 'Montserrat, sans-serif',
     stageBg: '#19071a',
     tone: 'dark',
+    backgroundAccents: ['#8b5cf6', '#f97316'],
   },
   {
     id: 'classic_ktv',
@@ -64,6 +67,7 @@ export const THEMES: VisualTheme[] = [
     fontFamily: 'Montserrat, sans-serif',
     stageBg: '#0a1024',
     tone: 'dark',
+    backgroundAccents: ['#3b82f6', '#22d3ee'],
   },
   {
     id: 'punk_diy',
@@ -77,6 +81,7 @@ export const THEMES: VisualTheme[] = [
     fontFamily: "'Impact', 'Arial Black', sans-serif",
     stageBg: '#0d0d0f',
     tone: 'dark',
+    backgroundAccents: ['#ef4444', '#f5f5f5'],
   },
   {
     id: 'tape_70s',
@@ -90,6 +95,7 @@ export const THEMES: VisualTheme[] = [
     fontFamily: "'Georgia', serif",
     stageBg: '#1c140e',
     tone: 'dark',
+    backgroundAccents: ['#c44a12', '#fef3c7'],
   },
   {
     id: 'crt_ktv',
@@ -103,6 +109,7 @@ export const THEMES: VisualTheme[] = [
     fontFamily: "'VT323', monospace",
     stageBg: '#061309',
     tone: 'dark',
+    backgroundAccents: ['#14b8a6', '#a3e635'],
   },
   {
     id: 'clean_paper',
@@ -116,6 +123,7 @@ export const THEMES: VisualTheme[] = [
     fontFamily: "'Space Grotesk', 'Helvetica Neue', sans-serif",
     stageBg: '#f4f4f0',
     tone: 'light',
+    backgroundAccents: ['#d97706', '#1f2937'],
   },
   {
     id: 'afterglow',
@@ -131,6 +139,7 @@ export const THEMES: VisualTheme[] = [
     tone: 'dark',
     singer2Color: '#f472b6',
     bothColor: '#5eead4',
+    backgroundAccents: ['#f472b6', '#5eead4'],
   },
 ];
 

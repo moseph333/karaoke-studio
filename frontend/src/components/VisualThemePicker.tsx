@@ -2,12 +2,25 @@
  * Visual Theme & Aspect Ratio Picker Component (Stage look)
  *
  * Video format (16:9 / 9:16 Shorts), stage presets, custom sung/unsung colors, lyric
- * size and a custom image/video background. The lyric highlight mode lives in the
- * stage toolbar.
+ * size and the background: cover art (still or drifting), aurora, spectrum, plain, or an
+ * uploaded image/video. The lyric highlight mode lives in the stage toolbar.
  */
 
 import React, { useRef, useState } from 'react';
-import { Palette, Upload, Monitor, Smartphone, Check, RotateCcw, ImageIcon, X } from 'lucide-react';
+import {
+  AudioLines,
+  Check,
+  ImageIcon,
+  Monitor,
+  Move,
+  Palette,
+  RotateCcw,
+  Smartphone,
+  Sparkles,
+  Square,
+  Upload,
+  X,
+} from 'lucide-react';
 import { VisualTheme } from '../types';
 import {
   THEMES,
@@ -17,6 +30,7 @@ import {
   getStageBackground,
 } from '../theme/stagePresets';
 import { StageSize } from '../theme/stageSettingsStorage';
+import { STAGE_BACKGROUND_OPTIONS, StageBackgroundStyle } from '../theme/stageBackgrounds';
 import { apiFetch } from '../api';
 import { useToast } from '../hooks/useToast';
 import { Panel } from './ui/Panel';
@@ -34,6 +48,11 @@ export interface VisualThemePickerProps {
   onChangeAspectRatio: (ratio: string) => void;
   onCustomBgUploaded: (bgId: string) => void;
   customBgId?: string;
+  /** What the stage shows behind the lyrics; the style picker is hidden without a handler. */
+  backgroundStyle?: StageBackgroundStyle;
+  onBackgroundStyleChange?: (style: StageBackgroundStyle) => void;
+  /** The song has cover art (without it the art styles show the stage colour). */
+  hasArtwork?: boolean;
   customSungColor?: string | null;
   onCustomSungColorChange?: (color: string) => void;
   customUnsungColor?: string | null;
@@ -63,6 +82,18 @@ const STAGE_SIZE_OPTIONS: ReadonlyArray<{ value: StageSize; label: string; hint:
 
 const sectionLabel = 'text-xs font-semibold uppercase tracking-[0.08em] text-theme-text-muted';
 
+const BACKGROUND_ICONS: Record<
+  StageBackgroundStyle,
+  React.ComponentType<{ className?: string }>
+> = {
+  artwork: ImageIcon,
+  drift: Move,
+  aurora: Sparkles,
+  spectrum: AudioLines,
+  color: Square,
+  custom: Upload,
+};
+
 const smallButton = cn(
   'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md px-2.5 text-xs font-semibold transition-colors disabled:opacity-50',
   focusRing
@@ -80,6 +111,9 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   onChangeAspectRatio,
   onCustomBgUploaded,
   customBgId,
+  backgroundStyle = 'artwork',
+  onBackgroundStyleChange,
+  hasArtwork = true,
   customSungColor,
   onCustomSungColorChange,
   customUnsungColor,
@@ -108,6 +142,31 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   const activeScale = fontSizeScale || 1.0;
   const activeScaleOption =
     FONT_SCALES.find((s) => Math.abs(activeScale - s) < 0.05)?.toString() ?? '';
+  const activeBackground =
+    backgroundStyle === 'custom' && !customBgId ? 'artwork' : backgroundStyle;
+  const activeBackgroundOption = STAGE_BACKGROUND_OPTIONS.find((o) => o.value === activeBackground);
+  const backgroundOptions = [
+    ...STAGE_BACKGROUND_OPTIONS.map((o) => ({
+      value: o.value as StageBackgroundStyle,
+      label: o.label,
+      title: o.hint,
+      testId: `background-style-${o.value}`,
+    })),
+    // The uploaded file (its name shows in the row below)
+    ...(customBgId
+      ? [
+          {
+            value: 'custom' as StageBackgroundStyle,
+            label: 'Upload',
+            title: 'Your uploaded image or video',
+            testId: 'background-style-custom',
+          },
+        ]
+      : []),
+  ].map((o) => {
+    const Icon = BACKGROUND_ICONS[o.value];
+    return { ...o, icon: <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> };
+  });
 
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -365,6 +424,33 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
 
         <div className="flex flex-col gap-2">
           <span className={sectionLabel}>Background</span>
+          {onBackgroundStyleChange && (
+            <>
+              <SegmentedControl<StageBackgroundStyle>
+                value={activeBackground}
+                onChange={onBackgroundStyleChange}
+                semantics="radio"
+                ariaLabel="Stage background"
+                size="sm"
+                fullWidth
+                tone="neutral"
+                optionClassName="min-w-[6.5rem]"
+                testId="background-style-picker"
+                options={backgroundOptions}
+              />
+              {activeBackgroundOption?.needsArtwork && !hasArtwork && (
+                <p className="text-[11px] leading-snug text-theme-text-muted">
+                  This song has no cover art, so the stage colour shows instead.
+                </p>
+              )}
+              {activeBackgroundOption?.moves && (
+                <p className="text-[11px] leading-snug text-theme-text-muted">
+                  Moves with the song: press play to see it. While paused, the stage shows the
+                  video&apos;s frame at that moment.
+                </p>
+              )}
+            </>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-border-subtle px-2.5 py-2">
             <span className="flex min-w-0 items-center gap-2 text-xs text-theme-text">
               <ImageIcon
@@ -372,7 +458,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                 aria-hidden="true"
               />
               <span className="truncate" title={customBgId || undefined}>
-                {customBgId ? displayBackgroundName(customBgId) : 'Blurred album art'}
+                {customBgId ? displayBackgroundName(customBgId) : 'No image or video uploaded'}
               </span>
             </span>
             <span className="flex items-center gap-1">
@@ -404,8 +490,8 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                 <button
                   type="button"
                   onClick={() => onCustomBgUploaded('')}
-                  aria-label="Reset to Album Art"
-                  title="Use the blurred album art again"
+                  aria-label="Remove uploaded background"
+                  title="Remove the uploaded image or video"
                   className={cn(
                     smallButton,
                     'min-w-[44px] justify-center text-theme-text-muted hover:bg-theme-danger/10 hover:text-theme-danger md:min-w-[32px]'

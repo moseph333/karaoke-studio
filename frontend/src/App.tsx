@@ -27,6 +27,7 @@ import { useVisualTheme } from './hooks/useVisualTheme';
 import { useMixController } from './hooks/useMixController';
 import { useStudioCommands } from './hooks/useStudioCommands';
 import { useWaveformPeaks } from './hooks/useWaveformPeaks';
+import { isGeneratedStyle } from './theme/stageBackgrounds';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
 import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
 import { cn } from './utils/cn';
@@ -199,6 +200,8 @@ export const AppContent: React.FC = () => {
     if (!project?.id) return;
     setIsExportOpen(true);
     const effectiveSyncMode = options?.syncMode ?? theme.syncMode;
+    const style = theme.backgroundStyle;
+    const generated = isGeneratedStyle(style);
 
     try {
       await apiFetch(`/api/project/${project.id}/render`, {
@@ -208,7 +211,8 @@ export const AppContent: React.FC = () => {
           semitones: mix.semitones,
           guide_volume: mix.guideVolume,
           aspect_ratio: theme.aspectRatio,
-          custom_bg_id: theme.customBgId || undefined,
+          // The upload only when it is the chosen background (it outranks every style)
+          custom_bg_id: style === 'custom' ? theme.customBgId || undefined : undefined,
           sync_mode: effectiveSyncMode,
           include_visualizer: options?.includeVisualizer ?? showVisualizer,
           include_countdown: options?.includeCountdown ?? true,
@@ -223,6 +227,11 @@ export const AppContent: React.FC = () => {
             singer2_color: theme.activeSinger2Color,
             both_color: theme.activeBothColor,
             background_color: theme.stageBackgroundColor,
+            // Cover art is the renderer's default; generated styles also need colours and tone
+            background_style: style === 'artwork' || style === 'custom' ? undefined : style,
+            background_palette: generated ? theme.backgroundPalette : undefined,
+            background_tone:
+              generated && theme.selectedTheme.tone === 'light' ? 'light' : undefined,
           },
         }),
       });

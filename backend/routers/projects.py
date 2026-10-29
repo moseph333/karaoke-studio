@@ -1,13 +1,17 @@
 """Project management API router handling search, intake processing, project queries, metadata updates, lyric editing, audio mixing, cancellation, deletion, and YouTube metadata generation."""
 
+import hashlib
 import logging
 import os
+import subprocess
 import threading
 import time
 import uuid
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
+from fastapi.responses import FileResponse
 
 from backend import realignment
 from backend.background_jobs import SEPARATION_JOB, job_active
@@ -38,6 +42,7 @@ from backend.schemas import (
 )
 from backend.services import remote_render
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
+from backend.services.video_renderer import artwork_still, render_still
 from backend.services.waveform import (
     DEFAULT_BINS,
     MAX_BINS,
@@ -926,6 +931,51 @@ def get_project_waveform(
     raise HTTPException(
         status_code=409, detail="Waveform is not available until the audio is ready"
     )
+
+
+@router.get("/api/project/{project_id}/backdrop")
+def get_project_backdrop(
+    project_id: str,
+    aspect: Literal["16:9", "9:16"] = Query("16:9", description="Video format"),
+    drift: bool = Query(False, description="The larger still the drifting style pans across"),
+):
+    """The song's cover art exactly as video exports draw it (filled, blurred and darkened), so
+    the stage preview shows the same image instead of imitating it.
+
+    Rendered once per thumbnail and size into the output folder, under the project's prefix so
+    deleting the project removes it.
+    """
+    import backend.main as main_mod
+
+    proj = get_project_or_404(project_id)
+    thumbnail = proj.get("thumbnail_path")
+    if not thumbnail or not os.path.isfile(thumbnail):
+        raise HTTPException(status_code=404, detail="This song has no cover art")
+    width, height = (1080, 1920) if aspect == "9:16" else (1920, 1080)
+    width, height, chain = artwork_still(width, height, drift=drift)
+
+    source = Path(thumbnail)
+    info = source.stat()
+    key = f"{chain}|{source.resolve()}|{info.st_mtime_ns}|{info.st_size}"
+    digest = hashlib.sha256(key.encode()).hexdigest()[:12]
+    prefix = f"{Path(str(proj.get('id') or project_id)).name}_backdrop_{width}x{height}_"
+    output_dir = Path(getattr(main_mod, "OUTPUT_DIR", OUTPUT_DIR))
+    target = output_dir / f"{prefix}{digest}.png"
+    if not target.is_file():
+        scratch = output_dir / f"{prefix}{uuid.uuid4().hex[:8]}.tmp.png"
+        try:
+            render_still(source, chain, scratch)
+            os.replace(scratch, target)
+        except (RuntimeError, OSError, subprocess.SubprocessError) as exc:
+            scratch.unlink(missing_ok=True)
+            logger.warning(f"Could not prepare the backdrop for {project_id}: {exc}")
+            raise HTTPException(status_code=500, detail="Could not prepare the cover art") from exc
+        # Stills made for an earlier thumbnail are never served again (another request's
+        # unfinished scratch file is left alone)
+        for stale in output_dir.glob(f"{prefix}*.png"):
+            if stale != target and not stale.name.endswith(".tmp.png"):
+                stale.unlink(missing_ok=True)
+    return FileResponse(target, media_type="image/png", headers={"Cache-Control": "no-cache"})
 
 
 @router.post("/api/project/{project_id}/render")

@@ -1,13 +1,18 @@
 /**
  * Persisted stage settings
  *
- * The studio remembers the stage look (preset, colors, lyric size, format, background,
- * highlight mode) and preview toggles across reloads. Everything read back is validated, so
+ * The studio remembers the stage look (preset, colors, lyric size, format, background style
+ * and upload, highlight mode) and preview toggles across reloads. Everything read back is validated, so
  * a stale or hand-edited entry falls back to defaults field by field.
  */
 
 import { SyncDisplayMode } from '../types';
 import { getStagePreset } from './stagePresets';
+import {
+  DEFAULT_STAGE_BACKGROUND_STYLE,
+  StageBackgroundStyle,
+  isStageBackgroundStyle,
+} from './stageBackgrounds';
 
 export const STAGE_SETTINGS_STORAGE_KEY = 'karaoke_stage_settings_v1';
 
@@ -27,6 +32,8 @@ export interface StageSettings {
   fontSizeScale: number;
   aspectRatio: '16:9' | '9:16';
   syncMode: SyncDisplayMode;
+  /** What the stage and exports show behind the lyrics; 'custom' is the uploaded file. */
+  backgroundStyle: StageBackgroundStyle;
   customBgId: string;
   showVisualizer: boolean;
   showChordBar: boolean;
@@ -43,6 +50,7 @@ export const DEFAULT_STAGE_SETTINGS: StageSettings = {
   fontSizeScale: 1,
   aspectRatio: '16:9',
   syncMode: 'word',
+  backgroundStyle: DEFAULT_STAGE_BACKGROUND_STYLE,
   customBgId: '',
   showVisualizer: false,
   showChordBar: false,
@@ -62,6 +70,14 @@ export function sanitizeStageSettings(raw: unknown): StageSettings {
   const presetId =
     typeof src.presetId === 'string' && getStagePreset(src.presetId) ? src.presetId : null;
   const scale = typeof src.fontSizeScale === 'number' ? src.fontSizeScale : NaN;
+  const customBgId =
+    typeof src.customBgId === 'string' && BACKGROUND_ID.test(src.customBgId) ? src.customBgId : '';
+  // Settings saved before background styles existed keep showing their upload
+  const storedStyle = isStageBackgroundStyle(src.backgroundStyle)
+    ? src.backgroundStyle
+    : customBgId
+      ? 'custom'
+      : DEFAULT_STAGE_BACKGROUND_STYLE;
   return {
     presetId,
     presetSource: presetId && src.presetSource === 'user' ? 'user' : 'app',
@@ -75,10 +91,9 @@ export function sanitizeStageSettings(raw: unknown): StageSettings {
         : DEFAULT_STAGE_SETTINGS.fontSizeScale,
     aspectRatio: src.aspectRatio === '9:16' ? '9:16' : '16:9',
     syncMode: src.syncMode === 'line' ? 'line' : 'word',
-    customBgId:
-      typeof src.customBgId === 'string' && BACKGROUND_ID.test(src.customBgId)
-        ? src.customBgId
-        : '',
+    backgroundStyle:
+      storedStyle === 'custom' && !customBgId ? DEFAULT_STAGE_BACKGROUND_STYLE : storedStyle,
+    customBgId,
     showVisualizer: src.showVisualizer === true,
     showChordBar: src.showChordBar === true,
     stageSize: STAGE_SIZES.includes(src.stageSize as StageSize)

@@ -60,6 +60,7 @@ backend/
     audio_mixer.py          key shift, guide vocal blend, preview vs final quality
     ass_generator.py        SubStation Alpha subtitles (word sweep, duets, countdowns)
     video_renderer.py       FFmpeg video render with bundled fonts
+    stage_backgrounds.py    drifting art, aurora and spectrum filter graphs (motion shared with the stage)
     waveform.py             cached waveform peaks for the scrubber
     chord_detector.py, vocal_analyzer.py, downloader.py, youtube_uploader.py
   workers/
@@ -128,6 +129,7 @@ Stem, master and rendered video URLs carry a `?v=` version after a re-separation
 | `GET`/`POST /api/project/{id}/chords`, `POST …/chords/detect` | chords (transposed), edits, re-detection |
 | `POST /api/project/{id}/mix` | key and guide vocal remix (cached per setting) |
 | `GET /api/project/{id}/waveform` | waveform peaks (`bins`, cached by stem mtime) |
+| `GET /api/project/{id}/backdrop` | the cover art as exports draw it (`aspect`, `drift`), PNG cached in the output folder |
 | `POST /api/project/{id}/render`, `POST …/cancel-render` | video render |
 | `POST /api/render/warmup` | start a cloud CPU ahead of an export (202; nothing happens for local renders) |
 | `POST /api/project/{id}/cancel`, `DELETE /api/project/{id}` | cancel processing, delete a song and its files |
@@ -221,7 +223,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 
 - **Mixer.** `audio_mixer.mix_and_shift` blends the guide vocal with `amix … normalize=0` plus `alimiter`, so the backing track keeps its level. A `MIX_QUALITY` context variable picks the pitch shifter: fast resampling for previews, Rubber Band (`pitchq=quality`, formants preserved on the guide vocal) for renders, with a fallback graph for older FFmpeg builds. `/mix` results are cached by file name while newer than the stems and made by the current mixer (`MIX_CACHE_VERSION`, noted in `output/.mix-cache-version`; renders older than that note are made again).
 - **Subtitles.** `ass_generator` writes word sweeps on absolute centisecond boundaries with `{\k}` spacers for gaps, so exported highlights stay on time; duet colours and stage presets match the studio.
-- **Video.** `render_worker` mixes at final quality and renders 1080p60 (16:9 or 9:16) through FFmpeg with libass, using the bundled Sora fonts (`backend/assets/fonts`) and the stage's backdrop colour. `video_renderer.prepare_background` feeds the filter graph at a genuine 60 fps for every backdrop (`-loop 1 -framerate 60` for stills, `fps=60` for looping videos, `r=60` for the colour source), so the sweep is drawn for each output frame; a still image (custom, or the song's thumbnail with its blur and darkening) is processed once into a PNG instead of per frame, falling back to the per-frame chain if that step fails. The libx264 preset is `FFMPEG_PRESET` (default `veryfast`, CRF 18).
+- **Video.** `render_worker` mixes at final quality and renders 1080p60 (16:9 or 9:16) through FFmpeg with libass, using the bundled Sora fonts (`backend/assets/fonts`) and the stage's backdrop colour. `video_renderer.prepare_background` feeds the filter graph at a genuine 60 fps for every backdrop (`-loop 1 -framerate 60` for stills, `fps=60` for looping videos, `r=60` for the colour source), so the sweep is drawn for each output frame; a still image (custom, or the song's thumbnail with its blur and darkening) is processed once into a PNG instead of per frame, falling back to the per-frame chain if that step fails. The background style (`style_config.background_style`, with `background_palette` and `background_tone`) picks what is drawn when there is no upload: the thumbnail still (default), the drift (the thumbnail processed once at 1.12× and panned by `crop`, decoded once through the `loop` filter), aurora (one-frame Gaussian orb sprites overlaid at song-time positions) or the spectrum (`showcqt` of the song, tinted from the palette), or the plain colour. Aurora and spectrum are drawn at a quarter of the output size from inline lavfi sources, add the stage's scrim and are upscaled, so cloud renders ship nothing extra for them. Their motion numbers live in `frontend/src/theme/backgroundMotion.json`, mirrored by `stage_backgrounds.BACKGROUND_MOTION` and kept equal by a test. The libx264 preset is `FFMPEG_PRESET` (default `veryfast`, CRF 18).
 - **Cloud export** (`remote_render.py`, `render` in `gpu/modal_app.py`). With `RENDER_REMOTE=modal`, `ffmpeg_args` builds the same command against upload names (`background.*`, `audio.*`, `subtitles.ass`, fonts in `/fonts`), and `modal_jobs.run_modal_job` spawns it on a 16-core CPU, streams FFmpeg's `-progress` lines back into the same `RenderProgress` parser and returns the MP4. Cancel stops the remote call; an unavailable service, no CPU within `RENDER_REMOTE_QUEUE_SEC` or a failed render falls back to the local render. `modal_jobs` is shared with the cloud GPU separation and cancels the remote call whenever following it raises, including from a progress callback; it reports the wait for a container every 5 s (shown as "Waiting for a cloud CPU… 45 s") and logs it once the job starts. Opening the Export dialog sends a beacon to `POST /api/render/warmup`, which spawns `render(warmup=True)` at most once a minute (`RENDER_REMOTE_PREWARM`); the container then waits `RENDER_REMOTE_SCALEDOWN_SEC` (120 s, separate from the GPU's 30 s) for the render.
 
 ---
@@ -268,7 +270,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 
 ### 3.5 Stage
 
-`LyricDisplay` composes `stage/StageBackground` (base colour, blurred album art, custom image or video, scrim), `StageToolbar`, `StageLyrics` (word sweep or line mode) and `StageFloatingControls` for fullscreen. The preview uses the same backdrop colour, album-art treatment, duet colours and font as the exported video and subtitles.
+`LyricDisplay` composes `stage/StageBackground`, `StageToolbar`, `StageLyrics` (word sweep or line mode) and `StageFloatingControls` for fullscreen. `StageBackground` draws only what the export draws: the stage colour, then the cover art (the export's own still from `GET /api/project/{id}/backdrop`, panned for the drift), aurora orbs, the spectrum (`StageSpectrum`, a canvas fed by its own analyser and calibrated against `showcqt`), or an upload; aurora and spectrum add the export's scrim. Drift and aurora positions are functions of the song time (`theme/stageBackgrounds.ts`), so a paused stage shows the exported frame at that moment; they hold still under reduced motion. Lyrics carry the export's outline. The preview uses the same backdrop, duet colours and font as the exported video and subtitles.
 
 ---
 

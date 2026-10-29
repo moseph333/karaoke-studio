@@ -2,8 +2,9 @@
 
 Every background feeds the filter graph at a genuine RENDER_FPS, so the lyric sweep is drawn for
 each output frame. Still images (a custom image, or the song's blurred thumbnail) are processed
-once before the render instead of on every frame. With RENDER_REMOTE set, FFmpeg runs on a cloud
-CPU (remote_render) and a failed or unavailable cloud render falls back to a local one.
+once before the render instead of on every frame. The generated styles (drifting art, aurora,
+spectrum) are built in stage_backgrounds. With RENDER_REMOTE set, FFmpeg runs on a cloud CPU
+(remote_render) and a failed or unavailable cloud render falls back to a local one.
 """
 
 import logging
@@ -19,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.config import OUTPUT_DIR
-from backend.services import remote_render
+from backend.services import remote_render, stage_backgrounds
 from backend.services.ass_generator import (
     DEFAULT_THEME_ID,
     VISUAL_THEMES,
@@ -71,20 +72,26 @@ def encoder_preset() -> str:
 
 @dataclass(frozen=True)
 class RenderBackground:
-    """The filter graph's first input (a still image looped at RENDER_FPS, a looping video or a
-    generated colour) and the chain that turns it into [bg]."""
+    """The filter graph's first input (a still image looped at RENDER_FPS, a looping video, a
+    still decoded once for the drift, or a generated colour) and the chain that turns it into [bg]."""
 
-    kind: str  # image | video | color
+    kind: str  # image | video | drift | color | generated
     path: Path | None = None
     graph: str = "[0:v]null[bg];"
     color: str = DEFAULT_BACKGROUND_COLOR
+    # Size of the colour source when it differs from the output (generated styles draw small)
+    size: tuple[int, int] | None = None
 
     def input_args(self, path_arg: str | None, width: int, height: int) -> list[str]:
         if self.kind == "image":
             return ["-loop", "1", "-framerate", str(RENDER_FPS), "-i", str(path_arg)]
         if self.kind == "video":
             return ["-stream_loop", "-1", "-i", str(path_arg)]
-        return ["-f", "lavfi", "-i", f"color=c={self.color}:s={width}x{height}:r={RENDER_FPS}"]
+        if self.kind == "drift":
+            # One frame: the graph's loop filter repeats it instead of decoding it every frame
+            return ["-framerate", str(RENDER_FPS), "-i", str(path_arg)]
+        w, h = self.size or (width, height)
+        return ["-f", "lavfi", "-i", f"color=c={self.color}:s={w}x{h}:r={RENDER_FPS}"]
 
 
 @dataclass(frozen=True)
@@ -103,6 +110,24 @@ def _fill(width: int, height: int) -> str:
     return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
 
 
+def artwork_still(width: int, height: int, drift: bool = False) -> tuple[int, int, str]:
+    """Size and chain that turn the song's thumbnail into its backdrop still: filled, blurred and
+    darkened at the output size, or at the larger overscan size the drift pans across. The stage
+    preview is served this same still (the backdrop route), so the two cannot look different."""
+    if drift:
+        width, height = stage_backgrounds.overscan_size(width, height)
+    return width, height, f"{_fill(width, height)},{THUMBNAIL_LOOK}"
+
+
+def render_still(source: Path, chain: str, target: Path) -> None:
+    """Runs chain over one still image into target; raises RuntimeError when that fails."""
+    cmd = ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(source)]
+    cmd += ["-vf", chain, "-frames:v", "1", str(target)]
+    done = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    if done.returncode != 0 or not target.is_file() or target.stat().st_size == 0:
+        raise RuntimeError((done.stderr or "").strip()[-200:] or f"exit {done.returncode}")
+
+
 def prepare_background(
     work_dir: Path,
     width: int,
@@ -110,35 +135,73 @@ def prepare_background(
     thumbnail_path: str | None,
     custom_bg_path: str | None,
     background_color: Any = None,
+    background_style: Any = None,
+    background_palette: Any = None,
+    background_tone: Any = None,
 ) -> RenderBackground:
-    """A custom video loops and is resampled to RENDER_FPS; a custom image, or the song's
-    thumbnail (blurred and darkened), is processed once into work_dir; otherwise a colour."""
+    """A custom video loops and is resampled to RENDER_FPS; a custom image is processed once into
+    work_dir. Otherwise the style decides: aurora and spectrum are generated over the stage
+    colour, the song's thumbnail (blurred and darkened, processed once) is still or drifting, and
+    a song without one, or the plain style, gets the colour."""
     fill = _fill(width, height)
     if custom_bg_path and os.path.exists(custom_bg_path):
         source = Path(custom_bg_path)
         if source.suffix.lower() in VIDEO_BACKGROUND_EXTS:
             return RenderBackground("video", source, f"[0:v]{fill},fps={RENDER_FPS}[bg];")
         return _still_background(source, fill, work_dir)
-    if thumbnail_path and os.path.exists(thumbnail_path):
+    style = stage_backgrounds.normalize_style(background_style)
+    color = ffmpeg_color(background_color)
+    if style in stage_backgrounds.GENERATED_STYLES:
+        return _generated_background(
+            style, width, height, color, background_palette, background_tone
+        )
+    if style != "color" and thumbnail_path and os.path.exists(thumbnail_path):
+        if style == "drift":
+            return _drift_background(Path(thumbnail_path), width, height, work_dir)
         return _still_background(Path(thumbnail_path), f"{fill},{THUMBNAIL_LOOK}", work_dir)
-    return RenderBackground("color", color=ffmpeg_color(background_color))
+    return RenderBackground("color", color=color)
+
+
+def _generated_background(
+    style: str, width: int, height: int, color: str, palette: Any, tone: Any
+) -> RenderBackground:
+    colours = stage_backgrounds.normalize_palette(palette)
+    light = stage_backgrounds.is_light_tone(tone)
+    if style == "aurora":
+        graph = stage_backgrounds.aurora_graph(width, height, colours, light)
+    else:
+        graph = stage_backgrounds.spectrum_graph(width, height, color, colours, light, RENDER_FPS)
+    size = stage_backgrounds.low_res_size(width, height)
+    return RenderBackground("generated", graph=graph, color=color, size=size)
 
 
 def _still_background(source: Path, chain: str, work_dir: Path) -> RenderBackground:
     """Runs chain over a still image once instead of on every frame; when that fails the
     image is processed per frame instead."""
     target = work_dir / "background.png"
-    cmd = ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(source)]
-    cmd += ["-vf", chain, "-frames:v", "1", str(target)]
     try:
-        done = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        if done.returncode == 0 and target.is_file() and target.stat().st_size > 0:
-            return RenderBackground("image", target)
-        reason = (done.stderr or "").strip()[-200:] or f"exit {done.returncode}"
+        render_still(source, chain, target)
+        return RenderBackground("image", target)
     except Exception as exc:  # only an optimisation: fall back to the per-frame chain
         reason = str(exc)
     logger.warning(f"Could not prepare the background once ({reason}); processing it per frame")
     return RenderBackground("image", source, f"[0:v]{chain}[bg];")
+
+
+def _drift_background(source: Path, width: int, height: int, work_dir: Path) -> RenderBackground:
+    """The thumbnail processed once at the overscan size, then panned each frame; when that step
+    fails the thumbnail is processed per frame before the pan."""
+    _, _, chain = artwork_still(width, height, drift=True)
+    target = work_dir / "background.png"
+    try:
+        render_still(source, chain, target)
+        graph = stage_backgrounds.drift_graph(width, height, RENDER_FPS)
+        return RenderBackground("drift", target, graph)
+    except Exception as exc:  # only an optimisation: fall back to the per-frame chain
+        reason = str(exc)
+    logger.warning(f"Could not prepare the drifting background ({reason}); processing it per frame")
+    crop = stage_backgrounds.drift_crop(width, height)
+    return RenderBackground("image", source, f"[0:v]{chain},{crop}[bg];")
 
 
 def ffmpeg_args(
@@ -395,6 +458,9 @@ class VideoRenderer:
                     thumbnail_path,
                     custom_bg_path,
                     kwargs.get("background_color"),
+                    kwargs.get("background_style"),
+                    kwargs.get("background_palette"),
+                    kwargs.get("background_tone"),
                 ),
                 audio_path=Path(audio_path),
                 ass_path=Path(ass_subtitles_path),
@@ -550,6 +616,7 @@ __all__ = [
     "RenderJob",
     "RenderProgress",
     "VideoRenderer",
+    "artwork_still",
     "encoder_preset",
     "escape_ass_text",
     "ffmpeg_args",
@@ -557,5 +624,6 @@ __all__ = [
     "generate_ass_content",
     "generate_ass_subtitles",
     "prepare_background",
+    "render_still",
     "safe_time",
 ]

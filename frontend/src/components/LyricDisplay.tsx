@@ -14,6 +14,7 @@ import { detectInstrumentalGaps, getCountdownState } from '../utils/gapDetection
 import { DEFAULT_BOTH_COLOR, DEFAULT_SINGER2_COLOR } from '../theme/stagePresets';
 import { BeatVisualizer } from './BeatVisualizer';
 import { StageBackground, StageBackgroundMedia } from './stage/StageBackground';
+import type { StageBackgroundStyle } from '../theme/stageBackgrounds';
 import { StageToolbar } from './stage/StageToolbar';
 import { StageLyrics } from './stage/StageLyrics';
 import { StageFloatingControls } from './stage/StageFloatingControls';
@@ -34,6 +35,12 @@ export interface LyricDisplayProps {
   albumArtUrl?: string;
   /** Custom background image/video shown behind the lyrics (replaces album art). */
   backgroundMedia?: StageBackgroundMedia | null;
+  /** The cover art as exports draw it (the backdrop route); used instead of albumArtUrl. */
+  artworkUrl?: string;
+  /** What the stage shows behind the lyrics (cover art when omitted). */
+  backgroundStyle?: StageBackgroundStyle;
+  /** Aurora and spectrum colours. */
+  backgroundPalette?: [string, string, string];
   themeSungColor?: string;
   themeUnsungColor?: string;
   singer2SungColor?: string;
@@ -78,6 +85,9 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   onTogglePlay,
   albumArtUrl,
   backgroundMedia,
+  artworkUrl,
+  backgroundStyle,
+  backgroundPalette,
   themeSungColor = '#facc15',
   themeUnsungColor = '#ffffff',
   singer2SungColor = DEFAULT_SINGER2_COLOR,
@@ -381,8 +391,15 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       <StageBackground
         baseColor={stageBaseColor}
         albumArtUrl={albumArtUrl}
+        artworkUrl={artworkUrl}
         media={backgroundMedia}
         tone={stageTone}
+        style={backgroundStyle}
+        time={effectiveTime}
+        palette={backgroundPalette}
+        aspect={aspectRatio === '9:16' ? '9:16' : '16:9'}
+        analyserNode={analyserNode}
+        isPlaying={isPlaying}
       />
 
       {isVisualizerActive && (
