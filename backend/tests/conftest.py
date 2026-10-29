@@ -71,6 +71,10 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "SEPARATION_REMOTE_QUEUE_SEC",
         "MODAL_TOKEN_ID",
         "MODAL_TOKEN_SECRET",
+        "RENDER_REMOTE",
+        "RENDER_REMOTE_QUEUE_SEC",
+        "RENDER_REMOTE_TIMEOUT_SEC",
+        "FFMPEG_PRESET",
     ):
         monkeypatch.delenv(name, raising=False)
     from backend.services import separator as separator_service

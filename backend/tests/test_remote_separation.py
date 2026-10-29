@@ -214,3 +214,26 @@ def test_the_gpu_app_uses_the_same_start_marker():
         and any(isinstance(t, ast.Name) and t.id == "STARTED" for t in node.targets)
     ]
     assert markers == [remote.STARTED]
+
+
+def test_an_aborting_progress_callback_cancels_the_cloud_job(tmp_path, fake_modal):
+    fake_modal.items = [remote.STARTED, "Loading model 1\n"]
+    fake_modal.call = FakeCall(polls_before_done=10**9)
+    song = tmp_path / "song.wav"
+    song.write_bytes(b"RIFF-song")
+
+    def abort(line):
+        raise RuntimeError("Separation was cancelled by the job")
+
+    with pytest.raises(RuntimeError, match="cancelled by the job"):
+        remote.run_remote(
+            presets.preset_plan("balanced"),
+            song,
+            tmp_path / "out",
+            abort,
+            None,
+            timeout_s=60.0,
+            stall_s=60.0,
+            queue_s=60.0,
+        )
+    assert fake_modal.call.cancelled

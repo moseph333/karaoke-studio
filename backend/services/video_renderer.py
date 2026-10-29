@@ -1,14 +1,25 @@
-"""1080p60 MP4 karaoke video rendering engine orchestrating FFmpeg filters, background scaling, and progressive subtitle burn-in."""
+"""1080p60 MP4 karaoke video rendering engine orchestrating FFmpeg filters, background scaling, and progressive subtitle burn-in.
+
+Every background feeds the filter graph at a genuine RENDER_FPS, so the lyric sweep is drawn for
+each output frame. Still images (a custom image, or the song's blurred thumbnail) are processed
+once before the render instead of on every frame. With RENDER_REMOTE set, FFmpeg runs on a cloud
+CPU (remote_render) and a failed or unavailable cloud render falls back to a local one.
+"""
 
 import logging
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 import threading
+import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from backend.config import OUTPUT_DIR
+from backend.services import remote_render
 from backend.services.ass_generator import (
     DEFAULT_THEME_ID,
     VISUAL_THEMES,
@@ -43,6 +54,214 @@ def ffmpeg_color(value: Any, default: str = DEFAULT_BACKGROUND_COLOR) -> str:
     if re.fullmatch(r"[0-9a-fA-F]{6}", hex_part):
         return f"0x{hex_part.lower()}"
     return default
+
+
+RENDER_FPS = 60
+VIDEO_BACKGROUND_EXTS = frozenset({".mp4", ".webm"})
+# The song's thumbnail as a background: blurred and darkened so the lyrics stand out
+THUMBNAIL_LOOK = "boxblur=45:5,eq=brightness=-0.25:contrast=1.1"
+
+
+def encoder_preset() -> str:
+    """libx264 preset: FFMPEG_PRESET, else veryfast (ultrafast under pytest)."""
+    return os.environ.get(
+        "FFMPEG_PRESET", "ultrafast" if "PYTEST_CURRENT_TEST" in os.environ else "veryfast"
+    )
+
+
+@dataclass(frozen=True)
+class RenderBackground:
+    """The filter graph's first input (a still image looped at RENDER_FPS, a looping video or a
+    generated colour) and the chain that turns it into [bg]."""
+
+    kind: str  # image | video | color
+    path: Path | None = None
+    graph: str = "[0:v]null[bg];"
+    color: str = DEFAULT_BACKGROUND_COLOR
+
+    def input_args(self, path_arg: str | None, width: int, height: int) -> list[str]:
+        if self.kind == "image":
+            return ["-loop", "1", "-framerate", str(RENDER_FPS), "-i", str(path_arg)]
+        if self.kind == "video":
+            return ["-stream_loop", "-1", "-i", str(path_arg)]
+        return ["-f", "lavfi", "-i", f"color=c={self.color}:s={width}x{height}:r={RENDER_FPS}"]
+
+
+@dataclass(frozen=True)
+class RenderJob:
+    background: RenderBackground
+    audio_path: Path
+    ass_path: Path
+    output_path: Path
+    width: int
+    height: int
+    duration: float
+    include_visualizer: bool = False
+
+
+def _fill(width: int, height: int) -> str:
+    return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
+
+
+def prepare_background(
+    work_dir: Path,
+    width: int,
+    height: int,
+    thumbnail_path: str | None,
+    custom_bg_path: str | None,
+    background_color: Any = None,
+) -> RenderBackground:
+    """A custom video loops and is resampled to RENDER_FPS; a custom image, or the song's
+    thumbnail (blurred and darkened), is processed once into work_dir; otherwise a colour."""
+    fill = _fill(width, height)
+    if custom_bg_path and os.path.exists(custom_bg_path):
+        source = Path(custom_bg_path)
+        if source.suffix.lower() in VIDEO_BACKGROUND_EXTS:
+            return RenderBackground("video", source, f"[0:v]{fill},fps={RENDER_FPS}[bg];")
+        return _still_background(source, fill, work_dir)
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        return _still_background(Path(thumbnail_path), f"{fill},{THUMBNAIL_LOOK}", work_dir)
+    return RenderBackground("color", color=ffmpeg_color(background_color))
+
+
+def _still_background(source: Path, chain: str, work_dir: Path) -> RenderBackground:
+    """Runs chain over a still image once instead of on every frame; when that fails the
+    image is processed per frame instead."""
+    target = work_dir / "background.png"
+    cmd = ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(source)]
+    cmd += ["-vf", chain, "-frames:v", "1", str(target)]
+    try:
+        done = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if done.returncode == 0 and target.is_file() and target.stat().st_size > 0:
+            return RenderBackground("image", target)
+        reason = (done.stderr or "").strip()[-200:] or f"exit {done.returncode}"
+    except Exception as exc:  # only an optimisation: fall back to the per-frame chain
+        reason = str(exc)
+    logger.warning(f"Could not prepare the background once ({reason}); processing it per frame")
+    return RenderBackground("image", source, f"[0:v]{chain}[bg];")
+
+
+def ffmpeg_args(
+    job: RenderJob,
+    bg_arg: str | None,
+    audio_arg: str,
+    ass_arg: str,
+    fonts_dir: str | Path | None,
+    output_arg: str,
+) -> list[str]:
+    """FFmpeg arguments (without the program name) for one render. The paths are local ones,
+    or the names a cloud render uploads the files under."""
+    subtitles = f"subtitles='{_escape_filter_path(ass_arg)}'"
+    if fonts_dir:
+        subtitles += f":fontsdir='{_escape_filter_path(fonts_dir)}'"
+    bg = job.background
+    if job.include_visualizer:
+        vis_h = 240
+        graph = (
+            f"{bg.graph}"
+            f"[1:a]showfreqs=s={job.width}x{vis_h}:mode=bar:fscale=log:colors=cyan|magenta[vis];"
+            f"[bg][vis]overlay=0:H-{vis_h}:format=auto[bgvis];"
+            f"[bgvis]{subtitles}[v]"
+        )
+    else:
+        graph = f"{bg.graph}[bg]{subtitles}[v]"
+    return [
+        "-y",
+        "-loglevel",
+        "warning",
+        "-progress",
+        "pipe:1",
+        "-nostats",
+        *bg.input_args(bg_arg, job.width, job.height),
+        "-i",
+        audio_arg,
+        "-filter_complex",
+        graph,
+        "-map",
+        "[v]",
+        "-map",
+        "1:a",
+        "-c:v",
+        "libx264",
+        "-preset",
+        encoder_preset(),
+        "-crf",
+        "18",
+        "-r",
+        str(RENDER_FPS),
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "320k",
+        "-shortest",
+        *(["-t", str(job.duration)] if job.duration and job.duration > 0 else []),
+        output_arg,
+    ]
+
+
+class RenderProgress:
+    """Turns FFmpeg -progress key=value lines into throttled (percent, detail, eta) updates."""
+
+    def __init__(self, duration: float, callback: Any | None, where: str = ""):
+        self.duration = duration
+        self.callback = callback
+        self.where = where
+        self.frame = 0
+        self.fps = 0.0
+        self.speed = 1.0
+        self.out_time = 0.0
+        self.last_callback = 0.0
+
+    def feed(self, line: str) -> None:
+        line = line.strip()
+        if not line or "=" not in line:
+            return
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip()
+
+        if key == "frame":
+            try:
+                self.frame = int(val)
+            except ValueError:
+                pass
+        elif key == "fps":
+            try:
+                self.fps = float(val)
+            except ValueError:
+                pass
+        elif key == "speed":
+            try:
+                self.speed = float(val.replace("x", "").strip())
+            except ValueError:
+                pass
+        elif key in ("out_time_us", "out_time_ms"):
+            try:
+                # In FFmpeg -progress output, both out_time_us and out_time_ms are in microseconds
+                self.out_time = float(val) / 1_000_000
+            except ValueError:
+                pass
+        elif key == "progress" and val in ("continue", "end"):
+            now = time.time()
+            if now - self.last_callback >= 0.25 or val == "end":
+                self.last_callback = now
+                eff_time = self.out_time if self.out_time > 0 else (self.frame / RENDER_FPS)
+                pct = (
+                    100.0
+                    if val == "end"
+                    else min(99.0, max(0.0, (eff_time / self.duration) * 100.0))
+                )
+                eta_sec = None
+                if val != "end" and self.speed > 0.05 and self.duration > eff_time:
+                    eta_sec = max(0, int((self.duration - eff_time) / self.speed))
+                detail = (
+                    f"Encoding 1080p60{self.where}: frame {self.frame} "
+                    f"({self.fps:.0f} fps, {self.speed:.1f}x speed)"
+                )
+                if self.callback:
+                    self.callback(pct, detail, eta_sec)
 
 
 class VideoRenderer:
@@ -152,9 +371,8 @@ class VideoRenderer:
 
         Streams FFmpeg output with -progress pipe:1 to calculate real-time percentage and ETA.
         Supports cancellation via cancel_event and optional beat-reactive audio visualizer.
+        Renders on a cloud CPU when RENDER_REMOTE is set, falling back to a local render.
         """
-        import time
-
         width, height = (1080, 1920) if aspect_ratio == "9:16" else (1920, 1080)
 
         # If duration was not provided, probe audio file
@@ -167,78 +385,90 @@ class VideoRenderer:
             except Exception:
                 duration = 200.0  # safe fallback if probe fails
 
-        # Escape ASS path for FFmpeg subtitles filter
-        escaped_ass = _escape_filter_path(ass_subtitles_path)
-        subtitles = f"subtitles='{escaped_ass}'"
-        if FONTS_DIR.is_dir():
-            subtitles += f":fontsdir='{_escape_filter_path(FONTS_DIR)}'"
-
-        # Determine background input
-        if custom_bg_path and os.path.exists(custom_bg_path):
-            bg_input = ["-stream_loop", "-1", "-i", custom_bg_path]
-            filter_bg = f"[0:v]scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}[bg];"
-        elif thumbnail_path and os.path.exists(thumbnail_path):
-            # Dynamic blurred album art background with subtle dark overlay
-            bg_input = ["-loop", "1", "-i", thumbnail_path]
-            filter_bg = (
-                f"[0:v]scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},"
-                f"boxblur=45:5,eq=brightness=-0.25:contrast=1.1[bg];"
+        work_dir = Path(tempfile.mkdtemp(prefix="karaoke-render-"))
+        try:
+            job = RenderJob(
+                background=prepare_background(
+                    work_dir,
+                    width,
+                    height,
+                    thumbnail_path,
+                    custom_bg_path,
+                    kwargs.get("background_color"),
+                ),
+                audio_path=Path(audio_path),
+                ass_path=Path(ass_subtitles_path),
+                output_path=Path(output_mp4_path),
+                width=width,
+                height=height,
+                duration=duration,
+                include_visualizer=include_visualizer,
             )
-        else:
-            # Generate ambient dynamic gradient
-            bg_color = ffmpeg_color(kwargs.get("background_color"))
-            bg_input = ["-f", "lavfi", "-i", f"color=c={bg_color}:s={width}x{height}"]
-            filter_bg = "[0:v]null[bg];"
+            if remote_render.enabled() and self._render_remote(
+                job, progress_callback, cancel_event
+            ):
+                return str(output_mp4_path)
+            self._render_local(job, progress_callback, cancel_event)
+            return str(output_mp4_path)
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
-        # Combined filter: background + optional audio visualizer + ASS subtitles
-        if include_visualizer:
-            vis_h = 240
-            filter_complex = (
-                f"{filter_bg}"
-                f"[1:a]showfreqs=s={width}x{vis_h}:mode=bar:fscale=log:colors=cyan|magenta[vis];"
-                f"[bg][vis]overlay=0:H-{vis_h}:format=auto[bgvis];"
-                f"[bgvis]{subtitles}[v]"
+    def _render_remote(self, job: RenderJob, progress_callback, cancel_event) -> bool:
+        """Renders on the cloud CPU; False means the caller should render locally instead."""
+        files: dict[str, Path] = {}
+        bg_arg = None
+        if job.background.path is not None:
+            bg_arg = f"background{job.background.path.suffix.lower() or '.png'}"
+            files[bg_arg] = job.background.path
+        audio_arg = f"audio{job.audio_path.suffix.lower() or '.wav'}"
+        files[audio_arg] = job.audio_path
+        files["subtitles.ass"] = job.ass_path
+        args = ffmpeg_args(
+            job,
+            bg_arg,
+            audio_arg,
+            "subtitles.ass",
+            remote_render.FONTS_DIR,
+            remote_render.OUTPUT_NAME,
+        )
+        progress = RenderProgress(job.duration, progress_callback, where=" on a cloud CPU")
+
+        def report(detail: str) -> None:
+            if progress_callback:
+                progress_callback(0.0, detail, None)
+
+        report("Waiting for a cloud CPU…")
+        try:
+            remote_render.render(
+                files,
+                args,
+                job.output_path,
+                progress.feed,
+                cancel_event,
+                on_started=lambda: report("Rendering on a cloud CPU…"),
             )
-        else:
-            filter_complex = f"{filter_bg}[bg]{subtitles}[v]"
+            return True
+        except remote_render.RenderCancelled as exc:
+            raise RuntimeError("Video rendering was cancelled by user") from exc
+        except (RuntimeError, OSError) as exc:
+            if cancel_event is not None and cancel_event.is_set():
+                raise RuntimeError("Video rendering was cancelled by user") from exc
+            logger.warning(f"Cloud render failed, rendering here instead: {exc}")
+            report("Cloud render unavailable, rendering here…")
+            return False
 
+    def _render_local(self, job: RenderJob, progress_callback, cancel_event) -> None:
+        bg_arg = str(job.background.path) if job.background.path is not None else None
         cmd = [
             "ffmpeg",
-            "-y",
-            "-loglevel",
-            "warning",
-            "-progress",
-            "pipe:1",
-            "-nostats",
-            *bg_input,
-            "-i",
-            audio_path,
-            "-filter_complex",
-            filter_complex,
-            "-map",
-            "[v]",
-            "-map",
-            "1:a",
-            "-c:v",
-            "libx264",
-            "-preset",
-            os.environ.get(
-                "FFMPEG_PRESET",
-                "ultrafast" if "PYTEST_CURRENT_TEST" in os.environ else "fast",
+            *ffmpeg_args(
+                job,
+                bg_arg,
+                str(job.audio_path),
+                str(job.ass_path),
+                FONTS_DIR if FONTS_DIR.is_dir() else None,
+                str(job.output_path),
             ),
-            "-crf",
-            "18",
-            "-r",
-            "60",
-            "-pix_fmt",
-            "yuv420p",
-            "-c:a",
-            "aac",
-            "-b:a",
-            "320k",
-            "-shortest",
-            *(["-t", str(duration)] if duration and duration > 0 else []),
-            str(output_mp4_path),
         ]
 
         logger.info(f"Rendering video with FFmpeg: {' '.join(cmd)}")
@@ -258,66 +488,14 @@ class VideoRenderer:
 
         stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
         stderr_thread.start()
-
-        current_frame = 0
-        current_fps = 0.0
-        current_speed = 1.0
-        out_time_sec = 0.0
-        last_callback_time = 0.0
+        progress = RenderProgress(job.duration, progress_callback)
 
         try:
             for line in process.stdout:
                 if cancel_event and cancel_event.is_set():
                     logger.warning("Video rendering cancelled by user.")
                     raise RuntimeError("Video rendering was cancelled by user")
-
-                line = line.strip()
-                if not line or "=" not in line:
-                    continue
-
-                key, _, val = line.partition("=")
-                key = key.strip()
-                val = val.strip()
-
-                if key == "frame":
-                    try:
-                        current_frame = int(val)
-                    except ValueError:
-                        pass
-                elif key == "fps":
-                    try:
-                        current_fps = float(val)
-                    except ValueError:
-                        pass
-                elif key == "speed":
-                    try:
-                        speed_cleaned = val.replace("x", "").strip()
-                        current_speed = float(speed_cleaned)
-                    except ValueError:
-                        pass
-                elif key in ("out_time_us", "out_time_ms"):
-                    try:
-                        # In FFmpeg -progress output, both out_time_us and out_time_ms are in microseconds
-                        out_time_sec = float(val) / 1_000_000
-                    except ValueError:
-                        pass
-                elif key == "progress" and val in ("continue", "end"):
-                    now = time.time()
-                    if now - last_callback_time >= 0.25 or val == "end":
-                        last_callback_time = now
-                        eff_time = out_time_sec if out_time_sec > 0 else (current_frame / 60.0)
-                        pct = (
-                            100.0
-                            if val == "end"
-                            else min(99.0, max(0.0, (eff_time / duration) * 100.0))
-                        )
-                        eta_sec = None
-                        if val != "end" and current_speed > 0.05 and duration > eff_time:
-                            eta_sec = max(0, int((duration - eff_time) / current_speed))
-
-                        detail = f"Encoding 1080p60: frame {current_frame} ({current_fps:.0f} fps, {current_speed:.1f}x speed)"
-                        if progress_callback:
-                            progress_callback(pct, detail, eta_sec)
+                progress.feed(line)
 
             process.wait()
 
@@ -362,16 +540,21 @@ class VideoRenderer:
             logger.error(f"Video rendering failed: {stderr_out}")
             raise RuntimeError(f"FFmpeg video render error: {stderr_out}")
 
-        return str(output_mp4_path)
-
 
 __all__ = [
     "DEFAULT_THEME_ID",
+    "RENDER_FPS",
     "VISUAL_THEMES",
+    "RenderBackground",
+    "RenderJob",
+    "RenderProgress",
     "VideoRenderer",
+    "encoder_preset",
     "escape_ass_text",
+    "ffmpeg_args",
     "format_ass_time",
     "generate_ass_content",
     "generate_ass_subtitles",
+    "prepare_background",
     "safe_time",
 ]

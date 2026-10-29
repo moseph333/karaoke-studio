@@ -56,7 +56,8 @@ When a preset cannot run (extras not installed, weights unavailable, out of memo
 - Word-sweep or line-by-line highlighting, instrumental countdowns, a beat visualizer (<kbd>V</kbd>), a transposing chord bar (<kbd>C</kbd>) and a fullscreen TV stage (<kbd>F</kbd>).
 - Five app themes (**Afterglow**, **Basement Flyer**, **Reel-to-Reel '74**, **Midnight KTV Booth**, **Monolith Press**) and nine stage presets, with custom colours, font scale and image or video backdrops. Stage settings are remembered.
 - Key shift (−12 to +12 semitones) and speed (0.5× to 1.5×), a 0–50% guide vocal, and the **Smart Key Recommender** that fits a song's vocal range to your voice. Final renders shift pitch with Rubber Band at high quality, keeping the guide vocal's formants.
-- Exports: 1080p60 MP4 (16:9 or 9:16 Shorts), `.lrc` and `.ass` subtitles, WAV stems, chord and lyric sheets, and a YouTube metadata kit.
+- Exports: 1080p60 MP4 (16:9 or 9:16 Shorts) with the lyric sweep drawn for every frame, `.lrc` and `.ass` subtitles, WAV stems, chord and lyric sheets, and a YouTube metadata kit.
+- **Cloud export (optional).** With `RENDER_REMOTE=modal` (same Modal deployment and token as the cloud GPU), MP4s render on a 16-core Modal CPU: about half a minute for a 3-minute song, around a cent each. If it is unavailable or fails, the export renders on your server.
 
 ## Quick start
 
@@ -174,6 +175,15 @@ cp .env.example .env
 | `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` | *(empty)* | Modal token for the server |
 | `SEPARATION_REMOTE_APP` | `karaoke-studio-gpu` | Name of the deployed Modal app |
 | `SEPARATION_REMOTE_QUEUE_SEC` | `300` | Longest wait for a free GPU before falling back to Fast here |
+
+**Video export**
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `FFMPEG_PRESET` | `veryfast` | libx264 preset for MP4 exports (slower presets make smaller files) |
+| `RENDER_REMOTE` | *(empty)* | `modal` renders exports on a Modal cloud CPU (deploy `gpu/modal_app.py` first) |
+| `RENDER_REMOTE_QUEUE_SEC` | `120` | Longest wait for a cloud CPU before rendering here |
+| `RENDER_REMOTE_TIMEOUT_SEC` | `3600` | Stop a cloud render that runs longer than this |
 
 **Lyric sync**
 
