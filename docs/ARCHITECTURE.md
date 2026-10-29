@@ -91,7 +91,7 @@ docs/                     this guide, screenshots
 
 `backend/main.py` builds the FastAPI app, installs the middleware (security headers, CORS, session authentication), mounts static media and the built frontend, includes the routers, and creates the shared service singletons (`separator`, `aligner`, `audio_mixer`, `lyrics_service`, `video_renderer`, …). `logging_setup.configure_logging()` gives the app's own loggers (`karaoke_backend` and `backend.*`) a timestamped stderr handler at INFO (`LOG_LEVEL`), since Uvicorn configures only its own. Tests monkeypatch these singletons, so services are always reached through `backend.main` at call time.
 
-**Authentication.** When `APP_PASSWORD` is set, every `/api/*` request except `/api/health`, `/api/system/update` and `/api/auth/*`, and every `/static/*` file, needs a session: an HMAC-signed token from `POST /api/auth/login` (also set as an `HttpOnly` cookie), the `X-App-Password` header, or `Authorization: Bearer`. Failed logins are rate limited per IP (`LOGIN_RATE_LIMIT_*`, HTTP 429).
+**Authentication.** When `APP_PASSWORD` is set, every `/api/*` request except `GET /api/health` and `/api/auth/*`, and every `/static/*` file, needs a session: an HMAC-signed token from `POST /api/auth/login` (also set as an `HttpOnly` cookie), the `X-App-Password` header, or `Authorization: Bearer`. Without one, `GET /api/health` answers from the cached update status and ignores `check_remote`. Failed logins are rate limited per client IP (`LOGIN_RATE_LIMIT_*`, HTTP 429), taken from the last `X-Forwarded-For` entry (the one the nearest proxy wrote) or else the socket address. Keep the app port reachable only through that proxy; a client that connects directly can set the header itself.
 
 **Static media.**
 
@@ -109,7 +109,7 @@ Stem and master URLs carry a `?v=` version after a re-separation or remix so bro
 
 | Method and path | Purpose |
 | :--- | :--- |
-| `GET /api/health`, `POST /api/health`, `POST /api/system/update` | version and update check |
+| `GET /api/health`, `POST /api/health`, `POST /api/system/update` | version and update check; the POST forms can start an update and need a session |
 | `GET /api/auth/status`, `POST /api/auth/login`, `POST /api/auth/logout` | session handling |
 | `GET /api/capabilities` | separation presets and lyric aligner this server can run, with reasons |
 | `POST /api/search` | YouTube search |

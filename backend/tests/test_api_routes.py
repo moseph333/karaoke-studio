@@ -561,6 +561,39 @@ class TestRouteAuthenticationAndSecurity:
         assert body["auth_required"] is True
         assert body["authenticated"] is False
 
+    def test_update_actions_require_auth(self, unauth_client, client, monkeypatch, tmp_path):
+        """POST /api/health and /api/system/update can start an update, so they need a session."""
+        monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+        monkeypatch.setattr(
+            config,
+            "check_for_updates",
+            lambda force_remote=False: {"version": "v1.0.0", "latest_version": "v1.0.1"},
+        )
+
+        for path in ("/api/health", "/api/system/update"):
+            for action in ("check", "update"):
+                res = unauth_client.post(path, json={"action": action})
+                assert res.status_code == 401
+        assert not (tmp_path / ".update_requested").exists()
+
+        res = client.post("/api/system/update", json={"action": "update"})
+        assert res.status_code == 200
+        assert (tmp_path / ".update_requested").exists()
+
+    def test_health_remote_check_requires_auth(self, unauth_client, client, monkeypatch):
+        """Without a session, GET /api/health answers from cache even when check_remote is set."""
+        calls = []
+
+        def fake_check_for_updates(force_remote=False):
+            calls.append(force_remote)
+            return {"status": "ok"}
+
+        monkeypatch.setattr(config, "check_for_updates", fake_check_for_updates)
+
+        assert unauth_client.get("/api/health?check_remote=true").status_code == 200
+        assert client.get("/api/health?check_remote=true").status_code == 200
+        assert calls == [False, True]
+
     def test_auth_status_when_no_password_configured(self, unauth_client, monkeypatch):
         """When no passphrase is set, auth_required is False and authenticated is True."""
         monkeypatch.setattr(config, "APP_PASSWORD", "")
