@@ -4,6 +4,12 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 
 ![Karaoke Studio](docs/karaoke-preview.png)
 
+## What's new in 2.1
+
+- **Balanced and Best on a cloud GPU.** On a slow server, the RoFormer presets can run on a [Modal](https://modal.com) GPU instead: about a minute for a 4-minute song on Balanced. Fast always runs on your server, and songs fall back to it when the cloud is unavailable.
+- **Real 60 fps exports.** The lyric sweep is drawn for every frame (still and colour backgrounds used to run at 25 fps), exports are faster on your own server, and they can render on a Modal cloud CPU instead.
+- **Fixes.** Balanced and Best no longer fall back to Fast in images built with librosa 1.0, and a newly opened song shows its key from the first frame.
+
 ## What's new in 2.0
 
 - **A redesigned studio.** One screen: stage and timeline in the middle, the mix and look inspector on the right, a transport dock at the bottom. Built on a token-driven design system with a new default theme, **Afterglow**. The four classic themes are still there.
@@ -57,7 +63,7 @@ When a preset cannot run (extras not installed, weights unavailable, out of memo
 - Five app themes (**Afterglow**, **Basement Flyer**, **Reel-to-Reel '74**, **Midnight KTV Booth**, **Monolith Press**) and nine stage presets, with custom colours, font scale and image or video backdrops. Stage settings are remembered.
 - Key shift (−12 to +12 semitones) and speed (0.5× to 1.5×), a 0–50% guide vocal, and the **Smart Key Recommender** that fits a song's vocal range to your voice. Final renders shift pitch with Rubber Band at high quality, keeping the guide vocal's formants.
 - Exports: 1080p60 MP4 (16:9 or 9:16 Shorts) with the lyric sweep drawn for every frame, `.lrc` and `.ass` subtitles, WAV stems, chord and lyric sheets, and a YouTube metadata kit.
-- **Cloud export (optional).** With `RENDER_REMOTE=modal` (same Modal deployment and token as the cloud GPU), MP4s render on a 16-core Modal CPU: about half a minute for a 3-minute song, around a cent each. If it is unavailable or fails, the export renders on your server.
+- **Cloud export (optional).** With `RENDER_REMOTE=modal` (same Modal deployment and token as the cloud GPU), MP4s render on a 16-core Modal CPU: about 1¼ minutes for a 3-minute song, around a cent each. If it is unavailable or fails, the export renders on your server.
 
 ## Quick start
 
