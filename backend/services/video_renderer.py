@@ -446,6 +446,7 @@ class VideoRenderer:
                 progress.feed,
                 cancel_event,
                 on_started=lambda: report("Rendering on a cloud CPU…"),
+                on_waiting=lambda waited: report(f"Waiting for a cloud CPU… {waited:.0f} s"),
             )
             return True
         except remote_render.RenderCancelled as exc:

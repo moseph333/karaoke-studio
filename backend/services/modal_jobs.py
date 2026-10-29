@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 STARTED = "\x00karaoke-gpu-started"
 _POLL_SECONDS = 1.0
 _BATCH = 500
+_WAITING_REPORT_SECONDS = 5.0
 
 
 class RemoteUnavailable(RuntimeError):
@@ -52,13 +53,15 @@ def run_modal_job(
     stall_s: float,
     queue_s: float,
     on_started: Callable[[], None] | None = None,
+    on_waiting: Callable[[float], None] | None = None,
     resource: str = "GPU",
     queue_setting: str = "SEPARATION_REMOTE_QUEUE_SEC",
 ) -> tuple[RemoteOutcome, dict | None]:
     """Spawn function_name(**kwargs, lines=queue) and follow it until it ends.
 
     on_line receives each line the function puts on the queue; on_started fires once it
-    runs. Returns the outcome and, when the function returned a dict, that dict (also on a
+    runs, and until then on_waiting gets the seconds waited so far, about every 5 seconds.
+    Returns the outcome and, when the function returned a dict, that dict (also on a
     non-zero returncode). Any exception while following, including one raised by on_line,
     cancels the remote call before it propagates.
     """
@@ -88,6 +91,7 @@ def run_modal_job(
                     stall_s=stall_s,
                     queue_s=queue_s,
                     on_started=on_started,
+                    on_waiting=on_waiting,
                     job_timeout=modal_errors.FunctionTimeoutError,
                     unavailable=unavailable,
                     resource=resource,
@@ -112,6 +116,7 @@ def _follow(
     stall_s: float,
     queue_s: float,
     on_started: Callable[[], None] | None,
+    on_waiting: Callable[[float], None] | None,
     job_timeout: type[BaseException],
     unavailable: tuple[type[BaseException], ...],
     resource: str,
@@ -119,6 +124,7 @@ def _follow(
 ) -> tuple[RemoteOutcome, dict | None]:
     started_at = time.monotonic()
     last_output = started_at
+    last_waiting_report = started_at
     running = False
 
     def deliver(items: list) -> None:
@@ -126,6 +132,8 @@ def _follow(
         for item in items:
             if item == STARTED:
                 running = True
+                waited = time.monotonic() - started_at
+                logger.info(f"The cloud {resource} job started after {waited:.0f} s in the queue")
                 if on_started:
                     on_started()
             else:
@@ -143,6 +151,9 @@ def _follow(
                 f"no cloud {resource} started the job within {duration_text(queue_s)} "
                 f"({queue_setting})"
             )
+        if not running and on_waiting and now - last_waiting_report >= _WAITING_REPORT_SECONDS:
+            last_waiting_report = now
+            on_waiting(now - started_at)
         if now - started_at > timeout_s:
             _cancel(call)
             return RemoteOutcome(None, "timeout"), None

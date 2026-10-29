@@ -41,6 +41,7 @@ from backend.export_utils import (
     build_content_disposition,
     sanitize_export_filename,
 )
+from backend.logging_setup import configure_logging
 from backend.pipeline import (
     run_local_pipeline,
     run_pipeline,
@@ -118,6 +119,7 @@ from backend.upload_utils import (
     validate_image_header,
 )
 
+configure_logging()
 logger = logging.getLogger("karaoke_backend")
 
 active_cancellations: dict[str, threading.Event] = {}

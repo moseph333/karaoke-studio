@@ -14,8 +14,10 @@ SEPARATION_REMOTE_GPUS and sends the worker's stderr back through the queue it i
 backend.services.remote_separation to read. Model weights live in the Modal volume
 "karaoke-models", so each downloads once. `render` runs FFmpeg with the arguments
 backend.services.video_renderer builds, on RENDER_REMOTE_CPUS cores with the app's fonts, and
-sends FFmpeg's -progress lines back the same way. Billing is per second while a container runs;
-an idle container stops after SEPARATION_REMOTE_SCALEDOWN_SEC.
+sends FFmpeg's -progress lines back the same way; called with warmup=True (when the Export
+dialog opens) it only starts a container. Billing is per second while a container runs; an
+idle GPU container stops after SEPARATION_REMOTE_SCALEDOWN_SEC and an idle render container
+after RENDER_REMOTE_SCALEDOWN_SEC, long enough for the Render click that follows a warm-up.
 """
 
 import os
@@ -41,6 +43,7 @@ GPUS = [
 SCALEDOWN_SECONDS = int(os.environ.get("SEPARATION_REMOTE_SCALEDOWN_SEC", "30"))
 # Physical cores for an export; libx264 at 1080p60 keeps about 16 busy
 RENDER_CPUS = float(os.environ.get("RENDER_REMOTE_CPUS", "16"))
+RENDER_SCALEDOWN_SECONDS = int(os.environ.get("RENDER_REMOTE_SCALEDOWN_SEC", "120"))
 MODEL_DIR = "/models/audio-separator"
 FONTS_DIR = "/fonts"  # same path as backend/services/remote_render.py
 # Put on the queue when the job starts (same value in backend/services/modal_jobs.py)
@@ -175,15 +178,26 @@ def separate(
     cpu=RENDER_CPUS,
     memory=8192,
     timeout=3600,
-    scaledown_window=SCALEDOWN_SECONDS,
+    scaledown_window=RENDER_SCALEDOWN_SECONDS,
 )
-def render(files: dict[str, bytes], args: list[str], output: str, lines: modal.Queue) -> dict:
+def render(
+    files: dict[str, bytes] | None = None,
+    args: list[str] | None = None,
+    output: str = "",
+    lines: modal.Queue | None = None,
+    warmup: bool = False,
+) -> dict:
     """Run `ffmpeg *args` next to the uploaded files: FFmpeg's -progress lines go to `lines`,
-    the finished video (`output`) is returned."""
+    the finished video (`output`) is returned. With warmup=True it returns at once: the call
+    only starts a container for the render that follows."""
+    if warmup:
+        return {"warmup": True, "cpus": os.cpu_count()}
+    if lines is None or args is None:
+        raise ValueError("render needs FFmpeg arguments and a queue for its output")
     lines.put(STARTED)
     work = Path(tempfile.mkdtemp(prefix="render-"))
     try:
-        for name, data in files.items():
+        for name, data in (files or {}).items():
             (work / Path(name).name).write_bytes(data)
         process = subprocess.Popen(
             ["ffmpeg", "-nostdin", *args],
