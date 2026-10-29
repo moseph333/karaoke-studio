@@ -7,6 +7,7 @@ import React, { useCallback, useRef } from 'react';
 import {
   Gauge,
   HelpCircle,
+  ImageIcon,
   Layers,
   LayoutPanelTop,
   ListMusic,
@@ -43,6 +44,7 @@ import {
 import { rankItems } from '../components/commandPalette/fuzzy';
 import { APP_THEME_LIST } from '../theme/appThemes';
 import { STAGE_PRESETS_IN_DISPLAY_ORDER } from '../theme/stagePresets';
+import { STAGE_BACKGROUND_OPTIONS } from '../theme/stageBackgrounds';
 import { STAGE_SIZES, StageSize } from '../theme/stageSettingsStorage';
 import { PLAYBACK_SPEEDS } from '../components/audio/PlaybackSpeedControl';
 import { useAppTheme } from '../context/AppThemeContext';
@@ -441,6 +443,32 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
     keywords: ['guide', 'keys', 'how to'],
     run: opts.onOpenHelp,
   });
+
+  // After the app themes, so the list shown before typing keeps its entries
+  if (project) {
+    STAGE_BACKGROUND_OPTIONS.forEach((option) =>
+      add({
+        id: `stage-background:${option.value}`,
+        title: `Stage background: ${option.label}`,
+        subtitle: current(theme.backgroundStyle === option.value),
+        group: 'Themes',
+        icon: <ImageIcon />,
+        keywords: ['backdrop', 'look', option.hint],
+        run: () => theme.setBackgroundStyle(option.value),
+      })
+    );
+    if (theme.customBgId) {
+      add({
+        id: 'stage-background:custom',
+        title: 'Stage background: Upload',
+        subtitle: current(theme.backgroundStyle === 'custom'),
+        group: 'Themes',
+        icon: <ImageIcon />,
+        keywords: ['backdrop', 'look', 'image', 'video', 'uploaded'],
+        run: () => theme.setBackgroundStyle('custom'),
+      });
+    }
+  }
 
   useRegisterCommands('studio', commands);
 

@@ -268,6 +268,8 @@ export interface VisualTheme {
   singer2Color?: string;
   bothColor?: string;
   tone?: 'dark' | 'light';
+  /** Second and third colours of the aurora and spectrum backgrounds (the first is the sung colour). */
+  backgroundAccents?: [string, string];
 }
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';

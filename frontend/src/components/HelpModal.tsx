@@ -245,7 +245,7 @@ const STAGES: GuideStage[] = [
       'Pitch shift (-12 to +12 semitones), Smart Key Recommender, guide vocal (0%–50%), and speed (0.5x–1.5x)',
       'Toggle Live Chord Bar [C], Fullscreen TV Stage Mode [F], Beat-Reactive Visualizer [V], and >=4.0s gap countdowns',
       'Select preset visual themes or customize sung/unsung colors and lyric font scaling (0.75x–1.5x)',
-      'Upload custom image/video backgrounds and switch between 16:9 Widescreen and 9:16 Shorts',
+      'Pick a background (cover art, drifting art, aurora, spectrum, plain) or upload an image/video, and switch between 16:9 Widescreen and 9:16 Shorts',
     ],
   },
   {

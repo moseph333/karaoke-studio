@@ -1,6 +1,10 @@
-"""Preview/export parity: the stage look chosen in the studio (duet colors, preset backdrop)
-reaches the .ass subtitle export and the rendered video."""
+"""Preview/export parity: the stage look chosen in the studio (duet colors, preset backdrop,
+background style) reaches the .ass subtitle export and the rendered video, and the stage is
+served the very cover-art still the export draws."""
 
+import shutil
+import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -12,7 +16,12 @@ from backend.main import projects
 from backend.render_worker import run_video_render
 from backend.schemas import RenderRequest
 from backend.services.ass_generator import css_to_ass_color
-from backend.services.video_renderer import DEFAULT_BACKGROUND_COLOR, VideoRenderer, ffmpeg_color
+from backend.services.video_renderer import (
+    DEFAULT_BACKGROUND_COLOR,
+    VideoRenderer,
+    ffmpeg_color,
+    prepare_background,
+)
 
 DUET_LINES = [
     {
@@ -196,3 +205,86 @@ def test_render_worker_forwards_the_stage_backdrop(tmp_path, duet_project, monke
     assert render_calls, "render_video was not called"
     assert render_calls[0]["background_color"] == "#0b0b12"
     assert projects[duet_project["id"]]["render_status"] == "completed"
+
+
+def test_render_worker_forwards_the_background_style(tmp_path, duet_project, monkeypatch):
+    duet_project["instrumental_path"] = str(tmp_path / "inst.wav")
+    render_calls: list[dict] = []
+    monkeypatch.setattr(main_mod, "OUTPUT_DIR", tmp_path, raising=False)
+    monkeypatch.setattr(
+        main_mod.video_renderer,
+        "generate_ass_subtitles",
+        lambda **kwargs: kwargs["output_ass_path"],
+    )
+    monkeypatch.setattr(
+        main_mod.audio_mixer, "mix_and_shift", lambda **kwargs: str(tmp_path / "mix.wav")
+    )
+    monkeypatch.setattr(
+        main_mod.video_renderer,
+        "render_video",
+        lambda audio_path, ass_subtitles_path, output_mp4_path, **kwargs: render_calls.append(
+            kwargs
+        ),
+    )
+    monkeypatch.setattr(
+        main_mod.youtube_service, "generate_youtube_package", lambda **kwargs: {"title": "t"}
+    )
+    palette = ["#dc2626", "#f59e0b", "#1f2937"]
+
+    run_video_render(
+        duet_project["id"],
+        RenderRequest(
+            style_config={
+                "theme_id": "clean_paper",
+                "background_color": "#f4f4f0",
+                "background_style": "aurora",
+                "background_palette": palette,
+                "background_tone": "light",
+            }
+        ),
+    )
+
+    assert render_calls, "render_video was not called"
+    kwargs = render_calls[0]
+    assert kwargs["background_style"] == "aurora"
+    assert kwargs["background_palette"] == palette
+    assert kwargs["background_tone"] == "light"
+
+
+def _pixels(path_or_bytes, tmp_path: Path) -> np.ndarray:
+    """Decoded RGB pixels of a PNG file or PNG bytes."""
+    source = path_or_bytes
+    if isinstance(path_or_bytes, bytes):
+        source = tmp_path / "served.png"
+        source.write_bytes(path_or_bytes)
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", str(source), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        capture_output=True,
+        check=True,
+    ).stdout
+    return np.frombuffer(raw, np.uint8)
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is not installed")
+@pytest.mark.parametrize("drift", [False, True])
+def test_the_stage_is_served_the_still_the_export_draws(client, tmp_path, drift):
+    thumbnail = main_mod.DOWNLOADS_DIR / "parity.jpg"
+    ffmpeg = ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-f", "lavfi"]
+    subprocess.run(
+        [*ffmpeg, "-i", "testsrc2=s=640x360", "-frames:v", "1", str(thumbnail)], check=True
+    )
+    projects["parity01"] = {"id": "parity01", "title": "P", "thumbnail_path": str(thumbnail)}
+    try:
+        res = client.get("/api/project/parity01/backdrop", params={"drift": int(drift)})
+    finally:
+        projects.pop("parity01", None)
+    assert res.status_code == 200
+
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    background = prepare_background(
+        work_dir, 1920, 1080, str(thumbnail), None, background_style="drift" if drift else None
+    )
+
+    assert background.kind == ("drift" if drift else "image")
+    assert np.array_equal(_pixels(res.content, tmp_path), _pixels(background.path, tmp_path))

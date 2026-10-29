@@ -2,7 +2,7 @@
  * Visual Theme, Custom Palette & Typography Hook
  *
  * Encapsulates visual themes, custom sung/unsung colors, font size scaling,
- * aspect ratio switching, and custom background state.
+ * aspect ratio switching, and the stage background (style, palette and upload).
  * Reactively synchronizes with application theme when mounted within AppThemeProvider,
  * while maintaining resilient fallback for isolated unit tests.
  */
@@ -23,6 +23,7 @@ import {
   loadStageSettings,
   saveStageSettings,
 } from '../theme/stageSettingsStorage';
+import { StageBackgroundStyle, stageBackgroundPalette } from '../theme/stageBackgrounds';
 import { DEFAULT_APP_THEME_ID, getAppTheme } from '../theme/appThemes';
 import { AppThemeContext } from '../context/AppThemeContext';
 
@@ -85,7 +86,13 @@ export interface UseVisualThemeReturn {
   aspectRatio: string;
   setAspectRatio: (ratio: string) => void;
   customBgId: string;
+  /** Sets the uploaded background ('' removes it); an upload becomes the background style. */
   setCustomBgId: (id: string) => void;
+  /** What the stage and exports show behind the lyrics ('custom' is the uploaded file). */
+  backgroundStyle: StageBackgroundStyle;
+  setBackgroundStyle: (style: StageBackgroundStyle) => void;
+  /** Aurora and spectrum colours: the sung colour and two accents. */
+  backgroundPalette: [string, string, string];
   syncMode: SyncDisplayMode;
   setSyncMode: (mode: SyncDisplayMode) => void;
   showVisualizer: boolean;
@@ -104,7 +111,7 @@ export interface UseVisualThemeReturn {
   activeBothColor: string;
   /** Solid stage backdrop behind artwork (also the video's fallback background). */
   stageBackgroundColor: string;
-  /** Uploaded background shown behind the stage lyrics, if any. */
+  /** Uploaded background shown behind the stage lyrics, when it is the chosen style. */
   stageBackground: StageBackgroundMedia | null;
   effectiveTheme: VisualTheme & { font_size_scale: number; sync_mode?: SyncDisplayMode };
 }
@@ -150,7 +157,10 @@ export function useVisualTheme(
   const [customBothColor, setCustomBothColor] = useState<string | null>(seed.bothColor);
   const [fontSizeScale, setFontSizeScale] = useState<number>(seed.fontSizeScale);
   const [aspectRatio, setAspectRatio] = useState<string>(seed.aspectRatio);
-  const [customBgId, setCustomBgId] = useState<string>(seed.customBgId);
+  const [customBgId, setCustomBgIdState] = useState<string>(seed.customBgId);
+  const [backgroundStyle, setBackgroundStyle] = useState<StageBackgroundStyle>(
+    seed.backgroundStyle
+  );
   const [syncMode, setSyncMode] = useState<SyncDisplayMode>(seed.syncMode);
   const [showVisualizer, setShowVisualizer] = useState<boolean>(seed.showVisualizer);
   const [showChordBar, setShowChordBar] = useState<boolean>(seed.showChordBar);
@@ -159,6 +169,10 @@ export function useVisualTheme(
   const setSelectedTheme = useCallback((theme: VisualTheme) => {
     setSelectedThemeState(theme);
     setPresetSource('user');
+  }, []);
+  const setCustomBgId = useCallback((id: string) => {
+    setCustomBgIdState(id);
+    setBackgroundStyle((prev) => (id ? 'custom' : prev === 'custom' ? 'artwork' : prev));
   }, []);
   const toggleVisualizer = useCallback(() => setShowVisualizer((prev) => !prev), []);
   const toggleChordBar = useCallback(() => setShowChordBar((prev) => !prev), []);
@@ -191,6 +205,7 @@ export function useVisualTheme(
       fontSizeScale,
       aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9',
       syncMode,
+      backgroundStyle,
       customBgId,
       showVisualizer,
       showChordBar,
@@ -207,13 +222,17 @@ export function useVisualTheme(
     fontSizeScale,
     aspectRatio,
     syncMode,
+    backgroundStyle,
     customBgId,
     showVisualizer,
     showChordBar,
     stageSize,
   ]);
 
-  const stageBackground = useMemo(() => stageBackgroundFromId(customBgId), [customBgId]);
+  const stageBackground = useMemo(
+    () => (backgroundStyle === 'custom' ? stageBackgroundFromId(customBgId) : null),
+    [backgroundStyle, customBgId]
+  );
 
   const activeSungColor = customSungColor ?? selectedTheme.previewSung;
   const activeUnsungColor = customUnsungColor ?? selectedTheme.previewUnsung;
@@ -221,6 +240,15 @@ export function useVisualTheme(
     customSinger2Color ?? selectedTheme.singer2Color ?? DEFAULT_SINGER2_COLOR;
   const activeBothColor = customBothColor ?? selectedTheme.bothColor ?? DEFAULT_BOTH_COLOR;
   const stageBackgroundColor = getStageBackground(selectedTheme);
+  const backgroundPalette = useMemo(
+    () =>
+      stageBackgroundPalette(selectedTheme, {
+        sung: activeSungColor,
+        singer2: customSinger2Color,
+        both: customBothColor,
+      }),
+    [selectedTheme, activeSungColor, customSinger2Color, customBothColor]
+  );
 
   const resetThemeDefaults = useCallback(() => {
     setCustomSungColor(null);
@@ -290,6 +318,9 @@ export function useVisualTheme(
     setAspectRatio,
     customBgId,
     setCustomBgId,
+    backgroundStyle,
+    setBackgroundStyle,
+    backgroundPalette,
     syncMode,
     setSyncMode,
     showVisualizer,

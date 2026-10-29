@@ -1,6 +1,8 @@
-"""Export backgrounds: genuine 60 fps for every kind, still images processed once, the preset."""
+"""Export backgrounds: genuine 60 fps for every kind, still images processed once, the preset,
+and the generated styles (drifting art, aurora, spectrum)."""
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,6 +11,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
+from backend.services import stage_backgrounds as sb
 from backend.services import video_renderer as vr
 from backend.services.video_renderer import VideoRenderer
 
@@ -186,3 +189,251 @@ def test_a_thumbnail_is_blurred_once_and_the_lyrics_render_at_60_fps(tmp_path, m
     stream = json.loads(probe.stdout)["streams"][0]
     assert (stream["width"], stream["height"], stream["avg_frame_rate"]) == (1920, 1080, "60/1")
     assert not Path(prepare[-1]).parent.exists()
+
+
+# --- Generated styles -------------------------------------------------------------------------
+
+PALETTE = ["#fbbf24", "#f472b6", "#5eead4"]
+SHARED_MOTION = Path(__file__).resolve().parents[2] / "frontend/src/theme/backgroundMotion.json"
+
+
+def _thumbnail(tmp_path: Path) -> Path:
+    thumbnail = tmp_path / "thumb.jpg"
+    thumbnail.write_bytes(b"jpeg")
+    return thumbnail
+
+
+def test_the_motion_numbers_match_the_stage_preview():
+    assert json.loads(SHARED_MOTION.read_text(encoding="utf-8")) == sb.BACKGROUND_MOTION
+
+
+@pytest.mark.parametrize(
+    ("aspect", "size", "small"),
+    [("16:9", "1920:1080", "480x270"), ("9:16", "1080:1920", "270x480")],
+)
+def test_aurora_is_drawn_small_from_inline_sources_and_upscaled(
+    tmp_path, monkeypatch, aspect, size, small
+):
+    cmd = _main_command(
+        tmp_path,
+        monkeypatch,
+        aspect_ratio=aspect,
+        background_style="aurora",
+        background_palette=PALETTE,
+        background_color="#0b0b12",
+    )
+
+    assert f"color=c=0x0b0b12:s={small}:r=60" in cmd
+    assert "-loop" not in cmd and "-stream_loop" not in cmd
+    graph = _graph(cmd)
+    assert graph.count("overlay=x=") == 3
+    assert "eval=frame:format=rgb" in graph
+    assert "geq=r=251:g=191:b=36:" in graph  # the first orb takes the sung colour
+    assert "geq=r=244:g=114:b=182:" in graph
+    assert f"scale={size}:flags=bicubic[bg];[bg]subtitles=" in graph
+    assert cmd[cmd.index("-r") + 1] == "60"
+
+
+def test_the_spectrum_listens_to_the_song_and_stays_low(tmp_path, monkeypatch):
+    cmd = _main_command(
+        tmp_path,
+        monkeypatch,
+        background_style="spectrum",
+        background_palette=PALETTE,
+        background_color="#0b0b12",
+        include_visualizer=True,
+    )
+
+    graph = _graph(cmd)
+    assert graph.startswith("[1:a]showcqt=s=480x162:r=60:")
+    assert "pad=480:270:0:108[bars]" in graph  # the glow never rises above 60% of the frame
+    assert "[0:v]trim=end_frame=1,format=gbrp,geq=r='clip((251+(-7)*X/W)-11,0,255)'" in graph
+    assert "lutrgb=r='11+val':g='11+val':b='18+val'" in graph
+    assert "[1:a]showfreqs=" in graph  # the optional visualizer still has the audio too
+    maps = [cmd[i + 1] for i, part in enumerate(cmd) if part == "-map"]
+    assert maps == ["[v]", "1:a"]
+
+
+def test_light_presets_get_a_white_scrim_and_darkening_bars(tmp_path, monkeypatch):
+    light = _graph(
+        _main_command(
+            tmp_path,
+            monkeypatch,
+            background_style="spectrum",
+            background_palette=["#dc2626", "#f59e0b", "#1f2937"],
+            background_color="#f4f4f0",
+            background_tone="light",
+        )
+    )
+    assert "lutrgb=r='244-val':g='244-val':b='240-val'" in light
+    assert "geq=r=255:g=255:b=255:a=" in light
+
+    for tone in (None, "dark", "LIGHT", ["light"]):
+        graph = _graph(
+            _main_command(tmp_path, monkeypatch, background_style="aurora", background_tone=tone)
+        )
+        assert "geq=r=0:g=0:b=0:a=" in graph
+
+
+def test_drifting_art_is_prepared_once_at_the_overscan_size_and_panned(tmp_path, monkeypatch):
+    run, calls = _fake_run(succeed=True)
+    monkeypatch.setattr(vr.subprocess, "run", run)
+
+    cmd = _main_command(
+        tmp_path, monkeypatch, thumbnail_path=str(_thumbnail(tmp_path)), background_style="drift"
+    )
+
+    assert len(calls) == 1
+    assert calls[0][calls[0].index("-vf") + 1] == (
+        f"scale=2150:1210:force_original_aspect_ratio=increase,crop=2150:1210,{vr.THUMBNAIL_LOOK}"
+    )
+    prepared = calls[0][-1]
+    i = cmd.index("-framerate")
+    assert cmd[i - 1] != "1" and "-loop" not in cmd  # decoded once, repeated by the loop filter
+    assert cmd[i : i + 4] == ["-framerate", "60", "-i", prepared]
+    assert _graph(cmd).startswith(
+        "[0:v]loop=loop=-1:size=1,fps=60,crop=1920:1080:"
+        "x='(iw-ow)/2*(1+sin(2*PI*t/37))':y='(ih-oh)/2*(1+sin(2*PI*t/23+1.3))'[bg];"
+    )
+
+
+def test_a_failed_drift_step_pans_the_per_frame_chain(tmp_path, monkeypatch):
+    run, calls = _fake_run(succeed=False)
+    monkeypatch.setattr(vr.subprocess, "run", run)
+    thumbnail = _thumbnail(tmp_path)
+
+    cmd = _main_command(
+        tmp_path,
+        monkeypatch,
+        thumbnail_path=str(thumbnail),
+        background_style="drift",
+        aspect_ratio="9:16",
+    )
+
+    assert len(calls) == 1
+    i = cmd.index("-loop")
+    assert cmd[i : i + 6] == ["-loop", "1", "-framerate", "60", "-i", str(thumbnail)]
+    assert f"crop=1210:2150,{vr.THUMBNAIL_LOOK},crop=1080:1920:x=" in _graph(cmd)
+
+
+@pytest.mark.parametrize("style", ["artwork", "drift", "color"])
+def test_without_cover_art_the_art_styles_show_the_stage_colour(tmp_path, monkeypatch, style):
+    cmd = _main_command(tmp_path, monkeypatch, background_style=style, background_color="#0b0b12")
+
+    assert "color=c=0x0b0b12:s=1920x1080:r=60" in cmd
+    assert _graph(cmd).startswith("[0:v]null[bg];[bg]subtitles=")
+
+
+def test_the_plain_style_ignores_the_cover_art(tmp_path, monkeypatch):
+    run, calls = _fake_run(succeed=True)
+    monkeypatch.setattr(vr.subprocess, "run", run)
+
+    cmd = _main_command(
+        tmp_path,
+        monkeypatch,
+        thumbnail_path=str(_thumbnail(tmp_path)),
+        background_style="color",
+        background_color="#0b0b12",
+    )
+
+    assert calls == []
+    assert "color=c=0x0b0b12:s=1920x1080:r=60" in cmd
+
+
+@pytest.mark.parametrize("style", ["aurora", "spectrum", "drift", "color"])
+def test_an_uploaded_background_still_wins_over_any_style(tmp_path, monkeypatch, style):
+    video = tmp_path / "loop.mp4"
+    video.write_bytes(b"not decoded here")
+
+    cmd = _main_command(tmp_path, monkeypatch, custom_bg_path=str(video), background_style=style)
+
+    i = cmd.index("-stream_loop")
+    assert cmd[i : i + 4] == ["-stream_loop", "-1", "-i", str(video)]
+
+
+def test_the_default_style_renders_exactly_as_before(tmp_path, monkeypatch):
+    run, _ = _fake_run(succeed=True)
+    monkeypatch.setattr(vr.subprocess, "run", run)
+    thumbnail = _thumbnail(tmp_path)
+
+    def command(**style) -> list[str]:
+        cmd = _main_command(tmp_path, monkeypatch, thumbnail_path=str(thumbnail), **style)
+        return [re.sub(r"karaoke-render-[^/]+", "SCRATCH", part) for part in cmd]
+
+    baseline = command()
+    assert baseline[baseline.index("-loop") : baseline.index("-loop") + 4] == [
+        "-loop",
+        "1",
+        "-framerate",
+        "60",
+    ]
+    for style in ("artwork", "unknown", None, ["aurora"], {"style": "aurora"}):
+        assert command(background_style=style) == baseline
+
+
+@pytest.mark.parametrize(
+    "palette",
+    [None, "#fbbf24", ["#000000[x];movie=/etc/passwd", "red", 7], {"0": "#ffffff"}, []],
+)
+def test_palette_input_never_reaches_the_filter_graph(tmp_path, monkeypatch, palette):
+    graph = _graph(
+        _main_command(tmp_path, monkeypatch, background_style="aurora", background_palette=palette)
+    )
+
+    assert "movie" not in graph and "passwd" not in graph
+    assert "geq=r=251:g=191:b=36:" in graph  # the default palette fills every gap
+
+
+def test_palette_entries_fall_back_one_by_one():
+    assert sb.normalize_palette(["#ABCDEF", "123456", "nope"]) == (
+        (171, 205, 239),
+        (18, 52, 86),
+        (94, 234, 212),
+    )
+    assert sb.normalize_style("aurora") == "aurora"
+    assert sb.normalize_style("Aurora") == sb.DEFAULT_BACKGROUND_STYLE
+
+
+@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="FFmpeg is not installed")
+@pytest.mark.parametrize(
+    ("style", "aspect", "size"),
+    [
+        ("drift", "16:9", (1920, 1080)),
+        ("aurora", "16:9", (1920, 1080)),
+        ("spectrum", "16:9", (1920, 1080)),
+        ("drift", "9:16", (1080, 1920)),
+        ("aurora", "9:16", (1080, 1920)),
+        ("spectrum", "9:16", (1080, 1920)),
+    ],
+)
+def test_each_generated_style_renders_at_60_fps(tmp_path, style, aspect, size):
+    thumbnail = tmp_path / "thumb.jpg"
+    ffmpeg = ["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-f", "lavfi"]
+    subprocess.run(
+        [*ffmpeg, "-i", "testsrc2=s=640x360", "-frames:v", "1", str(thumbnail)], check=True
+    )
+    audio, ass = _inputs(tmp_path)
+
+    out = VideoRenderer(output_dir=tmp_path).render_video(
+        str(audio),
+        str(ass),
+        tmp_path / "out.mp4",
+        thumbnail_path=str(thumbnail),
+        aspect_ratio=aspect,
+        duration=1.0,
+        background_style=style,
+        background_palette=PALETTE,
+        background_color="#0b0b12",
+    )
+
+    ffprobe = ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries"]
+    probe = subprocess.run(
+        [*ffprobe, "stream=avg_frame_rate,width,height:format=duration", "-of", "json", out],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    info = json.loads(probe.stdout)
+    stream = info["streams"][0]
+    assert (stream["width"], stream["height"], stream["avg_frame_rate"]) == (*size, "60/1")
+    assert float(info["format"]["duration"]) == pytest.approx(1.0, abs=0.1)

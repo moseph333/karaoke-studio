@@ -156,6 +156,34 @@ def test_the_prepared_background_is_uploaded_with_the_render(
     assert args[i : i + 6] == ["-loop", "1", "-framerate", "60", "-i", "background.png"]
 
 
+@pytest.mark.parametrize("style", ["aurora", "spectrum"])
+def test_generated_backgrounds_upload_nothing_extra(tmp_path, cloud, local_ffmpeg, style):
+    _render(tmp_path, background_style=style, background_color="#0b0b12")
+
+    job = cloud.jobs[0]
+    assert sorted(job["files"]) == ["audio.wav", "subtitles.ass"]
+    assert "color=c=0x0b0b12:s=480x270:r=60" in job["args"]
+
+
+def test_drifting_art_uploads_its_prepared_still(tmp_path, cloud, local_ffmpeg, monkeypatch):
+    def run(cmd, *args, **kwargs):
+        Path(cmd[-1]).write_bytes(b"\x89PNG overscan")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(vr.subprocess, "run", run)
+    thumbnail = tmp_path / "thumb.jpg"
+    thumbnail.write_bytes(b"jpeg")
+
+    _render(tmp_path, thumbnail_path=str(thumbnail), background_style="drift")
+
+    job = cloud.jobs[0]
+    assert job["files"]["background.png"] == b"\x89PNG overscan"
+    args = job["args"]
+    assert "-loop" not in args
+    i = args.index("-framerate")
+    assert args[i : i + 4] == ["-framerate", "60", "-i", "background.png"]
+
+
 @pytest.mark.parametrize("mode", ["unavailable", "fail"])
 def test_a_cloud_problem_falls_back_to_a_local_render(tmp_path, cloud, local_ffmpeg, mode):
     cloud.mode = mode

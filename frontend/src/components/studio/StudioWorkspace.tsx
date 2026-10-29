@@ -68,6 +68,12 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
 }) => {
   const syncJobActive = ['queued', 'running'].includes(project.sync_job?.status ?? '');
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
+  // The cover art exactly as exports draw it (the larger, panned still for the drift)
+  const artworkUrl = project.thumbnail_url
+    ? `/api/project/${encodeURIComponent(project.id)}/backdrop?aspect=${
+        theme.aspectRatio === '9:16' ? '9:16' : '16:9'
+      }${theme.backgroundStyle === 'drift' ? '&drift=1' : ''}`
+    : undefined;
 
   return (
     <div
@@ -115,7 +121,10 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             onSeek={audio.handleSeek}
             onSaveLines={onSaveLines}
             albumArtUrl={project.thumbnail_url}
+            artworkUrl={artworkUrl}
             backgroundMedia={theme.stageBackground}
+            backgroundStyle={theme.backgroundStyle}
+            backgroundPalette={theme.backgroundPalette}
             selectedTheme={theme.selectedTheme}
             themeSungColor={theme.activeSungColor}
             themeUnsungColor={theme.activeUnsungColor}
@@ -198,6 +207,9 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
             onChangeAspectRatio={theme.setAspectRatio}
             onCustomBgUploaded={theme.setCustomBgId}
             customBgId={theme.customBgId}
+            backgroundStyle={theme.backgroundStyle}
+            onBackgroundStyleChange={theme.setBackgroundStyle}
+            hasArtwork={Boolean(project.thumbnail_url)}
             customSungColor={theme.customSungColor}
             onCustomSungColorChange={theme.setCustomSungColor}
             customUnsungColor={theme.customUnsungColor}

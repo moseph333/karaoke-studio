@@ -184,6 +184,9 @@ def run_video_render(project_id: str, req: RenderRequest):
             include_chords=req.include_chords,
             semitones=req.semitones,
             background_color=style_cfg.get("background_color"),
+            background_style=style_cfg.get("background_style"),
+            background_palette=style_cfg.get("background_palette"),
+            background_tone=style_cfg.get("background_tone"),
         )
 
         proj = get_project_or_404(project_id)
