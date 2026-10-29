@@ -181,12 +181,12 @@ async def check_auth_middleware(request: Request, call_next):
     path = request.url.path
     app_pwd = config.APP_PASSWORD
     if app_pwd:
-        is_api_protected = (
-            path.startswith("/api/")
-            and not path.startswith("/api/health")
-            and not path.startswith("/api/system/update")
-            and not path.startswith("/api/auth")
+        # GET /api/health stays open for health checks and uptime monitors. Its POST form
+        # and /api/system/update can start a production update, so they need a session.
+        is_public_api = path.startswith("/api/auth") or (
+            path == "/api/health" and request.method in ("GET", "HEAD")
         )
+        is_api_protected = path.startswith("/api/") and not is_public_api
         is_static_protected = path.startswith("/static/")
         if (is_api_protected or is_static_protected) and not is_authenticated(request, app_pwd):
             return JSONResponse(
@@ -212,8 +212,10 @@ app.mount("/static/backgrounds", StaticFiles(directory=str(BACKGROUNDS_DIR)), na
 
 
 @app.get("/api/health")
-def health_check(check_remote: bool = False):
-    return config.check_for_updates(force_remote=check_remote)
+def health_check(request: Request, check_remote: bool = False):
+    # A remote check runs git ls-remote against GitHub, so only a session can force one
+    force_remote = check_remote and is_authenticated(request, config.APP_PASSWORD)
+    return config.check_for_updates(force_remote=force_remote)
 
 
 @app.post("/api/health")

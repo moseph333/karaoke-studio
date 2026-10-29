@@ -23,16 +23,19 @@ _last_rate_limit_cleanup: float = 0.0
 
 
 def get_client_ip(request: Request) -> str:
+    # Proxies append the address they received the request from, so only the last
+    # X-Forwarded-For entry was written by the proxy in front of us. Earlier entries
+    # come from the client and could be forged to dodge the login rate limit.
     xff = request.headers.get("x-forwarded-for")
     if xff:
-        first_ip = xff.split(",")[0].strip()
-        if first_ip:
-            if first_ip.startswith("[") and "]" in first_ip:
-                first_ip = first_ip[1 : first_ip.index("]")]
-            elif ":" in first_ip and first_ip.count(":") == 1:
-                first_ip = first_ip.split(":")[0]
-            if first_ip:
-                return first_ip
+        last_ip = xff.split(",")[-1].strip()
+        if last_ip:
+            if last_ip.startswith("[") and "]" in last_ip:
+                last_ip = last_ip[1 : last_ip.index("]")]
+            elif ":" in last_ip and last_ip.count(":") == 1:
+                last_ip = last_ip.split(":")[0]
+            if last_ip:
+                return last_ip
     if request.client and request.client.host:
         return request.client.host.strip()
     return "127.0.0.1"

@@ -221,14 +221,14 @@ def test_auth_login_returns_signed_token_not_password():
 
 
 def test_get_client_ip_resolution():
-    # 1. Comma-separated X-Forwarded-For
+    # 1. Comma-separated X-Forwarded-For: the last entry is the one our proxy appended
     req = Request(
         {
             "type": "http",
             "headers": [(b"x-forwarded-for", b"203.0.113.195, 70.41.3.18, 150.172.238.178")],
         }
     )
-    assert get_client_ip(req) == "203.0.113.195"
+    assert get_client_ip(req) == "150.172.238.178"
 
     # 2. IPv4 with port
     req = Request({"type": "http", "headers": [(b"x-forwarded-for", b"198.51.100.22:443")]})
@@ -276,6 +276,33 @@ def test_login_rate_limit_exceeded_returns_429():
         assert "Retry-After" in res.headers
         retry_after = int(res.headers["Retry-After"])
         assert 1 <= retry_after <= 60
+    finally:
+        config.APP_PASSWORD = orig_pwd
+        clear_all_login_failures()
+
+
+def test_login_rate_limit_ignores_forged_forwarded_for_entries():
+    client = TestClient(app)
+    orig_pwd = config.APP_PASSWORD
+    clear_all_login_failures()
+    try:
+        config.APP_PASSWORD = "test_passphrase_forged"
+
+        # A new fake address in front each time; the proxy's own entry stays the same
+        for i in range(5):
+            res = client.post(
+                "/api/auth/login",
+                json={"password": f"wrong_{i}", "username": "Spoofer"},
+                headers={"X-Forwarded-For": f"10.0.0.{i}, 198.51.100.99"},
+            )
+            assert res.status_code == 401
+
+        res = client.post(
+            "/api/auth/login",
+            json={"password": "test_passphrase_forged", "username": "Spoofer"},
+            headers={"X-Forwarded-For": "10.0.0.250, 198.51.100.99"},
+        )
+        assert res.status_code == 429
     finally:
         config.APP_PASSWORD = orig_pwd
         clear_all_login_failures()
