@@ -258,6 +258,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 | `useSyncJobResult` | holds a finished re-alignment back while the editor has unsaved edits |
 | `useMediaSession` | metadata, play/pause/seek/stop and previous/next line from media keys |
 | `useKeyboardShortcuts` | global shortcuts, ignored while typing or while any dialog is open |
+| `useUpdatePrompt` | offers a Reload toast once the server serves a newer build: when the tab becomes visible and every 5 minutes, it compares the hashed entry script in `/` with the one this page loaded |
 
 **Hand edits.** The editor routes hand edits through a setter that compares each line's content (text, times, words) with the previous state: changed lines become `align_method: "manual"` and lose their confidence, and a line edited back to its saved content gets its saved metadata back (`utils/manualEdits.ts`). Aligner results, undo/redo and server updates bypass it.
 

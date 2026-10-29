@@ -19,6 +19,7 @@ import { useQualityJobs } from './hooks/useQualityJobs';
 import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useToast } from './hooks/useToast';
+import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStudioAudio } from './hooks/useStudioAudio';
 import { useStudioAuth } from './hooks/useStudioAuth';
@@ -32,6 +33,7 @@ import { cn } from './utils/cn';
 
 export const AppContent: React.FC = () => {
   const { toast } = useToast();
+  useUpdatePrompt();
   useAppTheme();
   const { project, setProject, isReconnecting, retryPolling } = useProjectPolling(null);
   const [isExportOpen, setIsExportOpen] = useState(false);

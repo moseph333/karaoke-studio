@@ -83,6 +83,39 @@ describe('Toast Component & ToastProvider', () => {
     expect(onDismiss).toHaveBeenCalledWith('toast-dismiss-me');
   });
 
+  it('runs its action and then dismisses itself', async () => {
+    const user = userEvent.setup();
+    const onDismiss = vi.fn();
+    const onClick = vi.fn();
+    const mockToast: Toast = {
+      id: 'toast-action',
+      message: 'Karaoke Studio has been updated.',
+      type: 'info',
+      duration: 0,
+      createdAt: Date.now(),
+      action: { label: 'Reload', onClick },
+    };
+
+    render(<ToastItem toast={mockToast} onDismiss={onDismiss} />);
+
+    const actionBtn = screen.getByRole('button', { name: 'Reload' });
+    expectTouchTarget(actionBtn);
+    await user.click(actionBtn);
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onDismiss).toHaveBeenCalledWith('toast-action');
+  });
+
+  it('shows no action button on plain toasts', () => {
+    render(
+      <ToastItem
+        toast={{ id: 'plain', message: 'Saved', type: 'success', createdAt: 1 }}
+        onDismiss={vi.fn()}
+      />
+    );
+    expect(screen.getAllByRole('button')).toHaveLength(1); // only "Dismiss notification"
+  });
+
   it('auto-dismisses after duration elapsed using fake timers', () => {
     vi.useFakeTimers();
     const onDismiss = vi.fn();
@@ -203,6 +236,35 @@ describe('Toast Component & ToastProvider', () => {
 
     await user.click(screen.getByRole('button', { name: /trigger error/i }));
     expect(screen.getByText('Render pipeline stalled')).toBeInTheDocument();
+  });
+
+  it('passes an action through showToast and removes the toast once it is used', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+
+    const TestConsumer = () => {
+      const { showToast } = useToast();
+      return (
+        <button
+          onClick={() => showToast('New version ready', 'info', 0, { label: 'Reload', onClick })}
+        >
+          Announce
+        </button>
+      );
+    };
+
+    render(
+      <ToastProvider>
+        <TestConsumer />
+      </ToastProvider>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Announce' }));
+    expect(screen.getByText('New version ready')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Reload' }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('New version ready')).not.toBeInTheDocument();
   });
 
   it('provides safe fallback when useToast is invoked outside ToastProvider', () => {

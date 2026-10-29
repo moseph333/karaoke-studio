@@ -2,13 +2,14 @@
  * Toast Notification Component
  *
  * Renders non-intrusive notification toasts (success, error, warning, info)
- * with auto-dismiss timers, pause-on-hover, and dismiss buttons.
+ * with auto-dismiss timers, pause-on-hover, an optional action button, and dismiss buttons.
  */
 
 import React, { useEffect, useState } from 'react';
 import { Toast, ToastType } from '../types';
 import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { Button } from './ui/Button';
 import { focusRing } from './ui/variants';
 
 const TOAST_VARIANTS: Record<
@@ -72,6 +73,7 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
 
   const style = TOAST_VARIANTS[toast.type] ?? TOAST_VARIANTS.info;
   const Icon = style.Icon;
+  const action = toast.action;
 
   return (
     <div
@@ -86,6 +88,19 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
     >
       <Icon className={cn('mt-0.5 h-5 w-5 shrink-0', style.icon)} aria-hidden="true" />
       <div className="min-w-0 flex-1 break-words pt-0.5 text-sm leading-snug">{toast.message}</div>
+      {action && (
+        <Button
+          size="sm"
+          variant="primary"
+          className="-my-1 shrink-0"
+          onClick={() => {
+            action.onClick();
+            onDismiss(toast.id);
+          }}
+        >
+          {action.label}
+        </Button>
+      )}
       <button
         type="button"
         onClick={() => onDismiss(toast.id)}

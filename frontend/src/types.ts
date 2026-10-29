@@ -272,12 +272,19 @@ export interface VisualTheme {
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
+/** A button on a toast: clicking it runs `onClick`, then dismisses the toast. */
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Toast {
   id: string;
   message: string;
   type: ToastType;
-  duration?: number; // Duration in ms; 0 or undefined for default (4000ms)
+  duration?: number; // Duration in ms (4000 when not given); 0 keeps the toast until dismissed
   createdAt: number;
+  action?: ToastAction;
 }
 
 // ==========================================
