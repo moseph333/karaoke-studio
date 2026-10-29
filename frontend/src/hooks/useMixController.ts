@@ -71,6 +71,21 @@ export function useMixController({
   );
   const [isRemixing, setIsRemixing] = useState(false);
 
+  // A newly opened song shows its own key and guide level from its first frame. Adjusting the
+  // state while rendering (React's pattern for state that follows a prop) never commits a frame
+  // with the previous song's values; the effect below still cancels that song's pending work.
+  const [seededFor, setSeededFor] = useState(projectId);
+  if (seededFor !== projectId) {
+    const s = clampSemitones(initialSemitones);
+    const g = clampGuide(initialGuideVolume);
+    setSeededFor(projectId);
+    setSemitonesState(s);
+    setGuideVolumeState(g);
+    setAppliedSemitones(s);
+    setAppliedGuideVolume(g);
+    setIsRemixing(false);
+  }
+
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const seqRef = useRef(0);

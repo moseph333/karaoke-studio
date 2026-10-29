@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useMixController, MIX_DEBOUNCE_MS } from '../hooks/useMixController';
@@ -216,6 +217,25 @@ describe('useMixController', () => {
       vi.advanceTimersByTime(MIX_DEBOUNCE_MS * 2);
     });
     expect(apiSpy).not.toHaveBeenCalled();
+  });
+
+  it("shows a newly opened song's key from its first committed frame", () => {
+    const frames: Array<[string | undefined, number]> = [];
+    const { rerender } = renderHook(
+      (props: { id?: string; semitones: number }) => {
+        const mix = useMixController({ projectId: props.id, initialSemitones: props.semitones });
+        useLayoutEffect(() => {
+          frames.push([props.id, mix.semitones]);
+        });
+        return mix;
+      },
+      { initialProps: { id: undefined as string | undefined, semitones: 0 } }
+    );
+
+    rerender({ id: 'p1', semitones: 2 });
+
+    expect(frames).not.toContainEqual(['p1', 0]);
+    expect(frames[frames.length - 1]).toEqual(['p1', 2]);
   });
 
   it('adopts values changed from outside (e.g. another device) when nothing is pending', () => {
