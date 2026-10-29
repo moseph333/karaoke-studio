@@ -6,12 +6,12 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
-import { Toast, ToastType } from '../types';
+import { Toast, ToastAction, ToastType } from '../types';
 import { ToastContainer } from '../components/Toast';
 
 export interface ToastContextValue {
   toasts: Toast[];
-  showToast: (message: string, type?: ToastType, duration?: number) => string;
+  showToast: (message: string, type?: ToastType, duration?: number, action?: ToastAction) => string;
   dismissToast: (id: string) => void;
   clearToasts: () => void;
   success: (message: string, duration?: number) => string;
@@ -19,7 +19,7 @@ export interface ToastContextValue {
   info: (message: string, duration?: number) => string;
   warning: (message: string, duration?: number) => string;
   toast: {
-    show: (message: string, type?: ToastType, duration?: number) => string;
+    show: (message: string, type?: ToastType, duration?: number, action?: ToastAction) => string;
     success: (message: string, duration?: number) => string;
     error: (message: string, duration?: number) => string;
     info: (message: string, duration?: number) => string;
@@ -43,7 +43,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const showToast = useCallback(
-    (message: string, type: ToastType = 'info', duration: number = 4000) => {
+    (message: string, type: ToastType = 'info', duration: number = 4000, action?: ToastAction) => {
       const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
       const newToast: Toast = {
         id,
@@ -51,6 +51,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         type,
         duration,
         createdAt: Date.now(),
+        ...(action ? { action } : {}),
       };
       setToasts((prev) => [...prev, newToast]);
       return id;
