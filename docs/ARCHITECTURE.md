@@ -103,7 +103,7 @@ docs/                     this guide, screenshots
 | `/static/backgrounds` | `backgrounds/` | uploaded stage and video backdrops |
 | `/` | `frontend/dist` | the built single-page app |
 
-Stem and master URLs carry a `?v=` version after a re-separation or remix so browsers never play a stale file.
+Stem, master and rendered video URLs carry a `?v=` version after a re-separation, remix or new render so browsers never play or download a stale file.
 
 ### 2.2 API
 

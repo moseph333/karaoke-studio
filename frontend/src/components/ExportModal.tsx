@@ -2,8 +2,8 @@
  * Export Modal Component
  *
  * The export hub, ordered by what people export most: the karaoke video (render options,
- * live progress, preview and download), then subtitles, audio stems, the musician chord
- * sheet and the YouTube metadata kit.
+ * live progress, preview, download and rendering again), then subtitles, audio stems, the
+ * musician chord sheet and the YouTube metadata kit.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -20,6 +20,7 @@ import {
   Loader2,
   AlignLeft,
   AlertCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 import { ExportSubtitleSection } from './export/ExportSubtitleSection';
@@ -100,6 +101,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [chordSheetError, setChordSheetError] = useState<string | null>(null);
   const [renderSyncMode, setRenderSyncMode] = useState<SyncDisplayMode>(syncMode || 'word');
   const [videoAspect, setVideoAspect] = useState<number | null>(null);
+  // "Render Again" and "Try Again" bring the render options back over a finished or failed
+  // export; a finished video stays until the new render replaces it
+  const [renderAgain, setRenderAgain] = useState(false);
 
   useEffect(() => {
     if (syncMode) {
@@ -262,9 +266,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   }, [project.video_url]);
 
   const isRendering = project.render_status === 'queued' || project.render_status === 'rendering';
-  const isCompleted = project.render_status === 'completed';
-  const isError = project.render_status === 'error';
+
+  // Show the finished video (or the error) again once a render starts or the dialog reopens
+  useEffect(() => {
+    if (!isOpen || isRendering) setRenderAgain(false);
+  }, [isOpen, isRendering]);
+
+  const isCompleted = project.render_status === 'completed' && !renderAgain;
+  const isError = project.render_status === 'error' && !renderAgain;
   const isIdle = !isRendering && !isCompleted && !isError;
+  const replacingVideo = renderAgain && project.render_status === 'completed';
 
   const formatTimer = (seconds?: number | null) => {
     if (seconds === undefined || seconds === null || seconds < 0) return '--:--';
@@ -335,6 +346,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 Synthesize a 1080p60 MP4 karaoke video with progressive subtitle wipe animations,
                 visual theme, and high-fidelity audio.
               </p>
+              {replacingVideo && (
+                <p className="text-xs text-theme-text">
+                  Your current video stays available until the new render replaces it.
+                </p>
+              )}
 
               <div className="flex flex-col items-center gap-3 sm:flex-row">
                 <ExportCheckOption
@@ -382,21 +398,28 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 />
               </div>
 
-              <Tooltip
-                content="Render 1080p60 MP4 video"
-                position="top"
-                className="w-full sm:w-auto"
-              >
-                <Button
-                  variant="gradient"
-                  fullWidth="mobile"
-                  onClick={handleStartRenderClick}
-                  aria-label="Start video render"
-                  leftIcon={<Film className="h-4 w-4" aria-hidden="true" />}
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+                <Tooltip
+                  content="Render 1080p60 MP4 video"
+                  position="top"
+                  className="w-full sm:w-auto"
                 >
-                  Render 1080p Video
-                </Button>
-              </Tooltip>
+                  <Button
+                    variant="gradient"
+                    fullWidth="mobile"
+                    onClick={handleStartRenderClick}
+                    aria-label="Start video render"
+                    leftIcon={<Film className="h-4 w-4" aria-hidden="true" />}
+                  >
+                    Render 1080p Video
+                  </Button>
+                </Tooltip>
+                {replacingVideo && (
+                  <Button variant="ghost" fullWidth="mobile" onClick={() => setRenderAgain(false)}>
+                    Keep Current Video
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
@@ -450,14 +473,24 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           )}
 
           {isError && (
-            <div className="flex items-start gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3.5 text-left">
-              <AlertCircle
-                className="mt-0.5 h-4 w-4 shrink-0 text-theme-danger"
-                aria-hidden="true"
-              />
-              <p className="break-words font-mono text-xs text-theme-danger">
-                {project.render_error || 'Unknown rendering error'}
-              </p>
+            <div className="space-y-4">
+              <div className="flex items-start gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3.5 text-left">
+                <AlertCircle
+                  className="mt-0.5 h-4 w-4 shrink-0 text-theme-danger"
+                  aria-hidden="true"
+                />
+                <p className="break-words font-mono text-xs text-theme-danger">
+                  {project.render_error || 'Unknown rendering error'}
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                fullWidth="mobile"
+                onClick={() => setRenderAgain(true)}
+                leftIcon={<RotateCcw className="h-4 w-4" aria-hidden="true" />}
+              >
+                Try Again
+              </Button>
             </div>
           )}
 
@@ -515,6 +548,20 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                   </a>
                 </div>
+              </div>
+              <div className="flex flex-col items-stretch justify-between gap-2.5 border-t border-theme-border-subtle pt-3 sm:flex-row sm:items-center">
+                <p className="text-xs text-theme-text-muted">
+                  Changed the lyrics, key or look? Render the video again.
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  fullWidth="mobile"
+                  onClick={() => setRenderAgain(true)}
+                  leftIcon={<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
+                >
+                  Render Again
+                </Button>
               </div>
             </div>
           )}

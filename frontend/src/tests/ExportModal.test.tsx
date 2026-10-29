@@ -351,4 +351,106 @@ describe('ExportModal', () => {
       });
     });
   });
+
+  describe('Rendering again', () => {
+    it('brings the options back over a finished video and renders again', async () => {
+      const user = userEvent.setup();
+      const onStartRender = vi.fn();
+      render(
+        <ExportModal
+          project={baseProject}
+          isOpen={true}
+          onClose={vi.fn()}
+          onStartRender={onStartRender}
+        />
+      );
+      expect(screen.getByText(/your video is ready/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /start video render/i })).toBeNull();
+
+      await user.click(screen.getByRole('button', { name: /render again/i }));
+
+      expect(screen.getByText(/full video render/i)).toBeInTheDocument();
+      expect(screen.getByText(/current video stays available/i)).toBeInTheDocument();
+      expect(screen.queryByText(/download video/i)).toBeNull();
+      await user.click(screen.getByTestId('toggle-export-visualizer'));
+      await user.click(screen.getByRole('button', { name: /start video render/i }));
+
+      expect(onStartRender).toHaveBeenCalledWith({
+        includeVisualizer: true,
+        includeCountdown: true,
+      });
+    });
+
+    it('keeps the current video when the new render is called off', async () => {
+      const user = userEvent.setup();
+      render(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
+
+      await user.click(screen.getByRole('button', { name: /render again/i }));
+      await user.click(screen.getByRole('button', { name: /keep current video/i }));
+
+      expect(screen.getByText(/your video is ready/i)).toBeInTheDocument();
+      expect(screen.getByText(/download video/i)).toBeInTheDocument();
+    });
+
+    it('offers Try Again after a failed render', async () => {
+      const user = userEvent.setup();
+      const onStartRender = vi.fn();
+      const failed: ProjectState = {
+        ...baseProject,
+        render_status: 'error',
+        render_error: 'FFmpeg exited with code 1',
+        video_url: undefined,
+      };
+      render(
+        <ExportModal
+          project={failed}
+          isOpen={true}
+          onClose={vi.fn()}
+          onStartRender={onStartRender}
+        />
+      );
+      expect(screen.getByText('FFmpeg exited with code 1')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /try again/i }));
+
+      expect(screen.queryByText('FFmpeg exited with code 1')).toBeNull();
+      expect(screen.queryByRole('button', { name: /keep current video/i })).toBeNull();
+      await user.click(screen.getByRole('button', { name: /start video render/i }));
+      expect(onStartRender).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the new video once the new render finishes', async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(
+        <ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />
+      );
+      await user.click(screen.getByRole('button', { name: /render again/i }));
+
+      rerender(
+        <ExportModal
+          project={{ ...baseProject, render_status: 'rendering', render_progress: 40 }}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      );
+      expect(screen.getByRole('button', { name: /cancel render/i })).toBeInTheDocument();
+
+      rerender(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
+      expect(screen.getByText(/your video is ready/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /start video render/i })).toBeNull();
+    });
+
+    it('shows the finished video again when the dialog reopens', async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(
+        <ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />
+      );
+      await user.click(screen.getByRole('button', { name: /render again/i }));
+
+      rerender(<ExportModal project={baseProject} isOpen={false} onClose={vi.fn()} />);
+      rerender(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
+
+      expect(screen.getByText(/your video is ready/i)).toBeInTheDocument();
+    });
+  });
 });
