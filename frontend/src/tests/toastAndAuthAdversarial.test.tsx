@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ToastItem } from '../components/Toast';
+import { ToastContainer, ToastItem } from '../components/Toast';
 import { ToastProvider, useToast } from '../hooks/useToast';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
 import {
@@ -178,25 +178,28 @@ describe('M4 Challenger 2: Adversarial Stress Testing', () => {
       expect(onDismiss).not.toHaveBeenCalled();
     });
 
-    it('applies correct accessible roles and aria-live levels for all 4 toast types', () => {
-      const types: Array<{ type: ToastType; role: string; live: string }> = [
-        { type: 'info', role: 'status', live: 'polite' },
-        { type: 'success', role: 'status', live: 'polite' },
-        { type: 'warning', role: 'status', live: 'polite' },
-        { type: 'error', role: 'alert', live: 'assertive' },
+    it('announces all 4 toast types through the live region of the right level', () => {
+      const types: Array<{ type: ToastType; live: string }> = [
+        { type: 'info', live: 'polite' },
+        { type: 'success', live: 'polite' },
+        { type: 'warning', live: 'polite' },
+        { type: 'error', live: 'assertive' },
       ];
 
-      for (const { type, role, live } of types) {
+      for (const { type, live } of types) {
         const { unmount } = render(
-          <ToastItem
-            toast={{ id: `t-${type}`, message: `${type} message`, type, createdAt: Date.now() }}
+          <ToastContainer
+            toasts={[{ id: `t-${type}`, message: `${type} message`, type, createdAt: Date.now() }]}
             onDismiss={vi.fn()}
           />
         );
 
-        const el = screen.getByRole(role);
-        expect(el).toBeInTheDocument();
+        const el = screen.getByText(`${type} message`).closest('[aria-live]');
         expect(el).toHaveAttribute('aria-live', live);
+        // The toast itself carries no live role: it is added to a region that already exists
+        expect(
+          screen.getByText(`${type} message`).closest('[data-toast-type]')
+        ).not.toHaveAttribute('role');
         unmount();
       }
     });
