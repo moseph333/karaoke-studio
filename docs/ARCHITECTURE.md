@@ -139,7 +139,7 @@ Stem, master and rendered video URLs carry a `?v=` version after a re-separation
 ### 2.3 Persistence and concurrency
 
 - **Store.** Projects live in `projects.json`, written atomically with a `.bak` copy for recovery. All writes take `PROJECTS_LOCK`. A project dict can be replaced by a fresh copy from disk at any time, so background jobs look the project up again before every write instead of keeping a reference.
-- **Job slots.** `WORKER_SEMAPHORE` (`MAX_CONCURRENT_JOBS`, default 2) bounds intake pipelines, renders, re-separations and background re-alignments. `lyric_sync.ALIGN_SEMAPHORE` (`MAX_CONCURRENT_ALIGN_JOBS`, default 1) bounds neural alignment passes, which load a large model: pipelines wait for a slot, while a single-line re-align falls back to DSP when the slot is busy.
+- **Job slots.** `WORKER_SEMAPHORE` (`MAX_CONCURRENT_JOBS`, default 2) bounds intake pipelines, renders, re-separations and background re-alignments. They start through `background_jobs.run_job`, on threads of their own (`JOB_THREADS`), so jobs waiting for a slot never take the threadpool that request handlers share. `lyric_sync.ALIGN_SEMAPHORE` (`MAX_CONCURRENT_ALIGN_JOBS`, default 1) bounds neural alignment passes, which load a large model: pipelines wait for a slot, while a single-line re-align falls back to DSP when the slot is busy.
 - **Cancellation.** `active_cancellations` maps keys to `threading.Event`s: `{id}` (pipeline), `{id}_render`, `{id}_reseparate`, `{id}_sync`. Deleting a song sets all of them, then removes its files, including staged stems.
 
 ### 2.4 Intake pipeline

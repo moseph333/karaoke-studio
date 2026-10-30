@@ -9,6 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import ValidationError
 
 from backend import realignment
+from backend.background_jobs import run_job
 from backend.project_store import PROJECTS_LOCK, find_project, save_projects
 from backend.reseparation import (
     cancel_key,
@@ -56,7 +57,7 @@ def reseparate(project_id: str, req: ReseparateRequest, bg_tasks: BackgroundTask
         main_mod.active_cancellations[cancel_key(pid)] = threading.Event()
         save_projects()
 
-    bg_tasks.add_task(run_reseparation, pid, job["id"])
+    bg_tasks.add_task(run_job, run_reseparation, pid, job["id"])
     return {"status": "queued", "job": job}
 
 

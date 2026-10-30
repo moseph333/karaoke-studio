@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from starlette.concurrency import run_in_threadpool
 
+from backend.background_jobs import run_job
 from backend.config import BACKGROUNDS_DIR, DOWNLOADS_DIR, STEMS_DIR
 from backend.project_store import get_project_or_404, save_projects
 from backend.schemas import parse_separation_quality
@@ -183,6 +184,7 @@ async def upload_audio_track(
     await run_in_threadpool(save_projects)
 
     bg_tasks.add_task(
+        run_job,
         main_mod.run_local_pipeline,
         project_id,
         str(target_upload_path),
