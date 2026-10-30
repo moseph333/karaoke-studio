@@ -11,6 +11,7 @@ import {
   wordLocationFromKey,
 } from '../utils/lyrics';
 import { usePlaybackClock, usePlaybackValue } from '../hooks/usePlaybackClock';
+import { useWorkspaceTabs, workspacePanelProps } from './studio/workspacePanels';
 import { useTimelineAutoScroll } from '../hooks/useTimelineAutoScroll';
 import { useLyricEditorState } from '../hooks/useLyricEditorState';
 import { useTimelineFilter } from '../hooks/useTimelineFilter';
@@ -234,13 +235,12 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
   const selectedIndex = ed.editableLines.findIndex((l) => l.id === ed.selectedLineId);
   const activeLineIdx = selectedIndex >= 0 ? selectedIndex : 0;
   const isEmpty = ed.editableLines.length === 0;
+  const asTabs = useWorkspaceTabs();
   return (
     <div className="flex flex-col gap-4 studio:h-full studio:min-h-0 studio:gap-3">
       <div
         id="workspace-panel-stage"
-        role="tabpanel"
-        aria-labelledby="workspace-tab-stage"
-        tabIndex={0}
+        {...workspacePanelProps('stage', asTabs)}
         data-testid="studio-panel-stage"
         className={`${panelCls(activeWorkspaceTab, 'stage')} studio:shrink-0`}
       >
@@ -249,9 +249,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
 
       <div
         id="workspace-panel-timeline"
-        role="tabpanel"
-        aria-labelledby="workspace-tab-timeline"
-        tabIndex={0}
+        {...workspacePanelProps('timeline', asTabs)}
         data-testid="studio-panel-timeline"
         className={`${panelCls(activeWorkspaceTab, 'timeline')} studio:min-h-0 studio:flex-1`}
       >

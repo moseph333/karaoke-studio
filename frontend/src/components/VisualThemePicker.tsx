@@ -201,6 +201,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
 
   return (
     <Panel
+      headingLevel={2}
       title="Stage look"
       description="Preview styling and video format"
       icon={<Palette className="h-4 w-4" />}

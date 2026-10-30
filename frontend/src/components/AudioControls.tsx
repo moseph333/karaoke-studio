@@ -260,6 +260,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
 
   return (
     <Panel
+      headingLevel={2}
       title="Audio mix"
       description="Changes apply automatically"
       icon={<SlidersHorizontal className="h-4 w-4" />}

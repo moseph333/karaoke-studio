@@ -77,10 +77,10 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-theme-border-subtle pb-2.5">
       <div className="flex min-w-0 flex-auto flex-wrap items-center gap-x-2.5 gap-y-1.5">
-        <h3 className="flex items-center gap-2 font-theme-heading text-base font-bold text-theme-text">
+        <h2 className="flex items-center gap-2 font-theme-heading text-base font-bold text-theme-text">
           <ListMusic className="h-4 w-4 text-theme-highlight" aria-hidden="true" />
           Timeline
-        </h3>
+        </h2>
         <span className="whitespace-nowrap text-xs tabular-nums text-theme-text-muted">
           {lineCount} {lineCount === 1 ? 'line' : 'lines'}
         </span>
@@ -159,7 +159,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         />
         <IconButton
           data-testid="duet-assign-btn"
-          label="Assign duet roles / singer parts"
+          label="Duet parts: assign duet roles / singer parts"
           tooltip="Assign duet singer parts"
           icon={
             <>
@@ -174,7 +174,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         />
         <IconButton
           data-testid="tap-to-sync-btn"
-          label="Live tap to sync mode (T)"
+          label="Tap sync: live tap to sync mode (T)"
           tooltip="Live tap-to-sync mode"
           hotkey="T"
           pressed={isTapToSyncActive}
@@ -193,7 +193,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         />
         <IconButton
           data-testid="replace-lyrics-btn"
-          label="Replace text or re-align lyrics"
+          label="Re-import: replace text or re-align lyrics"
           tooltip="Replace or re-align lyrics"
           icon={
             <>
@@ -232,7 +232,12 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
               <button
                 type="button"
                 data-testid="save-lyrics-btn"
-                aria-label="Save Timing Changes - Save Lyrics & Timing Changes"
+                // The name holds the visible text: "Save", or "Saving..." while it saves
+                aria-label={
+                  isSaving
+                    ? 'Saving timing changes'
+                    : 'Save Timing Changes - Save Lyrics & Timing Changes'
+                }
                 onClick={onSave}
                 disabled={isSaving}
                 className={cn(

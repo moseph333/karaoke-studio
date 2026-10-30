@@ -45,7 +45,7 @@ describe('Home intake card', () => {
 
     await user.click(local);
     expect(local).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText('Choose local audio file')).toHaveAttribute(
+    expect(screen.getByLabelText(/choose local audio file/i)).toHaveAttribute(
       'accept',
       expect.stringContaining('.opus')
     );
@@ -59,7 +59,7 @@ describe('Home intake card', () => {
     expect(toggle).toHaveAccessibleDescription('Custom lyrics');
 
     await user.click(toggle);
-    fireEvent.change(screen.getByLabelText('Custom plain lyrics text'), {
+    fireEvent.change(screen.getByLabelText(/custom plain lyrics text/i), {
       target: { value: 'line one\nline two\n\nline three' },
     });
     expect(toggle).toHaveAccessibleDescription('Custom lyrics · 3 lines');
@@ -72,7 +72,7 @@ describe('Home intake card', () => {
       screen.getByRole('textbox', { name: /Paste YouTube or YouTube Music URL/ }),
       'https://soundcloud.com/some/track'
     );
-    await user.click(screen.getByRole('button', { name: 'Search YouTube or load track' }));
+    await user.click(screen.getByRole('button', { name: /search youtube or load track/i }));
     expect(screen.getByRole('alert')).toHaveTextContent(/supports YouTube and YouTube Music/);
   });
 });
@@ -165,7 +165,7 @@ describe('Processing view', () => {
       <ProcessingView project={baseProcessing} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
     );
     const status = screen.getByRole('status');
-    expect(within(status).getByRole('heading', { level: 2 })).toHaveTextContent('separating...');
+    expect(within(status).getByRole('heading', { level: 1 })).toHaveTextContent('separating...');
     expect(within(status).queryByText(/% Complete/)).toBeNull();
     expect(screen.getByRole('progressbar', { name: 'Processing progress' })).toHaveAttribute(
       'aria-valuenow',
