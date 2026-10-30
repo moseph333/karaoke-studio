@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import type { LyricLine, ProjectState, SeparationJob, SeparationPreset, SyncJob } from '../types';
 import { PRESET_NAMES } from '../utils/quality';
 import { useToast } from './useToast';
@@ -48,13 +48,10 @@ async function postJson(url: string, body?: unknown) {
       ? {}
       : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
   });
-  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(
-      typeof data?.detail === 'string' ? data.detail : `Request failed (${res.status})`
-    );
+    throw new Error(await readApiError(res, `Request failed (${res.status})`));
   }
-  return data;
+  return res.json().catch(() => ({}));
 }
 
 /** Toasts once when a job seen running finishes (not for jobs already finished on load). */

@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { Download, Music, Mic, Volume2, Loader2, AlertCircle } from 'lucide-react';
 import { ProjectState } from '../../types';
-import { apiFetch } from '../../api';
+import { apiFetch, readApiError } from '../../api';
 import { Tooltip } from '../Tooltip';
 import { useToast } from '../../hooks/useToast';
 import { parseContentDispositionFilename } from '../../utils/download';
@@ -68,8 +68,7 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
       const res = await apiFetch(url);
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `Failed to export ${stemType} audio stem`);
+        throw new Error(await readApiError(res, `Failed to export ${stemType} audio stem`));
       }
 
       const blob = await res.blob();

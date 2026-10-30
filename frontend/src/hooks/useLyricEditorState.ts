@@ -308,7 +308,8 @@ export function useLyricEditorState({
       toast.success('Lyric changes saved');
     } catch (err) {
       console.error('Failed to save lyric timings:', err);
-      toast.error('Failed to save lyric timings');
+      const reason = err instanceof Error && err.message ? `: ${err.message}` : '';
+      toast.error(`Failed to save lyric timings${reason}`);
     } finally {
       setIsSaving(false);
     }

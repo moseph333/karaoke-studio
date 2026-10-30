@@ -9,6 +9,9 @@ import React, { createContext, useContext, useState, useCallback, useMemo } from
 import { Toast, ToastAction, ToastType } from '../types';
 import { ToastContainer } from '../components/Toast';
 
+// Errors stay twice as long as other toasts: they usually need reading, not a glance
+const ERROR_TOAST_DURATION_MS = 8000;
+
 export interface ToastContextValue {
   toasts: Toast[];
   showToast: (message: string, type?: ToastType, duration?: number, action?: ToastAction) => string;
@@ -64,7 +67,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [showToast]
   );
   const error = useCallback(
-    (message: string, duration?: number) => showToast(message, 'error', duration),
+    (message: string, duration?: number) =>
+      showToast(message, 'error', duration ?? ERROR_TOAST_DURATION_MS),
     [showToast]
   );
   const info = useCallback(

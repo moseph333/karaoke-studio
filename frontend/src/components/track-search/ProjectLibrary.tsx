@@ -26,7 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import { ProjectState } from '../../types';
-import { apiFetch } from '../../api';
+import { apiFetch, readApiError } from '../../api';
 import { DeleteConfirmModal } from '../DeleteConfirmModal';
 import { EditMetadataModal } from '../EditMetadataModal';
 import { IconButton } from '../ui/IconButton';
@@ -73,6 +73,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
   const [libraryProjects, setLibraryProjects] = useState<ProjectState[]>([]);
   const [activeTab, setActiveTab] = useState<LibraryTab>('my');
   const [loadingLibrary, setLoadingLibrary] = useState(false);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   const [deletingProject, setDeletingProject] = useState<ProjectState | null>(null);
   const [editingProject, setEditingProject] = useState<ProjectState | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -99,9 +100,12 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
 
   const fetchLibrary = async () => {
     setLoadingLibrary(true);
+    setLibraryError(null);
     try {
       const res = await apiFetch('/api/projects?scope=all');
-      if (res.ok) {
+      if (!res.ok) {
+        setLibraryError(await readApiError(res, 'The server could not list your songs.'));
+      } else {
         const data: Record<string, ProjectState> = await res.json();
         // Deduplicate projects by ID
         const uniqueMap = new Map<string, ProjectState>();
@@ -114,6 +118,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
       }
     } catch (e) {
       console.error('Failed to load project library', e);
+      setLibraryError('Could not reach the server to load your songs.');
     } finally {
       setLoadingLibrary(false);
     }
@@ -364,6 +369,24 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
               ))}
             </div>
           </>
+        ) : libraryError && baseProjects.length === 0 ? (
+          // A failed load is not an empty library: say so and offer to try again
+          <EmptyState
+            icon={<AlertCircle className="h-6 w-6" />}
+            title="Your songs could not be loaded"
+            description={libraryError}
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void fetchLibrary()}
+                leftIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+                className="min-h-[44px]"
+              >
+                Retry loading library
+              </Button>
+            }
+          />
         ) : baseProjects.length === 0 ? (
           <EmptyState
             icon={<Music className="h-6 w-6" />}

@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 
 export const MIX_SEMITONE_MIN = -12;
 export const MIX_SEMITONE_MAX = 12;
@@ -152,8 +152,7 @@ export function useMixController({
         });
         if (seq !== seqRef.current) return false;
         if (!res.ok) {
-          const detail = await res.json().catch(() => ({}));
-          throw new Error(detail?.detail || 'Failed to apply audio mix');
+          throw new Error(await readApiError(res, 'Failed to apply audio mix'));
         }
         const data = await res.json().catch(() => ({}));
         if (seq !== seqRef.current) return false;

@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ChordSegment, ProjectState } from '../types';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import { useChordHistory } from './useChordHistory';
 import { useToast } from './useToast';
 
@@ -72,8 +72,7 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
           toast.success('Chord progression saved');
           return true;
         } else {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || 'Failed to save chords');
+          throw new Error(await readApiError(res, 'Failed to save chords'));
         }
       } catch (err: unknown) {
         console.error('Failed to save chords:', err);

@@ -41,6 +41,10 @@ export interface StudioModalsProps {
   showAuthModal: boolean;
   onAuthSuccess: (username: string, token: string) => void;
   onCloseAuth?: () => void;
+  /** Signed in already: the dialog switches profile and can be closed. */
+  authDismissable?: boolean;
+  /** The server checks a passphrase (APP_PASSWORD is set). */
+  authRequiresPassword?: boolean;
   showHelpModal: boolean;
   onCloseHelp: () => void;
   showStudioDeleteModal: boolean;
@@ -73,6 +77,9 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   fontSizeScale,
   showAuthModal,
   onAuthSuccess,
+  onCloseAuth,
+  authDismissable = false,
+  authRequiresPassword = true,
   showHelpModal,
   onCloseHelp,
   showStudioDeleteModal,
@@ -109,7 +116,13 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
       )}
 
       {/* Shared Studio Passphrase & Friend Profile Modal */}
-      <AuthModal isOpen={showAuthModal} onSuccess={onAuthSuccess} />
+      <AuthModal
+        isOpen={showAuthModal}
+        onSuccess={onAuthSuccess}
+        onClose={onCloseAuth}
+        dismissable={authDismissable}
+        requirePassword={authRequiresPassword}
+      />
 
       {/* Help & Usage Guide Modal */}
       <HelpModal isOpen={showHelpModal} onClose={onCloseHelp} />

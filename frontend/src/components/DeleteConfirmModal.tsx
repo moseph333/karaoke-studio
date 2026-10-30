@@ -7,7 +7,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Trash2, AlertTriangle } from 'lucide-react';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
 
@@ -40,8 +40,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         method: 'DELETE',
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || 'Failed to delete project');
+        throw new Error(await readApiError(res, 'Failed to delete project'));
       }
       onDeleted(projectId);
       onClose();

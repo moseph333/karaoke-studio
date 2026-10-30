@@ -513,7 +513,7 @@ describe('CHALLENGER 1: UX-3 LRCLIB Candidate Search & Live Paste Syntax Inspect
       expect(inspector).toHaveTextContent('All lines contain valid LRC timestamps');
     });
 
-    it('detects boundary timestamps [00:00.00] and [99:59.999], but classifies 4-digit ms and 1-digit ms as Plain Text due to /\\\\[\\\\d{2}:\\\\d{2}\\\\.\\\\d{2,3}\\\\]/ constraint', async () => {
+    it('detects the timestamps the server accepts ([00:00.00], [99:59.999], [00:12.4], [1:23]) and classifies 4-digit fractions as Plain Text', async () => {
       render(
         <LyricReplacementModal
           isOpen={true}
@@ -531,19 +531,18 @@ describe('CHALLENGER 1: UX-3 LRCLIB Candidate Search & Live Paste Syntax Inspect
 
       expect(screen.getByText(/✓ Synced LRC \(2 lines detected\)/i)).toBeInTheDocument();
 
-      // EMPIRICAL DISCOVERY: 4-digit fractional ms [01:23.4567] fails /\[\d{2}:\d{2}\.\d{2,3}\]/
-      // because \d{2,3}\] requires the closing bracket immediately after the 2nd or 3rd digit!
-      // Hence, it is classified as Plain Text:
+      // The server's LRC test (\[\d{1,4}:\d{2}(?:\.\d{1,3})?\]) rejects 4-digit fractions, so
+      // the inspector calls them Plain Text too
       fireEvent.change(textarea, { target: { value: '[01:23.4567] High precision timestamp' } });
       expect(
         screen.getByText(/ℹ Plain Text \(1 lines, will require alignment\)/i)
       ).toBeInTheDocument();
 
-      // Similarly, 1-digit ms [00:12.4] requires at least 2 digits (\d{2,3}) so it is classified as Plain Text:
-      fireEvent.change(textarea, { target: { value: '[00:12.4] Single digit millisecond' } });
-      expect(
-        screen.getByText(/ℹ Plain Text \(1 lines, will require alignment\)/i)
-      ).toBeInTheDocument();
+      // One fractional digit and whole seconds are synced lyrics to the server, and so here
+      fireEvent.change(textarea, { target: { value: '[00:12.4] Single digit fraction' } });
+      expect(screen.getByText(/✓ Synced LRC \(1 lines detected\)/i)).toBeInTheDocument();
+      fireEvent.change(textarea, { target: { value: '[1:23] Whole seconds' } });
+      expect(screen.getByText(/✓ Synced LRC \(1 lines detected\)/i)).toBeInTheDocument();
     });
 
     it('identifies bracketed chords or non-timestamp text as Plain Text', async () => {

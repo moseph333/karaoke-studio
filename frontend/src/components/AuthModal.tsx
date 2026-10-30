@@ -2,12 +2,15 @@
  * Authentication Modal Component
  *
  * The studio access gate: shared passphrase plus a nickname. It sits above every other
- * layer and cannot be dismissed (no close button, Escape and backdrop clicks ignored).
+ * layer. While a passphrase is required and nobody is signed in it cannot be dismissed (no
+ * close button, Escape and backdrop clicks ignored); opened from the profile button to switch
+ * nickname it can be closed, and when the server has no passphrase it only asks for the
+ * nickname.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
-import { apiFetch, getAuthUser, setAuthToken, setAuthUser } from '../api';
+import { apiFetch, getAuthUser, setAuthToken, setAuthUser, readApiError } from '../api';
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
 
@@ -15,13 +18,24 @@ interface AuthModalProps {
   isOpen: boolean;
   onSuccess: (username: string, token: string) => void;
   onClose?: () => void;
+  /** Switching profile while signed in: Escape, a backdrop click or Cancel close it. */
+  dismissable?: boolean;
+  /** False when the server has no passphrase (APP_PASSWORD unset): nickname only. */
+  requirePassword?: boolean;
 }
 
 const inputCls =
   'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
 const labelCls = 'flex items-center gap-1.5 text-xs font-semibold text-theme-text';
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onSuccess,
+  onClose,
+  dismissable = false,
+  requirePassword = true,
+}) => {
+  const canDismiss = dismissable && Boolean(onClose);
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState(() => (getAuthUser() === 'Friend' ? '' : getAuthUser()));
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +57,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
     const trimmedPassword = password.trim();
     const trimmedUsername = username.trim();
 
-    if (!trimmedPassword) {
+    if (requirePassword && !trimmedPassword) {
       setError('Please enter the studio passphrase');
       passwordInputRef.current?.focus();
       return;
@@ -70,8 +84,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || 'Incorrect passphrase. Please try again.');
+        throw new Error(await readApiError(res, 'Incorrect passphrase. Please try again.'));
       }
 
       const data = await res.json();
@@ -93,14 +106,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
   return (
     <Dialog
       open={isOpen}
+      onClose={canDismiss ? onClose : undefined}
       titleId="auth-modal-title"
       descriptionId="auth-modal-desc"
       size="md"
       layer="gate"
-      dismissOnBackdrop={false}
-      dismissOnEscape={false}
+      dismissOnBackdrop={canDismiss}
+      dismissOnEscape={canDismiss}
       showDragHandle
-      initialFocusRef={passwordInputRef}
+      initialFocusRef={requirePassword ? passwordInputRef : usernameInputRef}
       overlayClassName="bg-theme-overlay/90 backdrop-blur-md"
     >
       <div className="space-y-5 sm:space-y-6">
@@ -112,10 +126,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
             id="auth-modal-title"
             className="font-theme-heading text-2xl font-extrabold tracking-tight text-theme-text"
           >
-            Studio Access Gate
+            {canDismiss ? 'Switch Profile' : 'Studio Access Gate'}
           </h2>
           <p id="auth-modal-desc" className="text-sm text-theme-text-muted">
-            Enter the shared studio passphrase and your nickname to start producing tracks.
+            {requirePassword
+              ? 'Enter the shared studio passphrase and your nickname to start producing tracks.'
+              : 'Choose the nickname your new tracks are tagged with.'}
           </p>
         </div>
 
@@ -131,24 +147,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label htmlFor="auth-password" className={labelCls}>
-              <Lock className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
-              Studio Passphrase
-            </label>
-            <input
-              ref={passwordInputRef}
-              id="auth-password"
-              name="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter studio password..."
-              autoComplete="current-password"
-              required
-              className={`${inputCls} font-mono`}
-            />
-          </div>
+          {requirePassword && (
+            <div className="space-y-1.5">
+              <label htmlFor="auth-password" className={labelCls}>
+                <Lock className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
+                Studio Passphrase
+              </label>
+              <input
+                ref={passwordInputRef}
+                id="auth-password"
+                name="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter studio password..."
+                autoComplete="current-password"
+                required
+                className={`${inputCls} font-mono`}
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label htmlFor="auth-username" className={labelCls}>
@@ -181,13 +199,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onSuccess }) => {
             variant="gradient"
             size="lg"
             fullWidth
-            disabled={!password.trim() || !username.trim()}
+            disabled={(requirePassword && !password.trim()) || !username.trim()}
             loading={loading}
             rightIcon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
             className="min-h-[44px] text-sm"
           >
-            Enter Studio
+            {canDismiss ? 'Switch Profile' : 'Enter Studio'}
           </Button>
+          {canDismiss && (
+            <Button variant="ghost" fullWidth onClick={onClose} className="min-h-[44px] text-sm">
+              Cancel
+            </Button>
+          )}
         </form>
       </div>
     </Dialog>
