@@ -18,6 +18,7 @@ import {
   recommendKeyShift,
   noteNameToMidi,
 } from '../../utils/vocalRange';
+import { formatSemitones } from '../../utils/format';
 
 export interface VocalRangeRecommenderModalProps {
   isOpen: boolean;
@@ -29,8 +30,8 @@ export interface VocalRangeRecommenderModalProps {
   isAnalyzing?: boolean;
 }
 
-const formatShift = (semitones: number, zero: string) =>
-  semitones === 0 ? zero : `${semitones > 0 ? '+' : ''}${semitones} st`;
+// "−3 st" with a real minus sign, which screen readers say as "minus"
+const formatShift = (semitones: number, zero: string) => formatSemitones(semitones, zero);
 
 const statCard = 'rounded-theme-md border border-theme-border-subtle bg-theme-surface p-2';
 const statLabel = 'block text-[10px] uppercase tracking-wide text-theme-text-muted';

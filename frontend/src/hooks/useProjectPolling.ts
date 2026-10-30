@@ -193,7 +193,7 @@ export function useProjectPolling(
                 ...prev,
                 status: 'error',
                 error:
-                  'Session timed out or server reloaded. Please click "Try Another Track" to re-open.',
+                  'Session timed out or server reloaded. Click "New Song" and open it again from the library.',
               }
             : null
         );

@@ -7,7 +7,7 @@
  * Retry, and a two-step cancel. Also renders the cancelled and failed end states.
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import {
   Activity,
   AlertCircle,
@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { ProjectState } from '../types';
 import { ProgressRing } from './ui/Progress';
+import { InlineConfirm } from './ui/InlineConfirm';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 import { formatHeartbeat, formatTimer } from '../utils/format';
@@ -79,22 +80,6 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
   onRetryPolling,
   isReconnecting: isReconnectingProp,
 }) => {
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  // The confirmation replaces the Cancel button: move focus to its safe choice, and back to
-  // Cancel when the user keeps processing
-  const keepProcessingRef = useRef<HTMLButtonElement>(null);
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
-  const confirmWasShownRef = useRef(false);
-  useEffect(() => {
-    if (showCancelConfirm) {
-      confirmWasShownRef.current = true;
-      keepProcessingRef.current?.focus();
-    } else if (confirmWasShownRef.current) {
-      confirmWasShownRef.current = false;
-      cancelButtonRef.current?.focus();
-    }
-  }, [showCancelConfirm]);
-
   // Advances the heartbeat label and stall check between polls (only while processing)
   const now = useNow(1000, project.status !== 'cancelled' && project.status !== 'error');
   const isHeartbeatStalled = Boolean(project.heartbeat && now - project.heartbeat > 15000);
@@ -136,7 +121,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
               focusRing
             )}
           >
-            Search Another Song
+            New Song
           </button>
         </div>
       </div>
@@ -171,7 +156,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
               focusRing
             )}
           >
-            Try Another Track
+            New Song
           </button>
         </div>
       </div>
@@ -381,53 +366,26 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
           </div>
 
           <div className="pt-1">
-            {showCancelConfirm ? (
-              <div
-                role="alertdialog"
-                aria-labelledby="cancel-confirm-title"
-                className="mx-auto max-w-sm space-y-3 rounded-theme-lg border border-theme-border bg-theme-surface-raised p-4 shadow-theme-md"
-              >
-                <p id="cancel-confirm-title" className="text-sm font-semibold text-theme-text">
-                  Cancel separation? In-progress work will be lost.
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={onCancelProcess}
-                    className={cn(
-                      'min-h-[36px] rounded-theme-md bg-theme-danger px-3.5 py-1.5 font-theme-heading text-xs font-bold text-white transition-[filter] hover:brightness-110',
-                      focusRing
-                    )}
-                  >
-                    Confirm Cancel
-                  </button>
-                  <button
-                    ref={keepProcessingRef}
-                    type="button"
-                    onClick={() => setShowCancelConfirm(false)}
-                    className={cn(
-                      'min-h-[36px] rounded-theme-md border border-theme-border-subtle bg-theme-surface px-3.5 py-1.5 text-xs font-medium text-theme-text transition-colors hover:border-theme-border',
-                      focusRing
-                    )}
-                  >
-                    Keep Processing
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                ref={cancelButtonRef}
-                type="button"
-                onClick={() => setShowCancelConfirm(true)}
-                className={cn(
-                  'inline-flex min-h-[40px] items-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-subtle px-4 py-2.5 font-theme-heading text-xs font-semibold text-theme-text-muted transition-colors hover:border-theme-danger/50 hover:text-theme-danger',
-                  focusRing
-                )}
-              >
-                <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Cancel &amp; Return to Search</span>
-              </button>
-            )}
+            <InlineConfirm
+              message="Cancel separation? In-progress work will be lost."
+              confirmLabel="Confirm Cancel"
+              keepLabel="Keep Processing"
+              onConfirm={onCancelProcess}
+              renderTrigger={(trigger) => (
+                <button
+                  ref={trigger.ref}
+                  type="button"
+                  onClick={trigger.onClick}
+                  className={cn(
+                    'inline-flex min-h-[40px] items-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-subtle px-4 py-2.5 font-theme-heading text-xs font-semibold text-theme-text-muted transition-colors hover:border-theme-danger/50 hover:text-theme-danger',
+                    focusRing
+                  )}
+                >
+                  <XCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Cancel &amp; Return to Search</span>
+                </button>
+              )}
+            />
           </div>
         </div>
       </div>

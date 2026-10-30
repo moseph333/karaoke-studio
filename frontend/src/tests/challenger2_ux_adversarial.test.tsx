@@ -114,7 +114,7 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
       );
 
       fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
-      expect(screen.getByTestId('stage-pitch-display')).toHaveTextContent('-11 st');
+      expect(screen.getByTestId('stage-pitch-display')).toHaveTextContent('−11 st');
 
       const pitchDownBtn = screen.getByTestId('stage-pitch-down');
 
@@ -135,7 +135,7 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
         />
       );
 
-      expect(screen.getByTestId('stage-pitch-display')).toHaveTextContent('-12 st');
+      expect(screen.getByTestId('stage-pitch-display')).toHaveTextContent('−12 st');
 
       // Adversarial clicks beyond -12: must not decrease to -13 or below
       fireEvent.click(screen.getByTestId('stage-pitch-down'));

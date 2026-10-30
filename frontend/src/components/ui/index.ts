@@ -24,4 +24,6 @@ export { Spinner } from './Spinner';
 export { ProgressBar, ProgressRing } from './Progress';
 export { Skeleton } from './Skeleton';
 export { EmptyState } from './EmptyState';
+export { InlineConfirm } from './InlineConfirm';
+export type { InlineConfirmProps } from './InlineConfirm';
 export { VisuallyHidden } from './VisuallyHidden';

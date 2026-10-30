@@ -423,7 +423,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
   if (project) {
     add({
       id: 'new-song',
-      title: 'New song',
+      title: 'New Song',
       group: 'Song',
       icon: <Music />,
       keywords: ['library', 'search', 'home', 'back'],

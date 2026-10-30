@@ -258,7 +258,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       expect(errorParagraph.className).toMatch(/break-words/);
       expect(errorParagraph.className).toMatch(/font-mono/);
 
-      const retryBtn = screen.getByRole('button', { name: /Try Another Track/i });
+      const retryBtn = within(screen.getByRole('main')).getByRole('button', { name: /New Song/i });
       expect(retryBtn).toBeInTheDocument();
       expect(retryBtn.className).toMatch(/min-h-\[40px\]/);
 
@@ -311,7 +311,9 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
         expect(screen.getByText('Track Processing Cancelled')).toBeInTheDocument();
       });
 
-      const searchAnotherBtn = screen.getByRole('button', { name: /Search Another Song/i });
+      const searchAnotherBtn = within(screen.getByRole('main')).getByRole('button', {
+        name: /New Song/i,
+      });
       expect(searchAnotherBtn).toBeInTheDocument();
       expect(searchAnotherBtn.className).toMatch(/min-h-\[40px\]/);
 
