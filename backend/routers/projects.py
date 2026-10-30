@@ -466,62 +466,6 @@ def update_lyrics(project_id: str, req: LyricsUpdateRequest):
     return {"status": "ok", "lines_count": len(req.lines)}
 
 
-def _search_lyrics(self, track_name: str, artist_name: str | None = None) -> list[dict]:
-    import requests
-
-    clean_title = (track_name or "").strip()
-    clean_artist = (artist_name or "").strip()
-    results = []
-
-    # 1. Try structured search by track_name and artist_name
-    params = {}
-    if clean_title:
-        params["track_name"] = clean_title
-    if clean_artist:
-        params["artist_name"] = clean_artist
-    try:
-        resp = requests.get(f"{self.lrclib_url}/search", params=params, timeout=5)
-        if resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, list):
-                results = data
-    except Exception as e:
-        logger.warning(f"LRCLIB structured search failed: {e}")
-
-    # 2. If no results, fallback to general q search
-    if not results and (clean_title or clean_artist):
-        q = f"{clean_title} {clean_artist}".strip()
-        try:
-            resp = requests.get(f"{self.lrclib_url}/search", params={"q": q}, timeout=5)
-            if resp.status_code == 200:
-                data = resp.json()
-                if isinstance(data, list):
-                    results = data
-        except Exception as e:
-            logger.warning(f"LRCLIB query search failed: {e}")
-
-    candidates = []
-    for item in results:
-        if not isinstance(item, dict):
-            continue
-        candidates.append(
-            {
-                "id": item.get("id"),
-                "track_name": item.get("trackName")
-                or item.get("name")
-                or item.get("track_name")
-                or "",
-                "artist_name": item.get("artistName") or item.get("artist_name") or "",
-                "album_name": item.get("albumName") or item.get("album_name") or "",
-                "duration": float(item.get("duration", 0.0) or 0.0),
-                "instrumental": bool(item.get("instrumental", False)),
-                "plain_lyrics": item.get("plainLyrics") or item.get("plain_lyrics") or "",
-                "synced_lyrics": item.get("syncedLyrics") or item.get("synced_lyrics") or "",
-            }
-        )
-    return candidates
-
-
 @router.get("/api/project/{project_id}/lyrics/candidates")
 def get_lyric_candidates(
     project_id: str,
@@ -541,32 +485,7 @@ def get_lyric_candidates(
         artist_name if artist_name is not None and artist_name.strip() else proj.get("artist", "")
     )
 
-    if not hasattr(main_mod.lyrics_service, "search_lyrics"):
-        main_mod.lyrics_service.__class__.search_lyrics = _search_lyrics
-
-    raw_candidates = main_mod.lyrics_service.search_lyrics(query_title, query_artist)
-
-    candidates = []
-    for item in raw_candidates or []:
-        if not isinstance(item, dict):
-            continue
-        candidates.append(
-            {
-                "id": item.get("id"),
-                "track_name": item.get("track_name")
-                or item.get("trackName")
-                or item.get("name")
-                or "",
-                "artist_name": item.get("artist_name") or item.get("artistName") or "",
-                "album_name": item.get("album_name") or item.get("albumName") or "",
-                "duration": float(item.get("duration", 0.0) or 0.0),
-                "instrumental": bool(item.get("instrumental", False)),
-                "plain_lyrics": item.get("plain_lyrics") or item.get("plainLyrics") or "",
-                "synced_lyrics": item.get("synced_lyrics") or item.get("syncedLyrics") or "",
-            }
-        )
-
-    return candidates
+    return main_mod.lyrics_service.search_lyrics(query_title, query_artist)
 
 
 @router.post("/api/project/{project_id}/realign-lyrics")

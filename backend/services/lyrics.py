@@ -708,6 +708,48 @@ class LyricsService:
 
         return ladder
 
+    @staticmethod
+    def normalize_candidate(item: dict[str, Any]) -> dict[str, Any]:
+        """An LRCLIB search result with the studio's snake_case keys (LRCLIB answers in
+        camelCase) and safe types: missing or null fields become empty values."""
+        return {
+            "id": item.get("id"),
+            "track_name": item.get("trackName") or item.get("name") or item.get("track_name") or "",
+            "artist_name": item.get("artistName") or item.get("artist_name") or "",
+            "album_name": item.get("albumName") or item.get("album_name") or "",
+            "duration": float(item.get("duration", 0.0) or 0.0),
+            "instrumental": bool(item.get("instrumental", False)),
+            "plain_lyrics": item.get("plainLyrics") or item.get("plain_lyrics") or "",
+            "synced_lyrics": item.get("syncedLyrics") or item.get("synced_lyrics") or "",
+        }
+
+    def search_lyrics(
+        self, track_name: str, artist_name: str | None = None
+    ) -> list[dict[str, Any]]:
+        """LRCLIB's candidates for a title and artist, for the studio's lyric picker: a
+        structured search, then a free-text one when that finds nothing. A network error
+        gives no candidates."""
+        title = (track_name or "").strip()
+        artist = (artist_name or "").strip()
+        params = {
+            name: value for name, value in (("track_name", title), ("artist_name", artist)) if value
+        }
+        results = self._search_lrclib(params)
+        if not results and (title or artist):
+            results = self._search_lrclib({"q": f"{title} {artist}".strip()})
+        return [self.normalize_candidate(item) for item in results if isinstance(item, dict)]
+
+    def _search_lrclib(self, params: dict[str, str]) -> list[Any]:
+        try:
+            resp = requests.get(f"{self.lrclib_url}/search", params=params, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list):
+                    return data
+        except Exception as e:
+            logger.warning(f"LRCLIB search failed ({params}): {e}")
+        return []
+
     def _fetch_from_lrclib(
         self, track_name: str, artist_name: str, duration: float | None
     ) -> dict[str, Any] | None:
