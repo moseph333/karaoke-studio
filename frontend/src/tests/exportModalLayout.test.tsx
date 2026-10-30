@@ -84,6 +84,15 @@ describe('ExportModal layout', () => {
     }
   });
 
+  it('lets keyboard users scroll the long YouTube description', () => {
+    render(<ExportModal project={completedProject} isOpen onClose={vi.fn()} />);
+    const description = screen.getByRole('region', {
+      name: 'Description (with Chapters & Lyrics)',
+    });
+    expect(description.tagName).toBe('PRE');
+    expect(description).toHaveAttribute('tabindex', '0');
+  });
+
   it('frames the preview to the rendered video shape once metadata loads', () => {
     const { container } = render(
       <ExportModal project={completedProject} isOpen onClose={vi.fn()} />
