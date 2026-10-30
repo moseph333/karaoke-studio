@@ -352,6 +352,9 @@ class VideoRenderer:
         semitones: int = 0,
         key: str | None = None,
         sync_mode: str = "word",
+        *,
+        singer2_color: str | None = None,
+        both_color: str | None = None,
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
@@ -363,6 +366,8 @@ class VideoRenderer:
             theme_id=theme_id,
             primary_color=primary_color,
             secondary_color=secondary_color,
+            singer2_color=singer2_color,
+            both_color=both_color,
             title=title,
             style_config=style_config,
             font_size_scale=font_size_scale,
@@ -390,6 +395,10 @@ class VideoRenderer:
         semitones: int = 0,
         key: str | None = None,
         sync_mode: str = "word",
+        *,
+        singer2_color: str | None = None,
+        both_color: str | None = None,
+        font_size_scale: float = 1.0,
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file
 
@@ -403,7 +412,10 @@ class VideoRenderer:
             theme_id=theme_id,
             primary_color=primary_color,
             secondary_color=secondary_color,
+            singer2_color=singer2_color,
+            both_color=both_color,
             title=title,
+            font_size_scale=font_size_scale,
             include_countdown=include_countdown,
             chords=chords,
             include_chords=include_chords,
