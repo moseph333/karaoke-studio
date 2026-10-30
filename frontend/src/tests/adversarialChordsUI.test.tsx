@@ -515,9 +515,12 @@ describe('Milestone 2 Empirical Challenger: Adversarial Stress Suite', () => {
       expect(cancelBtn.className).toContain('min-h-[44px]');
       expect(cancelBtn.className).toContain('min-w-[44px]');
 
-      // Complete touch target evaluation
+      // Complete touch target evaluation: the edit controls and the upcoming chord cues,
+      // which are seek buttons
+      const cues = screen.getAllByRole('button', { name: /^Seek to chord/ });
+      expect(cues.length).toBeGreaterThan(0);
       const res = assertTouchTargets(container, 44);
-      expect(res.total).toBe(3);
+      expect(res.total).toBe(3 + cues.length);
       expect(res.failed).toHaveLength(0);
     });
 

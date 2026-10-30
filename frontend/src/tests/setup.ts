@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
+import { resetInputModality } from '../utils/inputModality';
 
 beforeEach(() => {
   Object.defineProperty(window.navigator, 'clipboard', {
@@ -43,6 +44,8 @@ afterEach(() => {
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-stage-preset');
   }
+  // A keydown in one test must not make the next one's focus look keyboard-driven
+  resetInputModality();
   // The studio keeps the open song in the URL (?project=…); a leftover one would make the
   // next test's App open that song on mount
   window.history.replaceState(null, '', '/');

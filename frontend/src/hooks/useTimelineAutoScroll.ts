@@ -9,6 +9,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { LyricLine } from '../types';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion';
 import { usePlaybackSeekListener, usePlaybackValue } from './usePlaybackClock';
+import { lastInputWasKeyboard } from '../utils/inputModality';
 
 export interface UseTimelineAutoScrollOptions {
   /** Song position; omit to follow the playback clock. */
@@ -65,6 +66,25 @@ export function useTimelineAutoScroll({
     clearUserScrollTimeout();
     setIsUserScrolling(false);
   }, [clearUserScrollTimeout]);
+
+  // Keyboard focus inside the list holds auto-scroll: tabbing through the rows while a song
+  // plays must not scroll away the row being worked on. Focus that follows a click does not.
+  const [keyboardFocusInside, setKeyboardFocusInside] = useState(false);
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onFocusIn = () => setKeyboardFocusInside(lastInputWasKeyboard());
+    const onFocusOut = (e: FocusEvent) => {
+      if (!container.contains(e.relatedTarget as Node | null)) setKeyboardFocusInside(false);
+    };
+    container.addEventListener('focusin', onFocusIn);
+    container.addEventListener('focusout', onFocusOut);
+    return () => {
+      container.removeEventListener('focusin', onFocusIn);
+      container.removeEventListener('focusout', onFocusOut);
+    };
+  }, []);
+  const isPaused = isUserScrolling || keyboardFocusInside;
 
   // Before the first line (the intro), or at 0, the list scrolls to the top
   const firstLineStart = editableLines[0]?.start_time ?? 0;
@@ -166,7 +186,7 @@ export function useTimelineAutoScroll({
 
   // Automatic timeline scrolling to keep active highlighted word comfortably in viewport
   useEffect(() => {
-    if (isUserScrolling) return;
+    if (isPaused) return;
 
     const container = containerRef.current;
     if (!container || (!activeKey && !isIntro)) return;
@@ -224,7 +244,7 @@ export function useTimelineAutoScroll({
   }, [
     activeKey,
     isIntro,
-    isUserScrolling,
+    isPaused,
     activeLineIndex,
     editableLines,
     selectedLineId,
@@ -327,7 +347,7 @@ export function useTimelineAutoScroll({
 
   return {
     containerRef,
-    isUserScrolling,
+    isUserScrolling: isPaused,
     resumeAutoScroll,
     handleScroll,
     handleUserScrollInteraction,
