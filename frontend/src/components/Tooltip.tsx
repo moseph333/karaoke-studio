@@ -2,9 +2,11 @@
  * Styled Accessible Contextual Tooltip Component
  *
  * Provides accessible hover and focus tooltips with optional keyboard shortcut badge hints
- * (<kbd>). Manages ARIA described-by linking, Escape key dismissal, and touch-safe
- * pointer-events suppression. `portal` renders the bubble in document.body with fixed
- * positioning so scroll containers and overflow-hidden cards cannot clip it.
+ * (<kbd>). Manages ARIA described-by linking and Escape key dismissal. The bubble can be
+ * hovered (WCAG 1.4.13): leaving the trigger closes it after a moment, so the pointer can
+ * move onto it, while on touch screens it never takes taps. `portal` renders the bubble in
+ * document.body with fixed positioning so scroll containers and overflow-hidden cards
+ * cannot clip it.
  */
 
 import React, { useState, useRef, useEffect, useId, useCallback, useLayoutEffect } from 'react';
@@ -35,6 +37,8 @@ export interface TooltipProps {
 
 const GAP = 8;
 const VIEWPORT_MARGIN = 8;
+// Time to move the pointer from the trigger onto the bubble before it closes
+export const TOOLTIP_HIDE_DELAY_MS = 120;
 
 const POSITION_CLASSES: Record<
   NonNullable<TooltipProps['position']>,
@@ -141,6 +145,22 @@ export const Tooltip: React.FC<TooltipProps> = ({
     setIsOpen(false);
   }, []);
 
+  // The pointer left the trigger or the bubble: close unless it arrives on the other
+  const hideSoon = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      timerRef.current = null;
+      setIsOpen(false);
+    }, TOOLTIP_HIDE_DELAY_MS);
+  }, []);
+
+  const keepOpen = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
   // Synchronize when disabled prop transitions to true
   useEffect(() => {
     if (disabled) {
@@ -204,7 +224,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
       children.props.onMouseEnter?.(e);
     },
     onMouseLeave: (e: React.MouseEvent) => {
-      hide();
+      hideSoon();
       children.props.onMouseLeave?.(e);
     },
     onFocus: (e: React.FocusEvent) => {
@@ -233,8 +253,11 @@ export const Tooltip: React.FC<TooltipProps> = ({
       role="tooltip"
       aria-hidden={!isOpen}
       style={portal ? { left: coords?.left ?? 0, top: coords?.top ?? 0 } : undefined}
+      onMouseEnter={keepOpen}
+      onMouseLeave={hideSoon}
       className={clsx(
-        'pointer-events-none z-[70] rounded-theme-md border border-theme-border bg-theme-surface-raised/95 px-2.5 py-1.5 font-theme-body text-xs font-medium text-theme-text shadow-theme-lg backdrop-blur-md',
+        // Hoverable where a pointer hovers; never in the way of taps on touch screens
+        'pointer-events-none [@media(hover:hover)]:pointer-events-auto z-[70] rounded-theme-md border border-theme-border bg-theme-surface-raised/95 px-2.5 py-1.5 font-theme-body text-xs font-medium text-theme-text shadow-theme-lg backdrop-blur-md',
         'max-w-[200px] sm:max-w-[260px] whitespace-normal break-words text-center',
         'flex items-center justify-center gap-1.5',
         portal ? 'fixed w-max' : 'absolute',

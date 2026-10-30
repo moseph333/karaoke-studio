@@ -11,6 +11,8 @@ import { TrackSearch } from '../components/TrackSearch';
 import { ProcessingView } from '../components/ProcessingView';
 import { LyricTimelineEditor } from '../components/LyricTimelineEditor';
 import { TimelineToolbar } from '../components/timeline/TimelineToolbar';
+import { StudioMetaHeader } from '../components/StudioMetaHeader';
+import { getLyricSyncFidelity, getStemsBadge } from '../utils/syncStatus';
 import { LyricLine, ProjectState } from '../types';
 
 const headingLevels = (root: HTMLElement) =>
@@ -203,5 +205,24 @@ describe('workspace panels', () => {
     const timeline = screen.getByTestId('studio-panel-timeline');
     expect(timeline).not.toHaveAttribute('aria-labelledby');
     expect(timeline).toHaveAttribute('tabindex', '-1');
+  });
+});
+
+describe('badge tooltips', () => {
+  it('reach keyboard and screen reader users too: the badges take no focus', () => {
+    const project: ProjectState = {
+      ...song('meta', 'Meta Song'),
+      lines: [{ id: 1, text: 'One', start_time: 1, end_time: 2, words: [] }],
+      separation: { preset: 'balanced', label: 'Balanced · Mel-Band RoFormer' },
+    };
+    render(
+      <StudioMetaHeader project={project} onOpenEditModal={vi.fn()} onOpenDeleteModal={vi.fn()} />
+    );
+
+    const sync = screen.getByTestId('sync-status-badge');
+    expect(sync).not.toHaveAttribute('tabindex');
+    expect(within(sync).getByTestId('sync-status-details')).toHaveClass('sr-only');
+    expect(sync).toHaveTextContent(getLyricSyncFidelity(project).tooltipText);
+    expect(screen.getByTestId('stems-badge')).toHaveTextContent(getStemsBadge(project).tooltip);
   });
 });
