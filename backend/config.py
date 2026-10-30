@@ -222,6 +222,13 @@ APP_PASSWORD = os.getenv("APP_PASSWORD", "").strip()
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("LOGIN_RATE_LIMIT_MAX_ATTEMPTS", "5"))
 LOGIN_RATE_LIMIT_WINDOW_SECONDS = float(os.getenv("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "60.0"))
 
+# What the studio streams while you sing: "wav" (the master mix itself, the default) or
+# "aac" (a 160 kbps .m4a copy, about an eighth of the size, which every new mix takes a few
+# seconds longer to make). Exports, renders and the waveform always use the WAV.
+PREVIEW_AUDIO_FORMAT = os.getenv("PREVIEW_AUDIO_FORMAT", "wav").strip().lower()
+if PREVIEW_AUDIO_FORMAT not in ("wav", "aac"):
+    PREVIEW_AUDIO_FORMAT = "wav"
+
 # Worker Concurrency Configuration
 try:
     MAX_CONCURRENT_JOBS = max(1, int(os.getenv("MAX_CONCURRENT_JOBS", "2").strip()))

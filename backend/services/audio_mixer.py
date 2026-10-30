@@ -42,6 +42,7 @@ _UNSUPPORTED_HINTS = (
 )
 
 _ffmpeg_filters: frozenset[str] | None = None
+_ffmpeg_encoders: frozenset[str] | None = None
 
 
 @contextlib.contextmanager
@@ -75,9 +76,32 @@ def ffmpeg_has_filter(name: str) -> bool:
     return name in _ffmpeg_filters
 
 
+def ffmpeg_has_encoder(name: str) -> bool:
+    """Whether the installed FFmpeg has an encoder; remembered like ffmpeg_has_filter."""
+    global _ffmpeg_encoders
+    if _ffmpeg_encoders is None:
+        try:
+            res = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-encoders"], capture_output=True, text=True, timeout=10
+            )
+        except (OSError, subprocess.SubprocessError):
+            return False
+        if res.returncode != 0 or not isinstance(res.stdout, str):
+            return False
+        names = set()
+        for line in res.stdout.splitlines():
+            # " A..... aac   AAC (Advanced Audio Coding)": capability flags, then the name
+            parts = line.split()
+            if len(parts) >= 2 and len(parts[0]) == 6 and parts[0][0] in "VAS" and parts[1] != "=":
+                names.add(parts[1])
+        _ffmpeg_encoders = frozenset(names)
+    return name in _ffmpeg_encoders
+
+
 def reset_ffmpeg_probe() -> None:
-    global _ffmpeg_filters
+    global _ffmpeg_filters, _ffmpeg_encoders
     _ffmpeg_filters = None
+    _ffmpeg_encoders = None
 
 
 class AudioMixer:
@@ -260,6 +284,47 @@ class AudioMixer:
             if temp_output.exists():
                 temp_output.unlink(missing_ok=True)
             raise
+
+    def encode_preview(self, wav_path: str, timeout: int = 120) -> str:
+        """Encode a master WAV as the .m4a the studio streams (AAC 160 kbps), next to it.
+
+        The index goes first (+faststart), so playback and seeking start before the whole
+        file has downloaded. Written to a temporary name and renamed when complete.
+        """
+        output_path = Path(wav_path).with_suffix(".m4a")
+        temp_output = output_path.with_suffix(f".tmp_{uuid.uuid4().hex[:8]}.m4a")
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(wav_path),
+            "-vn",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "160k",
+            "-aac_coder",
+            "fast",
+            "-movflags",
+            "+faststart",
+            "-f",
+            "mp4",
+            str(temp_output),
+        ]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        except subprocess.TimeoutExpired as timeout_err:
+            temp_output.unlink(missing_ok=True)
+            raise RuntimeError(f"AAC preview encoding timed out after {timeout} s") from timeout_err
+        if result.returncode != 0 or not temp_output.is_file():
+            temp_output.unlink(missing_ok=True)
+            err_lines = [line for line in (result.stderr or "").splitlines() if line.strip()]
+            raise RuntimeError(
+                f"AAC preview encoding failed (code {result.returncode}): "
+                f"{err_lines[-1] if err_lines else 'unknown FFmpeg error'}"
+            )
+        temp_output.replace(output_path)
+        return str(output_path)
 
     @staticmethod
     def _pitch_filter(

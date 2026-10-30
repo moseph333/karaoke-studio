@@ -23,6 +23,7 @@ from typing import Any
 from backend.background_jobs import SEPARATION_JOB, job_active
 from backend.background_jobs import conflict_reason as job_conflict
 from backend.config import STEMS_DIR
+from backend.master_audio import master_fields, mix_filename
 from backend.project_store import (
     PROJECTS_LOCK,
     find_project,
@@ -315,19 +316,11 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
     semitones = int(proj.get("semitones") or 0)
     guide_volume = float(proj.get("guide_volume") or 0.0)
     track_id = proj.get("track_id") or proj.get("id") or "track"
-    output_filename = f"{track_id}_mix_{semitones}_{int(guide_volume * 100)}.wav"
     master_path = main_mod.audio_mixer.mix_and_shift(
         instrumental_path=proj["instrumental_path"],
         vocals_path=vocals_path,
         semitones=semitones,
         guide_volume=guide_volume,
-        output_filename=output_filename,
+        output_filename=mix_filename(track_id, semitones, guide_volume),
     )
-    try:
-        version = os.stat(master_path).st_mtime_ns // 1_000_000
-    except (OSError, TypeError):
-        version = int(time.time() * 1000)
-    store(
-        master_audio_path=master_path,
-        master_audio_url=f"/static/output/{output_filename}?v={version}",
-    )
+    store(**master_fields(master_path))

@@ -10,6 +10,7 @@ from pathlib import Path
 import soundfile as sf
 
 from backend.config import DOWNLOADS_DIR
+from backend.master_audio import master_fields
 from backend.project_store import (
     PROJECTS_LOCK,
     cleanup_project_disk_artifacts,
@@ -309,8 +310,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             output_filename=f"{audio_id}_master.wav",
         )
         proj = get_project_or_404(project_id)
-        proj["master_audio_path"] = master_path
-        proj["master_audio_url"] = f"/static/output/{audio_id}_master.wav"
+        proj.update(master_fields(master_path))
 
         # Step 6: Ready!
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
@@ -488,8 +488,7 @@ def run_local_pipeline(
             output_filename=f"{project_id}_master.wav",
         )
         proj = get_project_or_404(project_id)
-        proj["master_audio_path"] = master_path
-        proj["master_audio_url"] = f"/static/output/{project_id}_master.wav"
+        proj.update(master_fields(master_path))
 
         # Step 6: Ready!
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
