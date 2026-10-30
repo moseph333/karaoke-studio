@@ -1,5 +1,5 @@
 /**
- * AppThemePickerChallengerStress.test.tsx
+ * appThemePickerKeyboard.test.tsx
  *
  * Empirical Challenger Stress Harness for Milestone 2:
  * 1. Rapid keyboard navigation, boundary wrapping (Home/End, Arrow looping).
