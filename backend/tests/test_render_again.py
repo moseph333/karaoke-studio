@@ -69,3 +69,23 @@ def test_the_versioned_url_still_serves_the_video(client, song, monkeypatch):
 
     assert res.status_code == 200
     assert res.content == b"\x00\x00\x00\x18ftypmp42"
+
+
+def test_the_video_and_youtube_kit_are_stored_before_the_render_reads_as_completed(
+    song, monkeypatch
+):
+    """The studio fetches the finished project once, when a status poll first reads
+    "completed": by then the video URL and the YouTube kit must be there."""
+    seen = []
+
+    def kit(**kwargs):
+        seen.append(projects[song].get("render_status"))
+        return {"title": "t"}
+
+    monkeypatch.setattr(main_mod.youtube_service, "generate_youtube_package", kit)
+    run_video_render(song, RenderRequest())
+
+    assert seen == ["rendering"]
+    assert projects[song]["render_status"] == "completed"
+    assert projects[song]["youtube_package"] == {"title": "t"}
+    assert projects[song]["video_url"].startswith("/static/output/encore01_karaoke.mp4?v=")

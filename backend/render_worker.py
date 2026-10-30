@@ -199,14 +199,6 @@ def run_video_render(project_id: str, req: RenderRequest):
         )
 
         proj = get_project_or_404(project_id)
-        proj["render_status"] = "completed"
-        proj["render_progress"] = 100
-        proj["render_detail"] = "Video export complete!"
-        proj["render_eta_seconds"] = 0
-        # Rendering again overwrites the same file; the version makes browsers fetch the new video
-        # rather than show or download their cached copy of the previous one
-        proj["video_url"] = f"/static/output/{track_id}_karaoke.mp4?v={int(time.time())}"
-
         # Generate YouTube package
         yt_package = main_mod.youtube_service.generate_youtube_package(
             title=proj.get("title", "Karaoke Track"),
@@ -215,7 +207,17 @@ def run_video_render(project_id: str, req: RenderRequest):
             semitones=req.semitones,
             has_guide_vocal=req.guide_volume > 0.05,
         )
-        proj["youtube_package"] = yt_package
+        # The results first and the status last, together: the studio fetches the finished
+        # project once, as soon as a status poll reads "completed"
+        with PROJECTS_LOCK:
+            proj["youtube_package"] = yt_package
+            # Rendering again overwrites the same file; the version makes browsers fetch the
+            # new video rather than show or download their cached copy of the previous one
+            proj["video_url"] = f"/static/output/{track_id}_karaoke.mp4?v={int(time.time())}"
+            proj["render_status"] = "completed"
+            proj["render_progress"] = 100
+            proj["render_detail"] = "Video export complete!"
+            proj["render_eta_seconds"] = 0
         save_projects()
 
     except Exception as e:
