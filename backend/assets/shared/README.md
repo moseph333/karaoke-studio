@@ -12,4 +12,4 @@ build stage copies this folder next to `frontend/` so the alias resolves there t
 | `upload_limits.json` | Upload size limits in MB | `upload_utils`; the local audio uploader |
 | `confidence_thresholds.json` | Alignment confidence: below `low` a line needs review, from `high` it reads as high | `lyric_sync` (sync report); `utils/timelineReview.ts`, `utils/lineRealign.ts` |
 | `background_motion.json` | The drift, aurora and spectrum motion numbers | `stage_backgrounds.BACKGROUND_MOTION`; `theme/stageBackgrounds.ts` |
-| `tokenize_cases.json` | Lyric tokenizer cases both tokenizers must split the same way | `test_alignment_parts.py`; `tests/lyrics.test.ts` |
+| `tokenize_cases.json` | Lyric tokenizer cases both tokenizers must split the same way | `alignment/test_alignment_parts.py`; `tests/timeline/lyrics.test.ts` |
