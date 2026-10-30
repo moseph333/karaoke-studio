@@ -263,6 +263,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   role="button"
                   tabIndex={0}
                   aria-pressed={isSelected}
+                  data-swatch
                   title={t.description}
                   onClick={() => onSelectTheme(t)}
                   onKeyDown={(e) => {

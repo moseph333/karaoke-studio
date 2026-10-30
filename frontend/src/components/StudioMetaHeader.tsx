@@ -71,11 +71,9 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
             >
               {syncFidelity.label}
               {syncFidelity.quality !== null && (
-                <span className="tabular-nums opacity-80">{syncFidelity.quality}%</span>
+                <span className="tabular-nums">{syncFidelity.quality}%</span>
               )}
-              {syncFidelity.autoAligned && (
-                <span className="font-medium opacity-80">auto-aligned</span>
-              )}
+              {syncFidelity.autoAligned && <span className="font-medium">auto-aligned</span>}
             </Badge>
           </Tooltip>
           <Tooltip content={stems.tooltip} position="bottom">

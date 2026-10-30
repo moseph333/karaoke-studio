@@ -92,11 +92,14 @@ describe('Timeline redesign', () => {
 
       const activeDelete = within(active).getByRole('button', { name: 'Delete line 1' });
       const idleDelete = within(idle).getByRole('button', { name: 'Delete line 2' });
-      // Idle rows fade their tools only on hover-capable screens until hovered or focused
-      const fadedGroup = idleDelete.closest('[class*="opacity-60"]');
-      expect(fadedGroup?.className).toContain('[@media(hover:hover)]:opacity-60');
+      // Idle rows fade their icon tools only on hover-capable screens until hovered or focused
+      const fadedGroup = idleDelete.closest('[class*="opacity-70"]');
+      expect(fadedGroup?.className).toContain('[@media(hover:hover)]:opacity-70');
       expect(fadedGroup?.className).toContain('group-focus-within/line:opacity-100');
-      expect(activeDelete.closest('[class*="opacity-60"]')).toBeNull();
+      expect(activeDelete.closest('[class*="opacity-70"]')).toBeNull();
+      // Buttons with text (the fine nudges) never fade
+      const fineNudge = within(idle).getByRole('button', { name: 'Nudge line 2 0.05s later' });
+      expect(fineNudge.closest('[class*="opacity-"]')).toBeNull();
     });
 
     it('labels each row with its duet part using an icon chip', () => {

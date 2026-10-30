@@ -353,11 +353,11 @@
   --theme-accent-hover: #000000;
   --theme-accent-text: #ffffff;
   --theme-secondary: #dc2626;
-  --theme-highlight: #2563eb;
+  --theme-highlight: #1e40af;
   --theme-sung: #111111;
   --theme-unsung: #525252;
-  --theme-success: #15803d;
-  --theme-warning: #b45309;
+  --theme-success: #166534;
+  --theme-warning: #92400e;
   --theme-danger: #b91c1c;
   --theme-info: #1d4ed8;
   --theme-focus: #2563eb;
@@ -375,11 +375,11 @@
   --theme-accent-hover-rgb: 0 0 0;
   --theme-accent-text-rgb: 255 255 255;
   --theme-secondary-rgb: 220 38 38;
-  --theme-highlight-rgb: 37 99 235;
+  --theme-highlight-rgb: 30 64 175;
   --theme-sung-rgb: 17 17 17;
   --theme-unsung-rgb: 82 82 82;
-  --theme-success-rgb: 21 128 61;
-  --theme-warning-rgb: 180 83 9;
+  --theme-success-rgb: 22 101 52;
+  --theme-warning-rgb: 146 64 14;
   --theme-danger-rgb: 185 28 28;
   --theme-info-rgb: 29 78 216;
   --theme-focus-rgb: 37 99 235;
@@ -649,5 +649,69 @@
   }
   .ks-no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* ==========================================================================
+   FORCED COLORS (Windows contrast themes)
+   The browser replaces background colours with the system palette there, so states shown
+   only by a tint (selected tabs, pressed toggles, switches, progress and the waveform's
+   played part, status dots) would vanish. They use the system colours instead.
+   ========================================================================== */
+@media (forced-colors: active) {
+  [role='tab'][aria-selected='true'],
+  [role='option'][aria-selected='true'],
+  [aria-pressed='true']:not([data-swatch]),
+  [role='radio'][aria-checked='true'],
+  [role='menuitemradio'][aria-checked='true'],
+  [role='menuitemcheckbox'][aria-checked='true'] {
+    background-color: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+  }
+
+  [role='switch'] {
+    border-color: ButtonText;
+  }
+  [role='switch'] > span {
+    background-color: ButtonText;
+  }
+  [role='switch'][aria-checked='true'] {
+    background-color: Highlight;
+    border-color: Highlight;
+  }
+  [role='switch'][aria-checked='true'] > span {
+    background-color: HighlightText;
+  }
+
+  [role='progressbar'] > div {
+    background-color: Highlight;
+  }
+  [role='progressbar'] svg circle:last-of-type {
+    stroke: Highlight;
+  }
+  [data-testid='waveform-bar'] {
+    background-color: GrayText;
+  }
+  [data-testid='waveform-bar'][data-played='true'] {
+    background-color: Highlight;
+  }
+  [data-testid='waveform-playhead'] {
+    background-color: CanvasText;
+  }
+
+  /* Status dots, and the confidence dot's shapes (filled dot, diamond, hollow ring) */
+  [data-dot] {
+    background-color: CanvasText;
+  }
+  [data-dot='low'] {
+    background-color: transparent;
+    border-color: CanvasText;
+  }
+
+  /* What exists to show real colours keeps them: the stage preview and theme swatches */
+  [data-testid='lyric-display-stage'],
+  [data-swatch] {
+    forced-color-adjust: none;
   }
 }

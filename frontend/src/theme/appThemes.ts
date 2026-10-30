@@ -596,11 +596,13 @@ const PAPER_COLORS: AppThemeColors = {
   accentHover: '#000000',
   accentText: '#ffffff',
   secondary: '#dc2626',
-  highlight: '#2563eb',
+  // Darker than the usual 600 shades: as text on their own 15% tint (status badges) those
+  // reached only 3.7:1 on this light paper; these reach 4.5:1 or more
+  highlight: '#1e40af',
   sung: '#111111',
   unsung: '#525252',
-  success: '#15803d',
-  warning: '#b45309',
+  success: '#166534',
+  warning: '#92400e',
   danger: '#b91c1c',
   info: '#1d4ed8',
   focus: '#2563eb',
