@@ -35,7 +35,6 @@ export interface ExportSubtitleSectionProps {
   activeSemitones?: number;
   syncMode?: SyncDisplayMode;
   onSyncModeChange?: (mode: SyncDisplayMode) => void;
-  onChangeSyncMode?: (mode: SyncDisplayMode) => void;
 }
 
 export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
@@ -50,7 +49,6 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
   activeSemitones,
   syncMode,
   onSyncModeChange,
-  onChangeSyncMode,
 }) => {
   const { toast } = useToast();
   const [downloadingLrc, setDownloadingLrc] = useState(false);
@@ -69,7 +67,6 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
   const handleSyncModeChange = (mode: SyncDisplayMode) => {
     setInternalSyncMode(mode);
     onSyncModeChange?.(mode);
-    onChangeSyncMode?.(mode);
   };
 
   const semitones = activeSemitones ?? project?.semitones ?? 0;

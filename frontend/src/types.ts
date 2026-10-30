@@ -40,15 +40,6 @@ export interface LyricLine {
   align_method?: AlignMethod;
 }
 
-export interface LyricLineDraft {
-  id?: number;
-  text: string;
-  start_time: number;
-  end_time: number;
-  words?: WordTiming[];
-  singer?: SingerRole;
-}
-
 export type LyricTiming = 'source_word' | 'source_line' | 'aligned' | 'none';
 
 /** How the server timed the lyrics (written by every alignment). */
@@ -290,7 +281,7 @@ export interface Toast {
 }
 
 // ==========================================
-// R1: Vocal Range & Smart Key Recommender Types
+// Vocal Range & Smart Key Recommender Types
 // ==========================================
 
 export type VoicePreset = 'Bass' | 'Baritone' | 'Tenor' | 'Alto' | 'Mezzo-Soprano' | 'Soprano';
@@ -322,14 +313,8 @@ export interface KeyRecommendation {
   is_in_range?: boolean; // True if all song notes fit within target bounds
 }
 
-export interface KeyRecommendationRequest {
-  target_voice_preset?: VoicePreset | null;
-  custom_low_note?: string | null;
-  custom_high_note?: string | null;
-}
-
 // ==========================================
-// R1: Harmonic Chords & Live Chord Bar Types
+// Harmonic Chords & Live Chord Bar Types
 // ==========================================
 
 export interface ChordSegment {
@@ -338,17 +323,6 @@ export interface ChordSegment {
   end: number;
   chord: string;
   confidence?: number;
-}
-
-export interface ProjectChordsResponse {
-  project_id: string;
-  chords: ChordSegment[];
-  estimated_key?: string | null;
-  detected: boolean;
-}
-
-export interface ChordsUpdateRequest {
-  chords: ChordSegment[];
 }
 
 // ==========================================
@@ -447,14 +421,7 @@ export interface AppTheme {
 }
 
 // ==========================================
-// Studio Workspace Navigation Types (Milestone M1)
+// Studio Workspace Navigation Types
 // ==========================================
 
 export type StudioWorkspaceTab = 'stage' | 'timeline' | 'mix';
-
-export interface StudioWorkspaceTabConfig {
-  id: StudioWorkspaceTab;
-  label: string;
-  ariaLabel: string;
-  panelId: string;
-}

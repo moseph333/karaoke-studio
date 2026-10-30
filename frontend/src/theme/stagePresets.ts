@@ -171,7 +171,3 @@ export function getStageBackground(theme: VisualTheme | null | undefined): strin
   if (theme?.previewBg && /^#[0-9a-f]{6}$/i.test(theme.previewBg)) return theme.previewBg;
   return '#0b0b12';
 }
-
-export function isLightStagePreset(theme: VisualTheme | null | undefined): boolean {
-  return theme?.tone === 'light';
-}

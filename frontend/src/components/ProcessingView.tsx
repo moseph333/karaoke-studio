@@ -24,6 +24,7 @@ import { ProjectState } from '../types';
 import { ProgressRing } from './ui/Progress';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
+import { formatHeartbeat, formatTimer } from '../utils/format';
 import { presetInfo, stemsLabel } from '../utils/quality';
 import { useNow } from '../hooks/useNow';
 
@@ -70,20 +71,6 @@ export interface ProcessingViewProps {
 
 const cardCls =
   'relative overflow-hidden rounded-theme-xl border border-theme-border-subtle bg-theme-surface p-5 text-center shadow-theme-lg sm:p-8';
-
-const formatTimer = (seconds?: number | null) => {
-  if (seconds === undefined || seconds === null || seconds < 0) return '--:--';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
-};
-
-const getHeartbeatText = (lastHeartbeat: number | undefined, now: number) => {
-  if (!lastHeartbeat) return 'Active';
-  const diffSec = Math.max(0, Math.round((now - lastHeartbeat) / 1000));
-  if (diffSec < 2) return 'Pulse just now';
-  return `Pulse ${diffSec}s ago`;
-};
 
 export const ProcessingView: React.FC<ProcessingViewProps> = ({
   project,
@@ -282,7 +269,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
                   <span className="absolute inline-flex h-full w-full rounded-full bg-theme-success opacity-75 motion-safe:animate-ping" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-theme-success" />
                 </span>
-                <span>Engine Active • {getHeartbeatText(project?.heartbeat, now)}</span>
+                <span>Engine Active • {formatHeartbeat(project?.heartbeat, now)}</span>
               </div>
             )}
           </div>

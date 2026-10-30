@@ -19,19 +19,3 @@ export function parseContentDispositionFilename(header: string | null | undefine
   const plain = header.match(/filename\s*=\s*("?)([^";]+)\1/i);
   return plain ? plain[2].trim() : null;
 }
-
-/** Triggers a download of a Blob with the given filename and cleans up the object URL. */
-export function downloadBlob(blob: Blob, filename: string): void {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.style.display = 'none';
-  document.body.appendChild(anchor);
-  anchor.click();
-  setTimeout(() => {
-    anchor.remove();
-    window.URL.revokeObjectURL(url);
-  }, 0);
-}

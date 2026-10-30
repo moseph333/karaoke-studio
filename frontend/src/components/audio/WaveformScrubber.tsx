@@ -7,6 +7,7 @@
 
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { Tooltip } from '../Tooltip';
+import { formatTime } from '../../utils/format';
 import { seekTargetForKey } from '../../utils/seekKeys';
 
 export interface LyricLine {
@@ -296,13 +297,6 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
         void _err;
       }
     }
-  };
-
-  const formatTime = (secs: number) => {
-    if (!Number.isFinite(secs) || secs < 0) return '0:00';
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
   return (

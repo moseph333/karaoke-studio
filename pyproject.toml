@@ -34,8 +34,6 @@ known-first-party = ["backend"]
 
 [tool.ruff.lint.per-file-ignores]
 "backend/tests/**" = [
-    "S101",   # allow `assert` in test cases
-    "ARG001", # allow unused fixture arguments in test signatures
     "F401",   # allow imported fixtures / modules for side-effects
     "RUF001", # allow ambiguous unicode characters in test data
 ]

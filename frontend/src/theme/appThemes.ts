@@ -690,8 +690,6 @@ export const APP_THEME_LIST: AppTheme[] = [
   CLEAN_PAPER_THEME,
 ];
 
-export const APP_THEME_MAP = APP_THEMES;
-
 const VALID_THEME_IDS = new Set<string>([
   'afterglow',
   'punk_diy',

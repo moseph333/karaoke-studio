@@ -17,16 +17,15 @@ from backend.services.chord_detector import (
     project_key_signature,
     transpose_chord_progression,
 )
+from backend.services.lyrics import LyricsService
 
 router = APIRouter(tags=["exports"])
 
 
 def format_timestamp(seconds: float) -> str:
-    """Formats seconds into [mm:ss.xx] timestamp tag."""
-    s = max(0.0, float(seconds))
-    m = int(s // 60)
-    sec = s % 60
-    return f"[{m:02d}:{sec:05.2f}]"
+    """Formats seconds into an [mm:ss.xx] timestamp tag, with the LRC export's formatter (a
+    separate copy here printed 59.996 s as [00:60.00] instead of [01:00.00])."""
+    return LyricsService.format_lrc_timestamp(seconds)
 
 
 def generate_chord_sheet(

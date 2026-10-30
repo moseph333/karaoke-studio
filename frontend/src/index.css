@@ -4,7 +4,7 @@
 
 /* ==========================================================================
    THEME 0: AFTERGLOW (Signature Default) — Deep ink stage, soft glass depth & a violet-to-rose spotlight
-   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
+   Hand-kept copy of src/theme/appThemes.ts (themeRegistryParity.test.ts checks they match)
    ========================================================================== */
 :root,
 [data-theme='afterglow'] {
@@ -91,7 +91,7 @@
 
 /* ==========================================================================
    THEME 1: PUNK ROCK / UNDERGROUND / DIY — Raw zine Xerox stencil, flyer yellow & hard offset shadows
-   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
+   Hand-kept copy of src/theme/appThemes.ts (themeRegistryParity.test.ts checks they match)
    ========================================================================== */
 [data-theme='punk_diy'] {
   --theme-bg: #0d0d0f;
@@ -173,7 +173,7 @@
 
 /* ==========================================================================
    THEME 2: ANALOG 70s TAPE STUDIO — Warm walnut chassis, incandescent amber VU & display serif
-   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
+   Hand-kept copy of src/theme/appThemes.ts (themeRegistryParity.test.ts checks they match)
    ========================================================================== */
 [data-theme='tape_studio_70s'] {
   --theme-bg: #1a1410;
@@ -255,7 +255,7 @@
 
 /* ==========================================================================
    THEME 3: DIVE BAR CRT KTV — Grimy neon cyan wipe & arcade pixel scanline CRT monitor
-   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
+   Hand-kept copy of src/theme/appThemes.ts (themeRegistryParity.test.ts checks they match)
    ========================================================================== */
 [data-theme='dive_bar_crt'] {
   --theme-bg: #09080f;
@@ -337,7 +337,7 @@
 
 /* ==========================================================================
    THEME 4: BRUTALIST / CLEAN PAPER STUDIO — High-contrast monochrome newsprint & sharp Swiss geometry
-   Generated from src/theme/appThemes.ts (kept in sync by themeRegistryParity.test.ts)
+   Hand-kept copy of src/theme/appThemes.ts (themeRegistryParity.test.ts checks they match)
    ========================================================================== */
 [data-theme='clean_paper'] {
   --theme-bg: #f4f4f0;

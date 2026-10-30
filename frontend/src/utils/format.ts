@@ -16,6 +16,21 @@ export function formatTime(seconds: number | null | undefined): string {
   return `${m}:${ss}`;
 }
 
+/** Formats a job timer (elapsed, remaining) as m:ss, or "--:--" when it is unknown. */
+export function formatTimer(seconds?: number | null): string {
+  if (seconds === undefined || seconds === null || seconds < 0) return '--:--';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+/** How long ago a background job last reported: "Pulse just now", "Pulse 12s ago". */
+export function formatHeartbeat(lastHeartbeat: number | undefined, now: number): string {
+  if (!lastHeartbeat) return 'Active';
+  const diffSec = Math.max(0, Math.round((now - lastHeartbeat) / 1000));
+  return diffSec < 2 ? 'Pulse just now' : `Pulse ${diffSec}s ago`;
+}
+
 /** Formats a semitone offset: 0 → "Original key", +2 → "+2 st", -3 → "−3 st". */
 export function formatSemitones(semitones: number, originalLabel = 'Original key'): string {
   if (!Number.isFinite(semitones) || semitones === 0) return originalLabel;
@@ -32,10 +47,4 @@ export function formatSemitonesShort(semitones: number): string {
 export function formatRate(rate: number): string {
   if (!Number.isFinite(rate) || rate <= 0) return '1.0x';
   return Number.isInteger(rate) ? `${rate.toFixed(1)}x` : `${rate}x`;
-}
-
-/** Formats a 0-1 ratio as a whole percentage string. */
-export function formatPercent(ratio: number): string {
-  if (!Number.isFinite(ratio)) return '0%';
-  return `${Math.round(Math.max(0, Math.min(1, ratio)) * 100)}%`;
 }
