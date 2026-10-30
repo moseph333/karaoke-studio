@@ -12,6 +12,7 @@ import { ChordSegment } from '../types';
 import { transposeChord, NO_CHORD_VALUES } from '../utils/chords';
 import { Edit2, Check, X } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { formatTime } from '../utils/format';
 import { focusRing } from './ui/variants';
 
 export interface ChordBarProps {
@@ -37,7 +38,9 @@ export const ChordBar: React.FC<ChordBarProps> = ({
   onSeek,
   className = '',
 }) => {
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  // The chord being edited, kept while playback moves on to later chords (the editor used to
+  // close, and drop what was typed, as soon as its chord stopped being the active one)
+  const [editing, setEditing] = useState<{ index: number; start: number } | null>(null);
   const [editValue, setEditValue] = useState('');
 
   // Transposing parses each chord symbol: do it when the chords or the key change, not on
@@ -77,22 +80,29 @@ export const ChordBar: React.FC<ChordBarProps> = ({
     }
   }
 
+  // Found again by its start time if the chord list changed meanwhile
+  const editingIndex = !editing
+    ? -1
+    : chords[editing.index]?.start === editing.start
+      ? editing.index
+      : chords.findIndex((c) => c.start === editing.start);
+
   const handleStartEdit = (idx: number, currentChord: string) => {
     if (!onEditChord) return;
-    setEditingIndex(idx);
+    setEditing({ index: idx, start: chords[idx].start });
     setEditValue(currentChord);
   };
 
   const handleSaveEdit = () => {
-    if (editingIndex !== null && editValue.trim() && onEditChord) {
+    if (editingIndex >= 0 && editValue.trim() && onEditChord) {
       onEditChord(editingIndex, editValue.trim());
     }
-    setEditingIndex(null);
+    setEditing(null);
     setEditValue('');
   };
 
   const handleCancelEdit = () => {
-    setEditingIndex(null);
+    setEditing(null);
     setEditValue('');
   };
 
@@ -107,7 +117,7 @@ export const ChordBar: React.FC<ChordBarProps> = ({
       )}
     >
       {/* Active Chord Cue Badge */}
-      {editingIndex !== null && editingIndex === activeIndex ? (
+      {editing !== null ? (
         <div className="flex items-center gap-1 min-h-[44px] shrink-0">
           <input
             type="text"
@@ -178,16 +188,31 @@ export const ChordBar: React.FC<ChordBarProps> = ({
         data-testid="upcoming-chords"
         className="upcoming flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm text-white/70"
       >
-        {upcomingIndices.map((i, idx) => (
-          <span
-            key={chords[i].id || idx}
-            data-testid="upcoming-chord-cue"
-            onClick={() => onSeek?.(chords[i].start)}
-            className="shrink-0 cursor-pointer rounded-theme-md border border-white/15 bg-white/5 px-2 py-1 text-xs font-semibold text-white/85 transition-colors hover:bg-white/15 sm:text-sm"
-          >
-            {transposed[i]}
-          </span>
-        ))}
+        {upcomingIndices.map((i, idx) =>
+          onSeek ? (
+            <button
+              type="button"
+              key={chords[i].id || idx}
+              data-testid="upcoming-chord-cue"
+              onClick={() => onSeek(chords[i].start)}
+              aria-label={`Seek to chord ${transposed[i]} at ${formatTime(chords[i].start)}`}
+              className={cn(
+                'min-h-[44px] min-w-[44px] shrink-0 rounded-theme-md border border-white/15 bg-white/5 px-2 py-1 text-xs font-semibold text-white/85 transition-colors hover:bg-white/15 sm:text-sm',
+                focusRing
+              )}
+            >
+              {transposed[i]}
+            </button>
+          ) : (
+            <span
+              key={chords[i].id || idx}
+              data-testid="upcoming-chord-cue"
+              className="shrink-0 rounded-theme-md border border-white/15 bg-white/5 px-2 py-1 text-xs font-semibold text-white/85 sm:text-sm"
+            >
+              {transposed[i]}
+            </span>
+          )
+        )}
       </div>
     </div>
   );
