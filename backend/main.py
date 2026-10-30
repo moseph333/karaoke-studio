@@ -43,8 +43,9 @@ from backend.export_utils import (
     build_content_disposition,
     sanitize_export_filename,
 )
-from backend.http_delivery import CompressTextResponses, cache_control_for
+from backend.http_delivery import CompressTextResponses
 from backend.logging_setup import configure_logging
+from backend.middleware import PassphraseAuth, SecurityHeaders
 from backend.pipeline import (
     run_local_pipeline,
     run_pipeline,
@@ -183,35 +184,10 @@ app.add_middleware(
 )
 
 
-@app.middleware("http")
-async def check_auth_middleware(request: Request, call_next):
-    path = request.url.path
-    app_pwd = config.APP_PASSWORD
-    if app_pwd:
-        # GET /api/health stays open for health checks and uptime monitors. Its POST form
-        # and /api/system/update can start a production update, so they need a session.
-        is_public_api = path.startswith("/api/auth") or (
-            path == "/api/health" and request.method in ("GET", "HEAD")
-        )
-        is_api_protected = path.startswith("/api/") and not is_public_api
-        is_static_protected = path.startswith("/static/")
-        if (is_api_protected or is_static_protected) and not is_authenticated(request, app_pwd):
-            return JSONResponse(
-                status_code=401, content={"detail": "Invalid or missing studio passphrase"}
-            )
-    return await call_next(request)
-
-
-@app.middleware("http")
-async def add_security_headers_middleware(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    cache_control = cache_control_for(request.url.path, response.status_code)
-    if cache_control and "cache-control" not in response.headers:
-        response.headers["Cache-Control"] = cache_control
-    return response
+# Inside the security headers, so a 401 carries them too (Starlette runs the middleware
+# added last first)
+app.add_middleware(PassphraseAuth)
+app.add_middleware(SecurityHeaders)
 
 
 # Added last, so it wraps every other middleware and compresses their final responses
