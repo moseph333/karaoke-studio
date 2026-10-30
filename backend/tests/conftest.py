@@ -46,6 +46,12 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(main_mod, "BACKGROUNDS_DIR", test_backgrounds)
     monkeypatch.setattr(main_mod, "PROJECTS_STORE_FILE", test_store)
     monkeypatch.setattr(main_mod, "PROJECTS_BACKUP_FILE", test_data_dir / "projects.json.bak")
+    # The service singletons took the real folders when they were created: point them at the
+    # test folders too, or mixes and renders made by tests land in workspace_data
+    monkeypatch.setattr(main_mod.audio_mixer, "output_dir", test_output)
+    monkeypatch.setattr(main_mod.video_renderer, "output_dir", test_output)
+    monkeypatch.setattr(main_mod.separator, "output_base_dir", test_stems)
+    monkeypatch.setattr(main_mod.downloader, "output_dir", test_downloads)
 
     # Set default test passphrase if unset so auth-gated fixtures and routes work in CI
     if not config.APP_PASSWORD:
