@@ -36,7 +36,7 @@ const headerButton = cn(
   focusRing
 );
 
-export const StudioHeader: React.FC<StudioHeaderProps> = ({
+const StudioHeaderView: React.FC<StudioHeaderProps> = ({
   currentUser,
   project,
   isLyricsDirty,
@@ -216,3 +216,6 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
     </header>
   );
 };
+
+// Memoized: the header's inputs rarely change while a song plays or is edited
+export const StudioHeader = React.memo(StudioHeaderView);

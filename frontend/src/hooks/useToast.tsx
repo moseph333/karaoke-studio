@@ -80,6 +80,21 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [showToast]
   );
 
+  // The same `toast` object for the provider's lifetime, so hooks may list it as a
+  // dependency without re-running whenever a toast appears or leaves
+  const toast = useMemo(
+    () => ({
+      show: showToast,
+      success,
+      error,
+      info,
+      warning,
+      dismiss: dismissToast,
+      clear: clearToasts,
+    }),
+    [showToast, success, error, info, warning, dismissToast, clearToasts]
+  );
+
   const value = useMemo<ToastContextValue>(
     () => ({
       toasts,
@@ -90,17 +105,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       error,
       info,
       warning,
-      toast: {
-        show: showToast,
-        success,
-        error,
-        info,
-        warning,
-        dismiss: dismissToast,
-        clear: clearToasts,
-      },
+      toast,
     }),
-    [toasts, showToast, dismissToast, clearToasts, success, error, info, warning]
+    [toasts, showToast, dismissToast, clearToasts, success, error, info, warning, toast]
   );
 
   return (
@@ -111,34 +118,33 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
+const noopId = () => '';
+const noop = () => {};
+
+// Without a ToastProvider (isolated unit tests) toasts are dropped; one constant keeps the
+// handlers stable for hooks that depend on them
+const NO_PROVIDER: ToastContextValue = {
+  toasts: [],
+  showToast: noopId,
+  dismissToast: noop,
+  clearToasts: noop,
+  success: noopId,
+  error: noopId,
+  info: noopId,
+  warning: noopId,
+  toast: {
+    show: noopId,
+    success: noopId,
+    error: noopId,
+    info: noopId,
+    warning: noopId,
+    dismiss: noop,
+    clear: noop,
+  },
+};
+
 /**
  * Custom hook to trigger toast notifications.
  * Includes a resilient fallback so isolated unit tests without ToastProvider never throw errors.
  */
-export const useToast = (): ToastContextValue => {
-  const context = useContext(ToastContext);
-  if (!context) {
-    const noopId = () => '';
-    const noop = () => {};
-    return {
-      toasts: [],
-      showToast: noopId,
-      dismissToast: noop,
-      clearToasts: noop,
-      success: noopId,
-      error: noopId,
-      info: noopId,
-      warning: noopId,
-      toast: {
-        show: noopId,
-        success: noopId,
-        error: noopId,
-        info: noopId,
-        warning: noopId,
-        dismiss: noop,
-        clear: noop,
-      },
-    };
-  }
-  return context;
-};
+export const useToast = (): ToastContextValue => useContext(ToastContext) ?? NO_PROVIDER;

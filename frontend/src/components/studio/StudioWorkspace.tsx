@@ -46,7 +46,7 @@ export interface StudioWorkspaceProps {
 const panelVisibility = (active: StudioWorkspaceTab, ...tabs: StudioWorkspaceTab[]) =>
   tabs.includes(active) ? 'block' : 'hidden md:block';
 
-export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
+const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
   project,
   activeTab,
   onSelectTab,
@@ -229,3 +229,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
     </div>
   );
 };
+
+// Memoized: the app re-renders for dialogs, toasts and the header; the workspace only
+// when its own inputs change
+export const StudioWorkspace = React.memo(StudioWorkspaceView);

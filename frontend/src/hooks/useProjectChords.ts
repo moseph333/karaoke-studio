@@ -101,12 +101,14 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
   });
   chordHistoryRef.current = chordHistory;
 
-  // Inline chord cue modification handler
+  // Inline chord cue modification handler (the history object is new each render; its
+  // pushSnapshot is stable)
+  const { pushSnapshot } = chordHistory;
   const handleEditChord = useCallback(
     async (index: number, newChord: string) => {
       if (!project?.chords || index < 0 || index >= project.chords.length) return;
       const current = project.chords;
-      chordHistory.pushSnapshot(current);
+      pushSnapshot(current);
 
       const updated = current.map((c, i) => (i === index ? { ...c, chord: newChord } : c));
       setProject((prev) => (prev ? { ...prev, chords: updated } : null));
@@ -117,7 +119,7 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
         console.error('Failed to persist edited chord', e);
       }
     },
-    [project?.chords, chordHistory, handleSaveChords, setProject]
+    [project?.chords, pushSnapshot, handleSaveChords, setProject]
   );
 
   return { chordHistory, handleSaveChords, handleEditChord };

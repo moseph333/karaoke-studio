@@ -24,6 +24,7 @@ import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { isInputElement, isModalActive, useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStudioAudio } from './hooks/useStudioAudio';
+import { useStableHandlers } from './hooks/useStableHandlers';
 import { PlaybackClockContext } from './hooks/usePlaybackClock';
 import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
@@ -36,6 +37,7 @@ import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThe
 import { cn } from './utils/cn';
 import { focusQuietly } from './utils/focusIntent';
 import { pageTitle } from './utils/pageTitle';
+import type { AudioPlaybackError } from './utils/audioErrors';
 
 export const AppContent: React.FC = () => {
   const { toast } = useToast();
@@ -327,6 +329,23 @@ export const AppContent: React.FC = () => {
     setActiveWorkspaceTab('stage');
   };
 
+  // Fixed identities for the handlers given to the memoized header, workspace and dock
+  const handlers = useStableHandlers({
+    toggleHelp: () => setShowHelpModal((prev) => !prev),
+    openAuth: () => setShowAuthModal(true),
+    newSong: resetToLibrary,
+    saveLines: handleSaveLines,
+    openEditModal: () => setShowStudioEditModal(true),
+    openDeleteModal: () => setShowStudioDeleteModal(true),
+    customInstrumentalUploaded: (url: string) =>
+      setProject((prev) => (prev ? { ...prev, instrumental_url: url } : prev)),
+    playbackEnded: () => setIsPlaying(false),
+    playbackError: (err: AudioPlaybackError) => {
+      console.error('Audio playback error:', err);
+      setIsPlaying(false);
+    },
+  });
+
   useStudioCommands({
     project,
     isStudioReady,
@@ -377,11 +396,11 @@ export const AppContent: React.FC = () => {
             currentUser={currentUser}
             project={project}
             isLyricsDirty={isLyricsDirty || chordHistory.isDirty}
-            onOpenHelp={() => setShowHelpModal((prev) => !prev)}
-            onOpenAuth={() => setShowAuthModal(true)}
-            onNewSong={resetToLibrary}
+            onOpenHelp={handlers.toggleHelp}
+            onOpenAuth={handlers.openAuth}
+            onNewSong={handlers.newSong}
             isExportModalOpen={isExportOpen}
-            onOpenExportModal={() => setIsExportOpen(true)}
+            onOpenExportModal={openExport}
           />
 
           <main
@@ -424,13 +443,11 @@ export const AppContent: React.FC = () => {
                 onSelectTab={setActiveWorkspaceTab}
                 hasUnsavedChanges={isLyricsDirty || chordHistory.isDirty}
                 onLyricsDirtyChange={setIsLyricsDirty}
-                onSaveLines={handleSaveLines}
+                onSaveLines={handlers.saveLines}
                 onEditChord={handleEditChord}
-                onOpenEditModal={() => setShowStudioEditModal(true)}
-                onOpenDeleteModal={() => setShowStudioDeleteModal(true)}
-                onCustomInstrumentalUploaded={(url) =>
-                  setProject((prev) => (prev ? { ...prev, instrumental_url: url } : prev))
-                }
+                onOpenEditModal={handlers.openEditModal}
+                onOpenDeleteModal={handlers.openDeleteModal}
+                onCustomInstrumentalUploaded={handlers.customInstrumentalUploaded}
                 audio={audio}
                 mix={mix}
                 theme={theme}
@@ -455,11 +472,8 @@ export const AppContent: React.FC = () => {
               audioRef={audioRef}
               onTimeUpdate={audio.handleTimeUpdate}
               onLoadedMetadata={audio.handleLoadedMetadata}
-              onEnded={() => setIsPlaying(false)}
-              onPlaybackError={(err) => {
-                console.error('Audio playback error:', err);
-                setIsPlaying(false);
-              }}
+              onEnded={handlers.playbackEnded}
+              onPlaybackError={handlers.playbackError}
               initialMuted={isMuted}
               onMuteChange={audio.setIsMuted}
               playbackRate={audio.playbackRate}
