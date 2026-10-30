@@ -3,22 +3,26 @@
  *
  * Encapsulates HTMLMediaElement playback lifecycle, time tracking, duration,
  * play/pause transport, seeking, and mute synchronization for the studio dashboard.
+ *
+ * The playback position lives in a PlaybackClock store (not React state), so a media
+ * `timeupdate` re-renders only the components that read it; the app provides `clock`
+ * through PlaybackClockContext. The handlers keep their identities across renders.
  */
 
-import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react';
 import { ProjectState } from '../types';
+import { createPlaybackClock, PlaybackClock } from './usePlaybackClock';
 
 export interface UseStudioAudioReturn {
   audioRef: React.RefObject<HTMLAudioElement>;
-  currentTime: number;
+  /** The playback position as a store: read it with usePlaybackValue / usePlaybackTime. */
+  clock: PlaybackClock;
   duration: number;
   isPlaying: boolean;
   isMuted: boolean;
   playbackRate: number;
   analyserNode: AnalyserNode | null;
   setPlaybackRate: (rate: number) => void;
-  setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
-  setDuration: React.Dispatch<React.SetStateAction<number>>;
   setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
   setIsMuted: React.Dispatch<React.SetStateAction<boolean>>;
   handleTimeUpdate: () => void;
@@ -26,7 +30,7 @@ export interface UseStudioAudioReturn {
   handleTogglePlay: () => void;
   handleSeek: (time: number) => void;
   handleToggleMute: () => void;
-  /** Live playback position read straight from the media element (falls back to state). */
+  /** Live playback position read straight from the media element (falls back to the clock). */
   getCurrentTime: () => number;
   /** Seek to `time` as soon as the media element has loaded (e.g. deep links `?t=`). */
   queueSeek: (time: number) => void;
@@ -43,7 +47,6 @@ const mediaElementSourceMap = new WeakMap<
 >();
 
 export function useStudioAudio(project: ProjectState | null): UseStudioAudioReturn {
-  const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -55,34 +58,56 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
 
   // Source-swap bookkeeping: when the master mix URL changes (re-pitch, guide blend,
   // re-separation) the element reloads from 0; restore position and play state afterwards.
-  const lastTimeRef = useRef(0);
-  const isPlayingRef = useRef(false);
   // `queued` marks a seek requested before the media loaded (deep links), which must survive
   // the project switch that loads it; positions captured from the previous song must not.
   const restoreRef = useRef<{ time: number; play: boolean; queued?: boolean } | null>(null);
-  const prevSourceRef = useRef<string | undefined>(project?.master_audio_url);
-  isPlayingRef.current = isPlaying;
 
+  const [clock] = useState(() => {
+    const created = createPlaybackClock();
+    // While a swapped source reloads (or a seek waits for metadata) the element reads 0,
+    // so the clock reports the position that will be restored instead
+    created.setLiveReader(() => {
+      const el = audioRef.current;
+      return el && !restoreRef.current && Number.isFinite(el.currentTime) ? el.currentTime : null;
+    });
+    return created;
+  });
+
+  // Latest values for the handlers below, which keep their identities across renders
+  const projectRef = useRef(project);
+  const durationRef = useRef(duration);
+  const isPlayingRef = useRef(isPlaying);
+  const playbackRateRef = useRef(playbackRate);
+  projectRef.current = project;
+  durationRef.current = duration;
+  isPlayingRef.current = isPlaying;
+  playbackRateRef.current = playbackRate;
+
+  const prevSourceRef = useRef<string | undefined>(project?.master_audio_url);
   useLayoutEffect(() => {
     const nextSource = project?.master_audio_url;
     const prevSource = prevSourceRef.current;
     prevSourceRef.current = nextSource;
     if (prevSource && nextSource && prevSource !== nextSource) {
-      restoreRef.current = { time: lastTimeRef.current, play: isPlayingRef.current };
+      restoreRef.current = { time: clock.getState().time, play: isPlayingRef.current };
     } else if (!nextSource) {
       restoreRef.current = null;
     }
-  }, [project?.master_audio_url]);
+  }, [project?.master_audio_url, clock]);
 
   const prevProjectIdRef = useRef<string | undefined>(project?.id);
   useLayoutEffect(() => {
-    if (prevProjectIdRef.current !== project?.id) {
-      prevProjectIdRef.current = project?.id;
-      // New project: forget a source-swap restore captured for the previous song
-      if (!restoreRef.current?.queued) restoreRef.current = null;
-      if (!restoreRef.current) lastTimeRef.current = 0;
-    }
-  }, [project?.id]);
+    if (prevProjectIdRef.current === project?.id) return;
+    prevProjectIdRef.current = project?.id;
+    // New project: forget a source-swap restore captured for the previous song. The new song
+    // starts at the top (or at a deep-link time queued for it), paused, with its own length;
+    // the previous song's position, play state and duration used to linger until play.
+    if (!restoreRef.current?.queued) restoreRef.current = null;
+    clock.setTime(restoreRef.current?.time ?? 0, { seek: true });
+    audioRef.current?.pause();
+    setIsPlaying(false);
+    setDuration(projectRef.current?.duration ?? 0);
+  }, [project?.id, clock]);
 
   // Safely initialize or re-attach Web Audio AnalyserNode to audioRef
   const initWebAudio = useCallback(() => {
@@ -148,21 +173,20 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
     }
   }, []);
 
-  const handleTimeUpdate = () => {
+  const handleTimeUpdate = useCallback(() => {
     if (audioRef.current) {
       // Ignore the reset-to-zero updates emitted while a swapped source reloads
       if (restoreRef.current) return;
-      lastTimeRef.current = audioRef.current.currentTime;
-      setCurrentTime(audioRef.current.currentTime);
+      clock.setTime(audioRef.current.currentTime);
     }
-  };
+  }, [clock]);
 
-  const handleLoadedMetadata = () => {
+  const handleLoadedMetadata = useCallback(() => {
     const audioEl = audioRef.current;
     if (audioEl) {
       setDuration(audioEl.duration);
       setIsMuted(audioEl.muted);
-      audioEl.playbackRate = playbackRate;
+      audioEl.playbackRate = playbackRateRef.current;
       initWebAudio();
       const restore = restoreRef.current;
       if (restore) {
@@ -170,8 +194,8 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
         const maxTime = Number.isFinite(audioEl.duration) ? audioEl.duration : restore.time;
         const target = Math.max(0, Math.min(restore.time, maxTime));
         audioEl.currentTime = target;
-        lastTimeRef.current = target;
-        setCurrentTime(target);
+        // Not a seek: the position the user had is restored (auto-scroll stays as it was)
+        clock.setTime(target);
         if (restore.play) {
           const playPromise = audioEl.play();
           if (playPromise && typeof playPromise.then === 'function') {
@@ -180,29 +204,26 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
         }
       }
     }
-  };
+  }, [clock, initWebAudio]);
 
-  const queueSeek = useCallback((time: number) => {
-    if (!Number.isFinite(time) || time < 0) return;
-    lastTimeRef.current = time;
-    setCurrentTime(time);
-    const el = audioRef.current;
-    if (el && el.readyState >= 1) {
-      el.currentTime = time;
-      return;
-    }
-    restoreRef.current = { time, play: false, queued: true };
-  }, []);
+  const queueSeek = useCallback(
+    (time: number) => {
+      if (!Number.isFinite(time) || time < 0) return;
+      clock.setTime(time, { seek: true });
+      const el = audioRef.current;
+      if (el && el.readyState >= 1) {
+        el.currentTime = time;
+        return;
+      }
+      restoreRef.current = { time, play: false, queued: true };
+    },
+    [clock]
+  );
 
-  const getCurrentTime = useCallback(() => {
-    const el = audioRef.current;
-    // While a swapped source reloads (or a seek waits for metadata) the element clock
-    // reads 0, so report the position that will be restored instead.
-    if (el && !restoreRef.current && Number.isFinite(el.currentTime)) return el.currentTime;
-    return lastTimeRef.current;
-  }, []);
+  const getCurrentTime = clock.now;
 
   const handleTogglePlay = useCallback(() => {
+    const project = projectRef.current;
     if (!project || project.status !== 'ready') return;
     if (!audioRef.current) return;
 
@@ -215,11 +236,11 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
       });
     }
 
-    if (isPlaying) {
+    if (isPlayingRef.current) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.playbackRate = playbackRate;
+      audioRef.current.playbackRate = playbackRateRef.current;
       audioRef.current
         .play()
         .then(() => setIsPlaying(true))
@@ -228,24 +249,25 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
           setIsPlaying(false);
         });
     }
-  }, [project, isPlaying, playbackRate, initWebAudio]);
+  }, [initWebAudio]);
 
   const handleSeek = useCallback(
     (time: number) => {
+      const project = projectRef.current;
       if (!project || project.status !== 'ready') return;
       if (audioRef.current) {
-        const maxDuration = Math.max(0, duration || audioRef.current.duration || 0);
+        const maxDuration = Math.max(0, durationRef.current || audioRef.current.duration || 0);
         const clamped = Math.max(0, Math.min(maxDuration, time));
         audioRef.current.currentTime = clamped;
-        lastTimeRef.current = clamped;
         if (restoreRef.current) restoreRef.current = { ...restoreRef.current, time: clamped };
-        setCurrentTime(clamped);
+        clock.setTime(clamped, { seek: true });
       }
     },
-    [project, duration]
+    [clock]
   );
 
   const handleToggleMute = useCallback(() => {
+    const project = projectRef.current;
     if (!project || project.status !== 'ready') return;
     if (audioRef.current) {
       const nextMuted = !audioRef.current.muted;
@@ -253,27 +275,43 @@ export function useStudioAudio(project: ProjectState | null): UseStudioAudioRetu
       setIsMuted(nextMuted);
     }
     window.dispatchEvent(new CustomEvent('karaoke_toggle_mute'));
-  }, [project]);
+  }, []);
 
-  return {
-    audioRef,
-    currentTime,
-    duration,
-    isPlaying,
-    isMuted,
-    playbackRate,
-    analyserNode,
-    setPlaybackRate,
-    setCurrentTime,
-    setDuration,
-    setIsPlaying,
-    setIsMuted,
-    handleTimeUpdate,
-    handleLoadedMetadata,
-    handleTogglePlay,
-    handleSeek,
-    handleToggleMute,
-    getCurrentTime,
-    queueSeek,
-  };
+  return useMemo(
+    () => ({
+      audioRef,
+      clock,
+      duration,
+      isPlaying,
+      isMuted,
+      playbackRate,
+      analyserNode,
+      setPlaybackRate,
+      setIsPlaying,
+      setIsMuted,
+      handleTimeUpdate,
+      handleLoadedMetadata,
+      handleTogglePlay,
+      handleSeek,
+      handleToggleMute,
+      getCurrentTime,
+      queueSeek,
+    }),
+    [
+      clock,
+      duration,
+      isPlaying,
+      isMuted,
+      playbackRate,
+      analyserNode,
+      setPlaybackRate,
+      handleTimeUpdate,
+      handleLoadedMetadata,
+      handleTogglePlay,
+      handleSeek,
+      handleToggleMute,
+      getCurrentTime,
+      queueSeek,
+    ]
+  );
 }

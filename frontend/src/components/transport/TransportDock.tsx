@@ -27,13 +27,15 @@ import {
   setStoredMasterVolume,
 } from '../../utils/volumeStorage';
 import { useInterpolatedTime } from '../../hooks/useInterpolatedTime';
+import { usePlaybackClock, usePlaybackTime } from '../../hooks/usePlaybackClock';
 import { useMediaSession } from '../../hooks/useMediaSession';
 import { lineStartAtOffset } from '../../utils/lineNavigation';
 
 export interface TransportDockProps {
   masterAudioUrl?: string;
   lines?: WaveformLine[];
-  currentTime: number;
+  /** Song position; omit to follow the playback clock (as the app does). */
+  currentTime?: number;
   duration: number;
   isPlaying: boolean;
   onTogglePlay: () => void;
@@ -67,7 +69,7 @@ export interface TransportDockProps {
 }
 
 interface TransportProgressProps {
-  currentTime: number;
+  currentTime?: number;
   duration: number;
   isPlaying: boolean;
   playbackRate: number;
@@ -94,7 +96,15 @@ const TransportProgress: React.FC<TransportProgressProps> = ({
   peaksPending,
   className,
 }) => {
-  const smoothTime = useInterpolatedTime({ currentTime, isPlaying, playbackRate, audioRef });
+  const clock = usePlaybackClock();
+  const anchor = usePlaybackTime(currentTime);
+  const smoothTime = useInterpolatedTime({
+    currentTime: anchor,
+    isPlaying,
+    playbackRate,
+    audioRef,
+    getLiveTime: currentTime === undefined ? clock?.now : undefined,
+  });
   const maxTime = Number.isFinite(duration) && duration > 0 ? duration : Infinity;
   const shownTime = Math.min(maxTime, Number.isFinite(smoothTime) ? Math.max(0, smoothTime) : 0);
   return (
@@ -127,7 +137,7 @@ const TransportProgress: React.FC<TransportProgressProps> = ({
   );
 };
 
-export const TransportDock: React.FC<TransportDockProps> = ({
+const TransportDockView: React.FC<TransportDockProps> = ({
   masterAudioUrl,
   lines,
   currentTime,
@@ -158,6 +168,7 @@ export const TransportDock: React.FC<TransportDockProps> = ({
   className,
 }) => {
   const dockRef = useRef<HTMLElement>(null);
+  const clock = usePlaybackClock();
   const internalAudioRef = useRef<HTMLAudioElement | null>(null);
   const resolvedAudioRef = (audioRef ?? internalAudioRef) as React.RefObject<HTMLAudioElement>;
   const [playbackError, setPlaybackError] = useState<AudioPlaybackError | null>(null);
@@ -206,15 +217,21 @@ export const TransportDock: React.FC<TransportDockProps> = ({
     setPlaybackError(null);
   }, [masterAudioUrl]);
 
+  // The last published position, and the live one (the clock reads the element when it can)
+  const storedTime = () => currentTime ?? clock?.getState().time ?? 0;
+  const liveTime = () =>
+    currentTime === undefined && clock
+      ? clock.now()
+      : (resolvedAudioRef.current?.currentTime ?? storedTime());
+
   // Media keys, headset buttons and the lock screen drive the transport; previous/next
   // track step through lyric lines.
-  const elementTime = () => resolvedAudioRef.current?.currentTime ?? currentTime;
   const seekLine = (offset: -1 | 1) => {
     const steps = (lines ?? []).map((l) => ({
       start_time: l.start_time ?? l.start ?? 0,
       end_time: l.end_time ?? l.end ?? 0,
     }));
-    const target = lineStartAtOffset(steps, elementTime(), offset);
+    const target = lineStartAtOffset(steps, liveTime(), offset);
     if (target !== null) onSeek(target);
   };
   useMediaSession({
@@ -225,7 +242,7 @@ export const TransportDock: React.FC<TransportDockProps> = ({
     isPlaying,
     duration,
     playbackRate,
-    getCurrentTime: elementTime,
+    getCurrentTime: liveTime,
     audioRef: resolvedAudioRef,
     onPlay: () => {
       if (!isPlaying) onTogglePlay();
@@ -337,11 +354,12 @@ export const TransportDock: React.FC<TransportDockProps> = ({
     setPlaybackError(null);
     const el = resolvedAudioRef.current;
     if (el) {
+      const resumeAt = storedTime();
       el.load();
       el.volume = volume;
       el.muted = isMuted;
       el.playbackRate = playbackRate;
-      if (currentTime > 0) el.currentTime = currentTime;
+      if (resumeAt > 0) el.currentTime = resumeAt;
       el.play()?.catch(() => {});
     }
     onRetryPlayback?.();
@@ -513,3 +531,7 @@ export const TransportDock: React.FC<TransportDockProps> = ({
     </section>
   );
 };
+
+// Memoized: the app re-renders for reasons the dock does not show (and no longer on every
+// timeupdate, which only TransportProgress follows)
+export const TransportDock = React.memo(TransportDockView);

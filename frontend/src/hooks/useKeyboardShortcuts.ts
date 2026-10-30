@@ -32,6 +32,8 @@ export interface UseKeyboardShortcutsOptions {
   onReplayLine?: () => void;
   lines?: LyricLine[];
   audioRef?: React.RefObject<HTMLAudioElement | null>;
+  /** Live playback position (preferred over `audioRef` and `currentTime`). */
+  getCurrentTime?: () => number;
   currentTime?: number;
   duration?: number;
   enabled?: boolean;
@@ -169,6 +171,7 @@ export function useKeyboardShortcuts({
   onReplayLine,
   lines,
   audioRef,
+  getCurrentTime,
   currentTime = 0,
   duration = 0,
   enabled = true,
@@ -189,6 +192,7 @@ export function useKeyboardShortcuts({
     onReplayLine,
     lines,
     audioRef,
+    getCurrentTime,
     currentTime,
     duration,
     seekStep,
@@ -212,6 +216,7 @@ export function useKeyboardShortcuts({
       onReplayLine,
       lines,
       audioRef,
+      getCurrentTime,
       currentTime,
       duration,
       seekStep,
@@ -297,6 +302,7 @@ export function useKeyboardShortcuts({
         onSeek: seekFn,
         onToggleMute: muteFn,
         audioRef: audio,
+        getCurrentTime: readTime,
         currentTime: curTime,
         duration: totalDur,
         seekStep: step,
@@ -305,8 +311,11 @@ export function useKeyboardShortcuts({
         lines: projectLines,
       } = optionsRef.current;
 
-      const current =
-        audio?.current && !isNaN(audio.current.currentTime) ? audio.current.currentTime : curTime;
+      const current = readTime
+        ? readTime()
+        : audio?.current && !isNaN(audio.current.currentTime)
+          ? audio.current.currentTime
+          : curTime;
 
       const maxDuration = Math.max(
         0,

@@ -2,7 +2,7 @@
  * Lyric Timing Utilities
  *
  * Timestamp rounding and sanitizing, word tokenizing and even re-timing, insertion times
- * for new lines, batch offsets, and the word being sung at a given time.
+ * for new lines, batch offsets, and the line and word being sung at a given time.
  */
 
 import { WordTiming, LyricLine } from '../types';
@@ -356,4 +356,36 @@ export function getActiveWordLocation(
     }
   }
   return null;
+}
+
+/**
+ * getActiveWordLocation as a key ("lineId:wordIndex"), a primitive a playback-clock selector
+ * can return so the timeline re-renders only when the active word changes.
+ */
+export function activeWordKeyAt(lines: LyricLine[], currentTime: number): string | null {
+  const loc = getActiveWordLocation(lines, currentTime);
+  return loc ? `${loc.lineId}:${loc.wordIndex}` : null;
+}
+
+/** The word a key from activeWordKeyAt names, or null when it is no longer in `lines`. */
+export function wordLocationFromKey(
+  lines: LyricLine[],
+  key: string | null
+): ActiveWordLocation | null {
+  if (key === null) return null;
+  const split = key.lastIndexOf(':');
+  const lineId = Number(key.slice(0, split));
+  const wordIndex = Number(key.slice(split + 1));
+  const word = lines.find((l) => l.id === lineId)?.words?.[wordIndex];
+  return word ? { lineId, wordIndex, word } : null;
+}
+
+/**
+ * The line the timeline highlights: the first from 1.5 s before its start to 1 s after its
+ * end, or -1.
+ */
+export function findLeadInLineIndex(lines: LyricLine[], currentTime: number): number {
+  return lines.findIndex(
+    (l) => currentTime >= l.start_time - 1.5 && currentTime <= l.end_time + 1.0
+  );
 }

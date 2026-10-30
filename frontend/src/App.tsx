@@ -24,6 +24,7 @@ import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { isInputElement, isModalActive, useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStudioAudio } from './hooks/useStudioAudio';
+import { PlaybackClockContext } from './hooks/usePlaybackClock';
 import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
 import { useMixController } from './hooks/useMixController';
@@ -74,8 +75,7 @@ export const AppContent: React.FC = () => {
 
   // Audio Playback Hook
   const audio = useStudioAudio(project);
-  const { audioRef, currentTime, duration, isPlaying, isMuted, setCurrentTime, setIsPlaying } =
-    audio;
+  const { audioRef, duration, isPlaying, isMuted, setIsPlaying } = audio;
   const { queueSeek } = audio;
 
   useEffect(() => {
@@ -222,7 +222,7 @@ export const AppContent: React.FC = () => {
     fineSeekStep: 1,
     coarseSeekStep: 15,
     audioRef,
-    currentTime,
+    getCurrentTime: audio.getCurrentTime,
     duration,
     enabled: !showAuthModal,
     seekStep: 5,
@@ -315,7 +315,6 @@ export const AppContent: React.FC = () => {
       audioRef.current.src = '';
     }
     setIsPlaying(false);
-    setCurrentTime(0);
 
     setProject(null);
     setActiveWorkspaceTab('stage');
@@ -355,160 +354,165 @@ export const AppContent: React.FC = () => {
   };
 
   return (
-    <div
-      className={cn(
-        'min-h-screen bg-theme-bg text-theme-text flex flex-col font-theme-body',
-        isStudioReady && 'studio:h-[100dvh] studio:overflow-hidden'
-      )}
-    >
+    // The playback position is a store, not App state: only the components reading it
+    // re-render on each media timeupdate
+    <PlaybackClockContext.Provider value={audio.clock}>
       <div
         className={cn(
-          'flex-1 flex flex-col',
-          isStudioReady && 'studio:min-h-0',
-          showAuthModal && 'pointer-events-none select-none'
+          'min-h-screen bg-theme-bg text-theme-text flex flex-col font-theme-body',
+          isStudioReady && 'studio:h-[100dvh] studio:overflow-hidden'
         )}
-        {...(showAuthModal ? ({ inert: '', 'aria-hidden': 'true' } as Record<string, string>) : {})}
       >
-        <StudioHeader
-          currentUser={currentUser}
-          project={project}
-          isLyricsDirty={isLyricsDirty || chordHistory.isDirty}
-          onOpenHelp={() => setShowHelpModal((prev) => !prev)}
-          onOpenAuth={() => setShowAuthModal(true)}
-          onNewSong={resetToLibrary}
-          isExportModalOpen={isExportOpen}
-          onOpenExportModal={() => setIsExportOpen(true)}
-        />
-
-        <main
+        <div
           className={cn(
-            'flex-1 w-full mx-auto',
-            isStudioReady
-              ? 'max-w-screen-2xl pb-[calc(var(--dock-height,8.5rem)+1rem)] md:pb-0 studio:min-h-0'
-              : 'max-w-7xl px-3 sm:px-4 pt-4 sm:pt-8 pb-4 sm:pb-8'
+            'flex-1 flex flex-col',
+            isStudioReady && 'studio:min-h-0',
+            showAuthModal && 'pointer-events-none select-none'
           )}
+          {...(showAuthModal
+            ? ({ inert: '', 'aria-hidden': 'true' } as Record<string, string>)
+            : {})}
         >
-          {!project ? (
-            <TrackSearch
-              onSelectTrack={intake.handleSelectTrack}
-              onUploadTrack={intake.handleUploadTrack}
-              separationQuality={intake.separationQuality}
-              onSeparationQualityChange={intake.setSeparationQuality}
-              onOpenProject={(p) => {
-                setProject(p);
-                setActiveWorkspaceTab('stage');
+          <StudioHeader
+            currentUser={currentUser}
+            project={project}
+            isLyricsDirty={isLyricsDirty || chordHistory.isDirty}
+            onOpenHelp={() => setShowHelpModal((prev) => !prev)}
+            onOpenAuth={() => setShowAuthModal(true)}
+            onNewSong={resetToLibrary}
+            isExportModalOpen={isExportOpen}
+            onOpenExportModal={() => setIsExportOpen(true)}
+          />
+
+          <main
+            className={cn(
+              'flex-1 w-full mx-auto',
+              isStudioReady
+                ? 'max-w-screen-2xl pb-[calc(var(--dock-height,8.5rem)+1rem)] md:pb-0 studio:min-h-0'
+                : 'max-w-7xl px-3 sm:px-4 pt-4 sm:pt-8 pb-4 sm:pb-8'
+            )}
+          >
+            {!project ? (
+              <TrackSearch
+                onSelectTrack={intake.handleSelectTrack}
+                onUploadTrack={intake.handleUploadTrack}
+                separationQuality={intake.separationQuality}
+                onSeparationQualityChange={intake.setSeparationQuality}
+                onOpenProject={(p) => {
+                  setProject(p);
+                  setActiveWorkspaceTab('stage');
+                }}
+                isLoading={intake.loading}
+                currentUser={currentUser}
+                authToken={authToken}
+              />
+            ) : project.status !== 'ready' ? (
+              <ProcessingView
+                project={project}
+                isReconnecting={isReconnecting}
+                onRetryPolling={retryPolling}
+                onCancelProcess={handleCancelProcess}
+                onResetProject={() => {
+                  setProject(null);
+                  setActiveWorkspaceTab('stage');
+                }}
+              />
+            ) : (
+              <StudioWorkspace
+                project={project}
+                activeTab={activeWorkspaceTab}
+                onSelectTab={setActiveWorkspaceTab}
+                hasUnsavedChanges={isLyricsDirty || chordHistory.isDirty}
+                onLyricsDirtyChange={setIsLyricsDirty}
+                onSaveLines={handleSaveLines}
+                onEditChord={handleEditChord}
+                onOpenEditModal={() => setShowStudioEditModal(true)}
+                onOpenDeleteModal={() => setShowStudioDeleteModal(true)}
+                onCustomInstrumentalUploaded={(url) =>
+                  setProject((prev) => (prev ? { ...prev, instrumental_url: url } : prev))
+                }
+                audio={audio}
+                mix={mix}
+                theme={theme}
+                showVisualizer={showVisualizer}
+                onToggleVisualizer={handleToggleVisualizer}
+                showChordBar={showChordBar}
+                onToggleChordBar={handleToggleChordBar}
+                quality={quality}
+              />
+            )}
+          </main>
+
+          {/* Transport dock: fixed mini-player on phones, docked bar on desktop */}
+          {isStudioReady && project && (
+            <TransportDock
+              masterAudioUrl={project.master_audio_url}
+              lines={project.lines}
+              duration={duration}
+              isPlaying={isPlaying}
+              onTogglePlay={audio.handleTogglePlay}
+              onSeek={audio.handleSeek}
+              audioRef={audioRef}
+              onTimeUpdate={audio.handleTimeUpdate}
+              onLoadedMetadata={audio.handleLoadedMetadata}
+              onEnded={() => setIsPlaying(false)}
+              onPlaybackError={(err) => {
+                console.error('Audio playback error:', err);
+                setIsPlaying(false);
               }}
-              isLoading={intake.loading}
-              currentUser={currentUser}
-              authToken={authToken}
-            />
-          ) : project.status !== 'ready' ? (
-            <ProcessingView
-              project={project}
-              isReconnecting={isReconnecting}
-              onRetryPolling={retryPolling}
-              onCancelProcess={handleCancelProcess}
-              onResetProject={() => {
-                setProject(null);
-                setActiveWorkspaceTab('stage');
-              }}
-            />
-          ) : (
-            <StudioWorkspace
-              project={project}
-              activeTab={activeWorkspaceTab}
-              onSelectTab={setActiveWorkspaceTab}
-              hasUnsavedChanges={isLyricsDirty || chordHistory.isDirty}
-              onLyricsDirtyChange={setIsLyricsDirty}
-              onSaveLines={handleSaveLines}
-              onEditChord={handleEditChord}
-              onOpenEditModal={() => setShowStudioEditModal(true)}
-              onOpenDeleteModal={() => setShowStudioDeleteModal(true)}
-              onCustomInstrumentalUploaded={(url) =>
-                setProject((prev) => (prev ? { ...prev, instrumental_url: url } : prev))
-              }
-              audio={audio}
-              mix={mix}
-              theme={theme}
-              showVisualizer={showVisualizer}
-              onToggleVisualizer={handleToggleVisualizer}
-              showChordBar={showChordBar}
-              onToggleChordBar={handleToggleChordBar}
-              quality={quality}
+              initialMuted={isMuted}
+              onMuteChange={audio.setIsMuted}
+              playbackRate={audio.playbackRate}
+              onPlaybackRateChange={audio.setPlaybackRate}
+              semitones={mix.semitones}
+              isRemixing={mix.isRemixing}
+              onOpenMixSettings={handleOpenMixSettings}
+              peaks={waveform.peaks}
+              peaksPending={!waveform.settled}
+              mediaTitle={project.title}
+              mediaArtist={project.artist}
+              mediaArtworkUrl={project.thumbnail_url}
             />
           )}
-        </main>
+          {isStudioReady && project && <RenderProgressAnnouncer project={project} />}
+        </div>
 
-        {/* Transport dock: fixed mini-player on phones, docked bar on desktop */}
-        {isStudioReady && project && (
-          <TransportDock
-            masterAudioUrl={project.master_audio_url}
-            lines={project.lines}
-            currentTime={currentTime}
-            duration={duration}
-            isPlaying={isPlaying}
-            onTogglePlay={audio.handleTogglePlay}
-            onSeek={audio.handleSeek}
-            audioRef={audioRef}
-            onTimeUpdate={audio.handleTimeUpdate}
-            onLoadedMetadata={audio.handleLoadedMetadata}
-            onEnded={() => setIsPlaying(false)}
-            onPlaybackError={(err) => {
-              console.error('Audio playback error:', err);
-              setIsPlaying(false);
-            }}
-            initialMuted={isMuted}
-            onMuteChange={audio.setIsMuted}
-            playbackRate={audio.playbackRate}
-            onPlaybackRateChange={audio.setPlaybackRate}
-            semitones={mix.semitones}
-            isRemixing={mix.isRemixing}
-            onOpenMixSettings={handleOpenMixSettings}
-            peaks={waveform.peaks}
-            peaksPending={!waveform.settled}
-            mediaTitle={project.title}
-            mediaArtist={project.artist}
-            mediaArtworkUrl={project.thumbnail_url}
-          />
-        )}
-        {isStudioReady && project && <RenderProgressAnnouncer project={project} />}
+        {/* Studio Modal Dialogs */}
+        <StudioModals
+          project={project}
+          isExportOpen={isExportOpen}
+          onCloseExport={() => setIsExportOpen(false)}
+          onCancelRender={handleCancelRender}
+          onStartRender={handleStartRender}
+          selectedTheme={theme.effectiveTheme}
+          aspectRatio={theme.aspectRatio}
+          activeSemitones={mix.semitones}
+          syncMode={theme.syncMode}
+          onSyncModeChange={theme.setSyncMode}
+          primaryColor={theme.customSungColor || undefined}
+          secondaryColor={theme.customUnsungColor || undefined}
+          singer2Color={theme.activeSinger2Color}
+          bothColor={theme.activeBothColor}
+          backgroundColor={theme.stageBackgroundColor}
+          fontSizeScale={theme.fontSizeScale}
+          showAuthModal={showAuthModal}
+          onAuthSuccess={handleAuthSuccess}
+          onCloseAuth={() => setShowAuthModal(false)}
+          authDismissable={!isAuthLocked}
+          authRequiresPassword={authRequired}
+          showHelpModal={showHelpModal}
+          onCloseHelp={() => setShowHelpModal(false)}
+          showStudioDeleteModal={showStudioDeleteModal}
+          onCloseStudioDelete={() => setShowStudioDeleteModal(false)}
+          onStudioProjectDeleted={handleStudioProjectDeleted}
+          showStudioEditModal={showStudioEditModal}
+          onCloseStudioEdit={() => setShowStudioEditModal(false)}
+          onStudioMetadataSaved={handleStudioMetadataSaved}
+          quality={quality}
+          hasUnsavedLyricEdits={isLyricsDirty}
+        />
       </div>
-
-      {/* Studio Modal Dialogs */}
-      <StudioModals
-        project={project}
-        isExportOpen={isExportOpen}
-        onCloseExport={() => setIsExportOpen(false)}
-        onCancelRender={handleCancelRender}
-        onStartRender={handleStartRender}
-        selectedTheme={theme.effectiveTheme}
-        aspectRatio={theme.aspectRatio}
-        activeSemitones={mix.semitones}
-        syncMode={theme.syncMode}
-        onSyncModeChange={theme.setSyncMode}
-        primaryColor={theme.customSungColor || undefined}
-        secondaryColor={theme.customUnsungColor || undefined}
-        singer2Color={theme.activeSinger2Color}
-        bothColor={theme.activeBothColor}
-        backgroundColor={theme.stageBackgroundColor}
-        fontSizeScale={theme.fontSizeScale}
-        showAuthModal={showAuthModal}
-        onAuthSuccess={handleAuthSuccess}
-        onCloseAuth={() => setShowAuthModal(false)}
-        authDismissable={!isAuthLocked}
-        authRequiresPassword={authRequired}
-        showHelpModal={showHelpModal}
-        onCloseHelp={() => setShowHelpModal(false)}
-        showStudioDeleteModal={showStudioDeleteModal}
-        onCloseStudioDelete={() => setShowStudioDeleteModal(false)}
-        onStudioProjectDeleted={handleStudioProjectDeleted}
-        showStudioEditModal={showStudioEditModal}
-        onCloseStudioEdit={() => setShowStudioEditModal(false)}
-        onStudioMetadataSaved={handleStudioMetadataSaved}
-        quality={quality}
-        hasUnsavedLyricEdits={isLyricsDirty}
-      />
-    </div>
+    </PlaybackClockContext.Provider>
   );
 };
 

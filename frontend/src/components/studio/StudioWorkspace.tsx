@@ -111,7 +111,6 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         >
           <LyricTimelineEditor
             lines={project.lines}
-            currentTime={audio.currentTime}
             getCurrentTime={audio.getCurrentTime}
             duration={audio.duration}
             isPlaying={audio.isPlaying}

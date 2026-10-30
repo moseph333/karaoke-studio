@@ -25,7 +25,7 @@ import { markManualEdits } from '../utils/manualEdits';
 
 export interface UseLyricEditorStateOptions {
   lines: LyricLine[];
-  currentTime: number;
+  currentTime?: number;
   /** Live playback clock used for taps and new-line placement. */
   getCurrentTime?: () => number;
   duration: number;
@@ -386,7 +386,7 @@ export function useLyricEditorState({
     const { start_time, end_time } = calculateLineInsertTimes(
       editableLines,
       afterIdx,
-      typeof live === 'number' && Number.isFinite(live) ? live : currentTime,
+      typeof live === 'number' && Number.isFinite(live) ? live : (currentTime ?? 0),
       duration
     );
     const text = 'New lyric line';
