@@ -154,10 +154,13 @@ describe('Processing view', () => {
         onResetProject={vi.fn()}
       />
     );
-    expect(screen.getByRole('status')).toHaveTextContent('Preparing audio track...');
+    expect(screen.getByRole('status')).toHaveTextContent('processing...');
+    // The detail is shown but not announced: it changes with every separation chunk
+    expect(screen.getByText('Preparing audio track...')).toBeInTheDocument();
+    expect(screen.getByRole('status')).not.toHaveTextContent('Preparing audio track...');
   });
 
-  it('keeps the live region to the stage heading and detail', () => {
+  it('keeps the live region to the stage heading', () => {
     render(
       <ProcessingView project={baseProcessing} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
     );

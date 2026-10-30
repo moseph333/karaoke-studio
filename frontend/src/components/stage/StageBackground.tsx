@@ -100,6 +100,19 @@ export const StageBackground: React.FC<StageBackgroundProps> = ({
   const box = useBoxSize(boxRef);
   const reducedMotion = usePrefersReducedMotion();
   const t = reducedMotion ? 0 : time;
+
+  // An uploaded background video loops forever; with reduced motion it holds still
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoUrl = media?.kind === 'video' ? media.url : undefined;
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !videoUrl) return;
+    if (reducedMotion) {
+      video.pause();
+    } else {
+      video.play()?.catch(() => {});
+    }
+  }, [reducedMotion, videoUrl]);
   const kind = media ? 'custom' : style === 'custom' ? 'artwork' : style;
   const isArt = kind === 'artwork' || kind === 'drift';
   const artworkAvailable = useImageAvailable(isArt ? artworkUrl : undefined);
@@ -191,10 +204,11 @@ export const StageBackground: React.FC<StageBackgroundProps> = ({
       {media &&
         (media.kind === 'video' ? (
           <video
+            ref={videoRef}
             data-testid="stage-custom-bg"
             className="absolute inset-0 h-full w-full object-cover"
             src={media.url}
-            autoPlay
+            autoPlay={!reducedMotion}
             muted
             loop
             playsInline

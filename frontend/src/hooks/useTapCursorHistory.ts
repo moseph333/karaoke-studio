@@ -9,6 +9,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { LyricLine } from '../types';
 import { applyLineTap, applyWordTap, TapSyncMode } from '../utils/tapSync';
+import { characterShortcutsEnabled } from '../utils/shortcutPrefs';
 import { isInputElement, isModalActive } from './useKeyboardShortcuts';
 
 export interface TapCursorSnapshot {
@@ -195,7 +196,8 @@ export function useTapCursorHistory({
         return;
       }
       if (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        if (e.repeat) return;
+        // With single-key shortcuts off, the banner's Tap button still stamps
+        if (e.repeat || e.defaultPrevented || !characterShortcutsEnabled()) return;
         e.preventDefault();
         handleTriggerTap();
       }

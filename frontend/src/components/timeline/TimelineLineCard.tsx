@@ -7,7 +7,7 @@
  * hovered, focused, active or expanded; touch screens always show them at full strength.
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   AlertTriangle,
   Check,
@@ -31,6 +31,7 @@ import { ExpandedWordEditor, type ActiveWordLocation } from './ExpandedWordEdito
 import { Tooltip } from '../Tooltip';
 import { Menu } from '../ui/Menu';
 import { focusRing } from '../ui/variants';
+import { focusQuietly } from '../../utils/focusIntent';
 import { SINGER_CONFIG, normalizeSingerRole } from '../stage/singers';
 
 export type { ActiveWordLocation };
@@ -83,10 +84,12 @@ export interface TimelineLineCardProps {
   isRealigning?: boolean;
 }
 
+// A shape per level as well as a colour, so the level reads without colour vision:
+// filled dot, diamond, hollow ring
 const CONFIDENCE_DOT: Record<ConfidenceLevel, string> = {
-  high: 'bg-theme-success',
-  medium: 'bg-theme-warning',
-  low: 'bg-theme-danger',
+  high: 'h-1.5 w-1.5 rounded-full bg-theme-success',
+  medium: 'h-1.5 w-1.5 rotate-45 rounded-[1px] bg-theme-warning',
+  low: 'h-2 w-2 rounded-full border-2 border-theme-danger',
 };
 
 const NEXT_SINGER: Record<SingerRole, SingerRole> = {
@@ -158,6 +161,21 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
     : 'transition-opacity [@media(hover:hover)]:opacity-60 group-hover/line:opacity-100 group-focus-within/line:opacity-100';
   const issueMessages = issues && issues.length > 0 ? issues.map((i) => i.message) : null;
   const confidence = confidenceLevel(line.confidence);
+  const confidenceDescription = confidenceText(line);
+  const confidenceDescriptionId = `line-confidence-desc-${line.id}`;
+
+  // When the inline editor closes from the keyboard (Enter, Escape) or its buttons, focus
+  // returns to this row's Edit button instead of the top of the page. Deferred so the key
+  // press that closed the editor cannot reach the button and reopen it; skipped if focus
+  // has already moved somewhere else.
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const refocusEditButton = () => {
+    window.setTimeout(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      focusQuietly(editButtonRef.current);
+    }, 0);
+  };
 
   return (
     <div
@@ -189,8 +207,10 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   onCommitEditing(line.id, editingText);
+                  refocusEditButton();
                 } else if (e.key === 'Escape') {
                   onCancelEditing();
+                  refocusEditButton();
                 }
               }}
               onBlur={() => onCommitEditing(line.id, editingText)}
@@ -200,7 +220,10 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
             />
             <button
               type="button"
-              onClick={() => onCommitEditing(line.id, editingText)}
+              onClick={() => {
+                onCommitEditing(line.id, editingText);
+                refocusEditButton();
+              }}
               aria-label={`Commit edit for line ${line.id}`}
               data-testid={`commit-edit-${line.id}`}
               className={cn(
@@ -216,8 +239,12 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               onMouseDown={(e) => {
                 e.preventDefault();
                 onCancelEditing();
+                refocusEditButton();
               }}
-              onClick={onCancelEditing}
+              onClick={() => {
+                onCancelEditing();
+                refocusEditButton();
+              }}
               aria-label={`Cancel edit for line ${line.id}`}
               data-testid={`cancel-edit-${line.id}`}
               className={cn(
@@ -263,6 +290,9 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 onStartEditing(line);
               }}
               aria-label={`Jump to line / Select line: ${line.text} (${formatLineTime(line.start_time)}s to ${formatLineTime(line.end_time)}s)`}
+              aria-describedby={
+                confidence && confidenceDescription ? confidenceDescriptionId : undefined
+              }
               className={cn(
                 // Narrow cards stack the time above the lyric so the text keeps the full width
                 'flex min-h-[44px] min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0 overflow-hidden rounded-theme-sm border-0 bg-transparent px-1 py-0.5 text-left @[480px]:flex-row @[480px]:items-center @[480px]:justify-start @[480px]:gap-2.5 md:min-h-[30px]',
@@ -271,13 +301,20 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
             >
               <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] tabular-nums text-theme-text-muted">
                 {confidence && (
-                  <span
-                    aria-hidden="true"
-                    title={confidenceText(line) ?? undefined}
-                    data-testid={`line-confidence-${line.id}`}
-                    data-level={confidence}
-                    className={cn('h-1.5 w-1.5 shrink-0 rounded-full', CONFIDENCE_DOT[confidence])}
-                  />
+                  <>
+                    <span
+                      aria-hidden="true"
+                      title={confidenceDescription ?? undefined}
+                      data-testid={`line-confidence-${line.id}`}
+                      data-level={confidence}
+                      className={cn('shrink-0', CONFIDENCE_DOT[confidence])}
+                    />
+                    {confidenceDescription && (
+                      <span id={confidenceDescriptionId} className="sr-only">
+                        {confidenceDescription}
+                      </span>
+                    )}
+                  </>
                 )}
                 {timeRange}
               </span>
@@ -303,6 +340,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
             )}
             <Tooltip content="Edit lyric text inline" position="top" portal>
               <button
+                ref={editButtonRef}
                 type="button"
                 onClick={() => onStartEditing(line)}
                 aria-label={`Edit text for line ${line.id}`}

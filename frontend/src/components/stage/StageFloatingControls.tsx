@@ -11,6 +11,7 @@ import { Slider } from '../ui/Slider';
 import { focusRing } from '../ui/variants';
 import { cn } from '../../utils/cn';
 import { formatTime } from '../../utils/format';
+import { seekTargetForKey } from '../../utils/seekKeys';
 
 export interface StageFloatingControlsProps {
   visible: boolean;
@@ -83,6 +84,12 @@ export const StageFloatingControls: React.FC<StageFloatingControlsProps> = ({
         max={duration || 100}
         step={0.1}
         onChange={(v) => onSeek?.(v)}
+        onKeyDown={(e) => {
+          const target = duration > 0 ? seekTargetForKey(e, time, duration) : null;
+          if (target === null) return;
+          e.preventDefault();
+          onSeek?.(target);
+        }}
         valueText={(v) => `${formatTime(v)} of ${formatTime(duration)}`}
         tone="sung"
       />

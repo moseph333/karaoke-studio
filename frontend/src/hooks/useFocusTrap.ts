@@ -89,6 +89,10 @@ export function useFocusTrap<T extends HTMLElement = HTMLDivElement>({
       const prevEl = previousActiveElementRef.current;
       if (prevEl && typeof prevEl.focus === 'function' && prevEl.isConnected) {
         focusQuietly(prevEl);
+      } else if (!document.activeElement || document.activeElement === document.body) {
+        // The control that opened the dialog is gone (a deleted song's card, a screen that
+        // changed): start again from the current screen's heading
+        focusQuietly(document.querySelector<HTMLElement>('main [data-view-heading]'));
       }
     };
   }, [isOpen, initialFocusRef, triggerRef]);

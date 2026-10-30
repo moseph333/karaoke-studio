@@ -51,7 +51,11 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
       )}
 
       <div className="min-w-0 flex-1">
-        <h2 className="break-words font-theme-heading text-base font-semibold leading-tight tracking-tight text-theme-text line-clamp-2 sm:text-lg sm:line-clamp-1">
+        <h2
+          tabIndex={-1}
+          data-view-heading
+          className="break-words font-theme-heading text-base font-semibold leading-tight tracking-tight text-theme-text focus:outline-none line-clamp-2 sm:text-lg sm:line-clamp-1"
+        >
           {project.title}
         </h2>
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-theme-text-muted">

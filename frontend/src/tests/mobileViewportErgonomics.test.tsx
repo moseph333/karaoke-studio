@@ -248,8 +248,9 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
         expect(screen.getByRole('status')).toBeInTheDocument();
       });
 
-      const statusContainer = screen.getByRole('status');
-      const statusDetail = statusContainer.querySelector('p.font-mono');
+      // The detail sits next to the live region (only the stage heading is announced)
+      const statusDetail = screen.getByText(unbrokenStatus);
+      expect(statusDetail.tagName).toBe('P');
       expect(statusDetail).toBeInTheDocument();
       expect(statusDetail?.textContent).toBe(unbrokenStatus);
       expect(statusDetail?.className).toMatch(/break-words/);

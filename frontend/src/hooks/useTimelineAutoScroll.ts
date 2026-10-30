@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LyricLine } from '../types';
+import { usePrefersReducedMotion } from './usePrefersReducedMotion';
 
 export interface UseTimelineAutoScrollOptions {
   currentTime: number;
@@ -36,6 +37,8 @@ export function useTimelineAutoScroll({
 }: UseTimelineAutoScrollOptions): UseTimelineAutoScrollReturn {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
+  // Smooth scrolling is motion too; CSS cannot turn off a scrollTo({ behavior: 'smooth' })
+  const prefersReducedMotion = usePrefersReducedMotion();
   const isProgrammaticScrollRef = useRef(false);
   const programmaticStartScrollTopRef = useRef<number>(0);
   const lastTargetScrollRef = useRef<number | null>(null);
@@ -183,7 +186,7 @@ export function useTimelineAutoScroll({
       if (typeof container.scrollTo === 'function') {
         container.scrollTo({
           top: clampedTarget,
-          behavior: 'smooth',
+          behavior: prefersReducedMotion ? 'auto' : 'smooth',
         });
       } else {
         container.scrollTop = clampedTarget;
@@ -222,6 +225,7 @@ export function useTimelineAutoScroll({
     editableLines,
     selectedLineId,
     calculateTargetScrollTop,
+    prefersReducedMotion,
   ]);
 
   const handleScroll = () => {

@@ -7,6 +7,7 @@
  */
 
 import React, { useRef, useEffect } from 'react';
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
 
 export interface BeatVisualizerProps {
   analyserNode: AnalyserNode | null;
@@ -49,6 +50,9 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // With reduced motion the bars rest in their idle silhouette instead of pulsing
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const animate = isPlaying && !prefersReducedMotion;
 
   // Pre-allocated buffers to prevent Garbage Collection pauses
   const freqDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
@@ -141,7 +145,7 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
       }
 
       if (width <= 0 || height <= 0) {
-        if (isPlaying) animationFrameId = requestAnimationFrame(draw);
+        if (animate) animationFrameId = requestAnimationFrame(draw);
         return;
       }
 
@@ -150,7 +154,7 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
       ctx.clearRect(0, 0, width, height);
 
       let hasLiveSignal = false;
-      if (isPlaying && analyserNode) {
+      if (animate && analyserNode) {
         analyserNode.getByteFrequencyData(freqData);
         for (let k = 0; k < freqData.length; k++) {
           if (freqData[k] > 0) {
@@ -163,7 +167,7 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
       }
 
       // Synthesize smooth beat-reactive energy if playing while AnalyserNode is unavailable or muted
-      if (isPlaying && !hasLiveSignal) {
+      if (animate && !hasLiveSignal) {
         const t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
         const beatPulse = Math.pow(0.5 + 0.5 * Math.sin(t * Math.PI * 4.2), 2);
         for (let k = 0; k < freqData.length; k++) {
@@ -184,7 +188,7 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
       for (let b = 0; b < bassBins; b++) {
         bassSum += freqData[b];
       }
-      const bassEnergy = isPlaying ? bassSum / (bassBins * 255) : 0.22; // 0.0 to 1.0
+      const bassEnergy = animate ? bassSum / (bassBins * 255) : 0.22; // 0.0 to 1.0
 
       // Render ambient bass glow in the center background
       if (bassEnergy > 0.05) {
@@ -220,12 +224,12 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
         // Resting equalizer silhouette when paused so toggling visualizer ON gives immediate visual feedback
         const idleSilhouette =
           0.14 + 0.22 * Math.exp(-Math.pow(i / (halfCount * 0.55), 2)) + 0.06 * Math.cos(i * 0.85);
-        const normalized = isPlaying ? Math.max(0.08, rawValue / 255) : idleSilhouette;
+        const normalized = animate ? Math.max(0.08, rawValue / 255) : idleSilhouette;
 
         const currentHeight = Math.max(6, normalized * maxBarHeight);
 
         // Update floating peak caps with gravity decay
-        if (currentHeight >= peaks[i] || !isPlaying) {
+        if (currentHeight >= peaks[i] || !animate) {
           peaks[i] = currentHeight;
         } else {
           peaks[i] = Math.max(6, peaks[i] - 1.8);
@@ -275,12 +279,12 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
 
       ctx.restore();
 
-      if (isPlaying) {
+      if (animate) {
         animationFrameId = requestAnimationFrame(draw);
       }
     };
 
-    if (isPlaying) {
+    if (animate) {
       animationFrameId = requestAnimationFrame(draw);
     } else {
       // Draw resting state frame once when paused
@@ -292,7 +296,7 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [isPlaying, analyserNode, themeSungColor, barCount]);
+  }, [animate, analyserNode, themeSungColor, barCount]);
 
   const positionClass = /\b(absolute|fixed|sticky|relative)\b/.test(className) ? '' : 'relative';
 

@@ -209,6 +209,8 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
           data-dragging={isDragging ? 'true' : undefined}
           className={cn(
             'rounded-theme-lg border-2 border-dashed p-4 text-center transition-colors sm:p-6',
+            // The file input is visually hidden, so its keyboard focus is shown here
+            'has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-theme-focus has-[input:focus-visible]:ring-offset-2 has-[input:focus-visible]:ring-offset-theme-bg',
             isDragging
               ? 'border-theme-accent bg-theme-accent/10 shadow-theme-glow'
               : selectedFile

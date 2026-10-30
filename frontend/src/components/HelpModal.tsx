@@ -20,8 +20,10 @@ import {
 } from 'lucide-react';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
+import { Switch } from './ui/Switch';
 import { Tabs } from './ui/Tabs';
 import { modKeyLabel } from '../utils/platform';
+import { characterShortcutsEnabled, setCharacterShortcutsEnabled } from '../utils/shortcutPrefs';
 
 export interface HelpModalProps {
   isOpen: boolean;
@@ -268,6 +270,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({
   initialTab = 'shortcuts',
 }) => {
   const [activeTab, setActiveTab] = useState<'shortcuts' | 'guide'>(initialTab);
+  const [characterKeysOn, setCharacterKeysOn] = useState(characterShortcutsEnabled);
+
+  const handleCharacterKeysChange = (on: boolean) => {
+    setCharacterShortcutsEnabled(on);
+    setCharacterKeysOn(on);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -327,6 +335,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           tabIndex={0}
           className="space-y-5 focus:outline-none"
         >
+          <Switch
+            checked={characterKeysOn}
+            onChange={handleCharacterKeysChange}
+            label="Letter and symbol shortcuts"
+            description="M, V, C, F, T, R, [, ] and ?. Turn them off if speech input or a stray keypress sets them off; Space and the arrow keys keep working."
+            testId="help-character-shortcuts-switch"
+            className="rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-3.5 sm:p-4"
+          />
+
           {SHORTCUT_GROUPS.map((group) => (
             <section key={group.title} className="space-y-2">
               <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-text-muted">

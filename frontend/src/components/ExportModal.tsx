@@ -423,8 +423,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
           )}
 
+          {/* Not a live region: it refreshes every second. RenderProgressAnnouncer reads out
+              the start and each quarter instead. */}
           {isRendering && (
-            <div className="space-y-4" role="status" aria-live="polite">
+            <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-theme-pill border border-theme-success/35 bg-theme-success/10 px-3.5 py-1.5 text-xs font-medium text-theme-success">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-theme-success opacity-75 motion-safe:animate-ping" />

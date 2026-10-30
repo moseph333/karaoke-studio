@@ -578,7 +578,9 @@
     --ks-range-fill: 0%;
     --ks-range-color: rgb(var(--theme-accent-rgb));
   }
-  .ks-range:focus {
+  /* Keyboard focus keeps the base layer's outline, which Firefox and Windows High Contrast
+     also draw; the thumb glow below is a WebKit-only extra */
+  .ks-range:focus:not(:focus-visible) {
     outline: none;
   }
   .ks-range::-webkit-slider-runnable-track {
@@ -627,6 +629,11 @@
     transform: scale(1.12);
   }
   .ks-range:focus-visible::-webkit-slider-thumb {
+    box-shadow:
+      0 0 0 4px rgb(var(--theme-focus-rgb) / 0.35),
+      0 1px 3px rgb(0 0 0 / 0.35);
+  }
+  .ks-range:focus-visible::-moz-range-thumb {
     box-shadow:
       0 0 0 4px rgb(var(--theme-focus-rgb) / 0.35),
       0 1px 3px rgb(0 0 0 / 0.35);
