@@ -17,6 +17,15 @@ from fastapi.responses import FileResponse
 from backend import realignment
 from backend.background_jobs import SEPARATION_JOB, job_active
 from backend.config import OUTPUT_DIR
+from backend.master_audio import (  # noqa: F401 (the cache helpers are imported from here too)
+    MIX_CACHE_MARKER,
+    MIX_CACHE_VERSION,
+    master_fields,
+    mix_cache_epoch,
+    mix_filename,
+    mix_version,
+    reusable_mix_path,
+)
 from backend.project_store import (
     PROJECTS_LOCK,
     cleanup_project_disk_artifacts,
@@ -846,63 +855,6 @@ def realign_lyrics(
         raise HTTPException(status_code=500, detail=f"Failed to realign lyrics: {e}") from e
 
 
-# Smallest plausible WAV render: anything at or below a bare RIFF header is a broken file
-_MIN_MIX_BYTES = 44
-# Bump when the mixer's sound changes, so that renders made by the older mixer are made again
-MIX_CACHE_VERSION = "2"
-MIX_CACHE_MARKER = ".mix-cache-version"
-
-
-def mix_cache_epoch(output_dir) -> float:
-    """When this mixer version started rendering into ``output_dir``: the modification time
-    of a marker file holding MIX_CACHE_VERSION, written on first use. Older renders (from
-    Karaoke Studio 1.x, say) are not reused."""
-    marker = Path(output_dir) / MIX_CACHE_MARKER
-    try:
-        if marker.read_text(encoding="utf-8").strip() == MIX_CACHE_VERSION:
-            return marker.stat().st_mtime
-    except OSError:
-        pass
-    try:
-        marker.write_text(MIX_CACHE_VERSION, encoding="utf-8")
-        return marker.stat().st_mtime
-    except OSError:
-        return float("inf")  # nowhere to note the version: render every time
-
-
-def reusable_mix_path(output_dir, output_filename: str, sources: list) -> str | None:
-    """
-    Return a previously rendered mix when it can be served again: it exists, is more
-    than a bare WAV header, was made by this mixer version, and is newer than every source
-    stem (a replaced instrumental or re-separated stems invalidate it).
-    """
-    if not isinstance(output_dir, (str, os.PathLike)):
-        return None
-    epoch = mix_cache_epoch(output_dir)
-    candidate = Path(output_dir) / output_filename
-    try:
-        stat = candidate.stat()
-    except OSError:
-        return None
-    if stat.st_size <= _MIN_MIX_BYTES or stat.st_mtime < epoch:
-        return None
-    for source in sources:
-        try:
-            if source and os.path.getmtime(source) > stat.st_mtime:
-                return None
-        except OSError:
-            continue
-    return str(candidate)
-
-
-def mix_version(path: str) -> int:
-    """Millisecond modification stamp used to cache-bust the master audio URL."""
-    try:
-        return os.stat(path).st_mtime_ns // 1_000_000
-    except OSError:
-        return int(time.time() * 1000)
-
-
 @router.post("/api/project/{project_id}/mix")
 def mix_audio(project_id: str, req: MixRequest):
     import backend.main as main_mod
@@ -916,7 +868,7 @@ def mix_audio(project_id: str, req: MixRequest):
         raise HTTPException(status_code=400, detail="Instrumental stem not ready yet")
 
     track_id = proj.get("track_id") or proj.get("id") or "track"
-    output_filename = f"{track_id}_mix_{req.semitones}_{int(req.guide_volume * 100)}.wav"
+    output_filename = mix_filename(track_id, req.semitones, req.guide_volume)
 
     # Key / guide changes revisit the same few combinations: reuse renders that are
     # still newer than their stems instead of re-running FFmpeg.
@@ -936,9 +888,7 @@ def mix_audio(project_id: str, req: MixRequest):
             output_filename=output_filename,
         )
 
-    proj["master_audio_path"] = master_path
-    # Versioned URL: a re-render under the same name must not be served from browser cache
-    proj["master_audio_url"] = f"/static/output/{output_filename}?v={mix_version(master_path)}"
+    proj.update(master_fields(master_path))
     proj["semitones"] = req.semitones
     proj["guide_volume"] = req.guide_volume
     save_projects()

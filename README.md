@@ -165,6 +165,7 @@ cp .env.example .env
 | `APP_PASSWORD` | *(empty)* | Optional shared passphrase (`HttpOnly` cookie session). Leave blank for open local access. |
 | `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` / `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `5` / `60.0` | Failed logins allowed per IP and window before HTTP `429` |
 | `MAX_CONCURRENT_JOBS` | `2` | Separations, re-separations, re-alignments and renders running at once |
+| `PREVIEW_AUDIO_FORMAT` | `wav` | What the studio streams: the WAV master, or `aac` for a 160 kbps `.m4a` copy (about 5 MB instead of 40 MB for a 4-minute song; each new mix takes a few seconds longer). Exports and videos always use the WAV. |
 | `KARAOKE_DATA_DIR` | `./workspace_data` | Audio, stems, renders and `projects.json` |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Cloudflare tunnel token (Docker `--profile tunnel`) |
 | `LOG_LEVEL` | `INFO` | Level of the app's own log lines |

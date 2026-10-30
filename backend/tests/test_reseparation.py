@@ -269,6 +269,26 @@ def test_reseparation_swaps_in_new_stems_and_refreshes_the_song(client, song):
     assert "rs1_reseparate" not in main_mod.active_cancellations
 
 
+def test_reseparation_streams_the_aac_preview_when_enabled(client, song, monkeypatch):
+    from backend import config, master_audio
+
+    monkeypatch.setattr(config, "PREVIEW_AUDIO_FORMAT", "aac")
+    monkeypatch.setattr(master_audio, "ffmpeg_has_encoder", lambda name: True)
+
+    def fake_encode(wav_path, timeout=120):
+        preview = Path(wav_path).with_suffix(".m4a")
+        preview.write_bytes(b"fake aac")
+        return str(preview)
+
+    monkeypatch.setattr(main_mod.audio_mixer, "encode_preview", fake_encode)
+    assert client.post("/api/project/rs1/reseparate", json={"quality": "fast"}).status_code == 202
+
+    proj = client.get("/api/project/rs1").json()
+    assert proj["separation_job"]["status"] == "done"
+    assert proj["master_audio_url"].startswith("/static/output/rs1_mix_2_30.m4a?v=")
+    assert proj["master_audio_path"] == str(main_mod.OUTPUT_DIR / "rs1_mix_2_30.wav")
+
+
 def test_reseparation_keeps_a_custom_instrumental_and_redetects_chords_on_request(client, song):
     custom = _wav(song["stems"] / "custom_inst.wav", 0.3)
     song["proj"]["instrumental_path"] = str(custom)

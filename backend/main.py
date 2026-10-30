@@ -2,6 +2,7 @@
 
 import logging
 import math
+import mimetypes
 import subprocess
 import threading
 from pathlib import Path
@@ -122,6 +123,10 @@ from backend.upload_utils import (
 
 configure_logging()
 logger = logging.getLogger("karaoke_backend")
+
+# The AAC master preview (PREVIEW_AUDIO_FORMAT=aac): slim images have no system MIME table,
+# and served as text/plain behind nosniff, browsers refuse to play it
+mimetypes.add_type("audio/mp4", ".m4a")
 
 active_cancellations: dict[str, threading.Event] = {}
 

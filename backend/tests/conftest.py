@@ -56,6 +56,8 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     # Set default test passphrase if unset so auth-gated fixtures and routes work in CI
     if not config.APP_PASSWORD:
         monkeypatch.setattr(config, "APP_PASSWORD", "sluggos")
+    # The studio streams the WAV master unless a test switches the AAC preview on
+    monkeypatch.setattr(config, "PREVIEW_AUDIO_FORMAT", "wav")
 
     # Hermetic ML settings: the bundled engines only, no model downloads, models under tmp
     monkeypatch.setenv("SEPARATION_QUALITY", "fast")
@@ -86,8 +88,12 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     from backend import project_store
     from backend.services import separator as separator_service
     from backend.services import sync_confidence
+    from backend.services.audio_mixer import reset_ffmpeg_probe
 
     sync_confidence.clear_cache()
+    # FFmpeg filter and encoder probes are remembered; a faked FFmpeg must not leak into
+    # later tests
+    reset_ffmpeg_probe()
     # Progress saves are throttled against the previous write; start every test unthrottled
     monkeypatch.setattr(project_store, "_last_save_at", 0.0)
     # Demucs commands must not depend on which Demucs version is installed; tests that cover
