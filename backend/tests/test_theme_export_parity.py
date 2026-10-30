@@ -155,7 +155,7 @@ class TestAssGeneratorThemeParity:
         """clean_paper generates editorial red marker and monochrome ink."""
         content = generate_ass_content(SAMPLE_LINES, theme_id="clean_paper")
         assert ",&H002626DC,&H00111111," in content
-        assert "Style: KaraokeLine1,Arial," in content
+        assert "Style: KaraokeLine1,Space Grotesk," in content
 
     def test_custom_primary_color_overrides_preset_sung_color(self):
         """Direct primary_color overrides the theme's preset sung color."""
