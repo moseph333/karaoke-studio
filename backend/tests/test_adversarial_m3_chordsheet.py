@@ -603,3 +603,9 @@ def test_zero_duration_and_out_of_order_chords_graceful(client):
     res = client.get(f"/api/project/{pid}/export/chord-sheet")
     assert res.status_code == 200
     assert "Testing stability" in res.text
+
+
+def test_chord_sheet_timestamps_carry_over_into_the_next_minute():
+    assert format_timestamp(59.996) == "[01:00.00]"
+    assert format_timestamp(119.999) == "[02:00.00]"
+    assert format_timestamp(3.0) == "[00:03.00]"

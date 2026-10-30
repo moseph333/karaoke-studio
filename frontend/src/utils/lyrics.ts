@@ -1,8 +1,8 @@
 /**
- * Lyric Timing & Manipulation Utilities
+ * Lyric Timing Utilities
  *
- * Provides rounding, timestamp sanitization, line/word nudging with monotonic
- * boundary enforcement, and LRC subtitle generation and export helpers.
+ * Timestamp rounding and sanitizing, word tokenizing and even re-timing, insertion times
+ * for new lines, batch offsets, and the word being sung at a given time.
  */
 
 import { WordTiming, LyricLine } from '../types';

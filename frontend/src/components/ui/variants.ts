@@ -107,6 +107,3 @@ export const surfaceVariants = {
 } as const;
 
 export type SurfaceVariant = keyof typeof surfaceVariants;
-
-/** Visually hidden but available to assistive technology. */
-export const srOnly = 'sr-only';

@@ -485,7 +485,7 @@ class ReseparateRequest(BaseModel):
 
 
 # ==============================================================================
-# R1: Vocal Range & Smart Key Recommendation Schemas
+# Vocal Range & Smart Key Recommendation Schemas
 # ==============================================================================
 
 VOICE_PRESETS: set[str] = {
@@ -729,9 +729,9 @@ class KaraokeProject(BaseModel):
     created_at: int | None = Field(default=None, description="Creation epoch timestamp in seconds")
     vocal_range: VocalRangeData | None = Field(
         default=None,
-        description="Acoustic vocal range and key estimation metadata (R1)",
+        description="Acoustic vocal range and key estimation metadata",
     )
     chords: list[ChordSegmentSchema] | None = Field(
         default=None,
-        description="Timecoded harmonic chord segments (Milestone 1)",
+        description="Timecoded harmonic chord segments",
     )

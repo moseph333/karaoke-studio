@@ -38,6 +38,7 @@ import { Tooltip } from './Tooltip';
 import { apiFetch, readApiError } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useNow } from '../hooks/useNow';
+import { formatHeartbeat, formatTimer } from '../utils/format';
 import { Dialog, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { ProgressBar } from './ui/Progress';
@@ -63,7 +64,6 @@ export interface ExportModalProps {
   activeSemitones?: number;
   syncMode?: SyncDisplayMode;
   onSyncModeChange?: (mode: SyncDisplayMode) => void;
-  onChangeSyncMode?: (mode: SyncDisplayMode) => void;
   primaryColor?: string;
   secondaryColor?: string;
   /** Duet sung colors from the Look panel (sent only when provided). */
@@ -85,7 +85,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   activeSemitones,
   syncMode,
   onSyncModeChange,
-  onChangeSyncMode,
   primaryColor,
   secondaryColor,
   singer2Color,
@@ -114,7 +113,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const handleSyncModeChange = (mode: SyncDisplayMode) => {
     setRenderSyncMode(mode);
     onSyncModeChange?.(mode);
-    onChangeSyncMode?.(mode);
   };
 
   const semitones = activeSemitones ?? project?.semitones ?? 0;
@@ -271,20 +269,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const isIdle = !isRendering && !isCompleted && !isError;
   const replacingVideo = renderAgain && project.render_status === 'completed';
 
-  const formatTimer = (seconds?: number | null) => {
-    if (seconds === undefined || seconds === null || seconds < 0) return '--:--';
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const getHeartbeatText = (lastHeartbeat?: number) => {
-    if (!lastHeartbeat) return 'Active';
-    const diffSec = Math.max(0, Math.round((now - lastHeartbeat) / 1000));
-    if (diffSec < 2) return 'Pulse just now';
-    return `Pulse ${diffSec}s ago`;
-  };
-
   const yt = project.youtube_package;
   // Size the preview from the rendered file once known; until then trust the format setting.
   const previewAspect = videoAspect ?? (aspectRatio === '9:16' ? 9 / 16 : 16 / 9);
@@ -426,7 +410,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   <span className="absolute inline-flex h-full w-full rounded-full bg-theme-success opacity-75 motion-safe:animate-ping" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-theme-success" />
                 </span>
-                <span>FFmpeg Encoder Active • {getHeartbeatText(project.render_heartbeat)}</span>
+                <span>
+                  FFmpeg Encoder Active • {formatHeartbeat(project.render_heartbeat, now)}
+                </span>
               </div>
               <p className="break-words rounded-theme-md border border-theme-border-subtle bg-theme-surface px-3 py-2 font-mono text-xs text-theme-text-muted">
                 {project.render_detail ||

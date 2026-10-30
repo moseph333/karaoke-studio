@@ -1,5 +1,5 @@
 /**
- * Mobile Studio Workspace Tabs Component (Milestone M1)
+ * Mobile Studio Workspace Tabs Component
  *
  * Segmented 3-tab workspace switcher for mobile viewports (< 768px):
  * 1. Stage: Live Karaoke Stage Preview

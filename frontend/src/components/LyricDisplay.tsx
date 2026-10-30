@@ -68,7 +68,7 @@ export interface LyricDisplayProps {
   onSyncModeChange?: (mode: SyncDisplayMode) => void;
   fontFamily?: string;
   selectedTheme?: VisualTheme;
-  // Stage Controls (Requirement UX-5)
+  // Stage controls
   onSemitonesChange?: (semitones: number) => void;
   onPitchStep?: (delta: number) => void;
   volume?: number;
