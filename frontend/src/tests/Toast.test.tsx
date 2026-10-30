@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { ToastItem, ToastContainer } from '../components/Toast';
 import { ToastProvider, useToast } from '../hooks/useToast';
 import { Toast } from '../types';
-import { expectTouchTarget } from './responsiveTestUtils';
+import { expectTouchTarget } from './helpers/responsiveTestUtils';
 
 describe('Toast Component & ToastProvider', () => {
   beforeEach(() => {

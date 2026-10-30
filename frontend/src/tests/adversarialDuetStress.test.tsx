@@ -20,7 +20,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', () => {
   const sampleLines: LyricLine[] = [

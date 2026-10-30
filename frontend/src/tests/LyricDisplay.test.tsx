@@ -10,7 +10,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('LyricDisplay (Feature 43: Fluid Word Sweep Interpolation)', () => {
   const mockLines: LyricLine[] = [

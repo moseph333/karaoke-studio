@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 from backend.services.aligner import AudioAligner, refine_line_boundaries
-from backend.tests.test_e2e_lyrics_aligner_sync import (
+from backend.tests.helpers.audio_signals import (
     create_synthetic_vocal_signal,
 )
 

@@ -433,10 +433,8 @@ def test_challenge4_synthetic_benchmark_and_real_stem_runtime(tmp_path):
       * Word onset MAE (must be <= 120ms)
       * CPU runtime on 3.4-min real stem workspace_data/stems/obz6zVLYMPQ/vocals.wav (must be < 2.0s)
     """
-    from backend.tests.test_aligner_benchmark import (
-        _baseline_align_lyrics,
-        generate_synthetic_benchmark_track,
-    )
+    from backend.tests.helpers.audio_signals import generate_synthetic_benchmark_track
+    from backend.tests.helpers.baseline_aligner import baseline_align_lyrics
 
     ground_truth = [
         {
@@ -488,7 +486,7 @@ def test_challenge4_synthetic_benchmark_and_real_stem_runtime(tmp_path):
         }
         for line in ground_truth
     ]
-    base_res = _baseline_align_lyrics(vocal_file, baseline_lines)
+    base_res = baseline_align_lyrics(vocal_file, baseline_lines)
 
     # 2. Improved AudioAligner Run
     aligner = AudioAligner()

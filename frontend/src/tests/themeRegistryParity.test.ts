@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { APP_THEME_LIST, DEFAULT_APP_THEME_ID, getAppTheme } from '../theme/appThemes';
 import { THEMES } from '../theme/stagePresets';
-import { readFrontendFile, readIndexHtml, extractBootScript } from './bootScriptUtils';
+import { readFrontendFile, readIndexHtml, extractBootScript } from './helpers/bootScriptUtils';
 
 const normalize = (v: string) => v.replace(/["']/g, "'").replace(/\s+/g, ' ').trim().toLowerCase();
 

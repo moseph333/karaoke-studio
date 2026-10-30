@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { TrackSearch } from '../components/TrackSearch';
 import { ProjectState } from '../types';
-import { expectTouchTarget } from './responsiveTestUtils';
+import { expectTouchTarget } from './helpers/responsiveTestUtils';
 
 describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Integrity at 320px', () => {
   beforeEach(() => {

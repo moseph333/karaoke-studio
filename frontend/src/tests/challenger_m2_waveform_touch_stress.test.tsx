@@ -20,7 +20,7 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Adversarial Challenge: Milestone M2 Waveform Scrubbing & Touch Ergonomics', () => {
   const sampleWords: WordTiming[] = [

@@ -28,7 +28,7 @@ const fs = nodeRequire('fs');
 const path = nodeRequire('path');
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeProcess = (globalThis as any).process;
-import { runIndexHtmlBootScript } from './bootScriptUtils';
+import { runIndexHtmlBootScript } from './helpers/bootScriptUtils';
 
 import { StudioHeader } from '../components/StudioHeader';
 import { AppThemeProvider } from '../context/AppThemeContext';
@@ -38,7 +38,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('M3 Challenger 1: Adversarial Stress Suite', () => {
   const sampleProject: ProjectState = {

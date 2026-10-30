@@ -11,7 +11,7 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Export UI & Modal Options Integration (F15)', () => {
   const mockProject: ProjectState = {

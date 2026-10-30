@@ -17,7 +17,7 @@ import { useQualityJobs } from '../hooks/useQualityJobs';
 import { resetCapabilitiesCache } from '../hooks/useCapabilities';
 import { ToastProvider } from '../hooks/useToast';
 import type { ProjectState, SeparationJob } from '../types';
-import { CAPABILITIES, json, mockStudioFetch } from './qualityFixtures';
+import { CAPABILITIES, json, mockStudioFetch } from './helpers/qualityFixtures';
 
 const job = (overrides: Partial<SeparationJob> = {}): SeparationJob => ({
   id: 'job1',

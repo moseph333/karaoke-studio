@@ -14,7 +14,7 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () => {
   const sampleLines: LyricLine[] = [

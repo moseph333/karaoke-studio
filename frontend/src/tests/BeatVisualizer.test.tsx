@@ -10,7 +10,7 @@ import {
   resetTestViewport,
   assertTouchTargets,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 import { LyricLine } from '../types';
 
 const mockLines: LyricLine[] = [

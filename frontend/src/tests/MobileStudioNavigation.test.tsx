@@ -11,7 +11,7 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone M1: Mobile Studio Navigation & Transport Dock', () => {
   const readyProject: ProjectState = {

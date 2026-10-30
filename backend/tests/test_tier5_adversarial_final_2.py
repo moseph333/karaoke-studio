@@ -28,7 +28,7 @@ from backend.services.aligner import (
     estimate_global_offset,
     refine_line_boundaries,
 )
-from backend.tests.test_e2e_lyrics_aligner_sync import create_synthetic_vocal_signal
+from backend.tests.helpers.audio_signals import create_synthetic_vocal_signal
 
 
 @pytest.fixture(autouse=True)

@@ -16,7 +16,7 @@ import { AppThemePicker } from '../components/AppThemePicker';
 import { AppThemeProvider, useAppTheme } from '../context/AppThemeContext';
 import { APP_THEMES, APP_THEME_LIST, APP_THEME_STORAGE_KEY } from '../theme/appThemes';
 import { AppThemeId } from '../types';
-import { ALL_APP_THEME_IDS, DEFAULT_APP_THEME_ID } from './themeFixtures';
+import { ALL_APP_THEME_IDS, DEFAULT_APP_THEME_ID } from './helpers/themeFixtures';
 
 describe('AppThemePicker Empirical Challenger Stress Suite', () => {
   beforeEach(() => {

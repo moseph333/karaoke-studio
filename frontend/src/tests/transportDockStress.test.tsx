@@ -23,7 +23,7 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 const readyProject: ProjectState = {
   id: 'dock-stress-proj',

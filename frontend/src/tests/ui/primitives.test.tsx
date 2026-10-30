@@ -21,7 +21,7 @@ import {
   Badge,
   EmptyState,
 } from '../../components/ui';
-import { expectTouchTarget } from '../responsiveTestUtils';
+import { expectTouchTarget } from '../helpers/responsiveTestUtils';
 import { isModalActive } from '../../hooks/useKeyboardShortcuts';
 
 describe('Button', () => {

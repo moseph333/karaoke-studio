@@ -22,7 +22,7 @@ import {
   resetTestViewport,
   assertTouchTargets,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Challenger 2 UI Stress Suite: Pitch & Vocal Range', () => {
   const sampleVoicedRange: VocalRangeData = {

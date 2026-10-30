@@ -18,7 +18,7 @@ import { markManualEdits } from '../utils/manualEdits';
 import { confidenceLevel, confidenceText, realignBounds } from '../utils/lineRealign';
 import { getLyricSyncFidelity, getStemsBadge } from '../utils/syncStatus';
 import type { LyricLine, ProjectState, RealignLineResult } from '../types';
-import { json, mockStudioFetch } from './qualityFixtures';
+import { json, mockStudioFetch } from './helpers/qualityFixtures';
 
 const words = (text: string, start: number, step = 0.5) =>
   text.split(' ').map((word, i) => ({

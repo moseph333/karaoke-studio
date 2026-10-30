@@ -26,8 +26,8 @@ import {
   APP_THEME_STORAGE_KEY,
 } from '../theme/appThemes';
 import { AppTheme, AppThemeId } from '../types';
-import { ALL_APP_THEME_IDS } from './themeFixtures';
-import { runIndexHtmlBootScript } from './bootScriptUtils';
+import { ALL_APP_THEME_IDS } from './helpers/themeFixtures';
+import { runIndexHtmlBootScript } from './helpers/bootScriptUtils';
 
 describe('Challenger M1 Iteration 2 Verification Suite', () => {
   beforeEach(() => {

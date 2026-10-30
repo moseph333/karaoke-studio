@@ -8,7 +8,7 @@ import { TransportDock } from '../components/transport/TransportDock';
 import App from '../App';
 import { LyricLine } from '../types';
 import * as apiModule from '../api';
-import { expectTouchTarget } from './responsiveTestUtils';
+import { expectTouchTarget } from './helpers/responsiveTestUtils';
 
 describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline State & Mobile Responsiveness', () => {
   const multiScreenLines: LyricLine[] = Array.from({ length: 15 }, (_, i) => ({

@@ -14,7 +14,7 @@ import {
   assertZeroHorizontalOverflow,
   BREAKPOINTS,
   expectTouchTarget,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 import { DEFAULT_SINGER2_COLOR } from '../theme/stagePresets';
 
 describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () => {

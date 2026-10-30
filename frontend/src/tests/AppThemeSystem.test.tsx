@@ -16,8 +16,8 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, act, renderHook } from '@testing-library/react';
-import { ALL_APP_THEME_IDS, ALL_STAGE_PRESET_IDS } from './themeFixtures';
-import { runIndexHtmlBootScript } from './bootScriptUtils';
+import { ALL_APP_THEME_IDS, ALL_STAGE_PRESET_IDS } from './helpers/themeFixtures';
+import { runIndexHtmlBootScript } from './helpers/bootScriptUtils';
 
 // Domain Types
 import { AppThemeId, AppTheme, VisualTheme, LyricLine, ProjectState } from '../types';

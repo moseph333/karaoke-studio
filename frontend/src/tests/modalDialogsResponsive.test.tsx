@@ -11,7 +11,7 @@ import {
   assertZeroHorizontalOverflow,
   detectHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Quality Gates)', () => {
   const baseProject: ProjectState = {

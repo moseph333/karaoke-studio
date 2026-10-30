@@ -25,7 +25,7 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone 1 Empirical Stress & Adversarial Suite', () => {
   beforeEach(() => {

@@ -9,7 +9,7 @@ import { TransportDock } from '../components/transport/TransportDock';
 import { VisualThemePicker, THEMES } from '../components/VisualThemePicker';
 import { LyricDisplay } from '../components/LyricDisplay';
 import { LyricLine, ProjectState } from '../types';
-import { expectTouchTarget } from './responsiveTestUtils';
+import { expectTouchTarget } from './helpers/responsiveTestUtils';
 
 describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touch Controls)', () => {
   beforeEach(() => {

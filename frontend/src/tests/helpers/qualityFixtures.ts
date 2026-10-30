@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { StudioCapabilities } from '../types';
+import type { StudioCapabilities } from '../../types';
 
 /** A server that can run Fast and Balanced but not Best, with the neural aligner ready. */
 export const CAPABILITIES: StudioCapabilities = {

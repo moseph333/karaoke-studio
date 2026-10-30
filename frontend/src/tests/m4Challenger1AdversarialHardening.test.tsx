@@ -41,7 +41,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', () => {
   const mockProjectLines: LyricLine[] = [
