@@ -465,3 +465,97 @@ def test_youtube_kit_route_builds_from_the_song_before_any_render(client, song, 
     res = client.get("/api/project/song1/youtube-package")
 
     assert res.json() == {"key_note": 4, "guide": False}
+
+
+# --- One rule for every site (backend.project_analysis) ----------------------------------
+
+
+def test_the_youtube_kit_keeps_describing_the_rendered_key_after_later_edits(
+    client, song, render_stubs, kit_calls
+):
+    """Rendered at +2, then the key goes back to the original and a lyric is fixed: the kit
+    still describes the +2 video, until a new render."""
+    projects["song1"]["chords"] = []
+    run_video_render("song1", RenderRequest(semitones=2, guide_volume=0.0))
+    projects["song1"]["semitones"] = 0
+
+    client.post("/api/project/song1/lyrics", json={"lines": [dict(line) for line in LINES]})
+
+    assert projects["song1"]["youtube_package"] == {"key_note": 2, "guide": False}
+    assert client.get("/api/project/song1/youtube-package").json()["key_note"] == 2
+
+    run_video_render("song1", RenderRequest(semitones=0, guide_volume=0.0))
+    assert projects["song1"]["youtube_package"]["key_note"] == 0
+
+
+def test_a_render_backfill_keeps_chords_saved_while_it_was_detecting(
+    song, detector, render_stubs, monkeypatch
+):
+    edited = [{"start": 0.0, "end": 9.0, "chord": "Em"}]
+
+    def detect_while_the_user_saves(audio_path):
+        projects["song1"]["chords"] = edited
+        return [dict(c) for c in CHORDS]
+
+    monkeypatch.setattr(detector, "detect_chords", detect_while_the_user_saves)
+    run_video_render("song1", RenderRequest(include_chords=True))
+
+    assert projects["song1"]["chords"] == edited
+
+
+def test_the_vocal_range_key_wins_over_a_top_level_key_everywhere(
+    client, song, render_stubs, ass_calls
+):
+    projects["song1"].update(
+        chords=[dict(c) for c in CHORDS],
+        estimated_key="F Major",
+        vocal_range={"estimated_key": "D Major"},
+    )
+
+    client.get("/api/project/song1/export/ass")
+    run_video_render("song1", RenderRequest())
+    sheet = client.get("/api/project/song1/export/chord-sheet").text
+
+    assert [call["key"] for call in ass_calls] == ["D Major", "D Major"]
+    assert "**Key:** D Major" in sheet
+    assert client.get("/api/project/song1/chords").json()["estimated_key"] == "D Major"
+
+
+@pytest.mark.parametrize("status", ["processing", "fetching_lyrics", "aligning", "mixing"])
+def test_redetect_is_refused_at_every_pipeline_step(client, song, detector, status):
+    projects["song1"]["status"] = status
+
+    assert client.post("/api/project/song1/chords/detect").status_code == 400
+    assert detector.calls == []
+
+
+def test_ass_export_falls_back_to_the_original_audio_like_the_other_sites(client, song, detector):
+    files = song
+    files["instrumental"].unlink()
+
+    client.get("/api/project/song1/export/ass", params={"include_chords": True})
+
+    assert detector.calls == [str(files["audio"])]
+
+
+def test_chord_sheet_reports_a_detection_failure_as_a_500(client, song, detector):
+    detector.error = RuntimeError("chroma exploded")
+
+    res = client.get("/api/project/song1/export/chord-sheet")
+
+    assert res.status_code == 500
+    assert "Failed to detect chords" in res.json()["detail"]
+
+
+def test_key_recommendation_reports_an_analysis_failure_as_a_500(
+    client, song, analyzer, monkeypatch
+):
+    def fail(path):
+        raise RuntimeError("pitch tracker exploded")
+
+    monkeypatch.setattr(analyzer, "analyze_vocals", fail)
+
+    res = client.post("/api/project/song1/recommend-key", json={"target_voice_preset": "baritone"})
+
+    assert res.status_code == 500
+    assert "Failed to analyze vocal range" in res.json()["detail"]

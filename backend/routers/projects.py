@@ -15,7 +15,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 
 from backend import realignment
-from backend.background_jobs import SEPARATION_JOB, job_active, run_job
+from backend.background_jobs import BUSY_PIPELINE_STATES, SEPARATION_JOB, job_active, run_job
 from backend.config import OUTPUT_DIR
 from backend.master_audio import (  # noqa: F401 (the cache helpers are imported from here too)
     MIX_CACHE_MARKER,
@@ -25,6 +25,14 @@ from backend.master_audio import (  # noqa: F401 (the cache helpers are imported
     mix_filename,
     mix_version,
     reusable_mix_path,
+)
+from backend.project_analysis import (
+    StemMissing,
+    ensure_chords,
+    ensure_vocal_range,
+    estimated_key,
+    refresh_youtube_package,
+    youtube_package,
 )
 from backend.project_store import (
     PROJECTS_LOCK,
@@ -129,14 +137,7 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
                 if p.get("status") == "ready":
                     logger.info(f"Returning cached ready project {p_id} for {video_id}")
                     return {"project_id": p.get("id", p_id), "status": "ready"}
-                elif p.get("status") in [
-                    "queued",
-                    "downloading",
-                    "separating",
-                    "fetching_lyrics",
-                    "aligning",
-                    "mixing",
-                ]:
+                elif p.get("status") in BUSY_PIPELINE_STATES:
                     # Verify task is genuinely running in memory, not a stale session artifact
                     is_active = (p_id in main_mod.active_cancellations) or (
                         video_id in main_mod.active_cancellations
@@ -216,40 +217,16 @@ def get_project_status(project_id: str):
     summary="Get project vocal range analysis with on-demand auto-backfill",
 )
 def get_vocal_range(project_id: str):
-    """Returns cached vocal range analysis for a project.
-
-    If vocal range metadata is not yet present and the isolated vocal stem exists on disk,
-    this endpoint automatically computes the acoustic analysis on demand and updates the
-    project store without requiring full stem re-separation.
-    """
-    import backend.main as main_mod
-
-    proj = get_project_or_404(project_id)
-
-    cached_range = proj.get("vocal_range")
-    if cached_range:
-        return cached_range
-
-    vocals_path = proj.get("vocals_path")
-    if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
-        logger.warning(
-            f"Vocal range analysis rejected for {project_id}: vocals stem missing or empty ({vocals_path})"
-        )
+    """Returns the project's vocal range analysis, analysing its vocal stem first (without
+    re-separating) if it has none yet."""
+    try:
+        return ensure_vocal_range(project_id)
+    except StemMissing as exc:
+        logger.warning(f"Vocal range analysis rejected for {project_id}: {exc}")
         raise HTTPException(
             status_code=400,
             detail="Cannot analyze vocal range: isolated vocal stem missing or not ready",
-        )
-
-    try:
-        # Execute CPU-bound acoustic analysis outside PROJECTS_LOCK
-        vocal_range = main_mod.vocal_analyzer.analyze_vocals(vocals_path)
-
-        with PROJECTS_LOCK:
-            target_proj = get_project_or_404(project_id)
-            target_proj["vocal_range"] = vocal_range
-            save_projects()
-
-        return vocal_range
+        ) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -264,30 +241,14 @@ def get_vocal_range(project_id: str):
 )
 def reanalyze_vocal_range(project_id: str):
     """Forces re-analysis of the project's vocal stem and refreshes cached metadata."""
-    import backend.main as main_mod
-
-    proj = get_project_or_404(project_id)
-
-    vocals_path = proj.get("vocals_path")
-    if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
-        logger.warning(
-            f"Forced vocal range re-analysis rejected for {project_id}: vocals stem missing or empty ({vocals_path})"
-        )
+    try:
+        return ensure_vocal_range(project_id, force=True)
+    except StemMissing as exc:
+        logger.warning(f"Forced vocal range re-analysis rejected for {project_id}: {exc}")
         raise HTTPException(
             status_code=400,
             detail="Cannot analyze vocal range: isolated vocal stem missing or not ready",
-        )
-
-    try:
-        # Execute CPU-bound acoustic analysis outside PROJECTS_LOCK
-        vocal_range = main_mod.vocal_analyzer.analyze_vocals(vocals_path)
-
-        with PROJECTS_LOCK:
-            target_proj = get_project_or_404(project_id)
-            target_proj["vocal_range"] = vocal_range
-            save_projects()
-
-        return vocal_range
+        ) from exc
     except HTTPException:
         raise
     except Exception as e:
@@ -306,22 +267,18 @@ def recommend_key(project_id: str, req: KeyRecommendationRequest):
     """
     import backend.main as main_mod
 
-    proj = get_project_or_404(project_id)
-    vocal_range = proj.get("vocal_range")
-
-    # On-demand backfill if range missing but stem available
-    if not vocal_range:
-        vocals_path = proj.get("vocals_path")
-        if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot recommend key: vocal range analysis unavailable and vocal stem missing",
-            )
-        vocal_range = main_mod.vocal_analyzer.analyze_vocals(vocals_path)
-        with PROJECTS_LOCK:
-            target_proj = get_project_or_404(project_id)
-            target_proj["vocal_range"] = vocal_range
-            save_projects()
+    try:
+        vocal_range = ensure_vocal_range(project_id)
+    except StemMissing as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot recommend key: vocal range analysis unavailable and vocal stem missing",
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Vocal range analysis failed for {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to analyze vocal range: {e}") from e
 
     # Safe handling for unvoiced or silent audio
     if not vocal_range.get("is_voiced") or not vocal_range.get("lowest_note"):
@@ -351,20 +308,31 @@ def recommend_key(project_id: str, req: KeyRecommendationRequest):
         raise HTTPException(status_code=500, detail=f"Failed to recommend key: {e}") from e
 
 
+def _detected_chords(project_id: str, force: bool = False) -> list[dict]:
+    """ensure_chords for the chord routes: no usable audio is a 400, a failure a 500."""
+    try:
+        return ensure_chords(project_id, force=force)
+    except StemMissing as exc:
+        logger.warning(f"Chord detection rejected for project {project_id}: {exc}")
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot detect chords: instrumental stem missing or not ready",
+        ) from exc
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Chord detection failed for {project_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to detect chords: {e}") from e
+
+
 @router.get(
     "/api/project/{project_id}/chords",
     response_model=ProjectChordsResponse,
     summary="Get project harmonic chord progression with on-demand auto-backfill",
 )
 def get_project_chords(project_id: str, semitones: int = 0):
-    """Returns cached harmonic chord progression segments for a project.
-
-    If chords are not yet stored and the isolated instrumental stem exists on disk,
-    this endpoint automatically detects the chord progression on-demand from
-    instrumental_path without re-running Demucs stem separation, persisting the result atomically.
-    Optionally transposes chords if semitones != 0 is specified.
-    """
-    import backend.main as main_mod
+    """Returns the project's chord progression, detecting it from the instrumental (without
+    re-separating) if it has none yet. Optionally transposed by `semitones`."""
     from backend.services.chord_detector import project_key_signature, transpose_chord_progression
 
     if not (-12 <= semitones <= 12):
@@ -374,86 +342,17 @@ def get_project_chords(project_id: str, semitones: int = 0):
         )
 
     proj = get_project_or_404(project_id)
-    estimated_key = (
-        proj.get("vocal_range", {}).get("estimated_key")
-        if isinstance(proj.get("vocal_range"), dict)
-        else None
+    chords = _detected_chords(project_id)
+    key = estimated_key(proj)
+    if semitones != 0:
+        target_key = project_key_signature(key, semitones) if key else None
+        chords = transpose_chord_progression(chords, semitones=semitones, key=target_key)
+    return ProjectChordsResponse(
+        project_id=proj.get("id", project_id),
+        chords=chords,
+        estimated_key=key,
+        detected=True,
     )
-
-    # 1. Fast path: cached chords already present in project store
-    cached_chords = proj.get("chords")
-    if cached_chords is not None:
-        chords_to_return = cached_chords
-        if semitones != 0:
-            target_key = project_key_signature(estimated_key, semitones) if estimated_key else None
-            chords_to_return = transpose_chord_progression(
-                cached_chords, semitones=semitones, key=target_key
-            )
-        return ProjectChordsResponse(
-            project_id=proj.get("id", project_id),
-            chords=chords_to_return,
-            estimated_key=estimated_key,
-            detected=True,
-        )
-
-    # 2. On-demand auto-backfill: verify audio stem availability
-    inst_path = proj.get("instrumental_path")
-    audio_stem = inst_path
-    if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
-        audio_stem = proj.get("audio_path")
-        if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
-            if cached_chords is not None:
-                return ProjectChordsResponse(
-                    project_id=proj.get("id", project_id),
-                    chords=[],
-                    estimated_key=estimated_key,
-                    detected=False,
-                )
-            logger.warning(
-                f"Chord detection rejected for project {project_id}: instrumental stem missing or empty ({inst_path})"
-            )
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot detect chords: instrumental stem missing or not ready",
-            )
-
-    try:
-        # 3. Execute CPU-bound STFT and chroma extraction OUTSIDE PROJECTS_LOCK
-        detector = getattr(main_mod, "chord_detector", None)
-        if detector is None:
-            from backend.services.chord_detector import ChordDetector
-
-            detector = ChordDetector()
-
-        detected_chords = detector.detect_chords(audio_stem)
-
-        # 4. Atomically persist detected chords under PROJECTS_LOCK
-        with PROJECTS_LOCK:
-            target_proj = get_project_or_404(project_id)
-            if target_proj.get("chords") is None:
-                target_proj["chords"] = detected_chords
-                save_projects()
-            else:
-                detected_chords = target_proj["chords"]
-
-        chords_to_return = detected_chords
-        if semitones != 0:
-            target_key = project_key_signature(estimated_key, semitones) if estimated_key else None
-            chords_to_return = transpose_chord_progression(
-                detected_chords, semitones=semitones, key=target_key
-            )
-
-        return ProjectChordsResponse(
-            project_id=target_proj.get("id", project_id),
-            chords=chords_to_return,
-            estimated_key=estimated_key,
-            detected=True,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Chord detection failed for {project_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to detect chords: {e}") from e
 
 
 @router.post(
@@ -493,63 +392,22 @@ def update_project_chords_endpoint(project_id: str, req: ChordsUpdateRequest):
     summary="Force re-detection of project harmonic chord progression",
 )
 def force_redetect_chords(project_id: str):
-    """Forces re-detection of the project's harmonic chord progression from the instrumental stem,
-
-    overwriting any existing or cached chord progression and persisting atomically.
-    """
-    import backend.main as main_mod
-
+    """Forces re-detection of the project's harmonic chord progression from the instrumental
+    stem, overwriting any stored progression."""
     proj = get_project_or_404(project_id)
-    if proj.get("status") in ("processing", "queued", "downloading", "separating"):
+    if proj.get("status") in BUSY_PIPELINE_STATES:
         raise HTTPException(
             status_code=400,
             detail="Cannot detect chords: project processing is not complete",
         )
 
-    inst_path = proj.get("instrumental_path")
-    audio_stem = inst_path
-    if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
-        audio_stem = proj.get("audio_path")
-        if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
-            logger.warning(
-                f"Forced chord detection rejected for project {project_id}: instrumental stem missing or empty ({inst_path})"
-            )
-            raise HTTPException(
-                status_code=400,
-                detail="Cannot detect chords: instrumental stem missing or not ready",
-            )
-
-    try:
-        detector = getattr(main_mod, "chord_detector", None)
-        if detector is None:
-            from backend.services.chord_detector import ChordDetector
-
-            detector = ChordDetector()
-
-        detected_chords = detector.detect_chords(audio_stem)
-
-        with PROJECTS_LOCK:
-            target_proj = get_project_or_404(project_id)
-            target_proj["chords"] = detected_chords
-            save_projects()
-
-        estimated_key = (
-            target_proj.get("vocal_range", {}).get("estimated_key")
-            if isinstance(target_proj.get("vocal_range"), dict)
-            else None
-        )
-
-        return ProjectChordsResponse(
-            project_id=target_proj.get("id", project_id),
-            chords=detected_chords,
-            estimated_key=estimated_key,
-            detected=True,
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Forced chord re-detection failed for {project_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to detect chords: {e}") from e
+    chords = _detected_chords(project_id, force=True)
+    return ProjectChordsResponse(
+        project_id=proj.get("id", project_id),
+        chords=chords,
+        estimated_key=estimated_key(get_project_or_404(project_id)),
+        detected=True,
+    )
 
 
 @router.patch("/api/project/{project_id}")
@@ -560,8 +418,6 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
     Persists changes atomically to projects.json under PROJECTS_LOCK and
     refreshes the embedded YouTube metadata package if present.
     """
-    import backend.main as main_mod
-
     proj = find_project(project_id)
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -586,15 +442,7 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
         if new_artist is not None:
             proj["artist"] = new_artist
 
-        if "youtube_package" in proj:
-            proj["youtube_package"] = main_mod.youtube_service.generate_youtube_package(
-                title=proj.get("title", "Karaoke Track"),
-                artist=proj.get("artist", "Artist"),
-                lines=proj.get("lines", []),
-                semitones=proj.get("semitones", 0),
-                has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
-            )
-
+        refresh_youtube_package(proj)
         save_projects()
 
     return proj
@@ -602,8 +450,6 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
 
 @router.post("/api/project/{project_id}/lyrics")
 def update_lyrics(project_id: str, req: LyricsUpdateRequest):
-    import backend.main as main_mod
-
     with PROJECTS_LOCK:
         proj = get_project_or_404(project_id)
         proj["lines"] = [line.model_dump() for line in req.lines]
@@ -614,16 +460,8 @@ def update_lyrics(project_id: str, req: LyricsUpdateRequest):
             if max_end > proj.get("duration", 0.0):
                 proj["duration"] = max_end
 
-        # Synchronize YouTube metadata package chapters if present
-        if "youtube_package" in proj:
-            proj["youtube_package"] = main_mod.youtube_service.generate_youtube_package(
-                title=proj.get("title", "Karaoke Track"),
-                artist=proj.get("artist", "Artist"),
-                lines=proj.get("lines", []),
-                semitones=proj.get("semitones", 0),
-                has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
-            )
-
+        # The YouTube kit's chapters follow the lyrics
+        refresh_youtube_package(proj)
         save_projects()
     return {"status": "ok", "lines_count": len(req.lines)}
 
@@ -835,7 +673,7 @@ def realign_lyrics(
             proj = find_project(pid)
             if not proj:
                 raise HTTPException(status_code=404, detail="Project not found")
-            realignment.store_aligned_lines(main_mod, proj, aligned_lines)
+            realignment.store_aligned_lines(proj, aligned_lines)
             if mode == "lines":
                 if proj.get("lyric_timing") in (None, "none"):
                     proj["lyric_timing"] = result.lyric_timing
@@ -1118,13 +956,4 @@ def delete_project(project_id: str):
 
 @router.get("/api/project/{project_id}/youtube-package")
 def get_youtube_package(project_id: str):
-    import backend.main as main_mod
-
-    proj = get_project_or_404(project_id)
-    return main_mod.youtube_service.generate_youtube_package(
-        title=proj.get("title", "Karaoke Track"),
-        artist=proj.get("artist", "Artist"),
-        lines=proj.get("lines", []),
-        semitones=proj.get("semitones", 0),
-        has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
-    )
+    return youtube_package(get_project_or_404(project_id))

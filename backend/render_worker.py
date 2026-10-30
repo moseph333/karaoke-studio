@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from backend.config import BACKGROUNDS_DIR, OUTPUT_DIR
+from backend.project_analysis import chords_for_export, estimated_key, youtube_package
 from backend.project_store import (
     PROJECTS_LOCK,
     cleanup_project_disk_artifacts,
@@ -108,45 +109,17 @@ def run_video_render(project_id: str, req: RenderRequest):
                 style_cfg["secondary_color"], default="&H00FFFFFF"
             )
 
-        # Resolve chords for subtitle burning with on-demand backfill if necessary
-        chords = proj.get("chords")
-        if chords is None and req.include_chords:
-            inst_path = proj.get("instrumental_path") or proj.get("audio_path")
-            if inst_path and Path(inst_path).is_file() and Path(inst_path).stat().st_size > 0:
-                try:
-                    detector = getattr(main_mod, "chord_detector", None)
-                    if detector is None:
-                        from backend.services.chord_detector import ChordDetector
-
-                        detector = ChordDetector()
-                    detected = detector.detect_chords(inst_path)
-                    chords = [c.to_dict() if hasattr(c, "to_dict") else dict(c) for c in detected]
-                    proj["chords"] = chords
-                    save_projects()
-                except Exception as exc:
-                    logger.warning(f"Failed to auto-detect chords for render: {exc}")
-                    chords = []
-            else:
-                chords = []
-        elif chords is None:
-            chords = []
-
-        eff_key = proj.get("estimated_key") or (
-            proj.get("vocal_range", {}).get("estimated_key")
-            if isinstance(proj.get("vocal_range"), dict)
-            else None
-        )
-
         main_mod.video_renderer.generate_ass_subtitles(
             lines=proj.get("lines", []),
             output_ass_path=ass_path,
             style_config=style_cfg,
             aspect_ratio=req.aspect_ratio,
             include_countdown=req.include_countdown,
-            chords=chords,
+            # The stored chords, else detected now (stored too) if the video shows them
+            chords=chords_for_export(project_id, req.include_chords),
             include_chords=req.include_chords,
             semitones=req.semitones,
-            key=eff_key,
+            key=estimated_key(proj),
             sync_mode=sync_mode,
         )
 
@@ -198,19 +171,13 @@ def run_video_render(project_id: str, req: RenderRequest):
             background_tone=style_cfg.get("background_tone"),
         )
 
-        proj = get_project_or_404(project_id)
-        # Generate YouTube package
-        yt_package = main_mod.youtube_service.generate_youtube_package(
-            title=proj.get("title", "Karaoke Track"),
-            artist=proj.get("artist", "Artist"),
-            lines=proj.get("lines", []),
-            semitones=req.semitones,
-            has_guide_vocal=req.guide_volume > 0.05,
-        )
         # The results first and the status last, together: the studio fetches the finished
         # project once, as soon as a status poll reads "completed"
         with PROJECTS_LOCK:
-            proj["youtube_package"] = yt_package
+            proj = get_project_or_404(project_id)
+            # What the video was made with, which its YouTube kit describes from now on
+            proj["render_settings"] = {"semitones": req.semitones, "guide_volume": req.guide_volume}
+            proj["youtube_package"] = youtube_package(proj)
             # Rendering again overwrites the same file; the version makes browsers fetch the
             # new video rather than show or download their cached copy of the previous one
             proj["video_url"] = f"/static/output/{track_id}_karaoke.mp4?v={int(time.time())}"
