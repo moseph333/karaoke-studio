@@ -35,7 +35,7 @@ import {
   assertZeroHorizontalOverflow,
   detectHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone M1 Empirical Adversarial Challenge', () => {
   const challengeProject: ProjectState = {

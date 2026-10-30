@@ -16,7 +16,7 @@ import {
   separationEstimate,
   stemsLabel,
 } from '../utils/quality';
-import { CAPABILITIES, json, mockStudioFetch } from './qualityFixtures';
+import { CAPABILITIES, json, mockStudioFetch } from './helpers/qualityFixtures';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <ToastProvider>{children}</ToastProvider>

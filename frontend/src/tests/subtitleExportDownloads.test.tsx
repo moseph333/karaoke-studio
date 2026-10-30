@@ -12,7 +12,7 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone 2 Iteration 2 Challenger 2: Subtitle Exports & Accessibility Adversarial Harness', () => {
   const baseProject: ProjectState = {

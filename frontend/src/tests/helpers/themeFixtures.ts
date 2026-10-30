@@ -4,7 +4,7 @@
  * Keep theme counts, ordering and defaults in one place so registry growth only
  * needs a single fixture update instead of edits across every suite.
  */
-import type { AppThemeId } from '../types';
+import type { AppThemeId } from '../../types';
 
 export const DEFAULT_APP_THEME_ID: AppThemeId = 'afterglow';
 export const DEFAULT_APP_THEME_NAME = 'Afterglow';

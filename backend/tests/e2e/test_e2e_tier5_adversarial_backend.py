@@ -57,7 +57,7 @@ from backend.services.lyrics import LyricsService
 from backend.services.separator import AudioSeparator
 from backend.services.video_renderer import VideoRenderer
 from backend.services.youtube_uploader import YouTubeMetadataService
-from backend.tests.e2e.conftest import generate_sine_wave_wav, generate_test_image
+from backend.tests.helpers.media import generate_sine_wave_wav, generate_test_image
 
 # ==============================================================================
 # 1. Main Application & API Route Adversarial Tests

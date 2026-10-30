@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { APP_THEME_LIST, APP_THEME_STORAGE_KEY } from '../theme/appThemes';
-import { runIndexHtmlBootScript } from './bootScriptUtils';
+import { runIndexHtmlBootScript } from './helpers/bootScriptUtils';
 
 describe('index.html zero-FOUC boot script', () => {
   let meta: HTMLMetaElement;

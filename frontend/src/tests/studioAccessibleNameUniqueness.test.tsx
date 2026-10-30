@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import App from '../App';
 import { ProjectState } from '../types';
-import { setTestViewport, resetTestViewport } from './responsiveTestUtils';
+import { setTestViewport, resetTestViewport } from './helpers/responsiveTestUtils';
 
 const INTERACTIVE_ROLES = [
   'button',

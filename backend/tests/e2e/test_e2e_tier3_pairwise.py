@@ -26,7 +26,7 @@ from PIL import Image
 import backend.main as main_mod
 from backend import config
 from backend.services.video_renderer import VideoRenderer
-from backend.tests.e2e.conftest import generate_sine_wave_wav, generate_test_image
+from backend.tests.helpers.media import generate_sine_wave_wav, generate_test_image
 
 
 def test_pairwise_custom_lyrics_plus_pitch_shift_plus_video_render(client, tmp_path):

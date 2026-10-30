@@ -52,7 +52,7 @@ from backend.services.aligner import (
     count_syllables,
     enforce_monotonic_words,
 )
-from backend.tests.test_e2e_lyrics_aligner_sync import (
+from backend.tests.helpers.audio_signals import (
     create_synthetic_vocal_signal,
     write_test_wav,
 )

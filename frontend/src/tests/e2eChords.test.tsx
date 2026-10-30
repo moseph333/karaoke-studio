@@ -27,7 +27,7 @@ import {
   assertZeroHorizontalOverflow,
   assertTouchTargets,
   BREAKPOINTS,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 import { ChordSegment, LyricLine, ProjectState } from '../types';
 
 // ==============================================================================

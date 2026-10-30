@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
-import { expectTouchTarget } from './responsiveTestUtils';
+import { expectTouchTarget } from './helpers/responsiveTestUtils';
 import { TrackSearch } from '../components/TrackSearch';
 import { ProjectState } from '../types';
 import { setAuthUser } from '../api';

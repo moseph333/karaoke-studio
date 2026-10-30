@@ -37,7 +37,7 @@ import {
   assertZeroHorizontalOverflow,
   assertTouchTargets,
   BREAKPOINTS,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Adversarial Workstation & UI Integration Stress Suite (Challenger 2)', () => {
   const denseProgression: ChordSegment[] = [

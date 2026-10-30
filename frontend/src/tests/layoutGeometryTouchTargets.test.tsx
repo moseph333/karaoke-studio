@@ -9,7 +9,7 @@ import {
   assertZeroHorizontalOverflow,
   assertTouchTargets,
   expectTouchTarget,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 import { AuthModal } from '../components/AuthModal';
 import { ExportModal } from '../components/ExportModal';
 import { TrackSearch } from '../components/TrackSearch';

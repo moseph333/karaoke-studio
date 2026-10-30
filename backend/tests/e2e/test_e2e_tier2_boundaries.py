@@ -25,7 +25,7 @@ from backend.services.aligner import AudioAligner
 from backend.services.downloader import TrackDownloader
 from backend.services.lyrics import LyricsService
 from backend.services.video_renderer import VideoRenderer
-from backend.tests.e2e.conftest import generate_sine_wave_wav, generate_test_image
+from backend.tests.helpers.media import generate_sine_wave_wav, generate_test_image
 
 # ==============================================================================
 # Feature 1: Audio Intake Boundaries

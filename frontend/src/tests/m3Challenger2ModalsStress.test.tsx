@@ -29,7 +29,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 const mockLines: LyricLine[] = [
   {

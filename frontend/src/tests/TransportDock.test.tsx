@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TransportDock } from '../components/transport/TransportDock';
-import { expectTouchTarget } from './responsiveTestUtils';
+import { expectTouchTarget } from './helpers/responsiveTestUtils';
 
 describe('TransportDock', () => {
   const defaultProps = {

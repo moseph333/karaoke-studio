@@ -20,7 +20,7 @@ import {
   assertZeroHorizontalOverflow,
   detectHorizontalOverflow,
   expectTouchTarget,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => {
   const sampleLines: LyricLine[] = [

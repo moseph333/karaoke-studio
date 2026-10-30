@@ -44,7 +44,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
   const readyProject: ProjectState = {

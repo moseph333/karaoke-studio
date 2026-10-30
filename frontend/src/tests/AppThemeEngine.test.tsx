@@ -27,7 +27,7 @@ import {
 } from '../theme/appThemes';
 import { AppThemeId } from '../types';
 import App from '../App';
-import { ALL_APP_THEME_IDS } from './themeFixtures';
+import { ALL_APP_THEME_IDS } from './helpers/themeFixtures';
 
 describe('AppThemeEngine (Milestone 1 Core Verification)', () => {
   beforeEach(() => {

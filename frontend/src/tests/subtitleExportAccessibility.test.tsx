@@ -12,7 +12,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone 2 Challenger 2: Frontend & Accessibility Adversarial Suite (Subtitle Exports)', () => {
   const baseReadyProject: ProjectState = {

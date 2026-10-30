@@ -33,7 +33,7 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('R2: Touch-Friendly Timeline Editor & Mobile Tap-to-Sync', () => {
   const sampleWords: WordTiming[] = [

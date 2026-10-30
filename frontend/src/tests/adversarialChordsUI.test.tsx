@@ -35,7 +35,7 @@ import {
   assertZeroHorizontalOverflow,
   assertTouchTargets,
   BREAKPOINTS,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone 2 Empirical Challenger: Adversarial Stress Suite', () => {
   beforeEach(() => {

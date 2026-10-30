@@ -13,7 +13,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => {
   const sampleLines: LyricLine[] = [

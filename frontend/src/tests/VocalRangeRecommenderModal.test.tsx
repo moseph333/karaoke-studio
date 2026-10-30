@@ -9,7 +9,7 @@ import {
   resetTestViewport,
   assertTouchTargets,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('VocalRangeRecommenderModal Component', () => {
   const mockVocalRange: VocalRangeData = {

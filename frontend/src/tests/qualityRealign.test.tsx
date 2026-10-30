@@ -19,7 +19,7 @@ import { useSyncJobResult } from '../hooks/useSyncJobResult';
 import { resetCapabilitiesCache } from '../hooks/useCapabilities';
 import { ToastProvider } from '../hooks/useToast';
 import type { LyricLine, ProjectState, SyncJob } from '../types';
-import { CAPABILITIES, json, mockStudioFetch } from './qualityFixtures';
+import { CAPABILITIES, json, mockStudioFetch } from './helpers/qualityFixtures';
 
 const line = (id: number, text: string, start: number): LyricLine => ({
   id,

@@ -29,7 +29,7 @@ import {
   APP_THEME_STORAGE_KEY,
 } from '../theme/appThemes';
 import { AppThemeId } from '../types';
-import { runIndexHtmlBootScript } from './bootScriptUtils';
+import { runIndexHtmlBootScript } from './helpers/bootScriptUtils';
 
 describe('AppThemeEngine Stress Testing (Milestone 1 Challenger 1)', () => {
   beforeEach(() => {

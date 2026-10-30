@@ -35,7 +35,7 @@ import {
   assertZeroHorizontalOverflow,
   detectHorizontalOverflow,
   assertTouchTargets,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('M1 Iteration 2 Challenger 1: Empirical Stress Suite', () => {
   const mockProject: ProjectState = {

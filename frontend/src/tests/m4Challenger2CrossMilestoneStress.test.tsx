@@ -30,7 +30,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', () => {
   const readyProject: ProjectState = {

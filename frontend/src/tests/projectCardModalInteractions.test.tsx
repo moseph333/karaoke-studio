@@ -12,7 +12,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone 1 Challenger 2: Adversarial Frontend Controls & Stress Harness', () => {
   const mockProject: ProjectState = {

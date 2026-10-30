@@ -22,7 +22,7 @@ import backend.main as main_mod
 from backend import config
 from backend.services.audio_mixer import AudioMixer
 from backend.services.video_renderer import VideoRenderer
-from backend.tests.e2e.conftest import generate_sine_wave_wav, generate_test_image
+from backend.tests.helpers.media import generate_sine_wave_wav, generate_test_image
 
 
 def check_mp4_dimensions(mp4_path: Path):

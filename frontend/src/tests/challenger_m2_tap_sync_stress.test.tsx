@@ -30,7 +30,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Milestone M2 Adversarial Stress Suite: Mobile Tap-to-Sync & Narrow Viewports', () => {
   const createMockLines = (count = 5, wordsPerLine = 4): LyricLine[] => {

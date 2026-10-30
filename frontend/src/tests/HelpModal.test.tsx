@@ -8,7 +8,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HelpModal } from '../components/HelpModal';
 import App from '../App';
-import { setTestViewport, resetTestViewport } from './responsiveTestUtils';
+import { setTestViewport, resetTestViewport } from './helpers/responsiveTestUtils';
 
 describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
   let onClose: () => void;

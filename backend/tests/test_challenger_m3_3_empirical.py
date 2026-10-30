@@ -17,7 +17,7 @@ import pytest
 import soundfile as sf
 
 from backend.services.aligner import AudioAligner, refine_line_boundaries
-from backend.tests.test_e2e_lyrics_aligner_sync import create_synthetic_vocal_signal
+from backend.tests.helpers.audio_signals import create_synthetic_vocal_signal
 
 
 class TestOnsetSnappingAtZeroEmpirical:

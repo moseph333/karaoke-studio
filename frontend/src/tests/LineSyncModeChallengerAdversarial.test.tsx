@@ -13,7 +13,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization', () => {
   const standardTestLines: LyricLine[] = [

@@ -13,7 +13,7 @@ import {
   setTestViewport,
   resetTestViewport,
   assertZeroHorizontalOverflow,
-} from './responsiveTestUtils';
+} from './helpers/responsiveTestUtils';
 
 describe('Tooltip Empirical Stress & Adversarial Suite', () => {
   beforeEach(() => {
