@@ -18,6 +18,7 @@ import logging
 import math
 import os
 import subprocess
+import uuid
 from collections.abc import Iterator
 from contextvars import ContextVar
 from pathlib import Path
@@ -169,7 +170,8 @@ class AudioMixer:
             safe_guide_volume = 0.0
 
         output_path = self.output_dir / output_filename
-        temp_output = output_path.with_suffix(f".tmp_{os.getpid()}.wav")
+        # Unique per call: two requests for the same mix may render at once in one process
+        temp_output = output_path.with_suffix(f".tmp_{uuid.uuid4().hex[:8]}.wav")
 
         # Calculate pitch shift factor: 2^(semitones / 12)
         pitch_factor = 2.0 ** (clamped_semitones / 12.0)

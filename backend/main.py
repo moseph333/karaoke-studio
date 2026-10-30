@@ -41,6 +41,7 @@ from backend.export_utils import (
     build_content_disposition,
     sanitize_export_filename,
 )
+from backend.http_delivery import CompressTextResponses, cache_control_for
 from backend.logging_setup import configure_logging
 from backend.pipeline import (
     run_local_pipeline,
@@ -201,7 +202,14 @@ async def add_security_headers_middleware(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    cache_control = cache_control_for(request.url.path, response.status_code)
+    if cache_control and "cache-control" not in response.headers:
+        response.headers["Cache-Control"] = cache_control
     return response
+
+
+# Added last, so it wraps every other middleware and compresses their final responses
+app.add_middleware(CompressTextResponses, minimum_size=1024)
 
 
 # Mount static directories so frontend can stream audio and video

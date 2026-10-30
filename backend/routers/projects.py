@@ -21,7 +21,7 @@ from backend.project_store import (
     cleanup_project_disk_artifacts,
     find_project,
     get_project_or_404,
-    load_projects,
+    merge_disk_projects,
     save_projects,
 )
 from backend.reseparation import cancel_key as reseparation_cancel_key
@@ -72,8 +72,7 @@ def search_tracks(req: SearchRequest):
 def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
     import backend.main as main_mod
 
-    disk_projects = load_projects()
-    main_mod.projects.update(disk_projects)
+    merge_disk_projects(main_mod.projects)
 
     video_id = main_mod.downloader.extract_video_id(req.url_or_id)
     if video_id:
@@ -132,8 +131,7 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
 def list_projects(scope: str | None = "all", user: str | None = None):
     import backend.main as main_mod
 
-    disk_projects = load_projects()
-    main_mod.projects.update(disk_projects)
+    merge_disk_projects(main_mod.projects)
 
     if scope == "my" and user:
         return {pid: p for pid, p in main_mod.projects.items() if p.get("created_by") == user}
@@ -983,6 +981,13 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
     import backend.main as main_mod
 
     proj = get_project_or_404(project_id)
+    render_key = f"{project_id}_render"
+    # A second request (a double click, another tab) would run a second FFmpeg encode into
+    # the same files. run_video_render removes this event when it ends; a set one is a
+    # cancelled render winding down.
+    running = main_mod.active_cancellations.get(render_key)
+    if running is not None and not running.is_set():
+        raise HTTPException(status_code=409, detail="A video is already rendering for this song")
     inst_path = proj.get("instrumental_path")
     if not inst_path or not os.path.isfile(inst_path) or os.path.getsize(inst_path) == 0:
         logger.warning(
@@ -996,7 +1001,6 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
         f"Queuing video render for project {project_id} (aspect_ratio={req.aspect_ratio}, semitones={req.semitones})"
     )
     proj["render_status"] = "queued"
-    render_key = f"{project_id}_render"
     main_mod.active_cancellations.setdefault(render_key, threading.Event())
     proj["render_progress"] = 5
     proj["render_detail"] = "Queueing render job..."

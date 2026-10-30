@@ -11,6 +11,7 @@ from backend.project_store import (
     find_project,
     get_project_or_404,
     save_projects,
+    save_projects_throttled,
 )
 from backend.schemas import RenderRequest
 from backend.services.ass_generator import css_to_ass_color
@@ -32,6 +33,7 @@ def run_video_render(project_id: str, req: RenderRequest):
         proj = find_project(project_id)
         if not proj:
             return
+        started_rendering = proj.get("render_status") != "rendering"
         proj["render_status"] = "rendering"
         proj["render_progress"] = progress
         proj["render_detail"] = detail
@@ -39,7 +41,11 @@ def run_video_render(project_id: str, req: RenderRequest):
         proj["render_elapsed_seconds"] = int(time.time() - render_start)
         if eta_s is not None:
             proj["render_eta_seconds"] = eta_s
-        save_projects()
+        # Progress arrives up to 4 times a second and the studio reads it from memory
+        if started_rendering:
+            save_projects()
+        else:
+            save_projects_throttled()
 
     # Fast pre-acquire check
     if cancel_event.is_set():

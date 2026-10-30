@@ -21,7 +21,12 @@ from typing import Any
 
 from backend.background_jobs import SYNC_JOB, job_active
 from backend.background_jobs import conflict_reason as job_conflict
-from backend.project_store import PROJECTS_LOCK, find_project, save_projects
+from backend.project_store import (
+    PROJECTS_LOCK,
+    find_project,
+    save_projects,
+    save_projects_throttled,
+)
 from backend.services.lyric_sync import AlignmentCancelled, sync_lyrics
 
 logger = logging.getLogger("karaoke_backend")
@@ -122,13 +127,18 @@ def run_realignment(
     started = time.time()
     progress_floor = 1
 
-    def update(**fields: Any) -> None:
+    def update(*, throttle: bool = False, **fields: Any) -> None:
+        """throttle: a progress tick, which the studio reads from memory (saved at most
+        once a second)."""
         if cancel_event.is_set():
             raise RealignmentCancelled()
         with PROJECTS_LOCK:
             _, current = _live(project_id, job_id)
             current.update(fields, heartbeat=int(time.time() * 1000))
-            save_projects()
+            if throttle:
+                save_projects_throttled()
+            else:
+                save_projects()
 
     acquired = False
     try:
@@ -148,7 +158,7 @@ def run_realignment(
             nonlocal progress_floor
             if pct is not None:
                 progress_floor = max(progress_floor, min(99, int(pct)))
-            update(progress=progress_floor, detail=detail)
+            update(progress=progress_floor, detail=detail, throttle=True)
 
         result = sync_lyrics(
             vocals_path,

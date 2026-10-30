@@ -5,6 +5,7 @@ import logging
 import os
 import shutil
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,15 @@ logger = logging.getLogger("karaoke_backend")
 PROJECTS_STORE_FILE = DATA_DIR / "projects.json"
 PROJECTS_BACKUP_FILE = DATA_DIR / "projects.json.bak"
 PROJECTS_LOCK = threading.RLock()
+
+# Jobs report progress several times a second. The studio reads it from memory, so the file
+# only needs to catch up about once a second; status changes are always written at once.
+PROGRESS_SAVE_INTERVAL_SEC = 1.0
+# The backup is a recovery copy for a corrupted store, renewed at most this often
+BACKUP_REFRESH_SEC = 60.0
+
+# time.monotonic() of the last successful write
+_last_save_at = 0.0
 
 
 def load_projects() -> dict[str, dict[str, Any]]:
@@ -52,7 +62,15 @@ def load_projects() -> dict[str, dict[str, Any]]:
         return {}
 
 
+def _backup_is_stale(backup_file: Path) -> bool:
+    try:
+        return time.time() - backup_file.stat().st_mtime >= BACKUP_REFRESH_SEC
+    except OSError:
+        return True  # no backup yet
+
+
 def save_projects():
+    global _last_save_at
     import backend.main as main_mod
 
     store_file = getattr(main_mod, "PROJECTS_STORE_FILE", PROJECTS_STORE_FILE)
@@ -68,7 +86,8 @@ def save_projects():
                 pid = v.get("id", k)
                 if pid not in unique_projects:
                     unique_projects[pid] = v
-            serialized = json.dumps(unique_projects, indent=2)
+            # Compact: indenting makes json fall back to its much slower pure-Python encoder
+            serialized = json.dumps(unique_projects, separators=(",", ":"))
 
             data_dir.mkdir(parents=True, exist_ok=True)
             # Write to a temporary file in the same directory (guarantees same filesystem for atomic rename)
@@ -78,8 +97,13 @@ def save_projects():
                 f.flush()
                 os.fsync(f.fileno())
 
-            # If current store file exists and has size, back it up before replacement
-            if store_file.exists() and store_file.stat().st_size > 0:
+            # Keep a copy of the previous store for recovery. Copying it on every save would
+            # double the disk traffic of progress updates, so it is renewed once a minute.
+            if (
+                store_file.exists()
+                and store_file.stat().st_size > 0
+                and _backup_is_stale(backup_file)
+            ):
                 try:
                     backup_file.write_bytes(store_file.read_bytes())
                 except Exception as bak_err:
@@ -87,6 +111,7 @@ def save_projects():
 
             # Atomic swap
             os.replace(temp_file, store_file)
+            _last_save_at = time.monotonic()
         except Exception as e:
             logger.error(f"Failed to persist projects.json atomically: {e}")
             if "temp_file" in locals() and temp_file.exists():
@@ -96,7 +121,28 @@ def save_projects():
                     pass
 
 
+def save_projects_throttled():
+    """Save, unless the store was written less than PROGRESS_SAVE_INTERVAL_SEC ago.
+
+    For progress-only updates: memory always holds the newest state, and the next status
+    change or a later progress update writes it out."""
+    if time.monotonic() - _last_save_at < PROGRESS_SAVE_INTERVAL_SEC:
+        return
+    save_projects()
+
+
 projects: dict[str, dict[str, Any]] = load_projects()
+
+
+def merge_disk_projects(projs: dict[str, dict[str, Any]]) -> None:
+    """Add projects that exist on disk but not in memory.
+
+    Projects already in memory are kept as they are: memory holds their newest state
+    (progress reaches the disk at most once a second), and request handlers and jobs may
+    still hold those dicts, so replacing them would lose their writes."""
+    with PROJECTS_LOCK:
+        for pid, proj in load_projects().items():
+            projs.setdefault(pid, proj)
 
 
 def find_project(project_id: str) -> dict[str, Any] | None:
@@ -106,8 +152,7 @@ def find_project(project_id: str) -> dict[str, Any] | None:
     with PROJECTS_LOCK:
         if project_id in projs:
             return projs[project_id]
-        disk_projects = load_projects()
-        projs.update(disk_projects)
+        merge_disk_projects(projs)
         if project_id in projs:
             return projs[project_id]
         for p in projs.values():

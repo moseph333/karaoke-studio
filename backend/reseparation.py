@@ -23,7 +23,12 @@ from typing import Any
 from backend.background_jobs import SEPARATION_JOB, job_active
 from backend.background_jobs import conflict_reason as job_conflict
 from backend.config import STEMS_DIR
-from backend.project_store import PROJECTS_LOCK, find_project, save_projects
+from backend.project_store import (
+    PROJECTS_LOCK,
+    find_project,
+    save_projects,
+    save_projects_throttled,
+)
 from backend.realignment import lines_fingerprint
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.separation_presets import PRESET_LABELS
@@ -119,14 +124,19 @@ def run_reseparation(project_id: str, job_id: str) -> None:
     started = time.time()
     swapped = False
 
-    def update(**fields: Any) -> None:
+    def update(*, throttle: bool = False, **fields: Any) -> None:
+        """throttle: a progress tick, which the studio reads from memory (saved at most
+        once a second)."""
         # Once the new stems are in place the remaining steps are short; finish them
         if cancel_event.is_set() and not swapped:
             raise ReseparationCancelled()
         with PROJECTS_LOCK:
             _, current = _live(project_id, job_id)
             current.update(fields, heartbeat=int(time.time() * 1000))
-            save_projects()
+            if throttle:
+                save_projects_throttled()
+            else:
+                save_projects()
 
     acquired = False
     try:
@@ -145,7 +155,7 @@ def run_reseparation(project_id: str, job_id: str) -> None:
             nonlocal progress_floor
             share = min(_SEPARATION_SHARE, int((pct or 0.0) * _SEPARATION_SHARE / 100))
             progress_floor = max(progress_floor, share)
-            update(progress=progress_floor, detail=detail, eta_seconds=eta)
+            update(progress=progress_floor, detail=detail, eta_seconds=eta, throttle=True)
 
         result = main_mod.separator.separate_stems(
             audio_path=audio_path,
