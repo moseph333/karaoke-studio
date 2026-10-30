@@ -367,7 +367,9 @@ describe('Re-making stems from the studio', () => {
 
     // From the palette
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'improve stem' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 'improve stem' },
+    });
     fireEvent.click(await screen.findByRole('option', { name: /Improve stem separation/ }));
     expect(
       await screen.findByRole('dialog', { name: 'Improve stem separation' })

@@ -129,7 +129,7 @@ describe('command palette', () => {
   it('wires the combobox to a grouped listbox and moves the active option with the keyboard', () => {
     renderPalette();
     pressModK();
-    const input = screen.getByRole('combobox');
+    const input = screen.getByRole('combobox', { name: /search commands/i });
     const listbox = screen.getByRole('listbox');
     expect(input).toHaveAttribute('aria-controls', listbox.id);
     expect(input).toHaveAttribute('aria-autocomplete', 'list');
@@ -164,7 +164,7 @@ describe('command palette', () => {
     try {
       renderPalette();
       pressModK();
-      const input = screen.getByRole('combobox');
+      const input = screen.getByRole('combobox', { name: /search commands/i });
       fireEvent.change(input, { target: { value: 'mut' } });
       const options = screen.getAllByRole('option');
       expect(options).toHaveLength(1);
@@ -188,10 +188,15 @@ describe('command palette', () => {
   it('shows an empty state when nothing matches', () => {
     renderPalette();
     pressModK();
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'zzzz' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 'zzzz' },
+    });
     expect(screen.queryAllByRole('option')).toHaveLength(0);
     expect(screen.getByText(/No matches for/)).toBeInTheDocument();
-    expect(screen.getByRole('combobox')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('combobox', { name: /search commands/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
   });
 
   it('keeps the palette open for repeatable commands', async () => {
@@ -240,10 +245,14 @@ describe('command palette', () => {
     pressModK();
     expect(warm).toHaveBeenCalledTimes(1);
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'w' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 'w' },
+    });
     expect(load).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'window' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 'window' },
+    });
     expect(await screen.findByRole('option', { name: /Every window glowing/ })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Lyric lines' })).toBeInTheDocument();
     expect(load).toHaveBeenLastCalledWith('window', expect.any(AbortSignal));
@@ -320,7 +329,7 @@ describe('studio commands', () => {
   it('offers playback, stage and theme commands and runs them', async () => {
     await openStudio();
     fireEvent.click(screen.getByRole('button', { name: /open command palette/i }));
-    const input = screen.getByRole('combobox');
+    const input = screen.getByRole('combobox', { name: /search commands/i });
     expect(screen.getByRole('option', { name: /^Play\s?Space$/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /App theme: Afterglow/ })).toBeInTheDocument();
 
@@ -334,7 +343,9 @@ describe('studio commands', () => {
   it('jumps to a lyric line found by text search', async () => {
     await openStudio();
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'window glowing' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 'window glowing' },
+    });
     const option = await screen.findByRole('option', { name: /Every window glowing/ });
     expect(option).toHaveTextContent('Line 2');
     fireEvent.click(option);
@@ -344,7 +355,9 @@ describe('studio commands', () => {
   it('finds other songs in the library without duplicates', async () => {
     await openStudio();
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'second' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 'second' },
+    });
     const songs = await screen.findAllByRole('option', { name: /Second Song/ });
     expect(songs).toHaveLength(1);
     fireEvent.click(songs[0]);

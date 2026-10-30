@@ -213,7 +213,7 @@ describe('render requests and palette commands', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByText('Backdrop Song')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /open command palette/i }));
-    fireEvent.change(screen.getByRole('combobox'), {
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
       target: { value: 'stage background aurora' },
     });
     fireEvent.click(screen.getByRole('option', { name: /Stage background: Aurora/ }));
