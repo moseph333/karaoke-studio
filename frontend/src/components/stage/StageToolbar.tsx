@@ -35,7 +35,7 @@ const SYNC_OPTIONS: { mode: SyncDisplayMode; text: string; label: string; hint: 
   { mode: 'line', text: 'Line', label: 'Line highlight', hint: 'Light up whole lines at once' },
 ];
 
-export const StageToolbar: React.FC<StageToolbarProps> = ({
+const StageToolbarView: React.FC<StageToolbarProps> = ({
   isFullscreen,
   visible,
   syncMode,
@@ -131,3 +131,6 @@ export const StageToolbar: React.FC<StageToolbarProps> = ({
     </div>
   </div>
 );
+
+// Memoized: the stage re-renders every animation frame while a song plays
+export const StageToolbar = React.memo(StageToolbarView);

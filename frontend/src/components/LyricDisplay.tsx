@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { LyricLine, ChordSegment, SyncDisplayMode, VisualTheme } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
+import { useIsVisible } from '../hooks/useIsVisible';
 import { isInputElement, isModalActive } from '../hooks/useKeyboardShortcuts';
 import { characterShortcutsEnabled } from '../utils/shortcutPrefs';
 import { detectInstrumentalGaps, getCountdownState } from '../utils/gapDetection';
@@ -196,7 +197,8 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
 
   const [internalShowViz, setInternalShowViz] = useState(false);
   const isVisualizerActive = showVisualizer !== undefined ? showVisualizer : internalShowViz;
-  const handleToggleVisualizer = onToggleVisualizer || (() => setInternalShowViz((v) => !v));
+  const toggleInternalViz = useCallback(() => setInternalShowViz((v) => !v), []);
+  const handleToggleVisualizer = onToggleVisualizer || toggleInternalViz;
 
   const [internalShowChordBar, setInternalShowChordBar] = useState(false);
   const isChordBarVisible =
@@ -205,7 +207,8 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       : showChordBar !== undefined
         ? showChordBar
         : internalShowChordBar;
-  const handleToggleChordBar = onToggleChordBar || (() => setInternalShowChordBar((v) => !v));
+  const toggleInternalChordBar = useCallback(() => setInternalShowChordBar((v) => !v), []);
+  const handleToggleChordBar = onToggleChordBar || toggleInternalChordBar;
 
   // --- Fullscreen & auto-hiding controls -------------------------------------------
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -213,7 +216,16 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   const stageRef = useRef<HTMLDivElement>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const effectiveTime = useInterpolatedTime({ currentTime, isPlaying, playbackRate, audioRef });
+  // Frame-rate work (the sweep clock, visualizer, moving backgrounds) stops while the stage
+  // is off screen, as on the phone's Timeline and Mix tabs where it stays mounted but hidden
+  const isOnScreen = useIsVisible(stageRef);
+  const isAnimating = isPlaying && isOnScreen;
+  const effectiveTime = useInterpolatedTime({
+    currentTime,
+    isPlaying: isAnimating,
+    playbackRate,
+    audioRef,
+  });
 
   const resetIdleTimer = useCallback(() => {
     setShowControls(true);
@@ -395,17 +407,22 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
         media={backgroundMedia}
         tone={stageTone}
         style={backgroundStyle}
-        time={effectiveTime}
+        // Only moving styles use the time; a still background then skips frame re-renders
+        time={
+          !backgroundMedia && (backgroundStyle === 'drift' || backgroundStyle === 'aurora')
+            ? effectiveTime
+            : 0
+        }
         palette={backgroundPalette}
         aspect={aspectRatio === '9:16' ? '9:16' : '16:9'}
         analyserNode={analyserNode}
-        isPlaying={isPlaying}
+        isPlaying={isAnimating}
       />
 
       {isVisualizerActive && (
         <BeatVisualizer
           analyserNode={analyserNode ?? null}
-          isPlaying={isPlaying}
+          isPlaying={isAnimating}
           themeSungColor={activeSungColor}
           themeUnsungColor={themeUnsungColor}
           className="pointer-events-none absolute inset-0 z-[1]"

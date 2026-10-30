@@ -7,7 +7,7 @@
  * Accessible with ARIA region semantics and responsive down to 320px with >=44px touch targets.
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChordSegment } from '../types';
 import { transposeChord, NO_CHORD_VALUES } from '../utils/chords';
 import { Edit2, Check, X } from 'lucide-react';
@@ -40,6 +40,13 @@ export const ChordBar: React.FC<ChordBarProps> = ({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
 
+  // Transposing parses each chord symbol: do it when the chords or the key change, not on
+  // every animation frame of the stage
+  const transposed = useMemo(
+    () => chords.map((c) => transposeChord(c.chord, semitones, keyHint)),
+    [chords, semitones, keyHint]
+  );
+
   if (!visible) return null;
 
   // Active segment: current playback time falls within [start, end)
@@ -50,11 +57,13 @@ export const ChordBar: React.FC<ChordBarProps> = ({
 
   const activeSegment = activeIndex >= 0 ? chords[activeIndex] : null;
 
-  // Upcoming segments within the lookahead window
-  const upcomingSegments =
+  // Upcoming segments within the lookahead window (as indices into `chords`)
+  const upcomingIndices =
     chords.length === 0 || currentTime < 0
       ? []
-      : chords.filter((c) => c.start > currentTime && c.start <= currentTime + previewWindow);
+      : chords.flatMap((c, i) =>
+          c.start > currentTime && c.start <= currentTime + previewWindow ? [i] : []
+        );
 
   let activeChordDisplay = '—';
   if (activeSegment) {
@@ -64,7 +73,7 @@ export const ChordBar: React.FC<ChordBarProps> = ({
     ) {
       activeChordDisplay = 'N';
     } else {
-      activeChordDisplay = transposeChord(activeSegment.chord, semitones, keyHint);
+      activeChordDisplay = transposed[activeIndex];
     }
   }
 
@@ -169,14 +178,14 @@ export const ChordBar: React.FC<ChordBarProps> = ({
         data-testid="upcoming-chords"
         className="upcoming flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-sm text-white/70"
       >
-        {upcomingSegments.map((s, idx) => (
+        {upcomingIndices.map((i, idx) => (
           <span
-            key={s.id || idx}
+            key={chords[i].id || idx}
             data-testid="upcoming-chord-cue"
-            onClick={() => onSeek?.(s.start)}
+            onClick={() => onSeek?.(chords[i].start)}
             className="shrink-0 cursor-pointer rounded-theme-md border border-white/15 bg-white/5 px-2 py-1 text-xs font-semibold text-white/85 transition-colors hover:bg-white/15 sm:text-sm"
           >
-            {transposeChord(s.chord, semitones, keyHint)}
+            {transposed[i]}
           </span>
         ))}
       </div>

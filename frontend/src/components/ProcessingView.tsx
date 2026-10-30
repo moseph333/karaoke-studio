@@ -25,6 +25,7 @@ import { ProgressRing } from './ui/Progress';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 import { presetInfo, stemsLabel } from '../utils/quality';
+import { useNow } from '../hooks/useNow';
 
 export interface PipelineStage {
   id: string;
@@ -77,9 +78,9 @@ const formatTimer = (seconds?: number | null) => {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
-const getHeartbeatText = (lastHeartbeat?: number) => {
+const getHeartbeatText = (lastHeartbeat: number | undefined, now: number) => {
   if (!lastHeartbeat) return 'Active';
-  const diffSec = Math.max(0, Math.round((Date.now() - lastHeartbeat) / 1000));
+  const diffSec = Math.max(0, Math.round((now - lastHeartbeat) / 1000));
   if (diffSec < 2) return 'Pulse just now';
   return `Pulse ${diffSec}s ago`;
 };
@@ -107,7 +108,9 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     }
   }, [showCancelConfirm]);
 
-  const isHeartbeatStalled = Boolean(project.heartbeat && Date.now() - project.heartbeat > 15000);
+  // Advances the heartbeat label and stall check between polls (only while processing)
+  const now = useNow(1000, project.status !== 'cancelled' && project.status !== 'error');
+  const isHeartbeatStalled = Boolean(project.heartbeat && now - project.heartbeat > 15000);
   const isReconnecting =
     isReconnectingProp ?? Boolean(project?.status_detail?.toLowerCase().includes('reconnecting'));
   const currentStageIndex = getActivePipelineStage(project?.status, project?.status_detail);
@@ -279,7 +282,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
                   <span className="absolute inline-flex h-full w-full rounded-full bg-theme-success opacity-75 motion-safe:animate-ping" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-theme-success" />
                 </span>
-                <span>Engine Active • {getHeartbeatText(project?.heartbeat)}</span>
+                <span>Engine Active • {getHeartbeatText(project?.heartbeat, now)}</span>
               </div>
             )}
           </div>

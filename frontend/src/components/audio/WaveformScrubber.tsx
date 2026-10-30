@@ -36,11 +36,43 @@ export interface WaveformScrubberProps {
   className?: string;
   /** Pre-computed normalized peaks (0-1); skips client-side decoding when provided. */
   peaks?: number[] | null;
+  /** The peaks are still on their way: don't download and decode the audio meanwhile. */
+  deferDecode?: boolean;
   /** Render lyric line start markers along the track. */
   showMarkers?: boolean;
 }
 
 const BAR_COUNT = 100;
+
+/** The waveform bars: re-rendered when the playhead passes a bar, not on every frame. */
+const WaveformBars = React.memo(function WaveformBars({
+  bars,
+  playedCount,
+}: {
+  bars: number[];
+  playedCount: number;
+}) {
+  return (
+    <>
+      {bars.map((height, i) => {
+        const isPlayed = i < playedCount;
+        return (
+          <div
+            key={i}
+            data-testid="waveform-bar"
+            data-played={isPlayed ? 'true' : 'false'}
+            className={`flex-1 rounded-full transition-colors duration-100 ${
+              isPlayed
+                ? 'bg-theme-sung'
+                : 'bg-theme-text-muted/25 group-hover:bg-theme-text-muted/35'
+            }`}
+            style={{ height: `${Math.max(12, Math.round(height * 100))}%` }}
+          />
+        );
+      })}
+    </>
+  );
+});
 
 export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   currentTime,
@@ -51,6 +83,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   isPlaying = false,
   className = '',
   peaks,
+  deferDecode = false,
   showMarkers = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -96,10 +129,12 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
     return bars;
   }, [duration, lines]);
 
-  // Mode B: Web Audio API peak extraction if AudioContext is available
+  // Mode B: Web Audio API peak extraction if AudioContext is available. It downloads the
+  // whole master (about 40 MB for a 4-minute WAV), so it only runs once the server's peaks
+  // are known to be unavailable.
   useEffect(() => {
     const targetUrl = audioUrl;
-    if (peaks && peaks.length > 0) return;
+    if (deferDecode || (peaks && peaks.length > 0)) return;
     if (!targetUrl || typeof window === 'undefined') return;
     const AudioContextClass =
       window.AudioContext ||
@@ -157,7 +192,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       isCancelled = true;
       abortController.abort();
     };
-  }, [audioUrl, peaks]);
+  }, [audioUrl, peaks, deferDecode]);
 
   const providedBars = useMemo(() => {
     if (!peaks || peaks.length === 0) return null;
@@ -187,6 +222,11 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
     Number.isFinite(duration) && duration > 0
       ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
       : 0;
+  // A bar counts as played once the playhead passes its centre
+  const playedCount = Math.max(
+    0,
+    Math.min(bars.length, Math.floor((progressPercent / 100) * bars.length + 0.5))
+  );
 
   const seekFromClientX = useCallback(
     (clientX: number) => {
@@ -277,24 +317,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       // The real control is the invisible range input below, so the focus ring goes here
       className={`group relative flex h-14 w-full cursor-pointer select-none items-center gap-[2px] overflow-hidden rounded-theme-md px-0.5 touch-none has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-theme-focus ${className}`}
     >
-      {/* Waveform Bars */}
-      {bars.map((height, i) => {
-        const barPercent = ((i + 0.5) / bars.length) * 100;
-        const isPlayed = barPercent <= progressPercent;
-        return (
-          <div
-            key={i}
-            data-testid="waveform-bar"
-            data-played={isPlayed ? 'true' : 'false'}
-            className={`flex-1 rounded-full transition-colors duration-100 ${
-              isPlayed
-                ? 'bg-theme-sung'
-                : 'bg-theme-text-muted/25 group-hover:bg-theme-text-muted/35'
-            }`}
-            style={{ height: `${Math.max(12, Math.round(height * 100))}%` }}
-          />
-        );
-      })}
+      <WaveformBars bars={bars} playedCount={playedCount} />
 
       {/* Lyric line markers */}
       {markerPercents.map((pct, i) => (
