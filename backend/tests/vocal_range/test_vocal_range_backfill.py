@@ -1,4 +1,4 @@
-"""backend/tests/test_challenger2_stress.py
+"""backend/tests/vocal_range/test_vocal_range_backfill.py
 
 Adversarial stress testing and boundary condition suite for Milestone 1:
 1. High concurrency requests to GET and POST endpoints under PROJECTS_LOCK with concurrent mutations.

@@ -1,4 +1,4 @@
-"""backend/tests/test_api_vocal_range.py
+"""backend/tests/vocal_range/test_api_vocal_range.py
 
 Comprehensive API integration test suite for Vocal Range & Key Recommendation (R1).
 Validates GET /vocal-range with cached returns and on-demand auto-backfill from disk,

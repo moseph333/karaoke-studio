@@ -1,5 +1,5 @@
 """
-backend/tests/test_api_routes.py
+backend/tests/projects/test_api_routes.py
 
 Comprehensive route integration test suite for Karaoke Studio.
 Validates HTTP status codes, Pydantic input schemas (422), route pre-flight checks (400),
