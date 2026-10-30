@@ -15,7 +15,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 
 from backend import realignment
-from backend.background_jobs import SEPARATION_JOB, job_active
+from backend.background_jobs import SEPARATION_JOB, job_active, run_job
 from backend.config import OUTPUT_DIR
 from backend.master_audio import (  # noqa: F401 (the cache helpers are imported from here too)
     MIX_CACHE_MARKER,
@@ -171,7 +171,7 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
         main_mod.active_cancellations[video_id] = cancel_event
     main_mod.projects[project_id] = proj_data
     save_projects()
-    bg_tasks.add_task(main_mod.run_pipeline, project_id, req.url_or_id, req.custom_lyrics)
+    bg_tasks.add_task(run_job, main_mod.run_pipeline, project_id, req.url_or_id, req.custom_lyrics)
     return {"project_id": project_id, "status": "queued"}
 
 
@@ -815,7 +815,13 @@ def realign_lyrics(
                 main_mod.active_cancellations[realignment.cancel_key(pid)] = threading.Event()
                 save_projects()
             bg_tasks.add_task(
-                realignment.run_realignment, pid, job["id"], lines_to_align, lyric_data, mode
+                run_job,
+                realignment.run_realignment,
+                pid,
+                job["id"],
+                lines_to_align,
+                lyric_data,
+                mode,
             )
             response.status_code = 202
             return {"status": "queued", "job": job}
@@ -1008,7 +1014,7 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
     proj["render_eta_seconds"] = 45
     proj["render_heartbeat"] = int(time.time() * 1000)
     save_projects()
-    bg_tasks.add_task(main_mod.run_video_render, project_id, req)
+    bg_tasks.add_task(run_job, main_mod.run_video_render, project_id, req)
 
     return {"status": "queued"}
 
