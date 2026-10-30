@@ -999,26 +999,30 @@ class TestMilestone2Iteration2EmpiricalSuite:
         assert "{\\kf100}● {\\kf100}● {\\kf100}●" in cds[2]["Text"]
 
     def test_videorenderer_encapsulation_boundaries(self, tmp_path: Path):
-        """VideoRenderer method signatures must strictly raise TypeError for invalid direct kwargs."""
+        """VideoRenderer's wrappers take the duet colours and font scale of the module
+        functions they wrap, and still raise TypeError for keywords those don't have."""
         renderer = VideoRenderer(output_dir=tmp_path)
         out_ass = tmp_path / "test_encapsulation.ass"
+        duet = [{"id": 0, "start_time": 1.0, "end_time": 3.0, "text": "Both", "singer": "both"}]
 
-        # 1. generate_ass_subtitles must reject singer2_color, both_color, font_size_scale
-        with pytest.raises(TypeError):
-            renderer.generate_ass_subtitles([], out_ass, singer2_color="#ff0080")
-
-        with pytest.raises(TypeError):
-            renderer.generate_ass_subtitles([], out_ass, both_color="#00ff80")
-
-        with pytest.raises(TypeError):
-            renderer.generate_ass_subtitles([], out_ass, font_size_scale=1.5)
-
-        # 2. generate_ass_content must reject singer2_color, both_color
-        with pytest.raises(TypeError):
-            renderer.generate_ass_content([], singer2_color="#ff0080")
+        # 1. generate_ass_subtitles passes singer2_color, both_color and font_size_scale on
+        renderer.generate_ass_subtitles(
+            duet, out_ass, singer2_color="#ff0080", both_color="#00ff80", font_size_scale=1.5
+        )
+        written = out_ass.read_text(encoding="utf-8")
+        assert "KaraokeLine1_Singer2,Montserrat,78,&H008000FF" in written
+        assert "KaraokeLine1_Both,Montserrat,78,&H0080FF00" in written
 
         with pytest.raises(TypeError):
-            renderer.generate_ass_content([], both_color="#00ff80")
+            renderer.generate_ass_subtitles([], out_ass, not_a_style_option=1)
+
+        # 2. So does generate_ass_content, for the duet colours
+        content = renderer.generate_ass_content(duet, singer2_color="#ff0080", both_color="#00ff80")
+        assert "&H008000FF" in content
+        assert "&H0080FF00" in content
+
+        with pytest.raises(TypeError):
+            renderer.generate_ass_content([], not_a_style_option=1)
 
         # 3. generate_ass_content must accept font_size_scale and sync_mode cleanly
         content = renderer.generate_ass_content(

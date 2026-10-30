@@ -8,7 +8,10 @@ import pytest
 from backend.services.ass_generator import (
     DEFAULT_BOTH_COLOR,
     DEFAULT_SINGER2_COLOR,
+    AssStyle,
     generate_ass_content,
+    resolve_sync_mode,
+    singer_part,
 )
 
 # A line after a 5 s intro (long enough for a countdown cue) and a chord under it
@@ -285,3 +288,31 @@ def test_duet_colours(kwargs, singer2, both):
     found = styles(generate_ass_content(LINES, **kwargs))
     assert found["KaraokeLine1_Singer2"]["PrimaryColour"] == singer2
     assert found["KaraokeLine1_Both"]["PrimaryColour"] == both
+
+
+def test_the_rules_are_one_resolve_call():
+    style = AssStyle.resolve(theme_id="punk_diy", aspect_ratio="9:16", font_size_scale=2.0)
+
+    assert (style.font_name, style.font_size, style.width, style.height) == (
+        "Impact",
+        92,
+        1080,
+        1920,
+    )
+    assert resolve_sync_mode("word", {"sync_mode": "line"}) == "line"
+
+
+@pytest.mark.parametrize(
+    "singer, part",
+    [
+        ("Singer 2", "singer2"),
+        ("s2", "singer2"),
+        ("partner", "singer2"),
+        ("together", "both"),
+        ("unison", "both"),
+        (None, "singer1"),
+        ("lead", "singer1"),
+    ],
+)
+def test_singer_part(singer, part):
+    assert singer_part({"singer": singer}) == part

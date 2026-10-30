@@ -12,7 +12,7 @@ from backend.background_jobs import BUSY_PIPELINE_STATES
 from backend.export_utils import build_content_disposition
 from backend.project_analysis import StemMissing, chords_for_export, ensure_chords, estimated_key
 from backend.project_store import get_project_or_404
-from backend.services.ass_generator import VISUAL_THEMES, css_to_ass_color
+from backend.services.ass_generator import VISUAL_THEMES
 from backend.services.chord_detector import (
     NO_CHORD_VALUES,
     project_key_signature,
@@ -383,40 +383,23 @@ def export_project_ass(
         f"{artist} - {title}" if (artist and title) else (title or artist or "Karaoke Track")
     )
 
-    primary_ass = css_to_ass_color(primary_color) if primary_color else None
-    secondary_ass = (
-        css_to_ass_color(secondary_color, default="&H00FFFFFF") if secondary_color else None
-    )
-
-    eff_key = estimated_key(proj)
-
-    style_cfg = {
-        "font_size_scale": font_size_scale,
-        "include_countdown": include_countdown,
-        "include_chords": include_chords,
-        "semitones": semitones,
-        "sync_mode": clean_sync_mode,
-    }
-    # Duet colors chosen in the stage look panel (the generator falls back to the preset)
-    if singer2_color:
-        style_cfg["singer2_color"] = singer2_color
-    if both_color:
-        style_cfg["both_color"] = both_color
-
+    # Empty colours count as not chosen: the stage look's (or the default) applies. The
+    # duet colours come from the stage look panel.
     ass_content = main_mod.video_renderer.generate_ass_content(
         lines=lines or [],
         aspect_ratio=aspect_ratio,
         theme_id=theme_id,
-        primary_color=primary_ass,
-        secondary_color=secondary_ass,
+        primary_color=primary_color or None,
+        secondary_color=secondary_color or None,
+        singer2_color=singer2_color or None,
+        both_color=both_color or None,
         title=track_title,
-        style_config=style_cfg,
         font_size_scale=font_size_scale,
         include_countdown=include_countdown,
         chords=chords,
         include_chords=include_chords,
         semitones=semitones,
-        key=eff_key,
+        key=estimated_key(proj),
         sync_mode=clean_sync_mode,
     )
 

@@ -16,7 +16,7 @@ from backend.project_store import (
     save_projects_throttled,
 )
 from backend.schemas import RenderRequest
-from backend.services.ass_generator import css_to_ass_color
+from backend.services.ass_generator import resolve_sync_mode
 from backend.services.audio_mixer import mix_quality
 
 logger = logging.getLogger("karaoke_backend")
@@ -98,16 +98,6 @@ def run_video_render(project_id: str, req: RenderRequest):
 
         # 1. Generate ASS Subtitles
         style_cfg = dict(req.style_config or {})
-        sync_mode = getattr(req, "sync_mode", None)
-        if (sync_mode is None or sync_mode == "word") and style_cfg.get("sync_mode"):
-            sync_mode = style_cfg["sync_mode"]
-        sync_mode = sync_mode or "word"
-        if style_cfg.get("primary_color"):
-            style_cfg["primary_color"] = css_to_ass_color(style_cfg["primary_color"])
-        if style_cfg.get("secondary_color"):
-            style_cfg["secondary_color"] = css_to_ass_color(
-                style_cfg["secondary_color"], default="&H00FFFFFF"
-            )
 
         main_mod.video_renderer.generate_ass_subtitles(
             lines=proj.get("lines", []),
@@ -120,7 +110,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             include_chords=req.include_chords,
             semitones=req.semitones,
             key=estimated_key(proj),
-            sync_mode=sync_mode,
+            sync_mode=resolve_sync_mode(req.sync_mode, style_cfg),
         )
 
         update_render(15, "Mixing master audio with pitch adjustment...", 40)

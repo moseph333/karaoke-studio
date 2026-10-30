@@ -749,7 +749,8 @@ class TestVideoRendererCompositeAndBurn:
         assert height == 1920
 
     def test_video_renderer_method_parameter_signatures(self, tmp_path):
-        """Empirical discovery test: check whether VideoRenderer.generate_ass_subtitles accepts singer2_color directly."""
+        """VideoRenderer.generate_ass_subtitles takes the duet colours through style_config or as
+        keyword arguments, with the same result."""
         renderer = VideoRenderer(output_dir=tmp_path)
         out_ass = tmp_path / "sig_test.ass"
 
@@ -765,10 +766,17 @@ class TestVideoRendererCompositeAndBurn:
         assert "&H008000FF" in content  # Converted BGR for #ff0080
         assert "&H0000FF00" in content  # Converted BGR for #00ff00
 
-        # Note: VideoRenderer.generate_ass_subtitles does NOT have singer2_color as a direct keyword argument.
-        # Direct keyword call raises TypeError:
-        with pytest.raises(TypeError, match="unexpected keyword argument 'singer2_color'"):
-            renderer.generate_ass_subtitles([], out_ass, singer2_color="#ff0080")
+        # The duet colours are direct keyword arguments too, like on the module function
+        direct = tmp_path / "sig_test_direct.ass"
+        renderer.generate_ass_subtitles(
+            lines=[
+                {"id": 0, "text": "Hi", "start_time": 0.0, "end_time": 1.0, "singer": "singer2"}
+            ],
+            output_ass_path=direct,
+            singer2_color="#ff0080",
+            both_color="#00ff00",
+        )
+        assert direct.read_text(encoding="utf-8") == content
 
     def test_video_renderer_burns_emojis_and_unicode_lyrics(self, tmp_path, sample_audio_wav):
         """VideoRenderer burns non-ASCII, Cyrillic, Japanese, and emoji characters without crashing FFmpeg."""
