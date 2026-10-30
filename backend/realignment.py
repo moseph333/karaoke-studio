@@ -21,6 +21,7 @@ from typing import Any
 
 from backend.background_jobs import SYNC_JOB, job_active
 from backend.background_jobs import conflict_reason as job_conflict
+from backend.project_analysis import refresh_youtube_package
 from backend.project_store import (
     PROJECTS_LOCK,
     find_project,
@@ -84,7 +85,7 @@ def create_job(proj: dict, mode: str) -> dict:
     return job
 
 
-def store_aligned_lines(main_mod, proj: dict, lines: list[dict]) -> None:
+def store_aligned_lines(proj: dict, lines: list[dict]) -> None:
     """Puts newly timed lines on a song, stretching its duration to fit them and refreshing
     its YouTube chapters. Call with PROJECTS_LOCK held."""
     proj["lines"] = lines
@@ -92,14 +93,7 @@ def store_aligned_lines(main_mod, proj: dict, lines: list[dict]) -> None:
         max_end = max((float(line.get("end_time", 0.0)) for line in lines), default=0.0)
         if max_end > proj.get("duration", 0.0):
             proj["duration"] = max_end
-    if "youtube_package" in proj:
-        proj["youtube_package"] = main_mod.youtube_service.generate_youtube_package(
-            title=proj.get("title", "Karaoke Track"),
-            artist=proj.get("artist", "Artist"),
-            lines=proj.get("lines", []),
-            semitones=proj.get("semitones", 0),
-            has_guide_vocal=proj.get("guide_volume", 0.0) > 0.05,
-        )
+    refresh_youtube_package(proj)
 
 
 def _live(project_id: str, job_id: str) -> tuple[dict, dict]:
@@ -186,7 +180,7 @@ def run_realignment(
                 )
                 save_projects()
                 return
-            store_aligned_lines(main_mod, proj, result.lines)
+            store_aligned_lines(proj, result.lines)
             if mode == "lines":
                 # Same lyrics, new timing: where they came from has not changed
                 if proj.get("lyric_timing") in (None, "none"):

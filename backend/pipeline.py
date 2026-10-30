@@ -1,7 +1,6 @@
 """Long-running track intake background workers for YouTube downloads and local audio uploads, coordinating stem separation, lyrics sync, alignment, and initial master mixing."""
 
 import logging
-import os
 import subprocess
 import threading
 import time
@@ -11,6 +10,7 @@ import soundfile as sf
 
 from backend.config import DOWNLOADS_DIR
 from backend.master_audio import master_fields
+from backend.project_analysis import ensure_chords, ensure_vocal_range, usable_file
 from backend.project_store import (
     PROJECTS_LOCK,
     cleanup_project_disk_artifacts,
@@ -96,14 +96,10 @@ def analyze_project_stems(
         raise RuntimeError("Processing cancelled by user")
 
     try:
-        if hasattr(main_mod, "vocal_analyzer") and stems.get("vocals_path"):
-            v_path = stems["vocals_path"]
-            if os.path.isfile(v_path) and os.path.getsize(v_path) > 0:
-                update_pipe("separating", 70, "Analyzing vocal range and musical key...", 3)
-                vocal_range = main_mod.vocal_analyzer.analyze_vocals(v_path)
-                proj = get_project_or_404(project_id)
-                proj["vocal_range"] = vocal_range
-                save_projects()
+        vocals_path = stems.get("vocals_path")
+        if hasattr(main_mod, "vocal_analyzer") and usable_file(vocals_path):
+            update_pipe("separating", 70, "Analyzing vocal range and musical key...", 3)
+            ensure_vocal_range(project_id, force=True, source=vocals_path)
     except Exception as va_err:
         logger.warning(
             f"Vocal range analysis failed during {label} for {project_id} ({va_err}); continuing pipeline.",
@@ -115,17 +111,9 @@ def analyze_project_stems(
 
     try:
         inst_path = stems.get("instrumental_path")
-        if (
-            hasattr(main_mod, "chord_detector")
-            and inst_path
-            and os.path.isfile(inst_path)
-            and os.path.getsize(inst_path) > 0
-        ):
+        if hasattr(main_mod, "chord_detector") and usable_file(inst_path):
             update_pipe("separating", 71, "Detecting musical chord progression...", 3)
-            detected_chords = main_mod.chord_detector.detect_chords(inst_path)
-            proj = get_project_or_404(project_id)
-            proj["chords"] = detected_chords
-            save_projects()
+            ensure_chords(project_id, force=True, source=inst_path)
     except Exception as cd_err:
         logger.warning(
             f"Chord detection failed during {label} for {project_id} ({cd_err}); continuing pipeline.",

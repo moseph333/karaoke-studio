@@ -24,6 +24,7 @@ from backend.background_jobs import SEPARATION_JOB, job_active
 from backend.background_jobs import conflict_reason as job_conflict
 from backend.config import STEMS_DIR
 from backend.master_audio import master_fields, mix_filename
+from backend.project_analysis import analyze_vocals, detect_chords
 from backend.project_store import (
     PROJECTS_LOCK,
     find_project,
@@ -272,7 +273,7 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
 
     update(progress=84, detail="Analyzing the new vocal stem…")
     try:
-        store(vocal_range=main_mod.vocal_analyzer.analyze_vocals(vocals_path))
+        store(vocal_range=analyze_vocals(vocals_path))
     except ReseparationCancelled:
         raise
     except Exception as exc:
@@ -281,7 +282,7 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
     if job.get("redetect_chords") or not proj.get("chords"):
         update(progress=88, detail="Detecting chords from the new instrumental…")
         try:
-            store(chords=main_mod.chord_detector.detect_chords(separated_inst))
+            store(chords=detect_chords(separated_inst))
         except ReseparationCancelled:
             raise
         except Exception as exc:

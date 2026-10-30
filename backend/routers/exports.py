@@ -8,12 +8,13 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 
+from backend.background_jobs import BUSY_PIPELINE_STATES
 from backend.export_utils import build_content_disposition
-from backend.project_store import PROJECTS_LOCK, get_project_or_404, save_projects
+from backend.project_analysis import StemMissing, chords_for_export, ensure_chords, estimated_key
+from backend.project_store import get_project_or_404
 from backend.services.ass_generator import VISUAL_THEMES, css_to_ass_color
 from backend.services.chord_detector import (
     NO_CHORD_VALUES,
-    ChordDetector,
     project_key_signature,
     transpose_chord_progression,
 )
@@ -364,38 +365,14 @@ def export_project_ass(
         )
 
     # 4. Pre-flight check: Active processing without lyrics cannot export
-    if proj.get("status") in ("queued", "downloading", "separating", "aligning") and not proj.get(
-        "lines"
-    ):
+    if proj.get("status") in BUSY_PIPELINE_STATES and not proj.get("lines"):
         raise HTTPException(
             status_code=400,
             detail="Project lyrics are not ready for export",
         )
 
     lines = proj.get("lines")
-    chords = proj.get("chords")
-
-    # Auto-backfill chords if missing and requested
-    if chords is None and include_chords:
-        inst_path = proj.get("instrumental_path") or proj.get("audio_path")
-        if inst_path and os.path.isfile(inst_path) and os.path.getsize(inst_path) > 0:
-            try:
-                detector = getattr(main_mod, "chord_detector", None) or ChordDetector()
-                detected = detector.detect_chords(inst_path)
-                with PROJECTS_LOCK:
-                    target_proj = get_project_or_404(project_id)
-                    if target_proj.get("chords") is None:
-                        target_proj["chords"] = detected
-                        save_projects()
-                        chords = detected
-                    else:
-                        chords = target_proj["chords"]
-            except Exception:
-                chords = []
-        else:
-            chords = []
-    elif chords is None:
-        chords = []
+    chords = chords_for_export(project_id, include_chords)
 
     if (not lines or not isinstance(lines, list)) and (not include_chords or not chords):
         raise HTTPException(status_code=400, detail="Project has no lyric lines to export")
@@ -411,11 +388,7 @@ def export_project_ass(
         css_to_ass_color(secondary_color, default="&H00FFFFFF") if secondary_color else None
     )
 
-    eff_key = proj.get("estimated_key") or (
-        proj.get("vocal_range", {}).get("estimated_key")
-        if isinstance(proj.get("vocal_range"), dict)
-        else None
-    )
+    eff_key = estimated_key(proj)
 
     style_cfg = {
         "font_size_scale": font_size_scale,
@@ -480,33 +453,19 @@ def export_project_chord_sheet(
     [Instrumental] blocks for non-vocal sections, and encodes compliant RFC 5987 /
     RFC 6266 Content-Disposition headers.
     """
-    import backend.main as main_mod
-
     proj = get_project_or_404(project_id)
 
     lines = proj.get("lines")
-    chords = proj.get("chords")
 
-    # 1. On-demand auto-backfill chords if missing from project store
-    if chords is None:
-        inst_path = proj.get("instrumental_path")
-        audio_stem = inst_path
-        if not audio_stem or not os.path.isfile(audio_stem) or os.path.getsize(audio_stem) == 0:
-            audio_stem = proj.get("audio_path")
-
-        if audio_stem and os.path.isfile(audio_stem) and os.path.getsize(audio_stem) > 0:
-            detector = getattr(main_mod, "chord_detector", None) or ChordDetector()
-            detected = detector.detect_chords(audio_stem)
-            with PROJECTS_LOCK:
-                target_proj = get_project_or_404(project_id)
-                if target_proj.get("chords") is None:
-                    target_proj["chords"] = detected
-                    save_projects()
-                    chords = detected
-                else:
-                    chords = target_proj["chords"]
-        else:
-            chords = []
+    # 1. The stored chords, else detected now; without any audio the sheet has lyrics only
+    try:
+        chords = ensure_chords(project_id)
+    except StemMissing:
+        chords = []
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to detect chords: {e}") from e
 
     # 2. Reject export if neither lyrics nor chords exist
     if (not lines or not isinstance(lines, list)) and (not chords):
@@ -517,19 +476,13 @@ def export_project_chord_sheet(
 
     title = proj.get("title", "").strip()
     artist = proj.get("artist", "").strip()
-    estimated_key = (
-        proj.get("vocal_range", {}).get("estimated_key")
-        if isinstance(proj.get("vocal_range"), dict)
-        else proj.get("estimated_key")
-    )
-
     # 3. Generate lead sheet content
     sheet_content = generate_chord_sheet(
         lines=lines or [],
         chords=chords or [],
         title=title,
         artist=artist,
-        estimated_key=estimated_key,
+        estimated_key=estimated_key(proj),
         semitones=semitones,
     )
 
