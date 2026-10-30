@@ -42,4 +42,12 @@ describe('InlineConfirm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm Cancel Render' }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
+
+  it('draws the confirm button like the destructive button, inverse text on danger', () => {
+    renderConfirm();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Render' }));
+    const confirm = screen.getByRole('button', { name: 'Confirm Cancel Render' });
+    expect(confirm).toHaveClass('bg-theme-danger', 'text-theme-text-inverse');
+    expect(confirm).not.toHaveClass('text-white');
+  });
 });
