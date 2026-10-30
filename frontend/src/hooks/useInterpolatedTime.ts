@@ -17,11 +17,15 @@ export function useInterpolatedTime({
   isPlaying = false,
   playbackRate = 1.0,
   audioRef,
+  getLiveTime,
 }: {
   currentTime: number;
   isPlaying?: boolean;
   playbackRate?: number;
   audioRef?: React.RefObject<HTMLAudioElement>;
+  /** Live position to follow instead of the element's clock, which reads 0 while a swapped
+   *  source reloads (the playback clock reports the position being restored). */
+  getLiveTime?: () => number;
 }): number {
   const [interpolatedTime, setInterpolatedTime] = useState<number>(currentTime);
   const lastBaseTimeRef = useRef<number>(currentTime);
@@ -60,13 +64,14 @@ export function useInterpolatedTime({
       // Check audio element if available
       if (audioRef?.current) {
         const audio = audioRef.current;
+        const liveTime = getLiveTime ? getLiveTime() : audio.currentTime;
         if (audio.paused) {
-          setInterpolatedTime(audio.currentTime);
+          setInterpolatedTime(liveTime);
           return;
         }
         // If audio element currentTime has progressed, re-anchor base
-        if (Math.abs(audio.currentTime - lastBaseTimeRef.current) > 0.001) {
-          lastBaseTimeRef.current = audio.currentTime;
+        if (Math.abs(liveTime - lastBaseTimeRef.current) > 0.001) {
+          lastBaseTimeRef.current = liveTime;
           lastPerfTimeRef.current = performance.now();
         }
       }
@@ -92,7 +97,7 @@ export function useInterpolatedTime({
         rafIdRef.current = null;
       }
     };
-  }, [isPlaying, playbackRate, audioRef, currentTime]);
+  }, [isPlaying, playbackRate, audioRef, currentTime, getLiveTime]);
 
   return interpolatedTime;
 }

@@ -8,9 +8,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { LyricLine } from '../types';
 import { usePrefersReducedMotion } from './usePrefersReducedMotion';
+import { usePlaybackSeekListener, usePlaybackValue } from './usePlaybackClock';
 
 export interface UseTimelineAutoScrollOptions {
-  currentTime: number;
+  /** Song position; omit to follow the playback clock. */
+  currentTime?: number;
   isPlaying?: boolean;
   editableLines: LyricLine[];
   activeLineIndex: number;
@@ -47,7 +49,7 @@ export function useTimelineAutoScroll({
   const lastUserInteractionTimeRef = useRef(0);
   const userScrollTimeoutRef = useRef<number | null>(null);
   const programmaticScrollTimeoutRef = useRef<number | null>(null);
-  const lastCurrentTimeRef = useRef(currentTime);
+  const lastCurrentTimeRef = useRef(currentTime ?? 0);
   const prevIsPlayingRef = useRef(isPlaying);
   const lastSizeKeyRef = useRef<string | null>(null);
 
@@ -64,8 +66,15 @@ export function useTimelineAutoScroll({
     setIsUserScrolling(false);
   }, [clearUserScrollTimeout]);
 
-  // Resume auto-scroll when user seeks, scrubs, or restarts playback
+  // Before the first line (the intro), or at 0, the list scrolls to the top
+  const firstLineStart = editableLines[0]?.start_time ?? 0;
+  const isIntro = usePlaybackValue((t) => t < firstLineStart || t === 0, currentTime);
+
+  // Resume auto-scroll when user seeks, scrubs, or restarts playback. The playback clock
+  // flags its seeks; with a `currentTime` prop they are inferred from jumps in it.
+  usePlaybackSeekListener(resumeAutoScroll, currentTime === undefined);
   useEffect(() => {
+    if (currentTime === undefined) return;
     const timeDelta = currentTime - lastCurrentTimeRef.current;
     const isRestart = currentTime === 0 && lastCurrentTimeRef.current > 0;
     const isActivelyInteracting = Date.now() - lastUserInteractionTimeRef.current < 400;
@@ -104,11 +113,7 @@ export function useTimelineAutoScroll({
     const container = containerRef.current;
     if (!container) return null;
 
-    // If before first line (instrumental intro) or at 0.0s, target is the top of the container (0)
-    const firstLineStartTime = editableLines[0]?.start_time ?? 0;
-    if (currentTime < firstLineStartTime || currentTime === 0) {
-      return 0;
-    }
+    if (isIntro) return 0;
 
     const activeWordEl = container.querySelector('[data-active-word="true"]') as HTMLElement | null;
     const activeLineEl = container.querySelector('[data-active-line="true"]') as HTMLElement | null;
@@ -157,14 +162,13 @@ export function useTimelineAutoScroll({
       0,
       hasRealLayout ? Math.min(maxScroll, Math.round(targetTop)) : Math.round(targetTop)
     );
-  }, [activeLineIndex, currentTime, editableLines]);
+  }, [activeLineIndex, isIntro]);
 
   // Automatic timeline scrolling to keep active highlighted word comfortably in viewport
   useEffect(() => {
     if (isUserScrolling) return;
 
     const container = containerRef.current;
-    const isIntro = currentTime < (editableLines[0]?.start_time ?? 0) || currentTime === 0;
     if (!container || (!activeKey && !isIntro)) return;
 
     const clampedTarget = calculateTargetScrollTop();
@@ -219,7 +223,7 @@ export function useTimelineAutoScroll({
     }
   }, [
     activeKey,
-    currentTime,
+    isIntro,
     isUserScrolling,
     activeLineIndex,
     editableLines,

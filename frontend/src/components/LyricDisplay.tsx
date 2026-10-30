@@ -10,6 +10,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { LyricLine, ChordSegment, SyncDisplayMode, VisualTheme } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
+import { usePlaybackClock, usePlaybackTime } from '../hooks/usePlaybackClock';
 import { useIsVisible } from '../hooks/useIsVisible';
 import { isInputElement, isModalActive } from '../hooks/useKeyboardShortcuts';
 import { characterShortcutsEnabled } from '../utils/shortcutPrefs';
@@ -28,7 +29,8 @@ import { Maximize, Minimize } from 'lucide-react';
 
 export interface LyricDisplayProps {
   lines: LyricLine[];
-  currentTime: number;
+  /** Song position; omit to follow the playback clock (as the app does). */
+  currentTime?: number;
   duration?: number;
   isPlaying?: boolean;
   playbackRate?: number;
@@ -77,7 +79,7 @@ export interface LyricDisplayProps {
   onToggleMute?: () => void;
 }
 
-export const LyricDisplay: React.FC<LyricDisplayProps> = ({
+const LyricDisplayView: React.FC<LyricDisplayProps> = ({
   lines,
   currentTime,
   duration = 0,
@@ -217,14 +219,18 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Frame-rate work (the sweep clock, visualizer, moving backgrounds) stops while the stage
-  // is off screen, as on the phone's Timeline and Mix tabs where it stays mounted but hidden
+  // is off screen, as on the phone's Timeline and Mix tabs where it stays mounted but hidden;
+  // so does following the playback clock, which is read again when the stage reappears
   const isOnScreen = useIsVisible(stageRef);
   const isAnimating = isPlaying && isOnScreen;
+  const clock = usePlaybackClock();
+  const anchorTime = usePlaybackTime(currentTime, { live: isOnScreen });
   const effectiveTime = useInterpolatedTime({
-    currentTime,
+    currentTime: anchorTime,
     isPlaying: isAnimating,
     playbackRate,
     audioRef,
+    getLiveTime: currentTime === undefined ? clock?.now : undefined,
   });
 
   const resetIdleTimer = useCallback(() => {
@@ -502,3 +508,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
     </div>
   );
 };
+
+// Memoized: inside the timeline editor it would otherwise re-render with every edit and
+// word boundary; it follows the playback clock itself
+export const LyricDisplay = React.memo(LyricDisplayView);

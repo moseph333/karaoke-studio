@@ -4,7 +4,13 @@ import React, { useMemo, useState } from 'react';
 import { CheckCircle2, Plus } from 'lucide-react';
 import { LyricLine, WordTiming, StudioWorkspaceTab, SyncJob } from '../types';
 import { LyricDisplay, LyricDisplayProps } from './LyricDisplay';
-import { recalculateWordTimings, getActiveWordLocation } from '../utils/lyrics';
+import {
+  recalculateWordTimings,
+  activeWordKeyAt,
+  findLeadInLineIndex,
+  wordLocationFromKey,
+} from '../utils/lyrics';
+import { usePlaybackClock, usePlaybackValue } from '../hooks/usePlaybackClock';
 import { useTimelineAutoScroll } from '../hooks/useTimelineAutoScroll';
 import { useLyricEditorState } from '../hooks/useLyricEditorState';
 import { useTimelineFilter } from '../hooks/useTimelineFilter';
@@ -47,6 +53,23 @@ export interface LyricTimelineEditorProps extends LyricDisplayProps {
   onCancelRealign?: () => void;
 }
 
+/** The stage's own props: passing the editor's too would defeat LyricDisplay's memo. */
+function stagePropsOf({
+  onSaveLines: _onSaveLines,
+  onDirtyChange: _onDirtyChange,
+  projectId: _projectId,
+  trackTitle: _trackTitle,
+  trackArtist: _trackArtist,
+  activeWorkspaceTab: _activeWorkspaceTab,
+  getCurrentTime: _getCurrentTime,
+  syncJob: _syncJob,
+  onStartBackgroundRealign: _onStartBackgroundRealign,
+  onCancelRealign: _onCancelRealign,
+  ...stage
+}: LyricTimelineEditorProps): LyricDisplayProps {
+  return stage;
+}
+
 export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) => {
   const {
     currentTime,
@@ -62,10 +85,15 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     onCancelRealign,
   } = props;
   const { toast } = useToast();
+  const clock = usePlaybackClock();
+  // One stable reader of the live position (taps, snaps, new lines)
+  const { readTime } = useStableHandlers({
+    readTime: (): number => getCurrentTime?.() ?? currentTime ?? clock?.now() ?? 0,
+  });
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [showDuetModal, setShowDuetModal] = useState(false);
-  const ed = useLyricEditorState(props);
+  const ed = useLyricEditorState({ ...props, getCurrentTime: readTime });
   const review = useTimelineFilter(ed.editableLines);
   const effectiveProjectId =
     projectId || new URLSearchParams(window.location.search).get('project') || '';
@@ -94,16 +122,20 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
       toast.error(err instanceof Error ? err.message : 'Could not start the re-alignment');
     }
   };
-  const activeLineIndex = ed.editableLines.findIndex(
-    (l) => currentTime >= l.start_time - 1.5 && currentTime <= l.end_time + 1.0
+  // The active line and word come from the playback clock (or the `currentTime` prop) as
+  // primitives, so the editor re-renders at word boundaries rather than on every timeupdate
+  const activeLineIndex = usePlaybackValue(
+    (t) => findLeadInLineIndex(ed.editableLines, t),
+    currentTime
   );
+  const activeWordKey = usePlaybackValue((t) => activeWordKeyAt(ed.editableLines, t), currentTime);
   const currentLine = activeLineIndex >= 0 ? ed.editableLines[activeLineIndex] : null;
   const activeWordLoc = useMemo(
-    () => getActiveWordLocation(ed.editableLines, currentTime),
-    [ed.editableLines, currentTime]
+    () => wordLocationFromKey(ed.editableLines, activeWordKey),
+    [ed.editableLines, activeWordKey]
   );
   const activeKey = activeWordLoc
-    ? `${activeWordLoc.lineId}-${activeWordLoc.wordIndex}`
+    ? activeWordKey
     : activeLineIndex >= 0
       ? `line-${ed.editableLines[activeLineIndex].id}`
       : null;
@@ -149,7 +181,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     onCycleSinger: ed.handleCycleLineSinger,
     onSetSinger: ed.handleSetLineSinger,
     onRealignLine: realign.realignLine,
-    getCurrentTime: () => getCurrentTime?.() ?? currentTime,
+    getCurrentTime: readTime,
   });
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -212,7 +244,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
         data-testid="studio-panel-stage"
         className={`${panelCls(activeWorkspaceTab, 'stage')} studio:shrink-0`}
       >
-        <LyricDisplay {...props} lines={ed.editableLines} />
+        <LyricDisplay {...stagePropsOf(props)} lines={ed.editableLines} />
       </div>
 
       <div

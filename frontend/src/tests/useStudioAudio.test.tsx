@@ -51,7 +51,7 @@ describe('useStudioAudio', () => {
       expect(el.play).toHaveBeenCalledTimes(1);
 
       setElementTime(el, 42.5);
-      expect(hook.currentTime).toBe(42.5);
+      expect(hook.clock.getState().time).toBe(42.5);
 
       rerender(
         <Harness
@@ -61,20 +61,20 @@ describe('useStudioAudio', () => {
 
       // The reloading element reports 0; the studio clock must not jump back
       setElementTime(el, 0);
-      expect(hook.currentTime).toBe(42.5);
+      expect(hook.clock.getState().time).toBe(42.5);
 
       await act(async () => {
         fireEvent.loadedMetadata(el);
       });
 
       expect(el.currentTime).toBe(42.5);
-      expect(hook.currentTime).toBe(42.5);
+      expect(hook.clock.getState().time).toBe(42.5);
       expect(el.play).toHaveBeenCalledTimes(2);
       expect(hook.isPlaying).toBe(true);
 
       // Normal time updates resume after the restore
       setElementTime(el, 43);
-      expect(hook.currentTime).toBe(43);
+      expect(hook.clock.getState().time).toBe(43);
     });
 
     it('restores the position without auto-playing when playback was paused', async () => {
@@ -118,7 +118,7 @@ describe('useStudioAudio', () => {
       });
 
       expect(el.currentTime).toBe(90);
-      expect(hook.currentTime).toBe(90);
+      expect(hook.clock.getState().time).toBe(90);
     });
 
     it('does not carry a playing restore over to a different project', async () => {
@@ -171,7 +171,7 @@ describe('useStudioAudio', () => {
       const el = screen.getByTestId('harness-audio') as HTMLAudioElement;
 
       act(() => hook.queueSeek(75));
-      expect(hook.currentTime).toBe(75);
+      expect(hook.clock.getState().time).toBe(75);
 
       await act(async () => {
         fireEvent.loadedMetadata(el);
@@ -193,7 +193,7 @@ describe('useStudioAudio', () => {
       render(<Harness project={baseProject} />);
       act(() => hook.queueSeek(-5));
       act(() => hook.queueSeek(Number.NaN));
-      expect(hook.currentTime).toBe(0);
+      expect(hook.clock.getState().time).toBe(0);
     });
   });
 

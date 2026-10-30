@@ -124,6 +124,10 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
     const live = getCurrentTime?.();
     return typeof live === 'number' && Number.isFinite(live) ? live : (currentTime ?? 0);
   };
+  const hasTimeProp = currentTime !== undefined && Number.isFinite(currentTime);
+  // The live clock is read on click; a `currentTime` prop is also shown in the tooltips
+  const canSnap = hasTimeProp || getCurrentTime !== undefined;
+  const shownPlayhead = hasTimeProp ? ` (${currentTime.toFixed(2)}s)` : '';
 
   return (
     <div className="mt-2 grid grid-cols-1 gap-2 border-t border-theme-border-subtle/70 pt-2.5 @md:grid-cols-2 @3xl:grid-cols-3">
@@ -262,7 +266,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
             </div>
 
             {/* Snap boundaries to the playhead (shown when the playback clock is known) */}
-            {currentTime !== undefined && Number.isFinite(currentTime) && (
+            {canSnap && (
               <div className="flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle/70 pt-1.5 sm:flex-nowrap">
                 <button
                   type="button"
@@ -283,7 +287,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                     );
                   }}
                   aria-label={`Snap start of word ${w.word} to playhead`}
-                  title={`Snap start to playhead (${currentTime.toFixed(2)}s)`}
+                  title={`Snap start to playhead${shownPlayhead}`}
                   className={snapButton}
                 >
                   <Crosshair className="h-3 w-3" aria-hidden="true" />
@@ -305,7 +309,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                     );
                   }}
                   aria-label={`Snap end of word ${w.word} to playhead`}
-                  title={`Snap end to playhead (${currentTime.toFixed(2)}s)`}
+                  title={`Snap end to playhead${shownPlayhead}`}
                   className={snapButton}
                 >
                   <Crosshair className="h-3 w-3" aria-hidden="true" />

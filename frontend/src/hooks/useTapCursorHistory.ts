@@ -21,7 +21,7 @@ export interface TapCursorSnapshot {
 
 export interface UseTapCursorHistoryOptions {
   editableLines: LyricLine[];
-  currentTime: number;
+  currentTime?: number;
   /** Live playback clock; taps fall back to `currentTime` when omitted. */
   getCurrentTime?: () => number;
   duration: number;
@@ -59,9 +59,10 @@ export function useTapCursorHistory({
   tapTargetWordIndexRef.current = tapTargetWordIndex;
 
   // The `currentTime` prop only updates on media timeupdate events (~4 per second), so
-  // read the live clock at the moment of the tap when one is available.
-  const getCurrentTimeRef = useRef(getCurrentTime);
-  getCurrentTimeRef.current = getCurrentTime;
+  // read the live clock at the moment of the tap when one is available. Both go through a
+  // ref so the tap handler, and the T listener using it, keep their identities as time moves.
+  const timeRef = useRef({ currentTime, getCurrentTime });
+  timeRef.current = { currentTime, getCurrentTime };
 
   const tapCursorUndoStackRef = useRef<TapCursorSnapshot[]>([]);
   const tapCursorRedoStackRef = useRef<TapCursorSnapshot[]>([]);
@@ -129,9 +130,11 @@ export function useTapCursorHistory({
 
     pushSnapshot(editableLines);
     const currentTarget = editableLines[tapTargetIndex];
-    const liveTime = getCurrentTimeRef.current?.();
+    const liveTime = timeRef.current.getCurrentTime?.();
     const tapTime =
-      typeof liveTime === 'number' && Number.isFinite(liveTime) ? liveTime : currentTime;
+      typeof liveTime === 'number' && Number.isFinite(liveTime)
+        ? liveTime
+        : (timeRef.current.currentTime ?? 0);
 
     if (tapSyncMode === 'word') {
       const result = applyWordTap(
@@ -177,7 +180,6 @@ export function useTapCursorHistory({
     tapTargetWordIndex,
     tapSyncMode,
     editableLines,
-    currentTime,
     duration,
     pushSnapshot,
     setEditableLines,
