@@ -106,7 +106,16 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({ youtubePacka
         'Description (with Chapters & Lyrics)',
         'Copy Description',
         yt.description,
-        <pre className="max-h-36 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words rounded-theme-sm border border-theme-border-subtle bg-theme-bg/60 p-2.5 font-mono text-xs text-theme-text-muted">
+        // Scrolls when long: focusable, so keyboard users can scroll it too
+        <pre
+          tabIndex={0}
+          role="region"
+          aria-label="Description (with Chapters & Lyrics)"
+          className={cn(
+            'max-h-36 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words rounded-theme-sm border border-theme-border-subtle bg-theme-bg/60 p-2.5 font-mono text-xs text-theme-text-muted',
+            focusRing
+          )}
+        >
           {yt.description}
         </pre>
       )}
