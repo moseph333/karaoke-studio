@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from backend.config import BACKGROUNDS_DIR, DOWNLOADS_DIR, STEMS_DIR
 from backend.project_store import get_project_or_404, save_projects
@@ -18,6 +19,7 @@ from backend.upload_utils import (
     MAX_IMAGE_BACKGROUND_UPLOAD_BYTES,
     MAX_INSTRUMENTAL_UPLOAD_BYTES,
     MAX_TRACK_UPLOAD_BYTES,
+    read_header,
     sanitize_upload_filename,
     save_upload_file_bounded,
     validate_audio_header,
@@ -28,13 +30,16 @@ logger = logging.getLogger("karaoke_backend")
 
 router = APIRouter(tags=["uploads"])
 
+# These handlers are async (they stream the upload), so their file and store work runs in
+# the threadpool: on the event loop it would hold up every other request
+
 
 @router.post("/api/upload-instrumental")
 async def upload_instrumental(project_id: str = Form(...), file: UploadFile = File(...)):
     import backend.main as main_mod
 
     safe_proj_id = sanitize_upload_filename(project_id, default_stem="project")
-    proj = get_project_or_404(safe_proj_id)
+    proj = await run_in_threadpool(get_project_or_404, safe_proj_id)
 
     raw_ext = Path(file.filename or "custom.wav").suffix.lower()
     if raw_ext not in ALLOWED_AUDIO_EXTS:
@@ -52,7 +57,7 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
 
     proj["instrumental_path"] = str(target_path)
     proj["instrumental_url"] = f"/static/stems/{safe_proj_id}/custom_inst{raw_ext}"
-    save_projects()
+    await run_in_threadpool(save_projects)
 
     return {"status": "ok", "instrumental_url": proj["instrumental_url"]}
 
@@ -87,8 +92,7 @@ async def upload_background(file: UploadFile = File(...)):
     bytes_written = await save_upload_file_bounded(file, target_path, upload_limit, min_bytes=1)
 
     # 2. Inspect header of written file for magic bytes
-    with open(target_path, "rb") as f:
-        header = f.read(64)
+    header = await run_in_threadpool(read_header, target_path)
 
     if not validate_background_header(header, raw_ext):
         target_path.unlink(missing_ok=True)
@@ -145,8 +149,7 @@ async def upload_audio_track(
         file, target_upload_path, max_track_bytes, min_bytes=1
     )
 
-    with open(target_upload_path, "rb") as f:
-        header_sample = f.read(64)
+    header_sample = await run_in_threadpool(read_header, target_upload_path)
 
     if not validate_audio_header(header_sample, raw_ext):
         target_upload_path.unlink(missing_ok=True)
@@ -177,7 +180,7 @@ async def upload_audio_track(
 
     main_mod.active_cancellations.setdefault(project_id, threading.Event())
     main_mod.projects[project_id] = proj_data
-    save_projects()
+    await run_in_threadpool(save_projects)
 
     bg_tasks.add_task(
         main_mod.run_local_pipeline,
