@@ -3,11 +3,11 @@
  *
  * What the stage shows behind the lyrics, drawn alike by the live preview and the video
  * renderer (backend/services/stage_backgrounds.py). Motion is a pure function of the song
- * time, using the numbers in backgroundMotion.json, which the backend mirrors (a backend test
- * keeps them equal), so a paused or scrubbed stage shows the frame the export renders then.
+ * time, using the numbers in background_motion.json, which the renderer reads too, so a
+ * paused or scrubbed stage shows the frame the export renders then.
  */
 
-import motion from './backgroundMotion.json';
+import motion from '@shared/background_motion.json';
 import { VisualTheme } from '../types';
 
 export const STAGE_BACKGROUND_STYLES = [

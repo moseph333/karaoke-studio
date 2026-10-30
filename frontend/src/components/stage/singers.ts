@@ -3,16 +3,18 @@
  */
 
 import { Mic, Mic2, Users, type LucideIcon } from 'lucide-react';
+import singerAliases from '@shared/singer_aliases.json';
 
 export type NormalizedSinger = 'singer1' | 'singer2' | 'both';
 
-/** Maps free-form singer labels from lyrics data onto the three stage roles. */
+/** Every label a lyric line may carry, mapped to its role (shared with the backend). */
+const SINGER_ALIASES = singerAliases as Partial<Record<string, NormalizedSinger>>;
+
+/** Maps free-form singer labels from lyrics data onto the three stage roles, with the labels
+ * the export understands ("s2", "together", "singer 2", …). */
 export function normalizeSingerRole(singer?: string | null): NormalizedSinger {
   if (!singer) return 'singer1';
-  const s = singer.toLowerCase().trim();
-  if (s === 'singer2' || s === 'partner') return 'singer2';
-  if (s === 'both' || s === 'unison' || s === 'duet' || s === 'all') return 'both';
-  return 'singer1';
+  return SINGER_ALIASES[singer.toLowerCase().trim()] ?? 'singer1';
 }
 
 export interface SingerVisualConfig {

@@ -14,6 +14,7 @@ import soundfile as sf
 from backend.services import stage_backgrounds as sb
 from backend.services import video_renderer as vr
 from backend.services.video_renderer import VideoRenderer
+from backend.shared_assets import SHARED_DIR
 
 SIMPLE_ASS = r"""[Script Info]
 ScriptType: v4.00+
@@ -194,7 +195,6 @@ def test_a_thumbnail_is_blurred_once_and_the_lyrics_render_at_60_fps(tmp_path, m
 # --- Generated styles -------------------------------------------------------------------------
 
 PALETTE = ["#fbbf24", "#f472b6", "#5eead4"]
-SHARED_MOTION = Path(__file__).resolve().parents[2] / "frontend/src/theme/backgroundMotion.json"
 
 
 def _thumbnail(tmp_path: Path) -> Path:
@@ -203,8 +203,11 @@ def _thumbnail(tmp_path: Path) -> Path:
     return thumbnail
 
 
-def test_the_motion_numbers_match_the_stage_preview():
-    assert json.loads(SHARED_MOTION.read_text(encoding="utf-8")) == sb.BACKGROUND_MOTION
+def test_the_motion_numbers_are_the_ones_the_stage_imports():
+    """The stage preview imports the same file (as @shared/background_motion.json)."""
+    shared = json.loads((SHARED_DIR / "background_motion.json").read_text(encoding="utf-8"))
+    assert shared == sb.BACKGROUND_MOTION
+    assert {"drift", "aurora", "scrim", "spectrum"} <= set(shared)
 
 
 @pytest.mark.parametrize(

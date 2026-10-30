@@ -16,10 +16,10 @@ from backend.schemas import LyricLineSchema
 from backend.services import alignment_config, sync_confidence
 from backend.services.lyric_tokenize import normalize_for_mms, tokenize_lyric_text
 from backend.services.sync_confidence import evidence_score, line_confidence, load_evidence
+from backend.shared_assets import load
 from backend.workers import ctc_align_worker as worker
 
 RATE = 16000
-FIXTURES = Path(__file__).resolve().parents[2] / "frontend" / "src" / "tests" / "fixtures"
 
 
 def _bursts(path: Path, spans, duration: float = 6.0) -> Path:
@@ -114,15 +114,9 @@ def test_line_confidence_per_method(method, evidence, ctc, expected):
 # ==============================================================================
 
 
-def _shared_cases():
-    path = FIXTURES / "tokenize_cases.json"
-    if not path.is_file():
-        pytest.skip("frontend fixtures not available")
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
 def test_tokenizer_matches_the_studio_editor():
-    for case in _shared_cases():
+    # The same cases run against the studio's tokenizer (frontend tests/lyrics.test.ts)
+    for case in load("tokenize_cases"):
         assert tokenize_lyric_text(case["text"]) == case["tokens"], case["text"]
     assert tokenize_lyric_text(None) == []
 

@@ -8,6 +8,7 @@
 
 import React, { useState } from 'react';
 import { FileAudio, Upload, X } from 'lucide-react';
+import uploadLimits from '@shared/upload_limits.json';
 import { ProjectState } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { cn } from '../../utils/cn';
@@ -30,7 +31,9 @@ export interface LocalAudioUploaderProps {
   onError: (error: string | null) => void;
 }
 
-export const MAX_AUDIO_SIZE = 100 * 1024 * 1024; // 100MB
+/** The upload limit for a track in MB, shared with the backend. */
+const MAX_AUDIO_MB = uploadLimits.track_mb;
+export const MAX_AUDIO_SIZE = MAX_AUDIO_MB * 1024 * 1024;
 export const ALLOWED_AUDIO_EXTENSIONS = ['wav', 'mp3', 'flac', 'm4a', 'ogg', 'aac', 'opus'];
 
 export const validateAudioFile = (file: File): string | null => {
@@ -38,7 +41,7 @@ export const validateAudioFile = (file: File): string | null => {
     return 'Selected file is empty (0 bytes).';
   }
   if (file.size > MAX_AUDIO_SIZE) {
-    return 'Audio file exceeds 100MB limit. Please choose a smaller file.';
+    return `Audio file exceeds ${MAX_AUDIO_MB}MB limit. Please choose a smaller file.`;
   }
   const ext = file.name.split('.').pop()?.toLowerCase();
   if (!ext || !ALLOWED_AUDIO_EXTENSIONS.includes(ext)) {
@@ -283,7 +286,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
                 <span className="text-xs text-theme-text-muted"> or drag and drop here</span>
               </div>
               <p className="text-xs text-theme-text-muted">
-                WAV, MP3, FLAC, M4A, OGG, OPUS or AAC · up to 100 MB
+                WAV, MP3, FLAC, M4A, OGG, OPUS or AAC · up to {MAX_AUDIO_MB} MB
               </p>
             </label>
           )}

@@ -15,6 +15,7 @@ from pydantic import (
 
 from backend.services.downloader import TrackDownloader
 from backend.services.separation_presets import PRESET_IDS, normalize_preset
+from backend.shared_assets import load
 
 
 class LoginRequest(BaseModel):
@@ -121,27 +122,8 @@ class WordTimingSchema(BaseModel):
         return self
 
 
-SINGER_ALIASES: dict[str, str] = {
-    "singer1": "singer1",
-    "singer 1": "singer1",
-    "singer_1": "singer1",
-    "lead": "singer1",
-    "s1": "singer1",
-    "part1": "singer1",
-    "part 1": "singer1",
-    "singer2": "singer2",
-    "singer 2": "singer2",
-    "singer_2": "singer2",
-    "partner": "singer2",
-    "s2": "singer2",
-    "part2": "singer2",
-    "part 2": "singer2",
-    "both": "both",
-    "unison": "both",
-    "duet": "both",
-    "all": "both",
-    "together": "both",
-}
+# Every singer label a line may carry, mapped to its part (shared with the studio's stage)
+SINGER_ALIASES: dict[str, str] = load("singer_aliases")
 
 
 class LyricLineSchema(BaseModel):
