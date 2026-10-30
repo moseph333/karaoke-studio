@@ -43,6 +43,9 @@ afterEach(() => {
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-stage-preset');
   }
+  // The studio keeps the open song in the URL (?project=…); a leftover one would make the
+  // next test's App open that song on mount
+  window.history.replaceState(null, '', '/');
 });
 
 // Mock HTMLMediaElement prototype (audio & video elements in jsdom)

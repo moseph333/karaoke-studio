@@ -92,8 +92,6 @@ export const StudioHeader: React.FC<StudioHeaderProps> = ({
             <div
               data-testid="header-render-progress"
               className="flex items-center gap-2 rounded-theme-pill border border-theme-accent/40 bg-theme-accent/10 py-1 pl-2.5 pr-1 text-xs font-medium text-theme-highlight"
-              role="status"
-              aria-live="polite"
             >
               <Spinner className="h-3.5 w-3.5" />
               <span className="font-mono text-[11px] font-semibold tabular-nums">

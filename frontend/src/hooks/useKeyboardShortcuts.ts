@@ -6,15 +6,19 @@
  * Enforces strict input isolation (inputs, textareas, contenteditable, ARIA text controls)
  * and modal isolation (blocking transport shortcuts when dialogs are active).
  *
- * Milestone 3 Precision Shortcuts:
+ * Precision shortcuts:
  * - Shift + ArrowLeft / Shift + ArrowRight: fine 1-second seeking (standard is 5s)
  * - Alt + ArrowLeft / Alt + ArrowRight: coarse 15-second seeking
  * - '[' and ']': jump to previous / next lyric line in the project
  * - 'R': replay current active line from its start time
+ *
+ * Keys a focused widget already handled (arrows in a tab list, Space on a preset card) are
+ * left alone, and a key is only claimed when its action is available.
  */
 
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { LyricLine } from '../types';
+import { characterShortcutsEnabled } from '../utils/shortcutPrefs';
 
 export interface UseKeyboardShortcutsOptions {
   onTogglePlay?: () => void;
@@ -81,6 +85,26 @@ export function isInputElement(element?: EventTarget | null): boolean {
   }
 
   return false;
+}
+
+// Controls that the browser presses on Space. Links are not among them: Space on a link
+// scrolls the page, so it stays play/pause there.
+const SPACE_ACTIVATED_SELECTOR = [
+  'button',
+  'summary',
+  '[role="button"]',
+  '[role="checkbox"]',
+  '[role="switch"]',
+  '[role="radio"]',
+  '[role="tab"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+  '[role="option"]',
+].join(', ');
+
+function isSpaceActivated(target: EventTarget | null): boolean {
+  return target instanceof Element && target.matches(SPACE_ACTIVATED_SELECTOR);
 }
 
 /**
@@ -197,10 +221,30 @@ export function useKeyboardShortcuts({
     };
   });
 
+  // The element under the last pointer press. A control the user just clicked keeps Space
+  // as play/pause (click a lyric line, then press Space to play from it); a control reached
+  // with the keyboard is pressed by Space, as everywhere else on the web.
+  const pointerPressedRef = useRef<EventTarget | null>(null);
+
   useEffect(() => {
     if (!enabled) return;
 
+    const handlePointerDown = (e: Event) => {
+      pointerPressedRef.current = e.target;
+    };
+
+    const wasPointerPressed = (target: EventTarget | null) => {
+      const pressed = pointerPressedRef.current;
+      return target instanceof Node && pressed instanceof Node && target.contains(pressed);
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Tab') pointerPressedRef.current = null;
+
+      // A focused widget handled this key itself (arrows in tabs or radio groups, Space on a
+      // preset card); acting on it too would also seek or toggle playback
+      if (e.defaultPrevented) return;
+
       const isPrecisionActive = Boolean(
         optionsRef.current.precisionSeeking ||
         optionsRef.current.fineSeekStep !== undefined ||
@@ -219,15 +263,22 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      // Feature: Help modal toggle shortcut '?' (Shift + /)
+      // '?' (Shift + /) toggles the Help dialog
       if (e.key === '?') {
         const isTargetInput =
           isInputElement(e.target) ||
           (typeof document !== 'undefined' && isInputElement(document.activeElement));
+        const toggleHelp = optionsRef.current.onToggleHelp;
 
-        if (!isTargetInput && !isOtherModalActive() && !e.repeat) {
+        if (
+          !isTargetInput &&
+          !isOtherModalActive() &&
+          !e.repeat &&
+          toggleHelp &&
+          characterShortcutsEnabled()
+        ) {
           e.preventDefault();
-          optionsRef.current.onToggleHelp?.();
+          toggleHelp();
         }
         return;
       }
@@ -262,119 +313,123 @@ export function useKeyboardShortcuts({
         audio?.current && !isNaN(audio.current.duration) ? audio.current.duration : totalDur
       );
 
-      // Feature 41.1: Spacebar toggle master play/pause
+      // Each branch below claims its key (preventDefault) only when its action is available,
+      // so Space and the arrows still scroll and press buttons in the library and while a
+      // song processes
+
+      // Space: play / pause
       if (e.code === 'Space' || e.key === ' ') {
-        if (e.altKey) return;
+        if (e.altKey || !playFn) return;
+        if (isSpaceActivated(e.target) && !wasPointerPressed(e.target)) return;
         e.preventDefault();
         if (e.repeat) return;
-        playFn?.();
+        playFn();
         return;
       }
 
-      // Feature 41.2 & UX-6: ArrowLeft seeking (Standard 5s, Shift 1s fine, Alt 15s coarse)
-      if (e.key === 'ArrowLeft') {
-        if (e.shiftKey && !isPrecisionActive) return;
+      // ←/→: seek 5 s, Shift 1 s (fine), Alt 15 s (coarse)
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        if ((e.shiftKey && !isPrecisionActive) || !seekFn) return;
         e.preventDefault();
         const stepSize = e.shiftKey ? fineStep : e.altKey ? coarseStep : step;
-        const target = Math.max(0, current - stepSize);
-        seekFn?.(target);
+        seekFn(
+          e.key === 'ArrowLeft'
+            ? Math.max(0, current - stepSize)
+            : Math.min(maxDuration, current + stepSize)
+        );
         return;
       }
 
-      // Feature 41.3 & UX-6: ArrowRight seeking (Standard 5s, Shift 1s fine, Alt 15s coarse)
-      if (e.key === 'ArrowRight') {
-        if (e.shiftKey && !isPrecisionActive) return;
-        e.preventDefault();
-        const stepSize = e.shiftKey ? fineStep : e.altKey ? coarseStep : step;
-        const target = Math.min(maxDuration, current + stepSize);
-        seekFn?.(target);
-        return;
-      }
+      // The rest are single-character shortcuts, which can be turned off
+      if (!characterShortcutsEnabled()) return;
 
-      // Feature 41.4: 'M' / 'm' toggle master mute/unmute
+      // M: mute / unmute
       if (e.key === 'm' || e.key === 'M') {
-        if (e.altKey) return;
+        if (e.altKey || !muteFn) return;
         e.preventDefault();
         if (e.repeat) return;
-        muteFn?.();
+        muteFn();
         return;
       }
 
-      // Feature R3: 'V' / 'v' toggle beat-reactive audio visualizer
+      // V: beat visualizer
       if (e.key === 'v' || e.key === 'V') {
-        if (e.altKey || e.shiftKey) return;
+        const toggleVisualizer = optionsRef.current.onToggleVisualizer;
+        if (e.altKey || e.shiftKey || !toggleVisualizer) return;
         e.preventDefault();
         if (e.repeat) return;
-        optionsRef.current.onToggleVisualizer?.();
+        toggleVisualizer();
         return;
       }
 
-      // Feature F8 / R2: 'C' / 'c' toggle Live Chord Bar
+      // C: chord bar
       if (e.key === 'c' || e.key === 'C') {
-        if (e.altKey || e.shiftKey) return;
+        const toggleChordBar = optionsRef.current.onToggleChordBar;
+        if (e.altKey || e.shiftKey || !toggleChordBar) return;
         e.preventDefault();
         if (e.repeat) return;
-        optionsRef.current.onToggleChordBar?.();
+        toggleChordBar();
         return;
       }
 
-      // UX-6: '[' jump to previous lyric line in project
+      const canStepLines = Boolean(projectLines && projectLines.length > 0 && seekFn);
+
+      // [: previous lyric line
       if (e.key === '[') {
-        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        const { onPrevLine } = optionsRef.current;
+        if (e.altKey || !(onPrevLine || canStepLines)) return;
         e.preventDefault();
         if (e.repeat) return;
-        if (optionsRef.current.onPrevLine) {
-          optionsRef.current.onPrevLine();
-          return;
-        }
-        if (projectLines && projectLines.length > 0 && seekFn) {
+        if (onPrevLine) {
+          onPrevLine();
+        } else if (projectLines && seekFn) {
           const activeIdx = findActiveLineIndex(projectLines, current);
-          const targetIdx = Math.max(0, activeIdx - 1);
-          seekFn(projectLines[targetIdx].start_time);
+          seekFn(projectLines[Math.max(0, activeIdx - 1)].start_time);
         }
         return;
       }
 
-      // UX-6: ']' jump to next lyric line in project
+      // ]: next lyric line
       if (e.key === ']') {
-        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        const { onNextLine } = optionsRef.current;
+        if (e.altKey || !(onNextLine || canStepLines)) return;
         e.preventDefault();
         if (e.repeat) return;
-        if (optionsRef.current.onNextLine) {
-          optionsRef.current.onNextLine();
-          return;
-        }
-        if (projectLines && projectLines.length > 0 && seekFn) {
+        if (onNextLine) {
+          onNextLine();
+        } else if (projectLines && seekFn) {
           const activeIdx = findActiveLineIndex(projectLines, current);
-          const targetIdx = Math.min(projectLines.length - 1, activeIdx + 1);
-          seekFn(projectLines[targetIdx].start_time);
+          seekFn(projectLines[Math.min(projectLines.length - 1, activeIdx + 1)].start_time);
         }
         return;
       }
 
-      // UX-6: 'R' / 'r' replay current active lyric line from start time
+      // R: replay the current lyric line from its start
       if (e.key === 'r' || e.key === 'R') {
-        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        const { onReplayLine } = optionsRef.current;
+        if (e.altKey || !(onReplayLine || canStepLines)) return;
         e.preventDefault();
         if (e.repeat) return;
-        if (optionsRef.current.onReplayLine) {
-          optionsRef.current.onReplayLine();
-          return;
-        }
-        if (projectLines && projectLines.length > 0 && seekFn) {
+        if (onReplayLine) {
+          onReplayLine();
+        } else if (projectLines && seekFn) {
           const activeIdx = findActiveLineIndex(projectLines, current);
-          if (activeIdx >= 0 && activeIdx < projectLines.length) {
-            seekFn(projectLines[activeIdx].start_time);
-          } else {
-            seekFn(0);
-          }
+          seekFn(
+            activeIdx >= 0 && activeIdx < projectLines.length
+              ? projectLines[activeIdx].start_time
+              : 0
+          );
         }
         return;
       }
     };
 
+    window.addEventListener('pointerdown', handlePointerDown, true);
+    window.addEventListener('mousedown', handlePointerDown, true);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
+      window.removeEventListener('pointerdown', handlePointerDown, true);
+      window.removeEventListener('mousedown', handlePointerDown, true);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [enabled]);

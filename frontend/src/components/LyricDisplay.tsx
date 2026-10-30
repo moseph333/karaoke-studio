@@ -10,6 +10,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { LyricLine, ChordSegment, SyncDisplayMode, VisualTheme } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
+import { isInputElement, isModalActive } from '../hooks/useKeyboardShortcuts';
+import { characterShortcutsEnabled } from '../utils/shortcutPrefs';
 import { detectInstrumentalGaps, getCountdownState } from '../utils/gapDetection';
 import { DEFAULT_BOTH_COLOR, DEFAULT_SINGER2_COLOR } from '../theme/stagePresets';
 import { BeatVisualizer } from './BeatVisualizer';
@@ -285,16 +287,13 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
   // 'F' toggles the fullscreen stage, 'Escape' exits
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      const isInput =
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.tagName === 'SELECT' ||
-          target.isContentEditable);
-      if (isInput) return;
+      // Any key brings the hidden fullscreen controls back, so keyboard users see focus
+      if (isFullscreen) resetIdleTimer();
+      if (e.defaultPrevented || isInputElement(e.target)) return;
 
       if (e.key.toLowerCase() === 'f' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // Not behind a dialog: fullscreen would cover it
+        if (e.repeat || isModalActive() || !characterShortcutsEnabled()) return;
         e.preventDefault();
         toggleFullscreen();
       } else if (e.key === 'Escape' && isFullscreen) {
@@ -303,7 +302,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleFullscreen, isFullscreen]);
+  }, [toggleFullscreen, isFullscreen, resetIdleTimer]);
 
   // --- Lines, gaps and singers ---------------------------------------------------------
   const instrumentalGaps = useMemo(() => detectInstrumentalGaps(lines), [lines]);
@@ -385,6 +384,7 @@ export const LyricDisplay: React.FC<LyricDisplayProps> = ({
       data-tone={stageTone}
       onMouseMove={resetIdleTimer}
       onClick={resetIdleTimer}
+      onFocus={resetIdleTimer}
       className={containerClasses}
       style={{ backgroundColor: stageBaseColor, fontFamily: stageFontFamily }}
     >

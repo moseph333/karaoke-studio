@@ -7,6 +7,7 @@
 
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { Tooltip } from '../Tooltip';
+import { seekTargetForKey } from '../../utils/seekKeys';
 
 export interface LyricLine {
   id?: number;
@@ -47,6 +48,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   onSeek,
   audioUrl,
   lines,
+  isPlaying = false,
   className = '',
   peaks,
   showMarkers = false,
@@ -55,6 +57,19 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [decodedPeaks, setDecodedPeaks] = useState<number[] | null>(null);
   const [hoverRatio, setHoverRatio] = useState<number | null>(null);
+
+  // Screen readers announce a focused slider whenever its value changes, so while the song
+  // plays the slider holds the last position the user chose (the playhead keeps moving).
+  const [isFocused, setIsFocused] = useState(false);
+  const [heldTime, setHeldTime] = useState(currentTime);
+  const currentTimeRef = useRef(currentTime);
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+  useEffect(() => {
+    if (isPlaying) setHeldTime(currentTimeRef.current);
+  }, [isPlaying]);
+  const sliderTime = isFocused && isPlaying ? heldTime : currentTime;
 
   // Mode A: Instant deterministic energy envelope (0ms, no network, runs everywhere)
   const fallbackBars = useMemo(() => {
@@ -192,6 +207,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       if (!isNaN(ratio)) {
         const targetTime = ratio * duration;
         if (Number.isFinite(targetTime)) {
+          setHeldTime(targetTime);
           onSeek(targetTime);
         }
       }
@@ -258,7 +274,8 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onPointerLeave={() => setHoverRatio(null)}
-      className={`group relative flex h-14 w-full cursor-pointer select-none items-center gap-[2px] overflow-hidden rounded-theme-md px-0.5 touch-none ${className}`}
+      // The real control is the invisible range input below, so the focus ring goes here
+      className={`group relative flex h-14 w-full cursor-pointer select-none items-center gap-[2px] overflow-hidden rounded-theme-md px-0.5 touch-none has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-theme-focus ${className}`}
     >
       {/* Waveform Bars */}
       {bars.map((height, i) => {
@@ -326,18 +343,32 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
           min={0}
           max={Number.isFinite(duration) && duration > 0 ? duration : 100}
           step={0.1}
-          value={currentTime}
+          value={sliderTime}
           onChange={(e) => {
             const val = parseFloat(e.target.value);
             if (Number.isFinite(val) && Number.isFinite(duration) && duration > 0) {
+              setHeldTime(val);
               onSeek(val);
             }
           }}
+          onKeyDown={(e) => {
+            if (!Number.isFinite(duration) || duration <= 0) return;
+            const target = seekTargetForKey(e, currentTime, duration);
+            if (target === null) return;
+            e.preventDefault();
+            setHeldTime(target);
+            onSeek(target);
+          }}
+          onFocus={() => {
+            setHeldTime(currentTime);
+            setIsFocused(true);
+          }}
+          onBlur={() => setIsFocused(false)}
           aria-label="Audio timeline position"
           aria-valuemin={0}
           aria-valuemax={Number.isFinite(duration) && duration > 0 ? Math.round(duration) : 100}
-          aria-valuenow={Math.round(currentTime)}
-          aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+          aria-valuenow={Math.round(sliderTime)}
+          aria-valuetext={`${formatTime(sliderTime)} of ${formatTime(duration)}`}
           className="w-full h-full min-h-[44px] opacity-0 cursor-pointer z-20 touch-none py-2"
         />
       </Tooltip>

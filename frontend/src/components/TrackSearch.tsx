@@ -73,7 +73,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = query.trim();
-    if (!trimmed) return;
+    if (!trimmed || searching || isLoading) return;
 
     if (trimmed.includes('youtube.com/') || trimmed.includes('youtu.be/')) {
       onSelectTrack(trimmed, customLyrics.trim() || undefined);
@@ -137,7 +137,11 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
                 AI karaoke studio
               </span>
-              <h1 className="font-theme-heading text-2xl font-extrabold tracking-tight text-theme-text sm:text-4xl md:text-5xl">
+              <h1
+                tabIndex={-1}
+                data-view-heading
+                className="font-theme-heading text-2xl font-extrabold tracking-tight text-theme-text focus:outline-none sm:text-4xl md:text-5xl"
+              >
                 Turn Any YouTube Song Into Karaoke
               </h1>
               <p className="mx-auto max-w-xl text-sm text-theme-text-muted">
@@ -188,7 +192,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                       aria-label="Paste YouTube or YouTube Music URL or search song title"
                       placeholder="Paste YouTube / YouTube Music URL or search song title..."
                       className="min-h-[48px] w-full rounded-theme-lg border border-theme-border bg-theme-bg py-3.5 pl-10 pr-24 text-base text-theme-text shadow-theme-sm placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:py-4 sm:pl-12 sm:pr-32"
-                      disabled={isLoading || searching}
+                      // Read-only rather than disabled while busy, so keyboard focus stays put
+                      readOnly={isLoading || searching}
+                      aria-busy={searching || undefined}
                     />
                     {query ? (
                       <button
@@ -378,7 +384,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
               </div>
               <button
                 type="button"
-                aria-label="Create Karaoke"
+                aria-label={`Create Karaoke: ${track.title}${track.artist ? ` – ${track.artist}` : ''}`}
                 className={cn(
                   'ml-2 flex min-h-[36px] shrink-0 items-center justify-center rounded-theme-md border border-theme-accent/40 bg-theme-accent/15 px-3 font-theme-heading text-xs font-semibold text-theme-highlight transition-colors group-hover:border-transparent group-hover:bg-gradient-accent group-hover:text-theme-accent-text sm:ml-4 sm:px-3.5',
                   focusRing

@@ -4,7 +4,14 @@ import { cn } from '../../utils/cn';
 /** Props a wrapping Tooltip (or other enhancer) may inject; forwarded to the input. */
 type ForwardedInputProps = Pick<
   React.InputHTMLAttributes<HTMLInputElement>,
-  'onFocus' | 'onBlur' | 'onMouseEnter' | 'onMouseLeave' | 'onClick' | 'aria-describedby' | 'title'
+  | 'onFocus'
+  | 'onBlur'
+  | 'onKeyDown'
+  | 'onMouseEnter'
+  | 'onMouseLeave'
+  | 'onClick'
+  | 'aria-describedby'
+  | 'title'
 >;
 
 export interface SliderProps extends ForwardedInputProps {

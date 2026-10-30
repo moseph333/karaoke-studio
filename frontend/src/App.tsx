@@ -5,10 +5,11 @@
  * state transitions, active studio dashboard, global keyboard shortcuts, and dialog modals.
  */
 
-import React, { useState, useEffect, useCallback, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { TrackSearch } from './components/TrackSearch';
 import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
+import { RenderProgressAnnouncer } from './components/RenderProgressAnnouncer';
 import { StudioModals } from './components/StudioModals';
 import { StudioWorkspace } from './components/studio/StudioWorkspace';
 import { TransportDock } from './components/transport/TransportDock';
@@ -20,7 +21,7 @@ import { apiFetch } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { isInputElement, isModalActive, useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStudioAudio } from './hooks/useStudioAudio';
 import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
@@ -31,6 +32,8 @@ import { isGeneratedStyle } from './theme/stageBackgrounds';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
 import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
 import { cn } from './utils/cn';
+import { focusQuietly } from './utils/focusIntent';
+import { pageTitle } from './utils/pageTitle';
 
 export const AppContent: React.FC = () => {
   const { toast } = useToast();
@@ -109,6 +112,47 @@ export const AppContent: React.FC = () => {
   };
 
   const isStudioReady = Boolean(project && project.status === 'ready');
+
+  // The tab title names the open song (and its progress while it is processed)
+  const title = pageTitle(project);
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
+
+  // When the screen changes (library, processing, studio) the control that had focus is
+  // gone; move focus to the new screen's heading so keyboard and screen reader users land
+  // at its top instead of on the page body
+  const view = !project ? 'library' : isStudioReady ? 'studio' : 'processing';
+  const previousViewRef = useRef(view);
+  useEffect(() => {
+    if (previousViewRef.current === view) return;
+    previousViewRef.current = view;
+    if (isModalActive() || isInputElement(document.activeElement)) return;
+    focusQuietly(document.querySelector<HTMLElement>('main [data-view-heading]'));
+  }, [view]);
+
+  // Keep the open song in the address bar (?project=…) so a reload reopens it; the
+  // deep-link loader above reads it back
+  const projectId = project?.id;
+  const previousProjectIdRef = useRef(projectId);
+  useEffect(() => {
+    const closedProject = Boolean(previousProjectIdRef.current) && !projectId;
+    previousProjectIdRef.current = projectId;
+    const params = new URLSearchParams(window.location.search);
+    if (projectId && params.get('project') !== projectId) {
+      params.set('project', projectId);
+      params.delete('t');
+    } else if (closedProject) {
+      params.delete('project');
+      params.delete('t');
+    } else {
+      return;
+    }
+    const query = params.toString();
+    const url = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+    window.history.replaceState(window.history.state, '', url);
+  }, [projectId]);
+
   const { chordHistory, handleEditChord } = useProjectChords({
     project,
     setProject,
@@ -252,10 +296,6 @@ export const AppContent: React.FC = () => {
     }
     setIsPlaying(false);
     setCurrentTime(0);
-
-    if (window.location.search) {
-      window.history.replaceState({}, '', window.location.pathname);
-    }
 
     setProject(null);
     setActiveWorkspaceTab('stage');
@@ -410,6 +450,7 @@ export const AppContent: React.FC = () => {
             mediaArtworkUrl={project.thumbnail_url}
           />
         )}
+        {isStudioReady && project && <RenderProgressAnnouncer project={project} />}
       </div>
 
       {/* Studio Modal Dialogs */}

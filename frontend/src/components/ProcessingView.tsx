@@ -7,7 +7,7 @@
  * Retry, and a two-step cancel. Also renders the cancelled and failed end states.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Activity,
   AlertCircle,
@@ -92,6 +92,20 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
   isReconnecting: isReconnectingProp,
 }) => {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  // The confirmation replaces the Cancel button: move focus to its safe choice, and back to
+  // Cancel when the user keeps processing
+  const keepProcessingRef = useRef<HTMLButtonElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const confirmWasShownRef = useRef(false);
+  useEffect(() => {
+    if (showCancelConfirm) {
+      confirmWasShownRef.current = true;
+      keepProcessingRef.current?.focus();
+    } else if (confirmWasShownRef.current) {
+      confirmWasShownRef.current = false;
+      cancelButtonRef.current?.focus();
+    }
+  }, [showCancelConfirm]);
 
   const isHeartbeatStalled = Boolean(project.heartbeat && Date.now() - project.heartbeat > 15000);
   const isReconnecting =
@@ -114,7 +128,11 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-theme-pill bg-theme-warning/15 text-theme-warning">
             <XCircle className="h-6 w-6" aria-hidden="true" />
           </div>
-          <h2 className="font-theme-heading text-xl font-bold text-theme-text">
+          <h2
+            tabIndex={-1}
+            data-view-heading
+            className="font-theme-heading text-xl font-bold text-theme-text focus:outline-none"
+          >
             Track Processing Cancelled
           </h2>
           <p className="text-sm text-theme-text-muted">
@@ -142,10 +160,17 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-theme-pill bg-theme-danger/15 text-theme-danger">
             <AlertCircle className="h-6 w-6" aria-hidden="true" />
           </div>
-          <h2 className="font-theme-heading text-xl font-bold text-theme-text">
+          <h2
+            tabIndex={-1}
+            data-view-heading
+            className="font-theme-heading text-xl font-bold text-theme-text focus:outline-none"
+          >
             Track Processing Failed
           </h2>
-          <p className="break-words rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-4 text-left font-mono text-xs text-theme-danger">
+          <p
+            role="alert"
+            className="break-words rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-4 text-left font-mono text-xs text-theme-danger"
+          >
             {project?.error || 'An unexpected error occurred during processing.'}
           </p>
           <button
@@ -207,10 +232,18 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
             </span>
           </ProgressRing>
 
-          <div role="status" aria-live="polite" className="space-y-2">
-            <h2 className="font-theme-heading text-2xl font-bold capitalize text-theme-text">
-              {(project?.status || 'queued').replace('_', ' ')}...
-            </h2>
+          <div className="space-y-2">
+            {/* Only the stage is announced: the detail below changes with every separation
+                chunk, which would keep a screen reader talking for minutes */}
+            <div role="status" aria-live="polite">
+              <h2
+                tabIndex={-1}
+                data-view-heading
+                className="font-theme-heading text-2xl font-bold capitalize text-theme-text focus:outline-none"
+              >
+                {(project?.status || 'queued').replace('_', ' ')}...
+              </h2>
+            </div>
             <p className="mx-auto max-w-md break-words rounded-theme-md border border-theme-border-subtle bg-theme-bg/70 px-3.5 py-2.5 font-mono text-xs text-theme-text-muted">
               {project?.status_detail ||
                 DEFAULT_DETAIL[project?.status || ''] ||
@@ -379,6 +412,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
                     Confirm Cancel
                   </button>
                   <button
+                    ref={keepProcessingRef}
                     type="button"
                     onClick={() => setShowCancelConfirm(false)}
                     className={cn(
@@ -392,6 +426,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
               </div>
             ) : (
               <button
+                ref={cancelButtonRef}
                 type="button"
                 onClick={() => setShowCancelConfirm(true)}
                 className={cn(
