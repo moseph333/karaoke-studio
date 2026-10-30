@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import motion from '../theme/backgroundMotion.json';
+import motion from '@shared/background_motion.json';
 import {
   AURORA_ORB_COUNT,
   DEFAULT_BACKGROUND_ACCENTS,

@@ -1,9 +1,9 @@
 """Generated stage backgrounds for exports: drifting cover art, aurora orbs and an audio spectrum.
 
 Each style is an FFmpeg filter graph that ends in [bg]. Motion is a pure function of the song time
-t, using the numbers in BACKGROUND_MOTION, which mirrors frontend/src/theme/backgroundMotion.json
-(a test keeps them equal). The live stage computes the same functions, so a paused or scrubbed
-preview shows the frame the export renders at that moment. Aurora and spectrum are drawn at a
+t, using the numbers in BACKGROUND_MOTION (backend/assets/shared/background_motion.json, which the
+stage imports too). The live stage computes the same functions, so a paused or scrubbed preview
+shows the frame the export renders at that moment. Aurora and spectrum are drawn at a
 quarter of the output size and upscaled, which keeps them cheap; both need no input files, so a
 cloud render ships nothing extra for them.
 """
@@ -11,62 +11,14 @@ cloud render ships nothing extra for them.
 import re
 from typing import Any
 
+from backend.shared_assets import load
+
 BACKGROUND_STYLES = ("artwork", "drift", "aurora", "spectrum", "color")
 DEFAULT_BACKGROUND_STYLE = "artwork"
 # Styles drawn entirely by FFmpeg (no song art or uploaded file needed)
 GENERATED_STYLES = frozenset({"aurora", "spectrum"})
 
-BACKGROUND_MOTION: dict[str, Any] = {
-    "drift": {"overscan": 1.12, "periodX": 37, "periodY": 23, "phaseY": 1.3},
-    "aurora": {
-        "scale": 4,
-        "sigma": 0.0917,
-        "extent": 3.4,
-        "alpha": {"dark": 1, "light": 0.6},
-        "orbs": [
-            {
-                "x": 0.5,
-                "y": 0.34,
-                "ax": 0.31,
-                "ay": 0.24,
-                "periodX": 31,
-                "periodY": 19,
-                "phaseX": 0,
-                "phaseY": 1,
-            },
-            {
-                "x": 0.5,
-                "y": 0.4,
-                "ax": 0.33,
-                "ay": 0.28,
-                "periodX": 23,
-                "periodY": 29,
-                "phaseX": 2,
-                "phaseY": 1.5708,
-            },
-            {
-                "x": 0.5,
-                "y": 0.37,
-                "ax": 0.29,
-                "ay": 0.22,
-                "periodX": 37,
-                "periodY": 17,
-                "phaseX": 2.0708,
-                "phaseY": 2,
-            },
-        ],
-    },
-    # Readability gradient (top, middle, bottom alpha), the same as the stage preview's scrim
-    "scrim": {"dark": [0.1, 0.3, 0.75], "light": [0.05, 0.25, 0.75]},
-    "spectrum": {
-        "minHz": 30,
-        "maxHz": 12000,
-        "height": 0.6,
-        "gamma": 2,
-        "attack": 0.08,
-        "blur": 0.011,
-    },
-}
+BACKGROUND_MOTION: dict[str, Any] = load("background_motion")
 
 # Afterglow's sung and duet colours, used for any palette entry that is missing or not a colour
 DEFAULT_PALETTE = ("#fbbf24", "#f472b6", "#5eead4")

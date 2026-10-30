@@ -7,104 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.config import DEFAULT_VIDEO_CONFIG
-
-VISUAL_THEMES: dict[str, dict[str, Any]] = {
-    "modern_gold": {
-        "id": "modern_gold",
-        "name": "Modern Gold",
-        "description": "Crisp white transitioning into warm radiant gold",
-        "primary_color": "&H0000D7FF",
-        "secondary_color": "&H00FFFFFF",
-    },
-    "cyber_cyan": {
-        "id": "cyber_cyan",
-        "name": "Cyber Cyan",
-        "description": "Electric cyan glowing wipe on ambient dark backdrop",
-        "primary_color": "&H00FFFF00",
-        "secondary_color": "&H00FFFFFF",
-    },
-    "neon_pink": {
-        "id": "neon_pink",
-        "name": "Neon Sunset",
-        "description": "Vivid magenta sweep with high contrast",
-        "primary_color": "&H00B300FF",
-        "secondary_color": "&H00FFFFFF",
-    },
-    "classic_ktv": {
-        "id": "classic_ktv",
-        "name": "Classic KTV",
-        "description": "Traditional karaoke blue-to-yellow karaoke look",
-        "primary_color": "&H0000FFFF",
-        "secondary_color": "&H00FFFFFF",
-    },
-    "punk_diy": {
-        "id": "punk_diy",
-        "name": "Punk DIY Flyer",
-        "description": "Gritty Xerox black with raw flyer-yellow wipe and bold typography",
-        "primary_color": "&H0015CCFA",  # #facc15 (Flyer Yellow) -> BGR &H0015CCFA
-        "secondary_color": "&H00F5F5F5",  # #f5f5f5 (Paper Off-White) -> BGR &H00F5F5F5
-        "outline_color": "&H00000000",  # Solid Ink Black outline
-        "shadow_color": "&H00000000",  # Hard offset drop shadow
-        "outline_width": 3,
-        "shadow_width": 3,
-        "font_name": "Impact",
-    },
-    "tape_70s": {
-        "id": "tape_70s",
-        "name": "Analog 70s Studio",
-        "description": "Teak console with warm amber VU meter glow and sepia cream",
-        "primary_color": "&H000B9EF5",  # #f59e0b (Warm Amber VU) -> BGR &H000B9EF5
-        "secondary_color": "&H00C7F3FE",  # #fef3c7 (Sepia Cream) -> BGR &H00C7F3FE
-        "outline_color": "&H00000000",  # Deep walnut/black outline
-        "shadow_color": "&H80000000",  # Warm tape shadow
-        "outline_width": 3,
-        "shadow_width": 2,
-        "font_name": "Georgia",
-    },
-    "crt_ktv": {
-        "id": "crt_ktv",
-        "name": "Dive Bar CRT KTV",
-        "description": "Phosphor green scanline CRT glow with retro arcade raster font",
-        "primary_color": "&H005EC522",  # #22c55e (Phosphor Green) -> BGR &H005EC522
-        "secondary_color": "&H00ACEF86",  # #86efac (Dim Phosphor Mint) -> BGR &H00ACEF86
-        "outline_color": "&H00000000",  # Deep cathode black
-        "shadow_color": "&H80000000",  # CRT scanline shadow
-        "outline_width": 3,
-        "shadow_width": 2,
-        "font_name": "VT323",
-    },
-    "clean_paper": {
-        "id": "clean_paper",
-        "name": "Clean Paper Studio",
-        "description": "Brutalist Swiss drafting paper with razor-sharp editorial red and black ink",
-        "primary_color": "&H002626DC",  # #dc2626 (Editorial Red) -> BGR &H002626DC
-        "secondary_color": "&H00111111",  # #111111 (Monochrome Ink) -> BGR &H00111111
-        "outline_color": "&H00FFFFFF",  # Paper white contrast outline
-        "shadow_color": "&H00000000",  # Sharp brutalist offset shadow
-        "outline_width": 2,
-        "shadow_width": 2,
-        "font_name": "Space Grotesk",
-    },
-    "afterglow": {
-        "id": "afterglow",
-        "name": "Afterglow",
-        "description": "Ink-black stage with a warm gold sweep and violet-to-rose duet glow",
-        "primary_color": "&H0024BFFB",  # #fbbf24 (Warm Gold) -> BGR &H0024BFFB
-        "secondary_color": "&H00FFEBED",  # #edebff (Lilac White) -> BGR &H00FFEBED
-        "outline_color": "&H00120B0B",  # #0b0b12 (Ink) outline
-        "shadow_color": "&H80120B0B",  # Soft ink shadow
-        "outline_width": 3,
-        "shadow_width": 2,
-        "font_name": "Sora",
-        "singer2_color": "&H00B672F4",  # #f472b6 (Rose)
-        "both_color": "&H00D4EA5E",  # #5eead4 (Aqua)
-    },
-}
-
-DEFAULT_THEME_ID = "modern_gold"
-
-DEFAULT_SINGER2_COLOR = "&H00B300FF"  # #ff00b3
-DEFAULT_BOTH_COLOR = "&H0050FA7B"  # #7bfa50
+from backend.shared_assets import load
 
 _ASS_COLOR_DIGITS = re.compile(r"[0-9A-F]{6}(?:[0-9A-F]{2})?")
 
@@ -135,6 +38,66 @@ def css_to_ass_color(color: str, default: str = "&H0000D7FF") -> str:
         except ValueError:
             return default
     return default
+
+
+# Each stage look's id, name, description and sung/unsung colours are shared with the stage
+# (backend/assets/shared/stage_presets.json); these are what only the export needs.
+_EXPORT_STYLES: dict[str, dict[str, Any]] = {
+    "punk_diy": {
+        "outline_color": "&H00000000",  # Solid Ink Black outline
+        "shadow_color": "&H00000000",  # Hard offset drop shadow
+        "outline_width": 3,
+        "shadow_width": 3,
+        "font_name": "Impact",
+    },
+    "tape_70s": {
+        "outline_color": "&H00000000",  # Deep walnut/black outline
+        "shadow_color": "&H80000000",  # Warm tape shadow
+        "outline_width": 3,
+        "shadow_width": 2,
+        "font_name": "Georgia",
+    },
+    "crt_ktv": {
+        "outline_color": "&H00000000",  # Deep cathode black
+        "shadow_color": "&H80000000",  # CRT scanline shadow
+        "outline_width": 3,
+        "shadow_width": 2,
+        "font_name": "VT323",
+    },
+    "clean_paper": {
+        "outline_color": "&H00FFFFFF",  # Paper white contrast outline
+        "shadow_color": "&H00000000",  # Sharp brutalist offset shadow
+        "outline_width": 2,
+        "shadow_width": 2,
+        "font_name": "Space Grotesk",
+    },
+    "afterglow": {
+        "outline_color": "&H00120B0B",  # #0b0b12 (Ink) outline
+        "shadow_color": "&H80120B0B",  # Soft ink shadow
+        "outline_width": 3,
+        "shadow_width": 2,
+        "font_name": "Sora",
+    },
+}
+
+
+def _export_preset(shared: dict[str, Any]) -> dict[str, Any]:
+    preset = {**shared, **_EXPORT_STYLES.get(shared["id"], {})}
+    for field in ("singer2_color", "both_color"):
+        if field in preset:
+            preset[field] = css_to_ass_color(preset[field])
+    return preset
+
+
+_STAGE_PRESETS = load("stage_presets")
+VISUAL_THEMES: dict[str, dict[str, Any]] = {
+    preset["id"]: _export_preset(preset) for preset in _STAGE_PRESETS["presets"]
+}
+
+DEFAULT_THEME_ID = "modern_gold"
+
+DEFAULT_SINGER2_COLOR = css_to_ass_color(_STAGE_PRESETS["default_duet_colors"]["singer2"])
+DEFAULT_BOTH_COLOR = css_to_ass_color(_STAGE_PRESETS["default_duet_colors"]["both"])
 
 
 def safe_time(val: Any, default: float = 0.0) -> float:
@@ -224,18 +187,11 @@ def escape_ass_text(text: str) -> str:
     return text
 
 
-SINGER2_NAMES = ("singer2", "partner", "singer 2", "singer_2", "part2", "part 2", "s2")
-BOTH_NAMES = ("both", "unison", "duet", "all", "together")
-
-
 def singer_part(line: dict[str, Any]) -> str:
-    """Which part sings a line: "singer2", "both" or "singer1" (the default)."""
+    """Which part sings a line: "singer2", "both" or "singer1" (the default), by the singer
+    labels the stage shares (backend/assets/shared/singer_aliases.json)."""
     raw = str(line.get("singer") or "singer1").strip().lower()
-    if raw in SINGER2_NAMES:
-        return "singer2"
-    if raw in BOTH_NAMES:
-        return "both"
-    return "singer1"
+    return load("singer_aliases").get(raw, "singer1")
 
 
 def resolve_sync_mode(sync_mode: str | None, style_config: dict[str, Any] | None) -> str:

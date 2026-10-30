@@ -8,6 +8,8 @@ COPY frontend/package*.json ./
 RUN npm install
 
 COPY frontend/ ./
+# Values shared with the backend, imported as @shared/<name>.json (see vite.config.ts)
+COPY backend/assets/shared /app/backend/assets/shared
 RUN npm run build
 
 # ==============================================================================

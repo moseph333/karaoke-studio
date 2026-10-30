@@ -1,0 +1,73 @@
+{
+  "default_duet_colors": {
+    "singer2": "#ff00b3",
+    "both": "#7bfa50"
+  },
+  "presets": [
+    {
+      "id": "modern_gold",
+      "name": "Modern Gold",
+      "description": "Crisp white transitioning into warm radiant gold",
+      "primary_color": "&H0000D7FF",
+      "secondary_color": "&H00FFFFFF"
+    },
+    {
+      "id": "cyber_cyan",
+      "name": "Cyber Cyan",
+      "description": "Electric cyan glowing wipe on ambient dark backdrop",
+      "primary_color": "&H00FFFF00",
+      "secondary_color": "&H00FFFFFF"
+    },
+    {
+      "id": "neon_pink",
+      "name": "Neon Sunset",
+      "description": "Vivid magenta sweep with high contrast",
+      "primary_color": "&H00B300FF",
+      "secondary_color": "&H00FFFFFF"
+    },
+    {
+      "id": "classic_ktv",
+      "name": "Classic KTV",
+      "description": "Traditional karaoke blue-to-yellow karaoke look",
+      "primary_color": "&H0000FFFF",
+      "secondary_color": "&H00FFFFFF"
+    },
+    {
+      "id": "punk_diy",
+      "name": "Basement Flyer",
+      "description": "Gritty Xerox black with raw flyer-yellow wipe and bold typography",
+      "primary_color": "&H0015CCFA",
+      "secondary_color": "&H00F5F5F5"
+    },
+    {
+      "id": "tape_70s",
+      "name": "Reel-to-Reel '74",
+      "description": "Teak console with warm amber VU meter glow and sepia cream",
+      "primary_color": "&H000B9EF5",
+      "secondary_color": "&H00C7F3FE"
+    },
+    {
+      "id": "crt_ktv",
+      "name": "Midnight KTV Booth",
+      "description": "Phosphor green scanline CRT glow with retro arcade raster font",
+      "primary_color": "&H005EC522",
+      "secondary_color": "&H00ACEF86"
+    },
+    {
+      "id": "clean_paper",
+      "name": "Monolith Press",
+      "description": "Brutalist Swiss drafting paper with razor-sharp editorial red and black ink",
+      "primary_color": "&H002626DC",
+      "secondary_color": "&H00111111"
+    },
+    {
+      "id": "afterglow",
+      "name": "Afterglow",
+      "description": "Ink-black stage with a warm gold sweep and violet-to-rose duet glow",
+      "primary_color": "&H0024BFFB",
+      "secondary_color": "&H00FFEBED",
+      "singer2_color": "#f472b6",
+      "both_color": "#5eead4"
+    }
+  ]
+}

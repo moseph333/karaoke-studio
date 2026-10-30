@@ -34,6 +34,7 @@ from backend.services.aligner import enforce_monotonic_words
 from backend.services.lyric_tokenize import normalize_for_mms
 from backend.services.process_watchdog import ProcessWatchdog, duration_text, quietly, worker_env
 from backend.services.sync_confidence import evidence_score, line_confidence, load_evidence
+from backend.shared_assets import load
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,8 @@ MIN_WORD = 0.08
 JOIN_GAP = 0.35
 LAST_WORD_MIN = 0.25
 MIN_ALIGNED_SHARE = 0.7
-LOW_CONFIDENCE = 0.6  # matches the studio's "Needs review" threshold (timelineReview.ts)
+# Below this a line counts as low confidence, as the studio's "Needs review" filter does
+LOW_CONFIDENCE = load("confidence_thresholds")["low"]
 
 ProgressCallback = Callable[[float | None, str], None]
 

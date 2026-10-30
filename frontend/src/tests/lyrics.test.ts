@@ -8,7 +8,8 @@ import {
   formatLineTime,
 } from '../utils/lyrics';
 import { LyricLine } from '../types';
-import tokenizeCases from './fixtures/tokenize_cases.json';
+// The same cases run against the backend's tokenizer (test_alignment_parts.py)
+import tokenizeCases from '@shared/tokenize_cases.json';
 
 describe('lyrics utility module (Milestone 3)', () => {
   describe('round3, sanitizeTimestamp, formatLineTime', () => {

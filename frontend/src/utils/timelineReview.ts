@@ -6,6 +6,8 @@
  * words too short to see, and lines that run into the next line of the same voice.
  */
 
+import thresholds from '@shared/confidence_thresholds.json';
+import { normalizeSingerRole } from '../components/stage/singers';
 import { LyricLine } from '../types';
 
 export type LineIssueKind = 'low_confidence' | 'no_words' | 'short_words' | 'overlap';
@@ -15,17 +17,18 @@ export interface LineIssue {
   message: string;
 }
 
-/** Lines aligned below this confidence (0–1) are flagged for review. */
-export const LOW_CONFIDENCE_THRESHOLD = 0.6;
+/** Lines aligned below this confidence (0–1) are flagged for review, as in the backend's
+ * sync report. */
+export const LOW_CONFIDENCE_THRESHOLD = thresholds.low;
 /** Words shorter than this (seconds) flash by too quickly to read. */
 export const MIN_VISIBLE_WORD_SECONDS = 0.02;
 /** Overlap (seconds) tolerated between consecutive lines of the same voice. */
 export const OVERLAP_TOLERANCE_SECONDS = 0.05;
 
+/** Whether two lines are sung by the same single voice ("s2" and "partner" are one voice). */
 const sameVoice = (a: LyricLine, b: LyricLine): boolean => {
-  const sa = a.singer ?? 'singer1';
-  const sb = b.singer ?? 'singer1';
-  return sa === sb && sa !== 'both';
+  const sa = normalizeSingerRole(a.singer);
+  return sa === normalizeSingerRole(b.singer) && sa !== 'both';
 };
 
 export function getLineIssues(line: LyricLine, next?: LyricLine | null): LineIssue[] {

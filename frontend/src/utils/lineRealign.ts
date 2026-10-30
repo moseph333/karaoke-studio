@@ -2,11 +2,12 @@
  * Helpers for re-timing a single lyric line and showing how sure the aligner is about a line.
  */
 
+import thresholds from '@shared/confidence_thresholds.json';
 import type { LyricLine } from '../types';
 import { LOW_CONFIDENCE_THRESHOLD } from './timelineReview';
 
-/** Confidence from this value up reads as solid. */
-export const HIGH_CONFIDENCE_THRESHOLD = 0.8;
+/** Confidence from this value up reads as solid (shared with the backend). */
+export const HIGH_CONFIDENCE_THRESHOLD = thresholds.high;
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 
