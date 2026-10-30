@@ -150,7 +150,9 @@ describe('Timeline editor with a background re-alignment', () => {
     const start = vi.fn().mockResolvedValue({ id: 'sync2', status: 'queued' });
     renderEditor({ onStartBackgroundRealign: start });
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 're-align all' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 're-align all' },
+    });
     fireEvent.click(
       await screen.findByRole('option', { name: /Re-align all lines in the background/ })
     );
@@ -167,7 +169,9 @@ describe('Timeline editor with a background re-alignment', () => {
       onCancelRealign: cancel,
     });
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 're-align' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 're-align' },
+    });
     expect(screen.queryByRole('option', { name: /Re-align all lines/ })).toBeNull();
     fireEvent.click(await screen.findByRole('option', { name: /Cancel lyric re-alignment/ }));
     await waitFor(() => expect(cancel).toHaveBeenCalledTimes(1));
@@ -189,7 +193,9 @@ describe('Timeline editor with a background re-alignment', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Nudge line 1 0.2s later' }));
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 're-align all' } });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 're-align all' },
+    });
     fireEvent.click(
       await screen.findByRole('option', { name: /Re-align all lines in the background/ })
     );
