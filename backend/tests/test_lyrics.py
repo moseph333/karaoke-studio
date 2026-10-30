@@ -1344,3 +1344,31 @@ def test_syncedlyrics_untimed_results_are_plain_lyrics(monkeypatch):
     res = LyricsService().fetch_lyrics("Song", "Artist")
     assert (res["source"], res["synced"]) == ("syncedlyrics", True)
     assert [line["start_time"] for line in res["lines"]] == [1.0, 3.0]
+
+
+def test_search_lyrics_is_a_service_method_with_one_normaliser():
+    """The lyric picker's search lives on the service (it was patched onto the class by the
+    router on the first request) and maps LRCLIB's camelCase once; mapping a mapped
+    candidate changes nothing."""
+    lrclib = MagicMock(status_code=200)
+    lrclib.json.return_value = [
+        {"id": 7, "trackName": "Song", "artistName": "Band", "duration": "201.5"},
+        "not a candidate",
+    ]
+    with patch("requests.get", return_value=lrclib) as get:
+        found = LyricsService().search_lyrics(" Song ", "Band ")
+
+    assert get.call_args.kwargs["params"] == {"track_name": "Song", "artist_name": "Band"}
+    assert found == [
+        {
+            "id": 7,
+            "track_name": "Song",
+            "artist_name": "Band",
+            "album_name": "",
+            "duration": 201.5,
+            "instrumental": False,
+            "plain_lyrics": "",
+            "synced_lyrics": "",
+        }
+    ]
+    assert LyricsService.normalize_candidate(found[0]) == found[0]
