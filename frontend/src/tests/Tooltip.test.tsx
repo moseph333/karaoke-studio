@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { Tooltip } from '../components/Tooltip';
+import { Tooltip, TOOLTIP_HIDE_DELAY_MS } from '../components/Tooltip';
 
 describe('Tooltip Component', () => {
   beforeEach(() => {
@@ -77,7 +77,68 @@ describe('Tooltip Component', () => {
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
     fireEvent.mouseLeave(button);
+    // Still there for a moment, so the pointer can move onto the bubble (WCAG 1.4.13)
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(TOOLTIP_HIDE_DELAY_MS);
+    });
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('stays open while the pointer is over the bubble, and closes after it leaves', () => {
+    render(
+      <Tooltip content="Hover me too" delayMs={0}>
+        <button type="button">Trigger</button>
+      </Tooltip>
+    );
+    const button = screen.getByRole('button', { name: 'Trigger' });
+    fireEvent.mouseEnter(button);
+    fireEvent.mouseLeave(button);
+    act(() => {
+      vi.advanceTimersByTime(TOOLTIP_HIDE_DELAY_MS / 2);
+    });
+    const bubble = screen.getByRole('tooltip');
+    fireEvent.mouseEnter(bubble);
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    fireEvent.mouseLeave(bubble);
+    act(() => {
+      vi.advanceTimersByTime(TOOLTIP_HIDE_DELAY_MS);
+    });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('still closes at once on blur, click and Escape', () => {
+    render(
+      <Tooltip content="Quick" delayMs={0}>
+        <button type="button">Quick trigger</button>
+      </Tooltip>
+    );
+    const button = screen.getByRole('button', { name: 'Quick trigger' });
+    fireEvent.focus(button);
+    fireEvent.blur(button);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    fireEvent.mouseEnter(button);
+    fireEvent.click(button);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    fireEvent.mouseEnter(button);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('takes pointer events only where the pointer can hover (never blocking taps)', () => {
+    render(
+      <Tooltip content="Touch safe" delayMs={0}>
+        <button type="button">Touch trigger</button>
+      </Tooltip>
+    );
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Touch trigger' }));
+    const bubble = screen.getByRole('tooltip');
+    expect(bubble).toHaveClass('pointer-events-none');
+    expect(bubble).toHaveClass('[@media(hover:hover)]:pointer-events-auto');
   });
 
   it('cancels scheduled tooltip if mouse leaves before delay expires', () => {

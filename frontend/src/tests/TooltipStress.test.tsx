@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { Tooltip } from '../components/Tooltip';
+import { Tooltip, TOOLTIP_HIDE_DELAY_MS } from '../components/Tooltip';
 import {
   setTestViewport,
   resetTestViewport,
@@ -66,8 +66,11 @@ describe('Tooltip Empirical Stress & Adversarial Suite', () => {
       expect(screen.getByRole('tooltip')).toBeInTheDocument();
       expect(screen.getByRole('tooltip')).toHaveTextContent('Ghost Buster Tooltip');
 
-      // And clean exit dismisses it
+      // And clean exit dismisses it, once the pointer had time to reach the bubble
       fireEvent.mouseLeave(button);
+      act(() => {
+        vi.advanceTimersByTime(TOOLTIP_HIDE_DELAY_MS);
+      });
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     });
 

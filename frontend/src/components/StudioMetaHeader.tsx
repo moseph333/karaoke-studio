@@ -74,6 +74,10 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
                 <span className="tabular-nums">{syncFidelity.quality}%</span>
               )}
               {syncFidelity.autoAligned && <span className="font-medium">auto-aligned</span>}
+              {/* The badge takes no focus, so its tooltip only reaches pointer users */}
+              <span className="sr-only" data-testid="sync-status-details">
+                {`: ${syncFidelity.tooltipText}`}
+              </span>
             </Badge>
           </Tooltip>
           <Tooltip content={stems.tooltip} position="bottom">
@@ -85,6 +89,9 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
               className="hidden sm:inline-flex"
             >
               {stems.text}
+              <span className="sr-only" data-testid="stems-details">
+                {`: ${stems.tooltip}`}
+              </span>
             </Badge>
           </Tooltip>
         </div>

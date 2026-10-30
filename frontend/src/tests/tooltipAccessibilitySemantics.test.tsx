@@ -15,7 +15,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
-import { Tooltip } from '../components/Tooltip';
+import { Tooltip, TOOLTIP_HIDE_DELAY_MS } from '../components/Tooltip';
 import { TransportDock } from '../components/transport/TransportDock';
 import { MasterVolumeControl } from '../components/audio/MasterVolumeControl';
 import { PitchTranspositionControl } from '../components/audio/PitchTranspositionControl';
@@ -157,8 +157,11 @@ describe('Tooltip Accessibility Semantics & Control Coverage', () => {
       expect(tooltipId).toMatch(/^tooltip-/);
       expect(button).toHaveAttribute('aria-describedby', tooltipId);
 
-      // Mouse leave -> dismiss
+      // Mouse leave -> dismiss (after the moment the pointer has to reach the bubble)
       fireEvent.mouseLeave(button);
+      act(() => {
+        vi.advanceTimersByTime(TOOLTIP_HIDE_DELAY_MS);
+      });
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
       expect(button).not.toHaveAttribute('aria-describedby');
     });
