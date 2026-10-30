@@ -18,6 +18,7 @@ import type { UseMixControllerReturn } from '../../hooks/useMixController';
 import type { UseVisualThemeReturn } from '../../hooks/useVisualTheme';
 import type { UseQualityJobsReturn } from '../../hooks/useQualityJobs';
 import { normalizeSingerRole } from '../stage/singers';
+import { useWorkspaceTabs, workspacePanelProps } from './workspacePanels';
 import { cn } from '../../utils/cn';
 
 export interface StudioWorkspaceProps {
@@ -66,6 +67,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
   onToggleChordBar,
   quality,
 }) => {
+  const asTabs = useWorkspaceTabs();
   const syncJobActive = ['queued', 'running'].includes(project.sync_job?.status ?? '');
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
   // The cover art exactly as exports draw it (the larger, panned still for the drift)
@@ -161,9 +163,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
       >
         <div
           id="workspace-panel-mix-audio"
-          role="tabpanel"
-          aria-labelledby="workspace-tab-mix"
-          tabIndex={0}
+          {...workspacePanelProps('mix', asTabs)}
           data-testid="studio-panel-audio"
           className={cn(panelVisibility(activeTab, 'mix'), 'rounded-theme-xl scroll-mt-3')}
         >
@@ -193,9 +193,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
 
         <div
           id="workspace-panel-mix-theme"
-          role="tabpanel"
-          aria-labelledby="workspace-tab-mix"
-          tabIndex={0}
+          {...workspacePanelProps('mix', asTabs)}
           data-testid="studio-panel-theme"
           className={cn(panelVisibility(activeTab, 'mix'), 'rounded-theme-xl')}
         >

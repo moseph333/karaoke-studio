@@ -216,7 +216,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                       type="submit"
                       disabled={isLoading || searching || !query.trim()}
                       aria-label={
-                        searching ? 'Searching YouTube...' : 'Search YouTube or load track'
+                        searching
+                          ? 'Searching YouTube...'
+                          : 'Search / Go: search YouTube or load track'
                       }
                       className={cn(
                         'absolute right-1.5 flex min-h-[36px] items-center justify-center gap-1.5 rounded-theme-md bg-gradient-accent px-3 py-2 font-theme-heading text-xs font-semibold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:right-2 sm:min-h-[44px] sm:gap-2 sm:px-5 sm:text-sm',
@@ -307,7 +309,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                   </label>
                   <textarea
                     id="custom-lyrics-textarea"
-                    aria-label="Custom plain lyrics text"
+                    aria-label="Custom lyrics (optional): custom plain lyrics text"
                     value={customLyrics}
                     onChange={(e) => setCustomLyrics(e.target.value)}
                     placeholder="Paste line-by-line lyrics here. If left blank, synchronized lyrics are queried automatically from LRCLIB."
@@ -336,9 +338,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
       {results.length > 0 && (
         <div className="mx-auto w-full max-w-3xl space-y-2.5 sm:px-4">
           <div className="flex items-center justify-between px-1">
-            <h3 className="font-theme-heading text-xs font-semibold uppercase tracking-wider text-theme-text-muted">
+            <h2 className="font-theme-heading text-xs font-semibold uppercase tracking-wider text-theme-text-muted">
               Search Results
-            </h3>
+            </h2>
             <button
               type="button"
               onClick={() => {
@@ -374,9 +376,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                   </div>
                 )}
                 <div className="min-w-0 flex-1 truncate">
-                  <h4 className="truncate font-theme-heading text-sm font-semibold text-theme-text transition-colors group-hover:text-theme-highlight">
+                  <h3 className="truncate font-theme-heading text-sm font-semibold text-theme-text transition-colors group-hover:text-theme-highlight">
                     {track.title}
-                  </h4>
+                  </h3>
                   <p className="mt-0.5 truncate text-xs text-theme-text-muted">
                     {track.artist} {track.duration ? `• ${formatTime(track.duration)}` : ''}
                   </p>

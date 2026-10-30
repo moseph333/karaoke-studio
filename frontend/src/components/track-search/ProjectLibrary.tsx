@@ -416,6 +416,8 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
           />
         ) : (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {/* Keeps heading levels in order: Song library (h2) › this tab › song cards (h4) */}
+            <h3 className="sr-only">{activeTab === 'my' ? 'My Songs' : 'Community Library'}</h3>
             {filteredProjects.map((p) => {
               const badge = statusBadge(p.status);
               const title = p.title || `Track ${p.id}`;

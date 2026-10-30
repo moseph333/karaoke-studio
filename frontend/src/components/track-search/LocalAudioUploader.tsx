@@ -223,7 +223,12 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
             accept=".mp3,.wav,.flac,.m4a,.ogg,.opus,.aac,audio/*"
             onChange={handleFileChange}
             className="sr-only"
-            aria-label="Choose local audio file"
+            // Names start with the visible text of the label that opens the picker
+            aria-label={
+              selectedFile
+                ? 'Change File: choose local audio file'
+                : 'Click to select audio: choose local audio file'
+            }
             disabled={isLoading || uploadingTrack}
           />
           {selectedFile ? (
@@ -322,8 +327,8 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
           disabled={isLoading || uploadingTrack || !selectedFile}
           aria-label={
             uploadingTrack
-              ? 'Uploading and processing audio track...'
-              : 'Upload and process local audio track'
+              ? 'Uploading and Processing Track...'
+              : 'Upload & Create Karaoke Project: upload and process local audio track'
           }
           className={cn(
             'flex min-h-[44px] w-full items-center justify-center gap-2 rounded-theme-md bg-gradient-accent px-4 py-3 font-theme-heading text-sm font-semibold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50',
