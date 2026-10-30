@@ -115,7 +115,7 @@ def test_line_confidence_per_method(method, evidence, ctc, expected):
 
 
 def test_tokenizer_matches_the_studio_editor():
-    # The same cases run against the studio's tokenizer (frontend tests/lyrics.test.ts)
+    # The same cases run against the studio's tokenizer (frontend tests/timeline/lyrics.test.ts)
     for case in load("tokenize_cases"):
         assert tokenize_lyric_text(case["text"]) == case["tokens"], case["text"]
     assert tokenize_lyric_text(None) == []

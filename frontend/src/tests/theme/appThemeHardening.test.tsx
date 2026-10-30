@@ -1,5 +1,5 @@
 /**
- * AppThemeAdversarialHardening.test.tsx — Milestone 5 Tier 5 Adversarial Coverage Hardening
+ * appThemeHardening.test.tsx — Milestone 5 Tier 5 Adversarial Coverage Hardening
  *
  * White-box adversarial test suite covering untested code paths, edge cases, and boundary values
  * across the application theme system and stage preset export pipeline:

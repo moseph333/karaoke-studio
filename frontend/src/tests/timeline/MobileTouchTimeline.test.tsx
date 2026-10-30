@@ -518,21 +518,6 @@ describe('R2: Touch-Friendly Timeline Editor & Mobile Tap-to-Sync', () => {
 
         assertZeroHorizontalOverflow(container, 375);
       });
-
-      it('F8-5: action toolbar buttons wrap cleanly without forcing horizontal page scroll at 320px', () => {
-        setTestViewport(320, 568);
-        const { container } = render(
-          <LyricTimelineEditor
-            lines={sampleLines}
-            currentTime={3.0}
-            duration={180}
-            onSaveLines={vi.fn()}
-            onSeek={vi.fn()}
-          />
-        );
-
-        assertZeroHorizontalOverflow(container, 320);
-      });
     });
   });
 

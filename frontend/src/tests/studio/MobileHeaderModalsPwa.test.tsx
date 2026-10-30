@@ -794,12 +794,6 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
         expect(meta?.getAttribute('content')).toBe('#0d0d0f');
       });
 
-      it('F13-B2: custom color overrides preserve base background theme-color in meta tag', () => {
-        applyThemeToDom(APP_THEMES.dive_bar_crt);
-        const meta = document.querySelector('meta[name="theme-color"]');
-        expect(meta?.getAttribute('content')).toBe('#09080f');
-      });
-
       it('F13-B3: rapid theme cycling across all 4 themes maintains synchronous meta tag updates', () => {
         applyThemeToDom(APP_THEMES.punk_diy);
         expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(

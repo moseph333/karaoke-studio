@@ -1,5 +1,5 @@
 /**
- * frontend/src/tests/Challenger2Stress.test.tsx
+ * frontend/src/tests/audio/pitchAndVocalRangeStress.test.tsx
  *
  * Adversarial stress and boundary test suite for Milestone 1:
  * - Responsive touch target validation (>=44px) on all controls
