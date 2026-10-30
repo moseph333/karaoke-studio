@@ -45,7 +45,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
     it('renders trigger button with proper ARIA attributes and current theme info', () => {
       renderWithProvider(<AppThemePicker />);
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       expect(trigger).toBeInTheDocument();
       expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
       expect(trigger).toHaveAttribute('aria-expanded', 'false');
@@ -66,7 +66,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
     it('opens listbox on trigger click and displays all themes with checkmark on active', () => {
       renderWithProvider(<AppThemePicker />);
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       fireEvent.click(trigger);
 
       expect(trigger).toHaveAttribute('aria-expanded', 'true');
@@ -93,7 +93,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
     it('toggles listbox closed when trigger is clicked again', () => {
       renderWithProvider(<AppThemePicker />);
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       fireEvent.click(trigger);
       expect(screen.getByRole('listbox')).toBeInTheDocument();
 
@@ -110,7 +110,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
         </div>
       );
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       fireEvent.click(trigger);
       expect(screen.getByRole('listbox')).toBeInTheDocument();
 
@@ -128,7 +128,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
     it('selects new theme, updates DOM data-theme and localStorage, and closes dropdown', () => {
       renderWithProvider(<AppThemePicker />);
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       fireEvent.click(trigger);
 
       // Select 'tape_studio_70s' ("Reel-to-Reel '74")
@@ -156,7 +156,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
   describe('4. Keyboard Navigation: Opening', () => {
     it('opens listbox when pressing Enter on focused trigger', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'Enter' });
@@ -166,7 +166,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
 
     it('opens listbox when pressing Space on focused trigger', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: ' ' });
@@ -176,7 +176,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
 
     it('opens listbox when pressing ArrowDown on focused trigger', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'ArrowDown' });
@@ -186,7 +186,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
 
     it('opens listbox when pressing ArrowUp on focused trigger', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'ArrowUp' });
@@ -201,7 +201,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
   describe('5. Keyboard Navigation: Traversing Options', () => {
     it('navigates through options with ArrowDown and ArrowUp updating aria-activedescendant', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'ArrowDown' }); // Opens, highlighted = 0 (afterglow)
@@ -219,7 +219,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
 
     it('jumps to end with End key and jumps to beginning with Home key', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'Enter' }); // Opens at 0
@@ -238,7 +238,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
   describe('6. Keyboard Selection: Enter & Space', () => {
     it('selects option with Enter, updates theme, closes listbox and returns focus', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'Enter' }); // Opens
@@ -255,7 +255,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
 
     it('selects option with Space, updates theme, closes listbox and returns focus', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: ' ' }); // Opens
@@ -276,7 +276,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
   describe('7. Keyboard Dismissal: Escape & Tab', () => {
     it('closes listbox on Escape without modifying theme selection and restores focus', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'Enter' });
@@ -292,7 +292,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
 
     it('closes listbox on Tab key press allowing normal tab progression', () => {
       renderWithProvider(<AppThemePicker />);
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
 
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'Enter' });
@@ -321,7 +321,7 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
       );
 
       // Verify theme picker is present
-      expect(screen.getByRole('button', { name: /select theme/i })).toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: /select theme/i })).toBeInTheDocument();
 
       // Verify existing actions are present and uncompromised
       expect(
@@ -336,9 +336,113 @@ describe('AppThemePicker (Accessible Application Theme Picker)', () => {
         render(<AppThemePicker />);
       }).not.toThrow();
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       expect(trigger).toBeInTheDocument();
       expect(trigger).toHaveTextContent(APP_THEMES[DEFAULT_APP_THEME_ID].name);
+    });
+  });
+
+  // =========================================================================
+  // 9. Select-only combobox (WAI-ARIA)
+  // =========================================================================
+  describe('9. Select-only combobox', () => {
+    const dataTheme = () => document.documentElement.getAttribute('data-theme');
+
+    it('is a combobox whose listbox stays in the DOM, hidden while closed', () => {
+      renderWithProvider(<AppThemePicker />);
+      const trigger = screen.getByRole('combobox', { name: 'Select theme' });
+      const listbox = document.getElementById(trigger.getAttribute('aria-controls') as string);
+      expect(listbox).toHaveAttribute('role', 'listbox');
+      expect(listbox).toHaveAttribute('hidden');
+      expect(trigger).not.toHaveAttribute('aria-activedescendant');
+
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+      expect(listbox).not.toHaveAttribute('hidden');
+      expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-afterglow');
+    });
+
+    it('previews themes while moving with the keyboard, and Escape restores the first', () => {
+      renderWithProvider(<AppThemePicker />);
+      const trigger = screen.getByRole('combobox', { name: 'Select theme' });
+      trigger.focus();
+      fireEvent.keyDown(trigger, { key: 'Enter' });
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+      expect(dataTheme()).toBe('punk_diy');
+      fireEvent.keyDown(trigger, { key: 'End' });
+      expect(dataTheme()).toBe('clean_paper');
+
+      fireEvent.keyDown(trigger, { key: 'Escape' });
+      expect(dataTheme()).toBe(DEFAULT_APP_THEME_ID);
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+
+    it('restores the opening theme when a click lands outside', () => {
+      renderWithProvider(
+        <div>
+          <AppThemePicker />
+          <button type="button">Elsewhere</button>
+        </div>
+      );
+      const trigger = screen.getByRole('combobox', { name: 'Select theme' });
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+      expect(dataTheme()).toBe('punk_diy');
+
+      fireEvent.mouseDown(screen.getByRole('button', { name: 'Elsewhere' }));
+      expect(dataTheme()).toBe(DEFAULT_APP_THEME_ID);
+    });
+
+    it('keeps the theme the keyboard moved to when Tab moves focus on', () => {
+      renderWithProvider(<AppThemePicker />);
+      const trigger = screen.getByRole('combobox', { name: 'Select theme' });
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+      fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+      fireEvent.keyDown(trigger, { key: 'Tab' });
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      expect(dataTheme()).toBe('punk_diy');
+      expect(localStorage.getItem('karaoke_app_theme')).toBe('punk_diy');
+    });
+
+    it('jumps to a theme by typing its name, opening the list', () => {
+      vi.useFakeTimers();
+      try {
+        renderWithProvider(<AppThemePicker />);
+        const trigger = screen.getByRole('combobox', { name: 'Select theme' });
+        const byName = (prefix: string) =>
+          APP_THEME_LIST.find((t) =>
+            t.name.toLowerCase().startsWith(prefix)
+          ) as (typeof APP_THEME_LIST)[number];
+
+        fireEvent.keyDown(trigger, { key: 'r' });
+        expect(trigger).toHaveAttribute('aria-expanded', 'true');
+        expect(trigger).toHaveAttribute('aria-activedescendant', `theme-option-${byName('r').id}`);
+        expect(dataTheme()).toBe(byName('r').id);
+
+        // Typed letters add up within half a second: "mo" passes the theme starting with "m"
+        vi.advanceTimersByTime(600);
+        fireEvent.keyDown(trigger, { key: 'm' });
+        expect(trigger).toHaveAttribute('aria-activedescendant', `theme-option-${byName('m').id}`);
+        fireEvent.keyDown(trigger, { key: 'o' });
+        expect(trigger).toHaveAttribute('aria-activedescendant', `theme-option-${byName('mo').id}`);
+        fireEvent.keyDown(trigger, { key: 'Enter' });
+        expect(dataTheme()).toBe(byName('mo').id);
+        expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('keeps focus on the combobox when an option is clicked', () => {
+      renderWithProvider(<AppThemePicker />);
+      const trigger = screen.getByRole('combobox', { name: 'Select theme' });
+      fireEvent.click(trigger);
+      const option = screen.getAllByRole('option')[2];
+      const mouseDown = fireEvent.mouseDown(option);
+      expect(mouseDown).toBe(false); // default prevented: no focus move
+      fireEvent.click(option);
+      expect(dataTheme()).toBe(option.getAttribute('data-theme-id'));
+      expect(trigger).toHaveFocus();
     });
   });
 });

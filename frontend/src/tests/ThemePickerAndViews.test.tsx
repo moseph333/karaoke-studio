@@ -103,7 +103,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
       // Trigger button must have accessible role and label
       const trigger =
         screen.queryByTestId('app-theme-picker-trigger') ||
-        screen.getByRole('button', { name: /theme/i });
+        screen.getByRole('combobox', { name: /theme/i });
       expect(trigger).toBeInTheDocument();
       expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
       expect(trigger).toHaveAttribute('aria-expanded', 'false');
@@ -129,7 +129,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
 
       const trigger =
         screen.queryByTestId('app-theme-picker-trigger') ||
-        screen.getByRole('button', { name: /theme/i });
+        screen.getByRole('combobox', { name: /theme/i });
       fireEvent.click(trigger);
 
       expect(trigger).toHaveAttribute('aria-expanded', 'true');
@@ -180,7 +180,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
 
       const trigger =
         screen.queryByTestId('app-theme-picker-trigger') ||
-        screen.getByRole('button', { name: /theme/i });
+        screen.getByRole('combobox', { name: /theme/i });
 
       // Enter opens
       fireEvent.keyDown(trigger, { key: 'Enter', code: 'Enter' });
@@ -213,7 +213,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
 
       const trigger =
         screen.queryByTestId('app-theme-picker-trigger') ||
-        screen.getByRole('button', { name: /theme/i });
+        screen.getByRole('combobox', { name: /theme/i });
       fireEvent.click(trigger);
 
       const listbox = screen.getByRole('listbox');
@@ -251,7 +251,7 @@ describe('ThemePickerAndViews Integration Suite', () => {
 
       const trigger =
         screen.queryByTestId('app-theme-picker-trigger') ||
-        screen.getByRole('button', { name: /theme/i });
+        screen.getByRole('combobox', { name: /theme/i });
       fireEvent.click(trigger);
 
       const listbox = screen.getByRole('listbox');
