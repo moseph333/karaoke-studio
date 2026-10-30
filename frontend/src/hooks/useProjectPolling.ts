@@ -3,8 +3,12 @@
  *
  * Polls the open song while its intake pipeline, a video render, a stem re-separation or a
  * lyric re-alignment runs. One request at a time; paused while the tab is hidden; a reply
- * for a song that is no longer open is dropped. Large fields that did not change keep their
- * previous objects, so the timeline editor and its rows are not reset by every poll.
+ * for a song that is no longer open is dropped.
+ *
+ * Each poll reads only the progress fields (GET /api/project/{id}/status, a few hundred
+ * bytes). When something finishes, the full project (with the new lines, stems or video) is
+ * fetched once and applied in the same update. Large fields that did not change keep their
+ * previous objects, so the timeline editor and its rows are not reset.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -43,6 +47,45 @@ const STABLE_FIELDS = [
   'vocal_range',
 ] as const satisfies ReadonlyArray<keyof ProjectState>;
 
+// The fields GET /api/project/{id}/status returns (with `id`); always all of them, null
+// when unset
+const STATUS_FIELDS = [
+  'status',
+  'progress',
+  'status_detail',
+  'heartbeat',
+  'elapsed_seconds',
+  'eta_seconds',
+  'error',
+  'title',
+  'artist',
+  'thumbnail_url',
+  'separation',
+  'separation_quality',
+  'render_status',
+  'render_progress',
+  'render_detail',
+  'render_heartbeat',
+  'render_elapsed_seconds',
+  'render_eta_seconds',
+  'render_error',
+  'video_url',
+  'separation_job',
+  'sync_job',
+] as const satisfies ReadonlyArray<keyof ProjectState>;
+
+// Fields whose type includes null; for the others null means unset (undefined), as when a
+// full project omits them
+const NULLABLE_STATUS_FIELDS: ReadonlySet<string> = new Set([
+  'separation',
+  'separation_job',
+  'sync_job',
+]);
+
+export type ProjectStatus = { id?: string } & {
+  [K in (typeof STATUS_FIELDS)[number]]?: ProjectState[K] | null;
+};
+
 function sameJson(a: unknown, b: unknown): boolean {
   try {
     return JSON.stringify(a) === JSON.stringify(b);
@@ -68,6 +111,38 @@ export function mergePolledProject(prev: ProjectState | null, next: ProjectState
   return merged ?? next;
 }
 
+/** The project with a status reply applied: the same object when nothing changed. */
+export function mergeProjectStatus(prev: ProjectState, status: ProjectStatus): ProjectState {
+  let merged: ProjectState | null = null;
+  for (const key of STATUS_FIELDS) {
+    if (!(key in status)) continue;
+    const raw = status[key];
+    const value = raw === null && !NULLABLE_STATUS_FIELDS.has(key) ? undefined : raw;
+    const current = prev[key];
+    if (current === value) continue;
+    if (typeof value === 'object' && value !== null && sameJson(current, value)) continue;
+    merged = merged ?? { ...prev };
+    (merged as unknown as Record<string, unknown>)[key] = value;
+  }
+  return merged ?? prev;
+}
+
+const pipelineActive = (p: Partial<ProjectState>): boolean =>
+  Boolean(p.status && ACTIVE_PIPELINE_STATUSES.includes(p.status));
+const renderActive = (p: Partial<ProjectState>): boolean =>
+  Boolean(p.render_status && ACTIVE_RENDER_STATUSES.includes(p.render_status));
+
+/** Whether something running in `prev` has finished in `next`: its results are only in the
+ *  full project. */
+function finishedSince(prev: ProjectState, next: ProjectState): boolean {
+  return (
+    (pipelineActive(prev) && !pipelineActive(next)) ||
+    (renderActive(prev) && !renderActive(next)) ||
+    (isJobActive(prev.separation_job) && !isJobActive(next.separation_job)) ||
+    (isJobActive(prev.sync_job) && !isJobActive(next.sync_job))
+  );
+}
+
 export interface UseProjectPollingReturn {
   project: ProjectState | null;
   setProject: React.Dispatch<React.SetStateAction<ProjectState | null>>;
@@ -91,13 +166,17 @@ export function useProjectPolling(
   const consecutiveErrorsRef = useRef(0);
   const requestRef = useRef<AbortController | null>(null);
   const projectIdRef = useRef<string | undefined>(project?.id);
+  // The project as last rendered, to notice what a status reply finishes
+  const projectRef = useRef(project);
   useEffect(() => {
     projectIdRef.current = project?.id;
   }, [project?.id]);
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
 
   const isWorking =
-    Boolean(project?.status && ACTIVE_PIPELINE_STATUSES.includes(project.status)) ||
-    Boolean(project?.render_status && ACTIVE_RENDER_STATUSES.includes(project.render_status)) ||
+    Boolean(project && (pipelineActive(project) || renderActive(project))) ||
     isJobActive(project?.separation_job) ||
     isJobActive(project?.sync_job);
 
@@ -128,6 +207,12 @@ export function useProjectPolling(
     }
   }, []);
 
+  const recordSuccess = useCallback(() => {
+    consecutiveErrorsRef.current = 0;
+    setConsecutiveErrors(0);
+    setIsReconnecting(false);
+  }, []);
+
   const pollStatus = useCallback(async () => {
     const requestedId = projectIdRef.current;
     // One request at a time: on a slow connection replies could otherwise overlap and land
@@ -135,23 +220,43 @@ export function useProjectPolling(
     if (!requestedId || requestRef.current) return;
     const controller = new AbortController();
     requestRef.current = controller;
+    // The reply is for the song still open (the user may have opened another, or none)
+    const stillOpen = (data: { id?: string } | null) =>
+      projectIdRef.current === requestedId && !(data?.id && data.id !== requestedId);
 
     try {
-      const res = await apiFetch(`/api/project/${requestedId}`, { signal: controller.signal });
-      // The user opened another song (or none) while this request was out
+      const res = await apiFetch(`/api/project/${requestedId}/status`, {
+        signal: controller.signal,
+      });
       if (projectIdRef.current !== requestedId) return;
-      if (res.ok) {
-        const data: ProjectState = await res.json();
-        if (projectIdRef.current !== requestedId || (data?.id && data.id !== requestedId)) return;
-        if (data && (data.id || data.status)) {
-          consecutiveErrorsRef.current = 0;
-          setConsecutiveErrors(0);
-          setIsReconnecting(false);
-          setProject((prev) => mergePolledProject(prev, data));
-        }
-      } else {
+      if (!res.ok) {
         recordFailure(res.status === 404);
+        return;
       }
+      const status: ProjectStatus = await res.json();
+      if (!status || !(status.id || status.status) || !stillOpen(status)) return;
+
+      const current = projectRef.current;
+      if (current && finishedSince(current, mergeProjectStatus(current, status))) {
+        // The results (lines, stems, the video) are in the full project: apply it in one
+        // update, so the editor sees a finished job together with its lines. Until it
+        // arrives the job still shows as running, and the next poll tries again.
+        const full = await apiFetch(`/api/project/${requestedId}`, {
+          signal: controller.signal,
+        });
+        if (projectIdRef.current !== requestedId) return;
+        if (!full.ok) {
+          recordFailure(full.status === 404);
+          return;
+        }
+        const data: ProjectState = await full.json();
+        if (!data || !stillOpen(data)) return;
+        recordSuccess();
+        setProject((prev) => mergePolledProject(prev, data));
+        return;
+      }
+      recordSuccess();
+      setProject((prev) => (prev ? mergeProjectStatus(prev, status) : prev));
     } catch (err) {
       if (controller.signal.aborted) return;
       console.error('Failed to poll project status:', err);
@@ -159,7 +264,7 @@ export function useProjectPolling(
     } finally {
       if (requestRef.current === controller) requestRef.current = null;
     }
-  }, [recordFailure]);
+  }, [recordFailure, recordSuccess]);
 
   const retryPolling = useCallback(() => {
     requestRef.current?.abort();

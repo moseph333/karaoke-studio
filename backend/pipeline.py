@@ -11,6 +11,7 @@ import soundfile as sf
 
 from backend.config import DOWNLOADS_DIR
 from backend.project_store import (
+    PROJECTS_LOCK,
     cleanup_project_disk_artifacts,
     find_project,
     get_project_or_404,
@@ -166,17 +167,19 @@ def _progress_updater(project_id: str, cancel_event: threading.Event, started: f
     def update_pipe(status: str, progress: int, detail: str, eta_s: int | None = None):
         if cancel_event.is_set():
             raise RuntimeError("Processing cancelled by user")
-        proj = find_project(project_id)
-        if not proj:
-            return
-        status_changed = proj.get("status") != status
-        proj["status"] = status
-        proj["progress"] = progress
-        proj["status_detail"] = detail
-        proj["heartbeat"] = int(time.time() * 1000)
-        proj["elapsed_seconds"] = int(time.time() - started)
-        if eta_s is not None:
-            proj["eta_seconds"] = eta_s
+        # Under the lock, so a status poll never copies the project halfway through an update
+        with PROJECTS_LOCK:
+            proj = find_project(project_id)
+            if not proj:
+                return
+            status_changed = proj.get("status") != status
+            proj["status"] = status
+            proj["progress"] = progress
+            proj["status_detail"] = detail
+            proj["heartbeat"] = int(time.time() * 1000)
+            proj["elapsed_seconds"] = int(time.time() - started)
+            if eta_s is not None:
+                proj["eta_seconds"] = eta_s
         if status_changed:
             save_projects()
         else:

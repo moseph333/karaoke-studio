@@ -7,6 +7,7 @@ from pathlib import Path
 
 from backend.config import BACKGROUNDS_DIR, OUTPUT_DIR
 from backend.project_store import (
+    PROJECTS_LOCK,
     cleanup_project_disk_artifacts,
     find_project,
     get_project_or_404,
@@ -30,17 +31,19 @@ def run_video_render(project_id: str, req: RenderRequest):
     def update_render(progress: int, detail: str, eta_s: int | None = None):
         if cancel_event.is_set():
             raise RuntimeError("Video rendering was cancelled by user")
-        proj = find_project(project_id)
-        if not proj:
-            return
-        started_rendering = proj.get("render_status") != "rendering"
-        proj["render_status"] = "rendering"
-        proj["render_progress"] = progress
-        proj["render_detail"] = detail
-        proj["render_heartbeat"] = int(time.time() * 1000)
-        proj["render_elapsed_seconds"] = int(time.time() - render_start)
-        if eta_s is not None:
-            proj["render_eta_seconds"] = eta_s
+        # Under the lock, so a status poll never copies the project halfway through an update
+        with PROJECTS_LOCK:
+            proj = find_project(project_id)
+            if not proj:
+                return
+            started_rendering = proj.get("render_status") != "rendering"
+            proj["render_status"] = "rendering"
+            proj["render_progress"] = progress
+            proj["render_detail"] = detail
+            proj["render_heartbeat"] = int(time.time() * 1000)
+            proj["render_elapsed_seconds"] = int(time.time() - render_start)
+            if eta_s is not None:
+                proj["render_eta_seconds"] = eta_s
         # Progress arrives up to 4 times a second and the studio reads it from memory
         if started_rendering:
             save_projects()

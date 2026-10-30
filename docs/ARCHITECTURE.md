@@ -159,7 +159,7 @@ Status details never contain "chord" or "range" during separation; the processin
 
 ### 2.5 Background jobs on a finished song
 
-Both jobs keep their state on the project (`separation_job`, `sync_job`: `id`, `status` queued/running/done/error/cancelled, `progress`, `detail`, `error`, timestamps), so the studio just polls the project. `background_jobs.conflict_reason` stops a job from starting while the other runs or while the song is still processing (409), and a job left `running` by a server restart is marked as interrupted on the next read.
+Both jobs keep their state on the project (`separation_job`, `sync_job`: `id`, `status` queued/running/done/error/cancelled, `progress`, `detail`, `error`, timestamps), so the studio just polls the project's status (`GET /api/project/{id}/status`). `background_jobs.conflict_reason` stops a job from starting while the other runs or while the song is still processing (409), and a job left `running` by a server restart is marked as interrupted on the next read.
 
 **Re-separation** (`reseparation.py`). Separates into `stems/.staging/<audio_id>/<job>` (progress 0–80), swaps the new stems in with `os.replace` (dated at the swap, so mixes of the old stems are not reused), keeps a custom instrumental, refreshes the vocal range, re-detects chords only when asked (or when there are none), optionally re-times the lyrics (kept as they are if someone saves lyrics meanwhile, compared by the same digest as below), and renders a new versioned master mix. A cancelled or failed run leaves the song exactly as it was.
 
@@ -247,7 +247,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 
 | Hook | Role |
 | :--- | :--- |
-| `useProjectPolling` | polls the song while a pipeline, render, `separation_job` or `sync_job` is active |
+| `useProjectPolling` | polls the song's status (`/api/project/{id}/status`, its progress fields only) once a second while a pipeline, render, `separation_job` or `sync_job` is active, and fetches the full project once when one finishes |
 | `useStudioAudio` | transport state; keeps the position and play state when the master URL changes |
 | `useMixController` | requested vs applied key and guide level; debounced `/mix`, latest request wins |
 | `useVisualTheme` + `stageSettingsStorage` | stage look, persisted in `karaoke_stage_settings_v1` |
