@@ -14,6 +14,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 
 from backend import config
@@ -245,9 +246,10 @@ async def system_update_action(request: Request):
                 action = str(body["action"]).strip().lower()
     except Exception:
         pass
+    # Both run git (ls-remote can take seconds): off the event loop
     if action == "update":
-        return config.trigger_system_update()
-    return config.check_for_updates(force_remote=True)
+        return await run_in_threadpool(config.trigger_system_update)
+    return await run_in_threadpool(config.check_for_updates, force_remote=True)
 
 
 # Mount domain routers

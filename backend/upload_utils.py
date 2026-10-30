@@ -3,8 +3,10 @@
 import re
 import uuid
 from pathlib import Path
+from typing import BinaryIO
 
 from fastapi import HTTPException, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 # Upload security limits and allowed MIME extensions
 MAX_BACKGROUND_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
@@ -75,14 +77,26 @@ async def save_upload_file_bounded(
 ) -> int:
     """Streams and writes UploadFile content to disk with a strict byte ceiling.
 
-    Avoids unbounded memory consumption and prevents DoS through large file payloads.
+    Avoids unbounded memory consumption and prevents DoS through large file payloads. The
+    copy runs in one worker-thread call: on the event loop, the disk writes of a large upload
+    held up every other request, status polls included.
     """
+    return await run_in_threadpool(_save_bounded, file.file, target_path, max_bytes, min_bytes)
+
+
+def read_header(path: Path, size: int = 64) -> bytes:
+    """The first bytes of a saved upload, for the magic-byte checks."""
+    with open(path, "rb") as f:
+        return f.read(size)
+
+
+def _save_bounded(source: BinaryIO, target_path: Path, max_bytes: int, min_bytes: int) -> int:
     total_bytes = 0
     target_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = target_path.with_suffix(f".tmp.{uuid.uuid4().hex}")
     try:
         with open(temp_path, "wb") as f:
-            while chunk := await file.read(1024 * 64):
+            while chunk := source.read(1024 * 64):
                 total_bytes += len(chunk)
                 if total_bytes > max_bytes:
                     raise HTTPException(
