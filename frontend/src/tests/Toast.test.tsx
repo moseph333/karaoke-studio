@@ -16,7 +16,7 @@ describe('Toast Component & ToastProvider', () => {
     vi.useRealTimers();
   });
 
-  it('renders toast message with correct accessible role and variant styles', () => {
+  it('announces a success toast through the polite live region', () => {
     const mockToast: Toast = {
       id: 'toast-1',
       message: 'Backing track separated successfully',
@@ -25,10 +25,11 @@ describe('Toast Component & ToastProvider', () => {
       createdAt: Date.now(),
     };
 
-    render(<ToastItem toast={mockToast} onDismiss={vi.fn()} />);
+    render(<ToastContainer toasts={[mockToast]} onDismiss={vi.fn()} />);
 
-    expect(screen.getByText('Backing track separated successfully')).toBeInTheDocument();
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    const message = screen.getByText('Backing track separated successfully');
+    expect(message.closest('[aria-live]')).toHaveAttribute('aria-live', 'polite');
+    expect(message.closest('[data-toast-type]')).toHaveAttribute('data-toast-type', 'success');
   });
 
   it('stacks above the transport dock and draws variants from theme tokens', () => {
@@ -42,13 +43,13 @@ describe('Toast Component & ToastProvider', () => {
     );
     const region = screen.getByLabelText('Notifications');
     expect(region.className).toContain('bottom-[calc(var(--dock-height,0px)+1rem)]');
-    const toast = screen.getByRole('status');
+    const toast = screen.getByText('Saved').closest('[data-toast-type]') as HTMLElement;
     expect(toast.className).toContain('border-theme-success/45');
     expect(toast.className).not.toMatch(/slate|emerald/);
     expectTouchTarget(screen.getByRole('button', { name: /dismiss notification/i }), 36);
   });
 
-  it('renders role="alert" for error toasts', () => {
+  it('announces error toasts through the assertive live region', () => {
     const mockErrorToast: Toast = {
       id: 'toast-err',
       message: 'Failed to connect to LRCLIB lyric server',
@@ -57,10 +58,35 @@ describe('Toast Component & ToastProvider', () => {
       createdAt: Date.now(),
     };
 
-    render(<ToastItem toast={mockErrorToast} onDismiss={vi.fn()} />);
+    render(<ToastContainer toasts={[mockErrorToast]} onDismiss={vi.fn()} />);
 
-    expect(screen.getByText('Failed to connect to LRCLIB lyric server')).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    const message = screen.getByText('Failed to connect to LRCLIB lyric server');
+    expect(message.closest('[aria-live]')).toHaveAttribute('aria-live', 'assertive');
+  });
+
+  it('keeps both live regions mounted before any toast arrives', async () => {
+    const Trigger = () => {
+      const { toast } = useToast();
+      return <button onClick={() => toast.error('Upload failed')}>fail</button>;
+    };
+    render(
+      <ToastProvider>
+        <Trigger />
+      </ToastProvider>
+    );
+    const region = screen.getByRole('region', { name: 'Notifications' });
+    const assertive = region.querySelector('[aria-live="assertive"]');
+    expect(region.querySelector('[aria-live="polite"]')).toBeInTheDocument();
+    expect(assertive).toBeInTheDocument();
+    expect(region).toHaveTextContent('');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'fail' }));
+
+    // The same, pre-existing region now holds the message (what screen readers announce)
+    expect(region.querySelector('[aria-live="assertive"]')).toBe(assertive);
+    expect(assertive).toHaveTextContent('Upload failed');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('calls onDismiss when close button is clicked', async () => {

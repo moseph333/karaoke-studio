@@ -3,6 +3,8 @@
  *
  * Renders non-intrusive notification toasts (success, error, warning, info)
  * with auto-dismiss timers, pause-on-hover, an optional action button, and dismiss buttons.
+ * Screen readers hear them through two live regions that stay mounted: a polite one, and an
+ * assertive one for errors.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -12,44 +14,11 @@ import { cn } from '../utils/cn';
 import { Button } from './ui/Button';
 import { focusRing } from './ui/variants';
 
-const TOAST_VARIANTS: Record<
-  ToastType,
-  {
-    Icon: typeof Info;
-    border: string;
-    icon: string;
-    role: 'status' | 'alert';
-    live: 'polite' | 'assertive';
-  }
-> = {
-  success: {
-    Icon: CheckCircle2,
-    border: 'border-theme-success/45',
-    icon: 'text-theme-success',
-    role: 'status',
-    live: 'polite',
-  },
-  error: {
-    Icon: AlertCircle,
-    border: 'border-theme-danger/55',
-    icon: 'text-theme-danger',
-    role: 'alert',
-    live: 'assertive',
-  },
-  warning: {
-    Icon: AlertTriangle,
-    border: 'border-theme-warning/45',
-    icon: 'text-theme-warning',
-    role: 'status',
-    live: 'polite',
-  },
-  info: {
-    Icon: Info,
-    border: 'border-theme-info/45',
-    icon: 'text-theme-info',
-    role: 'status',
-    live: 'polite',
-  },
+const TOAST_VARIANTS: Record<ToastType, { Icon: typeof Info; border: string; icon: string }> = {
+  success: { Icon: CheckCircle2, border: 'border-theme-success/45', icon: 'text-theme-success' },
+  error: { Icon: AlertCircle, border: 'border-theme-danger/55', icon: 'text-theme-danger' },
+  warning: { Icon: AlertTriangle, border: 'border-theme-warning/45', icon: 'text-theme-warning' },
+  info: { Icon: Info, border: 'border-theme-info/45', icon: 'text-theme-info' },
 };
 
 interface ToastItemProps {
@@ -81,8 +50,7 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
 
   return (
     <div
-      role={style.role}
-      aria-live={style.live}
+      data-toast-type={toast.type}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onFocus={() => setHasFocus(true)}
@@ -129,17 +97,32 @@ interface ToastContainerProps {
   onDismiss: (id: string) => void;
 }
 
-export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismiss }) => {
-  if (toasts.length === 0) return null;
+// Never display: none, even empty: a hidden live region drops out of the accessibility tree
+const liveList = 'flex w-full flex-col items-center gap-2.5 sm:items-end';
 
-  return (
-    <div
-      className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--dock-height,0px)+1rem)] z-[60] flex flex-col items-center gap-2.5 px-4 sm:inset-x-auto sm:right-5 sm:w-full sm:max-w-sm sm:items-end sm:px-0"
-      aria-label="Notifications"
-    >
-      {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
-      ))}
+/**
+ * Both live regions stay mounted, empty or not: screen readers announce what is added to a
+ * live region that already exists, and often miss one that appears together with its text.
+ * Errors interrupt; the rest wait their turn. (No role="status": the processing view owns it.)
+ */
+export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismiss }) => (
+  <section
+    aria-label="Notifications"
+    className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--dock-height,0px)+1rem)] z-[60] flex flex-col items-center gap-2.5 px-4 sm:inset-x-auto sm:right-5 sm:w-full sm:max-w-sm sm:items-end sm:px-0"
+  >
+    <div aria-live="polite" aria-relevant="additions text" className={liveList}>
+      {toasts
+        .filter((toast) => toast.type !== 'error')
+        .map((toast) => (
+          <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
+        ))}
     </div>
-  );
-};
+    <div aria-live="assertive" aria-relevant="additions text" className={liveList}>
+      {toasts
+        .filter((toast) => toast.type === 'error')
+        .map((toast) => (
+          <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
+        ))}
+    </div>
+  </section>
+);
