@@ -77,10 +77,13 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "FFMPEG_PRESET",
     ):
         monkeypatch.delenv(name, raising=False)
+    from backend import project_store
     from backend.services import separator as separator_service
     from backend.services import sync_confidence
 
     sync_confidence.clear_cache()
+    # Progress saves are throttled against the previous write; start every test unthrottled
+    monkeypatch.setattr(project_store, "_last_save_at", 0.0)
     # Demucs commands must not depend on which Demucs version is installed; tests that cover
     # the 4.1 quality flags switch them on themselves
     monkeypatch.setattr(separator_service, "demucs_supports_quality_flags", lambda: False)

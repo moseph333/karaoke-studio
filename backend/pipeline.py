@@ -15,6 +15,7 @@ from backend.project_store import (
     find_project,
     get_project_or_404,
     save_projects,
+    save_projects_throttled,
 )
 from backend.services.lyric_sync import sync_lyrics
 from backend.services.separation_presets import (
@@ -109,12 +110,11 @@ def sync_project_lyrics(
     save_projects()
 
 
-def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = None):
-    import backend.main as main_mod
+def _progress_updater(project_id: str, cancel_event: threading.Event, started: float):
+    """The pipeline's progress callback: puts status, progress and timing on the project.
 
-    cancel_event = main_mod.active_cancellations.setdefault(project_id, threading.Event())
-    pipeline_start = time.time()
-    track_id: str | None = None
+    A new status is saved at once; progress within a status is saved at most once a second,
+    since the studio polls it from memory."""
 
     def update_pipe(status: str, progress: int, detail: str, eta_s: int | None = None):
         if cancel_event.is_set():
@@ -122,14 +122,28 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         proj = find_project(project_id)
         if not proj:
             return
+        status_changed = proj.get("status") != status
         proj["status"] = status
         proj["progress"] = progress
         proj["status_detail"] = detail
         proj["heartbeat"] = int(time.time() * 1000)
-        proj["elapsed_seconds"] = int(time.time() - pipeline_start)
+        proj["elapsed_seconds"] = int(time.time() - started)
         if eta_s is not None:
             proj["eta_seconds"] = eta_s
-        save_projects()
+        if status_changed:
+            save_projects()
+        else:
+            save_projects_throttled()
+
+    return update_pipe
+
+
+def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = None):
+    import backend.main as main_mod
+
+    cancel_event = main_mod.active_cancellations.setdefault(project_id, threading.Event())
+    track_id: str | None = None
+    update_pipe = _progress_updater(project_id, cancel_event, time.time())
 
     # Fast pre-acquire check
     proj = find_project(project_id)
@@ -336,22 +350,7 @@ def run_local_pipeline(
     downloads_dir = getattr(main_mod, "DOWNLOADS_DIR", DOWNLOADS_DIR)
 
     cancel_event = main_mod.active_cancellations.setdefault(project_id, threading.Event())
-    pipeline_start = time.time()
-
-    def update_pipe(status: str, progress: int, detail: str, eta_s: int | None = None):
-        if cancel_event.is_set():
-            raise RuntimeError("Processing cancelled by user")
-        proj = find_project(project_id)
-        if not proj:
-            return
-        proj["status"] = status
-        proj["progress"] = progress
-        proj["status_detail"] = detail
-        proj["heartbeat"] = int(time.time() * 1000)
-        proj["elapsed_seconds"] = int(time.time() - pipeline_start)
-        if eta_s is not None:
-            proj["eta_seconds"] = eta_s
-        save_projects()
+    update_pipe = _progress_updater(project_id, cancel_event, time.time())
 
     # Fast pre-acquire check
     proj = find_project(project_id)
