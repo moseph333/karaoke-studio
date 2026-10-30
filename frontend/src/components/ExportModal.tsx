@@ -37,6 +37,7 @@ import {
 import { Tooltip } from './Tooltip';
 import { apiFetch, readApiError } from '../api';
 import { useToast } from '../hooks/useToast';
+import { useNow } from '../hooks/useNow';
 import { Dialog, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { ProgressBar } from './ui/Progress';
@@ -93,7 +94,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   fontSizeScale,
 }) => {
   const { toast } = useToast();
-  const [_tick, setTick] = useState(0);
   const [includeVisualizer, setIncludeVisualizer] = useState(false);
   const [includeCountdown] = useState(true);
   const [includeChords, setIncludeChords] = useState(false);
@@ -241,13 +241,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
     }
   };
 
-  // Re-render every second while open to keep heartbeat and elapsed timers live
-  useEffect(() => {
-    if (!isOpen) return;
-    const interval = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(interval);
-  }, [isOpen]);
-
   // Have the server start a cloud CPU while options are chosen (it does nothing when exports
   // render locally). A beacon is fire-and-forget and carries the session cookie; if it fails,
   // the render simply waits for a CPU itself
@@ -265,6 +258,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   }, [project.video_url]);
 
   const isRendering = project.render_status === 'queued' || project.render_status === 'rendering';
+  // Advances the "Pulse Ns ago" label between polls while a render shows
+  const now = useNow(1000, isOpen && isRendering);
 
   // Show the finished video (or the error) again once a render starts or the dialog reopens
   useEffect(() => {
@@ -285,7 +280,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
   const getHeartbeatText = (lastHeartbeat?: number) => {
     if (!lastHeartbeat) return 'Active';
-    const diffSec = Math.max(0, Math.round((Date.now() - lastHeartbeat) / 1000));
+    const diffSec = Math.max(0, Math.round((now - lastHeartbeat) / 1000));
     if (diffSec < 2) return 'Pulse just now';
     return `Pulse ${diffSec}s ago`;
   };

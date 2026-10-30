@@ -57,6 +57,8 @@ export interface TransportDockProps {
   /** Opens the key / mix settings (mobile Mix tab or desktop inspector). */
   onOpenMixSettings?: () => void;
   peaks?: number[] | null;
+  /** The server's peaks are still loading: the scrubber waits before decoding the audio. */
+  peaksPending?: boolean;
   /** Song details for the OS media controls (lock screen, media keys). */
   mediaTitle?: string;
   mediaArtist?: string;
@@ -74,6 +76,7 @@ interface TransportProgressProps {
   masterAudioUrl?: string;
   lines?: WaveformLine[];
   peaks?: number[] | null;
+  peaksPending?: boolean;
   className?: string;
 }
 
@@ -88,6 +91,7 @@ const TransportProgress: React.FC<TransportProgressProps> = ({
   masterAudioUrl,
   lines,
   peaks,
+  peaksPending,
   className,
 }) => {
   const smoothTime = useInterpolatedTime({ currentTime, isPlaying, playbackRate, audioRef });
@@ -108,6 +112,7 @@ const TransportProgress: React.FC<TransportProgressProps> = ({
         audioUrl={masterAudioUrl}
         lines={lines}
         peaks={peaks}
+        deferDecode={peaksPending}
         showMarkers
         isPlaying={isPlaying}
         className="h-11 flex-1"
@@ -146,6 +151,7 @@ export const TransportDock: React.FC<TransportDockProps> = ({
   isRemixing = false,
   onOpenMixSettings,
   peaks,
+  peaksPending = false,
   mediaTitle,
   mediaArtist,
   mediaArtworkUrl,
@@ -410,6 +416,7 @@ export const TransportDock: React.FC<TransportDockProps> = ({
           masterAudioUrl={masterAudioUrl}
           lines={lines}
           peaks={peaks}
+          peaksPending={peaksPending}
         />
 
         <div className="flex items-center gap-1.5 [grid-area:primary]">

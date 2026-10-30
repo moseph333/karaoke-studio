@@ -28,7 +28,7 @@ import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
 import { useMixController } from './hooks/useMixController';
 import { useStudioCommands } from './hooks/useStudioCommands';
-import { useWaveformPeaks } from './hooks/useWaveformPeaks';
+import { useWaveformPeaksState } from './hooks/useWaveformPeaks';
 import { isGeneratedStyle } from './theme/stageBackgrounds';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
 import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
@@ -172,7 +172,7 @@ export const AppContent: React.FC = () => {
     setProject,
     isStudioReady,
   });
-  const waveformPeaks = useWaveformPeaks(project?.id, isStudioReady, project?.master_audio_url);
+  const waveform = useWaveformPeaksState(project?.id, isStudioReady, project?.master_audio_url);
   const intake = useTrackIntake({ currentUser, setProject });
   const quality = useQualityJobs({ project, setProject });
 
@@ -464,7 +464,8 @@ export const AppContent: React.FC = () => {
             semitones={mix.semitones}
             isRemixing={mix.isRemixing}
             onOpenMixSettings={handleOpenMixSettings}
-            peaks={waveformPeaks}
+            peaks={waveform.peaks}
+            peaksPending={!waveform.settled}
             mediaTitle={project.title}
             mediaArtist={project.artist}
             mediaArtworkUrl={project.thumbnail_url}

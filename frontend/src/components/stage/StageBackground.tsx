@@ -83,7 +83,7 @@ function useImageAvailable(url: string | undefined): boolean {
   return Boolean(url) && failedUrl !== url;
 }
 
-export const StageBackground: React.FC<StageBackgroundProps> = ({
+const StageBackgroundView: React.FC<StageBackgroundProps> = ({
   baseColor,
   albumArtUrl,
   artworkUrl,
@@ -231,3 +231,6 @@ export const StageBackground: React.FC<StageBackgroundProps> = ({
     </div>
   );
 };
+
+// Memoized: still backgrounds get a fixed time (see LyricDisplay), so frame updates skip them
+export const StageBackground = React.memo(StageBackgroundView);
