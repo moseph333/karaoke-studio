@@ -83,7 +83,7 @@ VISUAL_THEMES: dict[str, dict[str, Any]] = {
         "shadow_color": "&H00000000",  # Sharp brutalist offset shadow
         "outline_width": 2,
         "shadow_width": 2,
-        "font_name": "Arial",
+        "font_name": "Space Grotesk",
     },
     "afterglow": {
         "id": "afterglow",
