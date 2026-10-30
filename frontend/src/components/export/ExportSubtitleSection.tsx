@@ -22,6 +22,7 @@ import {
   EXPORT_PILL,
   EXPORT_SECTION,
 } from './exportStyles';
+import { formatSemitonesShort } from '../../utils/format';
 
 export interface ExportSubtitleSectionProps {
   project: ProjectState;
@@ -163,7 +164,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
   };
 
   const busy = downloadingLrc || downloadingAss;
-  const keyLabel = semitones >= 0 ? `+${semitones}` : `${semitones}`;
+  const keyLabel = formatSemitonesShort(semitones);
 
   return (
     <section aria-labelledby="export-subtitles-heading" className={EXPORT_SECTION}>

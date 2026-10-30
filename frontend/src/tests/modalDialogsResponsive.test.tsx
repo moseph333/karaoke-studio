@@ -310,6 +310,10 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
       expect(cancelBtn.className).toContain('min-h-[44px]');
 
       fireEvent.click(cancelBtn);
+      expect(onCancelMock).not.toHaveBeenCalled();
+      const confirm = screen.getByRole('button', { name: 'Confirm Cancel Render' });
+      expect(screen.getByRole('button', { name: 'Keep Rendering' })).toHaveFocus();
+      fireEvent.click(confirm);
       expect(onCancelMock).toHaveBeenCalledTimes(1);
 
       assertZeroHorizontalOverflow(container, 320);

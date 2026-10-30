@@ -38,9 +38,10 @@ import { Tooltip } from './Tooltip';
 import { apiFetch, readApiError } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useNow } from '../hooks/useNow';
-import { formatHeartbeat, formatTimer } from '../utils/format';
+import { formatHeartbeat, formatTimer, formatSemitonesShort } from '../utils/format';
 import { Dialog, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
+import { InlineConfirm } from './ui/InlineConfirm';
 import { ProgressBar } from './ui/Progress';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { focusRing } from './ui/variants';
@@ -273,7 +274,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   // Size the preview from the rendered file once known; until then trust the format setting.
   const previewAspect = videoAspect ?? (aspectRatio === '9:16' ? 9 / 16 : 16 / 9);
   const isPortraitPreview = previewAspect < 1;
-  const keyLabel = semitones >= 0 ? `+${semitones}` : `${semitones}`;
+  const keyLabel = formatSemitonesShort(semitones);
 
   return (
     <Dialog
@@ -444,13 +445,25 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   </div>
                 </div>
               </div>
-              <Button
-                variant="secondary"
-                onClick={onCancelRender}
-                leftIcon={<XCircle className="h-3.5 w-3.5 text-theme-danger" aria-hidden="true" />}
-              >
-                Cancel Render
-              </Button>
+              {/* A render can take minutes: one stray click must not throw it away */}
+              <InlineConfirm
+                message="Cancel the render? Its progress will be lost."
+                confirmLabel="Confirm Cancel Render"
+                keepLabel="Keep Rendering"
+                onConfirm={() => onCancelRender?.()}
+                renderTrigger={(trigger) => (
+                  <Button
+                    ref={trigger.ref}
+                    variant="secondary"
+                    onClick={trigger.onClick}
+                    leftIcon={
+                      <XCircle className="h-3.5 w-3.5 text-theme-danger" aria-hidden="true" />
+                    }
+                  >
+                    Cancel Render
+                  </Button>
+                )}
+              />
             </div>
           )}
 

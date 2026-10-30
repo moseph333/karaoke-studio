@@ -10,7 +10,7 @@ import { Minus, Pause, Play, Plus, Volume2, VolumeX } from 'lucide-react';
 import { Slider } from '../ui/Slider';
 import { focusRing } from '../ui/variants';
 import { cn } from '../../utils/cn';
-import { formatTime } from '../../utils/format';
+import { formatTime, formatSemitones } from '../../utils/format';
 import { seekTargetForKey } from '../../utils/seekKeys';
 
 export interface StageFloatingControlsProps {
@@ -116,7 +116,7 @@ export const StageFloatingControls: React.FC<StageFloatingControlsProps> = ({
         data-testid="stage-pitch-display"
         className="min-w-[44px] select-none text-center font-mono text-xs font-bold tabular-nums text-theme-sung"
       >
-        {semitones === 0 ? '0 st' : `${semitones > 0 ? '+' : ''}${semitones} st`}
+        {formatSemitones(semitones, '0 st')}
       </span>
       <button
         type="button"

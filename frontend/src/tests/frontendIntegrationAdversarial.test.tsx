@@ -368,7 +368,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         expect(screen.getByText(/Track Processing Cancelled/i)).toBeInTheDocument();
       });
 
-      const searchAnotherBtn = screen.getByRole('button', { name: /Search Another Song/i });
+      const searchAnotherBtn = within(screen.getByRole('main')).getByRole('button', {
+        name: /New Song/i,
+      });
       await user.click(searchAnotherBtn);
 
       await waitFor(() => {
@@ -414,7 +416,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         ).toBeInTheDocument();
       });
 
-      const tryAnotherBtn = screen.getByRole('button', { name: /Try Another Track/i });
+      const tryAnotherBtn = within(screen.getByRole('main')).getByRole('button', {
+        name: /New Song/i,
+      });
       await user.click(tryAnotherBtn);
 
       await waitFor(() => {
@@ -472,7 +476,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
 
       // Now click "New Song" in navbar
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-      const newSongBtn = screen.getByRole('button', { name: /New Song/i });
+      const newSongBtn = within(screen.getByRole('banner')).getByRole('button', {
+        name: /New Song/i,
+      });
       await user.click(newSongBtn);
 
       expect(confirmSpy).toHaveBeenCalledWith(
@@ -551,9 +557,10 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         expect(screen.getByText(/Export & YouTube Package/i)).toBeInTheDocument();
       });
 
-      // Click Cancel Render in modal
+      // Click Cancel Render in modal, then confirm (a stray click no longer cancels)
       const cancelRenderBtn = screen.getByRole('button', { name: /Cancel Render/i });
       await user.click(cancelRenderBtn);
+      await user.click(screen.getByRole('button', { name: 'Confirm Cancel Render' }));
 
       await waitFor(() => {
         expect(fetchSpy).toHaveBeenCalledWith(
