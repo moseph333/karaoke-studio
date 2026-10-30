@@ -17,8 +17,9 @@ import { LyricLine, SyncDisplayMode, StudioWorkspaceTab } from './types';
 import { useProjectChords } from './hooks/useProjectChords';
 import { useTrackIntake } from './hooks/useTrackIntake';
 import { useQualityJobs } from './hooks/useQualityJobs';
-import { apiFetch } from './api';
+import { apiFetch, readApiError } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
+import { useRenderOutcomeToast } from './hooks/useRenderOutcomeToast';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { isInputElement, isModalActive, useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -61,8 +62,15 @@ export const AppContent: React.FC = () => {
   const { showVisualizer, showChordBar } = theme;
 
   // Authentication & Friend Profile Hook
-  const { showAuthModal, setShowAuthModal, currentUser, authToken, handleAuthSuccess } =
-    useStudioAuth();
+  const {
+    showAuthModal,
+    setShowAuthModal,
+    currentUser,
+    authToken,
+    handleAuthSuccess,
+    authRequired,
+    isAuthLocked,
+  } = useStudioAuth();
 
   // Audio Playback Hook
   const audio = useStudioAudio(project);
@@ -91,9 +99,11 @@ export const AppContent: React.FC = () => {
   const handleCancelProcess = async () => {
     if (!project?.id) return;
     try {
-      await apiFetch(`/api/project/${project.id}/cancel`, { method: 'POST' });
+      const res = await apiFetch(`/api/project/${project.id}/cancel`, { method: 'POST' });
+      if (!res.ok) toast.error(await readApiError(res, 'Could not cancel processing'));
     } catch (e) {
       console.error('Cancel failed', e);
+      toast.error('Could not reach the server to cancel processing');
     }
     setProject(null);
   };
@@ -101,17 +111,21 @@ export const AppContent: React.FC = () => {
   const handleCancelRender = async () => {
     if (!project?.id) return;
     try {
-      await apiFetch(`/api/project/${project.id}/cancel-render`, {
+      const res = await apiFetch(`/api/project/${project.id}/cancel-render`, {
         method: 'POST',
       });
+      if (!res.ok) toast.error(await readApiError(res, 'Could not cancel the render'));
     } catch (e) {
       console.error('Cancel render failed', e);
+      toast.error('Could not reach the server to cancel the render');
     }
     setProject((prev) => (prev ? { ...prev, render_status: 'idle', render_progress: 0 } : null));
     setIsExportOpen(false);
   };
 
   const isStudioReady = Boolean(project && project.status === 'ready');
+  const openExport = useCallback(() => setIsExportOpen(true), []);
+  useRenderOutcomeToast(project, openExport);
 
   // The tab title names the open song (and its progress while it is processed)
   const title = pageTitle(project);
@@ -226,7 +240,7 @@ export const AppContent: React.FC = () => {
       if (res.ok) {
         setProject((prev) => (prev ? { ...prev, lines: updatedLines } : null));
       } else {
-        throw new Error('Server returned non-200 while saving lyrics');
+        throw new Error(await readApiError(res, 'Server returned non-200 while saving lyrics'));
       }
     } catch (err) {
       console.error('Failed to update lyrics:', err);
@@ -248,7 +262,7 @@ export const AppContent: React.FC = () => {
     const generated = isGeneratedStyle(style);
 
     try {
-      await apiFetch(`/api/project/${project.id}/render`, {
+      const res = await apiFetch(`/api/project/${project.id}/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -279,11 +293,17 @@ export const AppContent: React.FC = () => {
           },
         }),
       });
+      if (!res.ok) {
+        // e.g. 409 while this song already renders, 400 before its stems are ready
+        toast.error(await readApiError(res, 'Could not start the video render'));
+        return;
+      }
       setProject((prev) =>
         prev ? { ...prev, render_status: 'queued', render_progress: 10 } : null
       );
     } catch (err) {
       console.error('Render request failed:', err);
+      toast.error('Could not reach the server to start the render');
     }
   };
 
@@ -473,6 +493,9 @@ export const AppContent: React.FC = () => {
         fontSizeScale={theme.fontSizeScale}
         showAuthModal={showAuthModal}
         onAuthSuccess={handleAuthSuccess}
+        onCloseAuth={() => setShowAuthModal(false)}
+        authDismissable={!isAuthLocked}
+        authRequiresPassword={authRequired}
         showHelpModal={showHelpModal}
         onCloseHelp={() => setShowHelpModal(false)}
         showStudioDeleteModal={showStudioDeleteModal}

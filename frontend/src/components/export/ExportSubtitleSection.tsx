@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Sparkles, FileText, Loader2, AlignLeft } from 'lucide-react';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../../types';
-import { apiFetch } from '../../api';
+import { apiFetch, readApiError } from '../../api';
 import { Tooltip } from '../Tooltip';
 import { useToast } from '../../hooks/useToast';
 import { parseContentDispositionFilename } from '../../utils/download';
@@ -112,8 +112,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
 
       const res = await apiFetch(url);
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || `Failed to export .${format} subtitles`);
+        throw new Error(await readApiError(res, `Failed to export .${format} subtitles`));
       }
 
       const blob = await res.blob();

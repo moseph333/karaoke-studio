@@ -605,19 +605,24 @@ describe('Adversarial Challenge: Milestone M2 Waveform Scrubbing & Touch Ergonom
       const endInput = screen.getByLabelText('End time for word all');
 
       // Attempt to set start_time < prevEnd (e.g. 1.5, when prevEnd is 2.2) -> clamped to 2.2
+      // Typed times are committed when the field loses focus (or on Enter)
       fireEvent.change(startInput, { target: { value: '1.5' } });
+      fireEvent.blur(startInput);
       expect(onUpdateWordTiming).toHaveBeenLastCalledWith(101, 1, 'start_time', 2.2);
 
       // Attempt to set start_time > end_time (e.g. 3.0, when end is 2.6) -> clamped to 2.6
       fireEvent.change(startInput, { target: { value: '3.0' } });
+      fireEvent.blur(startInput);
       expect(onUpdateWordTiming).toHaveBeenLastCalledWith(101, 1, 'start_time', 2.6);
 
       // Attempt to set end_time < start_time (e.g. 2.0, when start is 2.2) -> clamped to 2.2
       fireEvent.change(endInput, { target: { value: '2.0' } });
+      fireEvent.blur(endInput);
       expect(onUpdateWordTiming).toHaveBeenLastCalledWith(101, 1, 'end_time', 2.2);
 
       // Attempt to set end_time > nextStart (e.g. 3.5, when nextStart is 2.6) -> clamped to 2.6
       fireEvent.change(endInput, { target: { value: '3.5' } });
+      fireEvent.blur(endInput);
       expect(onUpdateWordTiming).toHaveBeenLastCalledWith(101, 1, 'end_time', 2.6);
     });
 

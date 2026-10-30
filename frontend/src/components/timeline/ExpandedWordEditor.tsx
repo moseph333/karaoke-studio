@@ -5,7 +5,7 @@
  * whole-word shift buttons, and snap-to-playhead actions for fine-grained alignment.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Crosshair } from 'lucide-react';
 import { LyricLine, WordTiming } from '../../types';
 import { cn } from '../../utils/cn';
@@ -53,6 +53,57 @@ const stepButton = (edge: 'l' | 'r') =>
 
 const timeInput =
   'h-8 w-16 min-h-[44px] border-y border-theme-border-subtle bg-theme-bg p-0.5 text-center text-xs tabular-nums text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-focus sm:h-6 sm:w-14 sm:min-h-0';
+
+/**
+ * A word boundary typed in seconds. What is typed stays a draft and is committed, clamped to
+ * the neighbouring words, on Enter or when the field loses focus; Escape restores the value.
+ * (Committing every keystroke clamped "12.75" to the neighbour after its first digit and
+ * added an undo step per character.) The arrow keys still step and apply at once: 0.05 s,
+ * with Shift 0.20 s, like the nudge buttons.
+ */
+const WordTimeInput: React.FC<{
+  value: number;
+  label: string;
+  clamp: (seconds: number) => number;
+  onCommit: (seconds: number) => void;
+}> = ({ value, label, clamp, onCommit }) => {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commit = () => {
+    if (draft === null) return;
+    const typed = parseFloat(draft);
+    setDraft(null);
+    if (Number.isFinite(typed)) onCommit(clamp(typed));
+  };
+
+  return (
+    <input
+      type="number"
+      step="0.05"
+      value={draft ?? value}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commit();
+        } else if (e.key === 'Escape') {
+          e.stopPropagation();
+          setDraft(null);
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const typed = draft === null ? NaN : parseFloat(draft);
+          const base = Number.isFinite(typed) ? typed : value;
+          const step = (e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? 0.2 : 0.05);
+          setDraft(null);
+          onCommit(clamp(Math.round((base + step) * 100) / 100));
+        }
+      }}
+      aria-label={label}
+      className={timeInput}
+    />
+  );
+};
 
 const snapButton = cn(
   'flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center gap-1 rounded-theme-sm border border-theme-accent/35 bg-theme-accent/10 px-2 py-1.5 text-[11px] font-semibold text-theme-highlight transition-colors hover:bg-theme-accent/20 sm:min-h-0 sm:min-w-0',
@@ -142,22 +193,16 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                 >
                   -
                 </button>
-                <input
-                  type="number"
-                  step="0.05"
+                <WordTimeInput
                   value={w.start_time}
-                  onChange={(e) => {
-                    const rawVal = parseFloat(e.target.value);
-                    if (!isNaN(rawVal)) {
-                      const prevEnd = wIdx > 0 ? line.words[wIdx - 1].end_time : 0;
-                      const nextStart =
-                        wIdx < line.words.length - 1 ? line.words[wIdx + 1].start_time : Infinity;
-                      const clamped = Math.min(w.end_time, nextStart, Math.max(prevEnd, rawVal));
-                      onUpdateWordTiming(line.id, wIdx, 'start_time', clamped);
-                    }
+                  label={`Start time for word ${w.word}`}
+                  clamp={(seconds) => {
+                    const prevEnd = wIdx > 0 ? line.words[wIdx - 1].end_time : 0;
+                    const nextStart =
+                      wIdx < line.words.length - 1 ? line.words[wIdx + 1].start_time : Infinity;
+                    return Math.min(w.end_time, nextStart, Math.max(prevEnd, seconds));
                   }}
-                  aria-label={`Start time for word ${w.word}`}
-                  className={timeInput}
+                  onCommit={(seconds) => onUpdateWordTiming(line.id, wIdx, 'start_time', seconds)}
                 />
                 <button
                   type="button"
@@ -189,23 +234,17 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                 >
                   -
                 </button>
-                <input
-                  type="number"
-                  step="0.05"
+                <WordTimeInput
                   value={w.end_time}
-                  onChange={(e) => {
-                    const rawVal = parseFloat(e.target.value);
-                    if (!isNaN(rawVal)) {
-                      const nextStart =
-                        wIdx < line.words.length - 1
-                          ? line.words[wIdx + 1].start_time
-                          : line.end_time || Infinity;
-                      const clamped = Math.min(nextStart, Math.max(w.start_time, rawVal));
-                      onUpdateWordTiming(line.id, wIdx, 'end_time', clamped);
-                    }
+                  label={`End time for word ${w.word}`}
+                  clamp={(seconds) => {
+                    const nextStart =
+                      wIdx < line.words.length - 1
+                        ? line.words[wIdx + 1].start_time
+                        : line.end_time || Infinity;
+                    return Math.min(nextStart, Math.max(w.start_time, seconds));
                   }}
-                  aria-label={`End time for word ${w.word}`}
-                  className={timeInput}
+                  onCommit={(seconds) => onUpdateWordTiming(line.id, wIdx, 'end_time', seconds)}
                 />
                 <button
                   type="button"

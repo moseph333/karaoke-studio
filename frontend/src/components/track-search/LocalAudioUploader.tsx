@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { FileAudio, Upload, X } from 'lucide-react';
 import { ProjectState } from '../../types';
-import { apiFetch } from '../../api';
+import { apiFetch, readApiError } from '../../api';
 import { cn } from '../../utils/cn';
 import { focusRing } from '../ui/variants';
 
@@ -173,8 +173,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
           body: formData,
         });
         if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || 'Upload failed');
+          throw new Error(await readApiError(res, 'Upload failed'));
         }
         const data = await res.json();
         if (onOpenProject && data.project_id) {

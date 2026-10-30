@@ -6,7 +6,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { ProjectState, SeparationPreset } from '../types';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import { useToast } from './useToast';
 import { SEPARATION_PRESET_ORDER } from '../utils/quality';
 
@@ -96,8 +96,7 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
         body: formData,
       });
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Failed to upload audio track');
+        throw new Error(await readApiError(res, 'Failed to upload audio track'));
       }
       const data = await res.json();
       setProject({

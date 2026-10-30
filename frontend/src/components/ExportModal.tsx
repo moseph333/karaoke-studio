@@ -35,7 +35,7 @@ import {
   EXPORT_SECTION,
 } from './export/exportStyles';
 import { Tooltip } from './Tooltip';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import { useToast } from '../hooks/useToast';
 import { Dialog, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
@@ -184,8 +184,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       const res = await apiFetch(url);
 
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Failed to download chord sheet');
+        throw new Error(await readApiError(res, 'Failed to download chord sheet'));
       }
 
       const blob = await res.blob();

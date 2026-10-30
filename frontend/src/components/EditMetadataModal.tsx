@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Pencil, AlertCircle, Check } from 'lucide-react';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
 
@@ -76,8 +76,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || 'Failed to update track metadata');
+        throw new Error(await readApiError(res, 'Failed to update track metadata'));
       }
 
       const data = await res.json();

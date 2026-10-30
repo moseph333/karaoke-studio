@@ -84,6 +84,36 @@ export function clearAuth(): void {
 }
 
 /**
+ * A readable message from a FastAPI error `detail`: a string for HTTP errors, a list of
+ * `{loc, msg}` for validation errors (422), which used to surface as "[object Object]".
+ */
+export function formatApiDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string' && detail.trim()) return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail.flatMap((item) => {
+      const { loc, msg } = (item ?? {}) as { loc?: unknown; msg?: unknown };
+      if (typeof msg !== 'string' || !msg) return [];
+      const field = Array.isArray(loc)
+        ? loc.filter((part) => part !== 'body' && part !== 'query').join('.')
+        : '';
+      return [field ? `${field}: ${msg}` : msg];
+    });
+    if (messages.length > 0) return messages.join('; ');
+  }
+  return fallback;
+}
+
+/** The error message for a failed response: its JSON `detail` when it has one. */
+export async function readApiError(res: Pick<Response, 'json'>, fallback: string): Promise<string> {
+  try {
+    const data: unknown = await res.json();
+    return formatApiDetail((data as { detail?: unknown } | null)?.detail, fallback);
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * Centralized fetch wrapper attaching credentials and handling 401 interception.
  */
 export async function apiFetch(url: string | URL, options: RequestInit = {}): Promise<Response> {

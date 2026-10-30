@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useRef, useState } from 'react';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import type { LyricLine, RealignLineResult } from '../types';
 import { realignBounds } from '../utils/lineRealign';
 import { useToast } from './useToast';
@@ -42,10 +42,10 @@ export function useLineRealign({ projectId, lines, onApply }: UseLineRealignOpti
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ line, ...realignBounds(all, index) }),
         });
-        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(typeof data?.detail === 'string' ? data.detail : 'Could not re-align');
+          throw new Error(await readApiError(res, 'Could not re-align'));
         }
+        const data = await res.json().catch(() => ({}));
         const result = data as RealignLineResult;
         if (result.status !== 'ok') {
           toast.info(result.detail || 'No singing found near this line');

@@ -58,7 +58,11 @@ interface ToastItemProps {
 }
 
 export const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
-  const [isPaused, setIsPaused] = useState(false);
+  // The timer waits while the pointer is over the toast or keyboard focus is inside it
+  // (reaching its buttons by keyboard used to race the timer)
+  const [isHovered, setIsHovered] = useState(false);
+  const [hasFocus, setHasFocus] = useState(false);
+  const isPaused = isHovered || hasFocus;
 
   useEffect(() => {
     const duration = toast.duration ?? 4000;
@@ -79,8 +83,12 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
     <div
       role={style.role}
       aria-live={style.live}
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setHasFocus(true)}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHasFocus(false);
+      }}
       className={cn(
         'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-theme-lg border bg-theme-surface-raised/95 p-3.5 text-theme-text shadow-theme-lg backdrop-blur-md motion-safe:animate-fade-in',
         style.border

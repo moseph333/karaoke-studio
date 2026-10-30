@@ -395,6 +395,7 @@ describe('M4 Challenger 2: Adversarial Stress Testing', () => {
       // Edit first word's start time from 12.0 to 12.25
       await user.clear(numberInputs[0]);
       await user.type(numberInputs[0], '12.25');
+      await user.tab(); // typed times are committed when the field loses focus
 
       expect(screen.getByText(/Save Timing Changes/i)).toBeInTheDocument();
       expect(onDirtyChange).toHaveBeenLastCalledWith(true);
@@ -557,6 +558,7 @@ describe('M4 Challenger 2: Adversarial Stress Testing', () => {
       // Set start_time to -5.0
       await user.clear(inputs[0]);
       await user.type(inputs[0], '-5.0');
+      await user.tab(); // typed times are committed (and clamped) when the field loses focus
 
       // The input should reflect clamped value >= 0
       expect(Number(inputs[0].getAttribute('value'))).toBeGreaterThanOrEqual(0);

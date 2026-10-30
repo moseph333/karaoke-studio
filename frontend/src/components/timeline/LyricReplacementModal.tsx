@@ -24,7 +24,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { LyricCandidate, LyricLine } from '../../types';
-import { apiFetch } from '../../api';
+import { apiFetch, readApiError } from '../../api';
 import { useToast } from '../../hooks/useToast';
 import { useCapabilities } from '../../hooks/useCapabilities';
 import type { BackgroundRealignRequest } from '../../hooks/useQualityJobs';
@@ -93,7 +93,8 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
 
     const lines = trimmed.split('\n').filter((l) => l.trim().length > 0);
     const totalLines = lines.length;
-    const lrcRegex = /\[\d{2}:\d{2}\.\d{2,3}\]/;
+    // The same test as the server's LyricsService.is_lrc_format: [m:ss], [mm:ss.xx], [mmm:ss.xxx]
+    const lrcRegex = /\[\d{1,4}:\d{2}(?:\.\d{1,3})?\]/;
     const lrcLines = lines.filter((l) => lrcRegex.test(l));
     const isLrc = lrcLines.length > 0;
 
@@ -132,10 +133,10 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.detail || failed);
+      throw new Error(await readApiError(res, failed));
     }
+    const data = await res.json();
     toast.success(done);
     onSuccess(data.lines || []);
     onClose();
@@ -202,11 +203,10 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
       const res = await apiFetch(
         `/api/project/${projectId}/lyrics/candidates?${params.toString()}`
       );
-      const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(data.detail || 'Failed to search lyric candidates');
+        throw new Error(await readApiError(res, 'Failed to search lyric candidates'));
       }
+      const data = await res.json();
 
       const list: LyricCandidate[] = Array.isArray(data) ? data : data.candidates || [];
       setCandidates(list);

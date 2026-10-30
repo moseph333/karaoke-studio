@@ -8,7 +8,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { ChordSegment } from '../types';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import {
   isUndoRoutedElsewhere,
   noteUndo,
@@ -223,8 +223,7 @@ export function useChordHistory({
         });
 
         if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || `Server returned HTTP ${res.status}`);
+          throw new Error(await readApiError(res, `Server returned HTTP ${res.status}`));
         }
 
         updateBaseline(target);
