@@ -71,7 +71,7 @@ backend/
     ctc_align_worker.py     MMS forced alignment in its own process
   tools/                  fetch_models, benchmark_sync, benchmark_separation, seed_demo
   assets/                 bundled theme fonts and their licences; shared/ JSON the frontend imports as @shared
-  tests/                  pytest suites (unit, route, adversarial, E2E tiers)
+  tests/                  pytest suites, one folder per feature (plus e2e/, helpers/, meta/)
 frontend/src/
   App.tsx                 providers + AppContent (library, processing or studio)
   types.ts, api.ts
@@ -83,7 +83,7 @@ frontend/src/
     commandPalette/, track-search/ and top-level views and dialogs
   hooks/                  audio, mix, polling, editor, palette, quality and shortcut hooks
   utils/                  pure helpers (format, lyrics, review, quality, manual edits…)
-  tests/                  Vitest suites
+  tests/                  Vitest suites, one folder per feature (plus helpers/, meta/)
 docs/                     this guide, screenshots
 ```
 
@@ -283,6 +283,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 
 - **Backend** (`pytest`). `tests/conftest.py` gives every test an isolated data folder and a hermetic ML setup: `SEPARATION_QUALITY=fast`, `ALIGNMENT_ENGINE=dsp`, downloads off, model folders under the test's temp directory, `HF_HUB_OFFLINE=1`, and Demucs quality-flag detection off. Engines that need weights are exercised through fake worker processes and stand-in packages, so the suite runs offline. CPU-budget tests guard the DSP aligner's speed.
 - **Frontend** (Vitest, jsdom). Contracts enforced by tests include unique accessible names in the studio at phone and desktop widths, 44 px touch targets, the dialog contract, a single never-remounting audio element, and design-token usage (no fixed palette colours in components).
+- **Layout.** Each suite keeps one folder per feature: `backend/tests/` has `alignment`, `chords`, `lyrics`, `realignment`, `separation`, `media`, `subtitles`, `exports`, `render`, `projects`, `vocal_range`, `server`, `workers`, `tools` and `e2e`; `frontend/src/tests/` has `accessibility`, `app`, `audio`, `chords`, `components`, `dialogs`, `export`, `intake`, `shortcuts`, `stage`, `studio`, `theme`, `timeline`, `transport` and `ui`. Synthetic audio, media and fixtures shared between files live in each suite's `helpers/`. The `meta/` tests guard the layout: no test file at the top level, and on the backend unique basenames and no `__init__.py`, because pytest imports test files by basename.
 - **Gates.**
 
   ```bash
