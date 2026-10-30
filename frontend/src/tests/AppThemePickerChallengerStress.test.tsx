@@ -41,7 +41,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       trigger.focus();
       // Open with Enter -> highlights the active theme (punk_diy, index 1)
       fireEvent.keyDown(trigger, { key: 'Enter' });
@@ -65,7 +65,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'Enter' }); // Opens at index 0 (afterglow)
       expect(trigger).toHaveAttribute('aria-activedescendant', 'theme-option-afterglow');
@@ -86,7 +86,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       trigger.focus();
       fireEvent.keyDown(trigger, { key: 'Enter' });
 
@@ -119,7 +119,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       trigger.focus();
 
       // Open, close with Escape, open with Space, close with Escape 20 times
@@ -214,7 +214,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       // Defaults safely to the flagship default theme
       expect(trigger).toHaveTextContent(APP_THEMES[DEFAULT_APP_THEME_ID].name);
       expect(document.documentElement.getAttribute('data-theme')).toBe(DEFAULT_APP_THEME_ID);
@@ -232,7 +232,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
         throw new DOMException('QuotaExceededError', 'QuotaExceededError');
       });
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       fireEvent.click(trigger);
 
       const tapeOption = screen.getByRole('option', { name: /Reel-to-Reel '74/i });
@@ -253,7 +253,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
         </AppThemeProvider>
       );
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       expect(trigger).toHaveTextContent(APP_THEMES.punk_diy.name);
 
       // Simulate external window storage change to 'dive_bar_crt'
@@ -279,7 +279,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
         render(<AppThemePicker />);
       }).not.toThrow();
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       expect(trigger).toBeInTheDocument();
       expect(trigger).toHaveTextContent(APP_THEMES[DEFAULT_APP_THEME_ID].name);
 
@@ -304,7 +304,7 @@ describe('AppThemePicker Empirical Challenger Stress Suite', () => {
     it('allows direct option click outside provider without unhandled error', () => {
       render(<AppThemePicker />);
 
-      const trigger = screen.getByRole('button', { name: /select theme/i });
+      const trigger = screen.getByRole('combobox', { name: /select theme/i });
       fireEvent.click(trigger);
 
       const paperOption = screen.getByRole('option', { name: /Monolith Press/i });

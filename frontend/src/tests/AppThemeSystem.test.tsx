@@ -471,7 +471,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           </AppThemeProvider>
         );
 
-        const trigger = screen.getByRole('button', { name: /select theme/i });
+        const trigger = screen.getByRole('combobox', { name: /select theme/i });
         expect(trigger).toBeInTheDocument();
         expect(trigger).toHaveAttribute('aria-haspopup', 'listbox');
         expect(trigger).toHaveAttribute('aria-expanded', 'false');
@@ -484,7 +484,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           </AppThemeProvider>
         );
 
-        const trigger = screen.getByRole('button', { name: /select theme/i });
+        const trigger = screen.getByRole('combobox', { name: /select theme/i });
         fireEvent.click(trigger);
 
         expect(trigger).toHaveAttribute('aria-expanded', 'true');
@@ -502,7 +502,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           </AppThemeProvider>
         );
 
-        const trigger = screen.getByRole('button', { name: /select theme/i });
+        const trigger = screen.getByRole('combobox', { name: /select theme/i });
         fireEvent.click(trigger);
 
         const options = screen.getAllByRole('option');
@@ -522,7 +522,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           </AppThemeProvider>
         );
 
-        const trigger = screen.getByRole('button', { name: /select theme/i });
+        const trigger = screen.getByRole('combobox', { name: /select theme/i });
         // Open via ArrowDown
         fireEvent.keyDown(trigger, { key: 'ArrowDown' });
         expect(trigger).toHaveAttribute('aria-expanded', 'true');
@@ -543,7 +543,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           </AppThemeProvider>
         );
 
-        const trigger = screen.getByRole('button', { name: /select theme/i });
+        const trigger = screen.getByRole('combobox', { name: /select theme/i });
         fireEvent.click(trigger);
 
         const options = screen.getAllByRole('option');
@@ -561,7 +561,7 @@ describe('AppThemeSystem 4-Tier E2E Test Suite', () => {
           </AppThemeProvider>
         );
 
-        const trigger = screen.getByRole('button', { name: /select theme/i });
+        const trigger = screen.getByRole('combobox', { name: /select theme/i });
         fireEvent.click(trigger);
         expect(screen.getByRole('listbox')).toBeInTheDocument();
 
