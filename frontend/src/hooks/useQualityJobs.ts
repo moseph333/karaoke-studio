@@ -4,7 +4,7 @@
  * it up; when a job finishes the user gets a toast with the outcome.
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, readApiError } from '../api';
 import type { LyricLine, ProjectState, SeparationJob, SeparationPreset, SyncJob } from '../types';
 import { PRESET_NAMES } from '../utils/quality';
@@ -140,13 +140,28 @@ export function useQualityJobs({
     }
   }, [projectId, putJob, toast]);
 
-  return {
-    isReseparateOpen,
-    openReseparate: useCallback(() => setReseparateOpen(true), []),
-    closeReseparate: useCallback(() => setReseparateOpen(false), []),
-    startReseparation,
-    cancelReseparation,
-    startBackgroundRealign,
-    cancelRealign,
-  };
+  const openReseparate = useCallback(() => setReseparateOpen(true), []);
+  const closeReseparate = useCallback(() => setReseparateOpen(false), []);
+
+  // Memoised so components receiving `quality` re-render only when it changes
+  return useMemo(
+    () => ({
+      isReseparateOpen,
+      openReseparate,
+      closeReseparate,
+      startReseparation,
+      cancelReseparation,
+      startBackgroundRealign,
+      cancelRealign,
+    }),
+    [
+      isReseparateOpen,
+      openReseparate,
+      closeReseparate,
+      startReseparation,
+      cancelReseparation,
+      startBackgroundRealign,
+      cancelRealign,
+    ]
+  );
 }

@@ -8,7 +8,7 @@
  * while `isRemixing` reports the server-side re-render.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, readApiError } from '../api';
 
 export const MIX_SEMITONE_MIN = -12;
@@ -219,18 +219,34 @@ export function useMixController({
     [schedule, setGuideVolume]
   );
 
-  return {
-    semitones,
-    guideVolume,
-    appliedSemitones,
-    appliedGuideVolume,
-    isRemixing,
-    isPending: semitones !== appliedSemitones || guideVolume !== appliedGuideVolume,
-    setSemitones,
-    stepSemitones,
-    resetSemitones,
-    setGuideVolume,
-    commitGuideVolume,
-    applyNow,
-  };
+  // Memoised so components receiving `mix` re-render only when it changes
+  return useMemo(
+    () => ({
+      semitones,
+      guideVolume,
+      appliedSemitones,
+      appliedGuideVolume,
+      isRemixing,
+      isPending: semitones !== appliedSemitones || guideVolume !== appliedGuideVolume,
+      setSemitones,
+      stepSemitones,
+      resetSemitones,
+      setGuideVolume,
+      commitGuideVolume,
+      applyNow,
+    }),
+    [
+      semitones,
+      guideVolume,
+      appliedSemitones,
+      appliedGuideVolume,
+      isRemixing,
+      setSemitones,
+      stepSemitones,
+      resetSemitones,
+      setGuideVolume,
+      commitGuideVolume,
+      applyNow,
+    ]
+  );
 }
