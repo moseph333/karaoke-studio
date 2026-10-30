@@ -1,5 +1,6 @@
 """Project management API router handling search, intake processing, project queries, metadata updates, lyric editing, audio mixing, cancellation, deletion, and YouTube metadata generation."""
 
+import copy
 import hashlib
 import logging
 import os
@@ -54,6 +55,44 @@ from backend.services.waveform import (
 logger = logging.getLogger("karaoke_backend")
 
 router = APIRouter(tags=["projects"])
+
+# What the studio polls once a second while a job runs: the progress of the pipeline, a
+# render and the background jobs, without the lyrics, chords and analysis of the full
+# project. Every key is always present (None when unset), so a cleared field is visible.
+STATUS_FIELDS = (
+    "id",
+    "status",
+    "progress",
+    "status_detail",
+    "heartbeat",
+    "elapsed_seconds",
+    "eta_seconds",
+    "error",
+    "title",
+    "artist",
+    "thumbnail_url",
+    "separation",
+    "separation_quality",
+    "render_status",
+    "render_progress",
+    "render_detail",
+    "render_heartbeat",
+    "render_elapsed_seconds",
+    "render_eta_seconds",
+    "render_error",
+    "video_url",
+    "separation_job",
+    "sync_job",
+)
+
+
+def _settle_stale_jobs(proj: dict) -> None:
+    """Ends jobs a previous server process left running, which would otherwise poll forever."""
+    import backend.main as main_mod
+
+    settled = settle_stale_job(proj, main_mod.active_cancellations)
+    if realignment.settle_stale_job(proj, main_mod.active_cancellations) or settled:
+        save_projects()
 
 
 @router.post("/api/search")
@@ -133,21 +172,33 @@ def list_projects(scope: str | None = "all", user: str | None = None):
 
     merge_disk_projects(main_mod.projects)
 
-    if scope == "my" and user:
-        return {pid: p for pid, p in main_mod.projects.items() if p.get("created_by") == user}
-    return main_mod.projects
+    # Snapshots, taken under the lock: workers update the stored projects while a response is
+    # serialised, and a key added meanwhile failed it ("dictionary changed size")
+    with PROJECTS_LOCK:
+        if scope == "my" and user:
+            return {
+                pid: copy.deepcopy(p)
+                for pid, p in main_mod.projects.items()
+                if p.get("created_by") == user
+            }
+        return copy.deepcopy(main_mod.projects)
 
 
 @router.get("/api/project/{project_id}")
 def get_project(project_id: str):
-    import backend.main as main_mod
-
     proj = get_project_or_404(project_id)
-    # Background jobs left running by a previous server process would otherwise poll forever
-    settled = settle_stale_job(proj, main_mod.active_cancellations)
-    if realignment.settle_stale_job(proj, main_mod.active_cancellations) or settled:
-        save_projects()
-    return proj
+    with PROJECTS_LOCK:
+        _settle_stale_jobs(proj)
+        return copy.deepcopy(proj)
+
+
+@router.get("/api/project/{project_id}/status")
+def get_project_status(project_id: str):
+    """The project's progress fields (STATUS_FIELDS), polled while a job runs."""
+    proj = get_project_or_404(project_id)
+    with PROJECTS_LOCK:
+        _settle_stale_jobs(proj)
+        return {field: copy.deepcopy(proj.get(field)) for field in STATUS_FIELDS}
 
 
 @router.get(
