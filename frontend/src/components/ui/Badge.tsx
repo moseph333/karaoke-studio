@@ -38,6 +38,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
       {dot && (
         <span
           aria-hidden="true"
+          data-dot=""
           className={cn(
             'w-1.5 h-1.5 rounded-full bg-current',
             pulse && 'motion-safe:animate-pulse'

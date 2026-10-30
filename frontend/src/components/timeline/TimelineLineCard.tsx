@@ -155,10 +155,11 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
   const timeRange = `${formatLineTime(line.start_time)}s - ${formatLineTime(line.end_time)}s`;
   const isEditing = editingLineId === line.id;
   const emphasized = isCurrentlyActive || isExpanded;
-  // Fade secondary controls only where hover exists; hover/focus inside the row restores them.
+  // Idle rows recede their icon-only tools where hover exists; hover or focus inside the row
+  // restores them. 70% keeps icons above 3:1; text never fades (at 60% it fell below 4.5:1).
   const calm = emphasized
     ? ''
-    : 'transition-opacity [@media(hover:hover)]:opacity-60 group-hover/line:opacity-100 group-focus-within/line:opacity-100';
+    : 'transition-opacity [@media(hover:hover)]:opacity-70 group-hover/line:opacity-100 group-focus-within/line:opacity-100';
   const issueMessages = issues && issues.length > 0 ? issues.map((i) => i.message) : null;
   const confidence = confidenceLevel(line.confidence);
   const confidenceDescription = confidenceText(line);
@@ -307,6 +308,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                       title={confidenceDescription ?? undefined}
                       data-testid={`line-confidence-${line.id}`}
                       data-level={confidence}
+                      data-dot={confidence}
                       className={cn('shrink-0', CONFIDENCE_DOT[confidence])}
                     />
                     {confidenceDescription && (
@@ -354,12 +356,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
         )}
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-1 @[720px]:flex-nowrap @[720px]:justify-end">
-          <div
-            className={cn(
-              'flex items-center gap-px rounded-theme-md border border-theme-border-subtle bg-theme-surface p-0.5',
-              calm
-            )}
-          >
+          <div className="flex items-center gap-px rounded-theme-md border border-theme-border-subtle bg-theme-surface p-0.5">
             <Tooltip content="Nudge line 0.2s earlier" position="top" portal>
               <button
                 type="button"

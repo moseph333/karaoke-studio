@@ -131,6 +131,7 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
   const activeConfig = SINGER_CONFIG[activeSinger];
   const nextConfig = nextSinger ? SINGER_CONFIG[nextSinger] : null;
   const ActiveIcon = activeConfig.Icon;
+  // Helper text sits over cover art too: it keeps its muted colour and gets the lyric outline
   const mutedText = tone === 'light' ? 'text-black/55' : 'text-white/55';
   // The outline the exported video draws around the lyrics
   const outline = lyricOutline(tone);
@@ -291,7 +292,12 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
             className="mx-auto flex w-full max-w-xs select-none flex-col items-center justify-center gap-2 px-2 transition-all sm:max-w-md sm:gap-3"
           >
             <p
-              style={{ fontSize: `${fontSizeScale}em`, color: upcomingSingerColor, fontFamily }}
+              style={{
+                fontSize: `${fontSizeScale}em`,
+                color: upcomingSingerColor,
+                fontFamily,
+                textShadow: outline,
+              }}
               className="text-base font-bold tracking-wide transition-colors sm:text-xl md:text-2xl"
             >
               {gap.isIntro ? '♪ Instrumental Intro ♪' : '♪ Instrumental Solo ♪'}
@@ -299,6 +305,7 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
             <div
               data-testid="gap-countdown-time"
               className={cn('font-mono text-xs font-semibold tracking-wider sm:text-sm', mutedText)}
+              style={{ textShadow: outline }}
             >
               Next vocals in {gap.countdownSeconds}s
             </div>
@@ -324,7 +331,7 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
           </div>
         ) : (
           <p
-            style={{ fontSize: `${fontSizeScale}em` }}
+            style={{ fontSize: `${fontSizeScale}em`, textShadow: outline }}
             className={cn('text-sm font-medium italic sm:text-base md:text-xl', mutedText)}
           >
             {time < (lines[0]?.start_time || 0)
@@ -359,7 +366,9 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
             <span style={{ textShadow: outline }}>{nextLine.text}</span>
           </p>
         ) : (
-          <span className={cn('text-xs sm:text-sm', mutedText)}>-- End of song --</span>
+          <span className={cn('text-xs sm:text-sm', mutedText)} style={{ textShadow: outline }}>
+            -- End of song --
+          </span>
         )}
       </div>
     </div>
