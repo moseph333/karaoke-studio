@@ -69,7 +69,7 @@ export const InlineConfirm: React.FC<InlineConfirmProps> = ({
           type="button"
           onClick={onConfirm}
           className={cn(
-            'min-h-[36px] rounded-theme-md bg-theme-danger px-3.5 py-1.5 font-theme-heading text-xs font-bold text-white transition-[filter] hover:brightness-110',
+            'min-h-[36px] rounded-theme-md bg-theme-danger px-3.5 py-1.5 font-theme-heading text-xs font-bold text-theme-text-inverse transition-[filter] hover:brightness-110',
             focusRing
           )}
         >
