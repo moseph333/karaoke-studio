@@ -95,7 +95,8 @@ def test_scenario_1_golden_path_youtube_to_full_export(client):
     assert yt_res.status_code == 200
     yt_kit = yt_res.json()
     assert "Karaoke Version" in yt_kit["title"]
-    assert "Timestamps:" in yt_kit["description"]
+    # The fixture lyrics end at 3.2 s: too short for the 3 chapters YouTube needs
+    assert "Timestamps:" not in yt_kit["description"]
     assert len(yt_kit["tags"]) >= 5
 
 

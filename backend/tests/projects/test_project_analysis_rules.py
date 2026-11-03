@@ -460,11 +460,12 @@ def test_edits_leave_a_song_without_a_youtube_kit_alone(client, song, kit_calls)
 
 
 def test_youtube_kit_route_builds_from_the_song_before_any_render(client, song, kit_calls):
-    projects["song1"].update(semitones=4, guide_volume=0.0)
+    projects["song1"].update(semitones=4, guide_volume=0.0, duration=212.0)
 
     res = client.get("/api/project/song1/youtube-package")
 
     assert res.json() == {"key_note": 4, "guide": False}
+    assert kit_calls[-1]["duration"] == 212.0
 
 
 # --- One rule for every site (backend.project_analysis) ----------------------------------
