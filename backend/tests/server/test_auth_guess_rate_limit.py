@@ -7,10 +7,12 @@ import hashlib
 import hmac
 import importlib
 import json
+import logging
 import time
 
 import httpx
 import pytest
+from fastapi import HTTPException
 from starlette.requests import Request
 
 import backend.main as main_mod
@@ -48,6 +50,15 @@ def _limit(client, ip_headers: dict) -> None:
     for i in range(5):
         res = client.get("/api/projects", headers={**ip_headers, "X-App-Password": f"wrong-{i}"})
         assert res.status_code == 401
+
+
+def _limit_warnings(caplog) -> list[str]:
+    return [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "karaoke_backend"
+        and record.getMessage().startswith("Rate limit exceeded")
+    ]
 
 
 def _expired_cookies(res) -> set[str]:
@@ -356,6 +367,82 @@ def test_pruning_drops_expired_fingerprints_and_keeps_fresh_ones(monkeypatch):
         auth._prune_stale_rate_limits_locked(now, 60.0)
 
     assert auth._counted_guesses == {"10.0.0.2": {"fresh": now - 10}}
+
+
+def test_a_limited_ip_is_logged_once_however_many_requests_it_sends(unauth_client, caplog):
+    _limit(unauth_client, IP_A)
+    caplog.set_level(logging.WARNING, logger="karaoke_backend")
+
+    # A limited tab keeps polling, saving and loading media, each with its credentials
+    for i in range(10):
+        headers = {**IP_A, "X-App-Password": PASSPHRASE if i % 2 else f"wrong-again-{i}"}
+        path = "/static/output/x.wav" if i % 3 else "/api/projects"
+        assert unauth_client.get(path, headers=headers).status_code == 429
+    status = unauth_client.get("/api/auth/status", headers={**IP_A, "X-App-Password": PASSPHRASE})
+    login = unauth_client.post("/api/auth/login", json={"password": PASSPHRASE}, headers=IP_A)
+    assert status.json()["authenticated"] is False
+    assert login.status_code == 429
+
+    warnings = _limit_warnings(caplog)
+    assert len(warnings) == 1
+    assert "198.51.100.10" in warnings[0]
+
+    # Another client IP limited in the same window gets its own warning
+    _limit(unauth_client, IP_B)
+    for _ in range(3):
+        res = unauth_client.get("/api/projects", headers={**IP_B, "X-App-Password": PASSPHRASE})
+        assert res.status_code == 429
+    assert len(_limit_warnings(caplog)) == 2
+    assert "198.51.100.20" in _limit_warnings(caplog)[1]
+
+
+def test_a_limit_reached_again_in_a_new_window_is_logged_again(caplog):
+    caplog.set_level(logging.WARNING, logger="karaoke_backend")
+    now = 1_000_000.0
+    ip = "198.51.100.7"
+
+    def refused(at: float) -> bool:
+        try:
+            auth.check_login_rate_limit(ip, now=at)
+        except HTTPException as exc:
+            assert exc.status_code == 429
+            return True
+        return False
+
+    for i in range(5):
+        auth.record_login_failure(ip, now=now + 10 * i)
+    assert all(refused(now + t) for t in (45, 50, 55, 59))
+    assert len(_limit_warnings(caplog)) == 1
+
+    # The first failure has left the window, and the limit is reached again: still within
+    # 60 s of the last warning, so not logged
+    assert not refused(now + 61)
+    auth.record_login_failure(ip, now=now + 62)
+    assert refused(now + 63)
+    assert len(_limit_warnings(caplog)) == 1
+
+    # A new window logs again
+    for i in range(5):
+        auth.record_login_failure(ip, now=now + 130 + i)
+    assert refused(now + 135)
+    assert refused(now + 140)
+    assert len(_limit_warnings(caplog)) == 2
+
+
+def test_pruning_and_clearing_forget_when_a_limit_was_logged(monkeypatch):
+    monkeypatch.setattr(main_mod, "_last_rate_limit_cleanup", main_mod._last_rate_limit_cleanup)
+    monkeypatch.setattr(auth, "_last_rate_limit_cleanup", auth._last_rate_limit_cleanup)
+    now = main_mod._last_rate_limit_cleanup + 350
+    auth._rate_limit_logged["10.0.0.1"] = now - 100
+    auth._rate_limit_logged["10.0.0.2"] = now - 10
+
+    with auth.LOGIN_RATE_LIMIT_LOCK:
+        auth._prune_stale_rate_limits_locked(now, 60.0)
+
+    assert auth._rate_limit_logged == {"10.0.0.2": now - 10}
+
+    auth.clear_all_login_failures()
+    assert auth._rate_limit_logged == {}
 
 
 # FORWARDED_TRUSTED_HOPS
