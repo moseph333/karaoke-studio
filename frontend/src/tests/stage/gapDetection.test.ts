@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   detectInstrumentalGaps,
+  detectOutroStart,
   getCountdownState,
   INSTRUMENTAL_GAP_THRESHOLD_SECONDS,
+  isInOutro,
+  LINE_LEAD_OUT_SECONDS,
 } from '../../utils/gapDetection';
 import { LyricLine } from '../../types';
 
@@ -152,5 +155,59 @@ describe('getCountdownState', () => {
 
   it('returns inactive state when currentTime is between gaps', () => {
     expect(getCountdownState(12.0, gaps).hasGap).toBe(false);
+  });
+});
+
+describe('detectOutroStart', () => {
+  const line = (id: number, start: number, end: number): LyricLine => ({
+    id,
+    text: `Line ${id}`,
+    start_time: start,
+    end_time: end,
+    words: [],
+  });
+
+  it('keeps a line on the stage for 1.0s after it ends', () => {
+    expect(LINE_LEAD_OUT_SECONDS).toBe(1.0);
+  });
+
+  it('has no outro for empty, missing or untimed lyrics', () => {
+    expect(detectOutroStart([])).toBeNull();
+    expect(detectOutroStart(undefined as unknown as LyricLine[])).toBeNull();
+    expect(detectOutroStart([line(1, NaN, 4), line(2, 9, Infinity)])).toBeNull();
+  });
+
+  it('starts the outro when the last line has left the stage', () => {
+    expect(detectOutroStart([line(1, 1, 4), line(2, 9, 12)])).toBe(13);
+  });
+
+  it('uses the latest end time for unsorted or overlapping lines', () => {
+    expect(detectOutroStart([line(2, 10, 14), line(1, 1, 16)])).toBe(17);
+  });
+
+  it('skips lines with non-finite times', () => {
+    expect(detectOutroStart([line(1, 1, 4), line(2, NaN, 30), line(3, 5, Infinity)])).toBe(5);
+  });
+
+  it('has no outro when every line is at 0/0, as untimed pasted lyrics are', () => {
+    expect(detectOutroStart([line(1, 0, 0), line(2, 0, 0)])).toBeNull();
+    expect(detectOutroStart([line(1, -3, -1)])).toBeNull();
+  });
+
+  it('returns the last end time with no lead-out', () => {
+    expect(detectOutroStart([line(1, 1, 4), line(2, 9, 12)], 0)).toBe(12);
+  });
+});
+
+describe('isInOutro', () => {
+  it('starts strictly after the outro start and has no upper bound', () => {
+    expect(isInOutro(13, 13)).toBe(false);
+    expect(isInOutro(13.001, 13)).toBe(true);
+    expect(isInOutro(9999, 13)).toBe(true);
+  });
+
+  it('is never in the outro without one or without a valid time', () => {
+    expect(isInOutro(50, null)).toBe(false);
+    expect(isInOutro(NaN, 13)).toBe(false);
   });
 });

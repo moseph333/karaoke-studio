@@ -276,7 +276,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 
 ### 3.5 Stage
 
-`LyricDisplay` composes `stage/StageBackground`, `StageToolbar`, `StageLyrics` (word sweep or line mode) and `StageFloatingControls` for fullscreen. `StageBackground` draws only what the export draws: the stage colour, then the cover art (the export's own still from `GET /api/project/{id}/backdrop`, panned for the drift), aurora orbs, the spectrum (`StageSpectrum`, a canvas fed by its own analyser and calibrated against `showcqt`), or an upload; aurora and spectrum add the export's scrim. Drift and aurora positions are functions of the song time (`theme/stageBackgrounds.ts`), so a paused stage shows the exported frame at that moment; they hold still under reduced motion. Lyrics carry the export's outline. The preview uses the same backdrop, duet colours and font as the exported video and subtitles.
+`LyricDisplay` composes `stage/StageBackground`, `StageToolbar`, `StageLyrics` (word sweep or line mode, gap countdowns, end card) and `StageFloatingControls` for fullscreen. `StageBackground` draws only what the export draws: the stage colour, then the cover art (the export's own still from `GET /api/project/{id}/backdrop`, panned for the drift), aurora orbs, the spectrum (`StageSpectrum`, a canvas fed by its own analyser and calibrated against `showcqt`), or an upload; aurora and spectrum add the export's scrim. Drift and aurora positions are functions of the song time (`theme/stageBackgrounds.ts`), so a paused stage shows the exported frame at that moment; they hold still under reduced motion. Lyrics carry the export's outline. The preview uses the same backdrop, duet colours and font as the exported video and subtitles.
 
 ---
 

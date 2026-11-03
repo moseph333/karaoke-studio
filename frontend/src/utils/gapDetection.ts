@@ -2,12 +2,17 @@
  * Instrumental Gap Detection & Countdown Utilities (Requirement R3)
  *
  * Detects extended non-vocal intervals (intro and inter-line gaps >= 4.0s)
- * and computes deterministic countdown time and progress fractions.
+ * and computes deterministic countdown time and progress fractions. Also finds the
+ * outro: the time after the last line's lead-out, from which the stage shows its end
+ * card instead of an instrumental break.
  */
 
 import { LyricLine } from '../types';
 
 export const INSTRUMENTAL_GAP_THRESHOLD_SECONDS = 4.0;
+
+/** How long a line stays on the stage after its end time. */
+export const LINE_LEAD_OUT_SECONDS = 1.0;
 
 export interface InstrumentalGap {
   startTime: number;
@@ -134,4 +139,29 @@ export function getCountdownState(currentTime: number, gaps: InstrumentalGap[]):
     countdownSeconds,
     isLeadIn,
   };
+}
+
+/**
+ * When the outro starts: the last line's end time plus the lead-out, the moment the last
+ * line leaves the stage. Returns null when no line has finite times, or when every line
+ * ends at or before 0 (untimed pasted lyrics), so those songs never show the end card.
+ */
+export function detectOutroStart(
+  lines: LyricLine[],
+  leadOutSeconds: number = LINE_LEAD_OUT_SECONDS
+): number | null {
+  if (!lines || lines.length === 0) return null;
+  let maxEnd = -Infinity;
+  for (const l of lines) {
+    if (l && Number.isFinite(l.start_time) && Number.isFinite(l.end_time)) {
+      maxEnd = Math.max(maxEnd, l.end_time);
+    }
+  }
+  if (!Number.isFinite(maxEnd) || maxEnd <= 0) return null;
+  return maxEnd + leadOutSeconds;
+}
+
+/** True once playback is past the outro start; there is no upper bound, so the card stays. */
+export function isInOutro(currentTime: number, outroStart: number | null): boolean {
+  return outroStart !== null && Number.isFinite(currentTime) && currentTime > outroStart;
 }

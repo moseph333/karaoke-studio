@@ -43,8 +43,6 @@ export interface LyricTimelineEditorProps extends LyricDisplayProps {
   onSaveLines: (updatedLines: LyricLine[]) => Promise<void | boolean> | void;
   onDirtyChange?: (isDirty: boolean) => void;
   projectId?: string;
-  trackTitle?: string;
-  trackArtist?: string;
   activeWorkspaceTab?: StudioWorkspaceTab;
   /** Live playback clock, more precise than `currentTime`, for taps and playhead snaps. */
   getCurrentTime?: () => number;
@@ -59,8 +57,6 @@ function stagePropsOf({
   onSaveLines: _onSaveLines,
   onDirtyChange: _onDirtyChange,
   projectId: _projectId,
-  trackTitle: _trackTitle,
-  trackArtist: _trackArtist,
   activeWorkspaceTab: _activeWorkspaceTab,
   getCurrentTime: _getCurrentTime,
   syncJob: _syncJob,

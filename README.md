@@ -59,7 +59,7 @@ When a preset cannot run (extras not installed, weights unavailable, out of memo
 
 ### Stage, themes and export
 
-- Word-sweep or line-by-line highlighting, instrumental countdowns, a beat visualizer (<kbd>V</kbd>), a transposing chord bar (<kbd>C</kbd>) and a fullscreen TV stage (<kbd>F</kbd>).
+- Word-sweep or line-by-line highlighting, instrumental countdowns, an end card with the song's title after the last line, a beat visualizer (<kbd>V</kbd>), a transposing chord bar (<kbd>C</kbd>) and a fullscreen TV stage (<kbd>F</kbd>).
 - Five app themes (**Afterglow**, **Basement Flyer**, **Reel-to-Reel '74**, **Midnight KTV Booth**, **Monolith Press**) and nine stage presets, with custom colours and font scale. Stage settings are remembered.
 - Backgrounds: the song's **cover art**, still or **drifting** in a slow pan, **aurora** (soft orbs in the preset's colours), a **spectrum** that rises with the music, a **plain** colour, or your own image or looping video. The stage draws each one the way the video does: cover art is the export's own image, and moving backgrounds follow the song, so a paused stage shows the video's frame at that moment.
 - Key shift (−12 to +12 semitones) and speed (0.5× to 1.5×), a 0–50% guide vocal, and the **Smart Key Recommender** that fits a song's vocal range to your voice. Final renders shift pitch with Rubber Band at high quality, keeping the guide vocal's formants.
