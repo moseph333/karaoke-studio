@@ -3,6 +3,7 @@
     "text": "Hello, world!  ok",
     "start_time": 1.0,
     "end_time": 3.5,
+    "spread_evenly": true,
     "words": [
       {"word": "Hello,", "start_time": 1.0, "end_time": 1.972},
       {"word": "world!", "start_time": 1.972, "end_time": 2.944},
@@ -13,6 +14,7 @@
     "text": "gonna be alright tonight",
     "start_time": 12.345,
     "end_time": 15.678,
+    "spread_evenly": true,
     "words": [
       {"word": "gonna", "start_time": 12.345, "end_time": 13.15},
       {"word": "be", "start_time": 13.15, "end_time": 13.609},
@@ -24,6 +26,7 @@
     "text": "Supercalifragilisticexpialidocious is a word",
     "start_time": 30.0,
     "end_time": 34.2,
+    "spread_evenly": true,
     "words": [
       {"word": "Supercalifragilisticexpialidocious", "start_time": 30.0, "end_time": 32.016},
       {"word": "is", "start_time": 32.016, "end_time": 32.688},
@@ -35,6 +38,7 @@
     "text": "Don’t stop believin'",
     "start_time": 0.0,
     "end_time": 2.4,
+    "spread_evenly": true,
     "words": [
       {"word": "Don’t", "start_time": 0.0, "end_time": 0.7},
       {"word": "stop", "start_time": 0.7, "end_time": 1.3},
@@ -45,6 +49,7 @@
     "text": "(oh) - yeah",
     "start_time": 20.5,
     "end_time": 22.0,
+    "spread_evenly": true,
     "words": [
       {"word": "(oh)", "start_time": 20.5, "end_time": 20.962},
       {"word": "-", "start_time": 20.962, "end_time": 21.308},
@@ -55,6 +60,7 @@
     "text": "你好世界！",
     "start_time": 40.0,
     "end_time": 41.5,
+    "spread_evenly": true,
     "words": [
       {"word": "你", "start_time": 40.0, "end_time": 40.346},
       {"word": "好", "start_time": 40.346, "end_time": 40.692},
@@ -66,6 +72,7 @@
     "text": "I love 東京 so much",
     "start_time": 50.25,
     "end_time": 53.1,
+    "spread_evenly": true,
     "words": [
       {"word": "I", "start_time": 50.25, "end_time": 50.592},
       {"word": "love", "start_time": 50.592, "end_time": 51.276},
@@ -79,6 +86,7 @@
     "text": "sing 🎤 along",
     "start_time": 70.0,
     "end_time": 71.75,
+    "spread_evenly": true,
     "words": [
       {"word": "sing", "start_time": 70.0, "end_time": 70.618},
       {"word": "🎤", "start_time": 70.618, "end_time": 71.029},
@@ -89,8 +97,18 @@
     "text": "Yeah",
     "start_time": 60.0,
     "end_time": 61.2,
+    "spread_evenly": false,
     "words": [
       {"word": "Yeah", "start_time": 60.0, "end_time": 61.2}
+    ]
+  },
+  {
+    "text": "Hey!",
+    "start_time": 12.31,
+    "end_time": 12.87,
+    "spread_evenly": false,
+    "words": [
+      {"word": "Hey!", "start_time": 12.31, "end_time": 12.87}
     ]
   }
 ]

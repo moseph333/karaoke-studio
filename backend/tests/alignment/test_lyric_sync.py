@@ -273,11 +273,14 @@ def _word(word: str, start: float, end: float) -> dict:
 
 def test_words_the_editor_only_spread_evenly_are_recognised():
     # The studio's spread made these words (the frontend's tests/studio/qualitySync.test.tsx
-    # checks that against recalculateWordTimings and runs the same cases through its rule)
+    # checks that against recalculateWordTimings and runs the same cases through its rule).
+    # A one-word line is never only spread: its word is the line, timed by hand.
     for case in load("word_spread_cases"):
-        assert words_spread_evenly(case), case["text"]
-        assert words_spread_evenly(_moved(case, 0.137)), case["text"]
-        assert words_spread_evenly(_moved(case, -0.01)), case["text"]
+        spread = case["spread_evenly"]
+        assert spread is (len(case["words"]) > 1), case["text"]
+        assert words_spread_evenly(case) is spread, case["text"]
+        assert words_spread_evenly(_moved(case, 0.137)) is spread, case["text"]
+        assert words_spread_evenly(_moved(case, -0.01)) is spread, case["text"]
         # Timing set by hand: a word boundary moved, or a gap before the line's last word
         if len(case["words"]) > 1:
             by_hand = copy.deepcopy(case)
@@ -289,6 +292,7 @@ def test_words_the_editor_only_spread_evenly_are_recognised():
         assert not words_spread_evenly(gap), case["text"]
 
     yeah = {"text": "Yeah", "start_time": 1.0, "end_time": 2.0}
+    assert not words_spread_evenly({**yeah, "words": [_word("Yeah", 1.0, 2.0)]})
     assert not words_spread_evenly({**yeah, "words": [_word("Yeah", 1.0, 1.5)]})
     assert not words_spread_evenly({**yeah, "words": []})
     assert not words_spread_evenly({**yeah, "end_time": 1.0, "words": [_word("Yeah", 1.0, 1.0)]})
@@ -310,6 +314,22 @@ def test_manual_lines_whose_words_were_only_spread_evenly_are_timed_again(tmp_pa
     assert result.lines[2]["align_method"] == "dsp"
     assert result.lines[0]["words"] == lines[0]["words"]
     assert result.report["lines_manual"] == 1
+
+
+def test_hand_timed_one_word_lines_are_kept_when_re_aligning(tmp_path):
+    vocals = _vocals(tmp_path / "v.wav", [(1.0, 3.0), (5.0, 7.0), (12.0, 13.0)], duration=15.0)
+    # An ad-lib whose edges were dragged by hand: the editor sets the line to its one word
+    hey = next(case for case in load("word_spread_cases") if case["text"] == "Hey!")
+    adlib = {**copy.deepcopy(hey), "id": 2, "align_method": "manual"}
+    lines = prepare_existing_lines([*_hand_timed_song(), adlib], keep_manual=True)
+    assert [bool(line.get("has_word_sync")) for line in lines] == [True, False, True]
+
+    result = sync_lyrics(vocals, lines, aligner=_shifting_aligner(0.5))
+    assert result.methods == ["manual", "dsp", "manual"]
+    kept = result.lines[2]
+    assert (kept["start_time"], kept["end_time"]) == (12.31, 12.87)
+    assert kept["words"] == adlib["words"]
+    assert result.report["lines_manual"] == 2
 
 
 def test_plain_lyrics_get_a_second_snapping_pass(tmp_path, monkeypatch):

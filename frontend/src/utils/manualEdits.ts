@@ -10,7 +10,7 @@
  * Whole-song re-alignments keep the word timing of lines timed by hand, but not of lines
  * whose words the editor only spread evenly (line-by-line tap-to-sync, new lines, retyped
  * text): there only the line's start and end were set by hand, so the aligner places the
- * words.
+ * words. A one-word line is always kept, since its word is the line.
  */
 
 import type { LyricLine } from '../types';
@@ -40,13 +40,14 @@ function asSaved(line: LyricLine, saved: LyricLine): LyricLine {
  * Whether a line's words are only the even spread the editor gives them
  * (recalculateWordTimings): back to back from the line's start to its end, each lasting in
  * proportion to its wordSpreadWeight, also after the whole line was moved. A one-word line
- * whose word fills the line counts too. The backend applies the same rule
+ * never counts: every edit to it sets the line to its word, so its word timing is the timing
+ * set by hand (an ad-lib like "Hey!"). The backend applies the same rule
  * (lyric_sync.words_spread_evenly).
  */
 export function wordsSpreadEvenly(line: LyricLine): boolean {
   const words = line.words ?? [];
   const { start_time: start, end_time: end } = line;
-  if (words.length === 0 || !(end > start)) return false;
+  if (words.length < 2 || !(end > start)) return false;
   const weights = words.map((w) => wordSpreadWeight(w.word ?? ''));
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   const near = (a: number, b: number) => Math.abs(a - b) <= SPREAD_TOLERANCE + 1e-9;
