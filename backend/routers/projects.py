@@ -23,7 +23,7 @@ from backend.background_jobs import (
     settle_orphaned_intake,
     settle_orphaned_render,
 )
-from backend.config import OUTPUT_DIR
+from backend.config import OUTPUT_DIR, STEMS_DIR
 from backend.master_audio import (  # noqa: F401 (the cache helpers are imported from here too)
     MIX_CACHE_MARKER,
     MIX_CACHE_VERSION,
@@ -70,6 +70,7 @@ from backend.schemas import (
 )
 from backend.services import remote_render
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
+from backend.services.separator import adopt_provenance
 from backend.services.video_renderer import artwork_still, render_still
 from backend.services.waveform import (
     DEFAULT_BINS,
@@ -195,6 +196,13 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
     # separates it
     ensure_free_space()
     project_id = video_id if video_id else str(uuid.uuid4())[:8]
+    previous = main_mod.projects.get(project_id)
+    if isinstance(previous, dict) and isinstance(previous.get("separation"), dict):
+        # A retry replaces the song, and with it the record of how its stems were made. Stems
+        # from before records were kept beside them would then count as Fast and be made again
+        stems_dir = getattr(main_mod, "STEMS_DIR", STEMS_DIR)
+        audio_id = previous.get("track_id") or previous.get("id") or project_id
+        adopt_provenance(stems_dir / audio_id, previous["separation"])
     proj_data = {
         "id": project_id,
         "status": "queued",
