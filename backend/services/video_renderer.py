@@ -4,7 +4,9 @@ Every background feeds the filter graph at a genuine RENDER_FPS, so the lyric sw
 each output frame. Still images (a custom image, or the song's blurred thumbnail) are processed
 once before the render instead of on every frame. The generated styles (drifting art, aurora,
 spectrum) are built in stage_backgrounds. With RENDER_REMOTE set, FFmpeg runs on a cloud CPU
-(remote_render) and a failed or unavailable cloud render falls back to a local one.
+(remote_render) and a failed or unavailable cloud render falls back to a local one. Every render
+writes a sibling `<name>.part.mp4` that replaces the video only once the render succeeds, so a
+failed or cancelled render leaves the previous video in place.
 """
 
 import logging
@@ -447,6 +449,9 @@ class VideoRenderer:
         Streams FFmpeg output with -progress pipe:1 to calculate real-time percentage and ETA.
         Supports cancellation via cancel_event and optional beat-reactive audio visualizer.
         Renders on a cloud CPU when RENDER_REMOTE is set, falling back to a local render.
+        Both write `<name>.part.mp4` next to output_mp4_path, which is moved into place only
+        when the render succeeds and is removed otherwise, so a failed or cancelled render
+        keeps the previous video.
         """
         width, height = (1080, 1920) if aspect_ratio == "9:16" else (1920, 1080)
 
@@ -460,6 +465,9 @@ class VideoRenderer:
             except Exception:
                 duration = 200.0  # safe fallback if probe fails
 
+        output = Path(output_mp4_path)
+        # Keeps the .mp4 suffix so FFmpeg still picks the MP4 muxer
+        part = output.with_suffix(".part" + output.suffix)
         work_dir = Path(tempfile.mkdtemp(prefix="karaoke-render-"))
         try:
             job = RenderJob(
@@ -476,19 +484,25 @@ class VideoRenderer:
                 ),
                 audio_path=Path(audio_path),
                 ass_path=Path(ass_subtitles_path),
-                output_path=Path(output_mp4_path),
+                output_path=part,
                 width=width,
                 height=height,
                 duration=duration,
                 include_visualizer=include_visualizer,
             )
-            if remote_render.enabled() and self._render_remote(
-                job, progress_callback, cancel_event
+            if not (
+                remote_render.enabled()
+                and self._render_remote(job, progress_callback, cancel_event)
             ):
-                return str(output_mp4_path)
-            self._render_local(job, progress_callback, cancel_event)
-            return str(output_mp4_path)
+                self._render_local(job, progress_callback, cancel_event)
+            os.replace(part, output)
+            return str(output)
         finally:
+            try:
+                part.unlink(missing_ok=True)
+            except OSError:
+                # Must not hide the render's own error; a leftover is swept at startup
+                pass
             shutil.rmtree(work_dir, ignore_errors=True)
 
     def _render_remote(self, job: RenderJob, progress_callback, cancel_event) -> bool:

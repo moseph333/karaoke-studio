@@ -712,6 +712,6 @@ sys.exit(1)
             duration=5.0,
         )
 
-    # Check if corrupted partial MP4 is left on disk
-    partial_leaked = output_mp4.exists()
-    print(f"Empirical check: partial MP4 file leaked on failure? {partial_leaked}")
+    # FFmpeg wrote the broken file next to the video, and it was removed with the failure
+    assert not output_mp4.exists()
+    assert not (tmp_path / "output.part.mp4").exists()

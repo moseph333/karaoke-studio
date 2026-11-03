@@ -68,6 +68,8 @@ def _main_command(tmp_path, monkeypatch, **render_kwargs) -> list[str]:
     def popen(cmd, *args, **kwargs):
         process = _QuietProcess(cmd)
         commands.append(process.cmd)
+        # The video file FFmpeg would write, which render_video then moves into place
+        Path(cmd[-1]).touch()
         return process
 
     monkeypatch.setattr(subprocess, "Popen", popen)

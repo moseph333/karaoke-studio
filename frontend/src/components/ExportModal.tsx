@@ -48,6 +48,11 @@ import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 
 const RENDER_WARMUP_URL = '/api/render/warmup';
+// Each format keeps its own file, so the other format's latest video stays downloadable
+const VIDEO_FORMATS = ['16:9', '9:16'] as const;
+// The secondary links next to the main download (YouTube Studio, other formats, the kept video)
+const SECONDARY_LINK =
+  'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-4 py-2.5 text-sm font-medium text-theme-text transition-colors hover:border-theme-border sm:w-auto';
 
 export interface ExportModalProps {
   project: ProjectState;
@@ -102,7 +107,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const [renderSyncMode, setRenderSyncMode] = useState<SyncDisplayMode>(syncMode || 'word');
   const [videoAspect, setVideoAspect] = useState<number | null>(null);
   // "Render Again" and "Try Again" bring the render options back over a finished or failed
-  // export; a finished video stays until the new render replaces it
+  // export; a finished video stays until a new render in the same format replaces it
   const [renderAgain, setRenderAgain] = useState(false);
 
   useEffect(() => {
@@ -269,6 +274,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const isError = project.render_status === 'error' && !renderAgain;
   const isIdle = !isRendering && !isCompleted && !isError;
   const replacingVideo = renderAgain && project.render_status === 'completed';
+  // A failed or cancelled render keeps the song's last video, which stays downloadable
+  const keptVideoUrl = isError || (isIdle && !replacingVideo) ? project.video_url : undefined;
+  const videoFileBase = `${project.artist || 'Karaoke'} - ${project.title || 'Track'}`;
+  const otherVideos = VIDEO_FORMATS.flatMap((aspect) => {
+    const url = project.videos_by_aspect?.[aspect];
+    return url && url !== project.video_url ? [{ aspect, url }] : [];
+  });
 
   const yt = project.youtube_package;
   // Size the preview from the rendered file once known; until then trust the format setting.
@@ -327,7 +339,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               </p>
               {replacingVideo && (
                 <p className="text-xs text-theme-text">
-                  Your current video stays available until the new render replaces it.
+                  Your current video stays available until a new render in the same format replaces
+                  it.
                 </p>
               )}
 
@@ -397,6 +410,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   <Button variant="ghost" fullWidth="mobile" onClick={() => setRenderAgain(false)}>
                     Keep Current Video
                   </Button>
+                )}
+                {keptVideoUrl && (
+                  <a
+                    href={keptVideoUrl}
+                    download={`${videoFileBase}.mp4`}
+                    onClick={() => toast.success('Download started!')}
+                    className={cn(SECONDARY_LINK, focusRing)}
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Download previous video
+                  </a>
                 )}
               </div>
             </div>
@@ -478,14 +502,27 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   {project.render_error || 'Unknown rendering error'}
                 </p>
               </div>
-              <Button
-                variant="secondary"
-                fullWidth="mobile"
-                onClick={() => setRenderAgain(true)}
-                leftIcon={<RotateCcw className="h-4 w-4" aria-hidden="true" />}
-              >
-                Try Again
-              </Button>
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+                <Button
+                  variant="secondary"
+                  fullWidth="mobile"
+                  onClick={() => setRenderAgain(true)}
+                  leftIcon={<RotateCcw className="h-4 w-4" aria-hidden="true" />}
+                >
+                  Try Again
+                </Button>
+                {keptVideoUrl && (
+                  <a
+                    href={keptVideoUrl}
+                    download={`${videoFileBase}.mp4`}
+                    onClick={() => toast.success('Download started!')}
+                    className={cn(SECONDARY_LINK, focusRing)}
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Download previous video
+                  </a>
+                )}
+              </div>
             </div>
           )}
 
@@ -516,10 +553,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <p className="text-xs text-theme-text-muted">
                   High-bitrate 1080p60 MP4 with AAC 320kbps stereo audio.
                 </p>
-                <div className="flex w-full flex-col items-stretch gap-2.5 sm:w-auto sm:flex-row sm:items-center">
+                <div className="flex w-full flex-col items-stretch gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                   <a
                     href={project.video_url}
-                    download={`${project.artist || 'Karaoke'} - ${project.title || 'Track'}.mp4`}
+                    download={`${videoFileBase}.mp4`}
                     onClick={() => toast.success('Download started!')}
                     className={cn(
                       'flex min-h-[44px] w-full items-center justify-center gap-2 rounded-theme-md bg-gradient-accent px-5 py-2.5 text-sm font-bold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 sm:w-auto',
@@ -529,14 +566,23 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <Download className="h-4 w-4" aria-hidden="true" />
                     Download Video (.mp4)
                   </a>
+                  {otherVideos.map(({ aspect, url }) => (
+                    <a
+                      key={aspect}
+                      href={url}
+                      download={`${videoFileBase} (${aspect.replace(':', 'x')}).mp4`}
+                      onClick={() => toast.success('Download started!')}
+                      className={cn(SECONDARY_LINK, focusRing)}
+                    >
+                      <Download className="h-4 w-4" aria-hidden="true" />
+                      Download {aspect} video
+                    </a>
+                  ))}
                   <a
                     href="https://studio.youtube.com"
                     target="_blank"
                     rel="noreferrer"
-                    className={cn(
-                      'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-4 py-2.5 text-sm font-medium text-theme-text transition-colors hover:border-theme-border sm:w-auto',
-                      focusRing
-                    )}
+                    className={cn(SECONDARY_LINK, focusRing)}
                   >
                     <Youtube className="h-4 w-4 text-theme-danger" aria-hidden="true" />
                     Open YouTube Studio
