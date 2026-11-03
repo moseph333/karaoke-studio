@@ -4,6 +4,14 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 
 ![Karaoke Studio](docs/karaoke-preview.png)
 
+## What's new in 2.2
+
+- **New looks and Render Again.** Backgrounds can be the cover art drifting in a slow pan, soft **aurora** orbs or a **spectrum** that rises with the music, drawn the same on the stage and in the video. **Render Again** makes a new video after you change the lyrics, key or look, and opening the Export dialog warms up a cloud CPU so cloud renders start sooner.
+- **Safer with your work.** A full disk no longer loses lyric edits: the save fails with a clear message. Songs and renders cut off by a server restart say so instead of hanging, a failed render keeps the previous video, 16:9 and 9:16 videos are kept side by side, and lines you timed by hand keep their timing when the whole song is re-aligned.
+- **Lighter on the server.** Each song keeps only its most recent key and guide mixes (`MIX_CACHE_PER_SONG`), new songs, uploads and renders are refused with a clear message when free space drops below `DISK_MIN_FREE_MB`, the studio polls a small status reply, and `PREVIEW_AUDIO_FORMAT=aac` streams a 5 MB preview instead of a 40 MB WAV.
+- **Security.** Wrong passphrases sent with any request now share the login rate limit, `FORWARDED_TRUSTED_HOPS` says which proxy address identifies a client, and starting an update needs a session.
+- **Polish.** An end card after the last line, YouTube kit chapters that YouTube actually shows, videos drawn in the stage's font, a reload prompt when the server has a newer build, and a round of keyboard, screen reader and contrast fixes.
+
 ## What's new in 2.1
 
 - **Balanced and Best on a cloud GPU.** On a slow server, the RoFormer presets can run on a [Modal](https://modal.com) GPU instead: about a minute for a 4-minute song on Balanced. Fast always runs on your server, and songs fall back to it when the cloud is unavailable.
