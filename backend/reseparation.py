@@ -3,9 +3,9 @@
 The new stems are made under STEMS_DIR/.staging/<audio_id>/<job id> and swapped in only once
 complete, so a cancelled or failed run leaves the song exactly as it was. Afterwards the
 vocal range is refreshed, chords are re-detected when asked (or when there are none), the
-words are re-timed when asked (lyrics saved in the meantime are kept instead), the
-current master mix is rendered again, and the mixes of the old stems are deleted
-(prune_mix_cache).
+words are re-timed when asked (lines timed by hand keep their timing when the job has
+``keep_manual``, and lyrics saved in the meantime are kept instead), the current master mix
+is rendered again, and the mixes of the old stems are deleted (prune_mix_cache).
 
 The job's state lives on the project as ``separation_job`` so the studio can poll it. Project
 dicts can be replaced by fresh copies from disk at any time (see find_project), so every
@@ -78,7 +78,15 @@ def settle_stale_job(proj: dict, active_cancellations: dict) -> bool:
     return True
 
 
-def create_job(proj: dict, quality: str, realign_lyrics: bool, redetect_chords: bool) -> dict:
+def create_job(
+    proj: dict,
+    quality: str,
+    realign_lyrics: bool,
+    redetect_chords: bool,
+    keep_manual: bool = False,
+) -> dict:
+    """A queued re-separation job, put on the project. ``keep_manual``: when re-timing the
+    lyrics, lines timed by hand keep their timing (see prepare_existing_lines)."""
     job = {
         "id": uuid.uuid4().hex[:12],
         "status": "queued",
@@ -86,6 +94,7 @@ def create_job(proj: dict, quality: str, realign_lyrics: bool, redetect_chords: 
         "label": PRESET_LABELS[quality],
         "realign_lyrics": realign_lyrics,
         "redetect_chords": redetect_chords,
+        "keep_manual": keep_manual,
         "progress": 0,
         "detail": "Waiting for other jobs to finish…",
         "eta_seconds": None,
@@ -299,7 +308,9 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
         try:
             current = _live(project_id, job_id)[0]
             before = lines_fingerprint(current.get("lines"))
-            lines = prepare_existing_lines(current.get("lines") or [])
+            lines = prepare_existing_lines(
+                current.get("lines") or [], keep_manual=bool(job.get("keep_manual"))
+            )
             result = sync_lyrics(
                 vocals_path, lines, lyric_data={"source": current.get("lyric_source")}
             )

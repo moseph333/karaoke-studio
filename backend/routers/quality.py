@@ -55,7 +55,13 @@ def reseparate(project_id: str, req: ReseparateRequest, bg_tasks: BackgroundTask
             )
         # After the 404, 409 and 400 checks, which still answer first on a low disk
         ensure_free_space()
-        job = create_job(proj, req.quality, req.realign_lyrics, req.redetect_chords)
+        job = create_job(
+            proj,
+            req.quality,
+            req.realign_lyrics,
+            req.redetect_chords,
+            keep_manual=req.keep_manual,
+        )
         main_mod.active_cancellations[cancel_key(pid)] = threading.Event()
         save_projects()
 

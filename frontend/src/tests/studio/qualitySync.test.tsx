@@ -14,7 +14,10 @@ import { LyricTimelineEditor } from '../../components/LyricTimelineEditor';
 import { StudioMetaHeader } from '../../components/StudioMetaHeader';
 import { useLyricEditorState } from '../../hooks/useLyricEditorState';
 import { ToastProvider } from '../../hooks/useToast';
-import { markManualEdits } from '../../utils/manualEdits';
+import { countHandTimedLines, markManualEdits, wordsSpreadEvenly } from '../../utils/manualEdits';
+import { applyBatchOffset, recalculateWordTimings } from '../../utils/lyrics';
+// The same cases run against the backend's rule (alignment/test_lyric_sync.py)
+import wordSpreadCases from '@shared/word_spread_cases.json';
 import { confidenceLevel, confidenceText, realignBounds } from '../../utils/lineRealign';
 import { getLyricSyncFidelity, getStemsBadge } from '../../utils/syncStatus';
 import type { LyricLine, ProjectState, RealignLineResult } from '../../types';
@@ -63,6 +66,66 @@ describe('Hand edits drop the aligner confidence', () => {
       ['dsp', 0.41],
       ['manual', undefined],
     ]);
+  });
+
+  it('counts the lines timed by hand that have word timing to keep', () => {
+    expect(countHandTimedLines(aligned)).toBe(1);
+    expect(
+      countHandTimedLines([
+        ...aligned,
+        timed(5, 'eleven', 18, { align_method: 'manual' }),
+        timed(6, 'twelve', 21, { align_method: 'manual', words: [] }),
+        // Saved by an older client without words
+        {
+          id: 7,
+          text: 'thirteen',
+          start_time: 24,
+          end_time: 25,
+          align_method: 'manual',
+        } as LyricLine,
+      ])
+    ).toBe(2);
+    expect(countHandTimedLines([])).toBe(0);
+  });
+
+  it('does not count lines whose words the editor only spread evenly, as the backend', () => {
+    for (const { text, start_time, end_time, words: spread } of wordSpreadCases) {
+      expect(recalculateWordTimings(text, start_time, end_time)).toEqual(spread);
+      const tapped: LyricLine = { id: 1, text, start_time, end_time, words: spread };
+      expect(wordsSpreadEvenly(tapped)).toBe(true);
+      // Still only spread after the line is moved
+      expect(wordsSpreadEvenly(applyBatchOffset([tapped], 0.137)[0])).toBe(true);
+      expect(countHandTimedLines([{ ...tapped, align_method: 'manual' }])).toBe(0);
+      const last = spread.length - 1;
+      const byHand = {
+        ...tapped,
+        align_method: 'manual' as const,
+        words: spread.map((w, i) => (i === last ? { ...w, start_time: w.start_time + 0.01 } : w)),
+      };
+      expect(wordsSpreadEvenly(byHand)).toBe(false);
+      expect(countHandTimedLines([byHand])).toBe(1);
+    }
+    expect(wordsSpreadEvenly(aligned[3])).toBe(false);
+  });
+
+  it('spreads retyped words again when the editor had only spread them', () => {
+    const tappedWords = recalculateWordTimings('New lyric line', 4, 7);
+    const lines = [...aligned, timed(5, 'New lyric line', 4, { end_time: 7, words: tappedWords })];
+    const { result } = renderHook(() =>
+      useLyricEditorState({ lines, currentTime: 0, duration: 30, onSaveLines: vi.fn() })
+    );
+    // Same number of words: hand-set word timing would be kept, a spread is made again
+    act(() => result.current.handleCommitEditing(5, 'Hold me tight'));
+    act(() => result.current.handleCommitEditing(1, 'one two four'));
+    const [first, , , , retyped] = result.current.editableLines;
+    expect(retyped.words).toEqual(recalculateWordTimings('Hold me tight', 4, 7));
+    expect(retyped.align_method).toBe('manual');
+    expect(first.words.map((w) => [w.word, w.start_time])).toEqual([
+      ['one', 1],
+      ['two', 1.5],
+      ['four', 2],
+    ]);
+    expect(countHandTimedLines(result.current.editableLines)).toBe(2);
   });
 
   it('gives a line its saved metadata back when it is edited back, and ignores singer changes', () => {

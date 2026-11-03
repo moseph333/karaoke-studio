@@ -336,6 +336,95 @@ def test_background_realign_of_the_current_lines_keeps_where_they_came_from(clie
     assert proj["sync_report"]["lyric_source"] == "lrclib"
 
 
+@pytest.mark.parametrize("background", [True, False])
+def test_realigning_current_lines_can_keep_lines_timed_by_hand(client, song, background):
+    lines = [dict(line) for line in song["lines"]]
+    res = client.post(
+        "/api/project/rl1/realign-lyrics",
+        json={"lines": lines, "keep_manual": True, "background": background},
+    )
+    assert res.status_code == (202 if background else 200)
+
+    proj = client.get("/api/project/rl1").json()
+    if background:
+        assert proj["sync_job"]["status"] == "done"
+    first, second, third = proj["lines"]
+    assert first["align_method"] == "lrc"
+    assert second["align_method"] == "dsp"
+    # The line timed by hand comes back exactly as it went in, still marked as a hand edit
+    assert third["align_method"] == "manual"
+    assert "confidence" not in third
+    assert (third["start_time"], third["end_time"]) == (11.0, 12.5)
+    assert third["words"] == song["lines"][2]["words"]
+    assert proj["sync_report"]["lines_manual"] == 1
+    assert proj["sync_report"]["lines_total"] == 3
+
+
+@pytest.mark.parametrize(("keep_manual", "sent"), [(True, [1]), (False, [1, 2])])
+def test_kept_hand_timed_lines_are_not_sent_to_the_neural_aligner(
+    client, song, monkeypatch, keep_manual, sent
+):
+    _neural_ready(monkeypatch)
+    requests = []
+
+    def fake_pass(vocals_path, request_lines, progress=None, cancel_event=None):
+        requests.append([line["index"] for line in request_lines])
+        return {"lines": []}  # nothing placed, so every line sent keeps its DSP timing
+
+    monkeypatch.setattr(lyric_sync, "run_neural_pass", fake_pass)
+    lines = [dict(line) for line in song["lines"]]
+    res = client.post(
+        "/api/project/rl1/realign-lyrics",
+        json={"lines": lines, "keep_manual": keep_manual, "background": True},
+    )
+    assert res.status_code == 202
+
+    proj = client.get("/api/project/rl1").json()
+    assert proj["sync_job"]["status"] == "done"
+    # Line 1 has word timing from the lyrics file, so it is never sent either
+    assert requests == [sent]
+    assert proj["sync_report"]["engine"] == "ctc"
+    assert proj["lines"][2]["align_method"] == ("manual" if keep_manual else "dsp")
+    assert proj["sync_report"]["lines_manual"] == (1 if keep_manual else 0)
+
+
+def test_lines_tapped_line_by_line_are_timed_again_when_keeping_hand_timing(
+    client, song, monkeypatch
+):
+    _neural_ready(monkeypatch)
+    requests = []
+
+    def fake_pass(vocals_path, request_lines, progress=None, cancel_event=None):
+        requests.append([line["index"] for line in request_lines])
+        return {"lines": []}
+
+    monkeypatch.setattr(lyric_sync, "run_neural_pass", fake_pass)
+    lines = [dict(line) for line in song["lines"]]
+    # Tapped in the studio line by line: the start and end were set by hand, and the editor
+    # spread the words evenly over the line (recalculateWordTimings)
+    tapped = {k: v for k, v in lines[1].items() if k != "confidence"}
+    tapped.update(start_time=5.6, end_time=8.4, align_method="manual")
+    tapped["words"] = [
+        {"word": "five", "start_time": 5.6, "end_time": 6.272},
+        {"word": "six", "start_time": 6.272, "end_time": 6.832},
+        {"word": "seven", "start_time": 6.832, "end_time": 7.616},
+        {"word": "eight", "start_time": 7.616, "end_time": 8.4},
+    ]
+    lines[1] = tapped
+    res = client.post(
+        "/api/project/rl1/realign-lyrics",
+        json={"lines": lines, "keep_manual": True, "background": True},
+    )
+    assert res.status_code == 202
+
+    proj = client.get("/api/project/rl1").json()
+    assert proj["sync_job"]["status"] == "done"
+    assert requests == [[1]]  # the tapped line is aligned again, the hand-timed one is not
+    assert [line["align_method"] for line in proj["lines"]] == ["lrc", "dsp", "manual"]
+    assert proj["lines"][1]["words"] != tapped["words"]
+    assert proj["sync_report"]["lines_manual"] == 1
+
+
 def test_current_lines_can_be_retimed_within_the_request(client, song):
     lines = [dict(line) for line in song["lines"]]
     res = client.post("/api/project/rl1/realign-lyrics", json={"lines": lines})
@@ -544,15 +633,21 @@ def test_waiting_for_a_neural_slot_can_be_cancelled(monkeypatch):
         pass
 
 
-def test_existing_lines_keep_only_word_timing_from_the_lyrics():
+def test_existing_lines_keep_word_timing_from_the_lyrics_or_by_hand_on_request():
     words = _words("a b", 1.0)
     lines = [
         {"text": "a b", "words": words, "align_method": "lrc"},
         {"text": "a b", "words": words, "align_method": "manual", "has_word_sync": True},
         {"text": "a b", "words": words, "has_word_sync": True},  # saved before align_method
         {"text": "a b", "words": [], "align_method": "lrc"},
+        {"text": "a b", "words": [], "align_method": "manual"},  # no word timing to keep
         "not a line",
     ]
     prepared = prepare_existing_lines(lines)
-    assert [line.get("has_word_sync", False) for line in prepared] == [True, False, True, False]
+    kept = [line.get("has_word_sync", False) for line in prepared]
+    assert kept == [True, False, True, False, False]
+    by_hand = prepare_existing_lines(lines, keep_manual=True)
+    kept = [line.get("has_word_sync", False) for line in by_hand]
+    assert kept == [True, True, True, False, False]
     assert "has_word_sync" not in lines[0]  # the originals are untouched
+    assert "has_word_sync" not in lines[4]

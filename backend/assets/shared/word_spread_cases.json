@@ -1,0 +1,96 @@
+[
+  {
+    "text": "Hello, world!  ok",
+    "start_time": 1.0,
+    "end_time": 3.5,
+    "words": [
+      {"word": "Hello,", "start_time": 1.0, "end_time": 1.972},
+      {"word": "world!", "start_time": 1.972, "end_time": 2.944},
+      {"word": "ok", "start_time": 2.944, "end_time": 3.5}
+    ]
+  },
+  {
+    "text": "gonna be alright tonight",
+    "start_time": 12.345,
+    "end_time": 15.678,
+    "words": [
+      {"word": "gonna", "start_time": 12.345, "end_time": 13.15},
+      {"word": "be", "start_time": 13.15, "end_time": 13.609},
+      {"word": "alright", "start_time": 13.609, "end_time": 14.644},
+      {"word": "tonight", "start_time": 14.644, "end_time": 15.678}
+    ]
+  },
+  {
+    "text": "Supercalifragilisticexpialidocious is a word",
+    "start_time": 30.0,
+    "end_time": 34.2,
+    "words": [
+      {"word": "Supercalifragilisticexpialidocious", "start_time": 30.0, "end_time": 32.016},
+      {"word": "is", "start_time": 32.016, "end_time": 32.688},
+      {"word": "a", "start_time": 32.688, "end_time": 33.192},
+      {"word": "word", "start_time": 33.192, "end_time": 34.2}
+    ]
+  },
+  {
+    "text": "Don’t stop believin'",
+    "start_time": 0.0,
+    "end_time": 2.4,
+    "words": [
+      {"word": "Don’t", "start_time": 0.0, "end_time": 0.7},
+      {"word": "stop", "start_time": 0.7, "end_time": 1.3},
+      {"word": "believin'", "start_time": 1.3, "end_time": 2.4}
+    ]
+  },
+  {
+    "text": "(oh) - yeah",
+    "start_time": 20.5,
+    "end_time": 22.0,
+    "words": [
+      {"word": "(oh)", "start_time": 20.5, "end_time": 20.962},
+      {"word": "-", "start_time": 20.962, "end_time": 21.308},
+      {"word": "yeah", "start_time": 21.308, "end_time": 22.0}
+    ]
+  },
+  {
+    "text": "你好世界！",
+    "start_time": 40.0,
+    "end_time": 41.5,
+    "words": [
+      {"word": "你", "start_time": 40.0, "end_time": 40.346},
+      {"word": "好", "start_time": 40.346, "end_time": 40.692},
+      {"word": "世", "start_time": 40.692, "end_time": 41.038},
+      {"word": "界！", "start_time": 41.038, "end_time": 41.5}
+    ]
+  },
+  {
+    "text": "I love 東京 so much",
+    "start_time": 50.25,
+    "end_time": 53.1,
+    "words": [
+      {"word": "I", "start_time": 50.25, "end_time": 50.592},
+      {"word": "love", "start_time": 50.592, "end_time": 51.276},
+      {"word": "東", "start_time": 51.276, "end_time": 51.618},
+      {"word": "京", "start_time": 51.618, "end_time": 51.96},
+      {"word": "so", "start_time": 51.96, "end_time": 52.416},
+      {"word": "much", "start_time": 52.416, "end_time": 53.1}
+    ]
+  },
+  {
+    "text": "sing 🎤 along",
+    "start_time": 70.0,
+    "end_time": 71.75,
+    "words": [
+      {"word": "sing", "start_time": 70.0, "end_time": 70.618},
+      {"word": "🎤", "start_time": 70.618, "end_time": 71.029},
+      {"word": "along", "start_time": 71.029, "end_time": 71.75}
+    ]
+  },
+  {
+    "text": "Yeah",
+    "start_time": 60.0,
+    "end_time": 61.2,
+    "words": [
+      {"word": "Yeah", "start_time": 60.0, "end_time": 61.2}
+    ]
+  }
+]

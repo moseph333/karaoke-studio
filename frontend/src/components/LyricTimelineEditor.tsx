@@ -10,6 +10,7 @@ import {
   findLeadInLineIndex,
   wordLocationFromKey,
 } from '../utils/lyrics';
+import { countHandTimedLines } from '../utils/manualEdits';
 import { usePlaybackClock, usePlaybackValue } from '../hooks/usePlaybackClock';
 import { useWorkspaceTabs, workspacePanelProps } from './studio/workspacePanels';
 import { useTimelineAutoScroll } from '../hooks/useTimelineAutoScroll';
@@ -113,8 +114,13 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
       return;
     }
     try {
-      await onStartBackgroundRealign({ lines: ed.editableLines });
-      toast.info('Re-aligning every line in the background');
+      await onStartBackgroundRealign({ lines: ed.editableLines, keep_manual: true });
+      const kept = countHandTimedLines(ed.editableLines);
+      toast.info(
+        kept > 0
+          ? `Re-aligning in the background, keeping ${kept} hand-timed ${kept === 1 ? 'line' : 'lines'}`
+          : 'Re-aligning every line in the background'
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not start the re-alignment');
     }

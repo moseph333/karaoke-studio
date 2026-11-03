@@ -52,7 +52,8 @@ export interface UseTimelineCommandsOptions {
   onGoToLine: (line: LyricLine) => void;
   /** Re-time the selected line (offered while a line is selected). */
   onRealignSelected?: () => void;
-  /** Re-time every line in the background with the best aligner on the server. */
+  /** Re-time every line in the background with the best aligner on the server, except the
+   * lines whose words were timed by hand, which keep their timing. */
   onRealignAll?: () => void;
   /** A background re-alignment is running; offers to cancel it instead. */
   isRealignRunning?: boolean;

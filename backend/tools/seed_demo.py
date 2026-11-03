@@ -119,6 +119,7 @@ def sync_report(lines: list[dict]) -> dict:
         "lines_dsp": methods.count("dsp"),
         "lines_lrc": 0,
         "lines_fallback": 0,
+        "lines_manual": 0,
         "low_confidence_lines": sum(1 for c in confidences if c < 0.6),
         "mean_confidence": round(sum(confidences) / len(confidences), 3),
         "elapsed_seconds": 41.7,

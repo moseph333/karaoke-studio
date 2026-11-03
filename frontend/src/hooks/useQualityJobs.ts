@@ -21,6 +21,8 @@ export interface BackgroundRealignRequest {
   custom_lyrics?: string;
   fetch_lrclib?: boolean;
   lines?: LyricLine[];
+  /** With `lines`: lines whose words were timed by hand keep their timing. */
+  keep_manual?: boolean;
 }
 
 export interface UseQualityJobsOptions {
@@ -100,6 +102,8 @@ export function useQualityJobs({
         quality,
         realign_lyrics: realignLyrics,
         redetect_chords: redetectChords,
+        // Re-timing never undoes word timing someone set by hand
+        keep_manual: true,
       });
       putJob('separation_job', data.job);
       toast.info(`Re-making the stems with ${PRESET_NAMES[quality]}. The song stays playable.`);
