@@ -130,24 +130,28 @@ def _output_with_leftovers() -> Path:
     for name in (
         "song1_karaoke.part.mp4",
         "song2_karaoke_vertical.part.mp4",
+        "song2_final_audio.wav",
+        "song2_final_audio.tmp_1a2b3c4d.wav",
         "song1_karaoke.mp4",
         "song2_karaoke_vertical.mp4",
         "song1_master.wav",
+        "song1_mix_2_30.wav",
         "song1.ass",
     ):
         (output / name).write_bytes(b"data")
     return output
 
 
-def test_removing_render_leftovers_deletes_only_part_files():
+def test_removing_render_leftovers_deletes_part_files_and_scratch_mixes():
     output = _output_with_leftovers()
 
-    assert remove_render_leftovers() == 2
+    assert remove_render_leftovers() == 4
 
     assert sorted(path.name for path in output.iterdir()) == [
         "song1.ass",
         "song1_karaoke.mp4",
         "song1_master.wav",
+        "song1_mix_2_30.wav",
         "song2_karaoke_vertical.mp4",
     ]
     assert remove_render_leftovers() == 0
@@ -158,6 +162,8 @@ def test_startup_removes_the_part_files_of_renders_a_restart_cut_off():
 
     with TestClient(main_mod.app):
         assert sorted(output.glob("*.part.mp4")) == []
+        assert not (output / "song2_final_audio.wav").exists()
+        assert not (output / "song2_final_audio.tmp_1a2b3c4d.wav").exists()
         assert (output / "song1_karaoke.mp4").exists()
 
 

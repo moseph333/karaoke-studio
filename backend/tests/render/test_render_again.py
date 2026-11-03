@@ -2,9 +2,10 @@
 format replaces, so the URL carries the time the render finished and a browser shows and
 downloads the new video instead of its cached copy of the previous one. A 9:16 render leaves the
 16:9 video in place (and the other way round), and a render that fails or is cancelled keeps the
-video the song already had."""
+video the song already had. However it ends, a render deletes the scratch mix it made."""
 
 import types
+from pathlib import Path
 
 import pytest
 
@@ -139,3 +140,62 @@ def test_a_render_that_does_not_finish_keeps_the_videos_the_song_had(song, monke
     assert proj["render_status"] == ("idle" if cancelled else "error")
     assert proj["video_url"] == tall
     assert proj["videos_by_aspect"] == {"16:9": wide, "9:16": tall}
+
+
+@pytest.fixture
+def scratch_mix(song, monkeypatch):
+    """The render's mixer writes its final-quality mix into the output folder."""
+    scratch = config.OUTPUT_DIR / f"{song}_final_audio.wav"
+
+    def fake_mix(**kwargs):
+        path = config.OUTPUT_DIR / kwargs["output_filename"]
+        path.write_bytes(b"RIFF final-quality mix")
+        return str(path)
+
+    monkeypatch.setattr(main_mod.audio_mixer, "mix_and_shift", fake_mix)
+    return scratch
+
+
+def test_a_finished_render_deletes_its_scratch_mix(song, scratch_mix, monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        main_mod.video_renderer,
+        "render_video",
+        lambda **kwargs: seen.append((kwargs["audio_path"], Path(kwargs["audio_path"]).exists())),
+    )
+
+    _render_at(monkeypatch, song, 1_700_000_000.0)
+
+    assert seen == [(str(scratch_mix), True)]
+    assert not scratch_mix.exists()
+
+
+@pytest.mark.parametrize("cancelled", [False, True], ids=["failed", "cancelled"])
+def test_a_render_that_does_not_finish_deletes_its_scratch_mix_too(
+    song, scratch_mix, monkeypatch, cancelled
+):
+    def broken_render(**kwargs):
+        assert Path(kwargs["audio_path"]).exists()
+        if cancelled:
+            main_mod.active_cancellations[f"{song}_render"].set()
+            raise RuntimeError("Video rendering was cancelled by user")
+        raise RuntimeError("FFmpeg video render error: Invalid data found")
+
+    monkeypatch.setattr(main_mod.video_renderer, "render_video", broken_render)
+    run_video_render(song, RenderRequest())
+
+    assert projects[song]["render_status"] == ("idle" if cancelled else "error")
+    assert not scratch_mix.exists()
+
+
+def test_the_scratch_mix_is_deleted_by_its_name_not_by_what_the_mixer_returns(
+    song, monkeypatch, tmp_path
+):
+    backing = tmp_path / "inst.wav"
+    backing.write_bytes(b"RIFF the song's instrumental")
+    # A stand-in mixer that hands back the instrumental instead of writing a mix
+    monkeypatch.setattr(main_mod.audio_mixer, "mix_and_shift", lambda **kw: str(backing))
+
+    _render_at(monkeypatch, song, 1_700_000_000.0)
+
+    assert backing.read_bytes() == b"RIFF the song's instrumental"

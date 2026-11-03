@@ -336,11 +336,12 @@ def test_lyrics_saved_while_the_words_are_retimed_are_kept(client, song, monkeyp
 
 def test_swapped_in_stems_are_newer_than_mixes_of_the_old_ones(client, song, monkeypatch):
     fake_separate = main_mod.separator.separate_stems
+    made = {}
 
     def written_a_while_ago(**kwargs):
         result = fake_separate(**kwargs)
         # The engine finished writing before the user's last mix of the old stems
-        _wav(main_mod.OUTPUT_DIR / "rs1_mix_0_0.wav")
+        made["mix"] = os.path.getmtime(_wav(main_mod.OUTPUT_DIR / "rs1_mix_0_0.wav"))
         for key in ("vocals_path", "instrumental_path"):
             stamp = time.time() - 60
             os.utime(result[key], (stamp, stamp))
@@ -350,9 +351,66 @@ def test_swapped_in_stems_are_newer_than_mixes_of_the_old_ones(client, song, mon
     assert client.post("/api/project/rs1/reseparate", json={"quality": "fast"}).status_code == 202
     assert client.get("/api/project/rs1").json()["separation_job"]["status"] == "done"
 
-    mix_of_old_stems = os.path.getmtime(main_mod.OUTPUT_DIR / "rs1_mix_0_0.wav")
     for name in ("vocals.wav", "instrumental.wav"):
-        assert os.path.getmtime(song["stems"] / name) >= mix_of_old_stems
+        assert os.path.getmtime(song["stems"] / name) >= made["mix"]
+
+
+def _aged(path: Path, seconds_ago: float) -> Path:
+    stamp = time.time() - seconds_ago
+    os.utime(path, (stamp, stamp))
+    return path
+
+
+def _aged_mix(name: str, seconds_ago: float) -> Path:
+    """A cached mix of the old stems and its .m4a copy, last used ``seconds_ago``."""
+    wav = _aged(_wav(main_mod.OUTPUT_DIR / name), seconds_ago)
+    preview = wav.with_suffix(".m4a")
+    preview.write_bytes(b"fake aac")
+    _aged(preview, seconds_ago)
+    return wav
+
+
+def _stems_separated_a_while_ago(song) -> None:
+    for name in ("vocals.wav", "instrumental.wav"):
+        _aged(song["stems"] / name, 600)
+
+
+def test_reseparation_deletes_the_mixes_of_the_old_stems(client, song, monkeypatch):
+    from backend import config, master_audio
+
+    monkeypatch.setattr(config, "MIX_CACHE_PER_SONG", 6)
+    _stems_separated_a_while_ago(song)
+    old_mix = _aged_mix("rs1_mix_5_0.wav", 120)
+
+    assert client.post("/api/project/rs1/reseparate", json={"quality": "fast"}).status_code == 202
+    assert client.get("/api/project/rs1").json()["separation_job"]["status"] == "done"
+
+    assert not old_mix.exists()
+    assert not old_mix.with_suffix(".m4a").exists()
+    assert (main_mod.OUTPUT_DIR / "rs1_mix_2_30.wav").exists()  # the new master
+    # Written after the new master, the marker would make the next /mix at this key render it
+    # again: the prune only reads it
+    assert not (main_mod.OUTPUT_DIR / master_audio.MIX_CACHE_MARKER).exists()
+
+
+def test_with_a_custom_instrumental_only_guide_mixes_of_the_old_stems_go(client, song, monkeypatch):
+    from backend import config
+
+    monkeypatch.setattr(config, "MIX_CACHE_PER_SONG", 6)
+    custom = _aged(_wav(song["stems"] / "custom_inst.wav", 0.3), 600)
+    song["proj"]["instrumental_path"] = str(custom)
+    song["proj"]["instrumental_url"] = "/static/stems/rs1/custom_inst.wav"
+    _stems_separated_a_while_ago(song)
+    backing_only = _aged_mix("rs1_mix_0_0.wav", 120)
+    with_guide = _aged_mix("rs1_mix_0_30.wav", 120)
+
+    assert client.post("/api/project/rs1/reseparate", json={"quality": "fast"}).status_code == 202
+    assert client.get("/api/project/rs1").json()["separation_job"]["status"] == "done"
+
+    # The custom backing track did not change, so its mix can still be served
+    assert backing_only.exists() and backing_only.with_suffix(".m4a").exists()
+    assert not with_guide.exists()
+    assert not with_guide.with_suffix(".m4a").exists()
 
 
 def test_failed_reseparation_leaves_the_song_as_it_was(client, song, monkeypatch):
