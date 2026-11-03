@@ -89,13 +89,17 @@ describe('Hand edits drop the aligner confidence', () => {
   });
 
   it('does not count lines whose words the editor only spread evenly, as the backend', () => {
-    for (const { text, start_time, end_time, words: spread } of wordSpreadCases) {
+    for (const { text, start_time, end_time, words: spread, spread_evenly } of wordSpreadCases) {
       expect(recalculateWordTimings(text, start_time, end_time)).toEqual(spread);
+      // A one-word line is never only spread: its word is the line, timed by hand
+      expect(spread_evenly).toBe(spread.length > 1);
       const tapped: LyricLine = { id: 1, text, start_time, end_time, words: spread };
-      expect(wordsSpreadEvenly(tapped)).toBe(true);
+      expect(wordsSpreadEvenly(tapped)).toBe(spread_evenly);
       // Still only spread after the line is moved
-      expect(wordsSpreadEvenly(applyBatchOffset([tapped], 0.137)[0])).toBe(true);
-      expect(countHandTimedLines([{ ...tapped, align_method: 'manual' }])).toBe(0);
+      expect(wordsSpreadEvenly(applyBatchOffset([tapped], 0.137)[0])).toBe(spread_evenly);
+      expect(countHandTimedLines([{ ...tapped, align_method: 'manual' }])).toBe(
+        spread_evenly ? 0 : 1
+      );
       const last = spread.length - 1;
       const byHand = {
         ...tapped,
@@ -106,6 +110,29 @@ describe('Hand edits drop the aligner confidence', () => {
       expect(countHandTimedLines([byHand])).toBe(1);
     }
     expect(wordsSpreadEvenly(aligned[3])).toBe(false);
+  });
+
+  it('counts a one-word line whose edges were dragged by hand', () => {
+    const adlib = timed(5, 'Hey!', 12, {
+      end_time: 13,
+      words: recalculateWordTimings('Hey!', 12, 13),
+    });
+    const { result } = renderHook(() =>
+      useLyricEditorState({
+        lines: [...aligned, adlib],
+        currentTime: 0,
+        duration: 30,
+        onSaveLines: vi.fn(),
+      })
+    );
+    expect(countHandTimedLines(result.current.editableLines)).toBe(1);
+    act(() => result.current.updateWordTiming(5, 0, 'start_time', 12.31));
+    act(() => result.current.updateWordTiming(5, 0, 'end_time', 12.87));
+    const edited = result.current.editableLines[4];
+    expect(edited).toMatchObject({ start_time: 12.31, end_time: 12.87, align_method: 'manual' });
+    expect(edited.words).toEqual([{ word: 'Hey!', start_time: 12.31, end_time: 12.87 }]);
+    expect(wordsSpreadEvenly(edited)).toBe(false);
+    expect(countHandTimedLines(result.current.editableLines)).toBe(2);
   });
 
   it('spreads retyped words again when the editor had only spread them', () => {

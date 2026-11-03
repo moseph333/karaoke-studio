@@ -10,8 +10,8 @@ timed.
 Lyrics that arrive with their own word timing (enhanced LRC) keep it. When a song's current
 lines are re-timed with ``keep_manual`` (see prepare_existing_lines), lines whose words were
 timed by hand come back exactly as they went in and stay "manual", with no confidence; neither
-pass moves them. Manual lines whose words the studio editor only spread evenly (see
-words_spread_evenly) are timed again like any other.
+pass moves them. Manual lines of two or more words that the studio editor only spread evenly
+(see words_spread_evenly) are timed again like any other.
 If the neural pass is unavailable or fails, the whole song keeps the DSP timing and the report
 records why. At most MAX_CONCURRENT_ALIGN_JOBS neural passes run at once (ALIGN_SEMAPHORE):
 each loads a large model, so further songs wait for a free slot.
@@ -107,11 +107,12 @@ def words_spread_evenly(line: dict) -> bool:
     has no better timing (line-by-line tap-to-sync, new lines, retyped text): back to back
     from the line's start to its end, each lasting in proportion to its _spread_weight, also
     after the whole line was moved. Only the line's start and end were set by hand then. A
-    one-word line whose word fills the line counts too. The studio applies the same rule
+    one-word line never counts: every edit to it sets the line to its word, so its word timing
+    is the timing set by hand (an ad-lib like "Hey!"). The studio applies the same rule
     (wordsSpreadEvenly in frontend/src/utils/manualEdits.ts)."""
     words = [w for w in line.get("words") or [] if isinstance(w, dict)]
     start, end = _num(line.get("start_time")), _num(line.get("end_time"))
-    if not words or end <= start:
+    if len(words) < 2 or end <= start:
         return False
     weights = [_spread_weight(str(w.get("word") or "")) for w in words]
     total = sum(weights)
