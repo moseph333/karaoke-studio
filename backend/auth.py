@@ -25,6 +25,9 @@ _last_rate_limit_cleanup: float = 0.0
 _counted_guesses: dict[str, dict[str, float]] = {}
 # Fingerprints are keyed with a per-process secret, so no plain hash of a guess is kept
 _GUESS_FINGERPRINT_KEY = secrets.token_bytes(32)
+# When each client IP's refusal was last logged. Every request a limited client sends with
+# credentials (polling, saves, media) is refused, so it is logged at most once per window.
+_rate_limit_logged: dict[str, float] = {}
 
 
 def get_client_ip(request: Request) -> str:
@@ -75,11 +78,14 @@ def _prune_stale_rate_limits_locked(now: float, window: float) -> None:
             _counted_guesses[ip] = fresh
         else:
             del _counted_guesses[ip]
+    for ip in [ip for ip, t in _rate_limit_logged.items() if (now - t) >= window]:
+        del _rate_limit_logged[ip]
 
 
 def check_login_rate_limit(client_ip: str, now: float | None = None) -> int:
     """Raise the 429 HTTPException while client_ip has used up its failures for the window;
-    otherwise return how many more failures it has left."""
+    otherwise return how many more failures it has left. A refusal is logged at most once per
+    client IP and window."""
     import backend.main as main_mod
 
     if now is None:
@@ -100,19 +106,24 @@ def check_login_rate_limit(client_ip: str, now: float | None = None) -> int:
             else:
                 failures.pop(client_ip, None)
 
-        if len(valid_timestamps) >= max_attempts:
-            oldest_ts = valid_timestamps[0]
-            retry_after = max(1, math.ceil(oldest_ts + window - now))
-            logger.warning(
-                f"Rate limit exceeded for client IP: {client_ip} "
-                f"({len(valid_timestamps)} failed attempts). Retry-After: {retry_after}s"
-            )
-            raise HTTPException(
-                status_code=429,
-                detail="Too many failed login attempts. Please try again later.",
-                headers={"Retry-After": str(retry_after)},
-            )
-        return max_attempts - len(valid_timestamps)
+        if len(valid_timestamps) < max_attempts:
+            return max_attempts - len(valid_timestamps)
+        retry_after = max(1, math.ceil(valid_timestamps[0] + window - now))
+        log_refusal = (now - _rate_limit_logged.get(client_ip, -math.inf)) >= window
+        if log_refusal:
+            _rate_limit_logged[client_ip] = now
+
+    if log_refusal:
+        logger.warning(
+            f"Rate limit exceeded for client IP: {client_ip} "
+            f"({len(valid_timestamps)} failed attempts). Retry-After: {retry_after}s. "
+            f"Further refusals for this IP are not logged for {window:g}s"
+        )
+    raise HTTPException(
+        status_code=429,
+        detail="Too many failed login attempts. Please try again later.",
+        headers={"Retry-After": str(retry_after)},
+    )
 
 
 def record_login_failure(client_ip: str, now: float | None = None) -> None:
@@ -196,6 +207,7 @@ def clear_all_login_failures() -> None:
     with lock:
         failures.clear()
         _counted_guesses.clear()
+        _rate_limit_logged.clear()
 
 
 def create_session_token(app_pwd: str, client_id: str = "user") -> str:
