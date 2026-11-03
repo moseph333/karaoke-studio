@@ -884,6 +884,8 @@ def test_video_renderer_ambient_gradient_fallback_when_no_images(tmp_path):
 
     def mock_popen(cmd, *args, **kwargs):
         captured_cmd.extend(cmd)
+        # The video file FFmpeg would write, which render_video then moves into place
+        Path(cmd[-1]).touch()
         proc = MagicMock()
         proc.stdout = iter(["progress=end\n"])
         proc.stderr = iter([])

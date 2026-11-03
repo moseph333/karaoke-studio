@@ -1,4 +1,5 @@
-"""Video export on a cloud CPU (RENDER_REMOTE=modal): what is uploaded, progress, fallbacks.
+"""Video export on a cloud CPU (RENDER_REMOTE=modal): what is uploaded, progress, fallbacks, and
+the previous video surviving a cloud or local render that fails or is cancelled.
 
 A stand-in replaces the Modal job runner, so nothing leaves the machine.
 """
@@ -16,14 +17,16 @@ from backend.services.modal_jobs import RemoteOutcome, RemoteUnavailable
 from backend.services.video_renderer import VideoRenderer
 
 PROGRESS = ["frame=60\n", "fps=240\n", "speed=4.0x\n", "out_time_us=1000000\n", "progress=end\n"]
+LOCAL_VIDEO = b"MP4 rendered here"
+PREVIOUS_VIDEO = b"MP4 of the previous render"
 
 
 class _QuietProcess:
-    def __init__(self, cmd):
+    def __init__(self, cmd, returncode=0):
         self.cmd = list(cmd)
         self.stdout: list[str] = []
         self.stderr: list[str] = []
-        self.returncode = 0
+        self.returncode = returncode
 
     def poll(self):
         return 0
@@ -38,14 +41,22 @@ class _QuietProcess:
         return 0
 
 
+class _Launches(list):
+    """The local FFmpeg commands launched; each exits with returncode."""
+
+    returncode = 0
+
+
 @pytest.fixture
 def local_ffmpeg(monkeypatch):
-    """Records local FFmpeg launches instead of running them."""
-    launched: list[list[str]] = []
+    """Records local FFmpeg launches instead of running them. Each writes LOCAL_VIDEO to its
+    output file, as FFmpeg would, even when it then fails."""
+    launched = _Launches()
 
     def popen(cmd, *args, **kwargs):
-        process = _QuietProcess(cmd)
+        process = _QuietProcess(cmd, launched.returncode)
         launched.append(process.cmd)
+        Path(cmd[-1]).write_bytes(LOCAL_VIDEO)
         return process
 
     monkeypatch.setattr(subprocess, "Popen", popen)
@@ -103,6 +114,7 @@ def test_exports_render_on_the_cloud_cpu_when_configured(tmp_path, cloud, local_
     out, reports = _render(tmp_path)
 
     assert out.read_bytes() == b"MP4 from the cloud"
+    assert not (tmp_path / "out.part.mp4").exists()
     assert local_ffmpeg == []
     job = cloud.jobs[0]
     assert job["function"] == "render"
@@ -192,7 +204,11 @@ def test_a_cloud_problem_falls_back_to_a_local_render(tmp_path, cloud, local_ffm
     assert len(cloud.jobs) == 1
     assert len(local_ffmpeg) == 1
     assert local_ffmpeg[0][0] == "ffmpeg"
-    assert local_ffmpeg[0][-1] == str(out)
+    # FFmpeg writes next to the video, which is replaced once the render has finished
+    assert local_ffmpeg[0][-1] == str(tmp_path / "out.part.mp4")
+    assert out == tmp_path / "out.mp4"
+    assert out.read_bytes() == LOCAL_VIDEO
+    assert not (tmp_path / "out.part.mp4").exists()
     assert "Cloud render unavailable, rendering here…" in [detail for _, detail, _ in reports]
 
 
@@ -201,6 +217,78 @@ def test_cancelling_a_cloud_render_does_not_render_locally(tmp_path, cloud, loca
     with pytest.raises(RuntimeError, match="Video rendering was cancelled by user"):
         _render(tmp_path)
     assert local_ffmpeg == []
+
+
+def test_a_cancelled_cloud_render_keeps_the_previous_video(tmp_path, cloud, local_ffmpeg):
+    (tmp_path / "out.mp4").write_bytes(PREVIOUS_VIDEO)
+    cloud.mode = "cancelled"
+
+    with pytest.raises(RuntimeError, match="cancelled"):
+        _render(tmp_path)
+
+    assert (tmp_path / "out.mp4").read_bytes() == PREVIOUS_VIDEO
+    assert not (tmp_path / "out.part.mp4").exists()
+
+
+def test_a_failed_cloud_render_then_a_failed_local_render_keep_the_previous_video(
+    tmp_path, cloud, local_ffmpeg
+):
+    (tmp_path / "out.mp4").write_bytes(PREVIOUS_VIDEO)
+    cloud.mode = "fail"
+    local_ffmpeg.returncode = 1
+
+    with pytest.raises(RuntimeError, match="FFmpeg video render error"):
+        _render(tmp_path)
+
+    assert len(local_ffmpeg) == 1
+    assert (tmp_path / "out.mp4").read_bytes() == PREVIOUS_VIDEO
+    assert not (tmp_path / "out.part.mp4").exists()
+
+
+def _cloud_stub_that_writes_part_of_the_video(monkeypatch, error: Exception) -> list[Path]:
+    """A cloud render cut off while it writes the video it downloaded (a full disk, say)."""
+    targets: list[Path] = []
+
+    def render(files, args, output_path, on_line, cancel_event, **callbacks):
+        targets.append(output_path)
+        output_path.write_bytes(b"MP4 from the cl")
+        raise error
+
+    monkeypatch.setattr(remote_render, "render", render)
+    return targets
+
+
+def test_a_cloud_video_cut_off_while_written_is_replaced_by_a_local_render(
+    tmp_path, cloud, local_ffmpeg, monkeypatch
+):
+    (tmp_path / "out.mp4").write_bytes(PREVIOUS_VIDEO)
+    targets = _cloud_stub_that_writes_part_of_the_video(
+        monkeypatch, OSError(28, "No space left on device")
+    )
+
+    out, _reports = _render(tmp_path)
+
+    assert [target.name for target in targets] == ["out.part.mp4"]
+    assert len(local_ffmpeg) == 1
+    assert out.read_bytes() == LOCAL_VIDEO
+    assert not (tmp_path / "out.part.mp4").exists()
+
+
+def test_a_cloud_render_cancelled_while_written_keeps_the_previous_video(
+    tmp_path, cloud, local_ffmpeg, monkeypatch
+):
+    (tmp_path / "out.mp4").write_bytes(PREVIOUS_VIDEO)
+    targets = _cloud_stub_that_writes_part_of_the_video(
+        monkeypatch, remote_render.RenderCancelled("cancelled")
+    )
+
+    with pytest.raises(RuntimeError, match="cancelled"):
+        _render(tmp_path)
+
+    assert [target.name for target in targets] == ["out.part.mp4"]
+    assert local_ffmpeg == []
+    assert (tmp_path / "out.mp4").read_bytes() == PREVIOUS_VIDEO
+    assert not (tmp_path / "out.part.mp4").exists()
 
 
 def test_cloud_export_stays_off_without_the_setting_or_credentials(

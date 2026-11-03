@@ -77,6 +77,8 @@ def _capture_render_cmd(tmp_path, **render_kwargs) -> list[str]:
 
     def fake_popen(cmd, *args, **kwargs):
         captured.extend(cmd)
+        # The video file FFmpeg would write, which render_video then moves into place
+        Path(cmd[-1]).touch()
         proc = MagicMock()
         proc.stdout = iter(["progress=end\n"])
         proc.stderr = iter([])

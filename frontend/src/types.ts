@@ -205,7 +205,10 @@ export interface ProjectState {
   render_elapsed_seconds?: number;
   render_heartbeat?: number;
   render_error?: string;
+  /** The latest rendered video, in whichever format it was rendered. */
   video_url?: string;
+  /** The latest video of each format; a render replaces only its own format's file. */
+  videos_by_aspect?: Partial<Record<'16:9' | '9:16', string>>;
   separation_quality?: SeparationPreset;
   separation?: SeparationInfo | null;
   sync_report?: SyncReport | null;

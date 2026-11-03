@@ -453,4 +453,97 @@ describe('ExportModal', () => {
       expect(screen.getByText(/your video is ready/i)).toBeInTheDocument();
     });
   });
+
+  describe('Videos kept across formats and unfinished renders', () => {
+    const wideUrl = '/static/output/song_karaoke.mp4?v=100';
+    const tallUrl = '/static/output/song_karaoke_vertical.mp4?v=200';
+    const bothFormats: ProjectState = {
+      ...baseProject,
+      artist: 'Queen',
+      title: 'Bohemian Rhapsody',
+      video_url: tallUrl,
+      videos_by_aspect: { '16:9': wideUrl, '9:16': tallUrl },
+    };
+
+    it('offers the other format next to the latest video', () => {
+      render(<ExportModal project={bothFormats} isOpen={true} onClose={vi.fn()} />);
+
+      const main = screen.getByRole('link', { name: /download video/i });
+      expect(main).toHaveAttribute('href', tallUrl);
+      expect(main).toHaveAttribute('download', 'Queen - Bohemian Rhapsody.mp4');
+      const other = screen.getByRole('link', { name: 'Download 16:9 video' });
+      expect(other).toHaveAttribute('href', wideUrl);
+      expect(other).toHaveAttribute('download', 'Queen - Bohemian Rhapsody (16x9).mp4');
+      expect(other.className).toContain('min-h-[44px]');
+      expect(screen.queryByRole('link', { name: 'Download 9:16 video' })).toBeNull();
+    });
+
+    it('offers no other format when the song has one video', () => {
+      const { rerender } = render(
+        <ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />
+      );
+      expect(screen.queryByRole('link', { name: /download 16:9 video/i })).toBeNull();
+      expect(screen.queryByRole('link', { name: /download 9:16 video/i })).toBeNull();
+
+      rerender(
+        <ExportModal
+          project={{ ...bothFormats, videos_by_aspect: { '9:16': tallUrl } }}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      );
+      expect(screen.queryByRole('link', { name: /download 16:9 video/i })).toBeNull();
+      expect(screen.queryByRole('link', { name: /download 9:16 video/i })).toBeNull();
+    });
+
+    it('keeps the previous video downloadable after a failed render', () => {
+      render(
+        <ExportModal
+          project={{ ...bothFormats, render_status: 'error', render_error: 'FFmpeg exited' }}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+      const kept = screen.getByRole('link', { name: 'Download previous video' });
+      expect(kept).toHaveAttribute('href', tallUrl);
+      expect(kept).toHaveAttribute('download', 'Queen - Bohemian Rhapsody.mp4');
+      expect(kept.className).toContain('min-h-[44px]');
+    });
+
+    it('keeps the previous video downloadable after a cancelled render', () => {
+      render(
+        <ExportModal
+          project={{ ...bothFormats, render_status: 'idle', render_detail: 'Rendering cancelled' }}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /start video render/i })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Download previous video' })).toHaveAttribute(
+        'href',
+        tallUrl
+      );
+    });
+
+    it('offers no previous video when there is none or while rendering again over it', async () => {
+      const user = userEvent.setup();
+      const { rerender } = render(
+        <ExportModal
+          project={{ ...baseProject, render_status: 'error', video_url: undefined }}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      );
+      expect(screen.queryByRole('link', { name: /download previous video/i })).toBeNull();
+
+      rerender(<ExportModal project={bothFormats} isOpen={true} onClose={vi.fn()} />);
+      await user.click(screen.getByRole('button', { name: /render again/i }));
+
+      expect(screen.getByRole('button', { name: /keep current video/i })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /download previous video/i })).toBeNull();
+    });
+  });
 });

@@ -22,6 +22,38 @@ from backend.services.audio_mixer import mix_quality
 
 logger = logging.getLogger("karaoke_backend")
 
+# What video_renderer writes while a render runs, next to the video it will replace
+PART_FILE_GLOB = "*.part.mp4"
+
+
+def video_file_name(track_id: str, aspect_ratio: str) -> str:
+    """The rendered video's file name: one file per aspect ratio, so a 9:16 render never
+    replaces the song's 16:9 video (and the other way round)."""
+    if aspect_ratio == "9:16":
+        return f"{track_id}_karaoke_vertical.mp4"
+    return f"{track_id}_karaoke.mp4"
+
+
+def remove_render_leftovers() -> int:
+    """Deletes the half-written videos (*.part.mp4) of renders that a server restart cut off.
+
+    Runs at startup, before any render can start, so none of them belongs to a running render.
+    Returns how many were removed.
+    """
+    import backend.main as main_mod
+
+    output_dir = Path(getattr(main_mod, "OUTPUT_DIR", OUTPUT_DIR))
+    removed = 0
+    for leftover in output_dir.glob(PART_FILE_GLOB):
+        try:
+            leftover.unlink()
+            removed += 1
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            logger.warning(f"Could not remove the unfinished render {leftover.name}: {exc}")
+    return removed
+
 
 def run_video_render(project_id: str, req: RenderRequest):
     import backend.main as main_mod
@@ -97,7 +129,8 @@ def run_video_render(project_id: str, req: RenderRequest):
 
         track_id = proj.get("track_id") or proj.get("id") or "track"
         ass_path = output_dir / f"{track_id}.ass"
-        mp4_path = output_dir / f"{track_id}_karaoke.mp4"
+        video_name = video_file_name(track_id, req.aspect_ratio)
+        mp4_path = output_dir / video_name
 
         # 1. Generate ASS Subtitles
         style_cfg = dict(req.style_config or {})
@@ -171,9 +204,16 @@ def run_video_render(project_id: str, req: RenderRequest):
             # What the video was made with, which its YouTube kit describes from now on
             proj["render_settings"] = {"semitones": req.semitones, "guide_volume": req.guide_volume}
             proj["youtube_package"] = youtube_package(proj)
-            # Rendering again overwrites the same file; the version makes browsers fetch the
-            # new video rather than show or download their cached copy of the previous one
-            proj["video_url"] = f"/static/output/{track_id}_karaoke.mp4?v={int(time.time())}"
+            # A new render in the same format replaces that format's file; the version makes
+            # browsers fetch the new video rather than show or download their cached copy of
+            # the previous one. video_url is the latest render, videos_by_aspect the latest
+            # file of each format (the other format's video stays downloadable)
+            proj["video_url"] = f"/static/output/{video_name}?v={int(time.time())}"
+            earlier = proj.get("videos_by_aspect")
+            proj["videos_by_aspect"] = {
+                **(earlier if isinstance(earlier, dict) else {}),
+                req.aspect_ratio: proj["video_url"],
+            }
             proj["render_status"] = "completed"
             proj["render_progress"] = 100
             proj["render_detail"] = "Video export complete!"

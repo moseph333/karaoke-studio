@@ -1,6 +1,8 @@
-"""Rendering a song again: the new video overwrites the file at the same path, so its URL carries
-the time the render finished, and a browser shows and downloads the new video instead of its
-cached copy of the previous one."""
+"""Rendering a song again. Each aspect ratio has its own file, which a new render in the same
+format replaces, so the URL carries the time the render finished and a browser shows and
+downloads the new video instead of its cached copy of the previous one. A 9:16 render leaves the
+16:9 video in place (and the other way round), and a render that fails or is cancelled keeps the
+video the song already had."""
 
 import types
 
@@ -45,9 +47,9 @@ def song(tmp_path, monkeypatch):
     projects.pop(pid, None)
 
 
-def _render_at(monkeypatch, pid: str, now: float) -> str:
+def _render_at(monkeypatch, pid: str, now: float, aspect_ratio: str = "16:9") -> str:
     monkeypatch.setattr(render_worker, "time", types.SimpleNamespace(time=lambda: now))
-    run_video_render(pid, RenderRequest())
+    run_video_render(pid, RenderRequest(aspect_ratio=aspect_ratio))
     assert projects[pid]["render_status"] == "completed"
     return projects[pid]["video_url"]
 
@@ -89,3 +91,51 @@ def test_the_video_and_youtube_kit_are_stored_before_the_render_reads_as_complet
     assert projects[song]["render_status"] == "completed"
     assert projects[song]["youtube_package"] == {"title": "t"}
     assert projects[song]["video_url"].startswith("/static/output/encore01_karaoke.mp4?v=")
+
+
+def test_a_vertical_render_gets_its_own_file_and_the_widescreen_video_stays(song, monkeypatch):
+    written = []
+    monkeypatch.setattr(
+        main_mod.video_renderer,
+        "render_video",
+        lambda **kwargs: written.append(kwargs["output_mp4_path"].name),
+    )
+
+    wide = _render_at(monkeypatch, song, 1_700_000_000.0)
+    tall = _render_at(monkeypatch, song, 1_700_000_095.0, aspect_ratio="9:16")
+
+    assert written == ["encore01_karaoke.mp4", "encore01_karaoke_vertical.mp4"]
+    assert wide == "/static/output/encore01_karaoke.mp4?v=1700000000"
+    assert tall == "/static/output/encore01_karaoke_vertical.mp4?v=1700000095"
+    assert projects[song]["video_url"] == tall
+    assert projects[song]["videos_by_aspect"] == {"16:9": wide, "9:16": tall}
+
+
+def test_rendering_a_format_again_updates_only_that_format(song, monkeypatch):
+    tall = _render_at(monkeypatch, song, 1_700_000_000.0, aspect_ratio="9:16")
+    wide = _render_at(monkeypatch, song, 1_700_000_050.0)
+    tall_again = _render_at(monkeypatch, song, 1_700_000_095.0, aspect_ratio="9:16")
+
+    assert tall != tall_again
+    assert projects[song]["video_url"] == tall_again
+    assert projects[song]["videos_by_aspect"] == {"16:9": wide, "9:16": tall_again}
+
+
+@pytest.mark.parametrize("cancelled", [False, True], ids=["failed", "cancelled"])
+def test_a_render_that_does_not_finish_keeps_the_videos_the_song_had(song, monkeypatch, cancelled):
+    wide = _render_at(monkeypatch, song, 1_700_000_000.0)
+    tall = _render_at(monkeypatch, song, 1_700_000_050.0, aspect_ratio="9:16")
+
+    def broken_render(**kwargs):
+        if cancelled:
+            main_mod.active_cancellations[f"{song}_render"].set()
+            raise RuntimeError("Video rendering was cancelled by user")
+        raise RuntimeError("FFmpeg video render error: Invalid data found")
+
+    monkeypatch.setattr(main_mod.video_renderer, "render_video", broken_render)
+    run_video_render(song, RenderRequest())
+
+    proj = projects[song]
+    assert proj["render_status"] == ("idle" if cancelled else "error")
+    assert proj["video_url"] == tall
+    assert proj["videos_by_aspect"] == {"16:9": wide, "9:16": tall}

@@ -454,6 +454,8 @@ def test_aspect_ratio_fallback_consistency(tmp_path, monkeypatch):
         def __init__(self, cmd):
             self.cmd = cmd
             recorded_cmds.append(cmd)
+            # The video file FFmpeg would write, which render_video then moves into place
+            Path(cmd[-1]).touch()
             self.stdout = []
             self.stderr = []
             self.returncode = 0
