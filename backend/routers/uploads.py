@@ -9,9 +9,9 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from starlette.concurrency import run_in_threadpool
 
-from backend.background_jobs import run_job
+from backend.background_jobs import BUSY_PIPELINE_STATES, run_job
 from backend.config import BACKGROUNDS_DIR, DOWNLOADS_DIR, STEMS_DIR
-from backend.project_store import get_project_or_404, save_projects
+from backend.project_store import PROJECTS_LOCK, get_project_or_404, save_projects
 from backend.schemas import parse_separation_quality
 from backend.upload_utils import (
     ALLOWED_AUDIO_EXTS,
@@ -40,7 +40,7 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
     import backend.main as main_mod
 
     safe_proj_id = sanitize_upload_filename(project_id, default_stem="project")
-    proj = await run_in_threadpool(get_project_or_404, safe_proj_id)
+    await run_in_threadpool(get_project_or_404, safe_proj_id)
 
     raw_ext = Path(file.filename or "custom.wav").suffix.lower()
     if raw_ext not in ALLOWED_AUDIO_EXTS:
@@ -53,14 +53,43 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
     stems_dir = getattr(main_mod, "STEMS_DIR", STEMS_DIR)
     max_bytes = getattr(main_mod, "MAX_INSTRUMENTAL_UPLOAD_BYTES", MAX_INSTRUMENTAL_UPLOAD_BYTES)
     target_path = stems_dir / safe_proj_id / f"custom_inst{raw_ext}"
-    bytes_written = await save_upload_file_bounded(file, target_path, max_bytes, min_bytes=1)
+    # Staged next to the target and checked before it replaces anything: a rejected upload
+    # must not destroy the backing track the song uses now
+    staged = target_path.with_name(f"custom_inst.upload-{uuid.uuid4().hex[:8]}{raw_ext}")
+    try:
+        bytes_written = await save_upload_file_bounded(file, staged, max_bytes, min_bytes=1)
+
+        header = await run_in_threadpool(read_header, staged)
+        if not validate_audio_header(header, raw_ext):
+            logger.warning(
+                f"Rejected instrumental upload with invalid magic bytes for extension {raw_ext}"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail=f"File content does not match audio format '{raw_ext}' (invalid magic bytes)",
+            )
+
+        url = await run_in_threadpool(_store_instrumental, safe_proj_id, staged, target_path)
+    finally:
+        staged.unlink(missing_ok=True)
+
     logger.info(f"Saved instrumental audio for project {safe_proj_id} ({bytes_written} bytes)")
+    return {"status": "ok", "instrumental_url": url}
 
-    proj["instrumental_path"] = str(target_path)
-    proj["instrumental_url"] = f"/static/stems/{safe_proj_id}/custom_inst{raw_ext}"
-    await run_in_threadpool(save_projects)
 
-    return {"status": "ok", "instrumental_url": proj["instrumental_url"]}
+def _store_instrumental(project_id: str, staged: Path, target: Path) -> str:
+    """Moves a checked upload over the song's custom backing track and stores it, all under
+    the lock. Returns the backing track's url."""
+    with PROJECTS_LOCK:
+        proj = get_project_or_404(project_id)
+        # The intake sets the stems it made when it ends, which would replace this upload
+        if proj.get("status") in BUSY_PIPELINE_STATES:
+            raise HTTPException(status_code=409, detail="This song is still being processed")
+        staged.replace(target)
+        proj["instrumental_path"] = str(target)
+        proj["instrumental_url"] = f"/static/stems/{project_id}/{target.name}"
+        save_projects()
+        return proj["instrumental_url"]
 
 
 @router.post("/api/upload-background")
@@ -179,9 +208,7 @@ async def upload_audio_track(
     if quality:
         proj_data["separation_quality"] = quality
 
-    main_mod.active_cancellations.setdefault(project_id, threading.Event())
-    main_mod.projects[project_id] = proj_data
-    await run_in_threadpool(save_projects)
+    await run_in_threadpool(_register_upload, project_id, proj_data)
 
     bg_tasks.add_task(
         run_job,
@@ -193,3 +220,14 @@ async def upload_audio_track(
         custom_lyrics,
     )
     return {"project_id": project_id, "status": "queued"}
+
+
+def _register_upload(project_id: str, proj_data: dict) -> None:
+    """Adds an uploaded song to the store under the lock: a save or a project list running
+    meanwhile iterates the store."""
+    import backend.main as main_mod
+
+    with PROJECTS_LOCK:
+        main_mod.active_cancellations.setdefault(project_id, threading.Event())
+        main_mod.projects[project_id] = proj_data
+        save_projects()

@@ -39,6 +39,33 @@ def test_upload_copy_header_and_store_writes_run_off_the_event_loop(client, monk
     assert seen == {"copy": False, "header": False, "save": False}
 
 
+def test_instrumental_upload_copy_header_and_store_run_off_the_event_loop(client, monkeypatch):
+    seen: dict[str, bool] = {}
+
+    def spy(name, real):
+        def wrapper(*args, **kwargs):
+            seen[name] = _on_event_loop()
+            return real(*args, **kwargs)
+
+        return wrapper
+
+    main_mod.projects["offload"] = {"id": "offload", "status": "ready", "lines": []}
+    monkeypatch.setattr(upload_utils, "_save_bounded", spy("copy", upload_utils._save_bounded))
+    monkeypatch.setattr(uploads, "read_header", spy("header", uploads.read_header))
+    monkeypatch.setattr(uploads, "_store_instrumental", spy("store", uploads._store_instrumental))
+    monkeypatch.setattr(uploads, "save_projects", spy("save", uploads.save_projects))
+
+    wav = b"RIFF" + (36).to_bytes(4, "little") + b"WAVEfmt " + bytes(64)
+    res = client.post(
+        "/api/upload-instrumental",
+        data={"project_id": "offload"},
+        files={"file": ("backing.wav", wav, "audio/wav")},
+    )
+
+    assert res.status_code == 200, res.text
+    assert seen == {"copy": False, "header": False, "store": False, "save": False}
+
+
 def test_background_upload_copy_runs_off_the_event_loop(client, monkeypatch):
     seen = []
     real = upload_utils._save_bounded
