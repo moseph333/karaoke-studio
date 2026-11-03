@@ -221,6 +221,13 @@ for d in [DATA_DIR, DOWNLOADS_DIR, STEMS_DIR, OUTPUT_DIR, ASSETS_DIR, BACKGROUND
 APP_PASSWORD = os.getenv("APP_PASSWORD", "").strip()
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("LOGIN_RATE_LIMIT_MAX_ATTEMPTS", "5"))
 LOGIN_RATE_LIMIT_WINDOW_SECONDS = float(os.getenv("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "60.0"))
+# How many reverse proxies in front of the app append to X-Forwarded-For. The rate limit keys
+# on the entry that many places from the end (the one the outermost trusted proxy wrote); 0
+# ignores the header and keys on the socket address.
+try:
+    FORWARDED_TRUSTED_HOPS = max(0, int(os.getenv("FORWARDED_TRUSTED_HOPS", "1").strip()))
+except (ValueError, TypeError):
+    FORWARDED_TRUSTED_HOPS = 1
 
 # What the studio streams while you sing: "wav" (the master mix itself, the default) or
 # "aac" (a 160 kbps .m4a copy, about an eighth of the size, which every new mix takes a few
