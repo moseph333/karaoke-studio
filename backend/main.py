@@ -48,6 +48,7 @@ from backend.export_utils import (
 )
 from backend.http_delivery import CompressTextResponses
 from backend.logging_setup import configure_logging
+from backend.master_audio import remove_unfinished_mixes, start_pruning_mixes_of_every_song
 from backend.middleware import PassphraseAuth, SecurityHeaders
 from backend.pipeline import (
     run_local_pipeline,
@@ -66,6 +67,7 @@ from backend.project_store import (
     update_project_chords,
 )
 from backend.render_worker import remove_render_leftovers, run_video_render
+from backend.reseparation import remove_staged_stems
 from backend.routers.auth import router as auth_router
 from backend.routers.exports import router as exports_router
 from backend.routers.projects import (
@@ -155,8 +157,9 @@ chord_detector = ChordDetector()
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Before the server takes its first request: marks the intakes, renders and background
     jobs that the previous server process left running as interrupted, since nothing will
-    finish them, and deletes the half-written videos and scratch mixes of the renders it cut
-    off."""
+    finish them, and deletes what the jobs it cut off left half-made: videos and scratch mixes
+    of renders, staged stems of re-separations, and the mixer's unfinished files. Then trims
+    every song's cached mixes in a background thread."""
     try:
         settled = await run_in_threadpool(settle_all_stale_jobs)
         if settled:
@@ -164,14 +167,26 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     except Exception:
         # A store that cannot be settled must not keep the server from starting
         logger.exception("Could not settle the jobs left by the previous server process")
+    # No job runs yet, so every *.part.mp4, *_final_audio[.tmp_*].wav, stems/.staging folder
+    # and *.tmp_*.wav / *.tmp_*.m4a belongs to a job that will never finish. Looked up at call
+    # time, so tests can replace each step
+    sweeps = (
+        (remove_render_leftovers, "file(s) of renders", "the unfinished videos"),
+        (remove_staged_stems, "staged stem folder(s) of re-separations", "the staged stems"),
+        (remove_unfinished_mixes, "unfinished mix file(s)", "the unfinished mixes"),
+    )
+    for sweep, removed_what, failed_what in sweeps:
+        try:
+            removed = await run_in_threadpool(sweep)
+            if removed:
+                logger.info(f"Removed {removed} {removed_what} the previous process cut off")
+        except Exception:
+            logger.exception(f"Could not remove {failed_what} left by the previous process")
     try:
-        # No render runs yet, so every *.part.mp4 and *_final_audio[.tmp_*].wav belongs to a
-        # render that will never finish
-        removed = await run_in_threadpool(remove_render_leftovers)
-        if removed:
-            logger.info(f"Removed {removed} file(s) of renders the previous process cut off")
+        # Mixes past the per-song limit on songs no one has remixed since; on its own thread
+        start_pruning_mixes_of_every_song()
     except Exception:
-        logger.exception("Could not remove the unfinished videos left by the previous process")
+        logger.exception("Could not start pruning the cached mixes")
     yield
 
 
