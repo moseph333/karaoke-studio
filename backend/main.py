@@ -5,6 +5,8 @@ import math
 import mimetypes
 import subprocess
 import threading
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -69,6 +71,7 @@ from backend.routers.projects import (
     cancel_project,
     cancel_render,
     delete_project,
+    settle_all_stale_jobs,
 )
 from backend.routers.projects import (
     router as projects_router,
@@ -146,7 +149,23 @@ youtube_service = YouTubeMetadataService()
 vocal_analyzer = VocalRangeAnalyzer()
 chord_detector = ChordDetector()
 
-app = FastAPI(title="Karaoke Studio API", version=config.APP_VERSION.lstrip("v"))
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Before the server takes its first request: marks the intakes, renders and background
+    jobs that the previous server process left running as interrupted, since nothing will
+    finish them."""
+    try:
+        settled = await run_in_threadpool(settle_all_stale_jobs)
+        if settled:
+            logger.warning(f"Marked jobs on {settled} song(s) as interrupted by a server restart")
+    except Exception:
+        # A store that cannot be settled must not keep the server from starting
+        logger.exception("Could not settle the jobs left by the previous server process")
+    yield
+
+
+app = FastAPI(title="Karaoke Studio API", version=config.APP_VERSION.lstrip("v"), lifespan=lifespan)
 
 
 def sanitize_validation_errors(obj: Any) -> Any:

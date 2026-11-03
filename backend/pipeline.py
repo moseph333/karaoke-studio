@@ -8,6 +8,7 @@ from pathlib import Path
 
 import soundfile as sf
 
+from backend.background_jobs import release_cancel_event
 from backend.config import DOWNLOADS_DIR
 from backend.master_audio import master_fields
 from backend.project_analysis import ensure_chords, ensure_vocal_range, usable_file
@@ -192,11 +193,11 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             proj["status_detail"] = "Processing was cancelled by user"
             proj["progress"] = 0
             save_projects()
-        main_mod.active_cancellations.pop(project_id, None)
+        release_cancel_event(main_mod.active_cancellations, project_id, cancel_event)
         return
 
     if proj is None:
-        main_mod.active_cancellations.pop(project_id, None)
+        release_cancel_event(main_mod.active_cancellations, project_id, cancel_event)
         return
 
     semaphore_acquired = False
@@ -323,9 +324,9 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
     finally:
         if semaphore_acquired:
             main_mod.WORKER_SEMAPHORE.release()
-        main_mod.active_cancellations.pop(project_id, None)
+        release_cancel_event(main_mod.active_cancellations, project_id, cancel_event)
         if track_id:
-            main_mod.active_cancellations.pop(track_id, None)
+            release_cancel_event(main_mod.active_cancellations, track_id, cancel_event)
         if find_project(project_id) is None:
             try:
                 cleanup_project_disk_artifacts(project_id, track_id)
@@ -359,11 +360,11 @@ def run_local_pipeline(
             proj["status_detail"] = "Processing was cancelled by user"
             proj["progress"] = 0
             save_projects()
-        main_mod.active_cancellations.pop(project_id, None)
+        release_cancel_event(main_mod.active_cancellations, project_id, cancel_event)
         return
 
     if proj is None:
-        main_mod.active_cancellations.pop(project_id, None)
+        release_cancel_event(main_mod.active_cancellations, project_id, cancel_event)
         return
 
     semaphore_acquired = False
@@ -501,7 +502,7 @@ def run_local_pipeline(
     finally:
         if semaphore_acquired:
             main_mod.WORKER_SEMAPHORE.release()
-        main_mod.active_cancellations.pop(project_id, None)
+        release_cancel_event(main_mod.active_cancellations, project_id, cancel_event)
         if find_project(project_id) is None:
             try:
                 cleanup_project_disk_artifacts(project_id)
