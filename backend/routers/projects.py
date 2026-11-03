@@ -15,7 +15,14 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 
 from backend import realignment
-from backend.background_jobs import BUSY_PIPELINE_STATES, SEPARATION_JOB, job_active, run_job
+from backend.background_jobs import (
+    BUSY_PIPELINE_STATES,
+    SEPARATION_JOB,
+    job_active,
+    run_job,
+    settle_orphaned_intake,
+    settle_orphaned_render,
+)
 from backend.config import OUTPUT_DIR
 from backend.master_audio import (  # noqa: F401 (the cache helpers are imported from here too)
     MIX_CACHE_MARKER,
@@ -105,13 +112,43 @@ STATUS_FIELDS = (
 )
 
 
+def _settle_stale_fields(proj: dict, active_cancellations: dict) -> bool:
+    """Ends every job on the song that a previous server process left running (the intake, a
+    render, a re-separation, a background re-alignment), which would otherwise poll forever.
+    True if any changed. Call with PROJECTS_LOCK held."""
+    # Every settler runs, none short-circuits the others
+    settled = [
+        settle_orphaned_intake(proj, active_cancellations),
+        settle_orphaned_render(proj, active_cancellations),
+        settle_stale_job(proj, active_cancellations),
+        realignment.settle_stale_job(proj, active_cancellations),
+    ]
+    return any(settled)
+
+
 def _settle_stale_jobs(proj: dict) -> None:
-    """Ends jobs a previous server process left running, which would otherwise poll forever."""
+    """Ends the jobs a previous server process left running on one song, and saves if any."""
     import backend.main as main_mod
 
-    settled = settle_stale_job(proj, main_mod.active_cancellations)
-    if realignment.settle_stale_job(proj, main_mod.active_cancellations) or settled:
+    if _settle_stale_fields(proj, main_mod.active_cancellations):
         save_projects()
+
+
+def settle_all_stale_jobs() -> int:
+    """Ends the jobs a previous server process left running on every song and saves once.
+    Returns how many songs changed. Runs at startup (main.lifespan) and on every library read."""
+    import backend.main as main_mod
+
+    settled = 0
+    with PROJECTS_LOCK:
+        # A song stored under its id and its track_id is one dict: the second visit finds
+        # nothing left to settle
+        for proj in list(main_mod.projects.values()):
+            if isinstance(proj, dict) and _settle_stale_fields(proj, main_mod.active_cancellations):
+                settled += 1
+        if settled:
+            save_projects()
+    return settled
 
 
 @router.post("/api/search")
@@ -192,6 +229,7 @@ def list_projects(scope: str | None = "all", user: str | None = None):
     # Snapshots, taken under the lock: workers update the stored projects while a response is
     # serialised, and a key added meanwhile failed it ("dictionary changed size")
     with PROJECTS_LOCK:
+        settle_all_stale_jobs()
         if scope == "my" and user:
             return {
                 pid: copy.deepcopy(p)

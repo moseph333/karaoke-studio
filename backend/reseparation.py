@@ -20,7 +20,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from backend.background_jobs import SEPARATION_JOB, job_active
+from backend.background_jobs import SEPARATION_JOB, job_active, release_cancel_event
 from backend.background_jobs import conflict_reason as job_conflict
 from backend.config import STEMS_DIR
 from backend.master_audio import master_fields, mix_filename
@@ -202,7 +202,7 @@ def run_reseparation(project_id: str, job_id: str) -> None:
     finally:
         if acquired:
             main_mod.WORKER_SEMAPHORE.release()
-        main_mod.active_cancellations.pop(cancel_key(project_id), None)
+        release_cancel_event(main_mod.active_cancellations, cancel_key(project_id), cancel_event)
         shutil.rmtree(staging_root / job_id, ignore_errors=True)
         for empty in (staging_root, staging_root.parent):
             try:

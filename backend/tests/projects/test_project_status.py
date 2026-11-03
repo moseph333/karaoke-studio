@@ -21,11 +21,15 @@ def _song(**fields) -> dict:
         **fields,
     }
     main_mod.projects["st1"] = proj
+    # A pipeline of this process runs it: a busy song without one is settled as cut off by a
+    # restart
+    main_mod.active_cancellations["st1"] = threading.Event()
     return proj
 
 
 def test_returns_every_progress_field_and_none_of_the_rest(client):
     _song(render_status="rendering", render_progress=55)
+    main_mod.active_cancellations["st1_render"] = threading.Event()
 
     res = client.get("/api/project/st1/status")
 
