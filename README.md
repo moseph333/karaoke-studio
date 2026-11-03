@@ -167,6 +167,7 @@ cp .env.example .env
 | `MAX_CONCURRENT_JOBS` | `2` | Separations, re-separations, re-alignments and renders running at once |
 | `PREVIEW_AUDIO_FORMAT` | `wav` | What the studio streams: the WAV master, or `aac` for a 160 kbps `.m4a` copy (about 5 MB instead of 40 MB for a 4-minute song; each new mix takes a few seconds longer). Exports and videos always use the WAV. |
 | `KARAOKE_DATA_DIR` | `./workspace_data` | Audio, stems, renders and `projects.json` |
+| `DISK_MIN_FREE_MB` | `1024` | Free space (MB) to keep on the data folder's disk. Below it, new songs, uploads, renders and re-separations are refused with HTTP `507`; edits are never blocked. `0` turns the check off. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Cloudflare tunnel token (Docker `--profile tunnel`) |
 | `LOG_LEVEL` | `INFO` | Level of the app's own log lines |
 
@@ -230,7 +231,7 @@ KARAOKE_DATA_DIR=/tmp/karaoke-demo python -m backend.tools.seed_demo
 - **Python**: 3.10+ (3.12 recommended)
 - **Node.js**: 18+
 - **FFmpeg**: with `libass` (subtitle burn-in) and ideally `rubberband` (high-quality pitch shifting in renders)
-- **Disk space**: about 4 GB for dependencies and model weights, plus room for your songs
+- **Disk space**: about 4 GB for dependencies and model weights, plus room for your songs. New songs, uploads, renders and re-separations stop while less than `DISK_MIN_FREE_MB` (1 GB by default) is free, and an edit that cannot be saved reports an error instead of being lost.
 - **GPU**: optional. Best separation and neural alignment are much faster on one.
 
 ## Development and tests

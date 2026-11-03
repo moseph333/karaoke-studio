@@ -31,7 +31,7 @@ import {
 } from '../theme/stagePresets';
 import { StageSize } from '../theme/stageSettingsStorage';
 import { STAGE_BACKGROUND_OPTIONS, StageBackgroundStyle } from '../theme/stageBackgrounds';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import { useToast } from '../hooks/useToast';
 import { Panel } from './ui/Panel';
 import { SegmentedControl } from './ui/SegmentedControl';
@@ -181,7 +181,11 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
         method: 'POST',
         body: formData,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        // The server's detail says why, such as a rejected file or a disk that is almost full
+        toast.error(await readApiError(res, 'Could not upload custom background file.'));
+        return;
+      }
       const data = await res.json();
       onCustomBgUploaded(data.bg_id);
       const isVideo = file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name);

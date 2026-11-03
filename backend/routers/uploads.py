@@ -11,7 +11,13 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.background_jobs import BUSY_PIPELINE_STATES, run_job
 from backend.config import BACKGROUNDS_DIR, DOWNLOADS_DIR, STEMS_DIR
-from backend.project_store import PROJECTS_LOCK, get_project_or_404, save_projects
+from backend.project_store import (
+    PROJECTS_LOCK,
+    ensure_free_space,
+    get_project_or_404,
+    restore_on_failed_save,
+    save_projects,
+)
 from backend.schemas import parse_separation_quality
 from backend.upload_utils import (
     ALLOWED_AUDIO_EXTS,
@@ -40,7 +46,9 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
     import backend.main as main_mod
 
     safe_proj_id = sanitize_upload_filename(project_id, default_stem="project")
-    await run_in_threadpool(get_project_or_404, safe_proj_id)
+    # 404 and 409 answer before the free-space guard; _store_instrumental checks the song
+    # again once the file is in, since it can change while the upload streams
+    await run_in_threadpool(_refuse_busy_song, safe_proj_id)
 
     raw_ext = Path(file.filename or "custom.wav").suffix.lower()
     if raw_ext not in ALLOWED_AUDIO_EXTS:
@@ -49,6 +57,7 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
             status_code=400,
             detail=f"Unsupported audio format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}",
         )
+    await run_in_threadpool(ensure_free_space)
 
     stems_dir = getattr(main_mod, "STEMS_DIR", STEMS_DIR)
     max_bytes = getattr(main_mod, "MAX_INSTRUMENTAL_UPLOAD_BYTES", MAX_INSTRUMENTAL_UPLOAD_BYTES)
@@ -77,18 +86,46 @@ async def upload_instrumental(project_id: str = Form(...), file: UploadFile = Fi
     return {"status": "ok", "instrumental_url": url}
 
 
+def _refuse_busy_song(project_id: str) -> dict:
+    """The song a backing track is uploaded for: 404 when it is unknown, 409 while its intake
+    runs, since the intake sets the stems it made when it ends and would replace the upload.
+    Takes PROJECTS_LOCK, which is re-entrant, so a caller may already hold it."""
+    with PROJECTS_LOCK:
+        proj = get_project_or_404(project_id)
+        if proj.get("status") in BUSY_PIPELINE_STATES:
+            raise HTTPException(status_code=409, detail="This song is still being processed")
+        return proj
+
+
 def _store_instrumental(project_id: str, staged: Path, target: Path) -> str:
     """Moves a checked upload over the song's custom backing track and stores it, all under
     the lock. Returns the backing track's url."""
     with PROJECTS_LOCK:
-        proj = get_project_or_404(project_id)
-        # The intake sets the stems it made when it ends, which would replace this upload
-        if proj.get("status") in BUSY_PIPELINE_STATES:
-            raise HTTPException(status_code=409, detail="This song is still being processed")
-        staged.replace(target)
-        proj["instrumental_path"] = str(target)
-        proj["instrumental_url"] = f"/static/stems/{project_id}/{target.name}"
-        save_projects()
+        proj = _refuse_busy_song(project_id)
+        # A file already at the target (usually the backing track an earlier upload made) is
+        # set aside, not overwritten, until projects.json has the new one: when that save
+        # fails, the disk goes back to what the restored fields describe
+        previous = target.with_name(f"{target.stem}.prev{target.suffix}")
+        had_previous = target.exists()
+        if had_previous:
+            target.replace(previous)
+        try:
+            staged.replace(target)
+            with restore_on_failed_save(proj, ("instrumental_path", "instrumental_url")):
+                proj["instrumental_path"] = str(target)
+                proj["instrumental_url"] = f"/static/stems/{project_id}/{target.name}"
+                save_projects(strict=True)
+        except BaseException:
+            try:
+                if had_previous:
+                    previous.replace(target)
+                else:
+                    target.unlink(missing_ok=True)
+            except OSError as e:
+                logger.error(f"Could not restore the backing track of {project_id}: {e}")
+            raise
+        if had_previous:
+            previous.unlink(missing_ok=True)
         return proj["instrumental_url"]
 
 
@@ -103,6 +140,7 @@ async def upload_background(file: UploadFile = File(...)):
             status_code=400,
             detail=f"Unsupported image format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_BACKGROUND_EXTS))}",
         )
+    await run_in_threadpool(ensure_free_space)
 
     safe_name = sanitize_upload_filename(file.filename, default_stem="bg.jpg")
     bg_id = f"{uuid.uuid4().hex[:8]}_{safe_name}"
@@ -163,6 +201,7 @@ async def upload_audio_track(
             status_code=400,
             detail=f"Unsupported audio format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}",
         )
+    await run_in_threadpool(ensure_free_space)
 
     project_id = f"local_{uuid.uuid4().hex[:8]}"
     clean_stem = Path(

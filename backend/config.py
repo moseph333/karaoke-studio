@@ -236,6 +236,20 @@ except (ValueError, TypeError):
     MAX_CONCURRENT_JOBS = 2
 
 
+def _min_free_mb(raw: str | None) -> int:
+    """DISK_MIN_FREE_MB from its setting: whole MB, at least 0; unset or unreadable is 1024."""
+    try:
+        return max(0, int((raw or "").strip()))
+    except ValueError:
+        return 1024
+
+
+# Free space (MB) to keep on the data folder's disk. Below it, new songs, uploads, renders and
+# re-separations are refused with HTTP 507; edits to existing songs are never blocked. 0 turns
+# the check off.
+DISK_MIN_FREE_MB = _min_free_mb(os.getenv("DISK_MIN_FREE_MB"))
+
+
 # Allowed Origins for CORS (with support for comma-separated ALLOWED_ORIGINS env var)
 raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
 if raw_origins:

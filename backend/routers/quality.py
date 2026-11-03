@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from backend import realignment
 from backend.background_jobs import run_job
-from backend.project_store import PROJECTS_LOCK, find_project, save_projects
+from backend.project_store import PROJECTS_LOCK, ensure_free_space, find_project, save_projects
 from backend.reseparation import (
     cancel_key,
     conflict_reason,
@@ -53,6 +53,8 @@ def reseparate(project_id: str, req: ReseparateRequest, bg_tasks: BackgroundTask
                 status_code=400,
                 detail="The original song audio is missing, so the stems cannot be re-made",
             )
+        # After the 404, 409 and 400 checks, which still answer first on a low disk
+        ensure_free_space()
         job = create_job(proj, req.quality, req.realign_lyrics, req.redetect_chords)
         main_mod.active_cancellations[cancel_key(pid)] = threading.Event()
         save_projects()

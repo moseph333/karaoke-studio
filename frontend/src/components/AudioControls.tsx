@@ -12,7 +12,7 @@
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
-import { apiFetch } from '../api';
+import { apiFetch, readApiError } from '../api';
 import { useToast } from '../hooks/useToast';
 import { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY } from '../utils/volumeStorage';
 import { parseMediaError, type AudioPlaybackError } from '../utils/audioErrors';
@@ -242,7 +242,11 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
         method: 'POST',
         body: formData,
       });
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        // The server's detail says why, such as a rejected file, a busy song or a full disk
+        toast.error(await readApiError(res, 'Could not upload instrumental file.'));
+        return;
+      }
       const data = await res.json();
       if (onCustomInstrumentalUploaded && data.instrumental_url) {
         onCustomInstrumentalUploaded(data.instrumental_url);

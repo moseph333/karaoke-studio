@@ -56,7 +56,10 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
           ...(separationQuality ? { separation_quality: separationQuality } : {}),
         }),
       });
-      if (!res.ok) throw new Error('Failed to initiate processing');
+      if (!res.ok) {
+        // The server's detail says why, such as a disk that is almost full (507)
+        throw new Error(await readApiError(res, 'Failed to initiate processing'));
+      }
       const data = await res.json();
       setProject({
         id: data.project_id,

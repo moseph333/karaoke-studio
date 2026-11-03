@@ -1,4 +1,10 @@
-"""Thread-safe atomic project persistence, state management, lookup helpers, and filesystem media artifact cleanup."""
+"""Thread-safe atomic project persistence, state management, lookup helpers, and filesystem media artifact cleanup.
+
+A full disk fails loudly where someone is waiting on the answer: request handlers that report an
+edit as saved use a strict save (HTTP 507 when the disk refuses the write) and roll the edit back
+in memory, and ensure_free_space refuses new songs, uploads, renders and re-separations once the
+data folder's disk drops below DISK_MIN_FREE_MB. Background and progress saves stay soft: they
+log the failure and keep the newest state in memory for the next write."""
 
 import json
 import logging
@@ -7,11 +13,14 @@ import shutil
 import threading
 import time
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
 
+from backend import config
 from backend.config import DATA_DIR, DOWNLOADS_DIR, OUTPUT_DIR, STEMS_DIR
 
 logger = logging.getLogger("karaoke_backend")
@@ -27,8 +36,18 @@ PROGRESS_SAVE_INTERVAL_SEC = 1.0
 # The backup is a recovery copy for a corrupted store, renewed at most this often
 BACKUP_REFRESH_SEC = 60.0
 
-# time.monotonic() of the last successful write
+# time.monotonic() of the last write attempt, successful or not
 _last_save_at = 0.0
+
+# What a strict save answers when the disk refuses the write (HTTP 507)
+SAVE_FAILED_DETAIL = (
+    "The server could not write this change to its disk, which may be full, so it was not "
+    "saved. Free up space (delete songs you no longer need), then try again."
+)
+# What a strict save answers when the write failed for any other reason (HTTP 500)
+SAVE_ERROR_DETAIL = "The server could not save this change."
+
+_MISSING = object()
 
 
 def load_projects() -> dict[str, dict[str, Any]]:
@@ -69,7 +88,14 @@ def _backup_is_stale(backup_file: Path) -> bool:
         return True  # no backup yet
 
 
-def save_projects():
+def save_projects(*, strict: bool = False) -> bool:
+    """Writes every project to projects.json atomically and returns whether it was written.
+
+    A soft save (the default, for background jobs and progress) logs a failed write and returns
+    False: memory keeps the newest state and the next save writes it out. A request handler
+    that reports an edit as saved passes strict=True, so a failed write becomes an error
+    response instead: 507 when the disk refused it (OSError, usually a full disk), 500
+    otherwise. Make the edit inside restore_on_failed_save so memory still matches the disk."""
     global _last_save_at
     import backend.main as main_mod
 
@@ -82,7 +108,8 @@ def save_projects():
         try:
             # Deduplicate aliased keys
             unique_projects: dict[str, Any] = {}
-            for k, v in projs.items():
+            # A snapshot: a project added meanwhile must not end the loop with a RuntimeError
+            for k, v in list(projs.items()):
                 pid = v.get("id", k)
                 if pid not in unique_projects:
                     unique_projects[pid] = v
@@ -112,6 +139,7 @@ def save_projects():
             # Atomic swap
             os.replace(temp_file, store_file)
             _last_save_at = time.monotonic()
+            return True
         except Exception as e:
             logger.error(f"Failed to persist projects.json atomically: {e}")
             if "temp_file" in locals() and temp_file.exists():
@@ -119,6 +147,65 @@ def save_projects():
                     temp_file.unlink()
                 except Exception:
                     pass
+            # Counted as a write: on a full disk, throttled progress saves then retry about
+            # once a second instead of on every progress tick of every running job
+            _last_save_at = time.monotonic()
+            if strict:
+                if isinstance(e, OSError):
+                    raise HTTPException(status_code=507, detail=SAVE_FAILED_DETAIL) from e
+                raise HTTPException(status_code=500, detail=SAVE_ERROR_DETAIL) from e
+            return False
+
+
+@contextmanager
+def restore_on_failed_save(proj: dict[str, Any], keys: tuple[str, ...]) -> Iterator[None]:
+    """Puts these fields of proj back as they were when the block raises, typically because a
+    strict save failed. Memory then still matches projects.json, so a reload or another device
+    does not show an edit that was never written and that the next restart would lose.
+
+    Only a shallow copy is kept, so the block must assign these keys, not change their values
+    in place. Use it with PROJECTS_LOCK held."""
+    before = {key: proj.get(key, _MISSING) for key in keys}
+    try:
+        yield
+    except BaseException:
+        for key, value in before.items():
+            if value is _MISSING:
+                proj.pop(key, None)
+            else:
+                proj[key] = value
+        raise
+
+
+def ensure_free_space() -> None:
+    """Refuses new work with HTTP 507 when the data folder's disk has less than
+    DISK_MIN_FREE_MB free (0 turns the check off).
+
+    Called before a new song, an upload, a render or a re-separation starts writing media;
+    edits to existing songs are never blocked. When the free space cannot be read, the
+    request goes through."""
+    min_free_mb = config.DISK_MIN_FREE_MB
+    if min_free_mb <= 0:
+        return
+    import backend.main as main_mod
+
+    data_dir = getattr(main_mod, "DATA_DIR", DATA_DIR)
+    try:
+        free_mb = shutil.disk_usage(data_dir).free // (1024 * 1024)
+    except OSError as e:
+        logger.warning(f"Could not read the free disk space of {data_dir}: {e}")
+        return
+    if free_mb < min_free_mb:
+        logger.warning(
+            f"Refusing new work: {free_mb} MB free on the data disk, {min_free_mb} MB required"
+        )
+        raise HTTPException(
+            status_code=507,
+            detail=(
+                f"The server is almost out of disk space ({free_mb} MB free, {min_free_mb} MB "
+                "required). Delete songs you no longer need, then try again."
+            ),
+        )
 
 
 def save_projects_throttled():
