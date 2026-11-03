@@ -63,6 +63,11 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(config, "DISK_MIN_FREE_MB", 0)
     # The mix cache keeps its default size whatever a developer's .env says
     monkeypatch.setattr(config, "MIX_CACHE_PER_SONG", 6)
+    # So do the login limits and the proxy hops the rate limit trusts: one proxy in front,
+    # five failures a minute (backend.auth reads them from config on every call)
+    monkeypatch.setattr(config, "FORWARDED_TRUSTED_HOPS", 1)
+    monkeypatch.setattr(config, "LOGIN_RATE_LIMIT_MAX_ATTEMPTS", 5)
+    monkeypatch.setattr(config, "LOGIN_RATE_LIMIT_WINDOW_SECONDS", 60.0)
 
     # Hermetic ML settings: the bundled engines only, no model downloads, models under tmp
     monkeypatch.setenv("SEPARATION_QUALITY", "fast")
