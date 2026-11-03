@@ -37,9 +37,11 @@ from backend.project_analysis import (
 from backend.project_store import (
     PROJECTS_LOCK,
     cleanup_project_disk_artifacts,
+    ensure_free_space,
     find_project,
     get_project_or_404,
     merge_disk_projects,
+    restore_on_failed_save,
     save_projects,
 )
 from backend.reseparation import cancel_key as reseparation_cancel_key
@@ -151,6 +153,9 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
                         f"Project {p_id} was left in state '{p.get('status')}' from a previous server session. Resuming pipeline."
                     )
 
+    # A song that is already ready or running costs no disk; a new intake downloads and
+    # separates it
+    ensure_free_space()
     project_id = video_id if video_id else str(uuid.uuid4())[:8]
     proj_data = {
         "id": project_id,
@@ -377,8 +382,9 @@ def update_project_chords_endpoint(project_id: str, req: ChordsUpdateRequest):
 
     with PROJECTS_LOCK:
         target_proj = get_project_or_404(project_id)
-        target_proj["chords"] = serialized_chords
-        save_projects()
+        with restore_on_failed_save(target_proj, ("chords",)):
+            target_proj["chords"] = serialized_chords
+            save_projects(strict=True)
 
     return {
         "status": "ok",
@@ -441,13 +447,14 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
     with PROJECTS_LOCK:
         # Looked up again under the lock, in case the song was deleted meanwhile
         proj = get_project_or_404(project_id)
-        if new_title is not None:
-            proj["title"] = new_title
-        if new_artist is not None:
-            proj["artist"] = new_artist
+        with restore_on_failed_save(proj, ("title", "artist", "youtube_package")):
+            if new_title is not None:
+                proj["title"] = new_title
+            if new_artist is not None:
+                proj["artist"] = new_artist
 
-        refresh_youtube_package(proj)
-        save_projects()
+            refresh_youtube_package(proj)
+            save_projects(strict=True)
         # A snapshot: jobs keep updating the stored project while the response is serialised
         return copy.deepcopy(proj)
 
@@ -456,17 +463,20 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
 def update_lyrics(project_id: str, req: LyricsUpdateRequest):
     with PROJECTS_LOCK:
         proj = get_project_or_404(project_id)
-        proj["lines"] = [line.model_dump() for line in req.lines]
+        # A failed save answers an error and puts the old lines back in memory, so a reload
+        # shows what projects.json holds instead of an edit the next restart would lose
+        with restore_on_failed_save(proj, ("lines", "duration", "youtube_package")):
+            proj["lines"] = [line.model_dump() for line in req.lines]
 
-        # Recalculate duration if lines expand beyond existing duration
-        if req.lines:
-            max_end = max(line.end_time for line in req.lines)
-            if max_end > proj.get("duration", 0.0):
-                proj["duration"] = max_end
+            # Recalculate duration if lines expand beyond existing duration
+            if req.lines:
+                max_end = max(line.end_time for line in req.lines)
+                if max_end > proj.get("duration", 0.0):
+                    proj["duration"] = max_end
 
-        # The YouTube kit's chapters follow the lyrics
-        refresh_youtube_package(proj)
-        save_projects()
+            # The YouTube kit's chapters follow the lyrics
+            refresh_youtube_package(proj)
+            save_projects(strict=True)
     return {"status": "ok", "lines_count": len(req.lines)}
 
 
@@ -661,10 +671,13 @@ def mix_audio(project_id: str, req: MixRequest):
         # Looked up again: a song deleted during the mix gets a 404, not a write to a dict
         # that is no longer stored
         proj = get_project_or_404(project_id)
-        proj.update(fields)
-        proj["semitones"] = req.semitones
-        proj["guide_volume"] = req.guide_volume
-        save_projects()
+        with restore_on_failed_save(
+            proj, ("master_audio_path", "master_audio_url", "semitones", "guide_volume")
+        ):
+            proj.update(fields)
+            proj["semitones"] = req.semitones
+            proj["guide_volume"] = req.guide_volume
+            save_projects(strict=True)
 
     return {"status": "ok", "master_audio_url": fields["master_audio_url"]}
 
@@ -776,6 +789,9 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
                 status_code=400,
                 detail="Cannot render video: instrumental stem not ready",
             )
+        # Before the event is registered: a refused render must not leave one behind, or
+        # every later render would answer 409
+        ensure_free_space()
         logger.info(
             f"Queuing video render for project {project_id} (aspect_ratio={req.aspect_ratio}, semitones={req.semitones})"
         )
@@ -844,6 +860,27 @@ def cancel_render(project_id: str):
     return {"status": "ok"}
 
 
+# What a delete answers when even its retried save fails: unlike an edit, half of it happened
+DELETE_SAVE_FAILED_DETAIL = (
+    "The song's files were removed, but the library could not be updated because the "
+    "server's disk is full. Free up space, then delete it again."
+)
+
+
+def _remove_stored_song(projs: dict, pid: str, tid: str | None) -> None:
+    """Removes a song from the store, under its id and any alias. Call with PROJECTS_LOCK
+    held."""
+    keys_to_remove = {
+        k
+        for k, v in projs.items()
+        if k == pid
+        or (isinstance(v, dict) and v.get("id") == pid)
+        or (tid and k == tid and isinstance(v, dict) and v.get("id") == pid)
+    }
+    for k in keys_to_remove:
+        projs.pop(k, None)
+
+
 @router.delete("/api/project/{project_id}")
 def delete_project(project_id: str):
     import backend.main as main_mod
@@ -873,20 +910,25 @@ def delete_project(project_id: str):
 
     # 2. Atomic state removal from projects and disk store under PROJECTS_LOCK
     with PROJECTS_LOCK:
-        keys_to_remove = {
-            k
-            for k, v in main_mod.projects.items()
-            if k == pid
-            or (isinstance(v, dict) and v.get("id") == pid)
-            or (tid and k == tid and isinstance(v, dict) and v.get("id") == pid)
-        }
-        for k in keys_to_remove:
-            main_mod.projects.pop(k, None)
-
-        save_projects()
+        _remove_stored_song(main_mod.projects, pid, tid)
+        saved = save_projects()
 
     # 3. Clean up on-disk media artifacts
     cleanup_project_disk_artifacts(pid, tid, proj)
+
+    if not saved:
+        # projects.json still lists the song (usually a full disk, which the cleanup has just
+        # made room on). A reload from disk during the cleanup may have brought it back into
+        # memory, so it is removed again before the retry; a second failure answers 507.
+        with PROJECTS_LOCK:
+            _remove_stored_song(main_mod.projects, pid, tid)
+            try:
+                save_projects(strict=True)
+            except HTTPException as e:
+                if e.status_code != 507:
+                    raise
+                # The edit message ("it was not saved") would be wrong: the files are gone
+                raise HTTPException(status_code=507, detail=DELETE_SAVE_FAILED_DETAIL) from e
 
     return {
         "status": "deleted",

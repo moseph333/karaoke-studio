@@ -58,6 +58,9 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         monkeypatch.setattr(config, "APP_PASSWORD", "sluggos")
     # The studio streams the WAV master unless a test switches the AAC preview on
     monkeypatch.setattr(config, "PREVIEW_AUDIO_FORMAT", "wav")
+    # The free-space guard is off, so results never depend on the host's disk; tests that
+    # cover it switch it on themselves
+    monkeypatch.setattr(config, "DISK_MIN_FREE_MB", 0)
 
     # Hermetic ML settings: the bundled engines only, no model downloads, models under tmp
     monkeypatch.setenv("SEPARATION_QUALITY", "fast")

@@ -749,7 +749,8 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
 
       await waitFor(() => {
         expect(onCustomBgUploaded).not.toHaveBeenCalled();
-        expect(screen.getByText(/Could not upload custom background file\./i)).toBeInTheDocument();
+        // The server's detail, not a generic message
+        expect(screen.getByText('Unsupported format')).toBeInTheDocument();
       });
     });
 
@@ -1105,7 +1106,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       fireEvent.change(fileInput, { target: { files: [file] } });
 
       await waitFor(() => {
-        expect(screen.getByText(/Could not upload instrumental file/i)).toBeInTheDocument();
+        expect(screen.getByText('Audio header corrupt')).toBeInTheDocument();
       });
     });
   });
