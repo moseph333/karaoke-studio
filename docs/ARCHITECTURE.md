@@ -119,7 +119,7 @@ Stem, master and rendered video URLs carry a `?v=` version after a re-separation
 | `POST /api/search` | YouTube search |
 | `POST /api/process` | start the YouTube pipeline (`separation_quality` optional) |
 | `POST /api/upload-track` (alias `/api/upload-audio`) | start the upload pipeline (form field `separation_quality`) |
-| `POST /api/upload-instrumental`, `POST /api/upload-background` | custom backing track, stage backdrop |
+| `POST /api/upload-instrumental`, `POST /api/upload-background` | custom backing track (header-checked; 409 while the song is still processing), stage backdrop |
 | `GET /api/projects`, `GET /api/project/{id}` | library, one song (settles jobs left by a restart) |
 | `PATCH /api/project/{id}`, `POST /api/project/{id}/metadata` | title and artist |
 | `POST /api/project/{id}/lyrics` | save edited lines |

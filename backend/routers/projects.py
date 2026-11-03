@@ -166,12 +166,14 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
         proj_data["track_id"] = video_id
     if req.separation_quality:
         proj_data["separation_quality"] = req.separation_quality
-    cancel_event = threading.Event()
-    main_mod.active_cancellations[project_id] = cancel_event
-    if video_id and video_id != project_id:
-        main_mod.active_cancellations[video_id] = cancel_event
-    main_mod.projects[project_id] = proj_data
-    save_projects()
+    # Under the lock: a save or a project list running meanwhile iterates the store
+    with PROJECTS_LOCK:
+        cancel_event = threading.Event()
+        main_mod.active_cancellations[project_id] = cancel_event
+        if video_id and video_id != project_id:
+            main_mod.active_cancellations[video_id] = cancel_event
+        main_mod.projects[project_id] = proj_data
+        save_projects()
     bg_tasks.add_task(run_job, main_mod.run_pipeline, project_id, req.url_or_id, req.custom_lyrics)
     return {"project_id": project_id, "status": "queued"}
 
@@ -437,6 +439,8 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
         raise HTTPException(status_code=400, detail="Artist cannot be empty")
 
     with PROJECTS_LOCK:
+        # Looked up again under the lock, in case the song was deleted meanwhile
+        proj = get_project_or_404(project_id)
         if new_title is not None:
             proj["title"] = new_title
         if new_artist is not None:
@@ -444,8 +448,8 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
 
         refresh_youtube_package(proj)
         save_projects()
-
-    return proj
+        # A snapshot: jobs keep updating the stored project while the response is serialised
+        return copy.deepcopy(proj)
 
 
 @router.post("/api/project/{project_id}/lyrics")
@@ -651,12 +655,18 @@ def mix_audio(project_id: str, req: MixRequest):
             output_filename=output_filename,
         )
 
-    proj.update(master_fields(master_path))
-    proj["semitones"] = req.semitones
-    proj["guide_volume"] = req.guide_volume
-    save_projects()
+    # Outside the lock: making the streamed copy can run an AAC encode
+    fields = master_fields(master_path)
+    with PROJECTS_LOCK:
+        # Looked up again: a song deleted during the mix gets a 404, not a write to a dict
+        # that is no longer stored
+        proj = get_project_or_404(project_id)
+        proj.update(fields)
+        proj["semitones"] = req.semitones
+        proj["guide_volume"] = req.guide_volume
+        save_projects()
 
-    return {"status": "ok", "master_audio_url": proj["master_audio_url"]}
+    return {"status": "ok", "master_audio_url": fields["master_audio_url"]}
 
 
 @router.get("/api/project/{project_id}/waveform")
@@ -744,33 +754,39 @@ def get_project_backdrop(
 def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks):
     import backend.main as main_mod
 
-    proj = get_project_or_404(project_id)
     render_key = f"{project_id}_render"
-    # A second request (a double click, another tab) would run a second FFmpeg encode into
-    # the same files. run_video_render removes this event when it ends; a set one is a
-    # cancelled render winding down.
-    running = main_mod.active_cancellations.get(render_key)
-    if running is not None and not running.is_set():
-        raise HTTPException(status_code=409, detail="A video is already rendering for this song")
-    inst_path = proj.get("instrumental_path")
-    if not inst_path or not os.path.isfile(inst_path) or os.path.getsize(inst_path) == 0:
-        logger.warning(
-            f"Pre-flight render rejected for project {project_id}: instrumental stem missing or empty ({inst_path})"
+    # Checked and queued in one locked step: two requests at once (a double click, another
+    # tab) both passed the check before either registered its render, and ran two FFmpeg
+    # encodes into the same files
+    with PROJECTS_LOCK:
+        proj = get_project_or_404(project_id)
+        # run_video_render removes this event when it ends; a set one is a cancelled render
+        # winding down
+        running = main_mod.active_cancellations.get(render_key)
+        if running is not None and not running.is_set():
+            raise HTTPException(
+                status_code=409, detail="A video is already rendering for this song"
+            )
+        inst_path = proj.get("instrumental_path")
+        if not inst_path or not os.path.isfile(inst_path) or os.path.getsize(inst_path) == 0:
+            logger.warning(
+                f"Pre-flight render rejected for project {project_id}: instrumental stem missing or empty ({inst_path})"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot render video: instrumental stem not ready",
+            )
+        logger.info(
+            f"Queuing video render for project {project_id} (aspect_ratio={req.aspect_ratio}, semitones={req.semitones})"
         )
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot render video: instrumental stem not ready",
-        )
-    logger.info(
-        f"Queuing video render for project {project_id} (aspect_ratio={req.aspect_ratio}, semitones={req.semitones})"
-    )
-    proj["render_status"] = "queued"
-    main_mod.active_cancellations.setdefault(render_key, threading.Event())
-    proj["render_progress"] = 5
-    proj["render_detail"] = "Queueing render job..."
-    proj["render_eta_seconds"] = 45
-    proj["render_heartbeat"] = int(time.time() * 1000)
-    save_projects()
+        # The event exists whenever "queued" can be seen
+        main_mod.active_cancellations.setdefault(render_key, threading.Event())
+        proj["render_status"] = "queued"
+        proj["render_progress"] = 5
+        proj["render_detail"] = "Queueing render job..."
+        proj["render_eta_seconds"] = 45
+        proj["render_heartbeat"] = int(time.time() * 1000)
+        save_projects()
     bg_tasks.add_task(run_job, main_mod.run_video_render, project_id, req)
 
     return {"status": "queued"}
@@ -791,16 +807,18 @@ def warm_up_render(bg_tasks: BackgroundTasks):
 def cancel_project(project_id: str):
     import backend.main as main_mod
 
+    # The signal goes out at once; the status is written under the lock
     main_mod.active_cancellations.setdefault(project_id, threading.Event()).set()
-    proj = find_project(project_id)
-    if proj:
-        track_id = proj.get("track_id")
-        if track_id and track_id != project_id:
-            main_mod.active_cancellations.setdefault(track_id, threading.Event()).set()
-        proj["status"] = "cancelled"
-        proj["status_detail"] = "Processing cancelled by user"
-        proj["progress"] = 0
-        save_projects()
+    with PROJECTS_LOCK:
+        proj = find_project(project_id)
+        if proj:
+            track_id = proj.get("track_id")
+            if track_id and track_id != project_id:
+                main_mod.active_cancellations.setdefault(track_id, threading.Event()).set()
+            proj["status"] = "cancelled"
+            proj["status_detail"] = "Processing cancelled by user"
+            proj["progress"] = 0
+            save_projects()
     return {"status": "ok"}
 
 
@@ -809,16 +827,20 @@ def cancel_render(project_id: str):
     import backend.main as main_mod
 
     render_key = f"{project_id}_render"
+    # The signal goes out at once; the status is written under the lock
     main_mod.active_cancellations.setdefault(render_key, threading.Event()).set()
-    proj = find_project(project_id)
-    if proj:
-        track_id = proj.get("track_id")
-        if track_id and track_id != project_id:
-            main_mod.active_cancellations.setdefault(f"{track_id}_render", threading.Event()).set()
-        proj["render_status"] = "idle"
-        proj["render_detail"] = "Rendering cancelled by user"
-        proj["render_progress"] = 0
-        save_projects()
+    with PROJECTS_LOCK:
+        proj = find_project(project_id)
+        if proj:
+            track_id = proj.get("track_id")
+            if track_id and track_id != project_id:
+                main_mod.active_cancellations.setdefault(
+                    f"{track_id}_render", threading.Event()
+                ).set()
+            proj["render_status"] = "idle"
+            proj["render_detail"] = "Rendering cancelled by user"
+            proj["render_progress"] = 0
+            save_projects()
     return {"status": "ok"}
 
 

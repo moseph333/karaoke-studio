@@ -53,12 +53,13 @@ def run_video_render(project_id: str, req: RenderRequest):
 
     # Fast pre-acquire check
     if cancel_event.is_set():
-        proj = find_project(project_id)
-        if proj:
-            proj["render_status"] = "idle"
-            proj["render_detail"] = "Rendering cancelled"
-            proj["render_progress"] = 0
-            save_projects()
+        with PROJECTS_LOCK:
+            proj = find_project(project_id)
+            if proj:
+                proj["render_status"] = "idle"
+                proj["render_detail"] = "Rendering cancelled"
+                proj["render_progress"] = 0
+                save_projects()
         main_mod.active_cancellations.pop(render_key, None)
         return
 
@@ -73,12 +74,13 @@ def run_video_render(project_id: str, req: RenderRequest):
 
         if cancel_event.is_set():
             logger.info(f"Render for {project_id} was cancelled while queued")
-            proj = find_project(project_id)
-            if proj:
-                proj["render_status"] = "idle"
-                proj["render_detail"] = "Rendering cancelled"
-                proj["render_progress"] = 0
-                save_projects()
+            with PROJECTS_LOCK:
+                proj = find_project(project_id)
+                if proj:
+                    proj["render_status"] = "idle"
+                    proj["render_detail"] = "Rendering cancelled"
+                    proj["render_progress"] = 0
+                    save_projects()
             return
 
         if find_project(project_id) is None:
@@ -179,18 +181,19 @@ def run_video_render(project_id: str, req: RenderRequest):
 
     except Exception as e:
         logger.error(f"Render failed for {project_id}: {e}", exc_info=True)
-        proj = find_project(project_id)
-        if proj is not None:
-            if cancel_event.is_set():
-                proj["render_status"] = "idle"
-                proj["render_detail"] = "Rendering cancelled"
-                proj["render_progress"] = 0
-            else:
-                proj["render_status"] = "error"
-                proj["render_error"] = str(e)
-                proj["render_detail"] = f"Render error: {e}"
-            save_projects()
-        else:
+        with PROJECTS_LOCK:
+            proj = find_project(project_id)
+            if proj is not None:
+                if cancel_event.is_set():
+                    proj["render_status"] = "idle"
+                    proj["render_detail"] = "Rendering cancelled"
+                    proj["render_progress"] = 0
+                else:
+                    proj["render_status"] = "error"
+                    proj["render_error"] = str(e)
+                    proj["render_detail"] = f"Render error: {e}"
+                save_projects()
+        if proj is None:
             logger.info(
                 f"Project {project_id} was deleted during rendering; skipping status update."
             )

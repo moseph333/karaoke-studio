@@ -378,16 +378,17 @@ def test_stem_separation_user_instrumental_upload_wav(client, project_factory, s
     assert Path(updated_proj["instrumental_path"]).exists()
 
 
-def test_stem_separation_user_instrumental_upload_mp3(client, project_factory, sample_wav):
+def test_stem_separation_user_instrumental_upload_mp3(client, project_factory):
     """Users can upload an external MP3 backing track."""
     _proj = project_factory(project_id="uploadmp3_1", with_stems=False)
 
-    with open(sample_wav, "rb") as f:
-        response = client.post(
-            "/api/upload-instrumental",
-            data={"project_id": "uploadmp3_1"},
-            files={"file": ("my_backing.mp3", f, "audio/mpeg")},
-        )
+    # The upload's header is checked, so the payload starts like an MP3 (an ID3 tag)
+    mp3 = io.BytesIO(b"ID3\x04" + bytes(2048))
+    response = client.post(
+        "/api/upload-instrumental",
+        data={"project_id": "uploadmp3_1"},
+        files={"file": ("my_backing.mp3", mp3, "audio/mpeg")},
+    )
     assert response.status_code == 200
     assert "custom_inst.mp3" in response.json()["instrumental_url"]
 
