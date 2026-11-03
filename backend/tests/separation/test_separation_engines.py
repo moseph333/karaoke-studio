@@ -537,9 +537,14 @@ def test_balanced_runs_the_roformer_worker(tmp_path, engines):
     assert str(PROJECT_ROOT) in worker_path
 
     target = tmp_path / "stems" / "trk"
-    assert sorted(p.name for p in target.iterdir()) == ["instrumental.wav", "vocals.wav"]
+    assert sorted(p.name for p in target.iterdir()) == [
+        "instrumental.wav",
+        "separation.json",
+        "vocals.wav",
+    ]
     assert (target / "vocals.wav").read_bytes().startswith(b"RIFFR")
     info = result["separation"]
+    assert json.loads((target / "separation.json").read_text()) == info
     assert {k: info[k] for k in ("preset", "engine", "models", "requested", "fallback_reason")} == {
         "preset": "balanced",
         "engine": "roformer",
@@ -581,7 +586,11 @@ def test_failed_roformer_falls_back_to_demucs_without_leaking_partial_stems(
     assert _engine_modules(engines) == ["backend.workers.roformer_worker", "demucs"]
     target = tmp_path / "stems" / "trk"
     assert (target / "vocals.wav").read_bytes().startswith(b"RIFFD")
-    assert sorted(p.name for p in target.iterdir()) == ["instrumental.wav", "vocals.wav"]
+    assert sorted(p.name for p in target.iterdir()) == [
+        "instrumental.wav",
+        "separation.json",
+        "vocals.wav",
+    ]
     info = result["separation"]
     assert (info["preset"], info["engine"], info["requested"]) == ("fast", "demucs", "balanced")
     assert info["fallback_reason"] == (
@@ -842,7 +851,11 @@ def test_cloud_gpu_runs_balanced_with_no_local_worker(tmp_path, cloud, engines):
     assert (job["models"], job["audio"]) == ([BALANCED_MODEL], "song.wav")
     assert (job["timeout_s"], job["stall_s"], job["queue_s"]) == (7200.0, 900.0, 300.0)
     target = tmp_path / "stems" / "trk"
-    assert sorted(p.name for p in target.iterdir()) == ["instrumental.wav", "vocals.wav"]
+    assert sorted(p.name for p in target.iterdir()) == [
+        "instrumental.wav",
+        "separation.json",
+        "vocals.wav",
+    ]
     vocals, _ = sf.read(str(target / "vocals.wav"))
     assert vocals.mean() == pytest.approx(0.5, abs=1e-3)
     info = result["separation"]
@@ -891,3 +904,159 @@ def test_cancelling_a_cloud_job_does_not_fall_back(tmp_path, cloud, engines):
         _separate(tmp_path, "balanced")
     assert engines.calls == []
     assert not any(p.is_dir() for p in (tmp_path / "stems" / "trk").iterdir())
+
+
+# ==============================================================================
+# Cached stems and their separation.json record
+# ==============================================================================
+
+STEM_FILES = ["instrumental.wav", "separation.json", "vocals.wav"]
+
+
+def _stem_files(target: Path) -> dict[str, tuple[int, int]]:
+    """Each file's inode and mtime, which change whenever the file is replaced."""
+    return {p.name: (p.stat().st_ino, p.stat().st_mtime_ns) for p in sorted(target.iterdir())}
+
+
+def test_presets_rank_by_quality_and_bad_records_read_as_none(tmp_path):
+    ranks = [presets.preset_rank(p) for p in ("fast", "balanced", " Best ", "custom", None)]
+    assert ranks == [0, 1, 2, 0, 0]
+
+    stems = tmp_path / "stems"
+    assert separator_mod.read_provenance(stems) is None  # no folder at all
+    stems.mkdir()
+    record = stems / "separation.json"
+    record.write_text("{not json")
+    assert separator_mod.read_provenance(stems) is None
+    record.write_text('["best"]')
+    assert separator_mod.read_provenance(stems) is None
+    record.write_text('{"preset": "best"}')
+    assert separator_mod.read_provenance(stems) == {"preset": "best"}
+
+    separator_mod.write_provenance(stems, {"preset": "fast", "fallback_reason": None})
+    assert separator_mod.read_provenance(stems) == {"preset": "fast", "fallback_reason": None}
+    assert sorted(p.name for p in stems.iterdir()) == ["separation.json"]
+    separator_mod.write_provenance(stems, None)
+    separator_mod.write_provenance(stems, None)  # nothing left to remove is fine
+    assert list(stems.iterdir()) == []
+
+
+def test_cached_stems_serve_requests_at_or_below_their_quality(tmp_path, engines):
+    made, _ = _separate(tmp_path, "best")
+    target = tmp_path / "stems" / "trk"
+    record = separator_mod.read_provenance(target)
+    assert record == made["separation"]
+    before = _stem_files(target)
+
+    for request in ("balanced", "fast", "best"):
+        result, reports = _separate(tmp_path, request)
+        assert result["separation"] == {**record, "requested": request, "fallback_reason": None}
+        assert reports == [(100.0, "Found cached vocal stems", 0)]
+
+    assert _engine_modules(engines) == ["backend.workers.roformer_worker"]
+    assert _stem_files(target) == before
+    assert separator_mod.read_provenance(target) == record
+
+
+def test_cached_stems_below_the_requested_quality_are_remade(tmp_path, engines):
+    _separate(tmp_path, "fast")
+    target = tmp_path / "stems" / "trk"
+    assert (target / "vocals.wav").read_bytes().startswith(b"RIFFD")
+    assert separator_mod.read_provenance(target)["preset"] == "fast"
+
+    result, reports = _separate(tmp_path, "best")
+
+    assert _engine_modules(engines) == ["demucs", "backend.workers.roformer_worker"]
+    assert reports[0] == (5.0, "Starting Best · RoFormer ensemble…", 640)
+    assert (target / "vocals.wav").read_bytes().startswith(b"RIFFR")
+    assert sorted(p.name for p in target.iterdir()) == STEM_FILES
+    info = result["separation"]
+    assert (info["preset"], info["requested"], info["fallback_reason"]) == ("best", "best", None)
+    assert separator_mod.read_provenance(target) == info
+
+
+def test_a_failed_upgrade_keeps_the_cached_stems_instead_of_falling_back(
+    tmp_path, engines, monkeypatch
+):
+    _separate(tmp_path, "balanced")
+    target = tmp_path / "stems" / "trk"
+    record = separator_mod.read_provenance(target)
+    before = _stem_files(target)
+    engines.calls.clear()
+
+    monkeypatch.setenv("FAKE_ROFORMER_MODE", "fail")
+    result, reports = _separate(tmp_path, "best")
+
+    # Balanced is what the cache already holds and Fast is worse, so neither runs
+    assert _engine_modules(engines) == ["backend.workers.roformer_worker"]
+    assert _stem_files(target) == before  # the failed run's partial vocals never land
+    assert sorted(p.name for p in target.iterdir()) == STEM_FILES
+    assert separator_mod.read_provenance(target) == record
+    info = result["separation"]
+    assert (info["preset"], info["requested"]) == ("balanced", "best")
+    assert info["separated_at"] == record["separated_at"]
+    assert info["fallback_reason"].startswith("Best · RoFormer ensemble: RoFormer separation")
+    assert result["vocals_path"] == str(target / "vocals.wav")
+    assert reports[-1] == (100.0, "Kept the earlier stems", 0)
+    assert all(_stage_words_ok(detail) for _, detail, _ in reports)
+
+
+def test_an_unreachable_cloud_gpu_keeps_cached_stems(tmp_path, cloud, engines):
+    _separate(tmp_path, "fast")
+    target = tmp_path / "stems" / "trk"
+    record = separator_mod.read_provenance(target)
+    before = _stem_files(target)
+
+    cloud.mode = "unavailable"
+    result, reports = _separate(tmp_path, "best")
+
+    assert len(cloud.jobs) == 1  # Balanced is not sent to the unreachable GPU again
+    assert _engine_modules(engines) == ["demucs"]  # only the first run's
+    assert _stem_files(target) == before
+    assert separator_mod.read_provenance(target) == record
+    info = result["separation"]
+    assert (info["preset"], info["requested"]) == ("fast", "best")
+    assert "Best · RoFormer ensemble: no cloud GPU started the job" in info["fallback_reason"]
+    assert (
+        "Balanced · Mel-Band RoFormer: skipped, the cloud GPU is unavailable"
+        in info["fallback_reason"]
+    )
+    assert reports[-1] == (100.0, "Kept the earlier stems", 0)
+
+
+def test_stems_without_a_record_count_as_fast(tmp_path, engines, monkeypatch):
+    # Stems made before records were kept
+    target = tmp_path / "stems" / "trk"
+    _write_wav(target / "vocals.wav", 0.25)
+    _write_wav(target / "instrumental.wav", -0.25)
+    before = _stem_files(target)
+
+    result, reports = _separate(tmp_path, "fast")
+    assert "separation" not in result
+    assert reports == [(100.0, "Found cached vocal stems", 0)]
+    assert engines.calls == []
+
+    monkeypatch.setenv("FAKE_ROFORMER_MODE", "fail")
+    result, reports = _separate(tmp_path, "balanced")
+    assert _engine_modules(engines) == ["backend.workers.roformer_worker"]  # never Demucs
+    assert "separation" not in result
+    assert reports[-1] == (100.0, "Kept the earlier stems", 0)
+    assert _stem_files(target) == before  # still no record either
+
+    monkeypatch.setenv("FAKE_ROFORMER_MODE", "ok")
+    result, _ = _separate(tmp_path, "balanced")
+    assert (target / "vocals.wav").read_bytes().startswith(b"RIFFR")
+    assert separator_mod.read_provenance(target) == result["separation"]
+    assert result["separation"]["preset"] == "balanced"
+
+
+def test_a_failed_record_write_does_not_fail_the_separation(tmp_path, engines, monkeypatch):
+    def disk_full(*args, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(separator_mod, "json", types.SimpleNamespace(dumps=disk_full))
+    result, _ = _separate(tmp_path, "balanced")
+
+    target = tmp_path / "stems" / "trk"
+    assert result["separation"]["preset"] == "balanced"
+    assert sorted(p.name for p in target.iterdir()) == ["instrumental.wav", "vocals.wav"]

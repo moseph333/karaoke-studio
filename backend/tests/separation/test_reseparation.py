@@ -13,7 +13,12 @@ import backend.main as main_mod
 from backend import reseparation
 from backend.pipeline import separate_project_stems
 from backend.services import separation_presets as presets
-from backend.services.separator import SeparationCancelled
+from backend.services.separator import (
+    AudioSeparator,
+    SeparationCancelled,
+    read_provenance,
+    write_provenance,
+)
 
 
 def _wav(path: Path, value: float = 0.1) -> Path:
@@ -164,6 +169,27 @@ def test_pipeline_uses_the_server_default_and_shares_cached_provenance(monkeypat
     assert seen == ["balanced"]
     assert main_mod.projects["new"]["separation"] == shared
     assert main_mod.projects["new"]["separation"] is not shared
+
+
+def test_reprocessing_records_the_provenance_of_reused_stems(monkeypatch):
+    stems = main_mod.STEMS_DIR / "yt1"
+    _wav(stems / "vocals.wav")
+    _wav(stems / "instrumental.wav")
+    record = {"preset": "best", "label": "Best · RoFormer ensemble", "requested": "best"}
+    write_provenance(stems, {**record, "fallback_reason": "an old reason"})
+    main_mod.projects["yt1"] = {"id": "yt1", "status": "separating", "separation_quality": "best"}
+
+    def no_engine(*args, **kwargs):
+        raise AssertionError("cached Best stems must not be separated again")
+
+    monkeypatch.setattr(AudioSeparator, "_run_plan", no_engine)
+    audio = _wav(main_mod.DOWNLOADS_DIR / "yt1.wav")
+    stems_result = separate_project_stems(
+        main_mod, "yt1", str(audio), "yt1", 60.0, lambda *a, **k: None, None
+    )
+
+    assert stems_result["vocals_path"] == str(stems / "vocals.wav")
+    assert main_mod.projects["yt1"]["separation"] == {**record, "fallback_reason": None}
 
 
 # ==============================================================================
@@ -413,11 +439,28 @@ def test_with_a_custom_instrumental_only_guide_mixes_of_the_old_stems_go(client,
     assert not with_guide.with_suffix(".m4a").exists()
 
 
+def test_reseparation_replaces_the_stems_record(client, song):
+    write_provenance(song["stems"], {"preset": "best", "label": "Best · RoFormer ensemble"})
+    assert client.post("/api/project/rs1/reseparate", json={"quality": "fast"}).status_code == 202
+
+    proj = client.get("/api/project/rs1").json()
+    assert proj["separation_job"]["status"] == "done"
+    # A downgrade too: the record describes the stems now in place, as the project does
+    assert read_provenance(song["stems"]) == {"preset": "fast", "label": "Fast · Demucs"}
+    assert read_provenance(song["stems"]) == proj["separation"]
+    assert sorted(p.name for p in song["stems"].iterdir()) == [
+        "instrumental.wav",
+        "separation.json",
+        "vocals.wav",
+    ]
+
+
 def test_failed_reseparation_leaves_the_song_as_it_was(client, song, monkeypatch):
     def broken(*args, **kwargs):
         raise RuntimeError("RoFormer separation failed (exit 5): out of ideas")
 
     monkeypatch.setattr(main_mod.separator, "separate_stems", broken)
+    write_provenance(song["stems"], {"preset": "fast", "label": "Fast · Demucs"})
     assert client.post("/api/project/rs1/reseparate", json={"quality": "best"}).status_code == 202
 
     proj = client.get("/api/project/rs1").json()
@@ -428,6 +471,7 @@ def test_failed_reseparation_leaves_the_song_as_it_was(client, song, monkeypatch
     assert proj["vocals_url"] == "/static/stems/rs1/vocals.wav"
     assert proj["separation"]["preset"] == "fast"
     assert _level(song["stems"] / "vocals.wav") == pytest.approx(0.1, abs=1e-3)
+    assert read_provenance(song["stems"]) == {"preset": "fast", "label": "Fast · Demucs"}
     assert not (main_mod.STEMS_DIR / ".staging").exists()
 
 

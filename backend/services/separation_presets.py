@@ -157,6 +157,13 @@ def normalize_preset(value: object) -> str | None:
     return clean if clean in PRESET_IDS else None
 
 
+def preset_rank(preset: object) -> int:
+    """How clean a preset's stems are: fast 0, balanced 1, best 2. Anything else (a raw
+    Demucs model's "custom", None, junk) ranks with Fast."""
+    clean = normalize_preset(preset)
+    return PRESET_IDS.index(clean) if clean else 0
+
+
 def preset_plan(preset: str) -> SeparationPlan:
     if preset == "best":
         models = best_models()

@@ -35,6 +35,7 @@ from backend.project_store import (
 from backend.realignment import lines_fingerprint
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.separation_presets import PRESET_LABELS
+from backend.services.separator import write_provenance
 
 logger = logging.getLogger("karaoke_backend")
 
@@ -237,14 +238,18 @@ def _record_failure(
 
 
 def _swap_in(project_id: str, job_id: str, result: dict, target_dir: Path, audio_id: str) -> None:
-    """Moves the staged stems over the song's stems and points the project at them."""
+    """Moves the staged stems, and their separation.json record, over the song's stems and
+    points the project at them."""
     target_dir.mkdir(parents=True, exist_ok=True)
     vocals, instrumental = target_dir / "vocals.wav", target_dir / "instrumental.wav"
+    # The old record goes first, so it never describes the new stems (even after a crash)
+    write_provenance(target_dir, None)
     os.replace(result["vocals_path"], vocals)
     os.replace(result["instrumental_path"], instrumental)
     # Dated now, not when the engine wrote them, so mixes made from the old stems are stale
     os.utime(vocals)
     os.utime(instrumental)
+    write_provenance(target_dir, result.get("separation"))
 
     version = int(time.time() * 1000)
     with PROJECTS_LOCK:

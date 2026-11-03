@@ -7,11 +7,17 @@ the overall timeout or after a long silence. When a preset cannot run, or fails,
 cheaper one is tried (best -> balanced -> fast) and the reason is recorded in the returned
 provenance.
 
+That provenance is also kept next to the stems as separation.json. Cached stems are reused
+only for requests at or below the quality they were made at (stems without a record count as
+Fast); otherwise only the better presets are tried, and if none of them works the cached
+stems are kept rather than replaced by a cheaper fallback.
+
 With SEPARATION_REMOTE set, Balanced and Best run the same worker on a cloud GPU instead
 (remote_separation) and its stderr arrives through a queue. If the GPU service is
 unreachable or no GPU is free in time, the other cloud presets are skipped and Fast runs here.
 """
 
+import json
 import logging
 import os
 import shutil
@@ -39,6 +45,7 @@ from backend.services.separation_presets import (
     model_dir,
     model_label,
     plan_status,
+    preset_rank,
     remote_backend,
     remote_queue_seconds,
     resolve_plan,
@@ -50,11 +57,40 @@ from backend.services.separation_progress import ProgressTracker
 logger = logging.getLogger(__name__)
 
 ROFORMER_WORK_DIR = "roformer"
+PROVENANCE_FILENAME = "separation.json"
 _REASON_CHARS = 300
 
 
 class SeparationCancelled(RuntimeError):
     """The user cancelled while separation was running."""
+
+
+def read_provenance(stem_dir: Path) -> dict | None:
+    """How the stems in stem_dir were made, or None when there is no readable record."""
+    try:
+        record = json.loads((Path(stem_dir) / PROVENANCE_FILENAME).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return record if isinstance(record, dict) else None
+
+
+def write_provenance(stem_dir: Path, separation: dict | None) -> None:
+    """Records how the stems in stem_dir were made; None removes the record.
+
+    Never raises: stems without a record count as Fast, so a failed write costs at most one
+    extra separation later.
+    """
+    path = Path(stem_dir) / PROVENANCE_FILENAME
+    staged = path.with_name(f"{PROVENANCE_FILENAME}.tmp")
+    try:
+        if separation is None:
+            path.unlink(missing_ok=True)
+            return
+        staged.write_text(json.dumps(separation, indent=1), encoding="utf-8")
+        os.replace(staged, path)
+    except (OSError, TypeError, ValueError) as exc:
+        logger.warning(f"Could not record how the stems in {stem_dir} were made: {exc}")
+        quietly(lambda: staged.unlink(missing_ok=True))
 
 
 class _ProgressReporter:
@@ -148,7 +184,8 @@ class AudioSeparator:
 
     @staticmethod
     def _purge_work_dirs(target_dir: Path) -> None:
-        """Remove engine scratch folders; only the two standard stems live in target_dir."""
+        """Remove engine scratch folders; target_dir keeps only files (the two standard stems
+        and their separation.json record)."""
         try:
             children = list(target_dir.iterdir())
         except OSError:
@@ -169,9 +206,16 @@ class AudioSeparator:
         """Separate a song into vocals.wav and instrumental.wav under output_base_dir/track_id.
 
         model_name is a preset id (fast | balanced | best) or a Demucs model name such as
-        "htdemucs". Returns the stem paths plus, when an engine ran, a "separation" dict
-        describing what produced them. Valid cached stems are reused without running anything.
-        Raises SeparationCancelled (a RuntimeError) on cancel and RuntimeError on failure.
+        "htdemucs". Returns the stem paths plus a "separation" dict describing what produced
+        them, which is also written to separation.json beside the stems (cached stems without
+        a record return no "separation").
+
+        Valid cached stems are reused without running anything when their recorded preset
+        ranks at or above the requested one; stems without a record count as Fast. Below
+        that, only the presets that beat the cache are tried, and if none of them works the
+        cached stems are kept (with the reasons as fallback_reason) instead of being replaced
+        by a cheaper fallback. Raises SeparationCancelled (a RuntimeError) on cancel and
+        RuntimeError on failure.
         """
         if not audio_path or not str(audio_path).strip():
             raise ValueError("Input audio path cannot be empty")
@@ -187,16 +231,18 @@ class AudioSeparator:
 
         vocals_target = target_dir / "vocals.wav"
         instrumental_target = target_dir / "instrumental.wav"
+        requested = resolve_plan(model_name)
 
-        # Check for valid cached stems
-        if self._is_valid_stem(vocals_target) and self._is_valid_stem(instrumental_target):
+        # Valid cached stems serve any request at or below the quality they were made at;
+        # stems without a record (made before records were kept) count as Fast
+        has_cache = self._is_valid_stem(vocals_target) and self._is_valid_stem(instrumental_target)
+        cached = read_provenance(target_dir) if has_cache else None
+        cached_rank = preset_rank((cached or {}).get("preset")) if has_cache else -1
+        if cached_rank >= preset_rank(requested.preset):
             logger.info(f"Stems already exist and valid for track {track_id}")
             if progress_callback:
                 progress_callback(100.0, "Found cached vocal stems", 0)
-            return {
-                "vocals_path": str(vocals_target),
-                "instrumental_path": str(instrumental_target),
-            }
+            return self._cached_result(target_dir, cached, requested, None)
 
         # Purge any 0-byte or corrupt leftovers before separation
         if vocals_target.exists() and not self._is_valid_stem(vocals_target):
@@ -204,8 +250,8 @@ class AudioSeparator:
         if instrumental_target.exists() and not self._is_valid_stem(instrumental_target):
             instrumental_target.unlink(missing_ok=True)
 
-        requested = resolve_plan(model_name)
-        chain = fallback_chain(requested)
+        # Below the request, only the presets that beat the cached stems are worth running
+        chain = [p for p in fallback_chain(requested) if preset_rank(p.preset) > cached_rank]
         reasons: list[str] = []
         started = time.monotonic()
         report = _ProgressReporter(progress_callback)
@@ -214,7 +260,8 @@ class AudioSeparator:
         for plan in chain:
             if cancel_event is not None and cancel_event.is_set():
                 raise SeparationCancelled("Stem separation cancelled by user")
-            is_last = plan is chain[-1]
+            # With cached stems to keep, running out of plans is not a failure
+            is_last = plan is chain[-1] and not has_cache
             if remote_down and plan.engine == "roformer" and remote_backend():
                 reasons.append(_short_reason(plan, "skipped, the cloud GPU is unavailable"))
                 if is_last:
@@ -265,10 +312,17 @@ class AudioSeparator:
                 self._purge_work_dirs(target_dir)
                 raise
             break
-        else:  # every plan was skipped or failed without raising (not expected)
-            raise RuntimeError(f"Stem separation failed: {'; '.join(reasons)}")
+        else:
+            if not has_cache:  # every plan was skipped or failed without raising (not expected)
+                raise RuntimeError(f"Stem separation failed: {'; '.join(reasons)}")
+            # No better preset could run: the cached stems still beat a cheaper fallback
+            logger.warning(f"Kept the earlier stems for {track_id}: {'; '.join(reasons)}")
+            report(100.0, "Kept the earlier stems", 0)
+            return self._cached_result(target_dir, cached, requested, "; ".join(reasons) or None)
 
-        # Move the stems to their standard paths directly under track_id
+        # Move the stems to their standard paths directly under track_id. The old record goes
+        # first, so a crash part-way leaves stems that count as Fast rather than over-claimed
+        write_provenance(target_dir, None)
         os.replace(found_vocals, vocals_target)
         os.replace(found_instrumental, instrumental_target)
         self._purge_work_dirs(target_dir)
@@ -278,20 +332,43 @@ class AudioSeparator:
 
         elapsed = time.monotonic() - started
         logger.info(f"Separated {track_id} with {plan.label} in {elapsed:.0f}s")
+        separation = {
+            "preset": plan.preset,
+            "engine": plan.engine,
+            "models": list(plan.models),
+            "label": plan.label,
+            "requested": requested.preset,
+            "fallback_reason": "; ".join(reasons) or None,
+            "elapsed_seconds": round(elapsed, 1),
+            "separated_at": int(time.time()),
+        }
+        write_provenance(target_dir, separation)
         return {
             "vocals_path": str(vocals_target),
             "instrumental_path": str(instrumental_target),
-            "separation": {
-                "preset": plan.preset,
-                "engine": plan.engine,
-                "models": list(plan.models),
-                "label": plan.label,
-                "requested": requested.preset,
-                "fallback_reason": "; ".join(reasons) or None,
-                "elapsed_seconds": round(elapsed, 1),
-                "separated_at": int(time.time()),
-            },
+            "separation": separation,
         }
+
+    @staticmethod
+    def _cached_result(
+        target_dir: Path,
+        cached: dict | None,
+        requested: SeparationPlan,
+        fallback_reason: str | None,
+    ) -> dict[str, Any]:
+        """The cached stems' paths, plus their record (when there is one) answering this
+        request."""
+        result: dict[str, Any] = {
+            "vocals_path": str(target_dir / "vocals.wav"),
+            "instrumental_path": str(target_dir / "instrumental.wav"),
+        }
+        if cached is not None:
+            result["separation"] = {
+                **cached,
+                "requested": requested.preset,
+                "fallback_reason": fallback_reason,
+            }
+        return result
 
     @staticmethod
     def _find_outputs(
