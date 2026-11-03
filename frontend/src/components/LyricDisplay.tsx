@@ -2,9 +2,10 @@
  * Live Lyric Display & Fullscreen TV Stage Preview Component
  *
  * Orchestrates the live stage: sub-frame time interpolation, active/upcoming line and
- * duet singer resolution, instrumental gap countdowns, and the fullscreen TV stage with
- * auto-hiding controls. Rendering is split into StageBackground, StageToolbar,
- * StageLyrics and StageFloatingControls.
+ * duet singer resolution, instrumental gap countdowns, the end card with the song's title
+ * once the last line has gone, and the fullscreen TV stage with auto-hiding controls.
+ * Rendering is split into StageBackground, StageToolbar, StageLyrics and
+ * StageFloatingControls.
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -14,7 +15,13 @@ import { usePlaybackClock, usePlaybackTime } from '../hooks/usePlaybackClock';
 import { useIsVisible } from '../hooks/useIsVisible';
 import { isInputElement, isModalActive } from '../hooks/useKeyboardShortcuts';
 import { characterShortcutsEnabled } from '../utils/shortcutPrefs';
-import { detectInstrumentalGaps, getCountdownState } from '../utils/gapDetection';
+import {
+  detectInstrumentalGaps,
+  detectOutroStart,
+  getCountdownState,
+  isInOutro,
+  LINE_LEAD_OUT_SECONDS,
+} from '../utils/gapDetection';
 import { DEFAULT_BOTH_COLOR, DEFAULT_SINGER2_COLOR } from '../theme/stagePresets';
 import { BeatVisualizer } from './BeatVisualizer';
 import { StageBackground, StageBackgroundMedia } from './stage/StageBackground';
@@ -77,6 +84,31 @@ export interface LyricDisplayProps {
   onVolumeChange?: (volume: number) => void;
   isMuted?: boolean;
   onToggleMute?: () => void;
+  /** The song's title and artist, shown on the end card after the last line. */
+  trackTitle?: string;
+  trackArtist?: string;
+}
+
+/** End-card text: blank values, and the backend's placeholder artist, are left out. */
+function endCardText(value: string | undefined, placeholder?: string): string | undefined {
+  const text = value?.trim();
+  if (!text) return undefined;
+  if (placeholder && text.toLowerCase() === placeholder.toLowerCase()) return undefined;
+  return text;
+}
+
+/** The line that starts soonest after `time`, whatever order the lines are in. */
+function lineStartingAfter(lines: LyricLine[], time: number): LyricLine | null {
+  return lines.reduce<LyricLine | null>(
+    (best, l) =>
+      l &&
+      Number.isFinite(l.start_time) &&
+      l.start_time > time &&
+      (!best || l.start_time < best.start_time)
+        ? l
+        : best,
+    null
+  );
 }
 
 const LyricDisplayView: React.FC<LyricDisplayProps> = ({
@@ -121,6 +153,8 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
   onVolumeChange,
   isMuted,
   onToggleMute,
+  trackTitle,
+  trackArtist,
 }) => {
   const stageFontFamily =
     fontFamily || selectedTheme?.fontFamily || 'var(--karaoke-font-family, sans-serif)';
@@ -324,24 +358,33 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
 
   // --- Lines, gaps and singers ---------------------------------------------------------
   const instrumentalGaps = useMemo(() => detectInstrumentalGaps(lines), [lines]);
+  const outroStart = useMemo(() => detectOutroStart(lines), [lines]);
   const countdownState = getCountdownState(effectiveTime, instrumentalGaps);
 
   // While an instrumental gap (>= 4s) runs, singing has not begun: no active line until
   // the gap ends. Otherwise lines get a 1.5s lead-in and a 1.0s lead-out.
   const activeLineIndex = lines.findIndex((l) => {
     const leadIn = countdownState.hasGap ? 0.0 : 1.5;
-    return effectiveTime >= l.start_time - leadIn && effectiveTime <= l.end_time + 1.0;
+    return (
+      effectiveTime >= l.start_time - leadIn && effectiveTime <= l.end_time + LINE_LEAD_OUT_SECONDS
+    );
   });
 
   const currentLine = activeLineIndex >= 0 ? lines[activeLineIndex] : null;
-  const nextLine =
-    activeLineIndex >= 0 && activeLineIndex + 1 < lines.length
-      ? lines[activeLineIndex + 1]
-      : !currentLine && lines.length > 0
-        ? countdownState.hasGap
-          ? countdownState.gap?.nextLine || lines[0]
-          : lines[0]
-        : null;
+  // Once the last line has left the stage, the end card replaces the break and the
+  // upcoming line until playback moves back
+  const isOutro = !currentLine && isInOutro(effectiveTime, outroStart);
+  const nextLine = currentLine
+    ? (lines[activeLineIndex + 1] ?? null)
+    : isOutro
+      ? null
+      : (countdownState.gap?.nextLine ?? lineStartingAfter(lines, effectiveTime));
+  const endCard = isOutro
+    ? {
+        title: endCardText(trackTitle),
+        artist: endCardText(trackArtist, 'Unknown Artist'),
+      }
+    : null;
 
   const singerColor = useCallback(
     (role: NormalizedSinger): string =>
@@ -474,6 +517,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
             : null
         }
         upcomingSingerColor={upcomingSingerColor}
+        endCard={endCard}
         countdown={{
           show: showCountdown,
           seconds: countdownSeconds,

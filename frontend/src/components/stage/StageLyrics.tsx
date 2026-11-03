@@ -3,7 +3,8 @@
  *
  * The lyric area of the live stage: chord bar, lead-in countdown ring, duet singer
  * badge, the active line with its progressive word sweep, instrumental gap countdown
- * and the upcoming line.
+ * and the upcoming line. After the last line, an end card ("Song over", the title, and
+ * the artist in the upcoming line's slot) takes the place of both.
  */
 
 import React from 'react';
@@ -19,6 +20,12 @@ export interface StageGapState {
   isIntro: boolean;
   countdownSeconds: number;
   progressPct: number;
+}
+
+/** The end card's text; either part is left out when the song has none. */
+export interface StageEndCard {
+  title?: string;
+  artist?: string;
 }
 
 export interface StageLyricsProps {
@@ -39,6 +46,8 @@ export interface StageLyricsProps {
   nextSungColor: string;
   gap: StageGapState | null;
   upcomingSingerColor: string;
+  /** Shown once the last line has left the stage; null or omitted otherwise. */
+  endCard?: StageEndCard | null;
   countdown: { show: boolean; seconds: number; remaining: number; color: string };
   chords?: ChordSegment[];
   showChordBar: boolean;
@@ -120,6 +129,7 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
   nextSungColor,
   gap,
   upcomingSingerColor,
+  endCard,
   countdown,
   chords,
   showChordBar,
@@ -286,6 +296,32 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
               </button>
             )}
           </div>
+        ) : endCard ? (
+          <div
+            data-testid="stage-end-card"
+            className="mx-auto flex w-full max-w-md select-none flex-col items-center gap-1 px-2 motion-safe:animate-fade-in sm:gap-2"
+          >
+            <p
+              className="text-xs font-bold uppercase tracking-[0.2em] sm:text-sm"
+              style={{ color: activeSungColor, textShadow: outline }}
+            >
+              Song over
+            </p>
+            {endCard.title ? (
+              <p
+                data-testid="stage-end-card-title"
+                style={{
+                  fontSize: `${fontSizeScale}em`,
+                  color: unsungColor,
+                  fontFamily,
+                  textShadow: outline,
+                }}
+                className="max-w-full break-words text-xl font-extrabold tracking-tight sm:text-3xl md:text-5xl"
+              >
+                {endCard.title}
+              </p>
+            ) : null}
+          </div>
         ) : gap && gap.hasGap ? (
           <div
             data-testid="gap-countdown-indicator"
@@ -365,6 +401,19 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
             )}
             <span style={{ textShadow: outline }}>{nextLine.text}</span>
           </p>
+        ) : endCard ? (
+          endCard.artist ? (
+            <p
+              data-testid="stage-end-card-artist"
+              style={{ fontSize: `${Math.max(0.7, fontSizeScale * 0.75)}em`, fontFamily }}
+              className={cn(
+                'max-w-full break-words font-bold drop-shadow motion-safe:animate-fade-in',
+                mutedText
+              )}
+            >
+              <span style={{ textShadow: outline }}>{endCard.artist}</span>
+            </p>
+          ) : null
         ) : (
           <span className={cn('text-xs sm:text-sm', mutedText)} style={{ textShadow: outline }}>
             -- End of song --
