@@ -31,6 +31,7 @@ from backend.master_audio import (  # noqa: F401 (the cache helpers are imported
     mix_cache_epoch,
     mix_filename,
     mix_version,
+    prune_mix_cache,
     reusable_mix_path,
 )
 from backend.project_analysis import (
@@ -717,6 +718,9 @@ def mix_audio(project_id: str, req: MixRequest):
             proj["guide_volume"] = req.guide_volume
             save_projects(strict=True)
 
+    # Only once the new master is saved, and outside the lock: keeps the song's most recently
+    # used mixes and deletes the rest (never raises)
+    prune_mix_cache(output_dir, track_id, inst_path, proj.get("vocals_path"), keep=master_path)
     return {"status": "ok", "master_audio_url": fields["master_audio_url"]}
 
 

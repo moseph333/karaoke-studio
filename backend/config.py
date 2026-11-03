@@ -229,6 +229,13 @@ PREVIEW_AUDIO_FORMAT = os.getenv("PREVIEW_AUDIO_FORMAT", "wav").strip().lower()
 if PREVIEW_AUDIO_FORMAT not in ("wav", "aac"):
     PREVIEW_AUDIO_FORMAT = "wav"
 
+# Key and guide mixes (each a WAV plus its .m4a copy) kept per song in OUTPUT_DIR; the least
+# recently used go first. The song's current mix is always kept. 0 keeps every mix.
+try:
+    MIX_CACHE_PER_SONG = max(0, int(os.getenv("MIX_CACHE_PER_SONG", "6").strip()))
+except (ValueError, TypeError):
+    MIX_CACHE_PER_SONG = 6
+
 # Worker Concurrency Configuration
 try:
     MAX_CONCURRENT_JOBS = max(1, int(os.getenv("MAX_CONCURRENT_JOBS", "2").strip()))

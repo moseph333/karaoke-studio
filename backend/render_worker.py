@@ -24,6 +24,15 @@ logger = logging.getLogger("karaoke_backend")
 
 # What video_renderer writes while a render runs, next to the video it will replace
 PART_FILE_GLOB = "*.part.mp4"
+# The render's own mix at final quality, deleted when the render ends
+FINAL_AUDIO_GLOB = "*_final_audio.wav"
+# What the mixer writes while it makes that mix, renamed to the name above when FFmpeg ends
+FINAL_AUDIO_TEMP_GLOB = "*_final_audio.tmp_*.wav"
+
+
+def final_audio_name(track_id: str) -> str:
+    """The scratch mix a render makes at final quality and FFmpeg reads."""
+    return f"{track_id}_final_audio.wav"
 
 
 def video_file_name(track_id: str, aspect_ratio: str) -> str:
@@ -35,7 +44,9 @@ def video_file_name(track_id: str, aspect_ratio: str) -> str:
 
 
 def remove_render_leftovers() -> int:
-    """Deletes the half-written videos (*.part.mp4) of renders that a server restart cut off.
+    """Deletes the half-written videos (*.part.mp4) and scratch mixes (*_final_audio.wav, and
+    the mixer's *_final_audio.tmp_*.wav while it was still making one) of renders that a
+    server restart cut off.
 
     Runs at startup, before any render can start, so none of them belongs to a running render.
     Returns how many were removed.
@@ -44,14 +55,15 @@ def remove_render_leftovers() -> int:
 
     output_dir = Path(getattr(main_mod, "OUTPUT_DIR", OUTPUT_DIR))
     removed = 0
-    for leftover in output_dir.glob(PART_FILE_GLOB):
-        try:
-            leftover.unlink()
-            removed += 1
-        except FileNotFoundError:
-            pass
-        except OSError as exc:
-            logger.warning(f"Could not remove the unfinished render {leftover.name}: {exc}")
+    for pattern in (PART_FILE_GLOB, FINAL_AUDIO_GLOB, FINAL_AUDIO_TEMP_GLOB):
+        for leftover in output_dir.glob(pattern):
+            try:
+                leftover.unlink()
+                removed += 1
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                logger.warning(f"Could not remove the unfinished render {leftover.name}: {exc}")
     return removed
 
 
@@ -101,6 +113,7 @@ def run_video_render(project_id: str, req: RenderRequest):
         return
 
     semaphore_acquired = False
+    final_audio: Path | None = None
     try:
         main_mod.WORKER_SEMAPHORE.acquire()
         semaphore_acquired = True
@@ -131,6 +144,8 @@ def run_video_render(project_id: str, req: RenderRequest):
         ass_path = output_dir / f"{track_id}.ass"
         video_name = video_file_name(track_id, req.aspect_ratio)
         mp4_path = output_dir / video_name
+        # Deleted by this name when the render ends: a mixer may return another path
+        final_audio = output_dir / final_audio_name(track_id)
 
         # 1. Generate ASS Subtitles
         style_cfg = dict(req.style_config or {})
@@ -158,7 +173,7 @@ def run_video_render(project_id: str, req: RenderRequest):
                 vocals_path=proj.get("vocals_path"),
                 semitones=req.semitones,
                 guide_volume=req.guide_volume,
-                output_filename=f"{track_id}_final_audio.wav",
+                output_filename=final_audio.name,
             )
 
         update_render(22, "Initializing FFmpeg 1080p60 encoding engine...", 35)
@@ -239,6 +254,15 @@ def run_video_render(project_id: str, req: RenderRequest):
                 f"Project {project_id} was deleted during rendering; skipping status update."
             )
     finally:
+        # First, before the slot and the cancel event are released: a render queued after
+        # those writes its own scratch mix under the same name
+        if final_audio is not None:
+            try:
+                final_audio.unlink(missing_ok=True)
+            except OSError as exc:
+                logger.warning(
+                    f"Could not remove the render's scratch mix {final_audio.name}: {exc}"
+                )
         if semaphore_acquired:
             main_mod.WORKER_SEMAPHORE.release()
         release_cancel_event(main_mod.active_cancellations, render_key, cancel_event)

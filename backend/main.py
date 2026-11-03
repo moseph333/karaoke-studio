@@ -154,7 +154,8 @@ chord_detector = ChordDetector()
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Before the server takes its first request: marks the intakes, renders and background
     jobs that the previous server process left running as interrupted, since nothing will
-    finish them, and deletes the half-written videos of the renders it cut off."""
+    finish them, and deletes the half-written videos and scratch mixes of the renders it cut
+    off."""
     try:
         settled = await run_in_threadpool(settle_all_stale_jobs)
         if settled:
@@ -163,10 +164,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         # A store that cannot be settled must not keep the server from starting
         logger.exception("Could not settle the jobs left by the previous server process")
     try:
-        # No render runs yet, so every *.part.mp4 belongs to a render that will never finish
+        # No render runs yet, so every *.part.mp4 and *_final_audio[.tmp_*].wav belongs to a
+        # render that will never finish
         removed = await run_in_threadpool(remove_render_leftovers)
         if removed:
-            logger.info(f"Removed {removed} unfinished video(s) left by the previous process")
+            logger.info(f"Removed {removed} file(s) of renders the previous process cut off")
     except Exception:
         logger.exception("Could not remove the unfinished videos left by the previous process")
     yield

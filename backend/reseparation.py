@@ -3,8 +3,9 @@
 The new stems are made under STEMS_DIR/.staging/<audio_id>/<job id> and swapped in only once
 complete, so a cancelled or failed run leaves the song exactly as it was. Afterwards the
 vocal range is refreshed, chords are re-detected when asked (or when there are none), the
-words are re-timed when asked (lyrics saved in the meantime are kept instead), and the
-current master mix is rendered again.
+words are re-timed when asked (lyrics saved in the meantime are kept instead), the
+current master mix is rendered again, and the mixes of the old stems are deleted
+(prune_mix_cache).
 
 The job's state lives on the project as ``separation_job`` so the studio can poll it. Project
 dicts can be replaced by fresh copies from disk at any time (see find_project), so every
@@ -22,8 +23,8 @@ from typing import Any
 
 from backend.background_jobs import SEPARATION_JOB, job_active, release_cancel_event
 from backend.background_jobs import conflict_reason as job_conflict
-from backend.config import STEMS_DIR
-from backend.master_audio import master_fields, mix_filename
+from backend.config import OUTPUT_DIR, STEMS_DIR
+from backend.master_audio import master_fields, mix_filename, prune_mix_cache
 from backend.project_analysis import analyze_vocals, detect_chords
 from backend.project_store import (
     PROJECTS_LOCK,
@@ -325,3 +326,12 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
         output_filename=mix_filename(track_id, semitones, guide_volume),
     )
     store(**master_fields(master_path))
+    # Mixes of the old stems can never be served again (guide mixes always, the others unless
+    # the instrumental is a custom one), so they go now, as do mixes past the per-song limit
+    prune_mix_cache(
+        getattr(main_mod, "OUTPUT_DIR", OUTPUT_DIR),
+        track_id,
+        proj["instrumental_path"],
+        vocals_path,
+        keep=master_path,
+    )
