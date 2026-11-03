@@ -167,7 +167,7 @@ cp .env.example .env
 | `FORWARDED_TRUSTED_HOPS` | `1` | Reverse proxies in front of the app that append to `X-Forwarded-For`; the rate limit keys on the entry this many places from the end. `2` for cloudflared in front of Nginx Proxy Manager, but only if Nginx Proxy Manager gets traffic from cloudflared alone: a client that reaches it directly (on the LAN, say) can pick its own rate-limit key with a forged header, so use `1` there. `0` to ignore the header and use the socket address. |
 | `MAX_CONCURRENT_JOBS` | `2` | Separations, re-separations, re-alignments and renders running at once |
 | `PREVIEW_AUDIO_FORMAT` | `wav` | What the studio streams: the WAV master, or `aac` for a 160 kbps `.m4a` copy (about 5 MB instead of 40 MB for a 4-minute song; each new mix takes a few seconds longer). Exports and videos always use the WAV. |
-| `MIX_CACHE_PER_SONG` | `6` | Key and guide mixes kept per song (each about 40 MB for a 4-minute song, plus its `.m4a` copy); the least recently used are deleted first and the current mix is always kept. `0` keeps every mix. |
+| `MIX_CACHE_PER_SONG` | `6` | Key and guide mixes kept per song (each about 40 MB for a 4-minute song, plus its `.m4a` copy); the least recently used are deleted first and the current mix is always kept. Applied after each remix and re-separation, and to every song when the server starts. `0` keeps every mix. |
 | `KARAOKE_DATA_DIR` | `./workspace_data` | Audio, stems, renders and `projects.json` |
 | `DISK_MIN_FREE_MB` | `1024` | Free space (MB) to keep on the data folder's disk. Below it, new songs, uploads, renders and re-separations are refused with HTTP `507`; edits are never blocked. `0` turns the check off. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Cloudflare tunnel token (Docker `--profile tunnel`) |
@@ -233,7 +233,7 @@ KARAOKE_DATA_DIR=/tmp/karaoke-demo python -m backend.tools.seed_demo
 - **Python**: 3.10+ (3.12 recommended)
 - **Node.js**: 18+
 - **FFmpeg**: with `libass` (subtitle burn-in) and ideally `rubberband` (high-quality pitch shifting in renders)
-- **Disk space**: about 4 GB for dependencies and model weights, plus room for your songs. New songs, uploads, renders and re-separations stop while less than `DISK_MIN_FREE_MB` (1 GB by default) is free, and an edit that cannot be saved reports an error instead of being lost. Each song normally keeps about `MIX_CACHE_PER_SONG` key and guide mixes (6 by default; a song's current mix and any used in the last minute are never deleted, so it can hold a few more), and a render deletes its scratch mix when it ends.
+- **Disk space**: about 4 GB for dependencies and model weights, plus room for your songs. New songs, uploads, renders and re-separations stop while less than `DISK_MIN_FREE_MB` (1 GB by default) is free, and an edit that cannot be saved reports an error instead of being lost. Each song keeps about `MIX_CACHE_PER_SONG` key and guide mixes (6 by default; a song's current mix and any used in the last minute are never deleted, so it can hold a few more): extra ones go after each remix and re-separation, and for every song shortly after the server starts. A render deletes its scratch mix when it ends, and the server deletes what a restart left half-made (videos, mixes, re-separated stems) when it starts.
 - **GPU**: optional. Best separation and neural alignment are much faster on one.
 
 ## Development and tests

@@ -1,7 +1,8 @@
 """Re-separate a finished song's stems at another quality without disturbing it.
 
 The new stems are made under STEMS_DIR/.staging/<audio_id>/<job id> and swapped in only once
-complete, so a cancelled or failed run leaves the song exactly as it was. Afterwards the
+complete, so a cancelled or failed run leaves the song exactly as it was (and the folders of a
+run that a server restart cut off are deleted at startup). Afterwards the
 vocal range is refreshed, chords are re-detected when asked (or when there are none), the
 words are re-timed when asked (lines timed by hand keep their timing when the job has
 ``keep_manual``, and lyrics saved in the meantime are kept instead), the current master mix
@@ -53,6 +54,28 @@ def cancel_key(project_id: str) -> str:
 
 def staging_dir(stems_dir: Path, audio_id: str) -> Path:
     return stems_dir / STAGING_DIRNAME / audio_id
+
+
+def remove_staged_stems() -> int:
+    """Deletes STEMS_DIR/.staging, the half-made stems of re-separations that a server restart
+    cut off. A retry stages under a new job id, so otherwise only deleting the song would
+    remove them.
+
+    Runs at startup, before any re-separation can start, so none of them belongs to a running
+    job. Returns how many job folders were removed.
+    """
+    import backend.main as main_mod
+
+    root = Path(getattr(main_mod, "STEMS_DIR", STEMS_DIR)) / STAGING_DIRNAME
+    if not root.is_dir():
+        return 0
+    jobs = [
+        job for song in root.iterdir() if song.is_dir() for job in song.iterdir() if job.is_dir()
+    ]
+    shutil.rmtree(root, ignore_errors=True)
+    if root.exists():
+        logger.warning(f"Could not remove all of the staged stems in {root}")
+    return sum(1 for job in jobs if not job.exists())
 
 
 def job_is_active(proj: dict) -> bool:

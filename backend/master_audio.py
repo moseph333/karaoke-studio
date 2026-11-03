@@ -7,10 +7,11 @@ eighth of the size); without an AAC encoder, or if encoding fails, it streams th
 /mix and re-separation reuse a rendered mix while it is newer than its stems and was made
 by the current mixer version. Reusing one refreshes its access time, never its modification
 time (which versions its URL and dates its .m4a copy). After each /mix and re-separation,
-prune_mix_cache keeps the song's MIX_CACHE_PER_SONG most recently used mixes: it deletes the
-mixes that can never be served again, then the least recently used ones past the limit, each
-WAV with its .m4a. It never deletes any song's current master, or a mix made or reused in the
-last minute.
+and once for every song in a background thread at startup, prune_mix_cache keeps the song's
+MIX_CACHE_PER_SONG most recently used mixes: it deletes the mixes that can never be served
+again, then the least recently used ones past the limit, each WAV with its .m4a. It never
+deletes any song's current master, or a mix made or reused in the last minute. The files the
+mixer was still writing when a restart stopped it (.tmp_) are deleted at startup instead.
 
 Locks: prune_mix_cache copies the masters' names under PROJECTS_LOCK and releases it before it
 takes _MIX_CACHE_LOCK, so the order is always PROJECTS_LOCK, then _MIX_CACHE_LOCK.
@@ -219,6 +220,90 @@ def prune_mix_cache(
     except Exception as exc:
         logger.warning(f"Could not prune the cached mixes of {track_id}: {exc}")
         return []
+
+
+def prune_mixes_of_every_song(output_dir) -> int:
+    """Runs prune_mix_cache once for every song in the library and returns how many mixes it
+    deleted, so mixes that piled up on songs no one has remixed or re-separated since (before
+    the limit existed, or while it was higher) do not stay for good. Never raises."""
+    import backend.main as main_mod
+
+    try:
+        # One entry per track: a song is stored under its id and its track_id, and songs that
+        # share a track share its mixes
+        stems_by_track: dict[str, set[tuple[str | None, str | None]]] = {}
+        with main_mod.PROJECTS_LOCK:
+            for proj in list(getattr(main_mod, "projects", {}).values()):
+                if not isinstance(proj, dict):
+                    continue
+                track_id = proj.get("track_id") or proj.get("id")
+                if not isinstance(track_id, str) or not track_id:
+                    continue
+                inst, vocals = proj.get("instrumental_path"), proj.get("vocals_path")
+                stems_by_track.setdefault(track_id, set()).add(
+                    (
+                        inst if isinstance(inst, str) and inst else None,
+                        vocals if isinstance(vocals, str) and vocals else None,
+                    )
+                )
+        removed = trimmed = 0
+        for track_id, stems in stems_by_track.items():
+            # Songs that share a track but not its stems (one has its own backing track): no
+            # stem dates the shared mixes, so only the mixer version and the limit apply
+            instrumental, vocals = next(iter(stems)) if len(stems) == 1 else (None, None)
+            deleted = prune_mix_cache(output_dir, track_id, instrumental, vocals)
+            removed += len(deleted)
+            trimmed += bool(deleted)
+        if removed:
+            logger.info(f"Removed {removed} cached mix(es) of {trimmed} song(s) at startup")
+        return removed
+    except Exception as exc:
+        logger.warning(f"Could not prune the cached mixes of every song: {exc}")
+        return 0
+
+
+def start_pruning_mixes_of_every_song() -> threading.Thread:
+    """Starts prune_mixes_of_every_song on a daemon thread, so startup does not wait for it,
+    and returns the thread. The output folder is resolved now, in the caller's thread."""
+    import backend.main as main_mod
+
+    output_dir = getattr(main_mod, "OUTPUT_DIR", config.OUTPUT_DIR)
+    thread = threading.Thread(
+        target=prune_mixes_of_every_song,
+        args=(output_dir,),
+        name="mix-cache-prune",
+        daemon=True,
+    )
+    thread.start()
+    return thread
+
+
+# What the mixer writes while it makes a mix (or the .m4a copy of one), renamed into place when
+# FFmpeg ends: <name>.tmp_<hex>.wav and <name>.tmp_<hex>.m4a
+UNFINISHED_MIX_GLOBS = ("*.tmp_*.wav", "*.tmp_*.m4a")
+
+
+def remove_unfinished_mixes() -> int:
+    """Deletes the files the mixer was still writing when a server restart stopped it, which
+    prune_mix_cache never matches.
+
+    Runs at startup, before any mix can start, so none of them belongs to a running mix.
+    Returns how many were removed.
+    """
+    import backend.main as main_mod
+
+    output_dir = Path(getattr(main_mod, "OUTPUT_DIR", config.OUTPUT_DIR))
+    removed = 0
+    for pattern in UNFINISHED_MIX_GLOBS:
+        for leftover in output_dir.glob(pattern):
+            try:
+                leftover.unlink()
+                removed += 1
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                logger.warning(f"Could not remove the unfinished mix {leftover.name}: {exc}")
+    return removed
 
 
 def mix_version(path: str) -> int:

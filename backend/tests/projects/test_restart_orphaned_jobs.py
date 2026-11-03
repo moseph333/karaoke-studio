@@ -1,10 +1,12 @@
 """Intakes, renders and background jobs that a previous server process left running are marked
 as interrupted, at startup and whenever a song, its status or the library is read, while the
-jobs this process runs are left alone."""
+jobs this process runs are left alone. At startup the staged stems and unfinished mixes they
+left half-made are deleted too."""
 
 import json
 import threading
 import time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,6 +22,7 @@ from backend.background_jobs import (
     release_cancel_event,
     settle_orphaned_intake,
 )
+from backend.master_audio import remove_unfinished_mixes
 from backend.project_store import save_projects
 from backend.routers import projects as projects_router
 from backend.schemas import RenderRequest
@@ -342,6 +345,108 @@ def test_startup_goes_on_when_settling_fails(monkeypatch, caplog, auth_headers):
         assert started.get("/api/health").status_code == 200
 
     assert "Could not settle the jobs left by the previous server process" in caplog.text
+
+
+def _restart_leftovers() -> tuple[list[Path], list[Path]]:
+    """What a re-separation and the mixer had half-made when the server stopped, and the
+    finished files next to them that must stay."""
+    stems, output = main_mod.STEMS_DIR, main_mod.OUTPUT_DIR
+    leftovers = [
+        stems / ".staging" / "ytj" / "job1" / "vocals.wav",
+        stems / ".staging" / "ytj" / "job2" / "no_vocals.wav",
+        stems / ".staging" / "up2" / "job3" / "vocals.wav",
+        output / "ytj_mix_2_30.tmp_1a2b3c4d.wav",
+        output / "ytj_mix_2_30.tmp_5e6f7a8b.m4a",
+        output / "up2_master.tmp_0a1b2c3d.wav",
+    ]
+    kept = [
+        stems / "ytj" / "vocals.wav",
+        stems / "ytj" / "no_vocals.wav",
+        output / "ytj_mix_2_30.wav",
+        output / "ytj_mix_2_30.m4a",
+        output / "up2_master.wav",
+        output / "ytj_karaoke.mp4",
+        output / "ytj.ass",
+        output / "ytj_bg_1a2b3c4d.tmp.png",  # a thumbnail being processed: not the mixer's
+    ]
+    for path in [*leftovers, *kept]:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(WAV)
+    return leftovers, kept
+
+
+def test_removing_staged_stems_deletes_every_staged_job_folder():
+    _leftovers, kept = _restart_leftovers()
+
+    assert reseparation.remove_staged_stems() == 3
+
+    assert not (main_mod.STEMS_DIR / ".staging").exists()
+    assert all(path.exists() for path in kept)
+    assert reseparation.remove_staged_stems() == 0
+
+
+def test_removing_unfinished_mixes_deletes_only_the_files_the_mixer_was_writing():
+    leftovers, kept = _restart_leftovers()
+
+    assert remove_unfinished_mixes() == 3
+
+    output = main_mod.OUTPUT_DIR
+    assert [path for path in leftovers if path.parent == output and path.exists()] == []
+    assert all(path.exists() for path in kept)
+    assert remove_unfinished_mixes() == 0
+
+
+def test_startup_removes_the_staged_stems_and_unfinished_mixes_a_restart_left():
+    _store(
+        {
+            "id": "j1",
+            "track_id": "ytj",
+            "title": "Jobs",
+            "status": "ready",
+            "lines": [],
+            "separation_job": {"id": "job1", "status": "running", "progress": 40},
+        },
+        "ytj",
+    )
+    leftovers, kept = _restart_leftovers()
+
+    with TestClient(main_mod.app):
+        assert main_mod.projects["j1"]["separation_job"]["status"] == "error"
+        assert [path for path in leftovers if path.exists()] == []
+        assert not (main_mod.STEMS_DIR / ".staging").exists()
+        assert all(path.exists() for path in kept)
+
+
+@pytest.mark.parametrize(
+    "step, message",
+    [
+        ("remove_staged_stems", "Could not remove the staged stems left by the previous process"),
+        (
+            "remove_unfinished_mixes",
+            "Could not remove the unfinished mixes left by the previous process",
+        ),
+        ("start_pruning_mixes_of_every_song", "Could not start pruning the cached mixes"),
+    ],
+)
+def test_startup_goes_on_when_a_leftover_cleanup_step_fails(
+    monkeypatch, caplog, auth_headers, step, message
+):
+    def broken():
+        raise PermissionError("data folder is read-only")
+
+    monkeypatch.setattr(main_mod, step, broken)
+    leftovers, _kept = _restart_leftovers()
+
+    with TestClient(main_mod.app, headers=auth_headers) as started:
+        assert started.get("/api/health").status_code == 200
+
+    assert message in caplog.text
+    # The other steps still ran
+    staged, unfinished = leftovers[:3], leftovers[3:]
+    if step != "remove_staged_stems":
+        assert [path for path in staged if path.exists()] == []
+    if step != "remove_unfinished_mixes":
+        assert [path for path in unfinished if path.exists()] == []
 
 
 def test_a_render_registers_its_event_before_it_shows_as_queued(client, monkeypatch):

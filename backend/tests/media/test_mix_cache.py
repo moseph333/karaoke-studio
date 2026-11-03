@@ -2,12 +2,14 @@
 version made it and it is still newer than its source stems, and always returns a
 cache-busting versioned master URL.
 
-Eviction: after each /mix the song keeps its MIX_CACHE_PER_SONG most recently used mixes
-(a reuse counts as a use), mixes that can never be served again go at once, and no song's
-current master or mix used in the last minute is ever deleted."""
+Eviction: after each /mix, and for every song in a background thread at startup, the song
+keeps its MIX_CACHE_PER_SONG most recently used mixes (a reuse counts as a use), mixes that
+can never be served again go at once, and no song's current master or mix used in the last
+minute is ever deleted."""
 
 import importlib
 import os
+import threading
 import time
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -15,11 +17,12 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 import soundfile as sf
+from fastapi.testclient import TestClient
 
 import backend.main as main_mod
 from backend import config, master_audio
 from backend.main import projects
-from backend.master_audio import master_fields, prune_mix_cache
+from backend.master_audio import master_fields, prune_mix_cache, prune_mixes_of_every_song
 from backend.routers.projects import (
     MIX_CACHE_MARKER,
     MIX_CACHE_VERSION,
@@ -434,6 +437,147 @@ def test_a_failing_prune_never_fails_the_mix(client, mix_project, mixer_calls, m
     assert projects[pid]["master_audio_url"] == url
     assert "Could not prune the cached mixes of mixcache01: store unreadable" in caplog.text
     assert (main_mod.OUTPUT_DIR / f"{pid}_mix_1_0.wav").exists()
+
+
+def _second_song(track_id: str = "yt02") -> dict:
+    """Another finished song, stored under its id and its track id, separated a while ago."""
+    stems = main_mod.STEMS_DIR / track_id
+    inst = _write_wav(stems / "no_vocals.wav")
+    vocals = _write_wav(stems / "vocals.wav", freq=880.0)
+    _age(inst, 600)
+    _age(vocals, 600)
+    proj = {
+        "id": "upload02",
+        "track_id": track_id,
+        "status": "ready",
+        "instrumental_path": str(inst),
+        "vocals_path": str(vocals),
+    }
+    projects["upload02"] = projects[track_id] = proj
+    return proj
+
+
+def test_pruning_every_song_trims_each_track_once(mix_project, monkeypatch, caplog):
+    monkeypatch.setattr(config, "MIX_CACHE_PER_SONG", 1)
+    pid = mix_project["id"]
+    _second_song()
+    for track_id in (pid, "yt02"):
+        _aged_mix(track_id, 1, 30, 300)
+        _aged_mix(track_id, 2, 30, 200)
+    # Entries that are not songs, or songs without any id
+    projects["_schema"] = 1  # type: ignore[assignment]
+    projects["nameless"] = {"status": "error"}
+    pruned: list[str] = []
+    real = master_audio.prune_mix_cache
+
+    def spy(output_dir, track_id, *args, **kwargs):
+        pruned.append(track_id)
+        return real(output_dir, track_id, *args, **kwargs)
+
+    monkeypatch.setattr(master_audio, "prune_mix_cache", spy)
+
+    assert prune_mixes_of_every_song(main_mod.OUTPUT_DIR) == 2
+
+    assert sorted(pruned) == [pid, "yt02"]
+    assert _mixes_left(pid) == [f"{pid}_mix_2_30.m4a", f"{pid}_mix_2_30.wav"]
+    assert _mixes_left("yt02") == ["yt02_mix_2_30.m4a", "yt02_mix_2_30.wav"]
+    assert "Removed 2 cached mix(es) of 2 song(s) at startup" in caplog.text
+
+
+@pytest.mark.parametrize("custom_song_first", [False, True], ids=["stored last", "stored first"])
+def test_songs_sharing_a_track_but_not_its_stems_keep_mixes_their_stems_disagree_on(
+    mix_project, custom_song_first
+):
+    pid = mix_project["id"]
+    # A second song of the same track, given its own backing track after these mixes were made
+    own = _write_wav(main_mod.STEMS_DIR / "mixcache02" / "custom_inst.wav")
+    _age(own, 100)
+    projects["mixcache02"] = {
+        "id": "mixcache02",
+        "track_id": pid,
+        "status": "ready",
+        "instrumental_path": str(own),
+        "vocals_path": mix_project["vocals_path"],
+    }
+    if custom_song_first:
+        projects[pid] = projects.pop(pid)
+    shared = _aged_mix(pid, 1, 0, 300)  # newer than one song's stems, older than the other's
+    _aged_mix(pid, 2, 0, 2 * 3600)  # older than this mixer version: stale for both
+
+    assert prune_mixes_of_every_song(main_mod.OUTPUT_DIR) == 1
+
+    assert _mixes_left(pid) == [f"{pid}_mix_1_0.m4a", shared.name]
+
+
+def test_a_failing_prune_of_every_song_is_logged_and_never_raises(monkeypatch, caplog):
+    class _Unreadable(dict):
+        def values(self):
+            raise RuntimeError("store unreadable")
+
+    monkeypatch.setattr(main_mod, "projects", _Unreadable())
+
+    assert prune_mixes_of_every_song(main_mod.OUTPUT_DIR) == 0
+    assert "Could not prune the cached mixes of every song: store unreadable" in caplog.text
+
+
+def test_startup_prunes_every_songs_mixes_on_a_background_thread(mix_project, monkeypatch):
+    monkeypatch.setattr(config, "MIX_CACHE_PER_SONG", 2)
+    pid = mix_project["id"]
+    for semitones, seconds_ago in ((1, 400), (2, 300), (3, 200)):
+        _aged_mix(pid, semitones, 0, seconds_ago)
+    started: list[threading.Thread] = []
+    real = master_audio.start_pruning_mixes_of_every_song
+
+    def start_and_keep() -> threading.Thread:
+        started.append(real())
+        return started[-1]
+
+    monkeypatch.setattr(main_mod, "start_pruning_mixes_of_every_song", start_and_keep)
+
+    with TestClient(main_mod.app):
+        pass
+    [thread] = started
+    thread.join(timeout=30)
+
+    assert thread.daemon
+    assert not thread.is_alive()
+    assert _mixes_left(pid) == [
+        f"{pid}_mix_2_0.m4a",
+        f"{pid}_mix_2_0.wav",
+        f"{pid}_mix_3_0.m4a",
+        f"{pid}_mix_3_0.wav",
+    ]
+
+
+def test_startup_serves_requests_while_the_mix_prune_is_still_running(monkeypatch):
+    release = threading.Event()
+    entered = threading.Event()
+
+    def slow_prune(output_dir) -> int:
+        entered.set()
+        release.wait(timeout=30)
+        return 0
+
+    monkeypatch.setattr(master_audio, "prune_mixes_of_every_song", slow_prune)
+    started: list[threading.Thread] = []
+    real = master_audio.start_pruning_mixes_of_every_song
+
+    def start_and_keep() -> threading.Thread:
+        started.append(real())
+        return started[-1]
+
+    monkeypatch.setattr(main_mod, "start_pruning_mixes_of_every_song", start_and_keep)
+
+    try:
+        with TestClient(main_mod.app) as client:
+            assert entered.wait(timeout=10)
+            assert client.get("/api/health").status_code == 200
+            [thread] = started
+            assert thread.is_alive()
+    finally:
+        release.set()
+    thread.join(timeout=10)
+    assert not thread.is_alive()
 
 
 @pytest.mark.parametrize(
