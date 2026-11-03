@@ -9,8 +9,9 @@ provenance.
 
 That provenance is also kept next to the stems as separation.json. Cached stems are reused
 only for requests at or below the quality they were made at (stems without a record count as
-Fast); otherwise only the better presets are tried, and if none of them works the cached
-stems are kept rather than replaced by a cheaper fallback.
+Fast, unless adopt_provenance gives them the record their song kept); otherwise only the
+better presets are tried, and if none of them works the cached stems are kept rather than
+replaced by a cheaper fallback.
 
 With SEPARATION_REMOTE set, Balanced and Best run the same worker on a cloud GPU instead
 (remote_separation) and its stderr arrives through a queue. If the GPU service is
@@ -91,6 +92,25 @@ def write_provenance(stem_dir: Path, separation: dict | None) -> None:
     except (OSError, TypeError, ValueError) as exc:
         logger.warning(f"Could not record how the stems in {stem_dir} were made: {exc}")
         quietly(lambda: staged.unlink(missing_ok=True))
+
+
+def adopt_provenance(stem_dir: Path, separation: object) -> None:
+    """Writes separation as the record of the valid stems in stem_dir when they have none.
+
+    For stems made before records were kept whose song still knows how they were made: without
+    a record they count as Fast and would be separated again. A readable record is never
+    replaced. Never raises.
+    """
+    if not isinstance(separation, dict):
+        return
+    stem_dir = Path(stem_dir)
+    stems = (stem_dir / "vocals.wav", stem_dir / "instrumental.wav")
+    if not all(AudioSeparator._is_valid_stem(stem) for stem in stems):
+        return
+    if read_provenance(stem_dir) is not None:
+        return
+    logger.info(f"Recording the stems in {stem_dir} as {separation.get('preset')}, from their song")
+    write_provenance(stem_dir, dict(separation))
 
 
 class _ProgressReporter:
