@@ -36,6 +36,8 @@ def test_generate_youtube_package():
 
     assert "Queen - Bohemian Rhapsody (Karaoke Version" in pkg["title"]
     assert "+2 Semitones" in pkg["key_note"]
+    assert pkg["description"].startswith('Sing along to "Bohemian Rhapsody" originally by Queen!')
+    assert "• Original Artist: Queen\n" in pkg["description"]
     assert "Instrumental with Backing/Guide" in pkg["description"]
     # A 14 s song is too short for three chapters of 10 s, so YouTube would show none.
     assert "Timestamps:" not in pkg["description"]
@@ -150,13 +152,19 @@ def test_an_empty_title_falls_back_to_karaoke_track():
 
 
 @pytest.mark.parametrize("artist", ["Unknown Artist", "unknown", "Artist", "", "   ", None])
-def test_a_blank_or_placeholder_artist_is_left_out_of_the_title_and_tags(artist):
+def test_a_blank_or_placeholder_artist_is_left_out_of_the_title_tags_and_description(artist):
     pkg = _package(title="Song", artist=artist)
 
     assert pkg["title"] == "Song (Karaoke Version / With Lyrics)"
     assert not any("unknown" in tag or tag in ("artist", "artist karaoke") for tag in pkg["tags"])
     assert "song" in pkg["tags"]
     assert "song karaoke" in pkg["tags"]
+    description = pkg["description"]
+    assert description.startswith('Sing along to "Song"!\n\n')
+    assert "originally by" not in description
+    assert "Original Artist" not in description
+    assert "unknown" not in description.lower()
+    assert "• Song: Song\n• Key: Original Key\n" in description
 
 
 # --- Tags ---------------------------------------------------------------------------------

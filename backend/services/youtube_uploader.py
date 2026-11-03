@@ -33,7 +33,8 @@ def _collapse(text: Any) -> str:
 
 
 def _credited_artist(artist: str) -> str:
-    """The artist to name in the title and tags: '' for a blank or placeholder artist."""
+    """The artist to name in the title, tags and description: '' for a blank or placeholder
+    artist."""
     name = artist.strip()
     return "" if name.casefold() in _PLACEHOLDER_ARTISTS else name
 
@@ -153,6 +154,10 @@ class YouTubeMetadataService:
         title = str(title or "").strip()
         artist = str(artist or "").strip()
         song = title or _PLACEHOLDER_TITLE
+        # An unknown artist is left out rather than credited as "Unknown Artist" or nobody
+        credited = _credited_artist(artist)
+        originally_by = f" originally by {credited}" if credited else ""
+        artist_bullet = f"• Original Artist: {credited}\n" if credited else ""
         key_note = f"Key: {'Original Key' if semitones == 0 else f'{semitones:+d} Semitones'}"
         vocal_type = (
             "Instrumental with Backing/Guide" if has_guide_vocal else "Instrumental Backing Track"
@@ -169,10 +174,10 @@ class YouTubeMetadataService:
         timestamps = f"🕒 Timestamps:\n{chr(10).join(chapters)}\n\n" if chapters else ""
 
         description = (
-            f'Sing along to "{song}" originally by {artist}!\n\n'
+            f'Sing along to "{song}"{originally_by}!\n\n'
             f"🎵 Details:\n"
             f"• Song: {song}\n"
-            f"• Original Artist: {artist}\n"
+            f"{artist_bullet}"
             f"• {key_note}\n"
             f"• Type: {vocal_type}\n\n"
             f"{timestamps}"
