@@ -470,12 +470,86 @@ describe('ExportModal', () => {
 
       const main = screen.getByRole('link', { name: /download video/i });
       expect(main).toHaveAttribute('href', tallUrl);
-      expect(main).toHaveAttribute('download', 'Queen - Bohemian Rhapsody.mp4');
+      expect(main).toHaveAttribute('download', 'Queen - Bohemian Rhapsody (9x16).mp4');
       const other = screen.getByRole('link', { name: 'Download 16:9 video' });
       expect(other).toHaveAttribute('href', wideUrl);
       expect(other).toHaveAttribute('download', 'Queen - Bohemian Rhapsody (16x9).mp4');
       expect(other.className).toContain('min-h-[44px]');
       expect(screen.queryByRole('link', { name: 'Download 9:16 video' })).toBeNull();
+    });
+
+    it('names each video after its format whichever was rendered last', () => {
+      const { rerender } = render(
+        <ExportModal
+          project={{ ...bothFormats, video_url: wideUrl }}
+          isOpen={true}
+          onClose={vi.fn()}
+          aspectRatio="9:16"
+        />
+      );
+      expect(screen.getByRole('link', { name: /download video/i })).toHaveAttribute(
+        'download',
+        'Queen - Bohemian Rhapsody (16x9).mp4'
+      );
+      expect(screen.getByRole('link', { name: 'Download 9:16 video' })).toHaveAttribute(
+        'download',
+        'Queen - Bohemian Rhapsody (9x16).mp4'
+      );
+
+      rerender(<ExportModal project={bothFormats} isOpen={true} onClose={vi.fn()} />);
+      expect(screen.getByRole('link', { name: /download video/i })).toHaveAttribute(
+        'download',
+        'Queen - Bohemian Rhapsody (9x16).mp4'
+      );
+      expect(screen.getByRole('link', { name: 'Download 16:9 video' })).toHaveAttribute(
+        'download',
+        'Queen - Bohemian Rhapsody (16x9).mp4'
+      );
+    });
+
+    it('keeps the bare name for a video from before formats were recorded', () => {
+      render(
+        <ExportModal
+          project={{ ...baseProject, artist: 'Queen', title: 'Bohemian Rhapsody' }}
+          isOpen={true}
+          onClose={vi.fn()}
+        />
+      );
+
+      expect(screen.getByRole('link', { name: /download video/i })).toHaveAttribute(
+        'download',
+        'Queen - Bohemian Rhapsody.mp4'
+      );
+    });
+
+    it('labels the finished video with its own format, not the selected one', () => {
+      const { container, rerender } = render(
+        <ExportModal project={bothFormats} isOpen={true} onClose={vi.fn()} aspectRatio="16:9" />
+      );
+      // Before the video's metadata arrives, the preview frame follows the offered file's format
+      const previewFrame = () =>
+        (container.querySelector('video') as HTMLVideoElement).parentElement as HTMLElement;
+      expect(screen.getByText('9:16 Shorts · 1080p60')).toBeInTheDocument();
+      expect(Number(previewFrame().style.aspectRatio)).toBeCloseTo(9 / 16, 3);
+      expect(previewFrame().className).toContain('max-w-xs');
+
+      rerender(
+        <ExportModal
+          project={{ ...bothFormats, video_url: wideUrl }}
+          isOpen={true}
+          onClose={vi.fn()}
+          aspectRatio="9:16"
+        />
+      );
+      expect(screen.getByText('16:9 · 1080p60')).toBeInTheDocument();
+      expect(Number(previewFrame().style.aspectRatio)).toBeCloseTo(16 / 9, 3);
+      expect(previewFrame().className).not.toContain('max-w-xs');
+
+      // A legacy video's format is unknown, so the badge keeps the selected format
+      rerender(
+        <ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} aspectRatio="9:16" />
+      );
+      expect(screen.getByText('9:16 Shorts · 1080p60')).toBeInTheDocument();
     });
 
     it('offers no other format when the song has one video', () => {
@@ -496,36 +570,101 @@ describe('ExportModal', () => {
       expect(screen.queryByRole('link', { name: /download 9:16 video/i })).toBeNull();
     });
 
-    it('keeps the previous video downloadable after a failed render', () => {
+    it("offers the failed format's previous video first, then the other format's", () => {
+      // The last render was 9:16; a 16:9 render then failed
       render(
         <ExportModal
           project={{ ...bothFormats, render_status: 'error', render_error: 'FFmpeg exited' }}
           isOpen={true}
           onClose={vi.fn()}
+          aspectRatio="16:9"
         />
       );
 
       expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
-      const kept = screen.getByRole('link', { name: 'Download previous video' });
-      expect(kept).toHaveAttribute('href', tallUrl);
-      expect(kept).toHaveAttribute('download', 'Queen - Bohemian Rhapsody.mp4');
-      expect(kept.className).toContain('min-h-[44px]');
+      const kept = screen.getAllByRole('link', { name: /download previous/i });
+      expect(kept.map((link) => link.textContent)).toEqual([
+        'Download previous 16:9 video',
+        'Download previous 9:16 video',
+      ]);
+      expect(kept[0]).toHaveAttribute('href', wideUrl);
+      expect(kept[0]).toHaveAttribute('download', 'Queen - Bohemian Rhapsody (16x9).mp4');
+      expect(kept[1]).toHaveAttribute('href', tallUrl);
+      expect(kept[1]).toHaveAttribute('download', 'Queen - Bohemian Rhapsody (9x16).mp4');
+      for (const link of kept) expect(link.className).toContain('min-h-[44px]');
     });
 
-    it('keeps the previous video downloadable after a cancelled render', () => {
+    it('keeps the previous videos downloadable after a cancelled render', () => {
       render(
         <ExportModal
-          project={{ ...bothFormats, render_status: 'idle', render_detail: 'Rendering cancelled' }}
+          project={{
+            ...bothFormats,
+            video_url: wideUrl,
+            render_status: 'idle',
+            render_detail: 'Rendering cancelled',
+          }}
           isOpen={true}
           onClose={vi.fn()}
+          aspectRatio="9:16"
         />
       );
 
       expect(screen.getByRole('button', { name: /start video render/i })).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Download previous video' })).toHaveAttribute(
-        'href',
-        tallUrl
+      const kept = screen.getAllByRole('link', { name: /download previous/i });
+      expect(kept.map((link) => link.getAttribute('href'))).toEqual([tallUrl, wideUrl]);
+      expect(screen.getByRole('link', { name: 'Download previous 9:16 video' })).toHaveAttribute(
+        'download',
+        'Queen - Bohemian Rhapsody (9x16).mp4'
       );
+      expect(screen.getByRole('link', { name: 'Download previous 16:9 video' })).toHaveAttribute(
+        'download',
+        'Queen - Bohemian Rhapsody (16x9).mp4'
+      );
+    });
+
+    it('falls back to the latest video when the failed format has none', () => {
+      render(
+        <ExportModal
+          project={{
+            ...bothFormats,
+            videos_by_aspect: { '9:16': tallUrl },
+            render_status: 'error',
+            render_error: 'FFmpeg exited',
+          }}
+          isOpen={true}
+          onClose={vi.fn()}
+          aspectRatio="16:9"
+        />
+      );
+
+      const kept = screen.getAllByRole('link', { name: /download previous/i });
+      expect(kept).toHaveLength(1);
+      expect(kept[0]).toHaveAccessibleName('Download previous 9:16 video');
+      expect(kept[0]).toHaveAttribute('href', tallUrl);
+      expect(kept[0]).toHaveAttribute('download', 'Queen - Bohemian Rhapsody (9x16).mp4');
+    });
+
+    it('offers a video from before formats were recorded under its bare name', () => {
+      render(
+        <ExportModal
+          project={{
+            ...baseProject,
+            artist: 'Queen',
+            title: 'Bohemian Rhapsody',
+            render_status: 'error',
+            render_error: 'FFmpeg exited',
+          }}
+          isOpen={true}
+          onClose={vi.fn()}
+          aspectRatio="9:16"
+        />
+      );
+
+      const kept = screen.getAllByRole('link', { name: /download previous/i });
+      expect(kept).toHaveLength(1);
+      expect(kept[0]).toHaveAccessibleName('Download previous video');
+      expect(kept[0]).toHaveAttribute('href', baseProject.video_url);
+      expect(kept[0]).toHaveAttribute('download', 'Queen - Bohemian Rhapsody.mp4');
     });
 
     it('offers no previous video when there is none or while rendering again over it', async () => {
@@ -537,13 +676,13 @@ describe('ExportModal', () => {
           onClose={vi.fn()}
         />
       );
-      expect(screen.queryByRole('link', { name: /download previous video/i })).toBeNull();
+      expect(screen.queryByRole('link', { name: /download previous/i })).toBeNull();
 
       rerender(<ExportModal project={bothFormats} isOpen={true} onClose={vi.fn()} />);
       await user.click(screen.getByRole('button', { name: /render again/i }));
 
       expect(screen.getByRole('button', { name: /keep current video/i })).toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: /download previous video/i })).toBeNull();
+      expect(screen.queryByRole('link', { name: /download previous/i })).toBeNull();
     });
   });
 });

@@ -50,7 +50,8 @@ import { cn } from '../utils/cn';
 const RENDER_WARMUP_URL = '/api/render/warmup';
 // Each format keeps its own file, so the other format's latest video stays downloadable
 const VIDEO_FORMATS = ['16:9', '9:16'] as const;
-// The secondary links next to the main download (YouTube Studio, other formats, the kept video)
+type VideoFormat = (typeof VIDEO_FORMATS)[number];
+// The secondary links next to the main download (YouTube Studio, other formats, kept videos)
 const SECONDARY_LINK =
   'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-4 py-2.5 text-sm font-medium text-theme-text transition-colors hover:border-theme-border sm:w-auto';
 
@@ -274,17 +275,51 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const isError = project.render_status === 'error' && !renderAgain;
   const isIdle = !isRendering && !isCompleted && !isError;
   const replacingVideo = renderAgain && project.render_status === 'completed';
-  // A failed or cancelled render keeps the song's last video, which stays downloadable
-  const keptVideoUrl = isError || (isIdle && !replacingVideo) ? project.video_url : undefined;
+  const selectedFormat: VideoFormat = aspectRatio === '9:16' ? '9:16' : '16:9';
+  // The latest video's format; legacy projects without videos_by_aspect don't record it
+  const latestVideoFormat = project.video_url
+    ? VIDEO_FORMATS.find((aspect) => project.videos_by_aspect?.[aspect] === project.video_url)
+    : undefined;
+  // Every download is named after its format, so the same file keeps its name whichever
+  // format was rendered last
   const videoFileBase = `${project.artist || 'Karaoke'} - ${project.title || 'Track'}`;
+  const videoFileName = (aspect?: VideoFormat) =>
+    aspect ? `${videoFileBase} (${aspect.replace(':', 'x')}).mp4` : `${videoFileBase}.mp4`;
   const otherVideos = VIDEO_FORMATS.flatMap((aspect) => {
     const url = project.videos_by_aspect?.[aspect];
     return url && url !== project.video_url ? [{ aspect, url }] : [];
   });
+  // A failed or cancelled render keeps the song's earlier videos, which stay downloadable:
+  // the one in the format being rendered first, then the other format's
+  const keptVideos: { aspect?: VideoFormat; url: string }[] = [];
+  if (isError || (isIdle && !replacingVideo)) {
+    const selectedUrl = project.videos_by_aspect?.[selectedFormat];
+    if (selectedUrl) keptVideos.push({ aspect: selectedFormat, url: selectedUrl });
+    else if (project.video_url)
+      keptVideos.push({ aspect: latestVideoFormat, url: project.video_url });
+    for (const aspect of VIDEO_FORMATS) {
+      const url = project.videos_by_aspect?.[aspect];
+      if (url && !keptVideos.some((kept) => kept.url === url)) keptVideos.push({ aspect, url });
+    }
+  }
+  const keptVideoLinks = keptVideos.map(({ aspect, url }) => (
+    <a
+      key={url}
+      href={url}
+      download={videoFileName(aspect)}
+      onClick={() => toast.success('Download started!')}
+      className={cn(SECONDARY_LINK, focusRing)}
+    >
+      <Download className="h-4 w-4" aria-hidden="true" />
+      {aspect ? `Download previous ${aspect} video` : 'Download previous video'}
+    </a>
+  ));
+  // The finished state describes the video it offers, which may be in the other format
+  const shownFormat: VideoFormat = (isCompleted && latestVideoFormat) || selectedFormat;
 
   const yt = project.youtube_package;
-  // Size the preview from the rendered file once known; until then trust the format setting.
-  const previewAspect = videoAspect ?? (aspectRatio === '9:16' ? 9 / 16 : 16 / 9);
+  // Size the preview from the rendered file once known; until then trust its recorded format.
+  const previewAspect = videoAspect ?? (shownFormat === '9:16' ? 9 / 16 : 16 / 9);
   const isPortraitPreview = previewAspect < 1;
   const keyLabel = formatSemitonesShort(semitones);
 
@@ -327,7 +362,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 'border-theme-border-subtle font-mono font-normal text-theme-text-muted'
               )}
             >
-              {aspectRatio === '9:16' ? '9:16 Shorts' : '16:9'} · 1080p60
+              {shownFormat === '9:16' ? '9:16 Shorts' : '16:9'} · 1080p60
             </span>
           </div>
 
@@ -411,17 +446,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     Keep Current Video
                   </Button>
                 )}
-                {keptVideoUrl && (
-                  <a
-                    href={keptVideoUrl}
-                    download={`${videoFileBase}.mp4`}
-                    onClick={() => toast.success('Download started!')}
-                    className={cn(SECONDARY_LINK, focusRing)}
-                  >
-                    <Download className="h-4 w-4" aria-hidden="true" />
-                    Download previous video
-                  </a>
-                )}
+                {keptVideoLinks}
               </div>
             </div>
           )}
@@ -511,17 +536,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 >
                   Try Again
                 </Button>
-                {keptVideoUrl && (
-                  <a
-                    href={keptVideoUrl}
-                    download={`${videoFileBase}.mp4`}
-                    onClick={() => toast.success('Download started!')}
-                    className={cn(SECONDARY_LINK, focusRing)}
-                  >
-                    <Download className="h-4 w-4" aria-hidden="true" />
-                    Download previous video
-                  </a>
-                )}
+                {keptVideoLinks}
               </div>
             </div>
           )}
@@ -556,7 +571,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <div className="flex w-full flex-col items-stretch gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                   <a
                     href={project.video_url}
-                    download={`${videoFileBase}.mp4`}
+                    download={videoFileName(latestVideoFormat)}
                     onClick={() => toast.success('Download started!')}
                     className={cn(
                       'flex min-h-[44px] w-full items-center justify-center gap-2 rounded-theme-md bg-gradient-accent px-5 py-2.5 text-sm font-bold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 sm:w-auto',
@@ -570,7 +585,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     <a
                       key={aspect}
                       href={url}
-                      download={`${videoFileBase} (${aspect.replace(':', 'x')}).mp4`}
+                      download={videoFileName(aspect)}
                       onClick={() => toast.success('Download started!')}
                       className={cn(SECONDARY_LINK, focusRing)}
                     >
