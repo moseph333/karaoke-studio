@@ -372,13 +372,16 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
 
   const currentLine = activeLineIndex >= 0 ? lines[activeLineIndex] : null;
   // Once the last line has left the stage, the end card replaces the break and the
-  // upcoming line until playback moves back
+  // upcoming line until playback moves back. Untimed lyrics (all at 0s) have no outro and
+  // no later line, so they keep previewing the first line
   const isOutro = !currentLine && isInOutro(effectiveTime, outroStart);
   const nextLine = currentLine
     ? (lines[activeLineIndex + 1] ?? null)
     : isOutro
       ? null
-      : (countdownState.gap?.nextLine ?? lineStartingAfter(lines, effectiveTime));
+      : (countdownState.gap?.nextLine ??
+        lineStartingAfter(lines, effectiveTime) ??
+        (outroStart === null ? (lines[0] ?? null) : null));
   const endCard = isOutro
     ? {
         title: endCardText(trackTitle),

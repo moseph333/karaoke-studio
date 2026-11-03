@@ -128,6 +128,17 @@ describe('stage end card', () => {
     expect(screen.getByText('♪ Instrumental Break ♪')).toBeInTheDocument();
   });
 
+  it('keeps previewing the first line of untimed lyrics instead of "-- End of song --"', () => {
+    const untimed = [line(1, 'Untimed one', 0, 0), line(2, 'Untimed two', 0, 0)];
+    for (const t of [1.5, 30, 999]) {
+      const { unmount } = renderStage(t, { lines: untimed, duration: 1000 });
+      expect(screen.getByTestId('upcoming-lyrics-line')).toHaveTextContent('Untimed one');
+      expect(screen.queryByText('-- End of song --')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stage-end-card')).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
   it('has no controls or headings and fades in only when motion is allowed', () => {
     renderStage(12);
     const card = screen.getByTestId('stage-end-card');
