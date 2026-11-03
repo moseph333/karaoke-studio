@@ -221,8 +221,12 @@ def test_separate_stems_intermediate_model_dir_cleanup(tmp_path):
         assert (target_dir / "instrumental.wav").exists()
         # Assert intermediate directory has been cleaned up
         assert not (target_dir / "htdemucs").exists()
-        # Ensure only the two target WAV files exist
-        assert len(list(target_dir.iterdir())) == 2
+        # Ensure only the two target WAV files and their record exist
+        assert sorted(p.name for p in target_dir.iterdir()) == [
+            "instrumental.wav",
+            "separation.json",
+            "vocals.wav",
+        ]
 
 
 def test_separate_stems_cancellation_terminates_subprocess(tmp_path):
