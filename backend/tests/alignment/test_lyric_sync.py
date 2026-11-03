@@ -1,6 +1,7 @@
 """Lyric sync orchestrator: DSP pass, neural pass through a fake CTC worker, merging,
 confidence and the sync report."""
 
+import copy
 import itertools
 import json
 import subprocess
@@ -22,9 +23,12 @@ from backend.services.lyric_sync import (
     fill_missing,
     finish_neural_words,
     merge_line,
+    prepare_existing_lines,
     source_timing,
     sync_lyrics,
+    words_spread_evenly,
 )
+from backend.shared_assets import load
 
 RATE = 16000
 
@@ -168,6 +172,144 @@ def test_unreadable_vocals_mark_lines_as_fallback(tmp_path):
     assert all(line["confidence"] == 0.2 for line in result.lines)
     assert result.lyric_timing == "aligned"
     assert result.report["lines_fallback"] == 2
+
+
+# ==============================================================================
+# Lines timed by hand (keep_manual)
+# ==============================================================================
+
+_BY_HAND = [("my", 1.0, 1.6), ("own", 1.6, 2.2), ("timing", 2.2, 3.0)]
+
+
+def _hand_timed_song() -> list[dict]:
+    return [
+        _line(0, "my own timing", 1.0, 3.0, _BY_HAND, align_method="manual"),
+        _line(1, "aligned by the server", 5.0, 7.0, [("aligned", 5.0, 5.5)], align_method="dsp"),
+    ]
+
+
+def _shifting_aligner(offset: float, *, drop_last: bool = False, word_sync: bool = True):
+    """A DSP pass that moves every line and word by ``offset`` and rebuilds the lines without
+    align_method, as the real aligner does with a global offset correction."""
+
+    def align_lyrics(vocals_path, lines):
+        out = []
+        for line in lines[:-1] if drop_last else lines:
+            moved = {k: v for k, v in line.items() if k not in ("align_method", "confidence")}
+            moved["start_time"] = line["start_time"] + offset
+            moved["end_time"] = line["end_time"] + offset
+            moved["words"] = [
+                {**w, "start_time": w["start_time"] + offset, "end_time": w["end_time"] + offset}
+                for w in line.get("words") or []
+            ]
+            if not word_sync:
+                moved.pop("has_word_sync", None)
+            out.append(moved)
+        return out
+
+    return types.SimpleNamespace(align_lyrics=align_lyrics)
+
+
+def test_lines_timed_by_hand_come_back_exactly_as_they_went_in(tmp_path):
+    vocals = _vocals(tmp_path / "v.wav", [(1.0, 3.0), (5.0, 7.0)])
+    lines = prepare_existing_lines(_hand_timed_song(), keep_manual=True)
+    result = sync_lyrics(vocals, lines, aligner=_shifting_aligner(0.5))
+
+    by_hand, other = result.lines
+    assert result.methods == ["manual", "dsp"]
+    assert by_hand["align_method"] == "manual"
+    assert "confidence" not in by_hand
+    assert (by_hand["start_time"], by_hand["end_time"]) == (1.0, 3.0)
+    assert by_hand["words"] == lines[0]["words"]
+    assert by_hand["words"][0] is not lines[0]["words"][0]  # a copy, not the caller's words
+    assert other["start_time"] == pytest.approx(5.5)  # the pass did move the other line
+    assert (result.report["lines_manual"], result.report["lines_dsp"]) == (1, 1)
+
+    # Without keep_manual the line is timed again like any other
+    retimed = sync_lyrics(
+        vocals, prepare_existing_lines(_hand_timed_song()), aligner=_shifting_aligner(0.5)
+    )
+    assert retimed.methods == ["dsp", "dsp"]
+    assert retimed.lines[0]["start_time"] == pytest.approx(1.5)
+    assert retimed.report["lines_manual"] == 0
+
+
+def test_lines_timed_by_hand_survive_a_dsp_pass_that_drops_word_timing(tmp_path):
+    vocals = _vocals(tmp_path / "v.wav", [(1.0, 3.0), (5.0, 7.0)])
+    lines = prepare_existing_lines(_hand_timed_song(), keep_manual=True)
+    result = sync_lyrics(vocals, lines, aligner=_shifting_aligner(0.5, word_sync=False))
+    assert result.methods == ["manual", "dsp"]
+    assert result.lines[0]["start_time"] == 1.0
+    assert result.lines[0]["words"] == lines[0]["words"]
+
+    # The real aligner's fallback, when the audio cannot be read, spreads every line's words
+    unreadable = sync_lyrics(str(tmp_path / "missing.wav"), lines)
+    assert unreadable.methods == ["manual", "fallback"]
+    assert unreadable.lines[0]["words"] == lines[0]["words"]
+
+
+def test_a_dsp_pass_that_loses_a_line_labels_kept_timing_as_from_the_lyrics(tmp_path):
+    vocals = _vocals(tmp_path / "v.wav", [(1.0, 3.0), (5.0, 7.0)])
+    lines = prepare_existing_lines(_hand_timed_song(), keep_manual=True)
+    result = sync_lyrics(vocals, lines, aligner=_shifting_aligner(0.5, drop_last=True))
+    # The lines can no longer be matched with the input, so nothing is copied back from it
+    assert result.methods == ["lrc"]
+    assert result.lines[0]["start_time"] == pytest.approx(1.5)
+    assert result.report["lines_manual"] == 0
+
+
+def _moved(line: dict, offset: float) -> dict:
+    """``line`` moved as the editor's nudge does: every time shifted and rounded again."""
+    moved = copy.deepcopy(line)
+    for item in [moved, *moved["words"]]:
+        item["start_time"] = round(item["start_time"] + offset, 3)
+        item["end_time"] = round(item["end_time"] + offset, 3)
+    return moved
+
+
+def _word(word: str, start: float, end: float) -> dict:
+    return {"word": word, "start_time": start, "end_time": end}
+
+
+def test_words_the_editor_only_spread_evenly_are_recognised():
+    # The studio's spread made these words (the frontend's tests/studio/qualitySync.test.tsx
+    # checks that against recalculateWordTimings and runs the same cases through its rule)
+    for case in load("word_spread_cases"):
+        assert words_spread_evenly(case), case["text"]
+        assert words_spread_evenly(_moved(case, 0.137)), case["text"]
+        assert words_spread_evenly(_moved(case, -0.01)), case["text"]
+        # Timing set by hand: a word boundary moved, or a gap before the line's last word
+        if len(case["words"]) > 1:
+            by_hand = copy.deepcopy(case)
+            by_hand["words"][0]["end_time"] += 0.05
+            by_hand["words"][1]["start_time"] += 0.05
+            assert not words_spread_evenly(by_hand), case["text"]
+        gap = copy.deepcopy(case)
+        gap["words"][-1]["start_time"] += 0.01
+        assert not words_spread_evenly(gap), case["text"]
+
+    yeah = {"text": "Yeah", "start_time": 1.0, "end_time": 2.0}
+    assert not words_spread_evenly({**yeah, "words": [_word("Yeah", 1.0, 1.5)]})
+    assert not words_spread_evenly({**yeah, "words": []})
+    assert not words_spread_evenly({**yeah, "end_time": 1.0, "words": [_word("Yeah", 1.0, 1.0)]})
+    assert not words_spread_evenly({"text": "Yeah", "words": [_word("Yeah", 1.0, 2.0)]})
+    assert not words_spread_evenly(_hand_timed_song()[0])
+
+
+def test_manual_lines_whose_words_were_only_spread_evenly_are_timed_again(tmp_path):
+    vocals = _vocals(tmp_path / "v.wav", [(1.0, 3.0), (5.0, 7.0), (12.0, 15.5)], duration=18.0)
+    # Tapped line by line: the start and end were set by hand, the words only spread evenly
+    tapped = {**load("word_spread_cases")[1], "id": 2, "align_method": "manual"}
+    song = [*_hand_timed_song(), tapped]
+    lines = prepare_existing_lines(song, keep_manual=True)
+    assert [bool(line.get("has_word_sync")) for line in lines] == [True, False, False]
+
+    result = sync_lyrics(vocals, lines, aligner=_shifting_aligner(0.5))
+    assert result.methods == ["manual", "dsp", "dsp"]
+    assert result.lines[2]["start_time"] == pytest.approx(tapped["start_time"] + 0.5)
+    assert result.lines[2]["align_method"] == "dsp"
+    assert result.lines[0]["words"] == lines[0]["words"]
+    assert result.report["lines_manual"] == 1
 
 
 def test_plain_lyrics_get_a_second_snapping_pass(tmp_path, monkeypatch):

@@ -143,6 +143,9 @@ describe('Improve stem separation dialog', () => {
     );
     expect(within(quality).getByText('Current')).toBeInTheDocument();
     expect(within(quality).getByRole('radio', { name: 'Best' })).toBeDisabled();
+    expect(
+      within(dialog).getByText(/Word timing from the lyrics file or set by hand is kept/)
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('checkbox', { name: /Re-time the lyrics/ }));
     await user.click(screen.getByRole('checkbox', { name: /Detect the chords again/ }));
@@ -244,7 +247,7 @@ describe('Quality jobs', () => {
     );
     expect(requests[0]).toEqual({
       url: '/api/project/stems-song/reseparate',
-      body: { quality: 'best', realign_lyrics: true, redetect_chords: false },
+      body: { quality: 'best', realign_lyrics: true, redetect_chords: false, keep_manual: true },
     });
     expect(current()?.separation_job?.status).toBe('queued');
 

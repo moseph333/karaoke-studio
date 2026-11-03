@@ -56,6 +56,8 @@ export interface SyncReport {
   lines_dsp?: number;
   lines_lrc?: number;
   lines_fallback?: number;
+  /** Lines timed by hand that a re-alignment with `keep_manual` left as they were. */
+  lines_manual?: number;
   low_confidence_lines?: number;
   mean_confidence?: number | null;
   elapsed_seconds?: number;
@@ -124,6 +126,8 @@ export interface SeparationJob {
   label?: string;
   realign_lyrics?: boolean;
   redetect_chords?: boolean;
+  /** Re-timing keeps the timing of lines timed by hand. */
+  keep_manual?: boolean;
   progress: number;
   detail?: string;
   eta_seconds?: number | null;

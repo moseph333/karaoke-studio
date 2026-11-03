@@ -126,7 +126,7 @@ const ReseparateDialogContent: React.FC<ReseparateDialogProps> = ({
               description={
                 hasUnsavedLyricEdits
                   ? 'Save your lyric edits first; re-timing would replace them.'
-                  : 'Cleaner vocals often give more accurate word timing. Lines timed by the lyrics file keep their timing; all others are re-timed, including lines you adjusted by hand.'
+                  : 'Cleaner vocals often give more accurate word timing. Word timing from the lyrics file or set by hand is kept; all other lines are re-timed.'
               }
               testId="reseparate-realign"
             />

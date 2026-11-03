@@ -1,5 +1,6 @@
 """Separation quality through the API: intake choice, provenance, capabilities, re-separation."""
 
+import copy
 import os
 import threading
 import time
@@ -358,6 +359,49 @@ def test_lyrics_saved_while_the_words_are_retimed_are_kept(client, song, monkeyp
     assert "realigned" not in proj["lines"][0]
     assert "sync_report" not in proj
     assert proj["separation"]["preset"] == "balanced"
+
+
+@pytest.mark.parametrize("keep_manual", [True, False])
+def test_retiming_after_reseparation_keeps_hand_timed_lines_on_request(client, song, keep_manual):
+    by_hand = {
+        "id": 2,
+        "text": "my own timing",
+        "start_time": 3.0,
+        "end_time": 4.5,
+        "words": [
+            {"word": "my", "start_time": 3.0, "end_time": 3.4},
+            {"word": "own", "start_time": 3.4, "end_time": 3.9},
+            {"word": "timing", "start_time": 3.9, "end_time": 4.5},
+        ],
+        "align_method": "manual",
+    }
+    song["proj"]["lines"].append(copy.deepcopy(by_hand))
+    res = client.post(
+        "/api/project/rs1/reseparate",
+        json={"quality": "balanced", "realign_lyrics": True, "keep_manual": keep_manual},
+    )
+    assert res.status_code == 202
+    assert res.json()["job"]["keep_manual"] is keep_manual
+
+    proj = client.get("/api/project/rs1").json()
+    assert proj["separation_job"]["status"] == "done"
+    assert proj["separation_job"]["keep_manual"] is keep_manual
+    plain, manual = proj["lines"]
+    assert plain["realigned"] is True  # re-timed either way
+    if keep_manual:
+        assert "realigned" not in manual
+        assert manual["align_method"] == "manual"
+        assert "confidence" not in manual
+        assert (manual["start_time"], manual["end_time"], manual["words"]) == (
+            3.0,
+            4.5,
+            by_hand["words"],
+        )
+        assert proj["sync_report"]["lines_manual"] == 1
+    else:
+        assert manual["realigned"] is True
+        assert manual["align_method"] != "manual"
+        assert proj["sync_report"]["lines_manual"] == 0
 
 
 def test_swapped_in_stems_are_newer_than_mixes_of_the_old_ones(client, song, monkeypatch):

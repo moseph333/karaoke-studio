@@ -19,6 +19,7 @@ import { useSyncJobResult } from '../../hooks/useSyncJobResult';
 import { resetCapabilitiesCache } from '../../hooks/useCapabilities';
 import { ToastProvider } from '../../hooks/useToast';
 import type { LyricLine, ProjectState, SyncJob } from '../../types';
+import { recalculateWordTimings } from '../../utils/lyrics';
 import { CAPABILITIES, json, mockStudioFetch } from '../helpers/qualityFixtures';
 
 const line = (id: number, text: string, start: number): LyricLine => ({
@@ -156,8 +157,76 @@ describe('Timeline editor with a background re-alignment', () => {
     fireEvent.click(
       await screen.findByRole('option', { name: /Re-align all lines in the background/ })
     );
-    await waitFor(() => expect(start).toHaveBeenCalledWith({ lines: before }));
+    await waitFor(() => expect(start).toHaveBeenCalledWith({ lines: before, keep_manual: true }));
     expect(await screen.findByText('Re-aligning every line in the background')).toBeInTheDocument();
+  });
+
+  it('keeps the lines timed by hand when re-aligning them all, and says how many', async () => {
+    const start = vi.fn().mockResolvedValue({ id: 'sync2', status: 'queued' });
+    const lines: LyricLine[] = [
+      before[0],
+      { ...before[1], align_method: 'manual' },
+      { ...line(3, 'untimed words', 9), words: [], align_method: 'manual' },
+    ];
+    renderEditor({ lines, onStartBackgroundRealign: start });
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+      target: { value: 're-align all' },
+    });
+    fireEvent.click(
+      await screen.findByRole('option', { name: /Re-align all lines in the background/ })
+    );
+    await waitFor(() => expect(start).toHaveBeenCalledWith({ lines, keep_manual: true }));
+    // The manual line without words has no timing to keep, so it is not counted
+    expect(
+      await screen.findByText('Re-aligning in the background, keeping 1 hand-timed line')
+    ).toBeInTheDocument();
+  });
+
+  it('re-aligns lines tapped line by line, whose words the editor only spread evenly', async () => {
+    const start = vi.fn().mockResolvedValue({ id: 'sync3', status: 'queued' });
+    let clock = 1.2;
+    const user = userEvent.setup();
+    renderEditor({ onStartBackgroundRealign: start, getCurrentTime: () => clock });
+    const realignAll = async () => {
+      fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+      fireEvent.change(screen.getByRole('combobox', { name: /search commands/i }), {
+        target: { value: 're-align all' },
+      });
+      fireEvent.click(
+        await screen.findByRole('option', { name: /Re-align all lines in the background/ })
+      );
+    };
+
+    await user.click(screen.getByTestId('tap-to-sync-btn'));
+    await user.click(screen.getByTestId('tap-now-btn'));
+    clock = 4.8;
+    await user.click(screen.getByTestId('tap-now-btn'));
+    await user.click(screen.getByRole('button', { name: 'Nudge line 1 0.05s later' }));
+    await user.click(screen.getByTestId('save-lyrics-btn'));
+    await realignAll();
+
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
+    const { lines: tapped, keep_manual } = start.mock.calls[0][0];
+    expect(keep_manual).toBe(true);
+    expect(tapped.map((l: LyricLine) => l.align_method)).toEqual(['manual', 'manual']);
+    expect(tapped[1]).toMatchObject({ start_time: 4.8, end_time: 7 });
+    expect(tapped[1].words).toEqual(recalculateWordTimings('general kenobi', 4.8, 7));
+    // Only the lines' starts and ends were set by hand, so the aligner places their words
+    expect(await screen.findByText('Re-aligning every line in the background')).toBeInTheDocument();
+
+    // Moving a word by hand makes it a line whose word timing the re-alignment keeps (tap-to-sync
+    // ended on line 2, so its words are open)
+    expect(screen.getByRole('button', { name: 'Collapse word timings for line 2' })).toBeVisible();
+    await user.click(
+      screen.getByRole('button', { name: 'Nudge end of word general 0.05s earlier' })
+    );
+    await user.click(screen.getByTestId('save-lyrics-btn'));
+    await realignAll();
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(2));
+    expect(
+      await screen.findByText('Re-aligning in the background, keeping 1 hand-timed line')
+    ).toBeInTheDocument();
   });
 
   it('offers to cancel instead while a re-alignment runs, and waits for edits to be saved', async () => {
@@ -261,8 +330,26 @@ describe('Replace / re-align dialog', () => {
     await user.click(await screen.findByRole('checkbox', { name: /Use the neural aligner/ }));
     await user.click(screen.getByRole('button', { name: 'Re-align current lyrics' }));
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith(after));
-    expect(JSON.parse(String(realignCalls(spy)[0][1]?.body))).toEqual({ lines: before });
+    expect(JSON.parse(String(realignCalls(spy)[0][1]?.body))).toEqual({
+      lines: before,
+      keep_manual: true,
+    });
     expect(start).not.toHaveBeenCalled();
+  });
+
+  it('re-aligns the current lyrics in the background without touching lines timed by hand', async () => {
+    const spy = mockStudioFetch();
+    const start = vi.fn().mockResolvedValue({ id: 'sync4' });
+    const user = userEvent.setup();
+    const { onClose } = renderModal({ onStartBackground: start });
+    expect(await screen.findByRole('checkbox', { name: /Use the neural aligner/ })).toBeChecked();
+    expect(
+      screen.getByText(/re-time every line except those whose words you timed by hand/)
+    ).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Re-align current lyrics' }));
+    expect(start).toHaveBeenCalledWith({ lines: before, keep_manual: true });
+    expect(onClose).toHaveBeenCalled();
+    expect(realignCalls(spy)).toHaveLength(0);
   });
 
   it('explains why the neural aligner is not offered', async () => {

@@ -408,6 +408,10 @@ class RealignLyricsRequest(BaseModel):
         default=False,
         description="Queue the alignment as a background job (202) that may use the neural aligner",
     )
+    keep_manual: bool = Field(
+        default=False,
+        description="Keep the word timing of lines timed by hand (align_method 'manual')",
+    )
 
 
 class RealignLineRequest(BaseModel):
@@ -458,6 +462,10 @@ class ReseparateRequest(BaseModel):
     )
     redetect_chords: bool = Field(
         default=False, description="Replace the chords with a fresh detection afterwards"
+    )
+    keep_manual: bool = Field(
+        default=False,
+        description="When re-timing, keep the word timing of lines timed by hand",
     )
 
     @field_validator("quality", mode="before")

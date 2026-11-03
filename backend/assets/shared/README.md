@@ -13,3 +13,4 @@ build stage copies this folder next to `frontend/` so the alias resolves there t
 | `confidence_thresholds.json` | Alignment confidence: below `low` a line needs review, from `high` it reads as high | `lyric_sync` (sync report); `utils/timelineReview.ts`, `utils/lineRealign.ts` |
 | `background_motion.json` | The drift, aurora and spectrum motion numbers | `stage_backgrounds.BACKGROUND_MOTION`; `theme/stageBackgrounds.ts` |
 | `tokenize_cases.json` | Lyric tokenizer cases both tokenizers must split the same way | `alignment/test_alignment_parts.py`; `tests/timeline/lyrics.test.ts` |
+| `word_spread_cases.json` | Words the studio editor spread evenly over a line (`recalculateWordTimings`), which both sides must read as only spread, not timed by hand | `lyric_sync.words_spread_evenly` (`alignment/test_lyric_sync.py`); `utils/manualEdits.ts` (`tests/studio/qualitySync.test.tsx`) |

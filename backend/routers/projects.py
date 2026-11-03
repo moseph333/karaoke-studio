@@ -603,7 +603,9 @@ def realign_lyrics(
             lyric_data = main_mod.lyrics_service.process_custom_lyrics(req.custom_lyrics or "")
         else:
             mode = "lines"
-            lines = prepare_existing_lines([line.model_dump() for line in req.lines or []])
+            lines = prepare_existing_lines(
+                [line.model_dump() for line in req.lines or []], keep_manual=req.keep_manual
+            )
             lyric_data = {"lines": lines, "source": proj.get("lyric_source")}
 
         lines_to_align = lyric_data.get("lines") or []

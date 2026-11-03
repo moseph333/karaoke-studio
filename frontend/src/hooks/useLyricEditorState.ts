@@ -21,7 +21,7 @@ import {
   applyBatchOffset,
 } from '../utils/lyrics';
 import { useTapCursorHistory } from './useTapCursorHistory';
-import { markManualEdits } from '../utils/manualEdits';
+import { markManualEdits, wordsSpreadEvenly } from '../utils/manualEdits';
 
 export interface UseLyricEditorStateOptions {
   lines: LyricLine[];
@@ -355,8 +355,12 @@ export function useLyricEditorState({
       pushSnapshot(editableLines);
       const newTokens = trimmed.split(/\s+/).filter(Boolean);
       const existingWords = target.words || [];
+      // Words the editor only spread evenly are spread again for the new text, so the line
+      // still reads as having no word timing set by hand (see utils/manualEdits)
       const canPreserveTimings =
-        existingWords.length > 0 && existingWords.length === newTokens.length;
+        existingWords.length > 0 &&
+        existingWords.length === newTokens.length &&
+        !wordsSpreadEvenly(target);
 
       const words = canPreserveTimings
         ? existingWords.map((w, idx) => ({

@@ -51,7 +51,7 @@ When a preset cannot run (extras not installed, weights unavailable, out of memo
 - **Neural alignment** (MMS forced alignment through torchaudio) places each word when the model is available. The **DSP aligner** (vocal energy, spectral flux and phrase snapping) is the fallback and the in-request engine.
 - Every line gets a **confidence** score from how well the vocal stem supports its timing. The sync badge shows the song's average, a dot on each timeline row shows the line's, and **Needs review** filters the lines below 60%.
 - **Re-align this line** (row menu) finds where a line is really sung near its current place and applies the result as an undoable edit. Whole songs can be re-aligned in the background with the neural aligner while you keep working.
-- Lines you change by hand are marked as manual and keep your timing.
+- Lines you change by hand are marked as manual and keep your timing, also when the whole song is re-aligned or its stems are re-made with re-timed lyrics. Lines whose words the editor only spread evenly (line-by-line tap-to-sync, new or retyped lines) still get their words placed by the aligner.
 
 ### Timeline editor
 

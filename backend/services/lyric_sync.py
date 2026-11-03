@@ -4,18 +4,24 @@ sync_lyrics() always runs the DSP aligner (backend.services.aligner) first. When
 CTC aligner can run (see alignment_config), it then aligns every line's words inside a
 window around the DSP line in a separate process (backend.workers.ctc_align_worker) and keeps
 the neural timing for lines the model is sure about. Every line gets a confidence score and
-an ``align_method`` (ctc, dsp, lrc or fallback), and a report says how the song was timed.
+an ``align_method`` (ctc, dsp, lrc, fallback or manual), and a report says how the song was
+timed.
 
-Lyrics that arrive with their own word timing (enhanced LRC) keep it. If the neural pass is
-unavailable or fails, the whole song keeps the DSP timing and the report records why. At most
-MAX_CONCURRENT_ALIGN_JOBS neural passes run at once (ALIGN_SEMAPHORE): each loads a large
-model, so further songs wait for a free slot.
+Lyrics that arrive with their own word timing (enhanced LRC) keep it. When a song's current
+lines are re-timed with ``keep_manual`` (see prepare_existing_lines), lines whose words were
+timed by hand come back exactly as they went in and stay "manual", with no confidence; neither
+pass moves them. Manual lines whose words the studio editor only spread evenly (see
+words_spread_evenly) are timed again like any other.
+If the neural pass is unavailable or fails, the whole song keeps the DSP timing and the report
+records why. At most MAX_CONCURRENT_ALIGN_JOBS neural passes run at once (ALIGN_SEMAPHORE):
+each loads a large model, so further songs wait for a free slot.
 """
 
 import itertools
 import json
 import logging
 import math
+import re
 import statistics
 import subprocess
 import sys
@@ -46,6 +52,10 @@ LAST_WORD_MIN = 0.25
 MIN_ALIGNED_SHARE = 0.7
 # Below this a line counts as low confidence, as the studio's "Needs review" filter does
 LOW_CONFIDENCE = load("confidence_thresholds")["low"]
+# The studio editor's even word spread (wordSpreadWeight and recalculateWordTimings in
+# frontend/src/utils/lyrics.ts); backend/assets/shared/word_spread_cases.json pins both sides
+_SPREAD_PUNCTUATION = re.compile(r"[\s.,/#!$%^&*;:{}=\-_`~()\"<>\[\]?]")
+SPREAD_TOLERANCE = 0.002  # moving a line rounds each word boundary again, to the millisecond
 
 ProgressCallback = Callable[[float | None, str], None]
 
@@ -85,9 +95,45 @@ def source_timing(lines: list[dict]) -> str:
     return "none"
 
 
-def prepare_existing_lines(lines: list[dict]) -> list[dict]:
+def _spread_weight(word: str) -> float:
+    """wordSpreadWeight: 2 plus the word's length without punctuation, counting at most 10
+    characters, measured as JavaScript does (UTF-16 code units)."""
+    letters = _SPREAD_PUNCTUATION.sub("", word) or word
+    return 2.0 + min(10, len(letters.encode("utf-16-le")) // 2)
+
+
+def words_spread_evenly(line: dict) -> bool:
+    """Whether a line's words are only the even spread the studio editor gives them when it
+    has no better timing (line-by-line tap-to-sync, new lines, retyped text): back to back
+    from the line's start to its end, each lasting in proportion to its _spread_weight, also
+    after the whole line was moved. Only the line's start and end were set by hand then. A
+    one-word line whose word fills the line counts too. The studio applies the same rule
+    (wordsSpreadEvenly in frontend/src/utils/manualEdits.ts)."""
+    words = [w for w in line.get("words") or [] if isinstance(w, dict)]
+    start, end = _num(line.get("start_time")), _num(line.get("end_time"))
+    if not words or end <= start:
+        return False
+    weights = [_spread_weight(str(w.get("word") or "")) for w in words]
+    total = sum(weights)
+    tolerance = SPREAD_TOLERANCE + 1e-9
+    cumulative, previous_end = 0.0, start
+    for word, weight in zip(words, weights, strict=True):
+        cumulative += weight
+        word_start, word_end = _num(word.get("start_time")), _num(word.get("end_time"))
+        if abs(word_start - previous_end) > tolerance:
+            return False
+        if abs(word_end - (start + (end - start) * cumulative / total)) > tolerance:
+            return False
+        previous_end = word_end
+    return True
+
+
+def prepare_existing_lines(lines: list[dict], *, keep_manual: bool = False) -> list[dict]:
     """Copies of a song's current lines for re-timing. Word timing that came with the lyrics
-    (``align_method`` "lrc") is kept; every other line is timed again."""
+    (``align_method`` "lrc") is kept, and so is the timing of lines timed by hand ("manual")
+    when ``keep_manual`` is set, unless their words are only the editor's even spread
+    (words_spread_evenly); every other line is timed again. A line is kept only when it has
+    words, and kept lines are marked with ``has_word_sync``."""
     prepared = []
     for line in lines:
         if not isinstance(line, dict):
@@ -95,12 +141,23 @@ def prepare_existing_lines(lines: list[dict]) -> list[dict]:
         copy = dict(line)
         method = copy.get("align_method")
         from_lyrics = method == "lrc" or (method is None and copy.get("has_word_sync"))
-        if from_lyrics and copy.get("words"):
+        by_hand = keep_manual and method == "manual" and not words_spread_evenly(copy)
+        if (from_lyrics or by_hand) and copy.get("words"):
             copy["has_word_sync"] = True
         else:
             copy.pop("has_word_sync", None)
         prepared.append(copy)
     return prepared
+
+
+def _timed_by_hand(line: Any) -> bool:
+    """A line timed by hand that prepare_existing_lines kept (``keep_manual``)."""
+    return bool(
+        isinstance(line, dict)
+        and line.get("align_method") == "manual"
+        and line.get("has_word_sync")
+        and line.get("words")
+    )
 
 
 def _plain_line(line: dict) -> dict:
@@ -400,14 +457,24 @@ def sync_lyrics(
         aligner = main_mod.aligner
     started = time.monotonic()
     requested = alignment_config.normalize_engine(engine) or alignment_config.requested_engine()
-    timing = source_timing(lines or [])
+    sources = list(lines or [])
+    timing = source_timing(sources)
     _report_progress(progress, 5, "Aligning lyrics to vocal acoustic energy envelopes...")
-    dsp_lines = _dsp_pass(aligner, vocals_path, list(lines or []), timing)
+    dsp_lines = _dsp_pass(aligner, vocals_path, list(sources), timing)
     if cancel_event is not None and cancel_event.is_set():
         raise AlignmentCancelled("Lyric alignment cancelled by user")
 
     effective, fallback_reason = alignment_config.effective_engine(requested)
-    keep_source = [bool(x.get("has_word_sync") and x.get("words")) for x in dsp_lines]
+    # Lines timed by hand and kept by prepare_existing_lines are copied back from the input:
+    # the DSP pass rebuilds every line (dropping align_method), may shift word-synced lines by
+    # a global offset, and drops the word timing on its fallback path. When it returns a
+    # different number of lines, nothing can be matched up and they count as lyrics timing.
+    same = len(dsp_lines) == len(sources)
+    by_hand = [same and _timed_by_hand(sources[i]) for i in range(len(dsp_lines))]
+    keep_source = [
+        bool(x.get("has_word_sync") and x.get("words")) or by_hand[i]
+        for i, x in enumerate(dsp_lines)
+    ]
     neural_by_index: dict[int, dict] = {}
     alignable_counts: dict[int, int] = {}
     windows = _windows(dsp_lines)
@@ -448,7 +515,11 @@ def sync_lyrics(
     evidence = load_evidence(vocals_path)
     result_lines, methods, confidences = [], [], []
     for i, line in enumerate(dsp_lines):
-        if keep_source[i]:
+        if by_hand[i]:
+            src = sources[i]
+            merged, method, score = dict(src), "manual", None
+            merged["words"] = [dict(w) for w in src.get("words") or [] if isinstance(w, dict)]
+        elif keep_source[i]:
             merged, method, score = dict(line), "lrc", None
         else:
             merged, method, score = merge_line(
@@ -481,6 +552,7 @@ def sync_lyrics(
         "lines_dsp": methods.count("dsp"),
         "lines_lrc": methods.count("lrc"),
         "lines_fallback": methods.count("fallback"),
+        "lines_manual": methods.count("manual"),
         "low_confidence_lines": sum(1 for c in confidences if c < LOW_CONFIDENCE),
         "mean_confidence": round(statistics.fmean(confidences), 3) if confidences else None,
         "elapsed_seconds": round(time.monotonic() - started, 2),

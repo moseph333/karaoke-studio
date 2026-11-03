@@ -56,6 +56,17 @@ export function tokenizeLyricText(text: string): string[] {
 }
 
 /**
+ * A word's share of its line when recalculateWordTimings spreads the words evenly: 2 plus its
+ * character count without punctuation, counting at most 10 characters. The backend reads such
+ * spreads with the same weights (lyric_sync.words_spread_evenly).
+ */
+export function wordSpreadWeight(token: string): number {
+  const cleanChars = token.replace(/[\s.,/#!$%^&*;:{}=\-_`~()"<>[\]?]/g, '');
+  const charLen = cleanChars.length > 0 ? cleanChars.length : token.length;
+  return 2.0 + Math.min(10, charLen);
+}
+
+/**
  * Recalculates word-level timing tokens across [startTime, endTime].
  *
  * Guarantees:
@@ -119,11 +130,7 @@ export function recalculateWordTimings(
   }
 
   // 4. Calculate proportional weights (baseWeight=2.0 + alphanumeric character count)
-  const weights = rawTokens.map((t) => {
-    const cleanChars = t.replace(/[\s.,/#!$%^&*;:{}=\-_`~()"<>[\]?]/g, '');
-    const charLen = cleanChars.length > 0 ? cleanChars.length : t.length;
-    return 2.0 + Math.min(10, charLen);
-  });
+  const weights = rawTokens.map(wordSpreadWeight);
   const totalWeight = weights.reduce((acc, w) => acc + w, 0);
 
   // 5. Monotonic boundary distribution with contiguous endpoints

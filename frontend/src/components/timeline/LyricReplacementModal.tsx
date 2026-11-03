@@ -147,7 +147,11 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      await realign({ lines: currentLines }, 'Lyrics re-aligned', 'Failed to re-align lyrics');
+      await realign(
+        { lines: currentLines, keep_manual: true },
+        'Lyrics re-aligned',
+        'Failed to re-align lyrics'
+      );
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to re-align lyrics';
       setErrorMsg(msg);
@@ -340,7 +344,8 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
             {(currentLines?.length ?? 0) > 0 && (
               <div className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="text-xs text-theme-text-muted">
-                  Keep the current text and re-time every line.
+                  Keep the current text and re-time every line except those whose words you timed by
+                  hand.
                 </span>
                 <Button
                   variant="secondary"
