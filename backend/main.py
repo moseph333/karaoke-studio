@@ -25,6 +25,7 @@ from backend.auth import (
     _last_rate_limit_cleanup,
     _login_failures,
     _prune_stale_rate_limits_locked,
+    authenticated_within_limit,
     check_login_rate_limit,
     clear_all_login_failures,
     create_session_token,
@@ -230,10 +231,12 @@ app.mount("/static/backgrounds", StaticFiles(directory=str(BACKGROUNDS_DIR)), na
 
 
 @app.get("/api/health")
-def health_check(request: Request, check_remote: bool = False):
-    # A remote check runs git ls-remote against GitHub, so only a session can force one
-    force_remote = check_remote and is_authenticated(request, config.APP_PASSWORD)
-    return config.check_for_updates(force_remote=force_remote)
+async def health_check(request: Request, check_remote: bool = False):
+    # A remote check runs git ls-remote against GitHub, so only a session can force one. The
+    # rate-limited check runs on the event loop (checking and counting a guess is one step),
+    # the git calls in a worker thread.
+    force_remote = check_remote and authenticated_within_limit(request, config.APP_PASSWORD)
+    return await run_in_threadpool(config.check_for_updates, force_remote=force_remote)
 
 
 @app.post("/api/health")

@@ -5,12 +5,13 @@ its own and passed each response body through an extra stream.
 """
 
 from starlette.datastructures import MutableHeaders
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from backend import config
-from backend.auth import is_authenticated
+from backend.auth import authenticate_request
 from backend.http_delivery import cache_control_for
 
 
@@ -18,7 +19,11 @@ class PassphraseAuth:
     """While APP_PASSWORD is set (read on each request), answers 401 to /api/ and /static/
     requests without a valid session. /api/auth stays open, and GET /api/health for health
     checks and uptime monitors; its POST form and /api/system/update can start a production
-    update, so they need a session."""
+    update, so they need a session.
+
+    Wrong credentials in headers or cookies count against the login rate limit, and a client
+    IP over it gets a 429 with Retry-After before its credentials are compared. A 401 for
+    cookie credentials also expires both session cookies, so a stale cookie counts once."""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -33,12 +38,26 @@ class PassphraseAuth:
             protected = (path.startswith("/api/") and not is_public_api) or path.startswith(
                 "/static/"
             )
-            if protected and not is_authenticated(Request(scope), app_pwd):
-                response = JSONResponse(
-                    status_code=401, content={"detail": "Invalid or missing studio passphrase"}
-                )
-                await response(scope, receive, send)
-                return
+            if protected:
+                try:
+                    authenticated, stale_cookie = authenticate_request(Request(scope), app_pwd)
+                except HTTPException as exc:
+                    limited = JSONResponse(
+                        status_code=exc.status_code,
+                        content={"detail": exc.detail},
+                        headers=exc.headers,
+                    )
+                    await limited(scope, receive, send)
+                    return
+                if not authenticated:
+                    response = JSONResponse(
+                        status_code=401, content={"detail": "Invalid or missing studio passphrase"}
+                    )
+                    if stale_cookie:
+                        response.delete_cookie("session_token")
+                        response.delete_cookie("karaoke_token")
+                    await response(scope, receive, send)
+                    return
         await self.app(scope, receive, send)
 
 
