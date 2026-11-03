@@ -131,6 +131,7 @@ def youtube_package(proj: dict) -> dict[str, Any]:
         lines=proj.get("lines", []),
         semitones=settings.get("semitones", proj.get("semitones", 0)),
         has_guide_vocal=settings.get("guide_volume", proj.get("guide_volume", 0.0)) > 0.05,
+        duration=proj.get("duration"),
     )
 
 

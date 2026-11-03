@@ -9,6 +9,7 @@ from backend.services.ass_generator import (
     format_ass_time,
     generate_ass_content,
     generate_ass_subtitles,
+    instrumental_gaps,
 )
 
 ASS_TIMESTAMP_REGEX = re.compile(r"^\d+:[0-5]\d:[0-5]\d\.\d{2}$")
@@ -261,6 +262,48 @@ class TestAdversarialAssCountdownExtremeDurations:
         assert len(countdown_events) == 1
         assert countdown_events[0]["start"] == "0:00:01.00"
         assert countdown_events[0]["end"] == "0:00:04.00"
+
+
+class TestInstrumentalGapRule:
+    """instrumental_gaps is the countdown's rule, shared with the YouTube kit's chapters."""
+
+    def test_a_gap_of_exactly_4_s_counts_and_3_99_s_does_not(self):
+        lines = [
+            {"start_time": 4.0, "end_time": 6.0},
+            {"start_time": 9.99, "end_time": 11.0},
+            {"start_time": 15.0, "end_time": 16.0},
+        ]
+
+        assert instrumental_gaps(lines) == [0, 2]
+
+    def test_a_gap_is_measured_from_the_latest_end_so_far(self):
+        # The 0-20 line hides the 5-6 line, so the line at 22 is only 2 s after the vocals.
+        lines = [
+            {"start_time": 0.0, "end_time": 20.0},
+            {"start_time": 5.0, "end_time": 6.0},
+            {"start_time": 22.0, "end_time": 25.0},
+        ]
+
+        assert instrumental_gaps(lines) == []
+
+    def test_entries_that_are_not_lines_keep_their_index(self):
+        assert instrumental_gaps([None, {"start_time": 5.0, "end_time": 7.0}]) == [1]
+        assert instrumental_gaps("not a list") == []
+        assert instrumental_gaps(None) == []
+
+    def test_the_countdown_follows_the_rule(self):
+        lines: list[Any] = [
+            "not a line",
+            {"text": "Intro", "start_time": 4.0, "end_time": 6.0},
+            {"text": "Close", "start_time": 9.99, "end_time": 11.0},
+            {"text": "Gap", "start_time": 15.0, "end_time": 16.0},
+        ]
+
+        _, events = parse_ass_styles_and_events(generate_ass_content(lines, include_countdown=True))
+
+        countdown_ends = [e["end"] for e in events if e["style"] == "Countdown"]
+        assert countdown_ends == ["0:00:04.00", "0:00:15.00"]
+        assert len(instrumental_gaps(lines)) == len(countdown_ends)
 
 
 class TestAdversarialAssCountdownMultiSingerAndFlagsMatrix:

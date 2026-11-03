@@ -955,20 +955,23 @@ def test_youtube_metadata_package_generator_edge_cases():
     )
     assert "-3 Semitones" in pkg_empty["key_note"]
     assert "Instrumental with Backing/Guide" in pkg_empty["description"]
-    # Only Intro chapter should be present
-    assert "00:00 - Intro" in pkg_empty["description"]
-    assert "Lyrics Start" not in pkg_empty["description"]
+    # No lines, no chapters: the Timestamps block is left out
+    assert "Timestamps:" not in pkg_empty["description"]
 
     # 2. Lines with timestamp
     pkg_with_lines = YouTubeMetadataService.generate_youtube_package(
         title="Filled Track",
         artist="Solo Singer",
-        lines=[{"text": "First verse", "start_time": 65.0}],
+        lines=[{"text": "First verse", "start_time": 65.0, "end_time": 80.0}],
         semitones=0,
         has_guide_vocal=False,
+        duration=200.0,
     )
     assert "Original Key" in pkg_with_lines["key_note"]
-    assert "01:05 - Lyrics Start" in pkg_with_lines["description"]
+    # The verse's chapter starts with its 3 s countdown
+    assert "00:00 - Intro" in pkg_with_lines["description"]
+    assert "01:02 - First verse" in pkg_with_lines["description"]
+    assert "01:20 - Outro" in pkg_with_lines["description"]
 
     # 3. OAuth configuration status
     assert YouTubeMetadataService.is_oauth_configured() is False

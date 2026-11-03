@@ -246,7 +246,14 @@ def test_pairwise_guide_vocal_blend_plus_pitch_shift_and_youtube_package(client,
             "start_time": 15.0,
             "end_time": 20.0,
             "words": [],
-        }
+        },
+        {
+            "id": 1,
+            "text": "Second chorus soars",
+            "start_time": 40.0,
+            "end_time": 55.0,
+            "words": [],
+        },
     ]
     project_factory(
         project_id="ytkit1", title="Bohemian Hit", artist="Rock Legends", custom_lines=lines
@@ -262,7 +269,8 @@ def test_pairwise_guide_vocal_blend_plus_pitch_shift_and_youtube_package(client,
     assert "title" in data
     assert "+3 Semitones" in data["description"]
     assert "Instrumental with Backing/Guide" in data["description"]
-    assert "00:15 - Lyrics Start" in data["description"]
+    assert "00:12 - Chorus starts singing" in data["description"]
+    assert "00:37 - Second chorus soars" in data["description"]
 
 
 def test_pairwise_scoped_multi_user_creation_and_listing(client, project_factory):

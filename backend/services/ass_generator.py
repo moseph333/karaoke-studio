@@ -122,6 +122,40 @@ def safe_time(val: Any, default: float = 0.0) -> float:
     return 0.0
 
 
+# The countdown's rule, which the YouTube kit's chapters (youtube_uploader) follow too: a
+# silence of INSTRUMENTAL_GAP_THRESHOLD_SECONDS or more before a line is an instrumental gap
+# (the stage's frontend/src/utils/gapDetection.ts uses the same threshold), and the countdown
+# starts COUNTDOWN_LEAD_IN_SECONDS before that line.
+INSTRUMENTAL_GAP_THRESHOLD_SECONDS = 4.0
+COUNTDOWN_LEAD_IN_SECONDS = 3.0
+
+
+def line_span(line: dict) -> tuple[float, float]:
+    """A line's (start, end) in seconds: a missing or bad start is 0, a missing or bad end is
+    4 s after the start, and the end is never before the start."""
+    start = safe_time(line.get("start_time"), 0.0)
+    end = max(start, safe_time(line.get("end_time"), start + 4.0))
+    return start, end
+
+
+def instrumental_gaps(lines: Any) -> list[int]:
+    """The indexes of the lines that come after an instrumental gap: a silence of at least
+    INSTRUMENTAL_GAP_THRESHOLD_SECONDS since the song's start, or since the latest end of
+    any line before it. Entries that are not dicts are skipped but keep their index."""
+    if not isinstance(lines, list):
+        return []
+    gaps: list[int] = []
+    previous_end = 0.0
+    for i, line in enumerate(lines):
+        if not isinstance(line, dict):
+            continue
+        start, end = line_span(line)
+        if start - previous_end >= INSTRUMENTAL_GAP_THRESHOLD_SECONDS:
+            gaps.append(i)
+        previous_end = max(previous_end, end)
+    return gaps
+
+
 def _word_sweep_text(words: list, base_cs: int, line_start: float, escape: bool = True) -> str:
     """Karaoke text with one \\kf sweep per word, placed on absolute centisecond boundaries.
 
@@ -465,12 +499,11 @@ def generate_ass_content(
     prev_end_time = 0.0
 
     if lines and isinstance(lines, list):
+        gap_lines = set(instrumental_gaps(lines))
         for i, line in enumerate(lines):
             if not isinstance(line, dict):
                 continue
-            l_start = safe_time(line.get("start_time"), 0.0)
-            l_end = safe_time(line.get("end_time"), l_start + 4.0)
-            l_end = max(l_start, l_end)
+            l_start, l_end = line_span(line)
             raw_words = line.get("words", [])
             words = raw_words if isinstance(raw_words, list) else []
 
@@ -492,11 +525,10 @@ def generate_ass_content(
             display_start = max(0.0, min(l_start, display_start))
             display_end = max(display_start + 0.5, l_end + 1.2)
 
-            # Visual countdown cue for qualifying non-vocal intervals (>= 4.0 seconds)
-            gap = l_start - prev_end_time
-            has_gap = (i == 0 and l_start >= 4.0) or (i > 0 and gap >= 4.0)
+            # Visual countdown cue after an instrumental gap (the rule is instrumental_gaps)
+            has_gap = i in gap_lines
             if style.countdown and has_gap:
-                countdown_start = max(0.0, l_start - 3.0)
+                countdown_start = max(0.0, l_start - COUNTDOWN_LEAD_IN_SECONDS)
                 part_color = {"singer2": style.singer2_color, "both": style.both_color}.get(part)
                 dots_color_tag = f"{{\\c{part_color}&}}" if part_color else ""
 
