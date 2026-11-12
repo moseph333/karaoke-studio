@@ -7,6 +7,9 @@ services:
         INSTALL_ML_EXTRAS: ${INSTALL_ML_EXTRAS:-1}
     container_name: karaoke-studio
     restart: unless-stopped
+    # Lets requests in flight finish when an update recreates the container
+    # (scripts/update_when_idle.sh waits for running jobs before that)
+    stop_grace_period: 30s
     ports:
       - "${PORT:-8000}:8000"
     # Every setting from .env (see .env.example) reaches the server; the values below win

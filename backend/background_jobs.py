@@ -46,8 +46,16 @@ JOB_THREADS = anyio.CapacityLimiter(32)
 
 
 async def run_job(func: Callable[..., Any], *args: Any) -> None:
-    """Runs a long background job on the job threads (see JOB_THREADS)."""
-    await to_thread.run_sync(functools.partial(func, *args), limiter=JOB_THREADS)
+    """Runs a long background job on the job threads (see JOB_THREADS), telling the host
+    how many jobs run when it starts and ends (backend.update_drain)."""
+    from backend.update_drain import write_jobs_active
+
+    # The route registered the job's cancel event before this; it is released when the job ends
+    write_jobs_active()
+    try:
+        await to_thread.run_sync(functools.partial(func, *args), limiter=JOB_THREADS)
+    finally:
+        write_jobs_active()
 
 
 def job_active(proj: dict, field: str) -> bool:

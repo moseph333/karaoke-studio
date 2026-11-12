@@ -94,9 +94,14 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "RENDER_REMOTE_TIMEOUT_SEC",
         "FFMPEG_PRESET",
         "SELF_UPDATE",
+        "UPDATE_DRAIN_MAX_SEC",
     ):
         monkeypatch.delenv(name, raising=False)
-    from backend import project_store
+    from backend import project_store, update_drain
+
+    # Tests that run the app's lifespan must not leave a thread writing .jobs_active into
+    # later tests' folders
+    monkeypatch.setattr(update_drain, "start_jobs_heartbeat", lambda: None)
     from backend.services import separator as separator_service
     from backend.services import sync_confidence
     from backend.services.audio_mixer import reset_ffmpeg_probe

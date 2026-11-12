@@ -21,6 +21,7 @@ from backend.reseparation import (
 )
 from backend.schemas import LyricLineSchema, RealignLineRequest, ReseparateRequest
 from backend.services.line_realign import LineRealignError, realign_line
+from backend.update_drain import ensure_not_draining
 
 logger = logging.getLogger("karaoke_backend")
 
@@ -55,6 +56,7 @@ def reseparate(project_id: str, req: ReseparateRequest, bg_tasks: BackgroundTask
             )
         # After the 404, 409 and 400 checks, which still answer first on a low disk
         ensure_free_space()
+        ensure_not_draining()
         job = create_job(
             proj,
             req.quality,

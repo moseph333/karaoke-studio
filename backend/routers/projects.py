@@ -79,6 +79,7 @@ from backend.services.waveform import (
     WaveformUnavailable,
     compute_peaks,
 )
+from backend.update_drain import ensure_not_draining
 
 logger = logging.getLogger("karaoke_backend")
 
@@ -195,6 +196,7 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
     # A song that is already ready or running costs no disk; a new intake downloads and
     # separates it
     ensure_free_space()
+    ensure_not_draining()
     project_id = video_id if video_id else str(uuid.uuid4())[:8]
     previous = main_mod.projects.get(project_id)
     if isinstance(previous, dict) and isinstance(previous.get("separation"), dict):
@@ -597,6 +599,9 @@ def realign_lyrics(
             reason = None
     if reason:
         raise HTTPException(status_code=409, detail=reason)
+    if req.background:
+        # Answered within the request otherwise, so only the queued job waits for an update
+        ensure_not_draining()
 
     try:
         if req.fetch_lrclib:
@@ -844,6 +849,7 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
         # Before the event is registered: a refused render must not leave one behind, or
         # every later render would answer 409
         ensure_free_space()
+        ensure_not_draining()
         logger.info(
             f"Queuing video render for project {project_id} (aspect_ratio={req.aspect_ratio}, semitones={req.semitones})"
         )
