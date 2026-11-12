@@ -4,6 +4,13 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 
 ![Karaoke Studio](docs/karaoke-preview.png)
 
+## What's new in 2.3
+
+- **Install it on your phone.** Add the studio to your home screen: tap **Install** on Android, or **Share → Add to Home Screen** in Safari on iPhone and iPad. It opens full screen, keeps clear of the notch, and Back takes you from a song to the library.
+- **Share songs to it.** On Android, share a video from the YouTube app to Karaoke Studio and it opens with the link filled in.
+- **Updates without waiting.** Where the server applies its own updates (`SELF_UPDATE=1`), an **Update now** toast appears as soon as GitHub has a newer version, followed by a **Reload** toast once it's installed.
+- **Fixes.** A "Can't reach your studio" screen instead of the browser's error page while the server restarts, and touch scrolling that works in the installed app.
+
 ## What's new in 2.2
 
 - **New looks and Render Again.** Backgrounds can be the cover art drifting in a slow pan, soft **aurora** orbs or a **spectrum** that rises with the music, drawn the same on the stage and in the video. **Render Again** makes a new video after you change the lyrics, key or look, and opening the Export dialog warms up a cloud CPU so cloud renders start sooner.
