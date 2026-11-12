@@ -473,8 +473,10 @@
   /* Installed app (home-screen launch): no pull-to-refresh reload mid-edit and no grey
      flash on tap, like a native app */
   @media (display-mode: standalone) {
-    html,
-    body {
+    /* On html only: html's value governs the viewport (and pull-to-refresh). body is a
+       scroll container of its own (overflow-x: hidden on both elements) that never
+       scrolls, so `none` there would stop touch scrolls from reaching the page. */
+    html {
       overscroll-behavior-y: none;
     }
     body {
