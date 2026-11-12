@@ -25,6 +25,7 @@ import { Switch } from './ui/Switch';
 import { Tabs } from './ui/Tabs';
 import { modKeyLabel } from '../utils/platform';
 import { characterShortcutsEnabled, setCharacterShortcutsEnabled } from '../utils/shortcutPrefs';
+import { useServerVersion } from '../hooks/useServerVersion';
 
 export interface HelpModalProps {
   isOpen: boolean;
@@ -285,6 +286,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<'shortcuts' | 'guide'>(initialTab);
   const [characterKeysOn, setCharacterKeysOn] = useState(characterShortcutsEnabled);
+  const serverVersion = useServerVersion(isOpen);
 
   const handleCharacterKeysChange = (on: boolean) => {
     setCharacterShortcutsEnabled(on);
@@ -459,6 +461,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({
       )}
 
       <DialogFooter>
+        {serverVersion && (
+          <p className="self-center text-xs text-theme-text-muted sm:mr-auto">
+            Karaoke Studio {serverVersion}
+          </p>
+        )}
         <Button variant="secondary" fullWidth="mobile" onClick={onClose} className="min-w-[44px]">
           Got it, close
         </Button>
