@@ -4,13 +4,16 @@ API JSON and the built frontend's scripts and styles are gzipped; media under /s
 audio stem downloads and the backdrop image are not (they are already compressed or streamed
 by byte range, and older Starlette versions would compress them too). Vite's hashed assets
 never change, so browsers may keep them for a year, while the page itself is revalidated so
-a new build is picked up.
+a new build is picked up, as are the service worker and manifest of the installed app.
 """
 
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 IMMUTABLE_ASSET_CACHE = "public, max-age=31536000, immutable"
+# Revalidated on every load: the page, and the files an installed app must see change soon
+# (the service worker, its offline page and the web app manifest)
+NO_CACHE_PATHS = frozenset(("/", "/index.html", "/sw.js", "/offline.html", "/manifest.json"))
 
 
 def compressible_path(path: str) -> bool:
@@ -27,7 +30,7 @@ def cache_control_for(path: str, status_code: int) -> str | None:
         return None  # never let a browser keep a missing asset for a year
     if path.startswith("/assets/"):
         return IMMUTABLE_ASSET_CACHE
-    if path in ("/", "/index.html"):
+    if path in NO_CACHE_PATHS:
         return "no-cache"
     return None
 

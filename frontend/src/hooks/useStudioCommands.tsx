@@ -5,6 +5,7 @@
 
 import React, { useCallback, useRef } from 'react';
 import {
+  Download,
   Gauge,
   HelpCircle,
   ImageIcon,
@@ -73,6 +74,8 @@ export interface UseStudioCommandsOptions {
   onSelectTab: (tab: StudioWorkspaceTab) => void;
   /** Stem re-separation actions (adds "Improve stem separation…"). */
   quality?: UseQualityJobsReturn;
+  /** Installs the studio as an app; omitted when this browser can't install it. */
+  onInstallApp?: () => void;
 }
 
 const SONG_CACHE_MS = 30_000;
@@ -443,6 +446,17 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
     keywords: ['guide', 'keys', 'how to'],
     run: opts.onOpenHelp,
   });
+  if (opts.onInstallApp) {
+    add({
+      id: 'install-app',
+      title: 'Install app',
+      subtitle: 'Add Karaoke Studio to your home screen',
+      group: 'Help',
+      icon: <Download />,
+      keywords: ['pwa', 'home screen', 'add', 'phone', 'desktop', 'shortcut'],
+      run: opts.onInstallApp,
+    });
+  }
 
   // After the app themes, so the list shown before typing keeps its entries
   if (project) {

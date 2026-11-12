@@ -6,7 +6,7 @@
  * song library.
  */
 
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import {
   ChevronDown,
   FileText,
@@ -42,6 +42,9 @@ export interface TrackSearchProps {
   separationQuality?: SeparationPreset | null;
   /** Shows the quality picker in Advanced options. */
   onSeparationQualityChange?: (preset: SeparationPreset) => void;
+  /** Pre-filled search text, e.g. a YouTube link shared into the installed app. It is never
+   * submitted automatically. */
+  initialQuery?: string;
 }
 
 type IntakeMode = 'youtube' | 'local';
@@ -58,8 +61,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   authToken = '',
   separationQuality = null,
   onSeparationQualityChange,
+  initialQuery = '',
 }) => {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -67,6 +71,12 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [intakeMode, setIntakeMode] = useState<IntakeMode>('youtube');
   const advancedHintId = useId();
+  const submitRef = useRef<HTMLButtonElement>(null);
+
+  // A shared link arrives pre-filled: put focus on Go so one tap (or Enter) starts it
+  useEffect(() => {
+    if (initialQuery) submitRef.current?.focus({ preventScroll: true });
+  }, [initialQuery]);
   // Asked only once the picker is on screen
   const capabilities = useCapabilities(showAdvanced && Boolean(onSeparationQualityChange));
 
@@ -213,6 +223,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                       </button>
                     ) : null}
                     <button
+                      ref={submitRef}
                       type="submit"
                       disabled={isLoading || searching || !query.trim()}
                       aria-label={

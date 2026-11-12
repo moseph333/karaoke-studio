@@ -2,11 +2,13 @@
  * Studio Header Component
  *
  * Sticky top bar: brand, background render status, app theme picker, help, profile,
- * return-to-library (guarded against unsaved edits) and the single Export entry point.
+ * return-to-library (guarded against unsaved edits) and the single Export entry point. Its top
+ * padding clears the status bar and notch when the installed app draws under them
+ * (viewport-fit=cover with a translucent iOS status bar).
  */
 
 import React from 'react';
-import { Mic2, ArrowLeft, User, HelpCircle, Upload, Search } from 'lucide-react';
+import { Mic2, ArrowLeft, User, HelpCircle, Upload, Search, Download } from 'lucide-react';
 import { ProjectState } from '../types';
 import { Tooltip } from './Tooltip';
 import { AppThemePicker } from './AppThemePicker';
@@ -29,6 +31,8 @@ export interface StudioHeaderProps {
   isExportModalOpen?: boolean;
   onOpenExportModal?: () => void;
   onExportClick?: () => void;
+  /** Shows an "Install app" button on the library screen (only when installing is possible). */
+  onInstallApp?: () => void;
 }
 
 const headerButton = cn(
@@ -47,6 +51,7 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
   isExportModalOpen = false,
   onOpenExportModal,
   onExportClick,
+  onInstallApp,
 }) => {
   const handleExport = onExportClick || onOpenExportModal || onStartRender;
   const palette = useCommandPalette();
@@ -67,7 +72,7 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-theme-border-subtle bg-theme-bg/80 backdrop-blur-xl transition-colors">
+    <header className="sticky top-0 z-40 border-b pt-[env(safe-area-inset-top,0px)] border-theme-border-subtle bg-theme-bg/80 backdrop-blur-xl transition-colors">
       <div className="mx-auto flex min-h-[3.5rem] w-full max-w-screen-2xl min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 py-1.5 sm:flex-nowrap sm:px-4 lg:px-6">
         <div className="flex min-w-0 shrink items-center gap-2.5">
           <span
@@ -133,6 +138,24 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
                   <span className="hidden font-medium lg:inline">Search…</span>
                 </span>
                 <Kbd keys={['Mod', 'K']} className="hidden lg:inline-flex" />
+              </button>
+            </Tooltip>
+          )}
+
+          {onInstallApp && !project && (
+            <Tooltip content="Add Karaoke Studio to your home screen" position="bottom">
+              <button
+                type="button"
+                data-testid="install-app-btn"
+                onClick={onInstallApp}
+                className={cn(
+                  headerButton,
+                  'min-w-[44px] justify-center border-theme-border-subtle bg-theme-surface/60 px-2 text-theme-text-muted hover:border-theme-border hover:text-theme-text md:min-w-[36px] sm:px-2.5'
+                )}
+                aria-label="Install app"
+              >
+                <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="hidden sm:inline">Install</span>
               </button>
             </Tooltip>
           )}
