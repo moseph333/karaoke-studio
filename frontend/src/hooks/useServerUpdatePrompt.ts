@@ -20,7 +20,7 @@ export const SERVER_UPDATE_CHECK_INTERVAL_MS = 10 * 60 * 1000;
 /** Each check makes the server ask GitHub; returning to the tab often needn't repeat it. */
 export const SERVER_UPDATE_MIN_GAP_MS = 2 * 60 * 1000;
 export const SERVER_UPDATE_STARTED_MESSAGE =
-  'Updating the studio. This takes a few minutes; you will be offered a reload when it is ready.';
+  'Updating the studio. It restarts once running jobs finish; you will be offered a reload when it is ready.';
 export const SERVER_UPDATE_SIGN_IN_MESSAGE = 'Sign in with the studio passphrase to update.';
 export const SERVER_UPDATE_FAILED_MESSAGE = 'Could not start the update. Try again in a moment.';
 
@@ -30,6 +30,9 @@ export interface ServerUpdateStatus {
   self_update?: boolean;
   latest_version?: string;
   remote_commit?: string;
+  /** An update waits for running jobs; new ones are paused (useUpdateDrainNotice). */
+  draining?: boolean;
+  active_jobs?: number;
 }
 
 /** The toast text for an available update. */

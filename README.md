@@ -114,6 +114,8 @@ The image includes the ML extras (build with `--build-arg INSTALL_ML_EXTRAS=0` f
 docker compose --profile tunnel up -d
 ```
 
+To update a shared instance without cutting off anyone's song import or render, run `scripts/update_when_idle.sh` from the checkout (from cron or a systemd timer, say) instead of `git pull && docker compose up -d --build`. It builds the new image while the old container keeps serving, then pauses new songs, uploads, renders and re-made stems (everyone sees a notice; editing and playback keep working), waits until the running jobs finish or `UPDATE_DRAIN_MAX_SEC` passes, and only then recreates the container. `--force` rebuilds without a new commit.
+
 ### Manual development setup
 
 ```bash
@@ -186,6 +188,7 @@ cp .env.example .env
 | `PORT` | `8000` | Port for the web UI and API |
 | `APP_PASSWORD` | *(empty)* | Optional shared passphrase (`HttpOnly` cookie session). Leave blank for open local access. |
 | `SELF_UPDATE` | *(off)* | `1` where a host service applies updates written to `<data dir>/.update_requested` (as on the homelab). The studio then shows an **Update now** toast when GitHub's `main` is ahead of the running build. |
+| `UPDATE_DRAIN_MAX_SEC` | `2700` | How long `scripts/update_when_idle.sh` waits for running jobs before it restarts the server anyway (jobs still running then are interrupted). New jobs stay paused while it waits. |
 | `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` / `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `5` / `60.0` | Wrong passphrases allowed per IP and window, at login or in a header or cookie on any route (each distinct value counts once per window), before HTTP `429`. A client over the limit gets `429` even with valid credentials. |
 | `FORWARDED_TRUSTED_HOPS` | `1` | Reverse proxies in front of the app that append to `X-Forwarded-For`; the rate limit keys on the entry this many places from the end. `2` for cloudflared in front of Nginx Proxy Manager, but only if Nginx Proxy Manager gets traffic from cloudflared alone: a client that reaches it directly (on the LAN, say) can pick its own rate-limit key with a forged header, so use `1` there. `0` to ignore the header and use the socket address. |
 | `MAX_CONCURRENT_JOBS` | `2` | Separations, re-separations, re-alignments and renders running at once |

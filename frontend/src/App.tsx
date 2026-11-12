@@ -24,6 +24,7 @@ import { useRenderOutcomeToast } from './hooks/useRenderOutcomeToast';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useServerUpdatePrompt } from './hooks/useServerUpdatePrompt';
+import { useUpdateDrainNotice } from './hooks/useUpdateDrainNotice';
 import { useInstallPrompt } from './hooks/useInstallPrompt';
 import { useProjectHistory } from './hooks/useProjectHistory';
 import { isInputElement, isModalActive, useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -48,6 +49,7 @@ export const AppContent: React.FC = () => {
   const { toast } = useToast();
   useUpdatePrompt();
   useServerUpdatePrompt();
+  useUpdateDrainNotice();
   useAppTheme();
   const { project, setProject, isReconnecting, retryPolling } = useProjectPolling(null);
   const [isExportOpen, setIsExportOpen] = useState(false);

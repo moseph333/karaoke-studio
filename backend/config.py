@@ -66,7 +66,12 @@ def _parse_semver_tag(tag: str) -> tuple[int, ...]:
 
 
 def is_update_in_progress() -> bool:
-    """Return True if an update trigger or active update status file is present."""
+    """Return True if an update trigger, a drain waiting for running jobs or an active update
+    status file is present."""
+    from backend.update_drain import is_draining
+
+    if is_draining():
+        return True
     req_file = DATA_DIR / ".update_requested"
     status_file = DATA_DIR / ".update_status.json"
     now = time.time()
@@ -186,7 +191,11 @@ def check_for_updates(force_remote: bool = False) -> dict[str, Any]:
 
 
 def trigger_system_update() -> dict[str, Any]:
-    """Write the host update trigger file and return current update status."""
+    """Write the host update trigger file and return current update status.
+
+    The host builds the new image first and, with scripts/update_when_idle.sh, waits for
+    running jobs before it restarts (backend.update_drain), so one user's request does not
+    cut off another user's render."""
     info = check_for_updates(force_remote=True)
     req_file = DATA_DIR / ".update_requested"
     payload = {

@@ -19,6 +19,7 @@ from backend.project_store import (
     save_projects,
 )
 from backend.schemas import parse_separation_quality
+from backend.update_drain import ensure_not_draining
 from backend.upload_utils import (
     ALLOWED_AUDIO_EXTS,
     ALLOWED_BACKGROUND_EXTS,
@@ -202,6 +203,7 @@ async def upload_audio_track(
             detail=f"Unsupported audio format '{raw_ext}'. Allowed extensions: {', '.join(sorted(ALLOWED_AUDIO_EXTS))}",
         )
     await run_in_threadpool(ensure_free_space)
+    ensure_not_draining()
 
     project_id = f"local_{uuid.uuid4().hex[:8]}"
     clean_stem = Path(

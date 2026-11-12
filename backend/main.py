@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 
-from backend import config
+from backend import config, update_drain
 from backend.auth import (
     LOGIN_RATE_LIMIT_LOCK,
     _last_rate_limit_cleanup,
@@ -187,6 +187,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         start_pruning_mixes_of_every_song()
     except Exception:
         logger.exception("Could not start pruning the cached mixes")
+    try:
+        # This process is the update a drain waited for: new jobs may start again
+        if update_drain.clear_drain_file():
+            logger.info("Removed the update drain marker; new jobs are accepted again")
+        update_drain.start_jobs_heartbeat()
+    except Exception:
+        logger.exception("Could not start reporting the active job count")
     yield
 
 
@@ -251,7 +258,17 @@ async def health_check(request: Request, check_remote: bool = False):
     # rate-limited check runs on the event loop (checking and counting a guess is one step),
     # the git calls in a worker thread.
     force_remote = check_remote and authenticated_within_limit(request, config.APP_PASSWORD)
-    return await run_in_threadpool(config.check_for_updates, force_remote=force_remote)
+    info = await run_in_threadpool(config.check_for_updates, force_remote=force_remote)
+    return {**info, **_drain_status()}
+
+
+def _drain_status() -> dict:
+    """Whether an update waits for running jobs, and how many there are, for the studio's
+    banner."""
+    return {
+        "draining": update_drain.is_draining(),
+        "active_jobs": update_drain.active_jobs()["count"],
+    }
 
 
 @app.post("/api/health")
@@ -270,8 +287,10 @@ async def system_update_action(request: Request):
         pass
     # Both run git (ls-remote can take seconds): off the event loop
     if action == "update":
-        return await run_in_threadpool(config.trigger_system_update)
-    return await run_in_threadpool(config.check_for_updates, force_remote=True)
+        info = await run_in_threadpool(config.trigger_system_update)
+    else:
+        info = await run_in_threadpool(config.check_for_updates, force_remote=True)
+    return {**info, **_drain_status()}
 
 
 # Mount domain routers
