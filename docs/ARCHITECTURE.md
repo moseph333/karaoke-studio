@@ -105,7 +105,9 @@ docs/                     this guide, screenshots
 | `/static/stems` | `stems/<track>/` | `vocals.wav`, `instrumental.wav`, `separation.json` (how they were made), custom instrumentals |
 | `/static/output` | `output/` | master mixes (and their `.m4a` previews), rendered videos (one per aspect ratio) |
 | `/static/backgrounds` | `backgrounds/` | uploaded stage and video backdrops |
-| `/` | `frontend/dist` | the built single-page app |
+| `/` | `frontend/dist` | the built single-page app, plus what `frontend/public` ships: `manifest.json`, `sw.js`, `offline.html`, the icons and `screenshots/` (§3.6) |
+
+Cache headers come from `http_delivery.cache_control_for`: Vite's hashed `/assets/*` are `immutable` for a year; `/`, `/index.html`, `/sw.js`, `/offline.html` and `/manifest.json` are `no-cache`, so a new build, service worker or manifest reaches open tabs and installed apps; everything else gets none.
 
 Stem, master and rendered video URLs carry a `?v=` version after a re-separation, remix or new render so browsers never play or download a stale file.
 
@@ -245,9 +247,10 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 ### 3.2 Studio layout
 
 - `App` wraps `AppContent` in the palette and theme providers. `AppContent` shows the library (`TrackSearch`), the `ProcessingView`, or the `StudioWorkspace`.
-- **Header** (`StudioHeader`): brand, palette trigger, render badge, app theme picker, help, profile, New Song and the single Export button.
+- **Header** (`StudioHeader`): brand, palette trigger, render badge, app theme picker, help, profile, New Song and the single Export button; on the library screen also an **Install** button while the browser can install the app (§3.6).
 - **Workspace** (`studio/StudioWorkspace.tsx`): on desktop a grid of the main column (song header, stage and timeline) and the inspector aside (Audio Mix and Stage Look panels); on phones three tabs (Stage, Timeline, Mix & Theme). The song header carries the sync badge (fidelity, mean confidence, auto-aligned) and the stems badge.
 - **Transport** (`transport/TransportDock.tsx`): the only `<audio>` element (it never remounts), waveform scrubber, play, time, speed, key stepper and volume; fixed at the bottom on phones. It publishes `--dock-height` so toasts sit above it.
+- **Safe areas.** `index.html` uses `viewport-fit=cover`, so the installed app draws under the status bar and notch: the header pads `env(safe-area-inset-top)`, the app shell and the fixed phone dock pad the left and right insets (landscape), and the dock, sheets and the palette pad the bottom inset.
 
 ### 3.3 State and hooks
 
@@ -266,6 +269,8 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 | `useSyncJobResult` | holds a finished re-alignment back while the editor has unsaved edits |
 | `useMediaSession` | metadata, play/pause/seek/stop and previous/next line from media keys |
 | `useKeyboardShortcuts` | global shortcuts, ignored while typing or while any dialog is open |
+| `useProjectHistory` | keeps the open song in the address bar (`?project=`, so a reload or link reopens it) and in the browser history: opening a song from the library pushes an entry, so Back (the Android back gesture in the installed app) closes the song, asking first about unsaved edits; Forward reopens it; closing the song in the app steps back over its own entry; a song opened from a link has none, so closing it only drops `?project=` |
+| `useInstallPrompt` + `utils/installPrompt` | install-as-app state: `beforeinstallprompt` is captured from `main.tsx` before React mounts and replayed by the Install button; iOS (including iPadOS) gets `InstallAppDialog` with the Share → Add to Home Screen steps; nothing is offered when running installed (`display-mode: standalone` or `navigator.standalone`); the header button can be hidden for good (`karaoke_install_button_hidden`), the palette entry stays |
 | `useUpdatePrompt` | offers a Reload toast once the server serves a newer build: when the tab becomes visible and every 5 minutes, it compares the hashed entry script in `/` with the one this page loaded |
 | `useServerUpdatePrompt` | where the server reports `self_update`, offers an Update now toast when GitHub's `main` is ahead of the running build (`GET /api/health?check_remote=1` on load, when the tab becomes visible at most every 2 minutes, and every 10 minutes); the button posts `{"action": "update"}` to `/api/system/update`, and `useUpdatePrompt` then offers the reload |
 
@@ -279,13 +284,20 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 
 `LyricDisplay` composes `stage/StageBackground`, `StageToolbar`, `StageLyrics` (word sweep or line mode, gap countdowns, end card) and `StageFloatingControls` for fullscreen. `StageBackground` draws only what the export draws: the stage colour, then the cover art (the export's own still from `GET /api/project/{id}/backdrop`, panned for the drift), aurora orbs, the spectrum (`StageSpectrum`, a canvas fed by its own analyser and calibrated against `showcqt`), or an upload; aurora and spectrum add the export's scrim. Drift and aurora positions are functions of the song time (`theme/stageBackgrounds.ts`), so a paused stage shows the exported frame at that moment; they hold still under reduced motion. Lyrics carry the export's outline. The preview uses the same backdrop, duet colours and font as the exported video and subtitles.
 
+### 3.6 Installable app
+
+- **Manifest** (`public/manifest.json`): `id` `/`, standalone display, separate `any` icons (transparent corners) and `maskable` icons (full-bleed, artwork inside the safe zone), a narrow and a wide screenshot for Android's install sheet, and a `share_target` that opens `/?title=…&text=…&url=…`. `utils/sharedLink` turns a share into the search box text (the first YouTube link, else the shared words); `App` passes it to `TrackSearch` as `initialQuery` and strips the parameters from the address. A share never starts processing by itself. Theme colours stay in sync with the theme registry (`themeRegistryParity.test.ts`).
+- **Service worker** (`public/sw.js`, registered by `utils/serviceWorker` in production builds only). Page loads go to the network and fall back to the precached `offline.html` ("Can't reach your studio", reloads itself on `online`); hashed `/assets/*` are cache-first, capped at 60 entries. It never handles `/api`, `/static`, non-GET or cross-origin requests and never serves the page from cache, so audio, projects and `useUpdatePrompt` always see the server. Changing what it precaches means bumping its cache names (`karaoke-shell-v1`, `karaoke-assets-v1`); `activate` deletes the others.
+- **Standalone CSS** (`index.css`, `@media (display-mode: standalone)`): `overscroll-behavior-y: none` on `html` only, which governs the viewport and pull-to-refresh. `html` and `body` both set `overflow-x: hidden`, which makes `body` a scroll container that never scrolls; `none` or `contain` on it stops touch scrolls from chaining to the page, so nothing moves on a phone (`standaloneScrollGuard.test.ts`).
+- **Icons and screenshots** are committed PNGs in `frontend/public` (exempt from the PNG ignore rule): the icons are rendered from `icon.svg` and `icon-maskable.svg`, `apple-touch-icon.png` from the maskable art (iOS masks it itself), and the screenshots from a `seed_demo` library. `pwaManifestInstall.test.ts` checks that each file has the size and colour type the manifest states.
+
 ---
 
 ## 4. Testing
 
 - **Backend** (`pytest`). `tests/conftest.py` gives every test an isolated data folder and a hermetic ML setup: `SEPARATION_QUALITY=fast`, `ALIGNMENT_ENGINE=dsp`, downloads off, model folders under the test's temp directory, `HF_HUB_OFFLINE=1`, Demucs quality-flag detection off, the disk-space guard off (`DISK_MIN_FREE_MB=0`), and the mix cache, the trusted proxy hops and the login limits at their defaults (`MIX_CACHE_PER_SONG=6`, `FORWARDED_TRUSTED_HOPS=1`, `LOGIN_RATE_LIMIT_MAX_ATTEMPTS=5`, `LOGIN_RATE_LIMIT_WINDOW_SECONDS=60`), whatever a developer's `.env` says. Engines that need weights are exercised through fake worker processes and stand-in packages, so the suite runs offline. CPU-budget tests guard the DSP aligner's speed.
 - **Frontend** (Vitest, jsdom). Contracts enforced by tests include unique accessible names in the studio at phone and desktop widths, 44 px touch targets, the dialog contract, a single never-remounting audio element, and design-token usage (no fixed palette colours in components).
-- **Layout.** Each suite keeps one folder per feature: `backend/tests/` has `alignment`, `chords`, `lyrics`, `realignment`, `separation`, `media`, `subtitles`, `exports`, `render`, `projects`, `vocal_range`, `server`, `workers`, `tools` and `e2e`; `frontend/src/tests/` has `accessibility`, `app`, `audio`, `chords`, `components`, `dialogs`, `export`, `intake`, `shortcuts`, `stage`, `studio`, `theme`, `timeline`, `transport` and `ui`. Synthetic audio, media and fixtures shared between files live in each suite's `helpers/`. The `meta/` tests guard the layout: no test file at the top level, and on the backend unique basenames and no `__init__.py`, because pytest imports test files by basename.
+- **Layout.** Each suite keeps one folder per feature: `backend/tests/` has `alignment`, `chords`, `lyrics`, `realignment`, `separation`, `media`, `subtitles`, `exports`, `render`, `projects`, `vocal_range`, `server`, `workers`, `tools` and `e2e`; `frontend/src/tests/` has `accessibility`, `app`, `audio`, `chords`, `components`, `dialogs`, `export`, `intake`, `pwa`, `shortcuts`, `stage`, `studio`, `theme`, `timeline`, `transport` and `ui`. Synthetic audio, media and fixtures shared between files live in each suite's `helpers/`. The `meta/` tests guard the layout: no test file at the top level, and on the backend unique basenames and no `__init__.py`, because pytest imports test files by basename.
 - **Gates.**
 
   ```bash
