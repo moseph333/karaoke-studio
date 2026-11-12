@@ -23,6 +23,7 @@ import { useProjectPolling } from './hooks/useProjectPolling';
 import { useRenderOutcomeToast } from './hooks/useRenderOutcomeToast';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
+import { useServerUpdatePrompt } from './hooks/useServerUpdatePrompt';
 import { useInstallPrompt } from './hooks/useInstallPrompt';
 import { useProjectHistory } from './hooks/useProjectHistory';
 import { isInputElement, isModalActive, useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -46,6 +47,7 @@ import type { AudioPlaybackError } from './utils/audioErrors';
 export const AppContent: React.FC = () => {
   const { toast } = useToast();
   useUpdatePrompt();
+  useServerUpdatePrompt();
   useAppTheme();
   const { project, setProject, isReconnecting, retryPolling } = useProjectPolling(null);
   const [isExportOpen, setIsExportOpen] = useState(false);

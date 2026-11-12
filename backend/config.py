@@ -86,6 +86,13 @@ def is_update_in_progress() -> bool:
     return False
 
 
+def self_update_enabled() -> bool:
+    """SELF_UPDATE (default off): a host service applies updates requested through
+    POST /api/system/update (the homelab's systemd path unit), so the studio may offer an
+    "Update now" button. Read on each call; installs without such a service leave it unset."""
+    return os.getenv("SELF_UPDATE", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def check_for_updates(force_remote: bool = False) -> dict[str, Any]:
     """Check local version/commit against origin/main and tags."""
     current_version = get_app_version()
@@ -173,6 +180,7 @@ def check_for_updates(force_remote: bool = False) -> dict[str, Any]:
         "remote_commit": _UPDATE_CACHE.get("remote_commit") or "",
         "update_available": update_available,
         "updating": updating,
+        "self_update": self_update_enabled(),
         "message": msg,
     }
 

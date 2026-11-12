@@ -93,6 +93,7 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "RENDER_REMOTE_QUEUE_SEC",
         "RENDER_REMOTE_TIMEOUT_SEC",
         "FFMPEG_PRESET",
+        "SELF_UPDATE",
     ):
         monkeypatch.delenv(name, raising=False)
     from backend import project_store
