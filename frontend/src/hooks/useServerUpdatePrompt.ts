@@ -25,6 +25,8 @@ export const SERVER_UPDATE_SIGN_IN_MESSAGE = 'Sign in with the studio passphrase
 export const SERVER_UPDATE_FAILED_MESSAGE = 'Could not start the update. Try again in a moment.';
 
 export interface ServerUpdateStatus {
+  /** The version the server runs (useServerVersion). */
+  version?: string;
   update_available?: boolean;
   updating?: boolean;
   self_update?: boolean;
