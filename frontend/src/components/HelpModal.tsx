@@ -17,6 +17,7 @@ import {
   Download,
   Info,
   Check,
+  Smartphone,
 } from 'lucide-react';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
@@ -260,6 +261,19 @@ const STAGES: GuideStage[] = [
       'Direct 1-click downloads for isolated instrumental WAV, vocals WAV, and mixed master audio',
       'Instant downloads: export standalone .lrc and .ass (with multi-singer duet styles & gap countdowns)',
       'Render 1080p60 MP4 videos (with optional beat visualizer) and generate YouTube metadata packages',
+    ],
+  },
+  {
+    step: 'Stage 6',
+    title: '6. Install on Your Phone',
+    icon: Smartphone,
+    badge: 'App',
+    summary: 'Add the studio to your home screen so it opens full screen, like an app.',
+    features: [
+      'Android & Chrome: tap Install in the header on the library screen, or pick Install app from the browser menu (or the command palette)',
+      'iPhone & iPad: in Safari, tap Share, then Add to Home Screen, then Add',
+      'Android: share a YouTube video to Karaoke Studio from the YouTube app to open it with the link filled in',
+      'The installed app shows a reconnect screen while your server is down or restarting, and Back returns from a song to the library',
     ],
   },
 ];

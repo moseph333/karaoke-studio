@@ -470,6 +470,17 @@
     outline: 2px solid rgb(var(--theme-focus-rgb, 167 139 250));
     outline-offset: 2px;
   }
+  /* Installed app (home-screen launch): no pull-to-refresh reload mid-edit and no grey
+     flash on tap, like a native app */
+  @media (display-mode: standalone) {
+    html,
+    body {
+      overscroll-behavior-y: none;
+    }
+    body {
+      -webkit-tap-highlight-color: transparent;
+    }
+  }
   ::selection {
     background-color: rgb(var(--theme-accent-rgb, 124 58 237) / 0.4);
     color: var(--theme-text, #f5f3ff);

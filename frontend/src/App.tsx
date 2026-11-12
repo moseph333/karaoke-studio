@@ -11,6 +11,7 @@ import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
 import { RenderProgressAnnouncer } from './components/RenderProgressAnnouncer';
 import { StudioModals } from './components/StudioModals';
+import { InstallAppDialog } from './components/InstallAppDialog';
 import { StudioWorkspace } from './components/studio/StudioWorkspace';
 import { TransportDock } from './components/transport/TransportDock';
 import { LyricLine, SyncDisplayMode, StudioWorkspaceTab } from './types';
@@ -22,6 +23,8 @@ import { useProjectPolling } from './hooks/useProjectPolling';
 import { useRenderOutcomeToast } from './hooks/useRenderOutcomeToast';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
+import { useInstallPrompt } from './hooks/useInstallPrompt';
+import { useProjectHistory } from './hooks/useProjectHistory';
 import { isInputElement, isModalActive, useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStudioAudio } from './hooks/useStudioAudio';
 import { useStableHandlers } from './hooks/useStableHandlers';
@@ -37,6 +40,7 @@ import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThe
 import { cn } from './utils/cn';
 import { focusQuietly } from './utils/focusIntent';
 import { pageTitle } from './utils/pageTitle';
+import { SHARE_PARAMS, sharedIntakeQuery, urlWithoutShareParams } from './utils/sharedLink';
 import type { AudioPlaybackError } from './utils/audioErrors';
 
 export const AppContent: React.FC = () => {
@@ -49,6 +53,9 @@ export const AppContent: React.FC = () => {
   const [showStudioDeleteModal, setShowStudioDeleteModal] = useState(false);
   const [showStudioEditModal, setShowStudioEditModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showInstallSteps, setShowInstallSteps] = useState(false);
+  const openInstallSteps = useCallback(() => setShowInstallSteps(true), []);
+  const installApp = useInstallPrompt(openInstallSteps);
 
   // Mobile Studio Workspace Navigation State (Stage / Timeline / Mix)
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<StudioWorkspaceTab>('stage');
@@ -80,23 +87,40 @@ export const AppContent: React.FC = () => {
   const { audioRef, duration, isPlaying, isMuted, setIsPlaying } = audio;
   const { queueSeek } = audio;
 
+  // Opens a song by id: from a ?project= link (with an optional ?t= seek) or a history entry
+  const openProjectById = useCallback(
+    (projectId: string, seekTime?: number) => {
+      apiFetch(`/api/project/${projectId}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.id) {
+            setProject(data);
+            if (seekTime !== undefined && !isNaN(seekTime)) queueSeek(seekTime);
+          }
+        })
+        .catch((e) => console.error('Failed to load project from URL parameter', e));
+    },
+    [setProject, queueSeek]
+  );
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const projectId = params.get('project');
     const tParam = params.get('t');
     if (!projectId) return;
+    openProjectById(projectId, tParam ? parseFloat(tParam) : undefined);
+  }, [openProjectById]);
 
-    apiFetch(`/api/project/${projectId}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.id) {
-          setProject(data);
-          const seekTime = tParam ? parseFloat(tParam) : NaN;
-          if (!isNaN(seekTime)) queueSeek(seekTime);
-        }
-      })
-      .catch((e) => console.error('Failed to load project from URL parameter', e));
-  }, [setProject, queueSeek]);
+  // Something shared into the installed app (Android share sheet): pre-fill the song search
+  // with it, then tidy the address bar
+  const [sharedQuery, setSharedQuery] = useState(() =>
+    sharedIntakeQuery(new URLSearchParams(window.location.search))
+  );
+  if (sharedQuery && project) setSharedQuery(null); // used once; the library opens empty later
+  useEffect(() => {
+    if (!SHARE_PARAMS.some((key) => new URLSearchParams(window.location.search).has(key))) return;
+    window.history.replaceState(window.history.state, '', urlWithoutShareParams(window.location));
+  }, []);
 
   const handleCancelProcess = async () => {
     if (!project?.id) return;
@@ -146,28 +170,6 @@ export const AppContent: React.FC = () => {
     if (isModalActive() || isInputElement(document.activeElement)) return;
     focusQuietly(document.querySelector<HTMLElement>('main [data-view-heading]'));
   }, [view]);
-
-  // Keep the open song in the address bar (?project=…) so a reload reopens it; the
-  // deep-link loader above reads it back
-  const projectId = project?.id;
-  const previousProjectIdRef = useRef(projectId);
-  useEffect(() => {
-    const closedProject = Boolean(previousProjectIdRef.current) && !projectId;
-    previousProjectIdRef.current = projectId;
-    const params = new URLSearchParams(window.location.search);
-    if (projectId && params.get('project') !== projectId) {
-      params.set('project', projectId);
-      params.delete('t');
-    } else if (closedProject) {
-      params.delete('project');
-      params.delete('t');
-    } else {
-      return;
-    }
-    const query = params.toString();
-    const url = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
-    window.history.replaceState(window.history.state, '', url);
-  }, [projectId]);
 
   const { chordHistory, handleEditChord } = useProjectChords({
     project,
@@ -329,6 +331,15 @@ export const AppContent: React.FC = () => {
     setActiveWorkspaceTab('stage');
   };
 
+  // ?project=… in the address bar (a reload reopens the song) and a history entry per song,
+  // so Back, including the Android back gesture in the installed app, returns to the library
+  useProjectHistory({
+    projectId: project?.id,
+    hasUnsavedEdits: isLyricsDirty || chordHistory.isDirty,
+    onBackToLibrary: resetToLibrary,
+    onRestoreProject: openProjectById,
+  });
+
   // Fixed identities for the handlers given to the memoized header, workspace and dock
   const handlers = useStableHandlers({
     toggleHelp: () => setShowHelpModal((prev) => !prev),
@@ -364,6 +375,7 @@ export const AppContent: React.FC = () => {
     },
     onSelectTab: setActiveWorkspaceTab,
     quality,
+    onInstallApp: installApp.canInstall ? installApp.install : undefined,
   });
 
   const handleStudioMetadataSaved = (updated: { id: string; title: string; artist: string }) => {
@@ -379,6 +391,8 @@ export const AppContent: React.FC = () => {
       <div
         className={cn(
           'min-h-screen bg-theme-bg text-theme-text flex flex-col font-theme-body',
+          // Landscape phones: keep content out of the notch and rounded corners
+          'pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]',
           isStudioReady && 'studio:h-[100dvh] studio:overflow-hidden'
         )}
       >
@@ -401,6 +415,7 @@ export const AppContent: React.FC = () => {
             onNewSong={handlers.newSong}
             isExportModalOpen={isExportOpen}
             onOpenExportModal={openExport}
+            onInstallApp={installApp.showHeaderButton ? installApp.install : undefined}
           />
 
           <main
@@ -424,6 +439,7 @@ export const AppContent: React.FC = () => {
                 isLoading={intake.loading}
                 currentUser={currentUser}
                 authToken={authToken}
+                initialQuery={sharedQuery ?? undefined}
               />
             ) : project.status !== 'ready' ? (
               <ProcessingView
@@ -524,6 +540,11 @@ export const AppContent: React.FC = () => {
           onStudioMetadataSaved={handleStudioMetadataSaved}
           quality={quality}
           hasUnsavedLyricEdits={isLyricsDirty}
+        />
+        <InstallAppDialog
+          isOpen={showInstallSteps}
+          onClose={() => setShowInstallSteps(false)}
+          onHideButton={installApp.showHeaderButton ? installApp.hideHeaderButton : undefined}
         />
       </div>
     </PlaybackClockContext.Provider>

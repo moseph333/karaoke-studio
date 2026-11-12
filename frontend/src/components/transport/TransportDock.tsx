@@ -378,7 +378,12 @@ const TransportDockView: React.FC<TransportDockProps> = ({
         'md:static md:z-auto md:mx-3 md:mb-3 md:rounded-theme-xl md:border lg:mx-6',
         className
       )}
-      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
+      style={{
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)',
+        // The fixed phone dock spans the screen edge to edge, outside the shell's side insets
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+      }}
     >
       {masterAudioUrl && (
         <audio
