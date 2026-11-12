@@ -442,13 +442,10 @@ class VocalRangeAnalyzer:
                 + 0.5 * abs(s)
             )
 
-            if cost < best_cost:
+            # A tie (within float noise) goes to the smaller shift
+            if cost < best_cost or (abs(cost - best_cost) < 1e-9 and abs(s) < abs(best_s)):
                 best_cost = cost
                 best_s = s
-            elif abs(cost - best_cost) < 1e-9:
-                if abs(s) < abs(best_s):
-                    best_cost = cost
-                    best_s = s
 
         best_s = max(-12, min(12, int(best_s)))
         orig_key = actual_song.get("estimated_key", "Unknown")
