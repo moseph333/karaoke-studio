@@ -4,6 +4,10 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 
 ![Karaoke Studio](docs/karaoke-preview.png)
 
+## What's new in 2.4
+
+- **Updates that don't interrupt anyone.** `scripts/update_when_idle.sh` builds the new version while the studio keeps running, pauses new songs, uploads and renders (everyone sees a notice; editing and playback keep working), waits for running jobs to finish, and only then restarts. **Update now** goes through the same steps, so one person's update no longer cuts off another person's render.
+
 ## What's new in 2.3
 
 - **Install it on your phone.** Add the studio to your home screen: tap **Install** on Android, or **Share → Add to Home Screen** in Safari on iPhone and iPad. It opens full screen, keeps clear of the notch, and Back takes you from a song to the library.
