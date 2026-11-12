@@ -171,6 +171,7 @@ cp .env.example .env
 | :--- | :--- | :--- |
 | `PORT` | `8000` | Port for the web UI and API |
 | `APP_PASSWORD` | *(empty)* | Optional shared passphrase (`HttpOnly` cookie session). Leave blank for open local access. |
+| `SELF_UPDATE` | *(off)* | `1` where a host service applies updates written to `<data dir>/.update_requested` (as on the homelab). The studio then shows an **Update now** toast when GitHub's `main` is ahead of the running build. |
 | `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` / `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `5` / `60.0` | Wrong passphrases allowed per IP and window, at login or in a header or cookie on any route (each distinct value counts once per window), before HTTP `429`. A client over the limit gets `429` even with valid credentials. |
 | `FORWARDED_TRUSTED_HOPS` | `1` | Reverse proxies in front of the app that append to `X-Forwarded-For`; the rate limit keys on the entry this many places from the end. `2` for cloudflared in front of Nginx Proxy Manager, but only if Nginx Proxy Manager gets traffic from cloudflared alone: a client that reaches it directly (on the LAN, say) can pick its own rate-limit key with a forged header, so use `1` there. `0` to ignore the header and use the socket address. |
 | `MAX_CONCURRENT_JOBS` | `2` | Separations, re-separations, re-alignments and renders running at once |

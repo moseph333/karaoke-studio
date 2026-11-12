@@ -113,7 +113,7 @@ Stem, master and rendered video URLs carry a `?v=` version after a re-separation
 
 | Method and path | Purpose |
 | :--- | :--- |
-| `GET /api/health`, `POST /api/health`, `POST /api/system/update` | version and update check; the POST forms can start an update and need a session |
+| `GET /api/health`, `POST /api/health`, `POST /api/system/update` | version and update check (`self_update` reports `SELF_UPDATE`); the POST forms can start an update and need a session |
 | `GET /api/auth/status`, `POST /api/auth/login`, `POST /api/auth/logout` | session handling |
 | `GET /api/capabilities` | separation presets and lyric aligner this server can run, with reasons |
 | `POST /api/search` | YouTube search |
@@ -267,6 +267,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 | `useMediaSession` | metadata, play/pause/seek/stop and previous/next line from media keys |
 | `useKeyboardShortcuts` | global shortcuts, ignored while typing or while any dialog is open |
 | `useUpdatePrompt` | offers a Reload toast once the server serves a newer build: when the tab becomes visible and every 5 minutes, it compares the hashed entry script in `/` with the one this page loaded |
+| `useServerUpdatePrompt` | where the server reports `self_update`, offers an Update now toast when GitHub's `main` is ahead of the running build (`GET /api/health?check_remote=1` on load, when the tab becomes visible at most every 2 minutes, and every 10 minutes); the button posts `{"action": "update"}` to `/api/system/update`, and `useUpdatePrompt` then offers the reload |
 
 **Hand edits.** The editor routes hand edits through a setter that compares each line's content (text, times, words) with the previous state: changed lines become `align_method: "manual"` and lose their confidence, and a line edited back to its saved content gets its saved metadata back (`utils/manualEdits.ts`). Aligner results, undo/redo and server updates bypass it. Whole-song re-alignments and re-made stems started from the studio send `keep_manual`, so these lines keep their timing (`lyric_sync.prepare_existing_lines`), except lines of two or more words that the editor only spread evenly (`wordsSpreadEvenly`, the same rule as the backend's `words_spread_evenly`; `backend/assets/shared/word_spread_cases.json` pins both). Retyping such a line spreads its words again even when the word count stays the same.
 
