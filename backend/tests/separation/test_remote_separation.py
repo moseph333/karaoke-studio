@@ -237,3 +237,56 @@ def test_an_aborting_progress_callback_cancels_the_cloud_job(tmp_path, fake_moda
             queue_s=60.0,
         )
     assert fake_modal.call.cancelled
+
+
+def test_the_gpus_emission_is_kept_for_the_new_vocals(tmp_path, fake_modal):
+    from backend.services import emission_cache
+
+    emission = b"\x93NUMPY-array-bytes"
+    fake_modal.items = [remote.STARTED]
+    fake_modal.call = FakeCall(
+        {"returncode": 0, "vocals": b"RIFFv", "no_vocals": b"RIFFn", "emission": emission}
+    )
+
+    outcome, _, _ = _run(tmp_path)
+
+    assert outcome == remote.RemoteOutcome(0)
+    kept = emission_cache.path_for(tmp_path / "out" / "vocals.wav")
+    assert kept.read_bytes() == emission
+
+
+@pytest.mark.parametrize("emission", [None, b"not an array"])
+def test_stems_without_a_usable_emission_still_arrive(tmp_path, fake_modal, emission):
+    from backend.services import emission_cache
+
+    fake_modal.items = [remote.STARTED]
+    result = {"returncode": 0, "vocals": b"RIFFv", "no_vocals": b"RIFFn"}
+    if emission is not None:
+        result["emission"] = emission
+    fake_modal.call = FakeCall(result)
+
+    outcome, _, _ = _run(tmp_path)
+
+    assert outcome == remote.RemoteOutcome(0)
+    assert (tmp_path / "out" / "vocals.wav").read_bytes() == b"RIFFv"
+    assert not emission_cache.path_for(tmp_path / "out" / "vocals.wav").exists()
+
+
+def test_the_gpu_app_calls_the_ctc_workers_emission_mode_correctly():
+    from backend.workers import ctc_align_worker
+
+    tree = ast.parse((PROJECT_ROOT / "gpu" / "modal_app.py").read_text())
+    function = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_emission"
+    )
+    cmd = next(
+        node.value
+        for node in ast.walk(function)
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "cmd" for t in node.targets)
+    )
+    parts = [e.value if isinstance(e, ast.Constant) else "value" for e in cmd.elts]
+    assert parts[1:4] == ["-u", "-m", "backend.workers.ctc_align_worker"]
+    args = ctc_align_worker.parse_args(parts[4:])
+    assert args.emission is not None and args.out is not None and args.model_dir is not None

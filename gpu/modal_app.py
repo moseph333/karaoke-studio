@@ -7,12 +7,15 @@ Deploy once from the repository root (needs `pip install modal` and `modal setup
 
 then let the server use them with SEPARATION_REMOTE=modal and/or RENDER_REMOTE=modal and a
 Modal token in .env (MODAL_TOKEN_ID and MODAL_TOKEN_SECRET; see .env.example). Deploy again
-after changing the RoFormer worker, backend/requirements-ml.txt or backend/assets/fonts.
+after changing the RoFormer or CTC worker, backend/requirements-ml.txt or backend/assets/fonts.
 
 `separate` runs backend.workers.roformer_worker unchanged on the first free GPU from
 SEPARATION_REMOTE_GPUS and sends the worker's stderr back through the queue it is handed, for
-backend.services.remote_separation to read. Model weights live in the Modal volume
-"karaoke-models", so each downloads once. `render` runs FFmpeg with the arguments
+backend.services.remote_separation to read. Once the stems are made it also runs
+backend.workers.ctc_align_worker in emission-only mode on the new vocals and returns that
+emission too (backend.services.emission_cache), so the server's lyric alignment does not have
+to run the MMS model on its CPU; if that step fails the stems still come back. Model weights
+(RoFormer and MMS) live in the Modal volume "karaoke-models", so each downloads once. `render` runs FFmpeg with the arguments
 backend.services.video_renderer builds, on RENDER_REMOTE_CPUS cores with the app's fonts, and
 sends FFmpeg's -progress lines back the same way; called with warmup=True (when the Export
 dialog opens) it only starts a container. Billing is per second while a container runs; an
@@ -45,6 +48,10 @@ SCALEDOWN_SECONDS = int(os.environ.get("SEPARATION_REMOTE_SCALEDOWN_SEC", "30"))
 RENDER_CPUS = float(os.environ.get("RENDER_REMOTE_CPUS", "16"))
 RENDER_SCALEDOWN_SECONDS = int(os.environ.get("RENDER_REMOTE_SCALEDOWN_SEC", "120"))
 MODEL_DIR = "/models/audio-separator"
+ALIGN_MODEL_DIR = "/models/mms_fa"
+# The emission takes seconds on a GPU (plus a one-time 1.2 GB download); never let it hold
+# the stems back for long
+EMISSION_TIMEOUT_SECONDS = 300
 FONTS_DIR = "/fonts"  # same path as backend/services/remote_render.py
 # Put on the queue when the job starts (same value in backend/services/modal_jobs.py)
 STARTED = "\x00karaoke-gpu-started"
@@ -63,6 +70,47 @@ def _gpu_name() -> str:
         return ""
 
 
+def _emission(vocals: Path, work: Path) -> bytes | None:
+    """The MMS aligner's emission for the new vocals as .npy bytes, or None when it could not
+    be made (the separation still succeeds)."""
+    target = work / "emission.npy"
+    cmd = [
+        sys.executable,
+        "-u",
+        "-m",
+        "backend.workers.ctc_align_worker",
+        "--emission",
+        str(vocals),
+        "--out",
+        str(target),
+        "--model-dir",
+        ALIGN_MODEL_DIR,
+        "--allow-download",
+        "1",
+        "--device",
+        "auto",
+    ]
+    try:
+        done = subprocess.run(
+            cmd,
+            cwd="/app",
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=EMISSION_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        print(f"No neural listening pass: {exc}", file=sys.stderr)
+        return None
+    if done.returncode != 0 or not target.is_file():
+        tail = "\n".join(done.stderr.strip().splitlines()[-5:])
+        print(f"No neural listening pass (exit {done.returncode}): {tail}", file=sys.stderr)
+        return None
+    return target.read_bytes()
+
+
 def _ml_requirements() -> list[str]:
     """backend/requirements-ml.txt with the GPU build of audio-separator.
 
@@ -78,7 +126,7 @@ def _ml_requirements() -> list[str]:
 image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install("ffmpeg")
-    .pip_install(*_ml_requirements())
+    .pip_install(*_ml_requirements(), "torchaudio>=2.10.0", "soundfile")
     .env({"PYTHONPATH": "/app"})
 )
 if modal.is_local():  # the worker code is uploaded at deploy time
@@ -111,7 +159,8 @@ def separate(
     ensemble: str,
     lines: modal.Queue,
 ) -> dict:
-    """Separate one song: the worker's stderr goes to `lines`, the two stems are returned."""
+    """Separate one song: the worker's stderr goes to `lines`, the two stems (and, when it
+    could be made, the vocals' MMS emission) are returned."""
     lines.put(STARTED)
     work = Path(tempfile.mkdtemp(prefix="karaoke-"))
     try:
@@ -163,11 +212,14 @@ def separate(
         finally:
             if process.poll() is None:  # cancelled or failed while the worker ran
                 process.kill()
-        weights.commit()  # keep any weights this run downloaded
         result: dict = {"returncode": returncode, "gpu": _gpu_name()}
         if returncode == 0:
             result["vocals"] = (out / "vocals.wav").read_bytes()
             result["no_vocals"] = (out / "no_vocals.wav").read_bytes()
+            emission = _emission(out / "vocals.wav", work)
+            if emission is not None:
+                result["emission"] = emission
+        weights.commit()  # keep any weights this run downloaded
         return result
     finally:
         shutil.rmtree(work, ignore_errors=True)

@@ -40,6 +40,17 @@ also has
 where null_score is the median line score of the same lines with scrambled letters (a
 baseline for this recording, see null_score()), "skipped" means the song pass could not run (too little audio for the text, or too
 large) and "failed" that it raised; the line results are there either way.
+Either version may name an "emission_cache" file (a .npy written by save_emission, see
+backend.services.emission_cache, which keys it by the vocals' content). When it holds a usable
+emission the model is not loaded at all: the line windows (version 1 too) and the song pass
+are aligned on it, and "emission" says "cached": true. A version 2 run that has to listen to
+the song itself writes the emission there for the next run.
+
+Emission-only mode, used on the cloud GPU right after separation (gpu/modal_app.py):
+
+    python -u -m backend.workers.ctc_align_worker --emission vocals.wav --out emission.npy \
+        --model-dir /models/mms_fa [--allow-download 1] [--device auto|cpu|cuda]
+
 Progress goes to stderr as JSON lines ({"event": "stage" | "download" | "error", ...}); a
 version 2 run tags its stage events with "phase": "emission", "lines" or "song".
 Exit codes: 0 ok, 2 bad arguments, 3 weights missing while downloads are disabled,
@@ -91,9 +102,20 @@ def emit(event: str, **fields) -> None:
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="ctc_align_worker", description=__doc__.split("\n")[0])
-    parser.add_argument("--request", type=Path, required=True)
-    parser.add_argument("--response", type=Path, required=True)
-    return parser.parse_args(argv)
+    parser.add_argument("--request", type=Path)
+    parser.add_argument("--response", type=Path)
+    parser.add_argument("--emission", type=Path, help="emission-only mode: the vocals to read")
+    parser.add_argument("--out", type=Path, help="emission-only mode: the .npy to write")
+    parser.add_argument("--model-dir", type=Path)
+    parser.add_argument("--allow-download", type=int, choices=(0, 1), default=1)
+    parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
+    args = parser.parse_args(argv)
+    if args.emission is not None:
+        if args.out is None or args.model_dir is None:
+            parser.error("--emission needs --out and --model-dir")
+    elif args.request is None or args.response is None:
+        parser.error("--request and --response are required")
+    return args
 
 
 def write_atomic(path: Path, payload: dict) -> None:
@@ -246,16 +268,22 @@ def chunk_plan(n_samples: int) -> list[tuple[int, int, int, int]]:
     return plan
 
 
-def song_emission(model, waveform, torch, progress=None):
+def song_emission(model, waveform, torch, progress=None, device=None):
     """The model's emission (frames x labels) for the whole track, run chunk by chunk
-    (chunk_plan) and stitched by frame index."""
+    (chunk_plan) and stitched by frame index. With ``device`` each chunk runs there and its
+    frames come back to the CPU."""
     n_samples = int(waveform.shape[1])
     plan = chunk_plan(n_samples)
     parts = []
     for done, (first, end, core_start, core_end) in enumerate(plan, 1):
+        segment = waveform[:, first:end]
+        if device is not None:
+            segment = segment.to(device)
         with torch.inference_mode():
-            emission, _ = model(waveform[:, first:end])
+            emission, _ = model(segment)
         emission = emission[0]
+        if device is not None:
+            emission = emission.cpu()
         offset = first // FRAME_SAMPLES
         keep = emission[core_start - offset : core_end - offset]
         if keep.shape[0] < core_end - core_start:  # a frame short at the very end
@@ -422,7 +450,8 @@ def load_waveform(path: str, torch, torchaudio):
     return waveform
 
 
-def run(request: dict) -> dict:
+def import_torch():
+    """torch, torchaudio, torchaudio.functional and the MMS_FA bundle."""
     try:
         import torch
         import torchaudio
@@ -430,11 +459,14 @@ def run(request: dict) -> dict:
         from torchaudio.pipelines import MMS_FA
     except Exception as exc:  # ImportError, or a broken install raising OSError
         raise ImportError(f"PyTorch/torchaudio could not be loaded: {exc}") from exc
+    return torch, torchaudio, functional, MMS_FA
 
-    model_dir = Path(request["model_dir"])
+
+def load_model(model_dir: Path, allow_download: bool, torch, bundle, device=None):
+    """The MMS_FA model with its star class, downloading the weights when allowed."""
     model_dir.mkdir(parents=True, exist_ok=True)
     if not (model_dir / WEIGHTS_FILE).is_file():
-        if not request.get("allow_download"):
+        if not allow_download:
             raise WeightsMissing(
                 "The MMS alignment model is not downloaded and automatic download is disabled "
                 "(ALIGNMENT_ALLOW_DOWNLOAD=0)"
@@ -443,18 +475,115 @@ def run(request: dict) -> dict:
 
     emit("stage", detail="Loading the neural aligner…")
     torch.set_num_threads(max(1, min(4, os.cpu_count() or 1)))
-    model = MMS_FA.get_model(
+    model = bundle.get_model(
         with_star=True, dl_kwargs={"model_dir": str(model_dir), "file_name": WEIGHTS_FILE}
     )
+    if device is not None:
+        model = model.to(device)
     model.eval()
-    dictionary = MMS_FA.get_dict(star=None)
-    star = len(dictionary)  # with_star appends the star class after the regular labels
+    return model
 
-    waveform = load_waveform(request["audio"], torch, torchaudio)
+
+def load_cached_emission(path: str | Path | None, labels: int, torch):
+    """The emission saved in ``path`` (frames x ``labels`` log-probabilities), or None when
+    there is none or it does not look like one. Never raises."""
+    if not path:
+        return None
+    try:
+        import numpy as np
+
+        array = np.load(Path(path), allow_pickle=False)
+        if array.ndim != 2 or array.shape[0] < 1 or array.shape[1] != labels:
+            return None
+        if array.dtype != np.float32 or not np.isfinite(array).all():
+            return None
+        emission = torch.from_numpy(np.ascontiguousarray(array))
+    except Exception:  # missing, half-written or not an array: listen to the song again
+        return None
+    try:
+        os.utime(path)  # recently used, so pruning keeps it
+    except OSError:
+        pass
+    return emission
+
+
+def save_emission(path: str | Path, emission) -> bool:
+    """Writes the emission to ``path`` as a float32 .npy, atomically. Never raises."""
+    try:
+        import numpy as np
+
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        array = emission.detach().cpu().float().numpy()
+        fd, tmp = tempfile.mkstemp(prefix=".emission-", suffix=".npy", dir=str(target.parent))
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                np.save(handle, np.ascontiguousarray(array, dtype=np.float32))
+            os.replace(tmp, target)
+        except BaseException:
+            Path(tmp).unlink(missing_ok=True)
+            raise
+        return True
+    except Exception as exc:
+        emit("stage", detail=f"Could not save the neural listening pass: {exc}")
+        return False
+
+
+def labels_and_star(bundle) -> tuple[dict, int, int]:
+    """The model's letter dictionary, the star token and the number of emission columns
+    (with_star appends the star class after the regular labels)."""
+    dictionary = bundle.get_dict(star=None)
+    star = len(dictionary)
+    return dictionary, star, star + 1
+
+
+def run(request: dict) -> dict:
+    torch, torchaudio, functional, MMS_FA = import_torch()
     lines = request.get("lines") or []
     song = request.get("song")
-    if request.get("version") == 2 and isinstance(song, dict):
-        return run_song(model, waveform, lines, song, dictionary, star, torch, functional)
+    cache_path = request.get("emission_cache") or None
+    song_mode = request.get("version") == 2 and isinstance(song, dict)
+
+    emission = None
+    if cache_path and Path(cache_path).is_file():
+        dictionary, star, labels = labels_and_star(MMS_FA)
+        emission = load_cached_emission(cache_path, labels, torch)
+    if emission is not None:
+        emit(
+            "stage",
+            phase="emission",
+            done=1,
+            total=1,
+            detail="Reusing the saved neural listening pass…",
+        )
+        info = {
+            "frames": int(emission.shape[0]),
+            "seconds_per_frame": FRAME_SAMPLES / SAMPLE_RATE,
+            "chunks": 0,
+            "seconds": 0.0,
+            "cached": True,
+        }
+        if song_mode:
+            return run_song_on_emission(
+                emission, info, lines, song, dictionary, star, torch, functional
+            )
+        results = align_windows_on_emission(emission, lines, dictionary, star, torch, functional)
+        return {
+            "version": request.get("version", 1),
+            "model": "MMS_FA",
+            "lines": results,
+            "emission": info,
+        }
+
+    model = load_model(
+        Path(request["model_dir"]), bool(request.get("allow_download")), torch, MMS_FA
+    )
+    dictionary, star, _ = labels_and_star(MMS_FA)
+    waveform = load_waveform(request["audio"], torch, torchaudio)
+    if song_mode:
+        return run_song(
+            model, waveform, lines, song, dictionary, star, torch, functional, cache_path
+        )
     results = []
     for done, line in enumerate(lines, 1):
         try:
@@ -470,9 +599,11 @@ def run(request: dict) -> dict:
     return {"version": request.get("version", 1), "model": "MMS_FA", "lines": results}
 
 
-def run_song(model, waveform, lines, song, dictionary, star, torch, functional) -> dict:
-    """Version 2 with a song pass: one emission for the whole track, then the line windows
-    and the song pass on it."""
+def run_song(
+    model, waveform, lines, song, dictionary, star, torch, functional, cache_path=None
+) -> dict:
+    """Version 2 with a song pass: one emission for the whole track (saved to ``cache_path``
+    when given), then the line windows and the song pass on it."""
     started = time.monotonic()
 
     def on_chunk(done, total):
@@ -490,7 +621,19 @@ def run_song(model, waveform, lines, song, dictionary, star, torch, functional) 
         "seconds_per_frame": FRAME_SAMPLES / SAMPLE_RATE,
         "chunks": chunks,
         "seconds": round(time.monotonic() - started, 2),
+        "cached": False,
     }
+    if cache_path:
+        save_emission(cache_path, emission)
+    return run_song_on_emission(
+        emission, emission_info, lines, song, dictionary, star, torch, functional
+    )
+
+
+def run_song_on_emission(
+    emission, emission_info, lines, song, dictionary, star, torch, functional
+) -> dict:
+    """The line windows and the song pass on the song's emission."""
     results = align_windows_on_emission(emission, lines, dictionary, star, torch, functional)
     emit("stage", phase="song", detail="Placing every line in the song (neural)…")
     try:
@@ -508,8 +651,60 @@ def run_song(model, waveform, lines, song, dictionary, star, torch, functional) 
     }
 
 
+def compute_emission_file(
+    audio: Path, out: Path, model_dir: Path, allow_download: bool, device: str = "auto"
+) -> dict:
+    """Emission-only mode: listens to ``audio`` and saves its emission to ``out``."""
+    torch, torchaudio, _, MMS_FA = import_torch()
+    if device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    started = time.monotonic()
+    model = load_model(model_dir, allow_download, torch, MMS_FA, device=device)
+    waveform = load_waveform(str(audio), torch, torchaudio)
+
+    def on_chunk(done, total):
+        emit(
+            "stage",
+            phase="emission",
+            done=done,
+            total=total,
+            detail=f"Listening to the vocals (neural) {done}/{total}",
+        )
+
+    emission, chunks = song_emission(model, waveform, torch, on_chunk, device=device)
+    if not save_emission(out, emission):
+        raise OSError(f"could not write {out}")
+    return {
+        "frames": int(emission.shape[0]),
+        "chunks": chunks,
+        "device": device,
+        "seconds": round(time.monotonic() - started, 2),
+    }
+
+
+def main_emission(args: argparse.Namespace) -> int:
+    try:
+        info = compute_emission_file(
+            args.emission, args.out, args.model_dir, bool(args.allow_download), args.device
+        )
+    except ImportError as exc:
+        emit("error", code="import", detail=str(exc))
+        return EXIT_IMPORT
+    except WeightsMissing as exc:
+        emit("error", code="weights_missing", detail=str(exc))
+        return EXIT_WEIGHTS_MISSING
+    except Exception as exc:
+        traceback.print_exc(file=sys.stderr)
+        emit("error", code="failed", detail=f"{type(exc).__name__}: {exc}")
+        return EXIT_FAILED
+    emit("done", **info)
+    return EXIT_OK
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
+    if args.emission is not None:
+        return main_emission(args)
     try:
         request = json.loads(args.request.read_text(encoding="utf-8"))
         if request.get("version") not in PROTOCOL_VERSIONS:
