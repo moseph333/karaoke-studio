@@ -241,6 +241,10 @@ cp .env.example .env
 | `MAX_CONCURRENT_ALIGN_JOBS` | `1` | Neural passes at once (each loads the model) |
 | `ALIGN_REFINE_PLAIN` | `1` | Snap pasted, untimed lyrics to the sung phrases |
 
+## API reference
+
+The server hosts an interactive API reference at [`/api/docs`](http://localhost:8000/api/docs): every route with its request and response schemas, code samples, and a panel for sending test requests. The raw OpenAPI schema is at `/api/openapi.json`. Both need a session when `APP_PASSWORD` is set, so sign in to the studio first (the page uses its cookie) or enter the passphrase in the page's Authentication box.
+
 ## Tools
 
 ```bash

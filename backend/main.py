@@ -68,6 +68,8 @@ from backend.project_store import (
 )
 from backend.render_worker import remove_render_leftovers, run_video_render
 from backend.reseparation import remove_staged_stems
+from backend.routers.api_docs import OPENAPI_URL, install_openapi
+from backend.routers.api_docs import router as api_docs_router
 from backend.routers.auth import router as auth_router
 from backend.routers.exports import router as exports_router
 from backend.routers.projects import (
@@ -197,7 +199,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Karaoke Studio API", version=config.APP_VERSION.lstrip("v"), lifespan=lifespan)
+# The API reference lives at /api/docs (routers/api_docs.py), behind the passphrase gate like
+# the schema; FastAPI's default /docs and /redoc would sit outside it
+app = FastAPI(
+    title="Karaoke Studio API",
+    version=config.APP_VERSION.lstrip("v"),
+    lifespan=lifespan,
+    openapi_url=OPENAPI_URL,
+    docs_url=None,
+    redoc_url=None,
+)
+install_openapi(app)
 
 
 def sanitize_validation_errors(obj: Any) -> Any:
@@ -252,7 +264,7 @@ app.mount("/static/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output
 app.mount("/static/backgrounds", StaticFiles(directory=str(BACKGROUNDS_DIR)), name="backgrounds")
 
 
-@app.get("/api/health")
+@app.get("/api/health", tags=["system"], summary="Version, update and drain status")
 async def health_check(request: Request, check_remote: bool = False):
     # A remote check runs git ls-remote against GitHub, so only a session can force one. The
     # rate-limited check runs on the event loop (checking and counting a guess is one step),
@@ -271,8 +283,18 @@ def _drain_status() -> dict:
     }
 
 
-@app.post("/api/health")
-@app.post("/api/system/update")
+@app.post(
+    "/api/health",
+    tags=["system"],
+    summary="Check for or start an update (legacy path)",
+    operation_id="system_update_action_health",
+)
+@app.post(
+    "/api/system/update",
+    tags=["system"],
+    summary="Check for or start an update",
+    operation_id="system_update_action",
+)
 async def system_update_action(request: Request):
     action = "check"
     try:
@@ -300,6 +322,7 @@ app.include_router(exports_router)
 app.include_router(uploads_router)
 app.include_router(quality_router)
 app.include_router(system_router)
+app.include_router(api_docs_router)
 
 # Mount built frontend if available
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
