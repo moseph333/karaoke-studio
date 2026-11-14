@@ -7,6 +7,8 @@
     ALIGNMENT_TIMEOUT_SEC      stop the neural pass after this long (1800)
     ALIGNMENT_STALL_SEC        ... or after this long without output (600)
     ALIGN_REFINE_PLAIN         snap plain-lyric lines to the vocal phrases (default 1)
+    ALIGNMENT_SONG_PASS        also place every line in the whole song with the neural model,
+                               so lines far from the first estimate are found (default 1)
     MAX_CONCURRENT_ALIGN_JOBS  neural passes allowed at once, read at start-up (default 1)
 
 "auto" uses the neural (CTC) aligner when PyTorch and torchaudio >= 2.10 are installed and
@@ -61,6 +63,10 @@ def downloads_allowed() -> bool:
 
 def refine_plain_lyrics() -> bool:
     return _flag("ALIGN_REFINE_PLAIN", True)
+
+
+def song_pass_enabled() -> bool:
+    return _flag("ALIGNMENT_SONG_PASS", True)
 
 
 def min_confidence() -> float:

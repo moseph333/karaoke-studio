@@ -13,7 +13,7 @@ import soundfile as sf
 from pydantic import ValidationError
 
 from backend.schemas import LyricLineSchema
-from backend.services import alignment_config, sync_confidence
+from backend.services import alignment_config, lyric_tokenize, sync_confidence
 from backend.services.lyric_tokenize import normalize_for_mms, tokenize_lyric_text
 from backend.services.sync_confidence import evidence_score, line_confidence, load_evidence
 from backend.shared_assets import load
@@ -131,6 +131,9 @@ def test_tokenizer_matches_the_studio_editor():
         ("Hello,", "hello"),
         ("\N{EM DASH}", ""),
         ("", ""),
+        # look-alike Cyrillic and Greek letters inside Latin words read as Latin
+        ("m\N{CYRILLIC SMALL LETTER IE}", "me"),
+        ("\N{GREEK SMALL LETTER OMICRON}ver", "over"),
     ],
 )
 def test_tokens_are_normalized_to_mms_letters(token, expected):
@@ -283,6 +286,20 @@ def test_alignment_settings(monkeypatch, tmp_path):
     caps = alignment_config.alignment_capabilities()
     assert caps["ctc_available"] is False
     assert "CC-BY-NC" in caps["license_note"]
+
+
+def test_the_song_pass_is_on_unless_switched_off(monkeypatch):
+    assert alignment_config.song_pass_enabled() is True
+    monkeypatch.setenv("ALIGNMENT_SONG_PASS", "0")
+    assert alignment_config.song_pass_enabled() is False
+    monkeypatch.setenv("ALIGNMENT_SONG_PASS", " ")
+    assert alignment_config.song_pass_enabled() is True
+
+
+def test_a_word_in_another_script_is_not_folded(monkeypatch):
+    monkeypatch.setattr(lyric_tokenize, "_uroman", lambda: None)
+    # all Cyrillic: romanized when uroman is installed, never read as look-alike Latin
+    assert normalize_for_mms("\N{CYRILLIC SMALL LETTER EM}\N{CYRILLIC SMALL LETTER IE}") == ""
 
 
 # ==============================================================================

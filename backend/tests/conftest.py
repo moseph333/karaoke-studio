@@ -84,6 +84,7 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "ALIGNMENT_STALL_SEC",
         "ALIGNMENT_MIN_CONFIDENCE",
         "ALIGN_REFINE_PLAIN",
+        "ALIGNMENT_SONG_PASS",
         "SEPARATION_REMOTE",
         "SEPARATION_REMOTE_APP",
         "SEPARATION_REMOTE_QUEUE_SEC",

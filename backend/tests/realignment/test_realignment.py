@@ -367,7 +367,7 @@ def test_kept_hand_timed_lines_are_not_sent_to_the_neural_aligner(
     _neural_ready(monkeypatch)
     requests = []
 
-    def fake_pass(vocals_path, request_lines, progress=None, cancel_event=None):
+    def fake_pass(vocals_path, request_lines, progress=None, cancel_event=None, **kwargs):
         requests.append([line["index"] for line in request_lines])
         return {"lines": []}  # nothing placed, so every line sent keeps its DSP timing
 
@@ -394,7 +394,7 @@ def test_lines_tapped_line_by_line_are_timed_again_when_keeping_hand_timing(
     _neural_ready(monkeypatch)
     requests = []
 
-    def fake_pass(vocals_path, request_lines, progress=None, cancel_event=None):
+    def fake_pass(vocals_path, request_lines, progress=None, cancel_event=None, **kwargs):
         requests.append([line["index"] for line in request_lines])
         return {"lines": []}
 

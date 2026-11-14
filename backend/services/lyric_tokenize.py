@@ -87,11 +87,29 @@ def _needs_romanizing(text: str) -> bool:
     return any(ch.isalpha() and not unicodedata.normalize("NFKD", ch)[0].isascii() for ch in text)
 
 
+# Cyrillic and Greek letters that look like Latin ones. Lyric sites sometimes carry them
+# inside English words ("me" spelled with a Cyrillic "ie"); in an otherwise Latin word they
+# are read as the Latin letter instead of being dropped (or romanized as another sound).
+_LOOKALIKES = str.maketrans(
+    "\u0430\u0435\u043e\u0440\u0441\u0443\u0445\u0456\u0458\u0455\u0410\u0415\u041e\u0420"
+    "\u0421\u0425\u0406\u0408\u0405\u041c\u041d\u0422\u041a\u0412\u03bf\u03b1\u039f\u0391",
+    "aeopcyxijsAEOPCXIJSMHTKBoaOA",
+)
+
+
+def _fold_lookalikes(text: str) -> str:
+    folded = text.translate(_LOOKALIKES)
+    if folded != text and not _needs_romanizing(folded):
+        return folded
+    return text
+
+
 def normalize_for_mms(token: str, language: str | None = None) -> str:
     """The alignable letters of one lyric token ("Don't!" -> "don't", "2" -> "two")."""
     if not isinstance(token, str):
         return ""
     text = unicodedata.normalize("NFKC", token).translate(_APOSTROPHES)
+    text = _fold_lookalikes(text)
     if any(ch.isdigit() for ch in text):
         text = _spell_digits(text, language)
     if _needs_romanizing(text):
