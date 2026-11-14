@@ -713,7 +713,8 @@ def test_lyrics_lrclib_search_endpoint_fallback():
 
 
 def test_lyrics_parse_lrc_boundary_time_gaps():
-    """Tests parse_lrc caps long time gaps (>8.0s) between consecutive lines to 4.5s."""
+    """parse_lrc ends a line once its words could have been sung, so a line before a long
+    guitar solo does not run on to the next line (and neither does the last line)."""
     svc = LyricsService()
     lrc_content = (
         "[00:01.00] Line one\n"
@@ -722,11 +723,13 @@ def test_lyrics_parse_lrc_boundary_time_gaps():
     )
     lines = svc.parse_lrc(lrc_content)
     assert len(lines) == 3
-    # Line 1 start is 1.0; since next line is at 20.0 (gap > 8s), end_time is capped to 1.0 + 4.5 = 5.5
+    # "Line one" is four syllables: 1 s plus 0.5 s each
     assert lines[0]["start_time"] == 1.0
-    assert lines[0]["end_time"] == 5.5
-    # Final line end_time is start + 4.0 = 29.0
-    assert lines[2]["end_time"] == 29.0
+    assert lines[0]["end_time"] == 4.0
+    # A long line still stops where the next one starts
+    assert lines[1]["end_time"] == 25.0
+    # "Final line" (four syllables) is not stretched to a fixed length either
+    assert lines[2]["end_time"] == 28.0
 
 
 # ==============================================================================

@@ -240,6 +240,7 @@ cp .env.example .env
 | `ALIGNMENT_TIMEOUT_SEC` / `ALIGNMENT_STALL_SEC` | `1800` / `600` | Stop a neural pass that runs too long or prints nothing |
 | `MAX_CONCURRENT_ALIGN_JOBS` | `1` | Neural passes at once (each loads the model) |
 | `ALIGN_REFINE_PLAIN` | `1` | Snap pasted, untimed lyrics to the sung phrases |
+| `ALIGNMENT_SONG_PASS` | `1` | Also place every line in the whole song with the neural model, so lines far from the first estimate (and lyrics timed for another version) are found |
 
 ## API reference
 

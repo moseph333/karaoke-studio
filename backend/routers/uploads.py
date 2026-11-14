@@ -1,6 +1,7 @@
 """Media upload API router handling custom audio track intake, custom instrumental replacement, and image/video background uploads."""
 
 import logging
+import re
 import threading
 import time
 import uuid
@@ -209,6 +210,12 @@ async def upload_audio_track(
     clean_stem = Path(
         sanitize_upload_filename(file.filename, default_stem=f"Track {project_id}")
     ).stem
+    # The title also finds the lyrics, so it comes from the name as uploaded ("Don't Ask Me",
+    # accents and all) rather than the sanitized file name ("Don_t_Ask_Me"); like a typed
+    # title it is only text, never a path
+    named = Path(Path(file.filename or "").name).stem.replace("_", " ")
+    named = re.sub(r"\s+", " ", "".join(ch for ch in named if ch.isprintable())).strip()
+    clean_stem = named[:200] or clean_stem
     track_title = (title or "").strip() or clean_stem
     track_artist = (artist or "").strip() or "Unknown Artist"
     creator = (created_by or "").strip() or "Friend"

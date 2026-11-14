@@ -58,6 +58,13 @@ export interface SyncReport {
   lines_fallback?: number;
   /** Lines timed by hand that a re-alignment with `keep_manual` left as they were. */
   lines_manual?: number;
+  /** The neural song pass that places every line in the whole song (null without it). */
+  song_pass?: 'ok' | 'rejected' | 'skipped' | 'failed' | 'off' | null;
+  song_pass_reason?: string | null;
+  lines_anchored?: number;
+  lines_relocated?: number;
+  /** Runs of lines whose timing from the lyrics file moved by the same amount. */
+  offset_segments?: { first_line: number; last_line: number; offset: number; anchors: number }[];
   low_confidence_lines?: number;
   mean_confidence?: number | null;
   elapsed_seconds?: number;

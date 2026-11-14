@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from backend.services import alignment_config
+from backend.services import alignment_config, lyric_anchors
 from backend.services.aligner import enforce_monotonic_words
 from backend.services.lyric_tokenize import normalize_for_mms
 from backend.services.process_watchdog import ProcessWatchdog, duration_text, quietly, worker_env
@@ -50,6 +50,10 @@ MIN_WORD = 0.08
 JOIN_GAP = 0.35
 LAST_WORD_MIN = 0.25
 MIN_ALIGNED_SHARE = 0.7
+EXPECTED_REACH = 1.5  # how far a neural line may start from where the anchors expect it
+MOVE_TOLERANCE = 1.0  # a DSP line this close to where the anchors expect it stays put
+AGREES_WITH_DSP = 0.5  # an anchor this close to a timed line's DSP start confirms it
+TIMED_AFTER = 2.0  # neural window after a timed line's end (LRC ends are estimates)
 # Below this a line counts as low confidence, as the studio's "Needs review" filter does
 LOW_CONFIDENCE = load("confidence_thresholds")["low"]
 # The studio editor's even word spread (wordSpreadWeight and recalculateWordTimings in
@@ -180,13 +184,13 @@ def _dsp_pass(aligner, vocals_path: str, lines: list[dict], timing: str) -> list
     return aligned
 
 
-def _windows(lines: list[dict]) -> list[tuple[float, float]]:
-    """Non-overlapping neural search windows: each line plus LINE_GUARD, split halfway into
-    the gap with its neighbours."""
+def _windows(lines: list[dict], after: float = LINE_GUARD) -> list[tuple[float, float]]:
+    """Non-overlapping neural search windows: each line plus LINE_GUARD before it and
+    ``after`` seconds after it, split halfway into the gap with its neighbours."""
     spans = [(_num(x.get("start_time")), _num(x.get("end_time"))) for x in lines]
     out = []
     for i, (start, end) in enumerate(spans):
-        lo, hi = max(0.0, start - LINE_GUARD), end + LINE_GUARD
+        lo, hi = max(0.0, start - LINE_GUARD), end + after
         if i > 0:
             lo = max(lo, (spans[i - 1][1] + start) / 2)
         if i + 1 < len(spans):
@@ -227,15 +231,20 @@ def run_neural_pass(
     request_lines: list[dict],
     progress: ProgressCallback | None = None,
     cancel_event: Any | None = None,
+    song_lines: list[dict] | None = None,
 ) -> dict:
-    """Runs the CTC worker on the given line windows and returns its response."""
+    """Runs the CTC worker on the given line windows and returns its response. With
+    ``song_lines`` it also runs the song pass (protocol version 2); a malformed "song" part
+    of the response is dropped."""
     request = {
-        "version": 1,
+        "version": 2 if song_lines else 1,
         "audio": str(Path(vocals_path).resolve()),
         "model_dir": str(alignment_config.model_dir().resolve()),
         "allow_download": alignment_config.downloads_allowed(),
         "lines": request_lines,
     }
+    if song_lines:
+        request["song"] = {"lines": song_lines}
     with tempfile.TemporaryDirectory(prefix="karaoke-align-") as tmp:
         request_path, response_path = Path(tmp) / "request.json", Path(tmp) / "response.json"
         request_path.write_text(json.dumps(request), encoding="utf-8")
@@ -287,9 +296,9 @@ def run_neural_pass(
                     elif kind == "download":
                         _report_progress(progress, None, str(event.get("detail") or ""))
                     elif kind == "stage":
-                        done, total = event.get("done"), event.get("total")
-                        pct = 30 + 65 * done / total if done and total else None
-                        _report_progress(progress, pct, str(event.get("detail") or ""))
+                        _report_progress(
+                            progress, _stage_percent(event), str(event.get("detail") or "")
+                        )
             process.wait()
         finally:
             watchdog.halt()
@@ -326,7 +335,23 @@ def run_neural_pass(
             raise NeuralAlignmentFailed(f"neural aligner wrote no usable result: {exc}") from exc
     if not isinstance(response, dict) or not isinstance(response.get("lines"), list):
         raise NeuralAlignmentFailed("neural aligner returned an unexpected result")
+    song = response.get("song")
+    if song is not None and not (isinstance(song, dict) and isinstance(song.get("lines"), list)):
+        response.pop("song", None)
     return response
+
+
+# Progress of a neural pass, by the phase of the worker's stage events: version 2 listens to
+# the whole song first, then aligns the line windows and the song pass
+_STAGE_SPANS = {None: (30, 65), "emission": (30, 50), "lines": (80, 13), "song": (93, 0)}
+
+
+def _stage_percent(event: dict) -> float | None:
+    base, span = _STAGE_SPANS.get(event.get("phase"), _STAGE_SPANS[None])
+    done, total = event.get("done"), event.get("total")
+    if not span:
+        return float(base)
+    return base + span * done / total if done and total else None
 
 
 def _parse_event(text: str) -> dict | None:
@@ -404,20 +429,24 @@ def merge_line(
     alignable: int,
     *,
     widen_to_dsp: bool = True,
+    min_score: float | None = None,
 ):
     """The line to keep, and its method: neural timing when the model is confident enough
-    and placed most words, otherwise the DSP timing. The neural line keeps at least the DSP
-    line's span unless ``widen_to_dsp`` is False (when the model searched a wider window
-    than the DSP estimate and may have found the line elsewhere)."""
+    (``min_score``, by default ALIGNMENT_MIN_CONFIDENCE) and placed most words, otherwise the
+    DSP timing. The neural line keeps at least the DSP line's span unless ``widen_to_dsp``
+    is False (when the model searched a wider window than the DSP estimate and may have
+    found the line elsewhere)."""
     words = [w for w in dsp_line.get("words") or [] if isinstance(w, dict)]
     if not neural or neural.get("status") != "ok" or not words:
         return dsp_line, "dsp", None
     raw = neural.get("words") or []
     score = _num(neural.get("line_score"))
     placed = sum(1 for w in raw if w)
+    if min_score is None:
+        min_score = alignment_config.min_confidence()
     if (
         len(raw) != len(words)
-        or score < alignment_config.min_confidence()
+        or score < min_score
         or placed < MIN_ALIGNED_SHARE * max(1, alignable)
     ):
         return dsp_line, "dsp", score
@@ -438,6 +467,243 @@ def merge_line(
     merged = dict(dsp_line)
     merged.update(start_time=round(line_start, 3), end_time=round(line_end, 3), words=timed)
     return merged, "ctc", score
+
+
+def _moved(line: dict, start: float, end: float) -> dict:
+    """A copy of ``line`` moved and stretched to [start, end], its words mapped along."""
+    old_start, old_end = _num(line.get("start_time")), _num(line.get("end_time"))
+    end = max(end, start + 0.05)
+    scale = (end - start) / (old_end - old_start) if old_end > old_start else 0.0
+
+    def at(t: float) -> float:
+        return round(start + (t - old_start) * scale if scale else start, 3)
+
+    moved = dict(line, start_time=round(start, 3), end_time=round(end, 3))
+    words = []
+    for word in line.get("words") or []:
+        if isinstance(word, dict):
+            word = dict(word, start_time=at(_num(word.get("start_time"))))
+            word["end_time"] = max(word["start_time"], at(_num(word.get("end_time"))))
+        words.append(word)
+    moved["words"] = words
+    return moved
+
+
+def _fit(line: dict, lo: float, hi: float) -> dict:
+    """``line`` moved inside [lo, hi]: shifted when it fits, else squeezed."""
+    start, end = _num(line.get("start_time")), _num(line.get("end_time"))
+    if lo - 0.001 <= start and end <= hi + 0.001:
+        return line
+    span = max(0.05, end - start)
+    if hi - lo >= span:
+        start = min(max(start, lo), hi - span)
+        return _moved(line, start, start + span)
+    return _moved(line, lo, max(hi, lo + 0.05))
+
+
+def _inside(line: dict, lo: float, hi: float, expected: float | None) -> bool:
+    start, end = _num(line.get("start_time")), _num(line.get("end_time"))
+    if start < lo - 0.05 or end > hi + 0.05:
+        return False
+    return expected is None or abs(start - expected) <= EXPECTED_REACH
+
+
+def _spread(lines: list[dict], lo: float, hi: float) -> list[dict]:
+    """Lines laid out one after another over [lo, hi] in proportion to their text, each
+    keeping at most its own length (the gap may be an instrumental break)."""
+    weights = [max(1, len(str(x.get("text") or ""))) for x in lines]
+    total = sum(weights)
+    out, cursor = [], lo
+    for line, weight in zip(lines, weights, strict=True):
+        share = (hi - lo) * weight / total
+        length = _num(line.get("end_time")) - _num(line.get("start_time"))
+        length = min(share, length) if length > 0 else share
+        out.append(_moved(line, cursor, cursor + max(0.05, length)))
+        cursor += share
+    return out
+
+
+def place_with_anchors(
+    dsp_lines: list[dict],
+    fixed_spans: dict[int, tuple[float, float]],
+    anchor_plan: lyric_anchors.AnchorPlan,
+    neural_by_index: dict[int, dict],
+    windows: list[tuple[float, float]],
+    alignable_counts: dict[int, int],
+    source_starts: dict[int, float] | None,
+    duration: float,
+) -> dict[int, tuple[dict, str, float | None]]:
+    """Each line's timing once the song pass gave reliable anchors (``anchor_plan``), as
+    (line, method, neural score) by index. ``fixed_spans`` are the lines whose timing is
+    kept (from the lyrics file or set by hand); they and the anchors bound the others.
+
+    * An anchored line takes its song-pass timing, never widened back to the DSP span.
+    * Any other line takes a confident neural result (its own window's or the song pass's)
+      that fits between its fixed neighbours and, for timed lyrics, starts near where the
+      anchors say the lyrics file's timing has moved to; failing that, the song pass's
+      placement there even when the model was unsure (with its low score).
+    * Otherwise it keeps the DSP timing, moved to that place for timed lyrics; plain lines
+      that fall outside their gap are spread over it.
+    """
+    fixed = dict(fixed_spans)
+    for index, result in anchor_plan.anchors.items():
+        fixed[index] = (_num(result.get("start")), _num(result.get("end")))
+
+    def gap(index: int) -> tuple[float, float]:
+        lo = max((span[1] for j, span in fixed.items() if j < index), default=0.0)
+        hi = min((span[0] for j, span in fixed.items() if j > index), default=duration)
+        return lo, max(lo, hi)
+
+    timed = source_starts is not None
+    placed: dict[int, tuple[dict, str, float | None]] = {}
+    for index, result in anchor_plan.anchors.items():
+        alignable = alignable_counts.get(index, 0)
+        dsp_start = _num(dsp_lines[index].get("start_time"))
+        if timed and abs(dsp_start - _num(result.get("start"))) <= AGREES_WITH_DSP:
+            # The lyrics file was right here: the DSP snap to the sung phrase and the line's
+            # own neural window time it a little more precisely than the song pass
+            merged, method, score = merge_line(
+                dsp_lines[index], neural_by_index.get(index), windows[index], alignable
+            )
+            placed[index] = (dict(merged), method, score)
+            fixed[index] = (_num(merged.get("start_time")), _num(merged.get("end_time")))
+            continue
+        lo, hi = gap(index)
+        lo = min(lo, _num(result.get("start")))
+        hi = max(hi, _num(result.get("end")))
+        merged, method, score = merge_line(
+            dsp_lines[index],
+            result,
+            (lo, hi),
+            alignable_counts.get(index, 0),
+            widen_to_dsp=False,
+            min_score=0.0,
+        )
+        if method == "ctc":
+            score = anchor_plan.confidence_score(_num(score))
+        placed[index] = (dict(merged), method, score)
+        fixed[index] = (_num(merged.get("start_time")), _num(merged.get("end_time")))
+
+    others = [i for i in range(len(dsp_lines)) if i not in fixed]
+    for index in others:
+        lo, hi = gap(index)
+        expected = None
+        if source_starts is not None and index in source_starts:
+            expected = source_starts[index] + anchor_plan.offsets.get(index, 0.0)
+        alignable = alignable_counts.get(index, 0)
+        options = [
+            merge_line(dsp_lines[index], neural_by_index.get(index), windows[index], alignable),
+            merge_line(
+                dsp_lines[index],
+                anchor_plan.results.get(index),
+                (lo, hi),
+                alignable,
+                widen_to_dsp=False,
+            ),
+        ]
+        good = [o for o in options if o[1] == "ctc" and _inside(o[0], lo, hi, expected)]
+        near = expected is not None and (
+            abs(_num(dsp_lines[index].get("start_time")) - expected) <= MOVE_TOLERANCE
+        )
+        if not good and near and _inside(dsp_lines[index], lo, hi, None):
+            placed[index] = (dict(dsp_lines[index]), "dsp", None)
+            continue
+        if not good:
+            # Between two anchors even an unsure song-pass placement beats the DSP guess:
+            # the model had to put the line in that gap, in order. Its low score keeps it
+            # flagged for review.
+            unsure = merge_line(
+                dsp_lines[index],
+                anchor_plan.results.get(index),
+                (lo, hi),
+                alignable,
+                widen_to_dsp=False,
+                min_score=0.0,
+            )
+            if unsure[1] == "ctc" and _inside(unsure[0], lo, hi, expected):
+                good = [unsure]
+        if good:
+            merged, method, score = max(good, key=lambda o: _num(o[2]))
+            placed[index] = (dict(merged), method, score)
+            continue
+        line = dict(dsp_lines[index])
+        if expected is not None and abs(_num(line.get("start_time")) - expected) > MOVE_TOLERANCE:
+            shift = expected - _num(line.get("start_time"))
+            line = _moved(
+                line, _num(line.get("start_time")) + shift, _num(line.get("end_time")) + shift
+            )
+        placed[index] = (line, "dsp", None)
+
+    # Plain lyrics: a run of DSP lines between two fixed lines that does not fit there is
+    # spread over the gap; timed lyrics are only squeezed in
+    run: list[int] = []
+    for index in [*range(len(dsp_lines)), None]:
+        if index is not None and index in placed and placed[index][1] == "dsp":
+            run.append(index)
+            continue
+        if run:
+            lo, hi = gap(run[0])
+            lines = [placed[i][0] for i in run]
+            if any(not _inside(x, lo, hi, None) for x in lines):
+                fitted = _spread(lines, lo, hi) if source_starts is None else lines
+                for i, line in zip(run, fitted, strict=True):
+                    placed[i] = (_fit(line, *gap(i)), "dsp", None)
+            run = []
+
+    # Lines never overlap: a later line that starts inside the one before it moves after it
+    previous_end = 0.0
+    for index in range(len(dsp_lines)):
+        if index in fixed_spans:
+            previous_end = max(previous_end, fixed_spans[index][1])
+            continue
+        line, method, score = placed[index]
+        if _num(line.get("start_time")) < previous_end - 0.05:
+            _, hi = gap(index)
+            line = _fit(line, previous_end, max(hi, previous_end + 0.3))
+            placed[index] = (line, method, score)
+        previous_end = max(previous_end, _num(line.get("end_time")))
+    return placed
+
+
+def _line_span(line: dict) -> tuple[float, float]:
+    return _num(line.get("start_time")), _num(line.get("end_time"))
+
+
+def _source_starts(sources: list[dict], dsp_lines: list[dict], timing: str):
+    """The lyrics' own line starts for timed lyrics (None for plain lyrics). When the DSP
+    pass returned another number of lines, its starts stand in for them."""
+    if timing == "none":
+        return None
+    lines = sources if len(sources) == len(dsp_lines) else dsp_lines
+    return {i: _num(line.get("start_time")) for i, line in enumerate(lines)}
+
+
+def _audio_duration(vocals_path: str, lines: list[dict]) -> float:
+    try:
+        import soundfile as sf
+
+        return float(sf.info(vocals_path).duration)
+    except Exception:
+        return max((_num(x.get("end_time")) for x in lines), default=0.0) + 5.0
+
+
+def _plan_anchors(song, words_by_index, sources, dsp_lines, timing):
+    """(anchor plan or None, song_pass status, reason) from the worker's song pass."""
+    if not isinstance(song, dict):
+        return None, "failed", "the neural aligner returned no song pass"
+    if song.get("status") != "ok":
+        return None, str(song.get("status") or "failed"), song.get("error")
+    try:
+        plan = lyric_anchors.plan(
+            song.get("lines") or [],
+            words_by_index,
+            _source_starts(sources, dsp_lines, timing),
+            song.get("null_score"),
+        )
+    except Exception as exc:  # a bad song pass must not cost the line results
+        logger.warning(f"Could not use the neural song pass: {exc}", exc_info=True)
+        return None, "failed", str(exc)
+    return plan, plan.status, plan.reason
 
 
 def sync_lyrics(
@@ -478,7 +744,11 @@ def sync_lyrics(
     ]
     neural_by_index: dict[int, dict] = {}
     alignable_counts: dict[int, int] = {}
-    windows = _windows(dsp_lines)
+    words_by_index: dict[int, list[str]] = {}
+    windows = _windows(dsp_lines, after=TIMED_AFTER if timing == "line" else LINE_GUARD)
+    song_pass, song_reason = None, None
+    anchor_plan: lyric_anchors.AnchorPlan | None = None
+    placed: dict[int, tuple[dict, str, float | None]] = {}
 
     if effective == "ctc" and dsp_lines:
         request_lines = []
@@ -493,6 +763,7 @@ def sync_lyrics(
             if not any(normalized):
                 continue
             alignable_counts[i] = sum(1 for w in normalized if w)
+            words_by_index[i] = normalized
             request_lines.append(
                 {
                     "index": i,
@@ -501,20 +772,52 @@ def sync_lyrics(
                     "words": normalized,
                 }
             )
+        song_lines = None
+        if not alignment_config.song_pass_enabled():
+            song_pass, song_reason = "off", "ALIGNMENT_SONG_PASS is off"
+        elif len(request_lines) < lyric_anchors.MIN_ANCHORS:
+            song_pass, song_reason = "skipped", "too few lines to place in the song"
+        else:
+            song_lines = [{"index": x["index"], "words": x["words"]} for x in request_lines]
         if request_lines:
             _report_progress(progress, 25, "Aligning words (neural)...")
             try:
                 with neural_slot(progress, cancel_event):
-                    response = run_neural_pass(vocals_path, request_lines, progress, cancel_event)
+                    response = run_neural_pass(
+                        vocals_path, request_lines, progress, cancel_event, song_lines=song_lines
+                    )
                 neural_by_index = {
                     x.get("index"): x for x in response["lines"] if isinstance(x, dict)
                 }
+                if song_lines:
+                    anchor_plan, song_pass, song_reason = _plan_anchors(
+                        response.get("song"), words_by_index, sources, dsp_lines, timing
+                    )
             except NeuralAlignmentFailed as exc:
                 logger.warning(f"Neural lyric alignment failed; keeping DSP timing: {exc}")
                 effective, fallback_reason = "dsp", str(exc)
+                song_pass, song_reason = None, None
+
+    if anchor_plan is not None and anchor_plan.status == "ok":
+        fixed_spans = {
+            i: _line_span(sources[i] if by_hand[i] else line)
+            for i, line in enumerate(dsp_lines)
+            if keep_source[i]
+        }
+        placed = place_with_anchors(
+            dsp_lines,
+            fixed_spans,
+            anchor_plan,
+            neural_by_index,
+            windows,
+            alignable_counts,
+            _source_starts(sources, dsp_lines, timing),
+            _audio_duration(vocals_path, dsp_lines),
+        )
 
     evidence = load_evidence(vocals_path)
     result_lines, methods, confidences = [], [], []
+    relocated = 0
     for i, line in enumerate(dsp_lines):
         if by_hand[i]:
             src = sources[i]
@@ -523,10 +826,15 @@ def sync_lyrics(
         elif keep_source[i]:
             merged, method, score = dict(line), "lrc", None
         else:
-            merged, method, score = merge_line(
-                line, neural_by_index.get(i), windows[i], alignable_counts.get(i, 0)
-            )
+            if i in placed:
+                merged, method, score = placed[i]
+            else:
+                merged, method, score = merge_line(
+                    line, neural_by_index.get(i), windows[i], alignable_counts.get(i, 0)
+                )
             merged = dict(merged)
+            if abs(_num(merged.get("start_time")) - _num(line.get("start_time"))) > 1.0:
+                relocated += 1
             if method == "dsp" and evidence is None:
                 method = "fallback"
         confidence = line_confidence(method, evidence_score(merged.get("words"), evidence), score)
@@ -554,6 +862,11 @@ def sync_lyrics(
         "lines_lrc": methods.count("lrc"),
         "lines_fallback": methods.count("fallback"),
         "lines_manual": methods.count("manual"),
+        "song_pass": song_pass,
+        "song_pass_reason": song_reason,
+        "lines_anchored": len(anchor_plan.anchors) if song_pass == "ok" and anchor_plan else 0,
+        "lines_relocated": relocated,
+        "offset_segments": (anchor_plan.segments[:8] if song_pass == "ok" and anchor_plan else []),
         "low_confidence_lines": sum(1 for c in confidences if c < LOW_CONFIDENCE),
         "mean_confidence": round(statistics.fmean(confidences), 3) if confidences else None,
         "elapsed_seconds": round(time.monotonic() - started, 2),

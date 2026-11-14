@@ -30,11 +30,50 @@ _SECTION_HEADING = re.compile(
 
 
 SYNCEDLYRICS_TIMEOUT_SEC = 6.0
+# A synced lyrics file timed for a recording longer or shorter than this is another version
+DURATION_MATCH_SEC = 10.0
 
 
 def is_section_heading(line: str) -> bool:
     """True for a line that only labels a song section, such as "[Chorus]" or "Verse 2:"."""
     return bool(_SECTION_HEADING.match(line or ""))
+
+
+# Credit lines that lyric files put before the words ("作词 : Someone", "Composed by: ..."):
+# never sung, and timed at 0:00 they would pull the song's timing toward the start
+_CREDIT_LINE = re.compile(
+    r"^\s*(?:作词|作詞|作曲|编曲|編曲|词|詞|曲|制作人|製作人|监制|監製|混音|母带|"
+    r"lyrics?\s+by|words\s+by|written\s+by|composed\s+by|music\s+by|produced\s+by|"
+    r"arranged\s+by|mixed\s+by|mastered\s+by)\s*[:\uff1a]",
+    re.IGNORECASE,
+)
+
+
+def is_credit_line(line: str) -> bool:
+    """True for a lyric-file credit line such as "作词 : Someone" or "Written by: Someone"."""
+    return bool(_CREDIT_LINE.match(line or ""))
+
+
+# How long a line of plain LRC (no word tags) is assumed to be sung, from its syllables: an
+# LRC gives only start times, and running every line to the next one makes a two-second line
+# of a slow song eight seconds long. The aligner extends held notes past this.
+LRC_LINE_BASE_SEC = 1.0
+LRC_SEC_PER_SYLLABLE = 0.5
+LRC_LINE_MIN_SEC = 2.5
+LRC_LINE_MAX_SEC = 8.0
+_VOWEL_GROUP = re.compile(r"[aeiouy\u00e0-\u00ff]+", re.IGNORECASE)
+_WIDE_CHAR = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]")
+
+
+def sung_line_seconds(text: str) -> float:
+    """The longest a line of LRC is assumed to last (see LRC_LINE_BASE_SEC): vowel groups
+    count as syllables, CJK and Hangul characters as one each, other words as one."""
+    syllables = len(_WIDE_CHAR.findall(text or ""))
+    for word in _WIDE_CHAR.sub(" ", text or "").split():
+        if any(ch.isalnum() for ch in word):
+            syllables += max(1, len(_VOWEL_GROUP.findall(word)))
+    seconds = LRC_LINE_BASE_SEC + LRC_SEC_PER_SYLLABLE * syllables
+    return min(LRC_LINE_MAX_SEC, max(LRC_LINE_MIN_SEC, seconds))
 
 
 class LyricsNormalizer:
@@ -57,17 +96,24 @@ class LyricsNormalizer:
     )
 
     # 2. Unbracketed trailing delimiter noise: " | Official Video", " - 2011 Remaster", " - Live", etc.
-    DELIMITER_NOISE_RE = re.compile(
-        r"\s*(?:\||//|-|\u2013|\u2014|:)\s*(?:"
+    # The noise must run to the end of the title (more noise words, a year, or another
+    # delimited or bracketed part may follow), so a song named "Live Forever" or
+    # "Audio Kids" after " - " keeps its name.
+    _DELIMITER_NOISE_WORDS = (
         r"official\s+(?:music\s+)?video|official\s+audio|official\s+lyric\s+video|official\s+visualizer|"
         r"music\s+video|lyric\s+video|lyrics?|visualizer|audio|hd|4k|8k|1080p|hq|mv|clip\s+officiel|video\s+oficial|"
-        r"(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|live(?:\s+(?:at|from)[^|\-\/]*)?|"
+        r"(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|live(?:\s+(?:at|from|in|on)\b[^|\-\/\(\[]*)?|"
         r"radio\s+edit|single\s+version|album\s+version|acoustic(?:\s+version)?|"
         r"deluxe(?:\s+edition)?|extended(?:\s+mix)?|original\s+mix|bonus\s+track|"
         r"ost|soundtrack|original\s+(?:motion\s+picture\s+)?soundtrack|motion\s+picture\s+soundtrack|"
         r"from\s+[\"'\x27\x22].*?[\"'\x27\x22]|from\s+(?:the\s+)?[^|\-\/]+(?:\s+(?:soundtrack|album|movie|film|series|score|ost))\b|"
         r"from\s+(?:the\s+)?(?:motion\s+picture|movie|film|netflix|series|album)\b"
-        r").*$",
+    )
+    DELIMITER_NOISE_RE = re.compile(
+        r"\s*(?:\||//|-|\u2013|\u2014|:)\s*"
+        rf"(?:{_DELIMITER_NOISE_WORDS})(?!\w)"
+        rf"(?:[\s,&+/]+(?:{_DELIMITER_NOISE_WORDS}|\d{{4}})(?!\w))*"
+        r"(?:\s*(?:\||//|-|\u2013|\u2014|:|[\(\[\{]).*)?\s*$",
         flags=re.IGNORECASE,
     )
 
@@ -382,6 +428,48 @@ class LyricsService:
         return max(seq_ratio, combined)
 
     @classmethod
+    def metadata_similarity(
+        cls, cand: dict[str, Any], target_title: str, target_artist: str
+    ) -> tuple[float, float]:
+        """(best title similarity 0-1, combined similarity 0-70) of a candidate's title and
+        artist with the target's, allowing for title and artist swapped (5 points less)."""
+        c_title = str(cand.get("trackName") or cand.get("name") or cand.get("title") or "")
+        c_artist = str(cand.get("artistName") or cand.get("artist") or "")
+
+        title_sim = cls.calculate_similarity(target_title, c_title)
+        artist_sim = cls.calculate_similarity(target_artist, c_artist)
+
+        swapped_title_sim = cls.calculate_similarity(target_title, c_artist)
+        swapped_artist_sim = cls.calculate_similarity(target_artist, c_title)
+
+        direct_sim = (40.0 * title_sim) + (30.0 * artist_sim)
+        swapped_sim = (40.0 * swapped_title_sim) + (30.0 * swapped_artist_sim)
+        meta_sim = max(direct_sim, max(0.0, swapped_sim - 5.0))
+        return max(title_sim, swapped_title_sim), meta_sim
+
+    @classmethod
+    def is_related(cls, cand: dict[str, Any], target_title: str, target_artist: str) -> bool:
+        """Whether a candidate is plausibly the song asked for (score_candidate's unrelated
+        test: title similarity of at least 0.40 and combined similarity of at least 35/70)."""
+        names = ("trackName", "name", "title", "artistName", "artist")
+        if not any(str(cand.get(key) or "").strip() for key in names):
+            return True  # nothing to compare
+        best_title_sim, meta_sim = cls.metadata_similarity(cand, target_title, target_artist)
+        return best_title_sim >= 0.40 and meta_sim >= 35.0
+
+    @staticmethod
+    def duration_matches(cand: dict[str, Any], target_duration: float | None) -> bool:
+        """Whether a candidate's length fits the audio within DURATION_MATCH_SEC (also when
+        either length is unknown)."""
+        try:
+            cand_duration = float(cand.get("duration") or 0)
+        except (TypeError, ValueError):
+            cand_duration = 0.0
+        if not target_duration or not math.isfinite(cand_duration) or cand_duration <= 0:
+            return True
+        return abs(cand_duration - float(target_duration)) <= DURATION_MATCH_SEC
+
+    @classmethod
     def score_candidate(
         cls,
         cand: dict[str, Any],
@@ -435,20 +523,7 @@ class LyricsService:
         effective_duration = valid_target_dur if valid_target_dur is not None else cand_dur
 
         # 1. Title & Artist Similarity (Token-set, SequenceMatcher, and Swapped check)
-        c_title = str(cand.get("trackName") or cand.get("name") or cand.get("title") or "")
-        c_artist = str(cand.get("artistName") or cand.get("artist") or "")
-
-        title_sim = cls.calculate_similarity(target_title, c_title)
-        artist_sim = cls.calculate_similarity(target_artist, c_artist)
-
-        swapped_title_sim = cls.calculate_similarity(target_title, c_artist)
-        swapped_artist_sim = cls.calculate_similarity(target_artist, c_title)
-
-        direct_sim = (40.0 * title_sim) + (30.0 * artist_sim)
-        swapped_sim = (40.0 * swapped_title_sim) + (30.0 * swapped_artist_sim)
-        meta_sim = max(direct_sim, max(0.0, swapped_sim - 5.0))
-
-        best_title_sim = max(title_sim, swapped_title_sim)
+        best_title_sim, meta_sim = cls.metadata_similarity(cand, target_title, target_artist)
 
         # Unrelated check: title similarity < 0.40 or combined similarity < 35.0 (out of 70.0)
         is_unrelated = bool(best_title_sim < 0.40 or meta_sim < 35.0)
@@ -769,7 +844,7 @@ class LyricsService:
                 track_name, artist_name
             )
 
-            exact_plain = ""
+            exact_plain_cand: dict[str, Any] | None = None
             exact_synced_cand: dict[str, Any] | None = None
             best_candidate_overall: dict[str, Any] | None = None
             best_score_overall: float = -float("inf")
@@ -789,13 +864,11 @@ class LyricsService:
                             continue
                         data.setdefault("trackName", clean_title)
                         data.setdefault("artistName", clean_artist)
-                        if safe_duration is not None:
-                            data.setdefault("duration", safe_duration)
                         synced = bool(data.get("syncedLyrics"))
                         lrc = data.get("syncedLyrics") or ""
                         plain = data.get("plainLyrics") or ""
-                        if plain and not exact_plain:
-                            exact_plain = plain
+                        if plain and exact_plain_cand is None:
+                            exact_plain_cand = {**data, "syncedLyrics": ""}
 
                         if synced and self.is_lrc(lrc):
                             if exact_synced_cand is None:
@@ -803,7 +876,9 @@ class LyricsService:
                             score = self.score_candidate(
                                 data, clean_title, clean_artist, safe_duration
                             )
-                            if score > 0:
+                            # Without a duration in the query LRCLIB returns any version of
+                            # the song (live, extended, music video), whose timing would not fit
+                            if score > 0 and self.duration_matches(data, safe_duration):
                                 lines = self.parse_lrc(lrc)
                                 return {
                                     "source": "lrclib",
@@ -833,7 +908,11 @@ class LyricsService:
                                 has_synced = bool(best_cand.get("syncedLyrics")) and self.is_lrc(
                                     best_cand["syncedLyrics"]
                                 )
-                                if has_synced and cand_score >= 50.0:
+                                if (
+                                    has_synced
+                                    and cand_score >= 50.0
+                                    and self.duration_matches(best_cand, safe_duration)
+                                ):
                                     lrc = best_cand["syncedLyrics"]
                                     plain = best_cand.get("plainLyrics") or ""
                                     return {
@@ -844,44 +923,37 @@ class LyricsService:
                                         "lines": self.parse_lrc(lrc),
                                     }
 
-            # If all stages completed and we found a search candidate
-            if best_candidate_overall:
-                has_synced = bool(best_candidate_overall.get("syncedLyrics")) and self.is_lrc(
-                    best_candidate_overall["syncedLyrics"]
+            # Every stage done without an early answer: the best-scoring of the search's best
+            # candidate and the exact matches. A search hit for another song never wins.
+            if best_candidate_overall is not None and not self.is_related(
+                best_candidate_overall, clean_title, clean_artist
+            ):
+                best_candidate_overall = None
+            finalists: list[tuple[float, int, dict[str, Any], str]] = []
+            for order, (cand, source) in enumerate(
+                (
+                    (exact_synced_cand, "lrclib"),
+                    (exact_plain_cand, "lrclib"),
+                    (best_candidate_overall, "lrclib_search"),
                 )
-                lrc = best_candidate_overall.get("syncedLyrics") or ""
-                plain = best_candidate_overall.get("plainLyrics") or ""
+            ):
+                if cand is not None:
+                    score = self.score_candidate(cand, clean_title, clean_artist, safe_duration)
+                    finalists.append((score, -order, cand, source))
+            if finalists:
+                _, _, chosen, source = max(finalists, key=lambda x: (x[0], x[1]))
+                lrc = chosen.get("syncedLyrics") or ""
+                plain = chosen.get("plainLyrics") or ""
+                has_synced = bool(lrc) and self.is_lrc(lrc)
                 lines = self.parse_lrc(lrc) if has_synced else self.parse_plain_text(plain)
-                return {
-                    "source": "lrclib_search",
-                    "synced": has_synced,
-                    "plain_lyrics": plain,
-                    "lrc": lrc,
-                    "lines": lines,
-                }
-
-            # Fallback to exact match synced lyrics if search found no candidate
-            if exact_synced_cand:
-                lrc = exact_synced_cand.get("syncedLyrics") or ""
-                plain = exact_synced_cand.get("plainLyrics") or ""
-                lines = self.parse_lrc(lrc)
-                return {
-                    "source": "lrclib",
-                    "synced": True,
-                    "plain_lyrics": plain,
-                    "lrc": lrc,
-                    "lines": lines,
-                }
-
-            # Fallback to exact match plain lyrics if search found no candidate
-            if exact_plain:
-                return {
-                    "source": "lrclib",
-                    "synced": False,
-                    "plain_lyrics": exact_plain,
-                    "lrc": "",
-                    "lines": self.parse_plain_text(exact_plain),
-                }
+                if lines:
+                    return {
+                        "source": source,
+                        "synced": has_synced,
+                        "plain_lyrics": plain,
+                        "lrc": lrc if has_synced else "",
+                        "lines": lines,
+                    }
 
         except Exception as e:
             logger.warning(f"LRCLIB fetch error: {e}")
@@ -953,7 +1025,7 @@ class LyricsService:
 
             clean_text = re.sub(r"\[.*?\]|<.*?>", "", line_str)
             clean_text = re.sub(r"\s+", " ", clean_text).strip()
-            if not clean_text:
+            if is_credit_line(clean_text):
                 continue
 
             for m in leading_tags:
@@ -964,23 +1036,33 @@ class LyricsService:
                 adj_timestamp = round(max(0.0, timestamp - offset_sec), 3)
                 parsed_entries.append((adj_timestamp, clean_text, body))
 
-        # Sort entries chronologically to handle multi-timestamp or out-of-order lines
+        # Sort entries chronologically to handle multi-timestamp or out-of-order lines.
+        # Timestamps with no text mark where the line before them stops being sung.
         parsed_entries.sort(key=lambda x: x[0])
+        boundaries = [entry[0] for entry in parsed_entries]
+        parsed_entries = [entry for entry in parsed_entries if entry[1]]
 
         lines = []
         for idx, (start_time, text, body) in enumerate(parsed_entries):
-            # Estimate end time based on the start of next line or +4 seconds
-            if idx + 1 < len(parsed_entries):
-                end_time = parsed_entries[idx + 1][0]
-                if end_time <= start_time:
-                    end_time = start_time + 0.5
-                elif end_time - start_time > 8.0:
+            word_tag_matches = list(word_tag_pattern.finditer(body))
+            # The line ends where the next line or a blank timestamp starts. A line without
+            # word tags also ends once its words could have been sung (sung_line_seconds)
+            next_start = next((t for t in boundaries if t > start_time), None)
+            if word_tag_matches:
+                if next_start is None:
+                    end_time = start_time + 4.0
+                elif next_start - start_time > 8.0:
                     end_time = start_time + 4.5
+                else:
+                    end_time = next_start
             else:
-                end_time = start_time + 4.0
+                end_time = start_time + sung_line_seconds(text)
+                if next_start is not None:
+                    end_time = min(end_time, next_start)
+            if end_time <= start_time:
+                end_time = start_time + 0.5
 
             # Parse word timings
-            word_tag_matches = list(word_tag_pattern.finditer(body))
             has_word_sync = False
             word_objs = []
 
@@ -1198,7 +1280,7 @@ class LyricsService:
         raw_lines = [
             line.strip()
             for line in text.split("\n")
-            if line.strip() and not is_section_heading(line)
+            if line.strip() and not is_section_heading(line) and not is_credit_line(line)
         ]
         for idx, line in enumerate(raw_lines):
             words = line.split()

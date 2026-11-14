@@ -29,6 +29,7 @@ from backend.services.lyric_sync import (
     words_spread_evenly,
 )
 from backend.shared_assets import load
+from backend.tests.helpers.fake_ctc_worker import install_fake_ctc
 
 RATE = 16000
 
@@ -366,65 +367,11 @@ def test_mocked_aligners_returning_nothing_are_fine(monkeypatch):
 # Neural pass (fake worker process)
 # ==============================================================================
 
-FAKE_CTC = r"""
-import json, os, sys, time
-args = sys.argv[1:]
-request = json.load(open(args[args.index("--request") + 1]))
-response_path = args[args.index("--response") + 1]
-mode = os.environ.get("FAKE_CTC_MODE", "ok")
-log = os.environ.get("FAKE_CTC_LOG")
-if log:
-    json.dump(request, open(log, "w"))
-
-def event(**fields):
-    sys.stderr.write(json.dumps(fields) + "\n")
-    sys.stderr.flush()
-
-if mode == "fail":
-    event(event="error", code="import", detail="PyTorch/torchaudio could not be loaded: boom")
-    sys.exit(4)
-if mode == "silent":
-    time.sleep(30)
-if mode == "slow":
-    for _ in range(300):
-        event(event="stage", detail="Loading the neural aligner…")
-        time.sleep(0.1)
-event(event="download", detail="Downloading the MMS alignment model (first run only, ~1.2 GB)…")
-lines = []
-for n, line in enumerate(request["lines"], 1):
-    words = []
-    for i, w in enumerate(line["words"]):
-        if not w:
-            words.append(None)
-            continue
-        start = line["window_start"] + 0.8 + i * 0.4
-        words.append({"start": round(start, 3), "end": round(start + 0.25, 3), "score": 0.9})
-    score = 0.2 if mode == "lowscore" else 0.85
-    lines.append({"index": line["index"], "status": "ok", "error": None, "line_score": score, "star_ratio": 0.3, "words": words})
-    event(event="stage", done=n, total=len(request["lines"]), detail=f"Aligning words (neural) {n}/{len(request['lines'])}")
-json.dump({"version": 1, "model": "MMS_FA", "lines": lines}, open(response_path, "w"))
-"""
-
 
 @pytest.fixture
 def neural(tmp_path, monkeypatch):
     """Makes the neural engine available and routes its worker to a fake script."""
-    script = tmp_path / "fake_ctc.py"
-    script.write_text(FAKE_CTC)
-    state = types.SimpleNamespace(calls=[], log=tmp_path / "request.json")
-    monkeypatch.setenv("FAKE_CTC_LOG", str(state.log))
-    monkeypatch.setenv("ALIGNMENT_ENGINE", "auto")
-    monkeypatch.setattr(alignment_config, "ctc_status", lambda: (True, None))
-    real_popen = subprocess.Popen
-
-    def popen(cmd, *args, **kwargs):
-        state.calls.append({"cmd": list(cmd), "kwargs": kwargs})
-        if "backend.workers.ctc_align_worker" in cmd:
-            cmd = [sys.executable, str(script), *cmd[4:]]
-        return real_popen(cmd, *args, **kwargs)
-
-    monkeypatch.setattr(subprocess, "Popen", popen)
-    return state
+    return install_fake_ctc(tmp_path, monkeypatch)
 
 
 def test_neural_timing_replaces_confident_lines(tmp_path, neural):

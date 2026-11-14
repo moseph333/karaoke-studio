@@ -15,6 +15,18 @@ from backend.services.lyrics import LyricsNormalizer
 logger = logging.getLogger(__name__)
 
 
+def music_track_title(meta: dict[str, Any] | None) -> str | None:
+    """The song's own name when yt-dlp knows it: YouTube Music, auto-generated "- Topic"
+    uploads and many official videos carry ``track`` and ``artist`` fields, which find the
+    lyrics far more reliably than a video title like "Artist - Song (Official Video) [4K]"."""
+    if not isinstance(meta, dict):
+        return None
+    track, artist = meta.get("track"), meta.get("artist")
+    if isinstance(track, str) and track.strip() and isinstance(artist, str) and artist.strip():
+        return track.strip()
+    return None
+
+
 class TrackDownloader:
     def __init__(self, output_dir: Path = DOWNLOADS_DIR):
         self.output_dir = output_dir
@@ -182,6 +194,7 @@ class TrackDownloader:
             title = fallback_title
             artist = "Unknown Artist"
             duration = 0
+            song_title = None
 
             try:
                 ydl_opts_meta = {
@@ -200,12 +213,15 @@ class TrackDownloader:
                         title = meta.get("title") or title
                         artist = meta.get("artist") or meta.get("uploader") or artist
                         duration = meta.get("duration", 0)
+                        song_title = music_track_title(meta)
             except Exception as e:
                 logger.warning(
                     f"Could not refresh metadata online for cached track {video_id}, using fallback: {e}"
                 )
 
-            clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(title, artist)
+            clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(
+                song_title or title, artist
+            )
 
             return {
                 "id": video_id,
@@ -305,7 +321,9 @@ class TrackDownloader:
             except Exception as e:
                 logger.warning(f"Could not download thumbnail directly: {e}")
 
-        clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(title, artist)
+        clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(
+            music_track_title(meta) or title, artist
+        )
 
         return {
             "id": v_id,

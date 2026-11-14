@@ -1245,6 +1245,17 @@ class TestTrackUploadRoutes:
         assert proj["created_by"] == "Tester"
         assert proj["audio_url"] == f"/static/downloads/{data['project_id']}.wav"
 
+    def test_an_untitled_upload_is_named_after_the_file_with_spaces(self, client, monkeypatch):
+        """The title, which also finds the lyrics, reads "Artist - Song", not "Artist_-_Song"."""
+        monkeypatch.setattr(main_mod, "run_local_pipeline", lambda *args, **kwargs: None)
+        valid_wav = io.BytesIO(b"RIFF$\x00\x00\x00WAVEfmt \x10\x00\x00\x00" + b"\x00" * 32)
+        res = client.post(
+            "/api/upload-track",
+            files={"file": ("Soccer_Mommy_-_Don't  Ask Me.wav", valid_wav, "audio/wav")},
+        )
+        assert res.status_code == 200
+        assert projects[res.json()["project_id"]]["title"] == "Soccer Mommy - Don't Ask Me"
+
     def test_upload_track_valid_mp3_accepted_200(self, client, monkeypatch):
         """Valid MP3 file upload with ID3 header is accepted with HTTP 200."""
         monkeypatch.setattr(main_mod, "run_local_pipeline", lambda *args, **kwargs: None)

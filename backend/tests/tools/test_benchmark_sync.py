@@ -1,5 +1,6 @@
 """Lyric sync benchmark tool."""
 
+import argparse
 import json
 
 import numpy as np
@@ -82,9 +83,48 @@ def test_scores_and_correlation_helpers(song):
 def test_truth_can_be_enhanced_lrc(tmp_path):
     lrc = tmp_path / "truth.lrc"
     lrc.write_text("[00:01.00]<00:01.00>one <00:01.70>two\n[00:04.00]<00:04.00>four\n")
-    lines = benchmark_sync.load_truth(lrc)
+    lines, level = benchmark_sync.load_truth(lrc)
+    assert level == "word"
     assert [w["word"] for w in lines[0]["words"]] == ["one", "two"]
     empty = tmp_path / "none.json"
     empty.write_text("[]")
     with pytest.raises(SystemExit):
         benchmark_sync.load_truth(empty)
+
+
+def test_a_plain_lrc_is_scored_by_line(song, tmp_path):
+    vocals, _, _ = song
+    lrc = tmp_path / "lines.lrc"
+    lrc.write_text("[00:01.00]one two three\n[00:04.00]four five\n")
+    _, level = benchmark_sync.load_truth(lrc)
+    assert level == "line"
+    out = tmp_path / "results.json"
+    args = ["--vocals", str(vocals), "--truth", str(lrc), "--engine", "dsp", "--json", str(out)]
+    assert benchmark_sync.main(args) == 0
+    results = json.loads(out.read_text())["dsp"]
+    assert results["lines"] == 2
+    assert results["line_mae_ms"] < 300
+    assert results["lines_off_2s"] == 0
+    assert [row["line"] for row in results["per_line"]] == [0, 1]
+
+
+def test_line_scores_measure_the_first_word_against_the_line_start(song):
+    _, _, truth = song
+    late = [dict(line, words=[dict(w) for w in line["words"]]) for line in truth]
+    for word in late[1]["words"]:
+        word["start_time"] += 2.5
+    scores = benchmark_sync.score_lines(truth, late)
+    assert scores["line_median_ms"] == 1250.0
+    assert scores["lines_off_2s"] == 1
+    assert scores["line_within_300ms"] == 50.0
+
+
+def test_shifts_move_the_input_from_a_line_on(song):
+    _, _, truth = song
+    assert benchmark_sync.parse_shift("20") == (20.0, 0)
+    assert benchmark_sync.parse_shift("-1.5@1") == (-1.5, 1)
+    with pytest.raises(argparse.ArgumentTypeError):
+        benchmark_sync.parse_shift("soon")
+    lines = benchmark_sync.aligner_input(truth, "line", [(20.0, 1), (-0.5, 0)])
+    assert lines[0]["start_time"] == 0.5
+    assert lines[1]["start_time"] == 23.5
