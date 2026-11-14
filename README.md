@@ -4,6 +4,13 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 
 ![Karaoke Studio](docs/karaoke-preview.png)
 
+## What's new in 2.5
+
+- **Lyrics land where they're sung.** The neural aligner now listens to the whole song and places every line in order. A line no longer sticks to a wrong first guess on a slow or reverb-heavy song, after a long intro, or when the lyrics file was timed for another version of the song (a lyric video, a live cut). The studio only keeps placements it can check, so lyrics that don't fit the vocals keep the old timing; `ALIGNMENT_SONG_PASS=0` turns the new pass off. Lines from synced lyrics also end once they're sung instead of running on to the next line.
+- **The right lyrics more often.** Synced lyrics made for a much longer or shorter version aren't taken straight away, and another song with the same title can't win. Song names like "Live Forever" survive title cleanup, YouTube Music track names and uploaded file names are used to search, and credit lines such as "Written by: …" are no longer sung.
+- **An API reference.** `/api/docs` is an interactive reference for the studio's API, behind the same passphrase as everything else. FastAPI's open `/docs` pages are gone.
+- **See which version is running.** The Help dialog shows the version the server runs, so you can tell when an update has landed.
+
 ## What's new in 2.4
 
 - **Updates that don't interrupt anyone.** `scripts/update_when_idle.sh` builds the new version while the studio keeps running, pauses new songs, uploads and renders (everyone sees a notice; editing and playback keep working), waits for running jobs to finish, and only then restarts. **Update now** goes through the same steps, so one person's update no longer cuts off another person's render.
