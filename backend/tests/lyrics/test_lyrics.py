@@ -23,7 +23,8 @@ def test_parse_lrc():
     # First line checks
     assert lines[0]["text"] == "First line of the song"
     assert lines[0]["start_time"] == 4.2
-    assert lines[0]["end_time"] == 8.5
+    # Six syllables are sung in about 4 s (sung_line_seconds), before the next line at 8.5
+    assert lines[0]["end_time"] == 8.2
     assert len(lines[0]["words"]) == 5
     assert lines[0]["words"][0]["word"] == "First"
     assert lines[0]["words"][0]["start_time"] == 4.2
@@ -31,7 +32,7 @@ def test_parse_lrc():
     # Second line checks
     assert lines[1]["text"] == "Second line with more words"
     assert lines[1]["start_time"] == 8.5
-    assert lines[1]["end_time"] == 14.0
+    assert lines[1]["end_time"] == 13.5
 
     # Ensure each word has start_time <= end_time
     for line in lines:

@@ -218,9 +218,9 @@ def test_parse_lrc_large_offset_header_clamped_at_zero():
     lines = LyricsService.parse_lrc(lrc)
     assert len(lines) == 2
     assert lines[0]["start_time"] == 0.0
-    assert lines[0]["end_time"] == 5.0
+    assert lines[0]["end_time"] == 2.5
     assert lines[1]["start_time"] == 5.0
-    assert lines[1]["end_time"] == 9.0
+    assert lines[1]["end_time"] == 8.0
 
     for line_item in lines:
         assert line_item["start_time"] >= 0.0
@@ -239,9 +239,9 @@ def test_parse_lrc_huge_negative_offset_header():
     lines = LyricsService.parse_lrc(lrc)
     assert len(lines) == 2
     assert lines[0]["start_time"] == 605.0
-    assert lines[0]["end_time"] == 609.5
+    assert lines[0]["end_time"] == 607.5
     assert lines[1]["start_time"] == 615.0
-    assert lines[1]["end_time"] == 619.0
+    assert lines[1]["end_time"] == 618.0
 
 
 def test_parse_lrc_malformed_enhanced_tags_and_zero_tag_leakage():
