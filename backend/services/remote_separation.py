@@ -3,7 +3,9 @@
 The Modal function `separate` in gpu/modal_app.py runs backend.workers.roformer_worker
 unchanged on a GPU. Its stderr comes back line by line through modal_jobs, so
 separation_progress.ProgressTracker reads the same text as for a local run, and the two stems
-come back as the call's return value. When the service cannot be reached, or no GPU starts
+come back as the call's return value, with the neural aligner's emission for the new vocals
+when the GPU could compute it (kept by emission_cache, so lyric alignment skips its slowest
+step here). When the service cannot be reached, or no GPU starts
 the job within SEPARATION_REMOTE_QUEUE_SEC, RemoteUnavailable tells the separator to skip the
 other cloud presets and fall back to Fast here.
 """
@@ -14,6 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from backend.services import emission_cache
 from backend.services.modal_jobs import STARTED, RemoteOutcome, RemoteUnavailable, run_modal_job
 from backend.services.separation_presets import SeparationPlan
 
@@ -30,6 +33,11 @@ def _save_stems(result: dict, out_dir: Path) -> None:
         data = result.get(key)
         if data:
             (out_dir / name).write_bytes(data)
+    vocals, emission = result.get("vocals"), result.get("emission")
+    if isinstance(vocals, bytes) and isinstance(emission, bytes):
+        kept = emission_cache.store(vocals, emission)
+        if kept is not None:
+            logger.info(f"Kept the cloud GPU's neural listening pass as {kept.name}")
 
 
 def run_remote(

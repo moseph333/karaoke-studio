@@ -12,7 +12,8 @@ lines are re-timed with ``keep_manual`` (see prepare_existing_lines), lines whos
 timed by hand come back exactly as they went in and stay "manual", with no confidence; neither
 pass moves them. Manual lines of two or more words that the studio editor only spread evenly
 (see words_spread_evenly) are timed again like any other.
-If the neural pass is unavailable or fails, the whole song keeps the DSP timing and the report
+The model's emission for the stem is kept (emission_cache), so later passes over the same
+vocals only align. If the neural pass is unavailable or fails, the whole song keeps the DSP timing and the report
 records why. At most MAX_CONCURRENT_ALIGN_JOBS neural passes run at once (ALIGN_SEMAPHORE):
 each loads a large model, so further songs wait for a free slot.
 """
@@ -35,7 +36,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from backend.services import alignment_config, lyric_anchors
+from backend.services import alignment_config, emission_cache, lyric_anchors
 from backend.services.aligner import enforce_monotonic_words
 from backend.services.lyric_tokenize import normalize_for_mms
 from backend.services.process_watchdog import ProcessWatchdog, duration_text, quietly, worker_env
@@ -245,6 +246,9 @@ def run_neural_pass(
     }
     if song_lines:
         request["song"] = {"lines": song_lines}
+    cache = emission_cache.path_for(vocals_path)
+    if cache is not None:
+        request["emission_cache"] = str(cache)
     with tempfile.TemporaryDirectory(prefix="karaoke-align-") as tmp:
         request_path, response_path = Path(tmp) / "request.json", Path(tmp) / "response.json"
         request_path.write_text(json.dumps(request), encoding="utf-8")
@@ -335,6 +339,8 @@ def run_neural_pass(
             raise NeuralAlignmentFailed(f"neural aligner wrote no usable result: {exc}") from exc
     if not isinstance(response, dict) or not isinstance(response.get("lines"), list):
         raise NeuralAlignmentFailed("neural aligner returned an unexpected result")
+    if cache is not None:
+        emission_cache.prune()
     song = response.get("song")
     if song is not None and not (isinstance(song, dict) and isinstance(song.get("lines"), list)):
         response.pop("song", None)
