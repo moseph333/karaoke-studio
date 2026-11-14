@@ -242,6 +242,10 @@ cp .env.example .env
 | `ALIGN_REFINE_PLAIN` | `1` | Snap pasted, untimed lyrics to the sung phrases |
 | `ALIGNMENT_SONG_PASS` | `1` | Also place every line in the whole song with the neural model, so lines far from the first estimate (and lyrics timed for another version) are found |
 
+## API reference
+
+The server hosts an interactive API reference at [`/api/docs`](http://localhost:8000/api/docs): every route with its request and response schemas, code samples, and a panel for sending test requests. The raw OpenAPI schema is at `/api/openapi.json`. Both need a session when `APP_PASSWORD` is set, so sign in to the studio first (the page uses its cookie) or enter the passphrase in the page's Authentication box.
+
 ## Tools
 
 ```bash
