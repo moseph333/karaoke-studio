@@ -118,6 +118,7 @@ Stem, master and rendered video URLs carry a `?v=` version after a re-separation
 | `GET /api/health`, `POST /api/health`, `POST /api/system/update` | version and update check (`self_update` reports `SELF_UPDATE`, `draining` an update waiting for running jobs, `active_jobs` how many run); the POST forms can start an update and need a session |
 | `GET /api/auth/status`, `POST /api/auth/login`, `POST /api/auth/logout` | session handling |
 | `GET /api/capabilities` | separation presets and lyric aligner this server can run, with reasons |
+| `GET /api/docs`, `GET /api/openapi.json` | interactive API reference (Scalar, pinned and loaded from jsDelivr; `routers/api_docs.py`) and the OpenAPI schema with the auth schemes; both behind the passphrase, and FastAPI's default `/docs`, `/redoc` and `/openapi.json` are off |
 | `POST /api/search` | YouTube search |
 | `POST /api/process` | start the YouTube pipeline (`separation_quality` optional) |
 | `POST /api/upload-track` (alias `/api/upload-audio`) | start the upload pipeline (form field `separation_quality`) |
