@@ -49,7 +49,7 @@ from backend.export_utils import (
 from backend.http_delivery import CompressTextResponses
 from backend.logging_setup import configure_logging
 from backend.master_audio import remove_unfinished_mixes, start_pruning_mixes_of_every_song
-from backend.middleware import PassphraseAuth, SecurityHeaders
+from backend.middleware import PassphraseAuth, RequestContext, SecurityHeaders
 from backend.pipeline import (
     run_local_pipeline,
     run_pipeline,
@@ -253,8 +253,10 @@ app.add_middleware(PassphraseAuth)
 app.add_middleware(SecurityHeaders)
 
 
-# Added last, so it wraps every other middleware and compresses their final responses
+# Added after the others, so it wraps them and compresses their final responses
 app.add_middleware(CompressTextResponses, minimum_size=1024)
+# Outermost, so the auth middleware's log lines carry the request id too
+app.add_middleware(RequestContext)
 
 
 # Mount static directories so frontend can stream audio and video
