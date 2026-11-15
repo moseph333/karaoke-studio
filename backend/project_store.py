@@ -65,7 +65,8 @@ def load_projects() -> dict[str, dict[str, Any]]:
                     return json.loads(content)
             except Exception as e:
                 logger.error(
-                    f"Corrupted projects.json detected: {e}. Attempting backup recovery..."
+                    f"Corrupted projects.json detected: {e}. Attempting backup recovery...",
+                    exc_info=True,
                 )
 
         # 2. Attempt fallback to backup if primary failed or does not exist
@@ -76,7 +77,7 @@ def load_projects() -> dict[str, dict[str, Any]]:
                     logger.info("Successfully recovered projects state from projects.json.bak")
                     return json.loads(content)
             except Exception as e:
-                logger.error(f"Could not load backup projects.json.bak: {e}")
+                logger.error(f"Could not load backup projects.json.bak: {e}", exc_info=True)
 
         return {}
 
@@ -141,12 +142,17 @@ def save_projects(*, strict: bool = False) -> bool:
             _last_save_at = time.monotonic()
             return True
         except Exception as e:
-            logger.error(f"Failed to persist projects.json atomically: {e}")
+            # An OSError (usually a full disk) says it all, and throttled progress saves retry
+            # it about once a second; anything else is a bug worth its traceback
+            logger.error(
+                f"Failed to persist projects.json atomically: {e}",
+                exc_info=not isinstance(e, OSError),
+            )
             if "temp_file" in locals() and temp_file.exists():
                 try:
                     temp_file.unlink()
                 except Exception:
-                    pass
+                    logger.debug(f"Could not remove {temp_file}", exc_info=True)
             # Counted as a write: on a full disk, throttled progress saves then retry about
             # once a second instead of on every progress tick of every running job
             _last_save_at = time.monotonic()
@@ -311,7 +317,7 @@ def cleanup_project_disk_artifacts(
                 try:
                     other_referenced_paths.add(Path(val).resolve())
                 except Exception:
-                    pass
+                    logger.debug(f"Could not resolve {val!r} while deleting {pid}", exc_info=True)
         if op.get("id"):
             other_ids.add(str(op["id"]))
         if op.get("track_id"):
@@ -334,7 +340,9 @@ def cleanup_project_disk_artifacts(
                                 has_external_ref = True
                                 break
                         except Exception:
-                            pass
+                            logger.debug(
+                                f"Could not resolve {f} while deleting {pid}", exc_info=True
+                            )
                 if not has_external_ref:
                     shutil.rmtree(stem_subdir, ignore_errors=True)
             # Half-made stems from an unfinished re-separation
