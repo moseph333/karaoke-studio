@@ -595,6 +595,18 @@ def get_lyric_candidates(
     return main_mod.lyrics_service.search_lyrics(query_title, query_artist)
 
 
+# What an in-request re-alignment writes on a song (store_aligned_lines and the route)
+REALIGNED_FIELDS = (
+    "lines",
+    "duration",
+    "youtube_package",
+    "lyric_timing",
+    "lyric_source",
+    "is_synced",
+    "sync_report",
+)
+
+
 @router.post("/api/project/{project_id}/realign-lyrics")
 def realign_lyrics(
     project_id: str, req: RealignLyricsRequest, bg_tasks: BackgroundTasks, response: Response
@@ -704,16 +716,19 @@ def realign_lyrics(
             proj = find_project(pid)
             if not proj:
                 raise HTTPException(status_code=404, detail="Project not found")
-            realignment.store_aligned_lines(proj, aligned_lines)
-            if mode == "lines":
-                if proj.get("lyric_timing") in (None, "none"):
+            # The response reports the new lines as saved: a failed write answers 507 (or
+            # 500) and puts the old ones back, so a reload never shows an unsaved timing
+            with restore_on_failed_save(proj, REALIGNED_FIELDS):
+                realignment.store_aligned_lines(proj, aligned_lines)
+                if mode == "lines":
+                    if proj.get("lyric_timing") in (None, "none"):
+                        proj["lyric_timing"] = result.lyric_timing
+                else:
+                    proj["lyric_source"] = lyric_data.get("source", "custom")
+                    proj["is_synced"] = lyric_data.get("synced", True)
                     proj["lyric_timing"] = result.lyric_timing
-            else:
-                proj["lyric_source"] = lyric_data.get("source", "custom")
-                proj["is_synced"] = lyric_data.get("synced", True)
-                proj["lyric_timing"] = result.lyric_timing
-            proj["sync_report"] = result.report
-            save_projects()
+                proj["sync_report"] = result.report
+                save_projects(strict=True)
 
         return {
             "status": "ok",
