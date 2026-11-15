@@ -4,6 +4,9 @@ They replace two BaseHTTPMiddleware layers, which ran every request's endpoint i
 its own and passed each response body through an extra stream.
 """
 
+import re
+import uuid
+
 from starlette.datastructures import MutableHeaders
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -13,6 +16,40 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from backend import config
 from backend.auth import authenticate_request, get_client_ip, log_credential_rejection
 from backend.http_delivery import cache_control_for
+from backend.logging_setup import request_id_var
+
+REQUEST_ID_HEADER = "X-Request-ID"
+# An id a proxy already gave the request is kept if it looks like one
+_REQUEST_ID_PATTERN = re.compile(r"[A-Za-z0-9-]{1,64}")
+
+
+class RequestContext:
+    """Gives each HTTP request an id: the X-Request-ID it came with (if it is 1-64 letters,
+    digits and dashes) or a new one. The id tags the app's log lines while the request is
+    handled, is kept in scope["state"]["request_id"] for the error handler, and is echoed in
+    the response's X-Request-ID header."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        incoming = Request(scope).headers.get(REQUEST_ID_HEADER, "")
+        request_id = incoming if _REQUEST_ID_PATTERN.fullmatch(incoming) else uuid.uuid4().hex[:12]
+        scope.setdefault("state", {})["request_id"] = request_id
+
+        async def send_with_id(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                MutableHeaders(scope=message)[REQUEST_ID_HEADER] = request_id
+            await send(message)
+
+        token = request_id_var.set(request_id)
+        try:
+            await self.app(scope, receive, send_with_id)
+        finally:
+            request_id_var.reset(token)
 
 
 class PassphraseAuth:
