@@ -127,6 +127,8 @@ docker compose --profile tunnel up -d
 
 To update a shared instance without cutting off anyone's song import or render, run `scripts/update_when_idle.sh` from the checkout (from cron or a systemd timer, say) instead of `git pull && docker compose up -d --build`. It builds the new image while the old container keeps serving, then pauses new songs, uploads, renders and re-made stems (everyone sees a notice; editing and playback keep working), waits until the running jobs finish or `UPDATE_DRAIN_MAX_SEC` passes, and only then recreates the container. `--force` rebuilds without a new commit.
 
+When the checkout's origin is on GitHub, the script moves to a new commit only once that commit's CI run has passed. A failed run keeps the install on the version it is running, and a run that is still going is waited for (`UPDATE_CI_WAIT_SEC`), then left for the next call. If there is no result to read (GitHub's API cannot be reached, or the commit has no CI run), the update goes ahead and the log says so. `UPDATE_REQUIRE_CI=0` turns the check off; `--force` does not.
+
 ### Manual development setup
 
 ```bash
@@ -200,6 +202,9 @@ cp .env.example .env
 | `APP_PASSWORD` | *(empty)* | Optional shared passphrase (`HttpOnly` cookie session). Leave blank for open local access. |
 | `SELF_UPDATE` | *(off)* | `1` where a host service applies updates written to `<data dir>/.update_requested` (as on the homelab). The studio then shows an **Update now** toast when GitHub's `main` is ahead of the running build. |
 | `UPDATE_DRAIN_MAX_SEC` | `2700` | How long `scripts/update_when_idle.sh` waits for running jobs before it restarts the server anyway (jobs still running then are interrupted). New jobs stay paused while it waits. |
+| `UPDATE_REQUIRE_CI` | `1` | `scripts/update_when_idle.sh` moves to a new commit only once its CI run on GitHub has passed. `0` updates without asking. |
+| `UPDATE_CI_WAIT_SEC` | `900` | How long the script waits for a CI run that is still going before it leaves the update for its next call. |
+| `UPDATE_CI_TOKEN` | *(empty)* | GitHub token the script reads the CI result with. Only a private repository needs one (read access to Actions); without it GitHub answers 404 and the update goes ahead unchecked. |
 | `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` / `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `5` / `60.0` | Wrong passphrases allowed per IP and window, at login or in a header or cookie on any route (each distinct value counts once per window), before HTTP `429`. A client over the limit gets `429` even with valid credentials. |
 | `FORWARDED_TRUSTED_HOPS` | `1` | Reverse proxies in front of the app that append to `X-Forwarded-For`; the rate limit keys on the entry this many places from the end. `2` for cloudflared in front of Nginx Proxy Manager, but only if Nginx Proxy Manager gets traffic from cloudflared alone: a client that reaches it directly (on the LAN, say) can pick its own rate-limit key with a forged header, so use `1` there. `0` to ignore the header and use the socket address. |
 | `MAX_CONCURRENT_JOBS` | `2` | Separations, re-separations, re-alignments and renders running at once |
@@ -289,6 +294,8 @@ ruff check backend && ruff format --check backend
 cd frontend
 npm test && npm run lint && npm run format:check && npx tsc -p . --noEmit && npm run build
 ```
+
+Releases are automated with [release-please](https://github.com/googleapis/release-please): commits on `main` follow Conventional Commits, a release PR collects them with the version bump and `CHANGELOG.md`, and merging it tags the release and publishes its notes.
 
 Engines that need model weights are tested with fake worker processes, so the suites run offline. For the design system, routes, background jobs and worker protocols, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

@@ -1,0 +1,32 @@
+name: Release
+
+# Keeps a "release PR" open on main that collects the Conventional Commits merged since the
+# last release: it bumps the version files and writes CHANGELOG.md. Merging that PR makes
+# this workflow tag the commit (vX.Y.Z) and publish a GitHub Release with the notes.
+# Configuration: release-please-config.json and .release-please-manifest.json.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Release PR and tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update the release PR, or tag a merged one
+        uses: googleapis/release-please-action@v4
+        with:
+          # GitHub starts no workflows for pull requests opened with the built-in token, so
+          # the release PR gets no CI run with it. A personal access token saved as the
+          # RELEASE_PLEASE_TOKEN secret (contents and pull requests: read and write) fixes that.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}

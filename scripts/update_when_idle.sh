@@ -5,18 +5,27 @@
 #   scripts/update_when_idle.sh --force    # rebuild and restart even without one
 #
 # 1. Fetches origin/main and stops if there is nothing new (unless --force).
-# 2. Resets the checkout and builds the new image while the old container keeps serving.
-# 3. Writes <data dir>/.update_draining: the running server stops accepting new songs,
+# 2. Moves to a new commit only once its CI run on GitHub has passed. A failed run leaves
+#    the install where it is; a run still going is waited for (UPDATE_CI_WAIT_SEC, default
+#    900 s), then left for the next call. Where there is no result to read (origin is not on
+#    GitHub, the API cannot be reached, the commit has no CI run) the update goes ahead and
+#    says so. --force does not skip this; UPDATE_REQUIRE_CI=0 does.
+# 3. Resets the checkout and builds the new image while the old container keeps serving.
+# 4. Writes <data dir>/.update_draining: the running server stops accepting new songs,
 #    uploads, renders and re-made stems (503), while editing and playback keep working.
-# 4. Waits until the server's <data dir>/.jobs_active says no job runs, the file goes stale
+# 5. Waits until the server's <data dir>/.jobs_active says no job runs, the file goes stale
 #    (the server is not answering), or UPDATE_DRAIN_MAX_SEC (default 2700 s) passes.
-# 5. Recreates the container. The new server removes the marker when it starts; this script
+# 6. Recreates the container. The new server removes the marker when it starts; this script
 #    also removes it on exit, so a failed build never leaves new jobs paused.
 #
 # Settings come from the environment, then the repo's .env: KARAOKE_DATA_DIR (the host path
-# compose mounts, default ./workspace_data), UPDATE_DRAIN_MAX_SEC. For tests and other hosts:
-# UPDATE_BRANCH (main), UPDATE_DRAIN_POLL_SEC (10), UPDATE_DRAIN_STALE_SEC (60) and
-# COMPOSE_CMD ("docker compose").
+# compose mounts, default ./workspace_data), UPDATE_DRAIN_MAX_SEC, UPDATE_REQUIRE_CI (1),
+# UPDATE_CI_WAIT_SEC, UPDATE_CI_TOKEN (a GitHub token that can read the repository's
+# Actions runs; only a private repository needs one) and UPDATE_CI_REPO (owner/name, read
+# from the origin URL by default). For tests and other hosts: UPDATE_BRANCH (main),
+# UPDATE_DRAIN_POLL_SEC (10), UPDATE_DRAIN_STALE_SEC (60), UPDATE_CI_POLL_SEC (30),
+# UPDATE_CI_WORKFLOW (ci.yml), UPDATE_CI_API_URL (https://api.github.com) and COMPOSE_CMD
+# ("docker compose").
 set -euo pipefail
 
 # Everything runs from one function, parsed before the first line runs: the git reset below
@@ -66,15 +75,130 @@ main() {
   DRAIN_FILE="$DATA_DIR/.update_draining"
   JOBS_FILE="$DATA_DIR/.jobs_active"
 
-  git fetch --quiet origin "$BRANCH"
+  REQUIRE_CI="$(setting UPDATE_REQUIRE_CI 1)"
+  CI_WAIT="$(setting UPDATE_CI_WAIT_SEC 900)"
+  [[ "$CI_WAIT" =~ ^[0-9]+$ ]] || CI_WAIT=900
+  CI_TOKEN="$(setting UPDATE_CI_TOKEN "")"
+  CI_REPO="$(setting UPDATE_CI_REPO "")"
+  CI_POLL="${UPDATE_CI_POLL_SEC:-30}"
+  CI_WORKFLOW="${UPDATE_CI_WORKFLOW:-ci.yml}"
+  CI_API="${UPDATE_CI_API_URL:-https://api.github.com}"
+  # A commit's CI run exists within seconds of the push; none after this long means none
+  # is coming (CI skipped for the commit, or Actions is off)
+  CI_NO_RUN_GRACE=120
+
+  # Prints what the CI workflow's newest run says about a commit: "passed",
+  # "failed:<conclusion>", "running", "none" (no run for it) or "unknown:<why>"
+  ci_verdict() {
+    local sha="$1" body code status conclusion
+    local -a auth=()
+    [[ -n "$CI_TOKEN" ]] && auth=(-H "Authorization: Bearer $CI_TOKEN")
+    body="$(mktemp)"
+    code="$(curl --silent --max-time 20 --output "$body" --write-out '%{http_code}' \
+      -H 'Accept: application/vnd.github+json' ${auth[@]+"${auth[@]}"} \
+      "$CI_API/repos/$CI_REPO/actions/workflows/$CI_WORKFLOW/runs?head_sha=$sha&per_page=1")" ||
+      code="000"
+    if [[ "$code" != "200" ]]; then
+      rm -f "$body"
+      if [[ "$code" == "000" ]]; then
+        echo "unknown:GitHub's API did not answer"
+      else
+        echo "unknown:GitHub's API answered HTTP $code"
+      fi
+      return
+    fi
+    # The first "status" and "conclusion" in the reply are the run's own (it asks for one run)
+    status="$(grep -o '"status"[[:space:]]*:[[:space:]]*"[a-z_]*"' "$body" | head -n 1 |
+      sed 's/.*"\([a-z_]*\)"$/\1/')"
+    conclusion="$(grep -o '"conclusion"[[:space:]]*:[[:space:]]*"[a-z_]*"' "$body" | head -n 1 |
+      sed 's/.*"\([a-z_]*\)"$/\1/')"
+    rm -f "$body"
+    if [[ -z "$status" ]]; then
+      echo "none"
+    elif [[ "$status" != "completed" ]]; then
+      echo "running"
+    elif [[ "$conclusion" == "success" ]]; then
+      echo "passed"
+    else
+      echo "failed:${conclusion:-no conclusion}"
+    fi
+  }
+
+  # Returns 0 when the update may move to the commit, 1 when it must stay where it is
+  ci_allows() {
+    local sha="$1" short="${1:0:7}" started verdict elapsed readable=0
+    if [[ -z "$CI_REPO" ]]; then
+      CI_REPO="$(git config --get remote.origin.url 2>/dev/null | sed 's#/*$##' |
+        sed -n 's#^.*github\.com[:/]\([^/]*/[^/]*\)$#\1#p')"
+      CI_REPO="${CI_REPO%.git}"
+    fi
+    if [[ -z "$CI_REPO" ]]; then
+      log "origin is not a GitHub repository; updating without a CI result"
+      return 0
+    fi
+    if ! command -v curl >/dev/null 2>&1; then
+      log "curl is not installed, so CI cannot be checked; updating without a CI result"
+      return 0
+    fi
+    started="$(date +%s)"
+    while :; do
+      verdict="$(ci_verdict "$sha")"
+      elapsed=$(($(date +%s) - started))
+      case "$verdict" in
+        passed)
+          log "CI passed for $short"
+          return 0
+          ;;
+        failed:*)
+          log "CI did not pass for $short (${verdict#failed:}); staying on ${LOCAL:0:7}." \
+            "Push a fix, or set UPDATE_REQUIRE_CI=0 to update anyway"
+          return 1
+          ;;
+        running)
+          readable=1
+          ;;
+        none)
+          if ((elapsed >= CI_NO_RUN_GRACE || elapsed >= CI_WAIT)); then
+            log "No CI run exists for $short; updating without a CI result"
+            return 0
+          fi
+          ;;
+        *)
+          # Never read a result at all: behave as before the check existed. Lost after a
+          # run was seen going: keep waiting for it rather than update around it.
+          if ((readable == 0)); then
+            log "Could not read the CI result for $short (${verdict#unknown:});" \
+              "updating without it"
+            return 0
+          fi
+          ;;
+      esac
+      if ((elapsed >= CI_WAIT)); then
+        log "CI is still running for $short after ${elapsed}s; staying on ${LOCAL:0:7}" \
+          "until the next call"
+        return 1
+      fi
+      sleep "$CI_POLL"
+    done
+  }
+
+  # --tags: a release tag on the new commit must be here for the server's `git describe`
+  git fetch --quiet --tags origin "$BRANCH"
   LOCAL="$(git rev-parse HEAD)"
   REMOTE="$(git rev-parse "origin/$BRANCH")"
   if [[ "$LOCAL" == "$REMOTE" && "$FORCE" -eq 0 ]]; then
     log "Already at ${LOCAL:0:7}; nothing to update"
     exit 0
   fi
+  # Only a move to another commit is checked: a forced rebuild of the running one is not
+  if [[ "$LOCAL" != "$REMOTE" && "$REQUIRE_CI" != "0" ]]; then
+    ci_allows "$REMOTE" || exit 0
+    # A release tag created while CI ran (best effort: the commit is already here)
+    git fetch --quiet --tags origin "$BRANCH" || true
+  fi
   log "Updating ${LOCAL:0:7} -> ${REMOTE:0:7}"
-  git reset --hard --quiet "origin/$BRANCH"
+  # The commit that was checked, even if the branch moved on meanwhile
+  git reset --hard --quiet "$REMOTE"
 
   trap 'rm -f "$DRAIN_FILE"' EXIT
 
