@@ -1,5 +1,6 @@
 """FastAPI application entry point, mounting API routers, middleware, static media directories, and providing backward-compatible re-exports."""
 
+import json
 import logging
 import math
 import mimetypes
@@ -11,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import soundfile as sf
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -300,6 +301,22 @@ async def health_check(request: Request, check_remote: bool = False):
     return {**info, **_drain_status()}
 
 
+def _json_content_type(request: Request) -> bool:
+    media_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    return media_type == "application/json" or media_type.endswith("+json")
+
+
+def _sent_auth_header(request: Request) -> bool:
+    """Whether the request carries a credential header, which a cross-site page cannot set
+    without a CORS preflight (unlike a cookie)."""
+    headers = request.headers
+    return bool(
+        headers.get("x-app-password")
+        or headers.get("x-session-token")
+        or headers.get("authorization")
+    )
+
+
 def _drain_status() -> dict:
     """Whether an update waits for running jobs, and how many there are, for the studio's
     banner."""
@@ -323,16 +340,22 @@ def _drain_status() -> dict:
 )
 async def system_update_action(request: Request):
     action = "check"
-    try:
-        raw = await request.body()
-        if raw:
-            import json as _json
-
-            body = _json.loads(raw.decode("utf-8"))
-            if isinstance(body, dict) and body.get("action"):
-                action = str(body["action"]).strip().lower()
-    except Exception:
-        pass
+    raw = await request.body()
+    if raw:
+        if not _json_content_type(request) and not _sent_auth_header(request):
+            # A cross-site form or text/plain POST needs no CORS preflight, so without this a
+            # web page could start an update with a visitor's cookie (or on an install with
+            # no passphrase). Scripts that send X-App-Password may post any content type:
+            # browsers cannot add that header across sites without a preflight.
+            raise HTTPException(
+                status_code=415, detail="Send the update request as application/json"
+            )
+        try:
+            body = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="The body is not valid JSON") from exc
+        if isinstance(body, dict) and body.get("action"):
+            action = str(body["action"]).strip().lower()
     # Both run git (ls-remote can take seconds): off the event loop
     if action == "update":
         info = await run_in_threadpool(config.trigger_system_update)
