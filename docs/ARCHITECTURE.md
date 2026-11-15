@@ -106,7 +106,7 @@ docs/                     this guide, screenshots
 | `/static/stems` | `stems/<track>/` | `vocals.wav`, `instrumental.wav`, `separation.json` (how they were made), custom instrumentals |
 | `/static/output` | `output/` | master mixes (and their `.m4a` previews), rendered videos (one per aspect ratio) |
 | `/static/backgrounds` | `backgrounds/` | uploaded stage and video backdrops |
-| `/` | `frontend/dist` | the built single-page app, plus what `frontend/public` ships: `manifest.json`, `sw.js`, `offline.html`, the icons and `screenshots/` (§3.6) |
+| `/` | `frontend/dist` | the built single-page app, plus what `frontend/public` ships: `manifest.json`, `sw.js`, `offline.html`, the icons and `screenshots/` (§3.7) |
 
 Cache headers come from `http_delivery.cache_control_for`: Vite's hashed `/assets/*` are `immutable` for a year; `/`, `/index.html`, `/sw.js`, `/offline.html` and `/manifest.json` are `no-cache`, so a new build, service worker or manifest reaches open tabs and installed apps; everything else gets none.
 
@@ -124,7 +124,7 @@ Stem, master and rendered video URLs carry a `?v=` version after a re-separation
 | `POST /api/process` | start the YouTube pipeline (`separation_quality` optional) |
 | `POST /api/upload-track` (alias `/api/upload-audio`) | start the upload pipeline (form field `separation_quality`) |
 | `POST /api/upload-instrumental`, `POST /api/upload-background` | custom backing track (header-checked; 409 while the song is still processing), stage backdrop |
-| `GET /api/projects`, `GET /api/project/{id}`, `GET /api/project/{id}/status` | library, one song, its progress fields (each settles jobs left by a restart) |
+| `GET /api/projects`, `GET /api/project/{id}`, `GET /api/project/{id}/status` | library, one song, its progress fields (each settles jobs left by a restart). `GET /api/projects?summary=1` returns card-sized entries (`SUMMARY_FIELDS`, marked `"summary": true`) without lines, chords or paths; the library grid loads those and fetches a song in full when its card is opened |
 | `PATCH /api/project/{id}`, `POST /api/project/{id}/metadata` | title and artist |
 | `POST /api/project/{id}/lyrics` | save edited lines |
 | `GET /api/project/{id}/lyrics/candidates` | LRCLIB candidates |
@@ -261,7 +261,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 ### 3.2 Studio layout
 
 - `App` wraps `AppContent` in the palette and theme providers. `AppContent` shows the library (`TrackSearch`), the `ProcessingView`, or the `StudioWorkspace`.
-- **Header** (`StudioHeader`): brand, palette trigger, render badge, app theme picker, help, profile, New Song and the single Export button; on the library screen also an **Install** button while the browser can install the app (§3.6).
+- **Header** (`StudioHeader`): brand, palette trigger, render badge, app theme picker, help, profile, New Song and the single Export button; on the library screen also an **Install** button while the browser can install the app (§3.7).
 - **Workspace** (`studio/StudioWorkspace.tsx`): on desktop a grid of the main column (song header, stage and timeline) and the inspector aside (Audio Mix and Stage Look panels); on phones three tabs (Stage, Timeline, Mix & Theme). The song header carries the sync badge (fidelity, mean confidence, auto-aligned) and the stems badge.
 - **Transport** (`transport/TransportDock.tsx`): the only `<audio>` element (it never remounts), waveform scrubber, play, time, speed, key stepper and volume; fixed at the bottom on phones. It publishes `--dock-height` so toasts sit above it.
 - **Safe areas.** `index.html` uses `viewport-fit=cover`, so the installed app draws under the status bar and notch: the header pads `env(safe-area-inset-top)`, the app shell and the fixed phone dock pad the left and right insets (landscape), and the dock, sheets and the palette pad the bottom inset.
@@ -300,7 +300,16 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 
 `LyricDisplay` composes `stage/StageBackground`, `StageToolbar`, `StageLyrics` (word sweep or line mode, gap countdowns, end card) and `StageFloatingControls` for fullscreen. `StageBackground` draws only what the export draws: the stage colour, then the cover art (the export's own still from `GET /api/project/{id}/backdrop`, panned for the drift), aurora orbs, the spectrum (`StageSpectrum`, a canvas fed by its own analyser and calibrated against `showcqt`), or an upload; aurora and spectrum add the export's scrim. Drift and aurora positions are functions of the song time (`theme/stageBackgrounds.ts`), so a paused stage shows the exported frame at that moment; they hold still under reduced motion. Lyrics carry the export's outline. The preview uses the same backdrop, duet colours and font as the exported video and subtitles.
 
-### 3.6 Installable app
+### 3.6 First load and the home screen
+
+- **Boot shell.** `index.html` carries a small inline stylesheet and, inside `#root`, the header and a pulsing outline of the page, so something paints as soon as the HTML and stylesheet arrive; React replaces it on mount. The shell's brand name is set in the theme's heading face, which starts that font file downloading while the script is still loading.
+- **Fonts** are self-hosted: `src/fonts.css` declares every web font the app themes and stage presets name, pointing at the woff2 files of the `@fontsource` packages (Vite hashes them into `/assets`, so they are cached for a year and by the service worker). It is generated by `scripts/generate-fonts-css.mjs` (`npm run fonts`), because the packages' own CSS names the variable families "Sora Variable" while the theme stacks say "Sora". Each file is fetched only when text in its family and unicode range is shown. `selfHostedFonts.test.ts` checks that the declared faces match the ones the themes name and that the page loads nothing from another site.
+- **Deferred screens** (`deferredScreens.ts`). The studio workspace, transport dock, export and stem dialogs (one chunk, `components/studio/studioBundle.ts`), the help dialog and the command palette are split out of the first-load script. `main.tsx` fetches them once the page is idle; a screen whose chunk has arrived renders synchronously like a normal import, and one still on its way suspends (`StudioSkeleton` for the studio, nothing for dialogs). A failed fetch is retried once. Tests that assert on those screens synchronously call `loadDeferredScreens()` in a `beforeAll`.
+- **Home screen** (`TrackSearch`). The hero pairs the intake card with `track-search/HeroStageDemo`, a self-playing lyric preview (timers and CSS animation, no audio; pausable, still under reduced motion, paused off screen). Visitors with no songs of their own also get three "how it works" steps, and the library opens on the Community tab when it has songs and theirs is empty. `karaoke_has_songs` in localStorage remembers a returning visitor so their page does not jump, and hides the preview and pitch on phones for them.
+- **Library** (`track-search/ProjectLibrary`) loads `GET /api/projects?summary=1`. Opening a card fetches the whole song (`App.openLibraryProject`), with a spinner on the card meanwhile; the command palette's lyric search still loads the full list when it opens.
+- **Processing and first song.** `ProcessingTips` shows one tip at a time while a song is processed (auto-advancing until the viewer presses Next tip). `useFirstSongHint` shows a one-time toast the first time a finished song opens.
+
+### 3.7 Installable app
 
 - **Manifest** (`public/manifest.json`): `id` `/`, standalone display, separate `any` icons (transparent corners) and `maskable` icons (full-bleed, artwork inside the safe zone), a narrow and a wide screenshot for Android's install sheet, and a `share_target` that opens `/?title=…&text=…&url=…`. `utils/sharedLink` turns a share into the search box text (the first YouTube link, else the shared words); `App` passes it to `TrackSearch` as `initialQuery` and strips the parameters from the address. A share never starts processing by itself. Theme colours stay in sync with the theme registry (`themeRegistryParity.test.ts`).
 - **Service worker** (`public/sw.js`, registered by `utils/serviceWorker` in production builds only). Page loads go to the network and fall back to the precached `offline.html` ("Can't reach your studio", reloads itself on `online`); hashed `/assets/*` are cache-first, capped at 60 entries. It never handles `/api`, `/static`, non-GET or cross-origin requests and never serves the page from cache, so audio, projects and `useUpdatePrompt` always see the server. Changing what it precaches means bumping its cache names (`karaoke-shell-v1`, `karaoke-assets-v1`); `activate` deletes the others.

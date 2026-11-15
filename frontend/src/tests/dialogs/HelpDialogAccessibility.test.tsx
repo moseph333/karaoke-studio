@@ -8,6 +8,7 @@
  * 3. Studio workspace (project.status === 'ready')
  */
 
+import { loadDeferredScreens } from '../../deferredScreens';
 import React, { useState } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
@@ -53,7 +54,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
 
       // Confirm library view is rendered (TrackSearch presence)
       expect(
-        screen.getByRole('heading', { name: /turn any youtube song into karaoke/i })
+        screen.getByRole('heading', { name: /turn any song into karaoke/i })
       ).toBeInTheDocument();
 
       // Verify Header Help button
@@ -678,3 +679,6 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
     });
   });
 });
+
+// The studio, dialogs and palette are deferred chunks: with them loaded they render at once
+beforeAll(() => loadDeferredScreens());

@@ -266,7 +266,9 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       await waitFor(() => {
         expect(screen.getByRole('search')).toBeInTheDocument();
-        expect(screen.getByText(/Turn Any YouTube Song Into Karaoke/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { level: 1, name: /Turn Any Song Into Karaoke/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -486,15 +488,15 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       // Hero heading
       const hero = screen.getByRole('heading', { level: 1 });
-      expect(hero.className).toMatch(/text-2xl/);
-      expect(hero.className).toMatch(/sm:text-4xl/);
-      expect(hero.className).toMatch(/md:text-5xl/);
+      expect(hero.className).toMatch(/text-3xl/);
+      expect(hero.className).toMatch(/sm:text-5xl/);
 
-      // Container outer padding
-      const outerContainer = hero.closest('.max-w-3xl');
-      expect(outerContainer?.className).toMatch(/px-0/);
-      expect(outerContainer?.className).toMatch(/sm:px-4/);
-      expect(outerContainer?.className).toMatch(/py-2/);
+      // The hero is one column on phones (no side padding of its own) and two from lg up
+      const heroSection = hero.closest('section');
+      expect(heroSection?.className).toMatch(/\bgrid\b/);
+      expect(heroSection?.className).not.toMatch(/(^|\s)px-/);
+      expect(heroSection?.className).toMatch(/sm:px-4/);
+      expect(heroSection?.className).toMatch(/lg:grid-cols-/);
 
       // Submit button text labels
       const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });

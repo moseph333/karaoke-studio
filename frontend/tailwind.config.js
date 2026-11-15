@@ -89,12 +89,34 @@ export default {
           from: { opacity: '0', transform: 'translateY(-6px)' },
           to: { opacity: '1', transform: 'none' },
         },
+        // Content arriving on a screen (hero, library cards)
+        'rise-in': {
+          from: { opacity: '0', transform: 'translateY(12px)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+        // Home screen lyric preview: a word filling with the sung colour, left to right
+        'word-sweep': {
+          from: { clipPath: 'inset(0 100% 0 0)' },
+          to: { clipPath: 'inset(0 0 0 0)' },
+        },
+        eq: {
+          from: { transform: 'scaleY(0.3)' },
+          to: { transform: 'scaleY(1)' },
+        },
+        'aurora-drift': {
+          from: { transform: 'translate3d(-4%, -3%, 0) scale(1)' },
+          to: { transform: 'translate3d(4%, 3%, 0) scale(1.12)' },
+        },
       },
       animation: {
         'dialog-in': 'dialog-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1)',
         'sheet-in': 'sheet-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1)',
         'fade-in': 'fade-in 160ms ease-out',
         'slide-down': 'slide-down 160ms ease-out',
+        'rise-in': 'rise-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards',
+        'word-sweep': 'word-sweep 400ms linear both',
+        eq: 'eq 800ms ease-in-out infinite alternate',
+        'aurora-drift': 'aurora-drift 14s ease-in-out infinite alternate',
       },
     },
   },

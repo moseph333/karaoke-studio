@@ -1,3 +1,4 @@
+import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
@@ -77,7 +78,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
 
       await waitFor(() => {
         expect(screen.getByRole('dialog')).toBeInTheDocument();
-        expect(screen.getByText(/Studio Access Gate/i)).toBeInTheDocument();
+        expect(screen.getByText(/Welcome to Karaoke Studio/i)).toBeInTheDocument();
       });
 
       // Stale token should have been purged from storage
@@ -104,7 +105,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
 
       await waitFor(() => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-        expect(screen.getByText(/Turn Any YouTube Song Into Karaoke/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { level: 1, name: /Turn Any Song Into Karaoke/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -128,7 +131,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
 
       await waitFor(() => {
         expect(container).toBeInTheDocument();
-        expect(screen.getByText(/Turn Any YouTube Song Into Karaoke/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { level: 1, name: /Turn Any Song Into Karaoke/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -153,7 +158,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
 
       await waitFor(() => {
         expect(screen.getByRole('dialog')).toBeInTheDocument();
-        expect(screen.getByText(/Studio Access Gate/i)).toBeInTheDocument();
+        expect(screen.getByText(/Welcome to Karaoke Studio/i)).toBeInTheDocument();
       });
     });
 
@@ -330,7 +335,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
           '/api/project/proj-cancel-pipeline/cancel',
           expect.objectContaining({ method: 'POST' })
         );
-        expect(screen.getByText(/Turn Any YouTube Song Into Karaoke/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { level: 1, name: /Turn Any Song Into Karaoke/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -374,7 +381,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       await user.click(searchAnotherBtn);
 
       await waitFor(() => {
-        expect(screen.getByText(/Turn Any YouTube Song Into Karaoke/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { level: 1, name: /Turn Any Song Into Karaoke/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -422,7 +431,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       await user.click(tryAnotherBtn);
 
       await waitFor(() => {
-        expect(screen.getByText(/Turn Any YouTube Song Into Karaoke/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { level: 1, name: /Turn Any Song Into Karaoke/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -492,7 +503,9 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       await user.click(newSongBtn);
 
       await waitFor(() => {
-        expect(screen.getByText(/Turn Any YouTube Song Into Karaoke/i)).toBeInTheDocument();
+        expect(
+          screen.getByRole('heading', { level: 1, name: /Turn Any Song Into Karaoke/i })
+        ).toBeInTheDocument();
       });
     });
 
@@ -1656,3 +1669,6 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
     });
   });
 });
+
+// The studio, dialogs and palette are deferred chunks: with them loaded they render at once
+beforeAll(() => loadDeferredScreens());

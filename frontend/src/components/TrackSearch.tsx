@@ -1,26 +1,36 @@
 /**
  * Track Search Component
  *
- * The home screen: a hero intake card (YouTube link/search or local upload, with
- * advanced options: stem separation quality and custom lyrics), search results, and the
- * song library.
+ * The home screen: a hero with the intake card (YouTube link/search or local upload, with
+ * advanced options: stem separation quality and custom lyrics) beside a self-playing lyric
+ * preview, search results, three "how it works" steps for visitors who have not made a song
+ * yet, and the song library.
  */
 
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
+  AudioLines,
+  Captions,
   ChevronDown,
+  Clapperboard,
   FileText,
+  Link2,
+  MicOff,
+  MicVocal,
   Music,
+  Music2,
   Search,
   SlidersHorizontal,
   Sparkles,
   Upload,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import { SearchResult, ProjectState, SeparationPreset } from '../types';
 import { apiFetch } from '../api';
 import { LocalAudioUploader, type UploadTrackParams } from './track-search/LocalAudioUploader';
-import { ProjectLibrary } from './track-search/ProjectLibrary';
+import { ProjectLibrary, type LibraryCounts } from './track-search/ProjectLibrary';
+import { HeroStageDemo } from './track-search/HeroStageDemo';
 import { SeparationQualityPicker } from './quality/SeparationQualityPicker';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { focusRing } from './ui/variants';
@@ -45,9 +55,48 @@ export interface TrackSearchProps {
   /** Pre-filled search text, e.g. a YouTube link shared into the installed app. It is never
    * submitted automatically. */
   initialQuery?: string;
+  /** The library song being fetched in full after its card was chosen. */
+  openingProjectId?: string | null;
 }
 
 type IntakeMode = 'youtube' | 'local';
+
+/** What a finished song gives you, under the intake card. */
+const HIGHLIGHTS: Array<{ Icon: LucideIcon; label: string }> = [
+  { Icon: Captions, label: 'Word-by-word lyrics' },
+  { Icon: MicOff, label: 'Vocals removed' },
+  { Icon: Music2, label: 'Any key' },
+  { Icon: Clapperboard, label: '1080p video export' },
+];
+
+const STEPS: Array<{ Icon: LucideIcon; title: string; text: string }> = [
+  {
+    Icon: Link2,
+    title: 'Pick a song',
+    text: 'Paste a link, search by title, or upload an audio file of your own.',
+  },
+  {
+    Icon: AudioLines,
+    title: 'The studio does the work',
+    text: 'The vocals are lifted off the music and every word is timed to the singing. It takes a few minutes.',
+  },
+  {
+    Icon: MicVocal,
+    title: 'Sing it or share it',
+    text: 'Sing along on the live stage, change the key, adjust any timing, and export a karaoke video.',
+  },
+];
+
+/** Remembers that this browser has songs of its own, so the first-visit extras stay away. */
+const HAS_SONGS_KEY = 'karaoke_has_songs';
+
+function readHasSongs(): boolean {
+  try {
+    return localStorage.getItem(HAS_SONGS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 const NON_YOUTUBE_HOSTS =
   /(?:soundcloud\.com|spotify\.com|vimeo\.com|bandcamp\.com|apple\.com|deezer\.com|audiomack\.com|tidal\.com|music\.apple\.com)/i;
@@ -62,6 +111,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   separationQuality = null,
   onSeparationQualityChange,
   initialQuery = '',
+  openingProjectId = null,
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -72,6 +122,19 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const [intakeMode, setIntakeMode] = useState<IntakeMode>('youtube');
   const advancedHintId = useId();
   const submitRef = useRef<HTMLButtonElement>(null);
+  // First visit (no songs of their own yet): show how it works, and keep the lyric preview
+  // on phones too. Decided once, from what this browser remembered, and not changed when
+  // the library answers: taking those sections away then would make the page jump. The
+  // answer is stored for the next time the home screen opens.
+  const [hasOwnSongs] = useState(readHasSongs);
+  const handleLibraryCounts = useCallback(({ mine }: LibraryCounts) => {
+    try {
+      if (mine > 0) localStorage.setItem(HAS_SONGS_KEY, '1');
+      else localStorage.removeItem(HAS_SONGS_KEY);
+    } catch {
+      // Storage is unavailable: every visit looks like a first one
+    }
+  }, []);
 
   // A shared link arrives pre-filled: put focus on Go so one tap (or Enter) starts it
   useEffect(() => {
@@ -134,32 +197,42 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
     .join(' · ');
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 font-theme-body text-theme-text sm:space-y-10">
-      <div className="mx-auto w-full max-w-3xl px-0 py-2 sm:px-4 sm:py-6">
-        <div className="relative overflow-hidden rounded-theme-xl border border-theme-border-subtle bg-theme-surface p-4 shadow-theme-lg sm:p-8">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-stage opacity-70"
-          />
-          <div className="relative space-y-5 sm:space-y-6">
-            <div className="space-y-2 text-center sm:space-y-3">
-              <span className="inline-flex items-center gap-1.5 rounded-theme-pill border border-theme-accent/40 bg-theme-accent/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-highlight">
-                <Sparkles className="h-3 w-3" aria-hidden="true" />
-                AI karaoke studio
-              </span>
-              <h1
-                tabIndex={-1}
-                data-view-heading
-                className="font-theme-heading text-2xl font-extrabold tracking-tight text-theme-text focus:outline-none sm:text-4xl md:text-5xl"
-              >
-                Turn Any YouTube Song Into Karaoke
-              </h1>
-              <p className="mx-auto max-w-xl text-sm text-theme-text-muted">
-                Paste a link or upload your own audio. You get word-synced lyrics, a clean
-                instrumental, key control and 1080p video exports.
-              </p>
-            </div>
+    <div className="relative isolate mx-auto w-full max-w-6xl space-y-8 font-theme-body text-theme-text sm:space-y-12">
+      {/* Soft light behind the hero (hidden by the flat themes, see index.css) */}
+      <div
+        aria-hidden="true"
+        className="ks-aurora pointer-events-none absolute -top-28 left-1/2 -z-10 h-[38rem] w-[min(100vw,84rem)] -translate-x-1/2 opacity-70"
+      />
 
+      <section className="grid items-center gap-8 pt-1 sm:px-4 sm:pt-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-12 lg:pt-4">
+        {/* Not faded in: this is the page's main content, and it should count as painted the
+            moment it appears */}
+        <div className="min-w-0 space-y-5 sm:space-y-6">
+          <div className="space-y-3 text-center sm:space-y-4 lg:text-left">
+            <span className="inline-flex items-center gap-1.5 rounded-theme-pill border border-theme-accent/40 bg-theme-accent/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-highlight">
+              <Sparkles className="h-3 w-3" aria-hidden="true" />
+              AI karaoke studio
+            </span>
+            <h1
+              tabIndex={-1}
+              data-view-heading
+              className="text-balance font-theme-heading text-3xl font-extrabold leading-[1.08] tracking-tight text-theme-text focus:outline-none sm:text-5xl lg:text-[3.4rem]"
+            >
+              Turn Any Song Into <span className="ks-text-gradient">Karaoke</span>
+            </h1>
+            {/* The pitch is for first visits; on a phone, someone with songs gets to them sooner */}
+            <p
+              className={cn(
+                'mx-auto max-w-xl text-pretty text-sm text-theme-text-muted sm:text-base lg:mx-0',
+                hasOwnSongs && 'hidden sm:block'
+              )}
+            >
+              Paste a link or upload your own audio. You get word-synced lyrics, a clean
+              instrumental, key control and 1080p video exports.
+            </p>
+          </div>
+
+          <div className="space-y-4 rounded-theme-xl border border-theme-border-subtle bg-theme-surface/85 p-3.5 shadow-theme-lg backdrop-blur-md sm:p-5">
             <SegmentedControl<IntakeMode>
               ariaLabel="Track intake mode"
               value={intakeMode}
@@ -168,7 +241,6 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 setError(null);
               }}
               fullWidth
-              className="mx-auto max-w-md"
               options={[
                 {
                   value: 'youtube',
@@ -200,7 +272,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       aria-label="Paste YouTube or YouTube Music URL or search song title"
-                      placeholder="Paste YouTube / YouTube Music URL or search song title..."
+                      placeholder="Paste YouTube link or search song title..."
                       className="min-h-[48px] w-full rounded-theme-lg border border-theme-border bg-theme-bg py-3.5 pl-10 pr-24 text-base text-theme-text shadow-theme-sm placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:py-4 sm:pl-12 sm:pr-32"
                       // Read-only rather than disabled while busy, so keyboard focus stays put
                       readOnly={isLoading || searching}
@@ -232,7 +304,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                           : 'Search / Go: search YouTube or load track'
                       }
                       className={cn(
-                        'absolute right-1.5 flex min-h-[36px] items-center justify-center gap-1.5 rounded-theme-md bg-gradient-accent px-3 py-2 font-theme-heading text-xs font-semibold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:right-2 sm:min-h-[44px] sm:gap-2 sm:px-5 sm:text-sm',
+                        'absolute right-1.5 flex min-h-[36px] items-center justify-center gap-1.5 rounded-theme-md bg-gradient-accent px-3 py-2 font-theme-heading text-xs font-semibold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 sm:right-2 sm:min-h-[44px] sm:gap-2 sm:px-5 sm:text-sm',
                         focusRing
                       )}
                     >
@@ -343,8 +415,31 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
               </div>
             )}
           </div>
+
+          <ul
+            aria-label="What you get"
+            className={cn(
+              'flex-wrap justify-center gap-x-4 gap-y-2 text-xs font-medium text-theme-text-muted lg:justify-start',
+              hasOwnSongs ? 'hidden sm:flex' : 'flex'
+            )}
+          >
+            {HIGHLIGHTS.map(({ Icon, label }) => (
+              <li key={label} className="inline-flex items-center gap-1.5">
+                <Icon className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
+                {label}
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+
+        {/* Beside the form on wide screens; below it on small ones, for first visits only */}
+        <HeroStageDemo
+          className={cn(
+            'mx-auto w-full max-w-xl motion-safe:animate-rise-in lg:max-w-none',
+            hasOwnSongs && 'hidden lg:block'
+          )}
+        />
+      </section>
 
       {results.length > 0 && (
         <div className="mx-auto w-full max-w-3xl space-y-2.5 sm:px-4">
@@ -411,10 +506,45 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
         </div>
       )}
 
+      {!hasOwnSongs && (
+        <section aria-labelledby="how-it-works-heading" className="space-y-3 sm:px-4">
+          <h2
+            id="how-it-works-heading"
+            className="font-theme-heading text-lg font-bold text-theme-text"
+          >
+            How it works
+          </h2>
+          <ol className="grid gap-3 sm:grid-cols-3">
+            {STEPS.map(({ Icon, title, text }, i) => (
+              <li
+                key={title}
+                className="relative flex gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-surface/70 p-4 shadow-theme-sm sm:flex-col sm:gap-4"
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-theme-md bg-theme-accent/15 text-theme-highlight"
+                >
+                  <Icon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0 space-y-1">
+                  <h3 className="font-theme-heading text-sm font-semibold text-theme-text">
+                    <span className="mr-1.5 font-mono text-xs text-theme-text-muted">{i + 1}.</span>
+                    {title}
+                  </h3>
+                  <p className="text-pretty text-sm text-theme-text-muted">{text}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+
       <ProjectLibrary
         currentUser={currentUser}
         authToken={authToken}
         onOpenProject={onOpenProject}
+        onCounts={handleLibraryCounts}
+        openingProjectId={openingProjectId}
       />
     </div>
   );

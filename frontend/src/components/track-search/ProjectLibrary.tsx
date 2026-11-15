@@ -33,13 +33,26 @@ import { IconButton } from '../ui/IconButton';
 import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { Skeleton } from '../ui/Skeleton';
+import { Spinner } from '../ui/Spinner';
 import { focusRing } from '../ui/variants';
 import { cn } from '../../utils/cn';
+
+/** How many songs the library holds, reported after each successful load. */
+export interface LibraryCounts {
+  /** Songs made by the current user. */
+  mine: number;
+  /** Every song on the server. */
+  total: number;
+}
 
 export interface ProjectLibraryProps {
   currentUser?: string;
   authToken?: string;
   onOpenProject?: (project: ProjectState) => void;
+  /** Called when the library has loaded (and when the user's own count changes). */
+  onCounts?: (counts: LibraryCounts) => void;
+  /** The song being fetched in full after its card was chosen; its card shows a spinner. */
+  openingProjectId?: string | null;
 }
 
 type LibraryTab = 'my' | 'community';
@@ -69,9 +82,14 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
   currentUser = 'Friend',
   authToken = '',
   onOpenProject,
+  onCounts,
+  openingProjectId = null,
 }) => {
   const [libraryProjects, setLibraryProjects] = useState<ProjectState[]>([]);
   const [activeTab, setActiveTab] = useState<LibraryTab>('my');
+  // Until the visitor picks a tab, the library chooses one for them (see below)
+  const tabChosenRef = useRef(false);
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [libraryError, setLibraryError] = useState<string | null>(null);
   const [deletingProject, setDeletingProject] = useState<ProjectState | null>(null);
@@ -102,7 +120,8 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
     setLoadingLibrary(true);
     setLibraryError(null);
     try {
-      const res = await apiFetch('/api/projects?scope=all');
+      // Card-sized entries only; a song is fetched in full when it is opened
+      const res = await apiFetch('/api/projects?scope=all&summary=1');
       if (!res.ok) {
         setLibraryError(await readApiError(res, 'The server could not list your songs.'));
       } else {
@@ -115,6 +134,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
           }
         });
         setLibraryProjects(Array.from(uniqueMap.values()).reverse());
+        setLoadedOnce(true);
       }
     } catch (e) {
       console.error('Failed to load project library', e);
@@ -136,6 +156,23 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
     [libraryProjects, currentUser]
   );
   const baseProjects = activeTab === 'my' ? myProjects : libraryProjects;
+
+  const myCount = myProjects.length;
+  const totalCount = libraryProjects.length;
+  useEffect(() => {
+    if (!loadedOnce) return;
+    onCounts?.({ mine: myCount, total: totalCount });
+    // A visitor with no songs of their own lands on the songs that are there, not on an
+    // empty "My Songs"
+    if (!tabChosenRef.current && myCount === 0 && totalCount > 0) setActiveTab('community');
+    // onCounts is left out: a new callback identity is not a new count
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedOnce, myCount, totalCount]);
+
+  const selectTab = (tab: LibraryTab) => {
+    tabChosenRef.current = true;
+    setActiveTab(tab);
+  };
 
   const filteredProjects = useMemo(() => {
     let result = [...baseProjects];
@@ -192,7 +229,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
           : activeTab === 'my'
             ? 'community'
             : 'my';
-    setActiveTab(next);
+    selectTab(next);
     tabRefs.current[next]?.focus();
   };
 
@@ -245,7 +282,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                   aria-controls="library-panel"
                   tabIndex={selected ? 0 : -1}
                   aria-label={`${label} (${count})`}
-                  onClick={() => setActiveTab(id)}
+                  onClick={() => selectTab(id)}
                   onKeyDown={onTabKeyDown}
                   className={cn(
                     'flex min-h-[36px] items-center gap-1.5 rounded-theme-pill border px-3 font-theme-heading text-xs font-semibold transition-colors',
@@ -418,14 +455,21 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {/* Keeps heading levels in order: Song library (h2) › this tab › song cards (h4) */}
             <h3 className="sr-only">{activeTab === 'my' ? 'My Songs' : 'Community Library'}</h3>
-            {filteredProjects.map((p) => {
+            {filteredProjects.map((p, index) => {
               const badge = statusBadge(p.status);
               const title = p.title || `Track ${p.id}`;
+              const opening = openingProjectId === p.id;
               return (
                 <div
                   key={p.id}
+                  aria-busy={opening || undefined}
                   onClick={() => onOpenProject && onOpenProject(p)}
-                  className="group relative flex cursor-pointer flex-col overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-theme-surface shadow-theme-sm transition-[border-color,box-shadow,transform] duration-200 hover:border-theme-border hover:shadow-theme-md motion-safe:hover:-translate-y-0.5"
+                  // The first rows rise in one after another; later cards appear at once
+                  style={index < 12 ? { animationDelay: `${index * 35}ms` } : undefined}
+                  className={cn(
+                    'group relative flex cursor-pointer flex-col overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-theme-surface shadow-theme-sm transition-[border-color,box-shadow,transform] duration-200 hover:border-theme-border hover:shadow-theme-md motion-safe:hover:-translate-y-0.5',
+                    index < 12 && 'motion-safe:animate-rise-in'
+                  )}
                 >
                   <div className="relative aspect-square overflow-hidden bg-theme-surface-raised">
                     {p.thumbnail_url ? (
@@ -433,6 +477,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                         src={p.thumbnail_url}
                         alt=""
                         loading="lazy"
+                        decoding="async"
                         className="h-full w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105"
                       />
                     ) : (
@@ -456,9 +501,16 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                     </span>
                     <span
                       aria-hidden="true"
-                      className="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text opacity-0 shadow-theme-glow transition-opacity group-hover:opacity-100"
+                      className={cn(
+                        'absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-opacity group-hover:opacity-100',
+                        !opening && 'opacity-0'
+                      )}
                     >
-                      <Play className="ml-0.5 h-4 w-4 fill-current" />
+                      {opening ? (
+                        <Spinner className="h-4 w-4" />
+                      ) : (
+                        <Play className="ml-0.5 h-4 w-4 fill-current" />
+                      )}
                     </span>
                     <div className="absolute right-1.5 top-1.5 flex gap-1 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
                       <IconButton

@@ -1,3 +1,4 @@
+import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
@@ -174,7 +175,10 @@ describe('switching screens in the app', () => {
     await waitFor(() => expect(document.title).toBe('Karaoke Studio'));
     expect(window.location.search).toBe('');
     expect(
-      screen.getByRole('heading', { level: 1, name: /Turn Any YouTube Song Into Karaoke/i })
+      screen.getByRole('heading', { level: 1, name: /Turn Any Song Into Karaoke/i })
     ).toHaveFocus();
   });
 });
+
+// The studio, dialogs and palette are deferred chunks: with them loaded they render at once
+beforeAll(() => loadDeferredScreens());

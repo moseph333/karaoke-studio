@@ -1,3 +1,4 @@
+import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent, within } from '@testing-library/react';
@@ -788,3 +789,6 @@ describe('M4 Challenger 2: Adversarial Stress Testing', () => {
     });
   });
 });
+
+// The studio, dialogs and palette are deferred chunks: with them loaded they render at once
+beforeAll(() => loadDeferredScreens());

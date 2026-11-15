@@ -1,3 +1,4 @@
+import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -417,3 +418,6 @@ describe('Processing view', () => {
     expect(screen.queryByTestId('processing-stems-engine')).toBeNull();
   });
 });
+
+// The studio, dialogs and palette are deferred chunks: with them loaded they render at once
+beforeAll(() => loadDeferredScreens());

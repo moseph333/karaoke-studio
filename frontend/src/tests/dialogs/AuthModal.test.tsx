@@ -18,7 +18,7 @@ describe('AuthModal (Hardened Studio Access Gate, Focus Trap & A11y)', () => {
     expect(dialog).toHaveAttribute('aria-modal', 'true');
     expect(dialog).toHaveAttribute('aria-labelledby', 'auth-modal-title');
     expect(dialog).toHaveAttribute('aria-describedby', 'auth-modal-desc');
-    expect(screen.getByText('Studio Access Gate')).toBeInTheDocument();
+    expect(screen.getByText('Welcome to Karaoke Studio')).toBeInTheDocument();
 
     // Must not render an X / close button even if onClose is provided
     expect(

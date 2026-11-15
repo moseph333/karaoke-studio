@@ -4,6 +4,8 @@
  * Mounts the React application tree with StrictMode, top-level ErrorBoundary,
  * ToastProvider, and AppThemeProvider contexts into the root DOM element. Starts listening for
  * the browser's install offer and registers the offline service worker (production builds).
+ * The studio, dialogs and command palette are separate chunks, fetched once the first screen
+ * is idle (deferredScreens.ts).
  */
 
 import React from 'react';
@@ -14,6 +16,8 @@ import { ToastProvider } from './hooks/useToast';
 import { AppThemeProvider } from './context/AppThemeContext';
 import { startInstallPromptCapture } from './utils/installPrompt';
 import { registerServiceWorker } from './utils/serviceWorker';
+import { preloadDeferredScreens } from './deferredScreens';
+import './fonts.css';
 import './index.css';
 
 // Before React mounts: the browser can offer installation as soon as the page loads
@@ -31,3 +35,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// After the first render is under way: nothing on the first screen waits for these
+preloadDeferredScreens();
