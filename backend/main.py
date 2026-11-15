@@ -49,7 +49,7 @@ from backend.export_utils import (
 from backend.http_delivery import CompressTextResponses
 from backend.logging_setup import configure_logging
 from backend.master_audio import remove_unfinished_mixes, start_pruning_mixes_of_every_song
-from backend.middleware import PassphraseAuth, RequestContext, SecurityHeaders
+from backend.middleware import BodyLimit, PassphraseAuth, RequestContext, SecurityHeaders
 from backend.pipeline import (
     run_local_pipeline,
     run_pipeline,
@@ -271,6 +271,9 @@ app.add_middleware(
 # Inside the security headers, so a 401 carries them too (Starlette runs the middleware
 # added last first)
 app.add_middleware(PassphraseAuth)
+# Outside auth, so an oversized body is refused before anything else looks at the request,
+# and inside the security headers, so the 413 carries them
+app.add_middleware(BodyLimit)
 app.add_middleware(SecurityHeaders)
 
 

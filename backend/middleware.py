@@ -7,6 +7,7 @@ its own and passed each response body through an extra stream.
 import re
 import uuid
 
+from fastapi import HTTPException as FastAPIHTTPException
 from starlette.datastructures import MutableHeaders
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
@@ -17,6 +18,11 @@ from backend import config
 from backend.auth import authenticate_request, get_client_ip, log_credential_rejection
 from backend.http_delivery import cache_control_for
 from backend.logging_setup import request_id_var
+from backend.upload_utils import (
+    MAX_BACKGROUND_UPLOAD_BYTES,
+    MAX_INSTRUMENTAL_UPLOAD_BYTES,
+    MAX_TRACK_UPLOAD_BYTES,
+)
 
 REQUEST_ID_HEADER = "X-Request-ID"
 # An id a proxy already gave the request is kept if it looks like one
@@ -116,6 +122,63 @@ def _presents_credentials(request: Request) -> bool:
         or request.cookies.get("session_token")
         or request.cookies.get("karaoke_token")
     )
+
+
+# Multipart framing and the form's other fields on top of the file itself
+_UPLOAD_SLACK_BYTES = 1024 * 1024
+_UPLOAD_LIMITS = {
+    "/api/upload-track": MAX_TRACK_UPLOAD_BYTES,
+    "/api/upload-audio": MAX_TRACK_UPLOAD_BYTES,
+    "/api/upload-instrumental": MAX_INSTRUMENTAL_UPLOAD_BYTES,
+    "/api/upload-background": MAX_BACKGROUND_UPLOAD_BYTES,
+}
+BODY_TOO_LARGE_DETAIL = "The request is too large."
+
+
+def body_limit_for(path: str) -> int:
+    """The largest body a request to path may send: an upload route's own file limit plus
+    1 MB, else MAX_JSON_BODY_MB (read on each request)."""
+    upload_limit = _UPLOAD_LIMITS.get(path)
+    if upload_limit is not None:
+        return upload_limit + _UPLOAD_SLACK_BYTES
+    return int(config.MAX_JSON_BODY_MB * 1024 * 1024)
+
+
+class BodyLimit:
+    """Answers 413 to a request whose body is larger than body_limit_for(path).
+
+    A Content-Length over the limit is refused before anything is read. A body without one
+    (chunked) is counted as the app reads it, and reading past the limit raises the 413.
+    Without this, Starlette spooled a whole multipart upload to disk, and parsed a JSON body
+    of any size in memory, before a route could look at its size."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        limit = body_limit_for(scope["path"])
+        declared = Request(scope).headers.get("content-length")
+        if declared is not None and declared.strip().isdigit() and int(declared) > limit:
+            response = JSONResponse(status_code=413, content={"detail": BODY_TOO_LARGE_DETAIL})
+            await response(scope, receive, send)
+            return
+
+        received = 0
+
+        async def counting_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    # FastAPI re-raises an HTTPException met while it reads the body
+                    raise FastAPIHTTPException(status_code=413, detail=BODY_TOO_LARGE_DETAIL)
+            return message
+
+        await self.app(scope, counting_receive, send)
 
 
 class SecurityHeaders:
