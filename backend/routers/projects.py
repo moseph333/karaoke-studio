@@ -1033,6 +1033,7 @@ def delete_project(project_id: str):
                 # The edit message ("it was not saved") would be wrong: the files are gone
                 raise HTTPException(status_code=507, detail=DELETE_SAVE_FAILED_DETAIL) from e
 
+    logger.info(f"Deleted song {pid} ({proj.get('artist') or '?'} - {proj.get('title') or '?'})")
     return {
         "status": "deleted",
         "project_id": pid,
