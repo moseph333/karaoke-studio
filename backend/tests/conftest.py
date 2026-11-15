@@ -68,6 +68,8 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(config, "FORWARDED_TRUSTED_HOPS", 1)
     monkeypatch.setattr(config, "LOGIN_RATE_LIMIT_MAX_ATTEMPTS", 5)
     monkeypatch.setattr(config, "LOGIN_RATE_LIMIT_WINDOW_SECONDS", 60.0)
+    # Any Host header is answered (TestClient sends "testserver"), whatever .env says
+    monkeypatch.setattr(config, "ALLOWED_HOSTS", [])
 
     # Hermetic ML settings: the bundled engines only, no model downloads, models under tmp
     monkeypatch.setenv("SEPARATION_QUALITY", "fast")

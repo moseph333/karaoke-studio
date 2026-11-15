@@ -108,7 +108,7 @@ docs/                     this guide, screenshots
 | `/static/backgrounds` | `backgrounds/` | uploaded stage and video backdrops |
 | `/` | `frontend/dist` | the built single-page app, plus what `frontend/public` ships: `manifest.json`, `sw.js`, `offline.html`, the icons and `screenshots/` (§3.7) |
 
-Request bodies are capped by `middleware.BodyLimit`: an upload route's own file limit plus 1 MB, else `MAX_JSON_BODY_MB` (default 16). A larger `Content-Length` gets 413 before anything is read, and a body without one is counted as it is read. Cache headers come from `http_delivery.cache_control_for`: Vite's hashed `/assets/*` are `immutable` for a year; `/`, `/index.html`, `/sw.js`, `/offline.html` and `/manifest.json` are `no-cache`, so a new build, service worker or manifest reaches open tabs and installed apps; everything else gets none.
+With `ALLOWED_HOSTS` set, `middleware.AllowedHosts` answers 400 to a `Host` header that names another host (loopback names always pass), which stops DNS rebinding against an install without a passphrase. Request bodies are capped by `middleware.BodyLimit`: an upload route's own file limit plus 1 MB, else `MAX_JSON_BODY_MB` (default 16). A larger `Content-Length` gets 413 before anything is read, and a body without one is counted as it is read. Cache headers come from `http_delivery.cache_control_for`: Vite's hashed `/assets/*` are `immutable` for a year; `/`, `/index.html`, `/sw.js`, `/offline.html` and `/manifest.json` are `no-cache`, so a new build, service worker or manifest reaches open tabs and installed apps; everything else gets none.
 
 Stem, master and rendered video URLs carry a `?v=` version after a re-separation, remix or new render so browsers never play or download a stale file.
 
