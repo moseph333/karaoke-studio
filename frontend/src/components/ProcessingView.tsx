@@ -3,7 +3,7 @@
  * Processing View Component
  *
  * The pipeline progress screen: a progress ring, the current stage and its detail, the
- * engine heartbeat, a 5-stage stepper, elapsed/remaining timers, a reconnect banner with
+ * engine heartbeat, a 4-stage stepper, elapsed/remaining timers, a reconnect banner with
  * Retry, tips for the wait, and a two-step cancel. Also renders the cancelled and failed end
  * states.
  */
@@ -39,17 +39,15 @@ export interface PipelineStage {
 export const PIPELINE_STAGES: PipelineStage[] = [
   { id: 'intake', label: 'Audio Intake & Download' },
   { id: 'demucs', label: 'AI Vocal Separation' },
-  { id: 'chords', label: 'Vocal Range & Chords' },
   { id: 'lyrics', label: 'Lyric Fetch & Alignment' },
   { id: 'mixing', label: 'Master Stereo Mixing' },
 ];
 
-export const getActivePipelineStage = (status?: string, statusDetail?: string): number => {
+// Vocal range and chords are no longer a step: they are analysed while the studio opens
+export const getActivePipelineStage = (status?: string): number => {
   const s = (status || 'queued').toLowerCase();
-  const detail = (statusDetail || '').toLowerCase();
-  if (s === 'mixing') return 4;
-  if (s === 'fetching_lyrics' || s === 'aligning') return 3;
-  if (detail.includes('chord') || detail.includes('range')) return 2;
+  if (s === 'mixing') return 3;
+  if (s === 'fetching_lyrics' || s === 'aligning') return 2;
   if (s === 'separating') return 1;
   return 0; // 'queued', 'processing', 'downloading', or initial intake
 };
@@ -87,7 +85,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
   const isHeartbeatStalled = Boolean(project.heartbeat && now - project.heartbeat > 15000);
   const isReconnecting =
     isReconnectingProp ?? Boolean(project?.status_detail?.toLowerCase().includes('reconnecting'));
-  const currentStageIndex = getActivePipelineStage(project?.status, project?.status_detail);
+  const currentStageIndex = getActivePipelineStage(project?.status);
   const progress = Math.max(0, Math.min(100, project?.progress ?? 0));
   const stemsEngine = project.separation
     ? stemsLabel(project.separation)

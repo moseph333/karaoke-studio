@@ -19,10 +19,19 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
   const { toast } = useToast();
   const [initialChords, setInitialChords] = useState<ChordSegment[]>([]);
 
-  // Load chords for project when ready
+  // Load chords once when a song opens without them. The intake detects them while the
+  // studio opens, so the request may wait for that detection; a song with no chords at all
+  // must not ask again on every update.
+  const chordsRequestedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (!project?.id || project.status !== 'ready') return;
+    if (!project?.id) return;
+    if (project.status !== 'ready') {
+      if (chordsRequestedFor.current === project.id) chordsRequestedFor.current = null;
+      return;
+    }
     if (project.chords && project.chords.length > 0) return;
+    if (chordsRequestedFor.current === project.id) return;
+    chordsRequestedFor.current = project.id;
 
     apiFetch(`/api/project/${project.id}/chords`)
       .then((res) => (res.ok ? res.json() : null))

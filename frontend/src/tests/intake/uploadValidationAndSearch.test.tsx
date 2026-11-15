@@ -294,34 +294,34 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
     heartbeat: Date.now(),
   };
 
-  it('getActivePipelineStage maps statuses and details correctly to 5 stages', () => {
+  it('getActivePipelineStage maps statuses to 4 stages', () => {
     expect(getActivePipelineStage('queued')).toBe(0);
     expect(getActivePipelineStage('downloading')).toBe(0);
     expect(getActivePipelineStage('separating')).toBe(1);
-    expect(getActivePipelineStage('separating', 'Analyzing vocal range and key...')).toBe(2);
-    expect(getActivePipelineStage('separating', 'Detecting musical chord progression...')).toBe(2);
-    expect(getActivePipelineStage('fetching_lyrics')).toBe(3);
-    expect(getActivePipelineStage('aligning')).toBe(3);
-    expect(getActivePipelineStage('mixing')).toBe(4);
+    expect(getActivePipelineStage('fetching_lyrics')).toBe(2);
+    expect(getActivePipelineStage('aligning')).toBe(2);
+    expect(getActivePipelineStage('mixing')).toBe(3);
   });
 
-  it('renders all 5 stages in visual stepper with correct active, completed, and upcoming states', () => {
-    // Stage 3 active: vocal range & chords
+  it('renders all 4 stages in visual stepper with correct active, completed, and upcoming states', () => {
+    // Stage 3 active: lyric fetch & alignment
     const projectStage3: ProjectState = {
       ...baseProject,
-      status: 'separating',
-      status_detail: 'Analyzing vocal range and musical key...',
-      progress: 70,
+      status: 'aligning',
+      status_detail: 'Aligning lyrics to vocal acoustic energy envelopes...',
+      progress: 84,
     };
 
     render(
       <ProcessingView project={projectStage3} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
     );
 
-    // Check all 5 stage labels are present
+    // Check all 4 stage labels are present, and no vocal range & chords step
+    expect(PIPELINE_STAGES).toHaveLength(4);
     PIPELINE_STAGES.forEach((stage) => {
       expect(screen.getByText(stage.label)).toBeInTheDocument();
     });
+    expect(screen.queryByText(/Vocal Range & Chords/)).not.toBeInTheDocument();
 
     // Stages 1 and 2 completed
     expect(screen.getByLabelText(`Completed: ${PIPELINE_STAGES[0].label}`)).toBeInTheDocument();
@@ -330,9 +330,8 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
     // Stage 3 active
     expect(screen.getByLabelText(`Active: ${PIPELINE_STAGES[2].label}`)).toBeInTheDocument();
 
-    // Stages 4 and 5 upcoming (numbered 4 and 5)
+    // Stage 4 upcoming (numbered 4)
     expect(screen.getByText('4')).toBeInTheDocument();
-    expect(screen.getByText('5')).toBeInTheDocument();
   });
 
   it('displays amber warning when heartbeat is stalled (>15s)', () => {

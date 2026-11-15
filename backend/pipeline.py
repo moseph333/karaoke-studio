@@ -1,5 +1,6 @@
 """Long-running track intake background workers for YouTube downloads and local audio uploads, coordinating stem separation, lyrics sync, alignment, and initial master mixing."""
 
+import copy
 import logging
 import subprocess
 import threading
@@ -152,38 +153,58 @@ def finish_lyrics(main_mod, prefetch, custom_lyrics: str | None, cancel_event) -
 
 
 def analyze_project_stems(
-    main_mod, project_id: str, stems: dict, update_pipe, cancel_event, label: str
-) -> None:
-    """Analyses a pipeline's new stems (progress 70-71): the vocal range and key from the
-    vocals, then the chord progression from the instrumental. Either may fail without
-    stopping the song; `label` names the pipeline in the log."""
+    main_mod, project_id: str, stems: dict, cancel_event, label: str
+) -> list[threading.Thread]:
+    """Starts the analyses of a pipeline's new stems, each on a thread of its own: the vocal
+    range and key from the vocals, the chord progression from the instrumental. The song
+    does not wait for them; it opens while they run, and a backfill the studio asks for
+    meanwhile waits for the run (project_analysis._analysis_lock). Either may fail without
+    stopping the song; `label` names the pipeline in the log. Returns the threads."""
     if cancel_event.is_set():
         raise RuntimeError("Processing cancelled by user")
 
-    try:
-        vocals_path = stems.get("vocals_path")
-        if hasattr(main_mod, "vocal_analyzer") and usable_file(vocals_path):
-            update_pipe("separating", 70, "Analyzing vocal range and musical key...", 3)
-            ensure_vocal_range(project_id, force=True, source=vocals_path)
-    except Exception as va_err:
-        logger.warning(
-            f"Vocal range analysis failed during {label} for {project_id} ({va_err}); continuing pipeline.",
-            exc_info=True,
+    def run(kind: str, analyse) -> None:
+        if cancel_event.is_set():
+            return
+        try:
+            analyse()
+        except Exception as exc:
+            if find_project(project_id) is None:
+                return  # the song was deleted meanwhile
+            logger.warning(
+                f"{kind} analysis failed during {label} for {project_id} ({exc}); "
+                "the studio backfills it on demand.",
+                exc_info=True,
+            )
+
+    jobs = []
+    vocals_path = stems.get("vocals_path")
+    if hasattr(main_mod, "vocal_analyzer") and usable_file(vocals_path):
+        jobs.append(
+            (
+                "Vocal range",
+                lambda: ensure_vocal_range(project_id, force=True, source=vocals_path),
+            )
+        )
+    inst_path = stems.get("instrumental_path")
+    if hasattr(main_mod, "chord_detector") and usable_file(inst_path):
+        # Chords stored now (a retried song's) are replaced only if no one edits them first
+        before = copy.deepcopy((find_project(project_id) or {}).get("chords"))
+        jobs.append(
+            (
+                "Chord",
+                lambda: ensure_chords(project_id, force=True, source=inst_path, replacing=before),
+            )
         )
 
-    if cancel_event.is_set():
-        raise RuntimeError("Processing cancelled by user")
-
-    try:
-        inst_path = stems.get("instrumental_path")
-        if hasattr(main_mod, "chord_detector") and usable_file(inst_path):
-            update_pipe("separating", 71, "Detecting musical chord progression...", 3)
-            ensure_chords(project_id, force=True, source=inst_path)
-    except Exception as cd_err:
-        logger.warning(
-            f"Chord detection failed during {label} for {project_id} ({cd_err}); continuing pipeline.",
-            exc_info=True,
+    threads = []
+    for kind, analyse in jobs:
+        thread = threading.Thread(
+            target=run, args=(kind, analyse), name=f"stem-analysis-{kind}", daemon=True
         )
+        thread.start()
+        threads.append(thread)
+    return threads
 
 
 def sync_project_lyrics(
@@ -341,8 +362,8 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             main_mod, project_id, meta["audio_path"], audio_id, duration, update_pipe, cancel_event
         )
 
-        # Steps 2b and 2c: vocal range and key, then chords
-        analyze_project_stems(main_mod, project_id, stems, update_pipe, cancel_event, "pipeline")
+        # Steps 2b and 2c: vocal range and key, and chords, alongside the rest
+        analyze_project_stems(main_mod, project_id, stems, cancel_event, "pipeline")
 
         # Step 3: Fetch Lyrics
         update_pipe("fetching_lyrics", 72, "Retrieving lyrics from LRCLIB...", 5)
@@ -518,10 +539,8 @@ def run_local_pipeline(
             main_mod, project_id, str(wav_target), project_id, duration, update_pipe, cancel_event
         )
 
-        # Steps 2b and 2c: vocal range and key, then chords
-        analyze_project_stems(
-            main_mod, project_id, stems, update_pipe, cancel_event, "local pipeline"
-        )
+        # Steps 2b and 2c: vocal range and key, and chords, alongside the rest
+        analyze_project_stems(main_mod, project_id, stems, cancel_event, "local pipeline")
 
         # Step 3: Fetch / Process Lyrics
         update_pipe("fetching_lyrics", 72, "Processing song lyrics...", 5)

@@ -5,16 +5,34 @@ The chord and vocal-range routes, the exports, the render and the intake pipelin
 call these. Detection runs outside PROJECTS_LOCK (it takes seconds); the result is stored
 under it. A backfill keeps whatever another request stored meanwhile (the first writer
 wins), so it never overwrites a concurrent backfill or the user's own chord edits; a
-forced re-detection overwrites.
+forced re-detection overwrites, unless it was given the value it replaces (`replacing`)
+and the stored one has changed since, which keeps an edit made while it ran.
+
+One analysis of each kind runs per song at a time (`_analysis_lock`). The intake pipelines
+start theirs on a thread and open the studio without waiting for it, so a backfill the
+studio asks for meanwhile waits for that run and returns its result instead of detecting
+the same thing again.
 """
 
 import logging
 import os
+import threading
 from typing import Any
 
 from backend.project_store import PROJECTS_LOCK, get_project_or_404, save_projects
 
 logger = logging.getLogger("karaoke_backend")
+
+
+_UNSET = object()
+_ANALYSIS_LOCKS: dict[tuple[str, str], threading.Lock] = {}
+_ANALYSIS_LOCKS_GUARD = threading.Lock()
+
+
+def _analysis_lock(kind: str, project_id: str) -> threading.Lock:
+    """The lock one song's analysis of one kind ("chords", "vocal_range") runs under."""
+    with _ANALYSIS_LOCKS_GUARD:
+        return _ANALYSIS_LOCKS.setdefault((kind, project_id), threading.Lock())
 
 
 class StemMissing(Exception):
@@ -64,24 +82,32 @@ def analyze_vocals(vocals_path: str) -> dict[str, Any]:
 
 
 def ensure_chords(
-    project_id: str, *, force: bool = False, source: str | None = None
+    project_id: str,
+    *,
+    force: bool = False,
+    source: str | None = None,
+    replacing: Any = _UNSET,
 ) -> list[dict[str, Any]]:
     """The song's chord progression: the stored one, else detected from `source` (default
-    chord_source) and stored. With `force`, detected and stored again. Raises StemMissing
-    when there is no usable audio."""
-    proj = get_project_or_404(project_id)
-    if not force and proj.get("chords") is not None:
-        return proj["chords"]
-    source = source or chord_source(proj)
-    if not usable_file(source):
-        raise StemMissing("instrumental stem missing or not ready")
-    detected = detect_chords(source)
-    with PROJECTS_LOCK:
+    chord_source) and stored. With `force`, detected and stored again, unless `replacing`
+    is given and the stored progression no longer equals it. Raises StemMissing when there
+    is no usable audio."""
+    with _analysis_lock("chords", project_id):
         proj = get_project_or_404(project_id)
-        if force or proj.get("chords") is None:
-            proj["chords"] = detected
-            save_projects()
-        return proj["chords"]
+        if not force and proj.get("chords") is not None:
+            return proj["chords"]
+        source = source or chord_source(proj)
+        if not usable_file(source):
+            raise StemMissing("instrumental stem missing or not ready")
+        detected = detect_chords(source)
+        with PROJECTS_LOCK:
+            proj = get_project_or_404(project_id)
+            current = proj.get("chords")
+            edited = replacing is not _UNSET and current != replacing
+            if (force and not edited) or current is None:
+                proj["chords"] = detected
+                save_projects()
+            return proj["chords"]
 
 
 def chords_for_export(project_id: str, wanted: bool) -> list[dict[str, Any]]:
@@ -103,19 +129,20 @@ def ensure_vocal_range(
     """The song's vocal range and key: the stored analysis, else analysed from `source`
     (default its vocal stem) and stored. With `force`, analysed and stored again. Raises
     StemMissing when there is no usable vocal stem."""
-    proj = get_project_or_404(project_id)
-    if not force and proj.get("vocal_range"):
-        return proj["vocal_range"]
-    source = source or proj.get("vocals_path")
-    if not usable_file(source):
-        raise StemMissing("isolated vocal stem missing or not ready")
-    analysed = analyze_vocals(source)
-    with PROJECTS_LOCK:
+    with _analysis_lock("vocal_range", project_id):
         proj = get_project_or_404(project_id)
-        if force or not proj.get("vocal_range"):
-            proj["vocal_range"] = analysed
-            save_projects()
-        return proj["vocal_range"]
+        if not force and proj.get("vocal_range"):
+            return proj["vocal_range"]
+        source = source or proj.get("vocals_path")
+        if not usable_file(source):
+            raise StemMissing("isolated vocal stem missing or not ready")
+        analysed = analyze_vocals(source)
+        with PROJECTS_LOCK:
+            proj = get_project_or_404(project_id)
+            if force or not proj.get("vocal_range"):
+                proj["vocal_range"] = analysed
+                save_projects()
+            return proj["vocal_range"]
 
 
 def youtube_package(proj: dict) -> dict[str, Any]:
