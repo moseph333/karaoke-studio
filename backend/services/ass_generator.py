@@ -238,6 +238,71 @@ def resolve_sync_mode(sync_mode: str | None, style_config: dict[str, Any] | None
     return mode if mode in ("word", "line") else "word"
 
 
+# style_config fields written into the [V4+ Styles] and [Script Info] lines, with the range
+# each is clamped to. Text there is unescaped ASS: a comma would shift a style's fields and a
+# newline would start a section of its own (embedded fonts included), and a huge size would
+# send libass into minutes of work, so request values never reach the file unchecked.
+_STYLE_NUMBER_RANGES: dict[str, tuple[float, float, bool]] = {
+    # field: (lowest, highest, whole number)
+    "width": (16, 4096, True),
+    "height": (16, 4096, True),
+    "font_size": (8, 400, True),
+    "font_size_scale": (0.1, 5.0, False),
+    "outline_width": (0, 20, False),
+    "shadow_width": (0, 20, False),
+    "margin_v_line1": (0, 4096, True),
+    "margin_v_line2": (0, 4096, True),
+    "margin_v_countdown": (0, 4096, True),
+    "margin_v_chord": (0, 4096, True),
+    "margin_lr": (0, 4096, True),
+    "chord_alignment": (1, 9, True),
+    "semitones": (-12, 12, True),
+}
+_STYLE_COLOR_DEFAULTS = {"outline_color": "&H00111111", "shadow_color": "&H80000000"}
+_FONT_NAME_UNSAFE = re.compile(r"[,{}\\\x00-\x1f\x7f]")
+_FONT_NAME_MAX = 64
+
+
+def clean_style_config(style_config: dict[str, Any] | None) -> dict[str, Any]:
+    """A copy of a request's style_config that is safe to write into the subtitle file.
+
+    font_name loses commas, braces, backslashes and control characters (and is cut to 64
+    characters); outline and shadow colours must be colours; sizes, widths, margins and the
+    like must be finite numbers and are clamped to sane ranges. A value that fails is left
+    out, so the stage look or the default applies instead."""
+    if not isinstance(style_config, dict):
+        return {}
+    cleaned = dict(style_config)
+    if "font_name" in cleaned:
+        raw = cleaned.pop("font_name")
+        name = (
+            _FONT_NAME_UNSAFE.sub("", raw).strip()[:_FONT_NAME_MAX] if isinstance(raw, str) else ""
+        )
+        if name:
+            cleaned["font_name"] = name
+    for field, default in _STYLE_COLOR_DEFAULTS.items():
+        if field in cleaned:
+            raw = cleaned.pop(field)
+            if raw:
+                cleaned[field] = css_to_ass_color(str(raw), default=default)
+    for field, (lowest, highest, whole) in _STYLE_NUMBER_RANGES.items():
+        if field not in cleaned:
+            continue
+        raw = cleaned.pop(field)
+        if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
+            continue
+        try:
+            value = float(raw)
+        except ValueError:
+            continue
+        if not math.isfinite(value):
+            continue
+        value = min(max(value, lowest), highest)
+        # Whole values stay ints, so an outline of 5 is written as 5, not 5.0
+        cleaned[field] = round(value) if whole or value.is_integer() else value
+    return cleaned
+
+
 # What a stage look (VISUAL_THEMES entry) sets, where style_config leaves it out
 _PRESET_FIELDS = (
     "primary_color",
@@ -318,7 +383,7 @@ class AssStyle:
         8. Duet colours: a given argument > style_config > the preset > the defaults; a value
            that is not a colour counts as not given.
         """
-        given = style_config or {}
+        given = clean_style_config(style_config)
 
         countdown = include_countdown
         if "include_countdown" in given:
