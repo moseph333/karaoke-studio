@@ -237,6 +237,27 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(status_code=422, content={"detail": sanitized})
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """An error no route handled: logged with its traceback, the route and the request id,
+    and answered with JSON the studio can show instead of Starlette's plain-text page. It
+    runs outside every middleware, so it sets the request id and nosniff headers itself."""
+    request_id = getattr(request.state, "request_id", None)
+    logger.error(
+        f"Unhandled error in {request.method} {request.url.path}"
+        + (f" [req={request_id}]" if request_id else ""),
+        exc_info=exc,
+    )
+    headers = {"X-Content-Type-Options": "nosniff", "Cache-Control": "no-store"}
+    if request_id:
+        headers["X-Request-ID"] = request_id
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "request_id": request_id},
+        headers=headers,
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,
