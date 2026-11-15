@@ -46,6 +46,7 @@ async def auth_login(req: LoginRequest, request: Request):
         pwd = (req.password or "").strip()
         if not pwd:
             record_login_failure(client_ip)
+            logger.warning(f"Login without a passphrase from {client_ip}")
             raise HTTPException(status_code=401, detail="Incorrect studio passphrase")
         try:
             is_valid = hmac.compare_digest(pwd.encode("utf-8"), config.APP_PASSWORD.encode("utf-8"))
@@ -58,6 +59,7 @@ async def auth_login(req: LoginRequest, request: Request):
 
         reset_login_failures(client_ip)
         session_token = create_session_token(config.APP_PASSWORD, client_id=clean_username)
+        logger.info(f"Signed in user {clean_username} from {client_ip}")
     else:
         session_token = "ok"
 
@@ -84,12 +86,13 @@ async def auth_login(req: LoginRequest, request: Request):
                     max_age=max_age,
                 )
             except Exception:
-                pass
+                logger.warning(f"Could not set the {cookie_name} cookie", exc_info=True)
     return response
 
 
 @router.post("/api/auth/logout")
-def auth_logout():
+def auth_logout(request: Request):
+    logger.info(f"Signed out a session from {get_client_ip(request)}")
     response = JSONResponse(content={"status": "ok"})
     response.delete_cookie(key="session_token")
     response.delete_cookie(key="karaoke_token")
