@@ -9,7 +9,7 @@ from typing import Any
 
 # Base Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_APP_VERSION = "v2.6.0"  # x-release-please-version
+DEFAULT_APP_VERSION = "v2.7.0"  # x-release-please-version
 
 
 def _git_cmd(args: list[str], timeout: float = 3.0) -> str:
