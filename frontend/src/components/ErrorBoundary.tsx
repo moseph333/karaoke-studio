@@ -24,6 +24,8 @@ export interface ErrorBoundaryProps {
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
   onReset?: () => void;
   isolate?: boolean;
+  /** Clears a caught error when this value changes (e.g. a dialog being opened again). */
+  resetKey?: unknown;
 }
 
 export interface ErrorBoundaryState {
@@ -43,6 +45,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   public static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { hasError: true, error };
+  }
+
+  public override componentDidUpdate(prevProps: ErrorBoundaryProps): void {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.resetErrorBoundary();
+    }
   }
 
   public override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {

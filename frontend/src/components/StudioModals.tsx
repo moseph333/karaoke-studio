@@ -8,6 +8,7 @@
 import React, { Suspense, useState } from 'react';
 import { AuthModal } from './AuthModal';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
+import { ErrorBoundary } from './ErrorBoundary';
 import { EditMetadataModal } from './EditMetadataModal';
 import { ExportModal, HelpModal, ReseparateDialog } from '../deferredScreens';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
@@ -133,7 +134,13 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
       />
 
       {/* Help & Usage Guide Modal */}
-      {helpOpened && <HelpModal isOpen={showHelpModal} onClose={onCloseHelp} />}
+      {/* A help chunk that cannot load (an update replaced the build) closes the dialog
+          instead of taking the studio, and any unsaved edits, down with it */}
+      {helpOpened && (
+        <ErrorBoundary fallback={() => null} resetKey={showHelpModal} onError={onCloseHelp}>
+          <HelpModal isOpen={showHelpModal} onClose={onCloseHelp} />
+        </ErrorBoundary>
+      )}
 
       {/* Studio Project Delete Modal */}
       <DeleteConfirmModal
