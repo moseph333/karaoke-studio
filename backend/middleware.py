@@ -224,9 +224,26 @@ class BodyLimit:
         await self.app(scope, counting_receive, send)
 
 
+# For API and media responses: nothing they return may run as a page. An uploaded backdrop or
+# a JSON body opened directly in a tab then renders inert, in a sandbox with no script.
+API_AND_MEDIA_CSP = "default-src 'none'; frame-ancestors 'none'; sandbox"
+# The studio uses none of these; a script that got in could not ask for them either
+PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+# The interactive API reference loads its viewer script, so it is not sandboxed
+_CSP_EXEMPT_PATHS = frozenset({"/api/docs"})
+
+
+def _wants_inert_csp(path: str) -> bool:
+    return (path.startswith("/api/") or path.startswith("/static/")) and (
+        path not in _CSP_EXEMPT_PATHS
+    )
+
+
 class SecurityHeaders:
-    """nosniff, frame and referrer headers on every response, plus the Cache-Control of
-    cache_control_for() when the response sets none."""
+    """nosniff, frame, referrer, permissions and opener headers on every response, a
+    Content-Security-Policy that sandboxes API and media responses, plus the Cache-Control of
+    cache_control_for() when the response sets none. The studio's own page gets no CSP yet:
+    its inline boot script would need a hash."""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -243,6 +260,10 @@ class SecurityHeaders:
                 headers["X-Content-Type-Options"] = "nosniff"
                 headers["X-Frame-Options"] = "DENY"
                 headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+                headers["Permissions-Policy"] = PERMISSIONS_POLICY
+                headers["Cross-Origin-Opener-Policy"] = "same-origin"
+                if _wants_inert_csp(path) and "content-security-policy" not in headers:
+                    headers["Content-Security-Policy"] = API_AND_MEDIA_CSP
                 cache_control = cache_control_for(path, message["status"])
                 if cache_control and "cache-control" not in headers:
                     headers["Cache-Control"] = cache_control
