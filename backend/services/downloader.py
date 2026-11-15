@@ -203,6 +203,8 @@ class TrackDownloader:
             try:
                 ydl_opts_meta = {
                     "skip_download": True,
+                    # A cached song's URL can carry &list=...: read the one video only
+                    "noplaylist": True,
                     "quiet": True,
                     "no_warnings": True,
                     "extractor_args": {
