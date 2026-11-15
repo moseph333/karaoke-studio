@@ -140,12 +140,17 @@ def test_the_render_conflict_check_runs_under_the_store_lock(client, monkeypatch
 
 
 @pytest.mark.parametrize(
-    ("route", "field", "expected"),
-    [("cancel", "status", "cancelled"), ("cancel-render", "render_status", "idle")],
+    ("route", "field", "running", "expected"),
+    [
+        ("cancel", "status", "separating", "cancelled"),
+        ("cancel-render", "render_status", "rendering", "idle"),
+    ],
 )
 def test_cancel_routes_write_under_the_store_lock(
-    client, monkeypatch, song, route, field, expected
+    client, monkeypatch, song, route, field, running, expected
 ):
+    # A cancel changes the status only while the job runs
+    main_mod.projects[song][field] = running
     held = _spy_saves(monkeypatch, projects_router)
 
     res = client.post(f"/api/project/{song}/{route}")

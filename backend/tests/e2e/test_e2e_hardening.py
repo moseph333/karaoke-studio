@@ -262,11 +262,11 @@ def test_cancel_endpoints_when_project_not_found(client):
     """Calling /cancel or /cancel-render on a non-existent project returns 200 without crashing."""
     resp1 = client.post("/api/project/ghost_project_1/cancel")
     assert resp1.status_code == 200
-    assert resp1.json() == {"status": "ok"}
+    assert resp1.json() == {"status": "ok", "cancelled": False}
 
     resp2 = client.post("/api/project/ghost_project_2/cancel-render")
     assert resp2.status_code == 200
-    assert resp2.json() == {"status": "ok"}
+    assert resp2.json() == {"status": "ok", "cancelled": False}
 
 
 def test_search_tracks_internal_error_returns_500(client, monkeypatch):
