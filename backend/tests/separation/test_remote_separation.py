@@ -168,7 +168,7 @@ def test_a_missing_app_or_bad_credentials_mean_unavailable(tmp_path, fake_modal)
         _run(tmp_path)
 
 
-def test_a_job_that_raises_counts_as_a_failure(tmp_path, fake_modal):
+def test_a_job_that_raises_counts_as_a_failure(tmp_path, fake_modal, caplog):
     fake_modal.items = [remote.STARTED]
     fake_modal.call = FakeCall(polls_before_done=0, error=RuntimeError("boom"))
 
@@ -176,6 +176,9 @@ def test_a_job_that_raises_counts_as_a_failure(tmp_path, fake_modal):
 
     assert outcome == remote.RemoteOutcome(1)
     assert lines == ["The cloud GPU job failed: RuntimeError: boom"]
+    # The log keeps the traceback the progress line leaves out
+    (record,) = [r for r in caplog.records if "cloud GPU job raised" in r.getMessage()]
+    assert record.exc_info and record.exc_info[0] is RuntimeError
 
 
 def test_the_gpu_functions_own_time_limit_is_a_timeout(tmp_path, fake_modal):

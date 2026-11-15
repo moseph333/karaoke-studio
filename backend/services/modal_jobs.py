@@ -174,6 +174,8 @@ def _follow(
         except unavailable:
             raise
         except Exception as exc:  # the function itself raised
+            # The progress line only reaches the job's status; the log keeps the traceback
+            logger.warning(f"The cloud {resource} job raised", exc_info=True)
             on_line(f"The cloud {resource} job failed: {type(exc).__name__}: {exc}")
             return RemoteOutcome(1), None
 
