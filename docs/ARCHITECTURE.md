@@ -272,7 +272,7 @@ Words are spelled for the MMS alphabet by `lyric_tokenize.normalize_for_mms` (nu
 
 | Hook | Role |
 | :--- | :--- |
-| `useProjectPolling` | polls the song's status (`/api/project/{id}/status`, its progress fields only) once a second while a pipeline, render, `separation_job` or `sync_job` is active, and fetches the full project once when one finishes |
+| `useProjectPolling` | polls the song's status (`/api/project/{id}/status`, its progress fields only) once a second while a pipeline, render, `separation_job` or `sync_job` is active, and fetches the full project once when one finishes; after three failed polls (other than 404s) the next ones back off to 2, 4, 8 and at most 15 s, and a 401 pauses polling until a sign-in stores a new token |
 | `useStudioAudio` | transport state; keeps the position and play state when the master URL changes |
 | `useMixController` | requested vs applied key and guide level; debounced `/mix`, latest request wins |
 | `useVisualTheme` + `stageSettingsStorage` | stage look, persisted in `karaoke_stage_settings_v1` |
