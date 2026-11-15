@@ -124,6 +124,49 @@ def _presents_credentials(request: Request) -> bool:
     )
 
 
+# Answered whatever ALLOWED_HOSTS says: a rebinding attack needs a name the attacker owns,
+# and the container's health check asks localhost
+_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def host_allowed(host_header: str, allowed: list[str]) -> bool:
+    """Whether a Host header (port and IPv6 brackets ignored) is one of the allowed names; a
+    "*.example.com" entry matches example.com's subdomains. An empty list allows any."""
+    if not allowed:
+        return True
+    host = host_header.strip().lower()
+    if host.startswith("["):
+        host = host[1 : host.find("]")] if "]" in host else host
+    elif host.count(":") == 1:
+        host = host.split(":", 1)[0]
+    if host in _LOOPBACK_HOSTS:
+        return True
+    for pattern in allowed:
+        if pattern.startswith("*.") and host.endswith(pattern[1:]) and host != pattern[2:]:
+            return True
+        if host == pattern:
+            return True
+    return False
+
+
+class AllowedHosts:
+    """With ALLOWED_HOSTS set (read on each request), answers 400 to a request whose Host
+    header names another host, so a website that rebinds its own DNS name to this server
+    cannot read or drive the API (which, without a passphrase, needs no credentials)."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and config.ALLOWED_HOSTS:
+            host = Request(scope).headers.get("host", "")
+            if not host_allowed(host, config.ALLOWED_HOSTS):
+                response = JSONResponse(status_code=400, content={"detail": "Invalid host header"})
+                await response(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
 # Multipart framing and the form's other fields on top of the file itself
 _UPLOAD_SLACK_BYTES = 1024 * 1024
 _UPLOAD_LIMITS = {

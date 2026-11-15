@@ -327,6 +327,18 @@ def parse_allowed_origins(raw: str | None) -> list[str]:
 ALLOWED_ORIGINS = parse_allowed_origins(os.getenv("ALLOWED_ORIGINS"))
 
 
+def parse_allowed_hosts(raw: str | None) -> list[str]:
+    """ALLOWED_HOSTS from its setting: lower-cased host names, a leading "*." matching any
+    subdomain. Empty means any Host header is answered."""
+    return [h.strip().lower() for h in (raw or "").split(",") if h.strip()]
+
+
+# Host names the server answers to. Empty answers any Host header. Setting it stops DNS
+# rebinding, where a website points its own name at this server to reach an install that has
+# no passphrase. localhost, 127.0.0.1 and ::1 are always answered (health checks).
+ALLOWED_HOSTS = parse_allowed_hosts(os.getenv("ALLOWED_HOSTS"))
+
+
 def _body_limit_mb(raw: str | None) -> float:
     """MAX_JSON_BODY_MB from its setting: MB above 0; unset or unreadable is 16."""
     try:
