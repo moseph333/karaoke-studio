@@ -17,10 +17,11 @@ emission too (backend.services.emission_cache), so the server's lyric alignment 
 to run the MMS model on its CPU; if that step fails the stems still come back. Model weights
 (RoFormer and MMS) live in the Modal volume "karaoke-models", so each downloads once. `render` runs FFmpeg with the arguments
 backend.services.video_renderer builds, on RENDER_REMOTE_CPUS cores with the app's fonts, and
-sends FFmpeg's -progress lines back the same way; called with warmup=True (when the Export
-dialog opens) it only starts a container. Billing is per second while a container runs; an
+sends FFmpeg's -progress lines back the same way. Called with warmup=True, either function
+only starts a container: `separate` when a song's intake begins (while the audio downloads),
+`render` when the Export dialog opens. Billing is per second while a container runs; an
 idle GPU container stops after SEPARATION_REMOTE_SCALEDOWN_SEC and an idle render container
-after RENDER_REMOTE_SCALEDOWN_SEC, long enough for the Render click that follows a warm-up.
+after RENDER_REMOTE_SCALEDOWN_SEC, long enough for the job that follows a warm-up.
 """
 
 import os
@@ -152,15 +153,19 @@ app = modal.App(APP_NAME, image=image)
     scaledown_window=SCALEDOWN_SECONDS,
 )
 def separate(
-    audio: bytes,
-    filename: str,
-    models: list[str],
-    overlap: int,
-    ensemble: str,
-    lines: modal.Queue,
+    audio: bytes = b"",
+    filename: str = "",
+    models: list[str] | None = None,
+    overlap: int = 2,
+    ensemble: str = "avg_wave",
+    lines: modal.Queue | None = None,
+    warmup: bool = False,
 ) -> dict:
     """Separate one song: the worker's stderr goes to `lines`, the two stems (and, when it
-    could be made, the vocals' MMS emission) are returned."""
+    could be made, the vocals' MMS emission) are returned. With warmup=True it returns at
+    once: the call only starts a GPU container for a separation that is about to follow."""
+    if warmup or lines is None or not models:
+        return {"warmup": True}
     lines.put(STARTED)
     work = Path(tempfile.mkdtemp(prefix="karaoke-"))
     try:

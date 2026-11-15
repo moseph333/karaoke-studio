@@ -229,6 +229,7 @@ cp .env.example .env
 | `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` | *(empty)* | Modal token for the server |
 | `SEPARATION_REMOTE_APP` | `karaoke-studio-gpu` | Name of the deployed Modal app |
 | `SEPARATION_REMOTE_QUEUE_SEC` | `300` | Longest wait for a free GPU before falling back to Fast here |
+| `SEPARATION_REMOTE_PREWARM` | `1` | Start a cloud GPU when a song's intake begins, so it is up by the time the audio has downloaded |
 
 **Video export**
 

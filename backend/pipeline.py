@@ -20,6 +20,7 @@ from backend.project_store import (
     save_projects,
     save_projects_throttled,
 )
+from backend.services import remote_separation
 from backend.services.lyric_sync import sync_lyrics
 from backend.services.separation_presets import (
     PRESET_LABELS,
@@ -85,6 +86,69 @@ def separate_project_stems(
         proj["separation"] = provenance
     save_projects()
     return stems
+
+
+def warm_separation_gpu(main_mod, project_id: str) -> None:
+    """Asks for a cloud GPU ahead of this project's separation, when its preset runs on one
+    and its stems are not cached already. Returns at once and never raises: a warm-up only
+    saves waiting, and remote_separation.warm_up limits how often it reaches Modal."""
+    try:
+        proj = find_project(project_id)
+        if proj is None:
+            return
+        quality = normalize_preset(proj.get("separation_quality")) or configured_preset()
+        has_cached = getattr(main_mod.separator, "has_cached_stems", None)
+        if callable(has_cached) and has_cached(project_id, quality):
+            return
+        remote_separation.warm_up(quality, background=True)
+    except Exception as exc:
+        logger.debug(f"GPU warm-up skipped for {project_id}: {exc}")
+
+
+class LyricsPrefetch:
+    """Fetches a song's lyrics on a thread of its own while the stems are separated.
+
+    The lookup (LRCLIB, then syncedlyrics) only needs the title, artist and length, so it
+    runs alongside separation instead of after it; result() waits for it and returns the
+    lyric data, or raises what the lookup raised, as a call in line would have."""
+
+    def __init__(self, fetch, *args):
+        self._result = None
+        self._error: BaseException | None = None
+        self._thread = threading.Thread(
+            target=self._run, args=(fetch, *args), name="lyrics-prefetch", daemon=True
+        )
+        self._thread.start()
+
+    def _run(self, fetch, *args) -> None:
+        try:
+            self._result = fetch(*args)
+        except BaseException as exc:  # handed to the pipeline in result()
+            self._error = exc
+
+    def result(self, cancel_event: threading.Event | None = None) -> dict:
+        while self._thread.is_alive():
+            if cancel_event is not None and cancel_event.is_set():
+                raise RuntimeError("Processing cancelled by user")
+            self._thread.join(timeout=0.25)
+        if self._error is not None:
+            raise self._error
+        return self._result
+
+
+def start_lyrics(main_mod, custom_lyrics: str | None, title, artist, duration):
+    """Starts the lyric lookup for a pipeline: None when lyrics were pasted (they are parsed
+    in line later), else a LyricsPrefetch already running."""
+    if custom_lyrics and custom_lyrics.strip():
+        return None
+    return LyricsPrefetch(main_mod.lyrics_service.fetch_lyrics, title, artist, duration)
+
+
+def finish_lyrics(main_mod, prefetch, custom_lyrics: str | None, cancel_event) -> dict:
+    """The lyric data for a pipeline: the pasted lyrics parsed, or the prefetch's result."""
+    if prefetch is None:
+        return main_mod.lyrics_service.process_custom_lyrics(custom_lyrics)
+    return prefetch.result(cancel_event)
 
 
 def analyze_project_stems(
@@ -220,8 +284,10 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             logger.info(f"Project {project_id} was deleted while queued; skipping pipeline")
             return
 
-        # Step 1: Download Audio and Metadata
+        # Step 1: Download Audio and Metadata. A cloud GPU is asked for meanwhile, so it is
+        # up by the time the stems are separated.
         update_pipe("downloading", 10, "Fetching audio track and metadata...", 15)
+        warm_separation_gpu(main_mod, project_id)
 
         last_dl_tick = 0.0
 
@@ -239,6 +305,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
                 speed_str = f" • {speed / (1024 * 1024):.1f} MB/s" if speed else ""
                 eta = d.get("eta")
                 pipe_progress = int(10 + (pct * 0.25))
+                warm_separation_gpu(main_mod, project_id)  # keeps the GPU up while it lasts
                 update_pipe(
                     "downloading",
                     pipe_progress,
@@ -263,6 +330,11 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             proj["thumbnail_url"] = f"/static/downloads/{thumb_name}"
         save_projects()
 
+        # Step 3 starts here: the lyric lookup runs while the stems are separated
+        lyrics_job = start_lyrics(
+            main_mod, custom_lyrics, meta["title"], meta["artist"], meta.get("duration")
+        )
+
         # Step 2: Separate Stems (Vocals & Instrumental)
         duration = float(meta.get("duration") or 180)
         stems = separate_project_stems(
@@ -274,12 +346,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
 
         # Step 3: Fetch Lyrics
         update_pipe("fetching_lyrics", 72, "Retrieving lyrics from LRCLIB...", 5)
-        if custom_lyrics and custom_lyrics.strip():
-            lyric_data = main_mod.lyrics_service.process_custom_lyrics(custom_lyrics)
-        else:
-            lyric_data = main_mod.lyrics_service.fetch_lyrics(
-                meta["title"], meta["artist"], meta.get("duration")
-            )
+        lyric_data = finish_lyrics(main_mod, lyrics_job, custom_lyrics, cancel_event)
 
         proj = get_project_or_404(project_id)
         proj["lyric_source"] = lyric_data["source"]
@@ -388,6 +455,7 @@ def run_local_pipeline(
 
         # Step 1: Transcode / Normalize raw uploaded audio to standard WAV (pcm_s16le, 44100Hz, 2ch)
         update_pipe("processing", 5, "Preparing audio track...")
+        warm_separation_gpu(main_mod, project_id)
 
         raw_path = Path(raw_audio_path)
         wav_target = downloads_dir / f"{project_id}.wav"
@@ -442,6 +510,9 @@ def run_local_pipeline(
         proj["audio_url"] = f"/static/downloads/{project_id}.wav"
         save_projects()
 
+        # Step 3 starts here: the lyric lookup runs while the stems are separated
+        lyrics_job = start_lyrics(main_mod, custom_lyrics, title, artist, duration)
+
         # Step 2: Separate Stems (Vocals & Instrumental)
         stems = separate_project_stems(
             main_mod, project_id, str(wav_target), project_id, duration, update_pipe, cancel_event
@@ -454,10 +525,7 @@ def run_local_pipeline(
 
         # Step 3: Fetch / Process Lyrics
         update_pipe("fetching_lyrics", 72, "Processing song lyrics...", 5)
-        if custom_lyrics and custom_lyrics.strip():
-            lyric_data = main_mod.lyrics_service.process_custom_lyrics(custom_lyrics)
-        else:
-            lyric_data = main_mod.lyrics_service.fetch_lyrics(title, artist, duration)
+        lyric_data = finish_lyrics(main_mod, lyrics_job, custom_lyrics, cancel_event)
 
         proj = get_project_or_404(project_id)
         proj["lyric_source"] = lyric_data["source"]
