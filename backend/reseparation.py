@@ -25,6 +25,7 @@ from typing import Any
 from backend.background_jobs import SEPARATION_JOB, job_active, release_cancel_event
 from backend.background_jobs import conflict_reason as job_conflict
 from backend.config import OUTPUT_DIR, STEMS_DIR
+from backend.errors import public_error
 from backend.master_audio import master_fields, mix_filename, prune_mix_cache
 from backend.project_analysis import analyze_vocals, detect_chords
 from backend.project_store import (
@@ -262,7 +263,7 @@ def _record_failure(
         job.update(
             status=status,
             detail=detail,
-            error=None if status == "cancelled" else str(exc),
+            error=None if status == "cancelled" else public_error(exc),
             eta_seconds=None,
             finished_at=int(time.time()),
         )

@@ -21,6 +21,7 @@ from typing import Any
 
 from backend.background_jobs import SYNC_JOB, job_active, release_cancel_event
 from backend.background_jobs import conflict_reason as job_conflict
+from backend.errors import public_error
 from backend.project_analysis import refresh_youtube_package
 from backend.project_store import (
     PROJECTS_LOCK,
@@ -227,7 +228,7 @@ def _record_failure(project_id: str, job_id: str, exc: Exception, cancelled: boo
         job.update(
             status=status,
             detail=detail,
-            error=None if cancelled else str(exc),
+            error=None if cancelled else public_error(exc),
             finished_at=int(time.time()),
         )
         save_projects()
