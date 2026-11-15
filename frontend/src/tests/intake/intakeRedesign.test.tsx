@@ -202,10 +202,11 @@ describe('Processing view', () => {
     const steps = within(screen.getByRole('list', { name: 'Processing Stages' })).getAllByRole(
       'listitem'
     );
-    expect(steps[3]).toHaveAttribute('aria-current', 'step');
+    expect(steps).toHaveLength(4);
+    expect(steps[2]).toHaveAttribute('aria-current', 'step');
     expect(
       within(steps[0]).getByLabelText('Completed: Audio Intake & Download')
     ).toBeInTheDocument();
-    expect(within(steps[3]).getByLabelText('Active: Lyric Fetch & Alignment')).toBeInTheDocument();
+    expect(within(steps[2]).getByLabelText('Active: Lyric Fetch & Alignment')).toBeInTheDocument();
   });
 });

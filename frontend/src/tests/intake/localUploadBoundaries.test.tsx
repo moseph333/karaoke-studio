@@ -264,22 +264,20 @@ describe('CHALLENGER 1: UX-2 ProcessingView Stepper, Heartbeat & Disconnect Reco
   });
 
   describe('Stepper Transitions & Unknown Status Fallback', () => {
-    it('maps all standard statuses to correct stages 0 through 4', () => {
+    it('maps all standard statuses to correct stages 0 through 3', () => {
       expect(getActivePipelineStage('queued')).toBe(0);
       expect(getActivePipelineStage('downloading')).toBe(0);
       expect(getActivePipelineStage('separating')).toBe(1);
-      expect(getActivePipelineStage('separating', 'Detecting vocal chords...')).toBe(2);
-      expect(getActivePipelineStage('separating', 'Computing vocal pitch range...')).toBe(2);
-      expect(getActivePipelineStage('fetching_lyrics')).toBe(3);
-      expect(getActivePipelineStage('aligning')).toBe(3);
-      expect(getActivePipelineStage('mixing')).toBe(4);
+      expect(getActivePipelineStage('fetching_lyrics')).toBe(2);
+      expect(getActivePipelineStage('aligning')).toBe(2);
+      expect(getActivePipelineStage('mixing')).toBe(3);
     });
 
     it('safely falls back to Stage 0 for unknown or unexpected status strings without crashing', () => {
       expect(getActivePipelineStage('unknown_pipeline_state')).toBe(0);
       expect(getActivePipelineStage('pending_worker_dispatch')).toBe(0);
-      expect(getActivePipelineStage(undefined, undefined)).toBe(0);
-      expect(getActivePipelineStage('', '')).toBe(0);
+      expect(getActivePipelineStage(undefined)).toBe(0);
+      expect(getActivePipelineStage('')).toBe(0);
     });
 
     it('renders ProcessingView with unknown status string gracefully (single-underscore replace behavior)', () => {

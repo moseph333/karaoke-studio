@@ -16,6 +16,7 @@ import { StudioSkeleton, WhenShown } from './components/studio/StudioSkeleton';
 import { StudioWorkspace, TransportDock } from './deferredScreens';
 import { LyricLine, ProjectState, SyncDisplayMode, StudioWorkspaceTab } from './types';
 import { useProjectChords } from './hooks/useProjectChords';
+import { useVocalRangeBackfill } from './hooks/useVocalRangeBackfill';
 import { useTrackIntake } from './hooks/useTrackIntake';
 import { useQualityJobs } from './hooks/useQualityJobs';
 import { apiFetch, readApiError } from './api';
@@ -229,6 +230,7 @@ export const AppContent: React.FC = () => {
     setProject,
     isStudioReady,
   });
+  useVocalRangeBackfill({ project, setProject });
   const waveform = useWaveformPeaksState(project?.id, isStudioReady, project?.master_audio_url);
   const intake = useTrackIntake({ currentUser, setProject });
   const quality = useQualityJobs({ project, setProject });
