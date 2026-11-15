@@ -23,6 +23,7 @@ from backend.project_store import (
     save_projects_throttled,
 )
 from backend.services import remote_separation
+from backend.services.downloader import DownloadCancelled
 from backend.services.lyric_sync import sync_lyrics
 from backend.services.separation_presets import (
     PRESET_LABELS,
@@ -324,7 +325,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         def dl_hook(d):
             nonlocal last_dl_tick
             if cancel_event.is_set():
-                raise RuntimeError("Processing cancelled by user")
+                raise DownloadCancelled("Processing cancelled by user")
             now = time.time()
             if d.get("status") == "downloading" and now - last_dl_tick >= 0.25:
                 last_dl_tick = now

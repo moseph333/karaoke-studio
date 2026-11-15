@@ -15,6 +15,24 @@ from backend.services.lyrics import LyricsNormalizer
 logger = logging.getLogger(__name__)
 
 
+class DownloadCancelled(RuntimeError):
+    """Raised from a progress hook to stop a download the user cancelled."""
+
+
+def _is_cancel(exc: BaseException | None) -> bool:
+    """Whether exc is, or wraps, a DownloadCancelled (yt-dlp may wrap what a progress hook
+    raises in a DownloadError that keeps the original in exc_info)."""
+    seen: set[int] = set()
+    while exc is not None and id(exc) not in seen:
+        if isinstance(exc, DownloadCancelled):
+            return True
+        seen.add(id(exc))
+        wrapped = getattr(exc, "exc_info", None)
+        inner = wrapped[1] if isinstance(wrapped, tuple) and len(wrapped) > 1 else None
+        exc = inner if isinstance(inner, BaseException) else (exc.__cause__ or exc.__context__)
+    return False
+
+
 def music_track_title(meta: dict[str, Any] | None) -> str | None:
     """The song's own name when yt-dlp knows it: YouTube Music, auto-generated "- Topic"
     uploads and many official videos carry ``track`` and ``artist`` fields, which find the
@@ -288,6 +306,9 @@ class TrackDownloader:
                         logger.info(f"Download succeeded with client profile: {clients}")
                         break
             except Exception as e:
+                if _is_cancel(e):
+                    # The user cancelled: trying the next client would only start over
+                    raise
                 err_msg = f"Profile {clients} failed: {e}"
                 logger.warning(err_msg)
                 attempt_errors.append(err_msg)
