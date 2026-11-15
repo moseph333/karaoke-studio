@@ -358,7 +358,13 @@ async def system_update_action(request: Request):
             action = str(body["action"]).strip().lower()
     # Both run git (ls-remote can take seconds): off the event loop
     if action == "update":
+        client_ip = get_client_ip(request)
+        logger.info(f"Update requested from {client_ip}")
         info = await run_in_threadpool(config.trigger_system_update)
+        logger.info(
+            f"Update trigger written for {client_ip}: "
+            f"{info.get('version') or '?'} -> {info.get('latest_version') or '?'}"
+        )
     else:
         info = await run_in_threadpool(config.check_for_updates, force_remote=True)
     return {**info, **_drain_status()}
