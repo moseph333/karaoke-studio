@@ -30,6 +30,9 @@ _GUESS_FINGERPRINT_KEY = secrets.token_bytes(32)
 # When each client IP's refusal was last logged. Every request a limited client sends with
 # credentials (polling, saves, media) is refused, so it is logged at most once per window.
 _rate_limit_logged: dict[str, float] = {}
+# Most client IPs each map keeps. A client that can set X-Forwarded-For itself (the app port
+# reachable without the proxy) could otherwise grow them without bound, one fake IP a request.
+MAX_TRACKED_CLIENTS = 10_000
 
 # The secret session tokens are signed with, besides the passphrase (see session_signing_key)
 SESSION_SECRET_FILE_NAME = ".session_secret"
@@ -66,7 +69,8 @@ def _prune_stale_rate_limits_locked(now: float, window: float) -> None:
     last_cleanup = getattr(main_mod, "_last_rate_limit_cleanup", _last_rate_limit_cleanup)
     failures = getattr(main_mod, "_login_failures", _login_failures)
 
-    if (now - last_cleanup < 300.0) and len(failures) < 1000 and len(_counted_guesses) < 1000:
+    busy = min(1000, MAX_TRACKED_CLIENTS)
+    if (now - last_cleanup < 300.0) and len(failures) < busy and len(_counted_guesses) < busy:
         return
     _last_rate_limit_cleanup = now
     main_mod._last_rate_limit_cleanup = now
@@ -87,6 +91,19 @@ def _prune_stale_rate_limits_locked(now: float, window: float) -> None:
             del _counted_guesses[ip]
     for ip in [ip for ip, t in _rate_limit_logged.items() if (now - t) >= window]:
         del _rate_limit_logged[ip]
+    # Still over the cap with entries inside the window: drop the clients seen longest ago
+    _evict_oldest(failures, lambda stamps: max(stamps, default=0.0))
+    _evict_oldest(_counted_guesses, lambda seen: max(seen.values(), default=0.0))
+    _evict_oldest(_rate_limit_logged, lambda t: t)
+
+
+def _evict_oldest(entries: dict, last_seen) -> None:
+    """Trim a per-client-IP map to MAX_TRACKED_CLIENTS, dropping the oldest clients first."""
+    excess = len(entries) - MAX_TRACKED_CLIENTS
+    if excess <= 0:
+        return
+    for ip in sorted(entries, key=lambda ip: last_seen(entries[ip]))[:excess]:
+        del entries[ip]
 
 
 def check_login_rate_limit(client_ip: str, now: float | None = None) -> int:
