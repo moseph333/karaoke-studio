@@ -78,15 +78,18 @@ def separate_project_stems(
         progress_callback=sep_cb,
         cancel_event=cancel_event,
     )
-    proj = get_project_or_404(project_id)
-    proj["vocals_path"] = stems["vocals_path"]
-    proj["instrumental_path"] = stems["instrumental_path"]
-    proj["vocals_url"] = f"/static/stems/{audio_id}/vocals.wav"
-    proj["instrumental_url"] = f"/static/stems/{audio_id}/instrumental.wav"
-    provenance = stems.get("separation") or _shared_stem_provenance(main_mod, project_id, audio_id)
-    if provenance:
-        proj["separation"] = provenance
-    save_projects()
+    with PROJECTS_LOCK:
+        proj = get_project_or_404(project_id)
+        proj["vocals_path"] = stems["vocals_path"]
+        proj["instrumental_path"] = stems["instrumental_path"]
+        proj["vocals_url"] = f"/static/stems/{audio_id}/vocals.wav"
+        proj["instrumental_url"] = f"/static/stems/{audio_id}/instrumental.wav"
+        provenance = stems.get("separation") or _shared_stem_provenance(
+            main_mod, project_id, audio_id
+        )
+        if provenance:
+            proj["separation"] = provenance
+        save_projects()
     return stems
 
 
@@ -227,11 +230,12 @@ def sync_project_lyrics(
         progress=on_progress,
         cancel_event=cancel_event,
     )
-    proj = get_project_or_404(project_id)
-    proj["lines"] = result.lines
-    proj["sync_report"] = result.report
-    proj["lyric_timing"] = result.lyric_timing
-    save_projects()
+    with PROJECTS_LOCK:
+        proj = get_project_or_404(project_id)
+        proj["lines"] = result.lines
+        proj["sync_report"] = result.report
+        proj["lyric_timing"] = result.lyric_timing
+        save_projects()
 
 
 def _progress_updater(project_id: str, cancel_event: threading.Event, started: float):
@@ -274,11 +278,13 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
     # Fast pre-acquire check
     proj = find_project(project_id)
     if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
-        if proj:
-            proj["status"] = "cancelled"
-            proj["status_detail"] = "Processing was cancelled by user"
-            proj["progress"] = 0
-            save_projects()
+        with PROJECTS_LOCK:
+            proj = find_project(project_id)
+            if proj:
+                proj["status"] = "cancelled"
+                proj["status_detail"] = "Processing was cancelled by user"
+                proj["progress"] = 0
+                save_projects()
         release_cancel_event(main_mod.active_cancellations, project_id, cancel_event)
         return
 
@@ -295,11 +301,13 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         proj = find_project(project_id)
         if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
             logger.info(f"Project {project_id} was cancelled while queued")
-            if proj:
-                proj["status"] = "cancelled"
-                proj["status_detail"] = "Processing was cancelled by user"
-                proj["progress"] = 0
-                save_projects()
+            with PROJECTS_LOCK:
+                proj = find_project(project_id)
+                if proj:
+                    proj["status"] = "cancelled"
+                    proj["status_detail"] = "Processing was cancelled by user"
+                    proj["progress"] = 0
+                    save_projects()
             return
 
         if proj is None:
@@ -337,20 +345,21 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
 
         meta = main_mod.downloader.extract_info_and_download(url_or_id, progress_hook=dl_hook)
         track_id = meta.get("id")
-        proj = get_project_or_404(project_id)
-        proj.update(meta)
-        proj["id"] = project_id  # Guarantee project ID remains consistent
-        if track_id:
-            proj["track_id"] = track_id
-            main_mod.projects[track_id] = proj  # Alias so lookups by track_id also resolve
+        with PROJECTS_LOCK:
+            proj = get_project_or_404(project_id)
+            proj.update(meta)
+            proj["id"] = project_id  # Guarantee project ID remains consistent
+            if track_id:
+                proj["track_id"] = track_id
+                main_mod.projects[track_id] = proj  # Alias so lookups by track_id also resolve
 
-        # Relative static URLs
-        audio_id = track_id or project_id
-        proj["audio_url"] = f"/static/downloads/{audio_id}.wav"
-        if meta.get("thumbnail_path"):
-            thumb_name = Path(meta["thumbnail_path"]).name
-            proj["thumbnail_url"] = f"/static/downloads/{thumb_name}"
-        save_projects()
+            # Relative static URLs
+            audio_id = track_id or project_id
+            proj["audio_url"] = f"/static/downloads/{audio_id}.wav"
+            if meta.get("thumbnail_path"):
+                thumb_name = Path(meta["thumbnail_path"]).name
+                proj["thumbnail_url"] = f"/static/downloads/{thumb_name}"
+            save_projects()
 
         # Step 3 starts here: the lyric lookup runs while the stems are separated
         lyrics_job = start_lyrics(
@@ -370,10 +379,11 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         update_pipe("fetching_lyrics", 72, "Retrieving lyrics from LRCLIB...", 5)
         lyric_data = finish_lyrics(main_mod, lyrics_job, custom_lyrics, cancel_event)
 
-        proj = get_project_or_404(project_id)
-        proj["lyric_source"] = lyric_data["source"]
-        proj["is_synced"] = lyric_data["synced"]
-        save_projects()
+        with PROJECTS_LOCK:
+            proj = get_project_or_404(project_id)
+            proj["lyric_source"] = lyric_data["source"]
+            proj["is_synced"] = lyric_data["synced"]
+            save_projects()
 
         # Step 4: Line and word timing (DSP, plus the neural aligner when available)
         sync_project_lyrics(project_id, stems["vocals_path"], lyric_data, update_pipe, cancel_event)
@@ -387,8 +397,9 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             guide_volume=0.0,
             output_filename=f"{audio_id}_master.wav",
         )
-        proj = get_project_or_404(project_id)
-        proj.update(master_fields(master_path))
+        with PROJECTS_LOCK:
+            proj = get_project_or_404(project_id)
+            proj.update(master_fields(master_path))
 
         # Step 6: Ready!
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
@@ -399,21 +410,22 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             logger.info(f"Pipeline for {project_id} stopped after a cancel")
         else:
             logger.error(f"Pipeline error for {project_id}: {e}", exc_info=True)
-        proj = find_project(project_id)
-        if proj is not None:
-            if cancel_event.is_set():
-                proj["status"] = "cancelled"
-                proj["status_detail"] = "Processing was cancelled by user"
-                proj["progress"] = 0
+        with PROJECTS_LOCK:
+            proj = find_project(project_id)
+            if proj is not None:
+                if cancel_event.is_set():
+                    proj["status"] = "cancelled"
+                    proj["status_detail"] = "Processing was cancelled by user"
+                    proj["progress"] = 0
+                else:
+                    proj["status"] = "error"
+                    proj["error"] = public_error(e)
+                    proj["status_detail"] = f"Error: {public_error(e)}"
+                save_projects()
             else:
-                proj["status"] = "error"
-                proj["error"] = public_error(e)
-                proj["status_detail"] = f"Error: {public_error(e)}"
-            save_projects()
-        else:
-            logger.info(
-                f"Project {project_id} was deleted during processing; skipping status update."
-            )
+                logger.info(
+                    f"Project {project_id} was deleted during processing; skipping status update."
+                )
     finally:
         if semaphore_acquired:
             main_mod.WORKER_SEMAPHORE.release()
@@ -448,11 +460,13 @@ def run_local_pipeline(
     # Fast pre-acquire check
     proj = find_project(project_id)
     if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
-        if proj:
-            proj["status"] = "cancelled"
-            proj["status_detail"] = "Processing was cancelled by user"
-            proj["progress"] = 0
-            save_projects()
+        with PROJECTS_LOCK:
+            proj = find_project(project_id)
+            if proj:
+                proj["status"] = "cancelled"
+                proj["status_detail"] = "Processing was cancelled by user"
+                proj["progress"] = 0
+                save_projects()
         release_cancel_event(main_mod.active_cancellations, project_id, cancel_event)
         return
 
@@ -468,11 +482,13 @@ def run_local_pipeline(
         proj = find_project(project_id)
         if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
             logger.info(f"Local project {project_id} was cancelled while queued")
-            if proj:
-                proj["status"] = "cancelled"
-                proj["status_detail"] = "Processing was cancelled by user"
-                proj["progress"] = 0
-                save_projects()
+            with PROJECTS_LOCK:
+                proj = find_project(project_id)
+                if proj:
+                    proj["status"] = "cancelled"
+                    proj["status_detail"] = "Processing was cancelled by user"
+                    proj["progress"] = 0
+                    save_projects()
             return
 
         if proj is None:
@@ -539,11 +555,12 @@ def run_local_pipeline(
                 )
                 duration = 180.0
 
-        proj = get_project_or_404(project_id)
-        proj["duration"] = duration
-        proj["audio_path"] = str(wav_target)
-        proj["audio_url"] = f"/static/downloads/{project_id}.wav"
-        save_projects()
+        with PROJECTS_LOCK:
+            proj = get_project_or_404(project_id)
+            proj["duration"] = duration
+            proj["audio_path"] = str(wav_target)
+            proj["audio_url"] = f"/static/downloads/{project_id}.wav"
+            save_projects()
 
         # Step 3 starts here: the lyric lookup runs while the stems are separated
         lyrics_job = start_lyrics(main_mod, custom_lyrics, title, artist, duration)
@@ -560,10 +577,11 @@ def run_local_pipeline(
         update_pipe("fetching_lyrics", 72, "Processing song lyrics...", 5)
         lyric_data = finish_lyrics(main_mod, lyrics_job, custom_lyrics, cancel_event)
 
-        proj = get_project_or_404(project_id)
-        proj["lyric_source"] = lyric_data["source"]
-        proj["is_synced"] = lyric_data["synced"]
-        save_projects()
+        with PROJECTS_LOCK:
+            proj = get_project_or_404(project_id)
+            proj["lyric_source"] = lyric_data["source"]
+            proj["is_synced"] = lyric_data["synced"]
+            save_projects()
 
         # Step 4: Line and word timing (DSP, plus the neural aligner when available)
         sync_project_lyrics(project_id, stems["vocals_path"], lyric_data, update_pipe, cancel_event)
@@ -577,8 +595,9 @@ def run_local_pipeline(
             guide_volume=0.0,
             output_filename=f"{project_id}_master.wav",
         )
-        proj = get_project_or_404(project_id)
-        proj.update(master_fields(master_path))
+        with PROJECTS_LOCK:
+            proj = get_project_or_404(project_id)
+            proj.update(master_fields(master_path))
 
         # Step 6: Ready!
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
@@ -589,21 +608,22 @@ def run_local_pipeline(
             logger.info(f"Pipeline for local track {project_id} stopped after a cancel")
         else:
             logger.error(f"Pipeline error for local track {project_id}: {e}", exc_info=True)
-        proj = find_project(project_id)
-        if proj is not None:
-            if cancel_event.is_set():
-                proj["status"] = "cancelled"
-                proj["status_detail"] = "Processing was cancelled by user"
-                proj["progress"] = 0
+        with PROJECTS_LOCK:
+            proj = find_project(project_id)
+            if proj is not None:
+                if cancel_event.is_set():
+                    proj["status"] = "cancelled"
+                    proj["status_detail"] = "Processing was cancelled by user"
+                    proj["progress"] = 0
+                else:
+                    proj["status"] = "error"
+                    proj["error"] = public_error(e)
+                    proj["status_detail"] = f"Error: {public_error(e)}"
+                save_projects()
             else:
-                proj["status"] = "error"
-                proj["error"] = public_error(e)
-                proj["status_detail"] = f"Error: {public_error(e)}"
-            save_projects()
-        else:
-            logger.info(
-                f"Project {project_id} was deleted during processing; skipping status update."
-            )
+                logger.info(
+                    f"Project {project_id} was deleted during processing; skipping status update."
+                )
     finally:
         if semaphore_acquired:
             main_mod.WORKER_SEMAPHORE.release()
