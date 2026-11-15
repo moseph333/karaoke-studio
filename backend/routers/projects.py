@@ -162,8 +162,8 @@ def search_tracks(req: SearchRequest):
         results = main_mod.downloader.search_tracks(req.query, limit=req.limit or 5)
         return {"results": results}
     except Exception as e:
-        logger.error(f"Search failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.exception("Search failed")
+        raise HTTPException(status_code=500, detail="Search failed. Try again in a moment.") from e
 
 
 @router.post("/api/process")
@@ -319,7 +319,9 @@ def get_vocal_range(project_id: str):
         raise
     except Exception as e:
         logger.error(f"Vocal range analysis failed for {project_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to analyze vocal range: {e}") from e
+        raise HTTPException(
+            status_code=500, detail="Failed to analyze vocal range. See the server log for details."
+        ) from e
 
 
 @router.post(
@@ -341,7 +343,10 @@ def reanalyze_vocal_range(project_id: str):
         raise
     except Exception as e:
         logger.error(f"Vocal range re-analysis failed for {project_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to re-analyze vocal range: {e}") from e
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to re-analyze vocal range. See the server log for details.",
+        ) from e
 
 
 @router.post(
@@ -366,7 +371,9 @@ def recommend_key(project_id: str, req: KeyRecommendationRequest):
         raise
     except Exception as e:
         logger.error(f"Vocal range analysis failed for {project_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to analyze vocal range: {e}") from e
+        raise HTTPException(
+            status_code=500, detail="Failed to analyze vocal range. See the server log for details."
+        ) from e
 
     # Safe handling for unvoiced or silent audio
     if not vocal_range.get("is_voiced") or not vocal_range.get("lowest_note"):
@@ -393,7 +400,9 @@ def recommend_key(project_id: str, req: KeyRecommendationRequest):
         raise
     except Exception as e:
         logger.error(f"Key recommendation failed for {project_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to recommend key: {e}") from e
+        raise HTTPException(
+            status_code=500, detail="Failed to recommend key. See the server log for details."
+        ) from e
 
 
 def _detected_chords(project_id: str, force: bool = False) -> list[dict]:
@@ -410,7 +419,9 @@ def _detected_chords(project_id: str, force: bool = False) -> list[dict]:
         raise
     except Exception as e:
         logger.error(f"Chord detection failed for {project_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to detect chords: {e}") from e
+        raise HTTPException(
+            status_code=500, detail="Failed to detect chords. See the server log for details."
+        ) from e
 
 
 @router.get(
@@ -715,7 +726,9 @@ def realign_lyrics(
         raise
     except Exception as e:
         logger.error(f"Lyric realignment failed for {project_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to realign lyrics: {e}") from e
+        raise HTTPException(
+            status_code=500, detail="Failed to realign lyrics. See the server log for details."
+        ) from e
 
 
 @router.post("/api/project/{project_id}/mix")

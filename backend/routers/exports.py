@@ -1,5 +1,6 @@
 """Export API router providing instant standalone .lrc/.ass subtitle and audio stem downloads."""
 
+import logging
 import os
 import re
 from pathlib import Path
@@ -19,6 +20,8 @@ from backend.services.chord_detector import (
     transpose_chord_progression,
 )
 from backend.services.lyrics import LyricsService
+
+logger = logging.getLogger("karaoke_backend")
 
 router = APIRouter(tags=["exports"])
 
@@ -448,7 +451,10 @@ def export_project_chord_sheet(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to detect chords: {e}") from e
+        logger.exception(f"Chord detection for the chord sheet of {project_id} failed")
+        raise HTTPException(
+            status_code=500, detail="Failed to detect chords. See the server log for details."
+        ) from e
 
     # 2. Reject export if neither lyrics nor chords exist
     if (not lines or not isinstance(lines, list)) and (not chords):
