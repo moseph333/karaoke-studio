@@ -53,6 +53,14 @@ def cancel_key(project_id: str) -> str:
     return f"{project_id}_reseparate"
 
 
+def _release_unclaimed_event(active_cancellations: dict, project_id: str) -> None:
+    """Drops the cancel event a route registered for a job that will never run, unless the
+    song (if it still exists) has another such job running that owns it."""
+    proj = find_project(project_id)
+    if proj is None or not job_active(proj, SEPARATION_JOB):
+        active_cancellations.pop(cancel_key(project_id), None)
+
+
 def staging_dir(stems_dir: Path, audio_id: str) -> Path:
     return stems_dir / STAGING_DIRNAME / audio_id
 
@@ -150,6 +158,9 @@ def run_reseparation(project_id: str, job_id: str) -> None:
     try:
         proj, job = _live(project_id, job_id)
     except ReseparationCancelled:
+        # Gone before it started (the song was deleted): the event the route registered
+        # would otherwise count as a running job until the next restart
+        _release_unclaimed_event(main_mod.active_cancellations, project_id)
         return
     cancel_event = main_mod.active_cancellations.setdefault(
         cancel_key(project_id), threading.Event()
