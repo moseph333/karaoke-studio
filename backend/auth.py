@@ -6,9 +6,11 @@ import hmac
 import json
 import logging
 import math
+import os
 import secrets
 import threading
 import time
+from pathlib import Path
 
 from fastapi import HTTPException, Request
 
@@ -28,6 +30,11 @@ _GUESS_FINGERPRINT_KEY = secrets.token_bytes(32)
 # When each client IP's refusal was last logged. Every request a limited client sends with
 # credentials (polling, saves, media) is refused, so it is logged at most once per window.
 _rate_limit_logged: dict[str, float] = {}
+
+# The secret session tokens are signed with, besides the passphrase (see session_signing_key)
+SESSION_SECRET_FILE_NAME = ".session_secret"
+_SESSION_SECRET_LOCK = threading.Lock()
+_session_secrets: dict[str, bytes] = {}
 
 
 def get_client_ip(request: Request) -> str:
@@ -210,6 +217,61 @@ def clear_all_login_failures() -> None:
         _rate_limit_logged.clear()
 
 
+def _session_secret() -> bytes:
+    """The server's own signing secret: SESSION_SECRET if set, else the random secret kept in
+    <data dir>/.session_secret (created on first use, readable by the owner only). If that
+    file cannot be written, a secret for this process alone, so sessions end at restart."""
+    env_secret = (os.getenv("SESSION_SECRET") or "").strip()
+    if env_secret:
+        return env_secret.encode("utf-8")
+    path = Path(config.DATA_DIR) / SESSION_SECRET_FILE_NAME
+    cache_key = str(path)
+    with _SESSION_SECRET_LOCK:
+        cached = _session_secrets.get(cache_key)
+        if cached is not None:
+            return cached
+        secret = _load_or_create_secret(path)
+        _session_secrets[cache_key] = secret
+        return secret
+
+
+def _load_or_create_secret(path: Path) -> bytes:
+    try:
+        existing = path.read_text(encoding="utf-8").strip()
+        if existing:
+            return existing.encode("utf-8")
+    except FileNotFoundError:
+        pass
+    except OSError:
+        logger.warning(f"Could not read {path}; making a new session secret", exc_info=True)
+    secret = secrets.token_hex(32)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            # O_EXCL: of two processes racing to create it, one wins, the other reads its secret
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return path.read_text(encoding="utf-8").strip().encode("utf-8") or secret.encode()
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(secret)
+        return secret.encode("utf-8")
+    except OSError:
+        logger.warning(
+            f"Could not save the session secret to {path}: sessions will end when the server "
+            "restarts. Set SESSION_SECRET or make the data folder writable.",
+            exc_info=True,
+        )
+        return secret.encode("utf-8")
+
+
+def session_signing_key(app_pwd: str) -> bytes:
+    """The key session tokens are signed with: the passphrase keyed with the server's secret.
+
+    Signing with the passphrase alone would let anyone holding one token test passphrase
+    guesses offline. Changing the passphrase (or the secret) still signs everyone out."""
+    return hmac.new(_session_secret(), app_pwd.encode("utf-8"), hashlib.sha256).digest()
+
+
 def create_session_token(app_pwd: str, client_id: str = "user") -> str:
     """Generate a stateless HMAC-SHA256 signed session token.
 
@@ -228,7 +290,7 @@ def create_session_token(app_pwd: str, client_id: str = "user") -> str:
     payload_b64 = base64.urlsafe_b64encode(payload_json.encode("utf-8")).decode("utf-8").rstrip("=")
 
     sig = hmac.new(
-        app_pwd.encode("utf-8"),
+        session_signing_key(app_pwd),
         payload_b64.encode("utf-8"),
         hashlib.sha256,
     ).digest()
@@ -267,7 +329,7 @@ def _token_status(token: str, app_pwd: str, max_age: int = 86400 * 7) -> str:
         expected_sig = (
             base64.urlsafe_b64encode(
                 hmac.new(
-                    app_pwd.encode("utf-8"),
+                    session_signing_key(app_pwd),
                     payload_b64.encode("utf-8"),
                     hashlib.sha256,
                 ).digest()
