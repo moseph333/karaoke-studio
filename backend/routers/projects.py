@@ -231,8 +231,41 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
     return {"project_id": project_id, "status": "queued"}
 
 
+# What a library card shows. GET /api/projects?summary=1 returns only these (plus
+# "summary": true), without each song's lines, word timings and chords.
+SUMMARY_FIELDS = (
+    "id",
+    "track_id",
+    "status",
+    "progress",
+    "title",
+    "artist",
+    "duration",
+    "thumbnail_url",
+    "created_by",
+    "created_at",
+)
+
+
+def _project_summary(proj: dict) -> dict:
+    summary = {field: proj[field] for field in SUMMARY_FIELDS if field in proj}
+    summary["summary"] = True
+    return summary
+
+
 @router.get("/api/projects")
-def list_projects(scope: str | None = "all", user: str | None = None):
+def list_projects(
+    scope: str | None = "all",
+    user: str | None = None,
+    summary: bool = Query(
+        False,
+        description=(
+            "Return only what a library card shows (title, artist, artwork, status, creator) "
+            'and mark each entry "summary": true. Fetch a song in full with '
+            "GET /api/project/{id}."
+        ),
+    ),
+):
     import backend.main as main_mod
 
     merge_disk_projects(main_mod.projects)
@@ -241,13 +274,12 @@ def list_projects(scope: str | None = "all", user: str | None = None):
     # serialised, and a key added meanwhile failed it ("dictionary changed size")
     with PROJECTS_LOCK:
         settle_all_stale_jobs()
-        if scope == "my" and user:
-            return {
-                pid: copy.deepcopy(p)
-                for pid, p in main_mod.projects.items()
-                if p.get("created_by") == user
-            }
-        return copy.deepcopy(main_mod.projects)
+        snapshot = _project_summary if summary else copy.deepcopy
+        return {
+            pid: snapshot(p)
+            for pid, p in main_mod.projects.items()
+            if not (scope == "my" and user) or p.get("created_by") == user
+        }
 
 
 @router.get("/api/project/{project_id}")
