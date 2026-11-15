@@ -34,7 +34,10 @@ async def auth_status(request: Request):
 
 
 @router.post("/api/auth/login")
-def auth_login(req: LoginRequest, request: Request):
+async def auth_login(req: LoginRequest, request: Request):
+    # Async, like the middleware: checking the limit, comparing and counting the failure are
+    # one step on the event loop. In the threadpool, parallel guesses would all pass the check
+    # before any of them was counted.
     client_ip = get_client_ip(request)
     check_login_rate_limit(client_ip)
     clean_username = (req.username or "").strip() or "Friend"
