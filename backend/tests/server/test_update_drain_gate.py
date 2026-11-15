@@ -220,7 +220,7 @@ def test_a_job_reports_itself_while_it_runs_and_clears_when_it_ends():
     assert _jobs_file()["count"] == 0
 
 
-def test_a_job_that_fails_still_clears_its_count():
+def test_a_job_that_fails_still_clears_its_count(caplog):
     event = threading.Event()
     main_mod.active_cancellations["s"] = event
 
@@ -228,10 +228,11 @@ def test_a_job_that_fails_still_clears_its_count():
         background_jobs.release_cancel_event(main_mod.active_cancellations, "s", event)
         raise RuntimeError("boom")
 
-    with pytest.raises(RuntimeError):
-        asyncio.run(background_jobs.run_job(job))
+    # Logged with its traceback rather than raised into the finished response
+    asyncio.run(background_jobs.run_job(job))
 
     assert _jobs_file()["count"] == 0
+    assert "Job job failed" in caplog.text
 
 
 def test_a_failed_write_never_raises(monkeypatch):
