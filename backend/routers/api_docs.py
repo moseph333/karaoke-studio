@@ -18,9 +18,16 @@ from fastapi.responses import HTMLResponse
 OPENAPI_URL = "/api/openapi.json"
 DOCS_URL = "/api/docs"
 
-# Pinned: the page loads it from the CDN at view time
+# Pinned: the page loads it from the CDN at view time. The browser refuses the file unless it
+# matches SCALAR_INTEGRITY, so a tampered CDN copy cannot run on the studio's origin (where it
+# could read the session token). Changing the version means recomputing the hash:
+#   curl -sL <SCALAR_SCRIPT> | openssl dgst -sha384 -binary | openssl base64 -A
 SCALAR_VERSION = "1.76.4"
-SCALAR_SCRIPT = f"https://cdn.jsdelivr.net/npm/@scalar/api-reference@{SCALAR_VERSION}"
+SCALAR_SCRIPT = (
+    f"https://cdn.jsdelivr.net/npm/@scalar/api-reference@{SCALAR_VERSION}"
+    "/dist/browser/standalone.js"
+)
+SCALAR_INTEGRITY = "sha384-hwB9WroDTpZaI38gr+u9CXA6ksz5gUYgD2GxXazKl/agT1L2GWUiRFWGJYNiFu4Q"
 
 API_DESCRIPTION = """\
 The HTTP API behind the Karaoke Studio web app: intake (YouTube or upload), project and
@@ -113,7 +120,7 @@ def docs_page_html(title: str) -> str:
   </head>
   <body>
     <div id="app"></div>
-    <script src="{SCALAR_SCRIPT}"></script>
+    <script src="{SCALAR_SCRIPT}" integrity="{SCALAR_INTEGRITY}" crossorigin="anonymous"></script>
     <script>
       Scalar.createApiReference('#app', {config_json});
     </script>
