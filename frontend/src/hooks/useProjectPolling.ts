@@ -9,15 +9,32 @@
  * bytes). When something finishes, the full project (with the new lines, stems or video) is
  * fetched once and applied in the same update. Large fields that did not change keep their
  * previous objects, so the timeline editor and its rows are not reset.
+ *
+ * After three failed polls the next ones back off (2 s up to 15 s) instead of repeating every
+ * second, and a 401 pauses
+ * polling until the user signs in again (the sign-in prompt is already showing).
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ProjectState } from '../types';
-import { apiFetch } from '../api';
+import { apiFetch, getAuthToken } from '../api';
 
 const POLL_INTERVAL_MS = 1000;
 // Consecutive failed polls before the reconnect banner shows
 const RECONNECT_AFTER_FAILURES = 3;
+// The first failed polls keep the 1 s pace, so the banner shows within seconds; from the
+// third on (other than 404s) the next poll waits 2 s, then 4, 8 and at most 15 s, so a server
+// that is down or erroring is not asked every second. A success goes back to 1 s.
+export const MAX_POLL_BACKOFF_MS = 15_000;
+export const pollBackoffMs = (failures: number): number =>
+  failures < RECONNECT_AFTER_FAILURES
+    ? 0
+    : Math.min(
+        MAX_POLL_BACKOFF_MS,
+        POLL_INTERVAL_MS * 2 ** (failures - RECONNECT_AFTER_FAILURES + 1)
+      );
+const SERVER_ERROR_DETAIL = 'The server had a problem reporting progress. Retrying...';
+const NETWORK_ERROR_DETAIL = 'Network connection interrupted. Reconnecting to server...';
 // Consecutive 404s before the song is reported as gone (the server restarted without it)
 const GIVE_UP_AFTER_NOT_FOUND = 5;
 
@@ -164,6 +181,11 @@ export function useProjectPolling(
   const [isReconnecting, setIsReconnecting] = useState(false);
 
   const consecutiveErrorsRef = useRef(0);
+  // No poll before this time (ms since the epoch): the backoff after failed polls
+  const nextPollAtRef = useRef(0);
+  // While set, the session ended (401): the token at that moment. Polling resumes once a
+  // sign-in stores another one
+  const signedOutTokenRef = useRef<string | null | undefined>(undefined);
   const requestRef = useRef<AbortController | null>(null);
   const projectIdRef = useRef<string | undefined>(project?.id);
   // The project as last rendered, to notice what a status reply finishes
@@ -180,12 +202,14 @@ export function useProjectPolling(
     isJobActive(project?.separation_job) ||
     isJobActive(project?.sync_job);
 
-  const recordFailure = useCallback((notFound: boolean) => {
+  const recordFailure = useCallback((kind: 'not_found' | 'server' | 'network') => {
     consecutiveErrorsRef.current++;
     const count = consecutiveErrorsRef.current;
     setConsecutiveErrors(count);
+    // A 404 keeps its 1 s pace: it gives up after a few tries anyway
+    nextPollAtRef.current = kind === 'not_found' ? 0 : Date.now() + pollBackoffMs(count);
     if (count >= RECONNECT_AFTER_FAILURES) setIsReconnecting(true);
-    if (notFound) {
+    if (kind === 'not_found') {
       if (count >= GIVE_UP_AFTER_NOT_FOUND) {
         setProject((prev) =>
           prev
@@ -199,16 +223,14 @@ export function useProjectPolling(
         );
       }
     } else if (count >= RECONNECT_AFTER_FAILURES) {
-      setProject((prev) =>
-        prev
-          ? { ...prev, status_detail: 'Network connection interrupted. Reconnecting to server...' }
-          : null
-      );
+      const detail = kind === 'server' ? SERVER_ERROR_DETAIL : NETWORK_ERROR_DETAIL;
+      setProject((prev) => (prev ? { ...prev, status_detail: detail } : null));
     }
   }, []);
 
   const recordSuccess = useCallback(() => {
     consecutiveErrorsRef.current = 0;
+    nextPollAtRef.current = 0;
     setConsecutiveErrors(0);
     setIsReconnecting(false);
   }, []);
@@ -218,6 +240,12 @@ export function useProjectPolling(
     // One request at a time: on a slow connection replies could otherwise overlap and land
     // out of order
     if (!requestedId || requestRef.current) return;
+    if (signedOutTokenRef.current !== undefined) {
+      if (getAuthToken() === signedOutTokenRef.current) return; // still signed out
+      signedOutTokenRef.current = undefined;
+      nextPollAtRef.current = 0;
+    }
+    if (Date.now() < nextPollAtRef.current) return;
     const controller = new AbortController();
     requestRef.current = controller;
     // The reply is for the song still open (the user may have opened another, or none)
@@ -229,8 +257,14 @@ export function useProjectPolling(
         signal: controller.signal,
       });
       if (projectIdRef.current !== requestedId) return;
+      if (res.status === 401) {
+        // apiFetch has asked the user to sign in again; polling without a session would
+        // only fail (and count against the login limit) until they do
+        signedOutTokenRef.current = getAuthToken();
+        return;
+      }
       if (!res.ok) {
-        recordFailure(res.status === 404);
+        recordFailure(res.status === 404 ? 'not_found' : 'server');
         return;
       }
       const status: ProjectStatus = await res.json();
@@ -246,7 +280,7 @@ export function useProjectPolling(
         });
         if (projectIdRef.current !== requestedId) return;
         if (!full.ok) {
-          recordFailure(full.status === 404);
+          recordFailure(full.status === 404 ? 'not_found' : 'server');
           return;
         }
         const data: ProjectState = await full.json();
@@ -260,7 +294,7 @@ export function useProjectPolling(
     } catch (err) {
       if (controller.signal.aborted) return;
       console.error('Failed to poll project status:', err);
-      recordFailure(false);
+      recordFailure('network');
     } finally {
       if (requestRef.current === controller) requestRef.current = null;
     }
@@ -270,6 +304,8 @@ export function useProjectPolling(
     requestRef.current?.abort();
     requestRef.current = null;
     consecutiveErrorsRef.current = 0;
+    nextPollAtRef.current = 0;
+    signedOutTokenRef.current = undefined;
     setConsecutiveErrors(0);
     setIsReconnecting(false);
     void pollStatus();
