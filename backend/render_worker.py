@@ -7,6 +7,7 @@ from pathlib import Path
 
 from backend.background_jobs import release_cancel_event
 from backend.config import BACKGROUNDS_DIR, OUTPUT_DIR
+from backend.errors import public_error
 from backend.project_analysis import chords_for_export, estimated_key, youtube_package
 from backend.project_store import (
     PROJECTS_LOCK,
@@ -250,8 +251,8 @@ def run_video_render(project_id: str, req: RenderRequest):
                     proj["render_progress"] = 0
                 else:
                     proj["render_status"] = "error"
-                    proj["render_error"] = str(e)
-                    proj["render_detail"] = f"Render error: {e}"
+                    proj["render_error"] = public_error(e)
+                    proj["render_detail"] = f"Render error: {public_error(e)}"
                 save_projects()
         if proj is None:
             logger.info(

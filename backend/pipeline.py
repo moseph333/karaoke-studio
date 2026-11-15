@@ -11,6 +11,7 @@ import soundfile as sf
 
 from backend.background_jobs import release_cancel_event
 from backend.config import DOWNLOADS_DIR
+from backend.errors import public_error
 from backend.master_audio import master_fields
 from backend.project_analysis import ensure_chords, ensure_vocal_range, usable_file
 from backend.project_store import (
@@ -406,8 +407,8 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
                 proj["progress"] = 0
             else:
                 proj["status"] = "error"
-                proj["error"] = str(e)
-                proj["status_detail"] = f"Error: {e}"
+                proj["error"] = public_error(e)
+                proj["status_detail"] = f"Error: {public_error(e)}"
             save_projects()
         else:
             logger.info(
@@ -596,8 +597,8 @@ def run_local_pipeline(
                 proj["progress"] = 0
             else:
                 proj["status"] = "error"
-                proj["error"] = str(e)
-                proj["status_detail"] = f"Error: {e}"
+                proj["error"] = public_error(e)
+                proj["status_detail"] = f"Error: {public_error(e)}"
             save_projects()
         else:
             logger.info(
