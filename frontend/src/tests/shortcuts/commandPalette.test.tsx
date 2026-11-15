@@ -3,6 +3,7 @@
  * navigation, recents, live sources, and the studio commands registered by the app.
  */
 
+import { loadDeferredScreens } from '../../deferredScreens';
 import React, { useState } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -364,3 +365,6 @@ describe('studio commands', () => {
     await waitFor(() => expect(screen.queryByText('Palette Anthem')).not.toBeInTheDocument());
   });
 });
+
+// The studio, dialogs and palette are deferred chunks: with them loaded they render at once
+beforeAll(() => loadDeferredScreens());

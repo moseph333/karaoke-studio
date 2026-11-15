@@ -43,13 +43,91 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Karaoke Studio</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Theme Fonts: Sora, Inter, Montserrat, Courier Prime, Fraunces, VT323, Space Grotesk, Share Tech Mono, JetBrains Mono -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700;9..144,800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Montserrat:wght@600;700;800&family=Share+Tech+Mono&family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=VT323&display=swap"
-      rel="stylesheet"
+    <meta
+      name="description"
+      content="Turn any song into karaoke: word-by-word synced lyrics, a clean instrumental, key control and 1080p video exports."
     />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Karaoke Studio" />
+    <meta property="og:title" content="Karaoke Studio: turn any song into karaoke" />
+    <meta
+      property="og:description"
+      content="Word-by-word synced lyrics, a clean instrumental, key control and 1080p video exports."
+    />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- Boot shell: the header and a quiet outline of the page, painted from this file alone
+         while the app's script loads. React replaces it when it mounts. Colours come from the
+         theme variables in the stylesheet, with the default theme as fallback. Its brand name
+         is set in the theme's heading face, which starts that font file downloading alongside
+         the script, so headings do not flash in a fallback face when the app appears. -->
+    <style>
+      .boot-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 3.5rem;
+        padding: 0 16px;
+        border-bottom: 1px solid var(--theme-border-subtle, #26263a);
+        font: 700 1rem/1 var(--theme-font-heading, Sora, Inter, system-ui, sans-serif);
+        letter-spacing: -0.01em;
+      }
+      .boot-mark {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--theme-radius-md, 12px);
+        background: var(--theme-gradient-accent, linear-gradient(135deg, #7c3aed, #db2777));
+      }
+      .boot-page {
+        display: grid;
+        gap: 32px;
+        max-width: 72rem;
+        margin: 0 auto;
+        padding: 40px 16px;
+      }
+      .boot-block {
+        border-radius: var(--theme-radius-xl, 24px);
+        background: var(--theme-surface, #14141f);
+        border: 1px solid var(--theme-border-subtle, #26263a);
+        animation: boot-pulse 1.4s ease-in-out infinite alternate;
+      }
+      .boot-block.a {
+        height: 20rem;
+      }
+      .boot-block.b {
+        height: 14rem;
+      }
+      @keyframes boot-pulse {
+        from {
+          opacity: 0.45;
+        }
+        to {
+          opacity: 0.9;
+        }
+      }
+      @media (min-width: 1024px) {
+        .boot-bar {
+          padding: 0 24px;
+        }
+        .boot-page {
+          grid-template-columns: 1.05fr 0.95fr;
+          gap: 48px;
+          padding: 64px 32px;
+        }
+        .boot-block.a,
+        .boot-block.b {
+          height: 22rem;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-block {
+          animation: none;
+          opacity: 0.7;
+        }
+      }
+    </style>
   </head>
   <body
     class="min-h-screen"
@@ -59,7 +137,16 @@
       font-family: var(--theme-font-body);
     "
   >
-    <div id="root"></div>
+    <div id="root">
+      <div aria-hidden="true">
+        <div class="boot-bar"><span class="boot-mark"></span>Karaoke Studio</div>
+        <div class="boot-page">
+          <div class="boot-block a"></div>
+          <div class="boot-block b"></div>
+        </div>
+      </div>
+    </div>
+    <noscript>Karaoke Studio needs JavaScript to run.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

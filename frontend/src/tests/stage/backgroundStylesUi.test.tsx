@@ -3,6 +3,7 @@
  * each style, the export-matching lyric outline, and the command palette entries.
  */
 
+import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -224,3 +225,6 @@ describe('render requests and palette commands', () => {
     );
   });
 });
+
+// The studio, dialogs and palette are deferred chunks: with them loaded they render at once
+beforeAll(() => loadDeferredScreens());

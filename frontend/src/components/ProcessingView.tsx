@@ -4,7 +4,8 @@
  *
  * The pipeline progress screen: a progress ring, the current stage and its detail, the
  * engine heartbeat, a 5-stage stepper, elapsed/remaining timers, a reconnect banner with
- * Retry, and a two-step cancel. Also renders the cancelled and failed end states.
+ * Retry, tips for the wait, and a two-step cancel. Also renders the cancelled and failed end
+ * states.
  */
 
 import React from 'react';
@@ -23,6 +24,7 @@ import {
 import { ProjectState } from '../types';
 import { ProgressRing } from './ui/Progress';
 import { InlineConfirm } from './ui/InlineConfirm';
+import { ProcessingTips } from './ProcessingTips';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 import { formatHeartbeat, formatTimer } from '../utils/format';
@@ -164,7 +166,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
   }
 
   return (
-    <div className="mx-auto w-full max-w-xl py-4 font-theme-body sm:py-10">
+    <div className="mx-auto w-full max-w-xl py-4 font-theme-body motion-safe:animate-rise-in sm:py-10">
       <div className={cardCls}>
         <div
           aria-hidden="true"
@@ -364,6 +366,8 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
               </span>
             </div>
           </div>
+
+          <ProcessingTips />
 
           <div className="pt-1">
             <InlineConfirm

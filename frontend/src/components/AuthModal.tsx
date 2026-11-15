@@ -126,11 +126,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             id="auth-modal-title"
             className="font-theme-heading text-2xl font-extrabold tracking-tight text-theme-text"
           >
-            {canDismiss ? 'Switch Profile' : 'Studio Access Gate'}
+            {canDismiss ? 'Switch Profile' : 'Welcome to Karaoke Studio'}
           </h2>
           <p id="auth-modal-desc" className="text-sm text-theme-text-muted">
             {requirePassword
-              ? 'Enter the shared studio passphrase and your nickname to start producing tracks.'
+              ? 'Enter the passphrase you were given and pick a name for your songs.'
               : 'Choose the nickname your new tracks are tagged with.'}
           </p>
         </div>

@@ -5,22 +5,23 @@
  * state transitions, active studio dashboard, global keyboard shortcuts, and dialog modals.
  */
 
-import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { TrackSearch } from './components/TrackSearch';
 import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
 import { RenderProgressAnnouncer } from './components/RenderProgressAnnouncer';
 import { StudioModals } from './components/StudioModals';
 import { InstallAppDialog } from './components/InstallAppDialog';
-import { StudioWorkspace } from './components/studio/StudioWorkspace';
-import { TransportDock } from './components/transport/TransportDock';
-import { LyricLine, SyncDisplayMode, StudioWorkspaceTab } from './types';
+import { StudioSkeleton, WhenShown } from './components/studio/StudioSkeleton';
+import { StudioWorkspace, TransportDock } from './deferredScreens';
+import { LyricLine, ProjectState, SyncDisplayMode, StudioWorkspaceTab } from './types';
 import { useProjectChords } from './hooks/useProjectChords';
 import { useTrackIntake } from './hooks/useTrackIntake';
 import { useQualityJobs } from './hooks/useQualityJobs';
 import { apiFetch, readApiError } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useRenderOutcomeToast } from './hooks/useRenderOutcomeToast';
+import { useFirstSongHint } from './hooks/useFirstSongHint';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useServerUpdatePrompt } from './hooks/useServerUpdatePrompt';
@@ -107,6 +108,42 @@ export const AppContent: React.FC = () => {
     [setProject, queueSeek]
   );
 
+  // A library card: the list holds card-sized entries (marked `summary`), so the song is
+  // fetched in full first. Other callers (uploads, tests' fixtures) pass whole songs.
+  const [openingProjectId, setOpeningProjectId] = useState<string | null>(null);
+  const openingRef = useRef<string | null>(null);
+  const openLibraryProject = useCallback(
+    (p: ProjectState) => {
+      setActiveWorkspaceTab('stage');
+      if (!p.summary) {
+        setProject(p);
+        return;
+      }
+      openingRef.current = p.id;
+      setOpeningProjectId(p.id);
+      apiFetch(`/api/project/${p.id}`)
+        .then(async (res) => {
+          if (!res.ok) throw new Error(await readApiError(res, 'Could not open this song'));
+          return res.json();
+        })
+        .then((data: ProjectState) => {
+          // Another card chosen meanwhile wins
+          if (openingRef.current === p.id) setProject(data);
+        })
+        .catch((err) => {
+          if (openingRef.current !== p.id) return;
+          console.error('Failed to open project', err);
+          toast.error(err instanceof Error ? err.message : 'Could not open this song');
+        })
+        .finally(() => {
+          if (openingRef.current !== p.id) return;
+          openingRef.current = null;
+          setOpeningProjectId(null);
+        });
+    },
+    [setProject, toast]
+  );
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const projectId = params.get('project');
@@ -156,6 +193,8 @@ export const AppContent: React.FC = () => {
   const isStudioReady = Boolean(project && project.status === 'ready');
   const openExport = useCallback(() => setIsExportOpen(true), []);
   useRenderOutcomeToast(project, openExport);
+  // First finished song in this browser: say what to do next, once
+  useFirstSongHint(isStudioReady, () => setShowHelpModal(true));
 
   // The tab title names the open song (and its progress while it is processed)
   const title = pageTitle(project);
@@ -168,12 +207,22 @@ export const AppContent: React.FC = () => {
   // at its top instead of on the page body
   const view = !project ? 'library' : isStudioReady ? 'studio' : 'processing';
   const previousViewRef = useRef(view);
+  const headingFocusPending = useRef(false);
+  const focusViewHeading = useCallback(() => {
+    const heading = document.querySelector<HTMLElement>('main [data-view-heading]');
+    // The studio's code may still be loading: its heading takes focus once it is shown
+    headingFocusPending.current = !heading;
+    if (!heading || isModalActive() || isInputElement(document.activeElement)) return;
+    focusQuietly(heading);
+  }, []);
   useEffect(() => {
     if (previousViewRef.current === view) return;
     previousViewRef.current = view;
-    if (isModalActive() || isInputElement(document.activeElement)) return;
-    focusQuietly(document.querySelector<HTMLElement>('main [data-view-heading]'));
-  }, [view]);
+    focusViewHeading();
+  }, [view, focusViewHeading]);
+  const handleStudioShown = useCallback(() => {
+    if (headingFocusPending.current) focusViewHeading();
+  }, [focusViewHeading]);
 
   const { chordHistory, handleEditChord } = useProjectChords({
     project,
@@ -436,10 +485,8 @@ export const AppContent: React.FC = () => {
                 onUploadTrack={intake.handleUploadTrack}
                 separationQuality={intake.separationQuality}
                 onSeparationQualityChange={intake.setSeparationQuality}
-                onOpenProject={(p) => {
-                  setProject(p);
-                  setActiveWorkspaceTab('stage');
-                }}
+                onOpenProject={openLibraryProject}
+                openingProjectId={openingProjectId}
                 isLoading={intake.loading}
                 currentUser={currentUser}
                 authToken={authToken}
@@ -457,56 +504,61 @@ export const AppContent: React.FC = () => {
                 }}
               />
             ) : (
-              <StudioWorkspace
-                project={project}
-                activeTab={activeWorkspaceTab}
-                onSelectTab={setActiveWorkspaceTab}
-                hasUnsavedChanges={isLyricsDirty || chordHistory.isDirty}
-                onLyricsDirtyChange={setIsLyricsDirty}
-                onSaveLines={handlers.saveLines}
-                onEditChord={handleEditChord}
-                onOpenEditModal={handlers.openEditModal}
-                onOpenDeleteModal={handlers.openDeleteModal}
-                onCustomInstrumentalUploaded={handlers.customInstrumentalUploaded}
-                audio={audio}
-                mix={mix}
-                theme={theme}
-                showVisualizer={showVisualizer}
-                onToggleVisualizer={handleToggleVisualizer}
-                showChordBar={showChordBar}
-                onToggleChordBar={handleToggleChordBar}
-                quality={quality}
-              />
+              <Suspense fallback={<StudioSkeleton />}>
+                <WhenShown onShown={handleStudioShown} />
+                <StudioWorkspace
+                  project={project}
+                  activeTab={activeWorkspaceTab}
+                  onSelectTab={setActiveWorkspaceTab}
+                  hasUnsavedChanges={isLyricsDirty || chordHistory.isDirty}
+                  onLyricsDirtyChange={setIsLyricsDirty}
+                  onSaveLines={handlers.saveLines}
+                  onEditChord={handleEditChord}
+                  onOpenEditModal={handlers.openEditModal}
+                  onOpenDeleteModal={handlers.openDeleteModal}
+                  onCustomInstrumentalUploaded={handlers.customInstrumentalUploaded}
+                  audio={audio}
+                  mix={mix}
+                  theme={theme}
+                  showVisualizer={showVisualizer}
+                  onToggleVisualizer={handleToggleVisualizer}
+                  showChordBar={showChordBar}
+                  onToggleChordBar={handleToggleChordBar}
+                  quality={quality}
+                />
+              </Suspense>
             )}
           </main>
 
           {/* Transport dock: fixed mini-player on phones, docked bar on desktop */}
           {isStudioReady && project && (
-            <TransportDock
-              masterAudioUrl={project.master_audio_url}
-              lines={project.lines}
-              duration={duration}
-              isPlaying={isPlaying}
-              onTogglePlay={audio.handleTogglePlay}
-              onSeek={audio.handleSeek}
-              audioRef={audioRef}
-              onTimeUpdate={audio.handleTimeUpdate}
-              onLoadedMetadata={audio.handleLoadedMetadata}
-              onEnded={handlers.playbackEnded}
-              onPlaybackError={handlers.playbackError}
-              initialMuted={isMuted}
-              onMuteChange={audio.setIsMuted}
-              playbackRate={audio.playbackRate}
-              onPlaybackRateChange={audio.setPlaybackRate}
-              semitones={mix.semitones}
-              isRemixing={mix.isRemixing}
-              onOpenMixSettings={handleOpenMixSettings}
-              peaks={waveform.peaks}
-              peaksPending={!waveform.settled}
-              mediaTitle={project.title}
-              mediaArtist={project.artist}
-              mediaArtworkUrl={project.thumbnail_url}
-            />
+            <Suspense fallback={null}>
+              <TransportDock
+                masterAudioUrl={project.master_audio_url}
+                lines={project.lines}
+                duration={duration}
+                isPlaying={isPlaying}
+                onTogglePlay={audio.handleTogglePlay}
+                onSeek={audio.handleSeek}
+                audioRef={audioRef}
+                onTimeUpdate={audio.handleTimeUpdate}
+                onLoadedMetadata={audio.handleLoadedMetadata}
+                onEnded={handlers.playbackEnded}
+                onPlaybackError={handlers.playbackError}
+                initialMuted={isMuted}
+                onMuteChange={audio.setIsMuted}
+                playbackRate={audio.playbackRate}
+                onPlaybackRateChange={audio.setPlaybackRate}
+                semitones={mix.semitones}
+                isRemixing={mix.isRemixing}
+                onOpenMixSettings={handleOpenMixSettings}
+                peaks={waveform.peaks}
+                peaksPending={!waveform.settled}
+                mediaTitle={project.title}
+                mediaArtist={project.artist}
+                mediaArtworkUrl={project.thumbnail_url}
+              />
+            </Suspense>
           )}
           {isStudioReady && project && <RenderProgressAnnouncer project={project} />}
         </div>

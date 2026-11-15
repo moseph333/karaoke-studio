@@ -1,3 +1,4 @@
+import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, fireEvent, renderHook } from '@testing-library/react';
@@ -507,3 +508,6 @@ describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
     });
   });
 });
+
+// The studio, dialogs and palette are deferred chunks: with them loaded they render at once
+beforeAll(() => loadDeferredScreens());

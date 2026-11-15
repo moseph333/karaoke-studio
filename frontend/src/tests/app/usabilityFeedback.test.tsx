@@ -167,7 +167,7 @@ describe('switching profile', () => {
     const onClose = vi.fn();
     render(<AuthModal isOpen onSuccess={vi.fn()} onClose={onClose} />);
 
-    expect(screen.getByRole('heading', { name: 'Studio Access Gate' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Welcome to Karaoke Studio' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
     await user.keyboard('{Escape}');
     expect(onClose).not.toHaveBeenCalled();

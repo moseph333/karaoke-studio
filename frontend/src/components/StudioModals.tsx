@@ -5,13 +5,11 @@
  * Help/Usage Guide, Project Deletion, Metadata Editing and stem re-separation).
  */
 
-import React from 'react';
-import { ExportModal } from './ExportModal';
+import React, { Suspense, useState } from 'react';
 import { AuthModal } from './AuthModal';
-import { HelpModal } from './HelpModal';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { EditMetadataModal } from './EditMetadataModal';
-import { ReseparateDialog } from './quality/ReseparateDialog';
+import { ExportModal, HelpModal, ReseparateDialog } from '../deferredScreens';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 import type { UseQualityJobsReturn } from '../hooks/useQualityJobs';
 
@@ -91,10 +89,20 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   quality,
   hasUnsavedLyricEdits = false,
 }) => {
+  // The export, help and stem dialogs are deferred chunks (see deferredScreens.ts). Each is
+  // mounted from the first time it is opened, so a closed dialog fetches nothing.
+  const [exportOpened, setExportOpened] = useState(isExportOpen);
+  if (isExportOpen && !exportOpened) setExportOpened(true);
+  const [helpOpened, setHelpOpened] = useState(showHelpModal);
+  if (showHelpModal && !helpOpened) setHelpOpened(true);
+  const isReseparateOpen = Boolean(quality?.isReseparateOpen);
+  const [reseparateOpened, setReseparateOpened] = useState(isReseparateOpen);
+  if (isReseparateOpen && !reseparateOpened) setReseparateOpened(true);
+
   return (
-    <>
+    <Suspense fallback={null}>
       {/* Export & YouTube Package Modal */}
-      {project && (
+      {project && exportOpened && (
         <ExportModal
           project={project}
           isOpen={isExportOpen}
@@ -125,7 +133,7 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
       />
 
       {/* Help & Usage Guide Modal */}
-      <HelpModal isOpen={showHelpModal} onClose={onCloseHelp} />
+      {helpOpened && <HelpModal isOpen={showHelpModal} onClose={onCloseHelp} />}
 
       {/* Studio Project Delete Modal */}
       <DeleteConfirmModal
@@ -154,7 +162,7 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
       />
 
       {/* Re-make the stems at another quality */}
-      {project && quality && (
+      {project && quality && reseparateOpened && (
         <ReseparateDialog
           isOpen={quality.isReseparateOpen}
           onClose={quality.closeReseparate}
@@ -163,6 +171,6 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
           onSubmit={quality.startReseparation}
         />
       )}
-    </>
+    </Suspense>
   );
 };

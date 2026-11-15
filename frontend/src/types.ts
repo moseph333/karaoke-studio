@@ -175,6 +175,9 @@ export interface RealignLineResult {
 
 export interface ProjectState {
   id: string;
+  /** A card-sized entry from GET /api/projects?summary=1: no lines, chords or media URLs.
+   * The song is fetched in full (GET /api/project/{id}) before it is opened. */
+  summary?: boolean;
   status:
     | 'queued'
     | 'processing'

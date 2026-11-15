@@ -20,6 +20,7 @@
  *      and playback rate continuity during all UI interactions.
  */
 
+import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react';
@@ -748,3 +749,6 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
     });
   });
 });
+
+// The studio, dialogs and palette are deferred chunks: with them loaded they render at once
+beforeAll(() => loadDeferredScreens());

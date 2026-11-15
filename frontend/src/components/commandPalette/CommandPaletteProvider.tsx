@@ -5,7 +5,7 @@
  * shortcut. The palette itself mounts only while open.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CommandPaletteContext,
   CommandPaletteContextValue,
@@ -13,7 +13,7 @@ import {
   PaletteCommand,
   PaletteSource,
 } from './context';
-import { CommandPalette } from './CommandPalette';
+import { CommandPalette } from '../../deferredScreens';
 import { isModalActive } from '../../hooks/useKeyboardShortcuts';
 
 export interface CommandPaletteProviderProps {
@@ -96,12 +96,15 @@ export const CommandPaletteProvider: React.FC<CommandPaletteProviderProps> = ({
     <CommandPaletteContext.Provider value={value}>
       {children}
       {isOpen && enabled && (
-        <CommandPalette
-          onClose={close}
-          getCommands={getCommands}
-          getSources={getSources}
-          registryVersion={registryVersion}
-        />
+        // Its code is a deferred chunk (deferredScreens.ts), normally preloaded by now
+        <Suspense fallback={null}>
+          <CommandPalette
+            onClose={close}
+            getCommands={getCommands}
+            getSources={getSources}
+            registryVersion={registryVersion}
+          />
+        </Suspense>
       )}
     </CommandPaletteContext.Provider>
   );
