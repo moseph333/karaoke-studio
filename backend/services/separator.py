@@ -214,6 +214,20 @@ class AudioSeparator:
             if child.is_dir():
                 shutil.rmtree(child, ignore_errors=True)
 
+    def has_cached_stems(self, track_id: str, model_name: str | None) -> bool:
+        """Whether valid stems for track_id already serve a request at model_name, so
+        separate_stems() would run nothing (see the cache rule there)."""
+        target_dir = self.output_base_dir / track_id
+        if not (
+            self._is_valid_stem(target_dir / "vocals.wav")
+            and self._is_valid_stem(target_dir / "instrumental.wav")
+        ):
+            return False
+        cached = read_provenance(target_dir)
+        return preset_rank((cached or {}).get("preset")) >= preset_rank(
+            resolve_plan(model_name).preset
+        )
+
     def separate_stems(
         self,
         audio_path: str,

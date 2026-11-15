@@ -8,9 +8,16 @@ when the GPU could compute it (kept by emission_cache, so lyric alignment skips 
 step here). When the service cannot be reached, or no GPU starts
 the job within SEPARATION_REMOTE_QUEUE_SEC, RemoteUnavailable tells the separator to skip the
 other cloud presets and fall back to Fast here.
+
+warm_up() starts a GPU container when a song's intake begins, so that Modal finds a GPU and
+boots the image while the audio downloads; the container then waits
+SEPARATION_REMOTE_SCALEDOWN_SEC for the separation. The pipeline repeats it while a download
+runs (at most every WARMUP_INTERVAL_SECONDS, under that window) so the container stays up.
 """
 
 import logging
+import os
+import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -18,13 +25,78 @@ from typing import Any
 
 from backend.services import emission_cache
 from backend.services.modal_jobs import STARTED, RemoteOutcome, RemoteUnavailable, run_modal_job
-from backend.services.separation_presets import SeparationPlan
+from backend.services.separation_presets import (
+    REMOTE_REALTIME_FACTORS,
+    SeparationPlan,
+    remote_app_name,
+    remote_backend,
+    remote_status,
+)
 
 logger = logging.getLogger(__name__)
 
 FUNCTION_NAME = "separate"
+# Shorter than the GPU container's default 30 s scale-down window, so repeated warm-ups during
+# a long download keep one container up
+WARMUP_INTERVAL_SECONDS = 20.0
 
-__all__ = ["FUNCTION_NAME", "STARTED", "RemoteOutcome", "RemoteUnavailable", "run_remote"]
+_warmup_lock = threading.Lock()
+_last_warmup: float | None = None
+
+__all__ = [
+    "FUNCTION_NAME",
+    "STARTED",
+    "RemoteOutcome",
+    "RemoteUnavailable",
+    "run_remote",
+    "warm_up",
+]
+
+
+def prewarm_enabled() -> bool:
+    """SEPARATION_REMOTE_PREWARM (default on): start a cloud GPU when a song's intake begins."""
+    value = (os.getenv("SEPARATION_REMOTE_PREWARM") or "1").strip().lower()
+    return value not in ("0", "false", "no", "off")
+
+
+def _spawn_warmup() -> None:
+    global _last_warmup
+    try:
+        import modal
+
+        modal.Function.from_name(remote_app_name(), FUNCTION_NAME).spawn(warmup=True)
+    except Exception as exc:
+        with _warmup_lock:
+            _last_warmup = None  # let the next call try again
+        logger.warning(f"Could not start a cloud GPU ahead of the separation: {exc}")
+        return
+    logger.info("Started a cloud GPU ahead of a separation")
+
+
+def warm_up(preset: str | None, background: bool = False) -> str:
+    """Start a cloud GPU for a separation at `preset` that is about to run, without waiting.
+
+    Returns "warming", "off" (the preset runs locally, or cloud separation or warm-ups are
+    off), "recent" (one was started less than WARMUP_INTERVAL_SECONDS ago) or, when not in
+    the background, "failed". With background=True the request to Modal is made on a thread
+    of its own, so a slow connection never holds the caller up. Never raises.
+    """
+    global _last_warmup
+    if preset not in REMOTE_REALTIME_FACTORS or not prewarm_enabled() or not remote_backend():
+        return "off"
+    if not remote_status()[0]:
+        return "off"
+    with _warmup_lock:
+        now = time.monotonic()
+        if _last_warmup is not None and now - _last_warmup < WARMUP_INTERVAL_SECONDS:
+            return "recent"
+        _last_warmup = now
+    if background:
+        threading.Thread(target=_spawn_warmup, name="gpu-warmup", daemon=True).start()
+        return "warming"
+    _spawn_warmup()
+    with _warmup_lock:
+        return "failed" if _last_warmup is None else "warming"
 
 
 def _save_stems(result: dict, out_dir: Path) -> None:
