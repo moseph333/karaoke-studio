@@ -1,6 +1,7 @@
 """Central configuration for directory paths, authentication secrets, rate limits, worker concurrency limits, default video/audio specifications, and allowed CORS origins."""
 
 import json
+import logging
 import os
 import subprocess
 import time
@@ -10,6 +11,8 @@ from typing import Any
 # Base Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_APP_VERSION = "v2.7.0"  # x-release-please-version
+
+logger = logging.getLogger("karaoke_backend")
 
 
 def _git_cmd(args: list[str], timeout: float = 3.0) -> str:
@@ -282,18 +285,33 @@ DISK_MIN_FREE_MB = _min_free_mb(os.getenv("DISK_MIN_FREE_MB"))
 
 
 # Allowed Origins for CORS (with support for comma-separated ALLOWED_ORIGINS env var)
-raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
-if raw_origins:
-    ALLOWED_ORIGINS = [orig.strip() for orig in raw_origins.split(",") if orig.strip()]
-else:
-    ALLOWED_ORIGINS = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ]
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
+
+def parse_allowed_origins(raw: str | None) -> list[str]:
+    """ALLOWED_ORIGINS from its setting; unset or empty gives the local dev origins.
+
+    A "*" is dropped: with credentials allowed, Starlette answers it by echoing any Origin
+    back, which would let every website read the API with the visitor's session."""
+    origins = [orig.strip() for orig in (raw or "").split(",") if orig.strip()]
+    if not origins:
+        return list(DEFAULT_ALLOWED_ORIGINS)
+    if "*" in origins:
+        logger.warning(
+            "ALLOWED_ORIGINS contains '*', which is ignored: list the studio's origins instead"
+        )
+        origins = [orig for orig in origins if orig != "*"]
+    return origins
+
+
+ALLOWED_ORIGINS = parse_allowed_origins(os.getenv("ALLOWED_ORIGINS"))
 
 
 # Default Video Configuration
