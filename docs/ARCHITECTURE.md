@@ -139,7 +139,7 @@ Stem, master and rendered video URLs carry a `?v=` version after a re-separation
 | `GET /api/project/{id}/backdrop` | the cover art as exports draw it (`aspect`, `drift`), PNG cached in the output folder |
 | `POST /api/project/{id}/render`, `POST …/cancel-render` | video render |
 | `POST /api/render/warmup` | start a cloud CPU ahead of an export (202; nothing happens for local renders) |
-| `POST /api/project/{id}/cancel`, `DELETE /api/project/{id}` | cancel processing, delete a song and its files |
+| `POST /api/project/{id}/cancel`, `DELETE /api/project/{id}` | cancel processing (like `cancel-render`, it acts only on a running job and answers `cancelled: false` otherwise, creating no cancel event), delete a song and its files |
 | `GET /api/project/{id}/export/{lrc,ass,chord-sheet}`, `…/export/audio/{stem}` | exports |
 | `GET /api/project/{id}/youtube-package` | YouTube title, description, tags and chapters |
 

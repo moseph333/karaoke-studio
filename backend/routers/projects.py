@@ -17,6 +17,7 @@ from fastapi.responses import FileResponse
 from backend import realignment
 from backend.background_jobs import (
     BUSY_PIPELINE_STATES,
+    RENDER_ACTIVE_STATES,
     SEPARATION_JOB,
     job_active,
     run_job,
@@ -924,43 +925,59 @@ def warm_up_render(bg_tasks: BackgroundTasks):
 
 @router.post("/api/project/{project_id}/cancel")
 def cancel_project(project_id: str):
+    """Cancels the song's intake if one is running. Only the cancel events a running job
+    registered are set, and the status changes only while the intake is busy: a cancel that
+    arrives once the song is ready (a race, or a second tab) leaves it ready, and leaves no
+    set event behind for a later job to trip over. cancelled says whether anything was."""
     import backend.main as main_mod
 
     # The signal goes out at once; the status is written under the lock
-    main_mod.active_cancellations.setdefault(project_id, threading.Event()).set()
+    _signal_cancel(main_mod.active_cancellations, project_id)
     with PROJECTS_LOCK:
         proj = find_project(project_id)
+        busy = bool(proj) and proj.get("status") in BUSY_PIPELINE_STATES
         if proj:
-            track_id = proj.get("track_id")
-            if track_id and track_id != project_id:
-                main_mod.active_cancellations.setdefault(track_id, threading.Event()).set()
+            for key in (proj.get("id"), proj.get("track_id")):
+                if key and key != project_id:
+                    _signal_cancel(main_mod.active_cancellations, key)
+        if busy:
             proj["status"] = "cancelled"
             proj["status_detail"] = "Processing cancelled by user"
             proj["progress"] = 0
             save_projects()
-    return {"status": "ok"}
+    return {"status": "ok", "cancelled": busy}
 
 
 @router.post("/api/project/{project_id}/cancel-render")
 def cancel_render(project_id: str):
+    """Cancels the song's render if one is queued or running, on the same terms as
+    cancel_project: a render that already finished keeps its result, and the next render
+    does not start out cancelled."""
     import backend.main as main_mod
 
-    render_key = f"{project_id}_render"
     # The signal goes out at once; the status is written under the lock
-    main_mod.active_cancellations.setdefault(render_key, threading.Event()).set()
+    _signal_cancel(main_mod.active_cancellations, f"{project_id}_render")
     with PROJECTS_LOCK:
         proj = find_project(project_id)
+        busy = bool(proj) and proj.get("render_status") in RENDER_ACTIVE_STATES
         if proj:
-            track_id = proj.get("track_id")
-            if track_id and track_id != project_id:
-                main_mod.active_cancellations.setdefault(
-                    f"{track_id}_render", threading.Event()
-                ).set()
+            for key in (proj.get("id"), proj.get("track_id")):
+                if key and key != project_id:
+                    _signal_cancel(main_mod.active_cancellations, f"{key}_render")
+        if busy:
             proj["render_status"] = "idle"
             proj["render_detail"] = "Rendering cancelled by user"
             proj["render_progress"] = 0
             save_projects()
-    return {"status": "ok"}
+    return {"status": "ok", "cancelled": busy}
+
+
+def _signal_cancel(active_cancellations: dict, key: str) -> None:
+    """Sets the cancel event a job registered under key, if there is one. Never creates one:
+    an event made here would outlive the job it was meant for and cancel the next."""
+    event = active_cancellations.get(key)
+    if event is not None:
+        event.set()
 
 
 # What a delete answers when even its retried save fails: unlike an edit, half of it happened

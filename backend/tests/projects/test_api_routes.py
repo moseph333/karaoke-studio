@@ -1104,19 +1104,20 @@ class TestRouteHappyPaths:
         assert res.json()["status"] == "queued"
 
     def test_cancel_endpoints_happy_path(self, client, test_project_factory):
-        """Cancel endpoints trigger cancellation events and update project status."""
-        proj = test_project_factory()
+        """Cancel endpoints cancel a running intake or render and update its status."""
+        proj = test_project_factory(status="separating")
+        projects[proj["id"]]["render_status"] = "rendering"
 
         # Cancel pipeline
         res_cancel = client.post(f"/api/project/{proj['id']}/cancel")
         assert res_cancel.status_code == 200
-        assert res_cancel.json()["status"] == "ok"
+        assert res_cancel.json() == {"status": "ok", "cancelled": True}
         assert projects[proj["id"]]["status"] == "cancelled"
 
         # Cancel render
         res_render = client.post(f"/api/project/{proj['id']}/cancel-render")
         assert res_render.status_code == 200
-        assert res_render.json()["status"] == "ok"
+        assert res_render.json() == {"status": "ok", "cancelled": True}
         assert projects[proj["id"]]["render_status"] == "idle"
 
     def test_youtube_package_happy_path(self, client, test_project_factory):

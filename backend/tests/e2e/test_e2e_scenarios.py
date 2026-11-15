@@ -295,6 +295,8 @@ def test_scenario_5_resilient_operator_cancellation_and_recovery(client):
     pid = intake_res.json()["project_id"]
 
     # Step 2: Cancel intake pipeline
+    # TestClient runs the intake to its end before the response: put it back mid-flight
+    main_mod.projects[pid]["status"] = "separating"
     cancel_pipe = client.post(f"/api/project/{pid}/cancel")
     assert cancel_pipe.status_code == 200
     assert client.get(f"/api/project/{pid}").json()["status"] == "cancelled"
@@ -314,6 +316,7 @@ def test_scenario_5_resilient_operator_cancellation_and_recovery(client):
     assert render_res.status_code == 200
 
     # Step 5: Cancel video render
+    main_mod.projects[pid]["render_status"] = "rendering"  # mid-flight, as above
     cancel_rnd = client.post(f"/api/project/{pid}/cancel-render")
     assert cancel_rnd.status_code == 200
     assert client.get(f"/api/project/{pid}").json()["render_status"] == "idle"

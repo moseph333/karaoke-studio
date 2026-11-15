@@ -175,11 +175,13 @@ def test_pairwise_pipeline_cancellation_during_intake_and_safe_restart(client):
     # 1. Start project
     init_res = client.post("/api/process", json={"url_or_id": vid})
     pid = init_res.json()["project_id"]
+    # TestClient runs the intake to its end before the response: put it back mid-flight
+    main_mod.projects[pid]["status"] = "separating"
 
     # 2. Cancel
     cancel_res = client.post(f"/api/project/{pid}/cancel")
     assert cancel_res.status_code == 200
-    assert cancel_res.json()["status"] == "ok"
+    assert cancel_res.json() == {"status": "ok", "cancelled": True}
 
     proj = client.get(f"/api/project/{pid}").json()
     assert proj["status"] == "cancelled"
@@ -202,7 +204,8 @@ def test_pairwise_video_render_cancellation_and_rerender_different_aspect(client
         json={"semitones": 0, "guide_volume": 0.0, "aspect_ratio": "16:9"},
     )
 
-    # 2. Cancel render
+    # 2. Cancel render (TestClient finished it before the response: put it back mid-flight)
+    main_mod.projects["cancelrend1"]["render_status"] = "rendering"
     cancel_res = client.post("/api/project/cancelrend1/cancel-render")
     assert cancel_res.status_code == 200
     proj = client.get("/api/project/cancelrend1").json()
