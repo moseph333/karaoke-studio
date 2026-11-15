@@ -13,6 +13,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_APP_VERSION = "v2.7.0"  # x-release-please-version
 
 logger = logging.getLogger("karaoke_backend")
+# git failures already reported, so a broken git behind every update check warns once each
+_git_failures_logged: set[str] = set()
+
+
+def _log_git_failure(args: list[str], reason: str) -> None:
+    command = " ".join(args)
+    key = f"{args[0] if args else ''}: {reason}"
+    if key in _git_failures_logged:
+        logger.debug(f"git {command} failed: {reason}")
+        return
+    _git_failures_logged.add(key)
+    logger.warning(f"git {command} failed: {reason} (repeats are logged at DEBUG)")
 
 
 def _git_cmd(args: list[str], timeout: float = 3.0) -> str:
@@ -31,8 +43,9 @@ def _git_cmd(args: list[str], timeout: float = 3.0) -> str:
         )
         if res.returncode == 0:
             return res.stdout.strip()
-    except Exception:
-        pass
+        _log_git_failure(args, (res.stderr or "").strip()[-300:] or f"exit {res.returncode}")
+    except Exception as exc:
+        _log_git_failure(args, f"{type(exc).__name__}: {exc}")
     return ""
 
 
