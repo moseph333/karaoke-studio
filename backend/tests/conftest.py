@@ -74,6 +74,8 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("SEPARATION_ALLOW_DOWNLOAD", "0")
     monkeypatch.setenv("AUDIO_SEPARATOR_MODEL_DIR", str(test_data_dir / "models" / "separator"))
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    # Session tokens are signed with a secret kept in the test's data folder, not a developer's
+    monkeypatch.delenv("SESSION_SECRET", raising=False)
     monkeypatch.setenv("ALIGNMENT_ENGINE", "dsp")
     monkeypatch.setenv("ALIGNMENT_ALLOW_DOWNLOAD", "0")
     monkeypatch.setenv("ALIGNMENT_MODEL_DIR", str(test_data_dir / "models" / "mms_fa"))

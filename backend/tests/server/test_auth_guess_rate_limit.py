@@ -17,6 +17,7 @@ from starlette.requests import Request
 
 import backend.main as main_mod
 from backend import auth, config
+from backend.auth import session_signing_key
 from backend.main import app, create_session_token, get_client_ip
 
 PASSPHRASE = "guess-limit-passphrase"
@@ -38,7 +39,7 @@ def _signed_token(secret: str, issued_at: float) -> str:
         {"u": "singer", "t": issued_at, "s": "0123abcd"}, separators=(",", ":"), sort_keys=True
     )
     payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
-    sig = hmac.new(secret.encode(), payload_b64.encode(), hashlib.sha256).digest()
+    sig = hmac.new(session_signing_key(secret), payload_b64.encode(), hashlib.sha256).digest()
     return f"{payload_b64}.{base64.urlsafe_b64encode(sig).decode().rstrip('=')}"
 
 

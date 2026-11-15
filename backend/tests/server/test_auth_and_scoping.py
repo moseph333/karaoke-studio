@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 import backend.config as config
+from backend.auth import session_signing_key
 from backend.main import (
     app,
     check_login_rate_limit,
@@ -132,7 +133,7 @@ def test_hmac_session_token_expiration_and_clock_skew():
     payload = {"u": "old_user", "t": past_time, "s": "12345678abcdef"}
     p_json = json.dumps(payload, separators=(",", ":"), sort_keys=True)
     p_b64 = base64.urlsafe_b64encode(p_json.encode()).decode().rstrip("=")
-    sig = hmac.new(pwd.encode(), p_b64.encode(), hashlib.sha256).digest()
+    sig = hmac.new(session_signing_key(pwd), p_b64.encode(), hashlib.sha256).digest()
     sig_b64 = base64.urlsafe_b64encode(sig).decode().rstrip("=")
     old_token = f"{p_b64}.{sig_b64}"
 
@@ -146,7 +147,7 @@ def test_hmac_session_token_expiration_and_clock_skew():
     payload_future = {"u": "future_user", "t": near_future_time, "s": "12345678abcdef"}
     pf_json = json.dumps(payload_future, separators=(",", ":"), sort_keys=True)
     pf_b64 = base64.urlsafe_b64encode(pf_json.encode()).decode().rstrip("=")
-    sig_f = hmac.new(pwd.encode(), pf_b64.encode(), hashlib.sha256).digest()
+    sig_f = hmac.new(session_signing_key(pwd), pf_b64.encode(), hashlib.sha256).digest()
     sig_f_b64 = base64.urlsafe_b64encode(sig_f).decode().rstrip("=")
     future_token = f"{pf_b64}.{sig_f_b64}"
     assert verify_session_token(future_token, pwd) is True
@@ -156,7 +157,7 @@ def test_hmac_session_token_expiration_and_clock_skew():
     payload_far = {"u": "far_user", "t": far_future_time, "s": "12345678abcdef"}
     pfar_json = json.dumps(payload_far, separators=(",", ":"), sort_keys=True)
     pfar_b64 = base64.urlsafe_b64encode(pfar_json.encode()).decode().rstrip("=")
-    sig_far = hmac.new(pwd.encode(), pfar_b64.encode(), hashlib.sha256).digest()
+    sig_far = hmac.new(session_signing_key(pwd), pfar_b64.encode(), hashlib.sha256).digest()
     sig_far_b64 = base64.urlsafe_b64encode(sig_far).decode().rstrip("=")
     far_future_token = f"{pfar_b64}.{sig_far_b64}"
     assert verify_session_token(far_future_token, pwd) is False

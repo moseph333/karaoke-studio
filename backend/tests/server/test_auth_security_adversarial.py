@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 import backend.config as config
+from backend.auth import session_signing_key
 from backend.main import (
     LOGIN_RATE_LIMIT_LOCK,
     _login_failures,
@@ -231,7 +232,7 @@ def test_adversarial_malformed_tokens_fuzzing():
         # Sign with secret
         sig = (
             base64.urlsafe_b64encode(
-                hmac.new(secret.encode(), p_b64.encode(), hashlib.sha256).digest()
+                hmac.new(session_signing_key(secret), p_b64.encode(), hashlib.sha256).digest()
             )
             .decode()
             .rstrip("=")
@@ -249,7 +250,9 @@ def test_adversarial_malformed_tokens_fuzzing():
     raw_u = json.dumps(unicode_payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     u_b64 = base64.urlsafe_b64encode(raw_u).decode().rstrip("=")
     u_sig = (
-        base64.urlsafe_b64encode(hmac.new(secret.encode(), u_b64.encode(), hashlib.sha256).digest())
+        base64.urlsafe_b64encode(
+            hmac.new(session_signing_key(secret), u_b64.encode(), hashlib.sha256).digest()
+        )
         .decode()
         .rstrip("=")
     )
@@ -266,7 +269,7 @@ def test_adversarial_malformed_tokens_fuzzing():
     huge_b64 = base64.urlsafe_b64encode(huge_json).decode().rstrip("=")
     huge_sig = (
         base64.urlsafe_b64encode(
-            hmac.new(secret.encode(), huge_b64.encode(), hashlib.sha256).digest()
+            hmac.new(session_signing_key(secret), huge_b64.encode(), hashlib.sha256).digest()
         )
         .decode()
         .rstrip("=")
@@ -309,7 +312,7 @@ def test_adversarial_replay_and_expiration():
         p_b64 = base64.urlsafe_b64encode(p_json.encode()).decode().rstrip("=")
         sig = (
             base64.urlsafe_b64encode(
-                hmac.new(secret.encode(), p_b64.encode(), hashlib.sha256).digest()
+                hmac.new(session_signing_key(secret), p_b64.encode(), hashlib.sha256).digest()
             )
             .decode()
             .rstrip("=")
