@@ -493,6 +493,7 @@ def run_local_pipeline(
                     needs_transcode = False
                     duration = float(info.duration)
             except Exception:
+                logger.info(f"{wav_target.name} is not a readable WAV; transcoding it")
                 needs_transcode = True
 
         if needs_transcode:
@@ -521,12 +522,20 @@ def run_local_pipeline(
                 info = sf_mod.info(str(wav_target))
                 duration = float(info.duration)
             except Exception:
+                logger.warning(
+                    f"Could not read the length of {wav_target.name}; assuming 180 s",
+                    exc_info=True,
+                )
                 duration = 180.0
         else:
             try:
                 info = sf_mod.info(str(wav_target))
                 duration = float(info.duration)
             except Exception:
+                logger.warning(
+                    f"Could not read the length of {wav_target.name}; assuming 180 s",
+                    exc_info=True,
+                )
                 duration = 180.0
 
         proj = get_project_or_404(project_id)

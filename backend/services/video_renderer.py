@@ -463,6 +463,10 @@ class VideoRenderer:
                 info = sf.info(audio_path)
                 duration = float(info.duration)
             except Exception:
+                logger.warning(
+                    f"Could not read the length of {Path(audio_path).name}; assuming 200 s",
+                    exc_info=True,
+                )
                 duration = 200.0  # safe fallback if probe fails
 
         output = Path(output_mp4_path)
