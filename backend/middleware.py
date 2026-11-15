@@ -11,7 +11,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from backend import config
-from backend.auth import authenticate_request
+from backend.auth import authenticate_request, get_client_ip, log_credential_rejection
 from backend.http_delivery import cache_control_for
 
 
@@ -43,8 +43,9 @@ class PassphraseAuth:
                 "/static/"
             )
             if protected:
+                request = Request(scope)
                 try:
-                    authenticated, stale_cookie = authenticate_request(Request(scope), app_pwd)
+                    authenticated, stale_cookie = authenticate_request(request, app_pwd)
                 except HTTPException as exc:
                     limited = JSONResponse(
                         status_code=exc.status_code,
@@ -54,6 +55,8 @@ class PassphraseAuth:
                     await limited(scope, receive, send)
                     return
                 if not authenticated:
+                    if _presents_credentials(request):
+                        log_credential_rejection(get_client_ip(request))
                     response = JSONResponse(
                         status_code=401, content={"detail": "Invalid or missing studio passphrase"}
                     )
@@ -63,6 +66,19 @@ class PassphraseAuth:
                     await response(scope, receive, send)
                     return
         await self.app(scope, receive, send)
+
+
+def _presents_credentials(request: Request) -> bool:
+    """Whether a refused request carried any credential (one without is a client that has not
+    signed in yet, which is not worth a log line)."""
+    headers = request.headers
+    return bool(
+        headers.get("x-session-token")
+        or headers.get("x-app-password")
+        or (headers.get("authorization") or "").startswith("Bearer ")
+        or request.cookies.get("session_token")
+        or request.cookies.get("karaoke_token")
+    )
 
 
 class SecurityHeaders:

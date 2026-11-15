@@ -30,6 +30,8 @@ _GUESS_FINGERPRINT_KEY = secrets.token_bytes(32)
 # When each client IP's refusal was last logged. Every request a limited client sends with
 # credentials (polling, saves, media) is refused, so it is logged at most once per window.
 _rate_limit_logged: dict[str, float] = {}
+# When each client IP's 401 for wrong credentials was last logged, on the same terms
+_rejection_logged: dict[str, float] = {}
 # Most client IPs each map keeps. A client that can set X-Forwarded-For itself (the app port
 # reachable without the proxy) could otherwise grow them without bound, one fake IP a request.
 MAX_TRACKED_CLIENTS = 10_000
@@ -70,7 +72,12 @@ def _prune_stale_rate_limits_locked(now: float, window: float) -> None:
     failures = getattr(main_mod, "_login_failures", _login_failures)
 
     busy = min(1000, MAX_TRACKED_CLIENTS)
-    if (now - last_cleanup < 300.0) and len(failures) < busy and len(_counted_guesses) < busy:
+    if (
+        (now - last_cleanup < 300.0)
+        and len(failures) < busy
+        and len(_counted_guesses) < busy
+        and len(_rejection_logged) < busy
+    ):
         return
     _last_rate_limit_cleanup = now
     main_mod._last_rate_limit_cleanup = now
@@ -89,12 +96,14 @@ def _prune_stale_rate_limits_locked(now: float, window: float) -> None:
             _counted_guesses[ip] = fresh
         else:
             del _counted_guesses[ip]
-    for ip in [ip for ip, t in _rate_limit_logged.items() if (now - t) >= window]:
-        del _rate_limit_logged[ip]
+    for logged in (_rate_limit_logged, _rejection_logged):
+        for ip in [ip for ip, t in logged.items() if (now - t) >= window]:
+            del logged[ip]
     # Still over the cap with entries inside the window: drop the clients seen longest ago
     _evict_oldest(failures, lambda stamps: max(stamps, default=0.0))
     _evict_oldest(_counted_guesses, lambda seen: max(seen.values(), default=0.0))
     _evict_oldest(_rate_limit_logged, lambda t: t)
+    _evict_oldest(_rejection_logged, lambda t: t)
 
 
 def _evict_oldest(entries: dict, last_seen) -> None:
@@ -232,6 +241,26 @@ def clear_all_login_failures() -> None:
         failures.clear()
         _counted_guesses.clear()
         _rate_limit_logged.clear()
+        _rejection_logged.clear()
+
+
+def log_credential_rejection(client_ip: str, now: float | None = None) -> None:
+    """Log a 401 for wrong credentials, at most once per client IP and window, since a client
+    with a stale session sends them with every request until it signs in again."""
+    import backend.main as main_mod
+
+    if now is None:
+        now = time.time()
+    window = config.LOGIN_RATE_LIMIT_WINDOW_SECONDS
+    lock = getattr(main_mod, "LOGIN_RATE_LIMIT_LOCK", LOGIN_RATE_LIMIT_LOCK)
+    with lock:
+        if (now - _rejection_logged.get(client_ip, -math.inf)) < window:
+            return
+        _rejection_logged[client_ip] = now
+    logger.warning(
+        f"Rejected wrong or expired credentials from {client_ip}. Further rejections for this "
+        f"IP are not logged for {window:g}s"
+    )
 
 
 def _session_secret() -> bytes:
