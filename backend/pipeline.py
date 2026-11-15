@@ -393,7 +393,11 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
 
     except Exception as e:
-        logger.error(f"Pipeline error for {project_id}: {e}", exc_info=True)
+        if cancel_event.is_set():
+            # A cancel stops the job by raising inside it: no error, no traceback
+            logger.info(f"Pipeline for {project_id} stopped after a cancel")
+        else:
+            logger.error(f"Pipeline error for {project_id}: {e}", exc_info=True)
         proj = find_project(project_id)
         if proj is not None:
             if cancel_event.is_set():
@@ -570,7 +574,11 @@ def run_local_pipeline(
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
 
     except Exception as e:
-        logger.error(f"Pipeline error for local track {project_id}: {e}", exc_info=True)
+        if cancel_event.is_set():
+            # A cancel stops the job by raising inside it: no error, no traceback
+            logger.info(f"Pipeline for local track {project_id} stopped after a cancel")
+        else:
+            logger.error(f"Pipeline error for local track {project_id}: {e}", exc_info=True)
         proj = find_project(project_id)
         if proj is not None:
             if cancel_event.is_set():

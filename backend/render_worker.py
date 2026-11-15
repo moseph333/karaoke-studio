@@ -236,7 +236,11 @@ def run_video_render(project_id: str, req: RenderRequest):
         save_projects()
 
     except Exception as e:
-        logger.error(f"Render failed for {project_id}: {e}", exc_info=True)
+        if cancel_event.is_set():
+            # A cancel stops the render by raising inside it: no error, no traceback
+            logger.info(f"Render for {project_id} stopped after a cancel")
+        else:
+            logger.error(f"Render failed for {project_id}: {e}", exc_info=True)
         with PROJECTS_LOCK:
             proj = find_project(project_id)
             if proj is not None:
