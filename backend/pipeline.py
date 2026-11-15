@@ -441,6 +441,10 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
                 )
 
 
+# How long FFmpeg may take to turn an upload into the studio's WAV
+TRANSCODE_TIMEOUT_SEC = 300
+
+
 def run_local_pipeline(
     project_id: str,
     raw_audio_path: str,
@@ -517,6 +521,9 @@ def run_local_pipeline(
             temp_wav = downloads_dir / f"{project_id}_norm.wav"
             cmd = [
                 "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
                 "-y",
                 "-i",
                 str(raw_path),
@@ -529,10 +536,18 @@ def run_local_pipeline(
                 "2",
                 str(temp_wav),
             ]
-            res = proc_mod.run(cmd, capture_output=True, text=True, timeout=60)
-            if res.returncode != 0:
-                raise RuntimeError(f"FFmpeg audio transcoding failed: {res.stderr}")
-            temp_wav.replace(wav_target)
+            try:
+                # A long upload on a small CPU can take more than a minute to decode
+                res = proc_mod.run(
+                    cmd, capture_output=True, text=True, timeout=TRANSCODE_TIMEOUT_SEC
+                )
+                if res.returncode != 0:
+                    reason = public_error(res.stderr or f"exit {res.returncode}")
+                    raise RuntimeError(f"FFmpeg audio transcoding failed: {reason}")
+                temp_wav.replace(wav_target)
+            finally:
+                # A failed or timed-out transcode leaves its half-written WAV behind
+                temp_wav.unlink(missing_ok=True)
             if raw_path.resolve() != wav_target.resolve() and raw_path.exists():
                 raw_path.unlink(missing_ok=True)
             try:
