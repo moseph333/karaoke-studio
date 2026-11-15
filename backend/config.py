@@ -327,6 +327,20 @@ def parse_allowed_origins(raw: str | None) -> list[str]:
 ALLOWED_ORIGINS = parse_allowed_origins(os.getenv("ALLOWED_ORIGINS"))
 
 
+def _body_limit_mb(raw: str | None) -> float:
+    """MAX_JSON_BODY_MB from its setting: MB above 0; unset or unreadable is 16."""
+    try:
+        value = float((raw or "").strip())
+    except ValueError:
+        return 16.0
+    return value if value > 0 and value == value else 16.0
+
+
+# Largest request body (MB) outside the upload routes, which have their own limits. Larger
+# bodies get HTTP 413 before they are read.
+MAX_JSON_BODY_MB = _body_limit_mb(os.getenv("MAX_JSON_BODY_MB"))
+
+
 # Default Video Configuration
 DEFAULT_VIDEO_CONFIG = {
     "width": 1920,
