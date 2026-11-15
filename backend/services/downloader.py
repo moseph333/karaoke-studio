@@ -39,14 +39,18 @@ class TrackDownloader:
 
         bounded_limit = max(1, min(limit, 50))
         ydl_opts = {
-            "default_search": f"ytsearch{bounded_limit}:",
             "quiet": True,
             "no_warnings": True,
             "extract_flat": True,
         }
+        # The search prefix is always written out. yt-dlp applies a default_search only to
+        # input without a URL scheme, so "http://192.168.1.1/" would have been fetched from
+        # the server's network, and "scsearch:" or "ytsearchall:" would pick another site or
+        # lift the result cap. With the prefix, everything after it is search text.
+        search = f"ytsearch{bounded_limit}:{query.strip()}"
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(query.strip(), download=False)
+                info = ydl.extract_info(search, download=False)
                 if not info or "entries" not in info:
                     return []
 
