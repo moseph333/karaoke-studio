@@ -16,6 +16,7 @@ its own.
 """
 
 import functools
+import logging
 import math
 import threading
 import time
@@ -24,6 +25,8 @@ from typing import Any
 
 import anyio
 from anyio import to_thread
+
+logger = logging.getLogger("karaoke_backend")
 
 SEPARATION_JOB = "separation_job"
 SYNC_JOB = "sync_job"
@@ -47,13 +50,28 @@ JOB_THREADS = anyio.CapacityLimiter(32)
 
 async def run_job(func: Callable[..., Any], *args: Any) -> None:
     """Runs a long background job on the job threads (see JOB_THREADS), telling the host
-    how many jobs run when it starts and ends (backend.update_drain)."""
+    how many jobs run when it starts and ends (backend.update_drain).
+
+    Logs when the job starts and ends, with how long it took. Each job writes its own
+    failures to its song; an exception that escapes one anyway is logged here with its
+    traceback instead of surfacing as a bare ASGI error after the response."""
     from backend.update_drain import write_jobs_active
 
+    name = getattr(func, "__name__", None) or type(func).__name__
+    subject = f" for {args[0]}" if args and isinstance(args[0], str) else ""
+    started = time.monotonic()
+    logger.info(f"Job {name}{subject} started")
     # The route registered the job's cancel event before this; it is released when the job ends
     write_jobs_active()
     try:
         await to_thread.run_sync(functools.partial(func, *args), limiter=JOB_THREADS)
+    except Exception:
+        logger.exception(
+            f"Job {name}{subject} failed after {time.monotonic() - started:.1f}s "
+            "with an error it did not handle"
+        )
+    else:
+        logger.info(f"Job {name}{subject} ended after {time.monotonic() - started:.1f}s")
     finally:
         write_jobs_active()
 
