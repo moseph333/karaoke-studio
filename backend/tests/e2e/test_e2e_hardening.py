@@ -278,7 +278,9 @@ def test_search_tracks_internal_error_returns_500(client, monkeypatch):
     monkeypatch.setattr(main_mod.downloader, "search_tracks", crash_search)
     resp = client.post("/api/search", json={"query": "test query"})
     assert resp.status_code == 500
-    assert "Internal search provider failure" in resp.json()["detail"]
+    # The client gets a plain message; the exception's text stays in the server log
+    assert "Internal search provider failure" not in resp.json()["detail"]
+    assert resp.json()["detail"].startswith("Search failed")
 
 
 def test_save_upload_file_bounded_oserror_during_cleanup(tmp_path):
