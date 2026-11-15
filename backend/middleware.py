@@ -32,8 +32,12 @@ class PassphraseAuth:
         app_pwd = config.APP_PASSWORD
         if scope["type"] == "http" and app_pwd:
             path = scope["path"]
-            is_public_api = path.startswith("/api/auth") or (
-                path == "/api/health" and scope["method"] in ("GET", "HEAD")
+            # /api/auth/* exactly: a later route that merely starts with "/api/auth" (say
+            # /api/authors) stays behind the passphrase
+            is_public_api = (
+                path == "/api/auth"
+                or path.startswith("/api/auth/")
+                or (path == "/api/health" and scope["method"] in ("GET", "HEAD"))
             )
             protected = (path.startswith("/api/") and not is_public_api) or path.startswith(
                 "/static/"
