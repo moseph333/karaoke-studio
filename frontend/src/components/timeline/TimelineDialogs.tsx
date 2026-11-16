@@ -63,6 +63,7 @@ export const TimelineDialogs: React.FC<TimelineDialogsProps> = ({
       lines={lines}
       onApply={ed.handleBulkAssignSinger}
       selectedLineIndex={selectedLineIndex}
+      projectId={projectId}
     />
   </>
 );

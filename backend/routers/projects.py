@@ -73,6 +73,7 @@ from backend.services import remote_render
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.separator import adopt_provenance
 from backend.services.video_renderer import artwork_still, render_still
+from backend.services.voice_parts import detect_voice_parts
 from backend.services.waveform import (
     DEFAULT_BINS,
     MAX_BINS,
@@ -595,6 +596,30 @@ def get_lyric_candidates(
     found = main_mod.lyrics_service.search_lyrics(query_title, query_artist, proj.get("duration"))
     in_use = proj.get("lyric_source_id")
     return [{**cand, "in_use": in_use is not None and cand.get("id") == in_use} for cand in found]
+
+
+@router.get("/api/project/{project_id}/voice-parts")
+def get_voice_parts(project_id: str):
+    """Which part sings each line, judged by voice on the vocal stem (voice_parts): the
+    studio's "By voice" duet assignment. Nothing is saved; the studio applies it as an
+    edit. With one voice, or voices too alike, ``detected`` is false and no parts come."""
+    proj = find_project(project_id)
+    if not proj:
+        raise HTTPException(status_code=404, detail="Project not found")
+    vocals_path = proj.get("vocals_path")
+    if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
+        raise HTTPException(status_code=400, detail="The vocal stem is missing or not ready")
+    lines = [line for line in proj.get("lines") or [] if isinstance(line, dict)]
+    found = detect_voice_parts(vocals_path, lines)
+    parts = (
+        [
+            {"id": line.get("id"), "singer": found.parts.get(i, "singer1")}
+            for i, line in enumerate(lines)
+        ]
+        if found.detected
+        else []
+    )
+    return {**found.report(), "parts": parts}
 
 
 # What an in-request re-alignment writes on a song (store_aligned_lines and the route)

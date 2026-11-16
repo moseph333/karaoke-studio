@@ -2,13 +2,14 @@
  * Duet Assignment Modal Component
  *
  * Bulk-assigns lyric lines to singer roles by alternating pattern (1x1, 2x2), a line
- * range, or automatic pause clustering (gaps >= the threshold), with a live preview of
- * the resulting split.
+ * range, automatic pause clustering (gaps >= the threshold), or by voice (the server tells
+ * two voices apart on the vocal stem), with a live preview of the resulting split.
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Shuffle, Sliders, Sparkles, Check } from 'lucide-react';
-import { LyricLine, SingerRole, BulkAssignOptions } from '../../types';
+import { Users, Shuffle, Sliders, Sparkles, Check, AudioLines } from 'lucide-react';
+import { LyricLine, SingerRole, BulkAssignOptions, VoicePartsReport } from '../../types';
+import { apiFetch, readApiError } from '../../api';
 import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { SegmentedControl, type SegmentedOption } from '../ui/SegmentedControl';
@@ -18,7 +19,10 @@ import { cn } from '../../utils/cn';
 
 export type { BulkAssignOptions };
 
-type DuetMode = 'range' | 'alternating' | 'auto';
+type DuetMode = 'range' | 'alternating' | 'auto' | 'voice';
+
+/** The server's answer to GET …/voice-parts: each line's part when two voices were found. */
+type VoiceAnswer = VoicePartsReport & { parts: { id: number; singer: SingerRole }[] };
 
 const singerOption = (role: SingerRole, label: string): SegmentedOption<SingerRole> => {
   const Icon = SINGER_CONFIG[role].Icon;
@@ -39,6 +43,8 @@ export interface DuetAssignmentModalProps {
   lines: LyricLine[];
   onApply: (options: BulkAssignOptions) => void;
   selectedLineIndex?: number;
+  /** The song, for assigning parts by voice (offered only with a project). */
+  projectId?: string;
 }
 
 export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
@@ -47,8 +53,39 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
   lines,
   onApply,
   selectedLineIndex = 0,
+  projectId,
 }) => {
   const [mode, setMode] = useState<DuetMode>('alternating');
+
+  // By-voice options: asked of the server when the tab opens, again on each opening
+  const [voice, setVoice] = useState<VoiceAnswer | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const voiceLoading = mode === 'voice' && !voice && !voiceError;
+  useEffect(() => {
+    if (!isOpen) {
+      setVoice(null);
+      setVoiceError(null);
+      return;
+    }
+    if (mode !== 'voice' || !projectId || voice || voiceError) return;
+    let cancelled = false;
+    apiFetch(`/api/project/${projectId}/voice-parts`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await readApiError(res, 'Could not listen for voices'));
+        return (await res.json()) as VoiceAnswer;
+      })
+      .then((answer) => !cancelled && setVoice(answer))
+      .catch((err: unknown) => {
+        if (!cancelled) setVoiceError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, mode, projectId, voice, voiceError]);
+  const voiceParts = useMemo(
+    () => Object.fromEntries((voice?.parts ?? []).map((p) => [p.id, p.singer])),
+    [voice]
+  ) as Record<number, SingerRole>;
 
   // Range options
   const [rangeScope, setRangeScope] = useState<'all' | 'custom'>('all');
@@ -134,6 +171,13 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
         else if (current === 'both') both++;
         else s1++;
       });
+    } else if (mode === 'voice') {
+      lines.forEach((line) => {
+        const assigned = voiceParts[line.id] ?? line.singer ?? 'singer1';
+        if (assigned === 'singer2') s2++;
+        else if (assigned === 'both') both++;
+        else s1++;
+      });
     }
 
     const s1Pct = Math.round((s1 / total) * 100);
@@ -151,6 +195,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
     startSinger,
     pauseThreshold,
     autoStartSinger,
+    voiceParts,
   ]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -179,6 +224,9 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
         pauseThreshold,
         startSinger: autoStartSinger,
       });
+    } else if (mode === 'voice') {
+      if (!voice?.detected) return;
+      onApply({ mode: 'voice', parts: voiceParts });
     }
     onClose();
   };
@@ -230,6 +278,16 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
             icon: <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />,
             controls: 'duet-mode-panel',
           },
+          ...(projectId
+            ? [
+                {
+                  id: 'voice' as const,
+                  label: 'By Voice',
+                  icon: <AudioLines className="h-3.5 w-3.5" aria-hidden="true" />,
+                  controls: 'duet-mode-panel',
+                },
+              ]
+            : []),
         ]}
         tabClassName="text-xs"
       />
@@ -411,6 +469,32 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
               </div>
             </>
           )}
+          {mode === 'voice' && (
+            <div
+              data-testid="duet-voice-status"
+              role="status"
+              className="rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs leading-relaxed text-theme-text-muted"
+            >
+              {voiceLoading ? (
+                'Listening to the vocal stem for separate voices…'
+              ) : voiceError ? (
+                <span className="text-theme-warning">{voiceError}</span>
+              ) : voice?.detected ? (
+                <>
+                  <span className="font-semibold text-theme-highlight">Two voices found.</span> The
+                  voice that sings most stays Singer 1; {voice.lines_singer2}{' '}
+                  {voice.lines_singer2 === 1 ? 'line goes' : 'lines go'} to Singer 2, judged by
+                  pitch and tone.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold text-theme-text">No second voice stands out.</span>{' '}
+                  The lines sound like one singer, or voices too alike to tell apart. Try
+                  Alternating or Range instead.
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div
@@ -459,7 +543,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
             type="submit"
             variant="gradient"
             fullWidth="mobile"
-            disabled={lines.length === 0}
+            disabled={lines.length === 0 || (mode === 'voice' && !voice?.detected)}
             data-testid="apply-duet-btn"
             leftIcon={<Check className="h-4 w-4" aria-hidden="true" />}
           >

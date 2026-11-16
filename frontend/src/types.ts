@@ -16,13 +16,23 @@ export type SingerRole = 'singer1' | 'singer2' | 'both';
 export type SyncDisplayMode = 'word' | 'line';
 
 export interface BulkAssignOptions {
-  mode: 'range' | 'alternating' | 'auto';
+  mode: 'range' | 'alternating' | 'auto' | 'voice';
   startLineIndex?: number;
   endLineIndex?: number;
   singer?: SingerRole;
   pattern?: '1x1' | '2x2';
   startSinger?: SingerRole;
   pauseThreshold?: number;
+  /** For `voice`: each line's part by line id, as the server told the voices apart. */
+  parts?: Record<number, SingerRole>;
+}
+
+/** Whether the server told two voices apart on the vocal stem (GET …/voice-parts). */
+export interface VoicePartsReport {
+  detected: boolean;
+  confidence: number;
+  lines_singer2: number;
+  reason: string;
 }
 
 /** How a line's word timings were produced. */
@@ -206,6 +216,8 @@ export interface ProjectState {
   lyric_source?: string;
   /** The LRCLIB listing the lyrics came from, when known. */
   lyric_source_id?: number | string | null;
+  /** Whether two voices were told apart when the song was processed. */
+  voice_parts?: VoicePartsReport | null;
   is_synced?: boolean;
   semitones: number;
   guide_volume: number;
