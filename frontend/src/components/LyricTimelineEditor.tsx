@@ -185,6 +185,8 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     onCycleSinger: ed.handleCycleLineSinger,
     onSetSinger: ed.handleSetLineSinger,
     onRealignLine: realign.realignLine,
+    onSplitAfterWord: ed.handleSplitLineAfterWord,
+    onMergeWithNext: ed.handleMergeWithNext,
     getCurrentTime: readTime,
   });
 

@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Crosshair } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crosshair, Scissors } from 'lucide-react';
 import { LyricLine, WordTiming } from '../../types';
 import { cn } from '../../utils/cn';
 import { focusRing } from '../ui/variants';
@@ -37,6 +37,8 @@ export interface ExpandedWordEditorProps {
     field: 'start_time' | 'end_time',
     value: number
   ) => void;
+  /** Splits the line after a word; offered on every word but the last. */
+  onSplitAfterWord?: (lineId: number, wordIndex: number) => void;
 }
 
 const shiftButton = cn(
@@ -119,6 +121,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
   onNudgeWord,
   onNudgeWordBoundary,
   onUpdateWordTiming,
+  onSplitAfterWord,
 }) => {
   const playhead = () => {
     const live = getCurrentTime?.();
@@ -159,8 +162,20 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
               >
                 {w.word}
               </span>
-              {/* Whole-word shift */}
+              {/* Whole-word shift, and splitting the line after this word */}
               <div className="flex items-center gap-1">
+                {onSplitAfterWord && wIdx < line.words.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={() => onSplitAfterWord(line.id, wIdx)}
+                    aria-label={`Split line ${line.id} after word ${wIdx + 1}, ${w.word}`}
+                    data-testid={`split-after-word-${line.id}-${wIdx}`}
+                    className={shiftButton}
+                    title="Split the line after this word"
+                  >
+                    <Scissors className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onNudgeWord(line.id, wIdx, -0.05)}
