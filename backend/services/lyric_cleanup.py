@@ -120,22 +120,27 @@ def _drop_trailing_dump(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _split_index(words: list[str]) -> int:
-    """Where to cut a line's words in two: after punctuation or before a conjunction, the
-    nearer the middle (by characters) the better; never leaving a piece under 2 words."""
+    """Where to cut a line's words in two: before a parenthesis (an ad-lib), after
+    punctuation or before a conjunction, the nearer the middle (by characters) the better;
+    never inside parentheses, and never leaving a piece under 2 words."""
     total = sum(len(w) + 1 for w in words)
     best, best_cost = len(words) // 2, float("inf")
     pos = 0
+    depth = 0
     for k in range(1, len(words)):
         pos += len(words[k - 1]) + 1
-        if k < 2 or len(words) - k < 2:
+        depth = max(0, depth + words[k - 1].count("(") - words[k - 1].count(")"))
+        if k < 2 or len(words) - k < 2 or depth > 0:
             continue
         cost = abs(pos - total / 2) / max(1.0, total)
-        if _BREAK_AFTER.search(words[k - 1]):
+        if words[k].startswith("(") or _BREAK_AFTER.search(words[k - 1]):
             cost -= 0.3
         elif words[k].lower().strip("(\"'") in _BREAK_BEFORE:
             cost -= 0.2
         if cost < best_cost:
             best, best_cost = k, cost
+    if best_cost == float("inf"):
+        return len(words) // 2  # every cut falls inside parentheses: cut at the middle
     return best
 
 
