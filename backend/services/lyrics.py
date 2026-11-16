@@ -123,6 +123,11 @@ class LyricsNormalizer:
         r"[\(\[\{]\s*(?:ft\.?|feat\.?|featuring|with)\s+([^()\[\]{}]+)[\)\]\}]",
         flags=re.IGNORECASE,
     )
+    # Cut off before its bracket closes, as LRCLIB track names often are: "Song (feat. Gue"
+    FEAT_UNCLOSED_RE = re.compile(
+        r"\s*[\(\[\{]\s*(?:ft\.?|feat\.?|featuring)\s+[^()\[\]{}]*$",
+        flags=re.IGNORECASE,
+    )
     # Unbracketed: ft. Guest, feat. Guest, featuring Guest, with Guest
     # Avoid matching normal song titles ending in pronouns with 'with' (e.g. 'Stay With Me', 'With You')
     FEAT_UNBRACKETED_RE = re.compile(
@@ -239,6 +244,7 @@ class LyricsNormalizer:
             t = cls.DELIMITER_NOISE_RE.sub("", t)
             # 3. Strip bracketed featured artist clauses
             t = cls.FEAT_BRACKET_RE.sub("", t)
+            t = cls.FEAT_UNCLOSED_RE.sub("", t)
             # 4. Strip unbracketed featured artist clauses
             t = cls.FEAT_UNBRACKETED_RE.sub("", t)
             # 5. Remove any leftover empty brackets
@@ -443,16 +449,51 @@ class LyricsService:
         combined = (0.4 * seq_ratio) + (0.6 * best_token_sim)
         return max(seq_ratio, combined)
 
+    @staticmethod
+    def candidate_song_name(track: str, artist: str = "", album: str = "") -> str:
+        """A candidate's track name without what LRCLIB uploaders add to it: a leading
+        "Artist - " or "Album - " ("Protos - Laser Sharks"), and version or featuring
+        clauses, even cut off ("Laser Sharks (Original Mix)", "Song (feat. Gue")."""
+        name = (track or "").strip()
+        for prefix in (artist, album):
+            prefix = (prefix or "").strip()
+            if not prefix:
+                continue
+            for d in (" - ", " \u2013 ", " \u2014 "):
+                head, sep, rest = name.partition(d)
+                if (
+                    sep
+                    and rest.strip()
+                    and LyricsService.calculate_similarity(
+                        LyricsNormalizer.clean_artist(head), LyricsNormalizer.clean_artist(prefix)
+                    )
+                    >= 0.9
+                ):
+                    name = rest.strip()
+                    break
+        return LyricsNormalizer.clean_title(name) or name
+
     @classmethod
     def metadata_similarity(
         cls, cand: dict[str, Any], target_title: str, target_artist: str
     ) -> tuple[float, float]:
         """(best title similarity 0-1, combined similarity 0-70) of a candidate's title and
-        artist with the target's, allowing for title and artist swapped (5 points less)."""
+        artist with the target's, allowing for title and artist swapped (5 points less). The
+        title counts at its better match, as given or as its song name (candidate_song_name
+        of both sides)."""
         c_title = str(cand.get("trackName") or cand.get("name") or cand.get("title") or "")
         c_artist = str(cand.get("artistName") or cand.get("artist") or "")
+        c_album = str(cand.get("albumName") or cand.get("album") or "")
 
         title_sim = cls.calculate_similarity(target_title, c_title)
+        if c_title:
+            title_sim = max(
+                title_sim,
+                cls.calculate_similarity(
+                    cls.candidate_song_name(target_title, target_artist),
+                    cls.candidate_song_name(c_title, c_artist, c_album),
+                ),
+            )
         artist_sim = cls.calculate_similarity(target_artist, c_artist)
 
         swapped_title_sim = cls.calculate_similarity(target_title, c_artist)
