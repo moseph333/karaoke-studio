@@ -24,13 +24,15 @@ from backend.project_store import (
 )
 from backend.services import remote_separation
 from backend.services.downloader import DownloadCancelled
-from backend.services.lyric_sync import sync_lyrics
+from backend.services.lyric_sync import UNCOVERED, sync_lyrics
+from backend.services.repeat_fill import fill_repeats
 from backend.services.separation_presets import (
     PRESET_LABELS,
     configured_preset,
     estimate_seconds,
     normalize_preset,
 )
+from backend.services.sync_confidence import uncovered_vocals
 from backend.services.voice_parts import assign_voice_parts
 
 logger = logging.getLogger("karaoke_backend")
@@ -232,12 +234,22 @@ def sync_project_lyrics(
         progress=on_progress,
         cancel_event=cancel_event,
     )
+    lines, report = result.lines, result.report
+    # Repeats the lyric file left out, where the neural aligner hears them sung
+    if report.get("engine") == "ctc" and report.get("uncovered_vocals"):
+        lines, added = fill_repeats(vocals_path, lines, report["uncovered_vocals"])
+        if added:
+            regions = report.get("vocal_regions") or []
+            still = uncovered_vocals(
+                regions, lines, UNCOVERED["min_seconds"], UNCOVERED["line_margin_seconds"]
+            )
+            report = {**report, "lines_added_repeats": added, "uncovered_vocals": still}
     # A second voice (a hook singer beside a rapper, a narrator beside a lead) becomes Singer 2
-    lines, voices = assign_voice_parts(vocals_path, result.lines)
+    lines, voices = assign_voice_parts(vocals_path, lines)
     with PROJECTS_LOCK:
         proj = get_project_or_404(project_id)
         proj["lines"] = lines
-        proj["sync_report"] = result.report
+        proj["sync_report"] = report
         proj["lyric_timing"] = result.lyric_timing
         proj["voice_parts"] = voices.report()
         save_projects()
