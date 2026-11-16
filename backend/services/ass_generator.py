@@ -7,7 +7,12 @@ from pathlib import Path
 from typing import Any
 
 from backend.config import DEFAULT_VIDEO_CONFIG
-from backend.services.lyric_tokenize import adlib_flags, space_after, tokenize_lyric_text
+from backend.services.lyric_tokenize import (
+    adlib_flags,
+    is_cjk_token,
+    space_after,
+    tokenize_lyric_text,
+)
 from backend.shared_assets import load
 
 _ASS_COLOR_DIGITS = re.compile(r"[0-9A-F]{6}(?:[0-9A-F]{2})?")
@@ -176,33 +181,79 @@ def instrumental_gaps(lines: Any) -> list[int]:
 ADLIB_ON = "{\\i1\\fscx80\\fscy80\\alpha&H40&}"
 ADLIB_OFF = "{\\r}"
 
+# A line too long for MAX_LINE_ROWS rows (libass wraps it) would climb over the other lyric
+# row: it is shrunk to fit, down to MIN_LINE_SCALE (percent). Widths are estimated from the
+# font size: a CJK character is about one em wide, other characters LATIN_CHAR_EM of one.
+MAX_LINE_ROWS = 2
+MIN_LINE_SCALE = 70
+LATIN_CHAR_EM = 0.58
 
-def _adlib_text(text: str) -> str:
+
+def estimated_width(text: str, font_size: float) -> float:
+    """About how wide a line of lyrics is drawn, in script pixels."""
+    wide = sum(1 for ch in text if is_cjk_token(ch))
+    return font_size * (wide + LATIN_CHAR_EM * (len(text) - wide))
+
+
+def line_scale(text: str, style: "AssStyle") -> int:
+    """The percent a line is drawn at so it wraps to at most MAX_LINE_ROWS rows: 100 for
+    lines that fit, never below MIN_LINE_SCALE."""
+    usable = max(1, style.width - 2 * style.margin_lr) * MAX_LINE_ROWS * 0.92
+    width = estimated_width(text, style.font_size)
+    if width <= usable:
+        return 100
+    return max(MIN_LINE_SCALE, int(100 * usable / width))
+
+
+def _scale_tag(scale: int) -> str:
+    return "" if scale == 100 else f"{{\\fscx{scale}\\fscy{scale}}}"
+
+
+def _adlib_tags(scale: int) -> tuple[str, str]:
+    """The ad-lib on and off tags for a line drawn at ``scale`` percent."""
+    if scale == 100:
+        return ADLIB_ON, ADLIB_OFF
+    small = round(0.8 * scale)
+    return (
+        f"{{\\i1\\fscx{small}\\fscy{small}\\alpha&H40&}}",
+        ADLIB_OFF + _scale_tag(scale),
+    )
+
+
+def _adlib_text(text: str, scale: int = 100) -> str:
     """A line's escaped words spaced as written (no spaces between CJK characters), with the
-    ad-lib runs (adlib_flags) styled."""
+    ad-lib runs (adlib_flags) styled, drawn at ``scale`` percent."""
     tokens = tokenize_lyric_text(text)
-    parts: list[str] = []
+    on, off = _adlib_tags(scale)
+    parts: list[str] = [_scale_tag(scale)]
     inside = False
     spaced = space_after(tokens, text)
     for token, adlib, gap in zip(tokens, adlib_flags(tokens), spaced, strict=True):
         if adlib != inside:
-            parts.append(ADLIB_ON if adlib else ADLIB_OFF)
+            parts.append(on if adlib else off)
             inside = adlib
         parts.append(escape_ass_text(token) + (" " if gap else ""))
     return "".join(parts).strip()
 
 
 def _word_sweep_text(
-    words: list, base_cs: int, line_start: float, escape: bool = True, source: str | None = None
+    words: list,
+    base_cs: int,
+    line_start: float,
+    escape: bool = True,
+    source: str | None = None,
+    scale: int = 100,
 ) -> str:
     """Karaoke text with one \\kf sweep per word, placed on absolute centisecond boundaries.
 
     Silent \\k spacers cover the lead-in and every pause between words, and each boundary is
     rounded once (not each duration), so the highlight neither runs ahead after a pause nor
     drifts over a long line. Words in parentheses are styled as ad-libs (ADLIB_ON). Words
-    are spaced as in the line's ``source`` text, so CJK characters are not spaced out.
+    are spaced as in the line's ``source`` text, so CJK characters are not spaced out. A
+    ``scale`` under 100 draws the line smaller (line_scale).
     """
-    parts: list[str] = []
+    parts: list[str] = [_scale_tag(scale)]
+    on, off = _adlib_tags(scale)
     cursor = base_cs
     previous_end = line_start
     words = [w for w in words if isinstance(w, dict)]
@@ -212,7 +263,7 @@ def _word_sweep_text(
     inside = False
     for w, is_adlib, gap in zip(words, adlib, spaced, strict=True):
         if is_adlib != inside:
-            parts.append(ADLIB_ON if is_adlib else ADLIB_OFF)
+            parts.append(on if is_adlib else off)
             inside = is_adlib
         start = safe_time(w.get("start_time"), previous_end)
         end = safe_time(w.get("end_time"), start + 0.4)
@@ -668,7 +719,7 @@ def generate_ass_content(
                         for w in words
                         if isinstance(w, dict) and str(w.get("word") or "").strip()
                     )
-                clean_line_text = _adlib_text(raw_text)
+                clean_line_text = _adlib_text(raw_text, line_scale(raw_text, style))
 
                 if lead_in_cs > 0:
                     line_karaoke_text = f"{{\\k{lead_in_cs}}}{{\\k0}}{clean_line_text}"
@@ -677,8 +728,11 @@ def generate_ass_content(
             else:
                 base_cs = round(display_start * 100)  # the event start exactly as written
                 if words:
+                    source = str(line.get("text") or "") or " ".join(
+                        str(w.get("word") or "") for w in words if isinstance(w, dict)
+                    )
                     line_karaoke_text = _word_sweep_text(
-                        words, base_cs, l_start, source=str(line.get("text") or "")
+                        words, base_cs, l_start, source=source, scale=line_scale(source, style)
                     )
                 elif line.get("text"):
                     escaped_text = escape_ass_text(str(line.get("text") or ""))
