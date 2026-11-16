@@ -33,7 +33,7 @@ def test_the_narrator_intro_becomes_lines_that_fit():
     for entry in intro:
         assert len(entry["text"]) <= MAX_LINE_CHARS
         assert len(entry["words"]) <= MAX_LINE_WORDS
-    assert " ".join(entry["text"] for entry in intro).startswith("ON A STRANGE PLANET")
+    assert " ".join(entry["text"] for entry in intro).startswith("On a strange planet")
     assert intro[0]["start_time"] == 3.24
     for a, b in pairwise(intro):
         assert a["end_time"] <= b["start_time"] + 1e-9

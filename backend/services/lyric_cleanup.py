@@ -32,6 +32,12 @@ CRAMMED_LINE_SEC = 0.4
 MAX_LINE_CHARS = 70
 MAX_LINE_WORDS = 14
 _BREAK_AFTER = re.compile(r"[,.;:!?\u2026)\]\u3001\u3002]$")
+# A song whose Latin letters are more than this share capitals is shouting, not stressing
+ALL_CAPS_SHARE = 0.7
+# Words kept in capitals when an all-caps song is put into sentence case
+_KEEP_UPPER = frozenset(["I", "OK", "TV", "DJ", "MC", "USA", "UK", "NYC"])
+_SENTENCE_END = re.compile(r"[.!?\u2026][\"')\]]*$")
+
 # Conjunctions and relative words a line breaks well before (prepositions break badly)
 _BREAK_BEFORE = frozenset(
     [
@@ -154,16 +160,60 @@ def split_long_line(line: dict[str, Any]) -> list[dict[str, Any]]:
     return split_long_line(first) + split_long_line(second)
 
 
+def is_all_caps(texts: list[str]) -> bool:
+    """True when at least 40 Latin letters are present and most of them are capitals."""
+    letters = [ch for text in texts for ch in text if ch.isascii() and ch.isalpha()]
+    upper = sum(ch.isupper() for ch in letters)
+    return len(letters) >= 40 and upper / len(letters) > ALL_CAPS_SHARE
+
+
+def _sentence_case_word(word: str, starts_sentence: bool) -> str:
+    core = word.strip("(\"'[")
+    if core.rstrip(",.!?;:)\"']") in _KEEP_UPPER:
+        return word  # I, OK, TV...
+    if re.search(r"[A-Z]\.[A-Z]", core):
+        return word  # U.S., L.A.
+    lower = word.lower()
+    if core.startswith("I'") or starts_sentence:  # I'm, I'll, and a sentence's first word
+        for i, ch in enumerate(lower):
+            if ch.isalpha():
+                return lower[:i] + ch.upper() + lower[i + 1 :]
+    return lower
+
+
+def sentence_case_lines(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """An all-caps song's lines in sentence case: each line and each sentence starts with a
+    capital, "I" and a few acronyms stay. Other songs come back unchanged."""
+    if not is_all_caps([str(line.get("text") or "") for line in lines]):
+        return lines
+    out = []
+    for line in lines:
+        tokens = str(line.get("text") or "").split()
+        cased, start = [], True
+        for token in tokens:
+            cased.append(_sentence_case_word(token, start))
+            start = bool(_SENTENCE_END.search(token))
+        words = list(line.get("words") or [])
+        if len(words) == len(cased):
+            words = [{**w, "word": c} for w, c in zip(words, cased, strict=True)]
+        else:
+            words = [{**w, "word": str(w.get("word", "")).lower()} for w in words]
+        out.append({**line, "text": " ".join(cased), "words": words})
+    return out
+
+
 def clean_fetched_lines(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Fetched lyric lines without the text uploaders add that is never sung: a translation
     block after the song, translator's notes and "x2" repeat markers; lines too long to sing
-    as one are split (split_long_line). Lines are numbered again from 0."""
+    as one are split (split_long_line), and an all-caps song is put into sentence case
+    (sentence_case_lines). Lines are numbered again from 0."""
     kept = _drop_trailing_dump(list(lines or []))
     out: list[dict[str, Any]] = []
     for line in kept:
         cleaned = _strip_line(line)
         if cleaned is not None:
             out.extend(split_long_line(cleaned))
+    out = sentence_case_lines(out)
     if len(out) == len(lines or []) and all(a is b for a, b in zip(out, lines, strict=True)):
         return out
     return [{**line, "id": i} for i, line in enumerate(out)]
