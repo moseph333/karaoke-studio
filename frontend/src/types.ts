@@ -53,6 +53,8 @@ export interface LyricLine {
   align_method?: AlignMethod;
   /** 'repeat': added by the server, a repeat the lyric file left out but the song sings. */
   added?: 'repeat';
+  /** A CJK line's romanization, shown under it (and used by the server to time it). */
+  romaji?: string;
 }
 
 export type LyricTiming = 'source_word' | 'source_line' | 'aligned' | 'none';

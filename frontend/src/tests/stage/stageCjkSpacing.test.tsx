@@ -44,3 +44,16 @@ describe('the stage spaces words as the line is written', () => {
     expect(spaced(/word dark /)).toBe(false);
   });
 });
+
+describe('a Japanese line with its romanization', () => {
+  it('shows the romanization under the line', () => {
+    const line = { ...timed('我々和かつ'), romaji: 'Wareware wa katsu' };
+    render(<LyricDisplay lines={[line]} currentTime={10.1} />);
+    expect(screen.getByTestId('active-lyrics-romaji')).toHaveTextContent('Wareware wa katsu');
+  });
+
+  it('shows nothing extra for other lines', () => {
+    render(<LyricDisplay lines={[timed('Lasers from the dark')]} currentTime={10.1} />);
+    expect(screen.queryByTestId('active-lyrics-romaji')).not.toBeInTheDocument();
+  });
+});

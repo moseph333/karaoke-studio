@@ -38,9 +38,11 @@ def test_repeat_markers_come_off_the_text_and_the_words():
 
 def test_a_clean_file_keeps_every_sung_line():
     parsed = LyricsService.parse_lrc(LASER_SHARKS_CLEAN["syncedLyrics"])
-    assert [entry["text"] for entry in clean_fetched_lines(parsed)] == [
-        entry["text"] for entry in parsed
-    ]
+    # Japanese lines keep their romanization apart, as romaji
+    assert [
+        f"{entry['text']} ({entry['romaji']})" if entry.get("romaji") else entry["text"]
+        for entry in clean_fetched_lines(parsed)
+    ] == [entry["text"] for entry in parsed]
 
 
 def test_a_note_inside_a_line_is_cut_out():

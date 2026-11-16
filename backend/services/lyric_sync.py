@@ -38,7 +38,7 @@ from typing import Any
 
 from backend.services import alignment_config, emission_cache, lyric_anchors
 from backend.services.aligner import enforce_monotonic_words
-from backend.services.lyric_tokenize import normalize_for_mms
+from backend.services.lyric_tokenize import normalize_for_mms, tokenize_lyric_text
 from backend.services.process_watchdog import ProcessWatchdog, duration_text, quietly, worker_env
 from backend.services.sync_confidence import (
     evidence_score,
@@ -174,8 +174,35 @@ def _timed_by_hand(line: Any) -> bool:
     )
 
 
+def _romaji_tokens(line: dict) -> list[str]:
+    """The words of a line's romanization (``romaji``), if it has one."""
+    return tokenize_lyric_text(str(line.get("romaji") or ""))
+
+
+def romaji_onto_characters(neural: dict, line: dict) -> dict:
+    """A neural result aligned on a line's romanization, as one for its characters: the
+    characters share the span the romanized words were sung in, evenly, at the words' mean
+    score. Unaligned results are returned unchanged."""
+    timed = [w for w in neural.get("words") or [] if isinstance(w, dict)]
+    chars = [w for w in line.get("words") or [] if isinstance(w, dict)]
+    if neural.get("status") != "ok" or not timed or not chars:
+        return neural
+    start, end = float(timed[0]["start"]), float(timed[-1]["end"])
+    score = sum(float(w.get("score", 0)) for w in timed) / len(timed)
+    step = max(0.0, end - start) / len(chars)
+    words = [
+        {
+            "start": round(start + k * step, 3),
+            "end": round(start + (k + 1) * step, 3),
+            "score": round(score, 3),
+        }
+        for k in range(len(chars))
+    ]
+    return {**neural, "words": words}
+
+
 def _plain_line(line: dict) -> dict:
-    keep = {k: line[k] for k in ("id", "text", "singer") if k in line}
+    keep = {k: line[k] for k in ("id", "text", "singer", "romaji") if k in line}
     keep["start_time"], keep["end_time"] = line.get("start_time"), line.get("end_time")
     return keep
 
@@ -763,17 +790,25 @@ def sync_lyrics(
     song_pass, song_reason = None, None
     anchor_plan: lyric_anchors.AnchorPlan | None = None
     placed: dict[int, tuple[dict, str, float | None]] = {}
+    romaji_lines: set[int] = set()
 
     if effective == "ctc" and dsp_lines:
         request_lines = []
         for i, line in enumerate(dsp_lines):
             if keep_source[i]:
                 continue
-            normalized = [
-                normalize_for_mms(str(w.get("word") or ""))
-                for w in line.get("words") or []
-                if isinstance(w, dict)
-            ]
+            romaji = _romaji_tokens(sources[i] if i < len(sources) else line)
+            if romaji:
+                # Timed by its romanization, which reads kanji as sung (uroman would read
+                # them as Chinese); mapped back onto the characters once aligned
+                normalized = [normalize_for_mms(t) for t in romaji]
+                romaji_lines.add(i)
+            else:
+                normalized = [
+                    normalize_for_mms(str(w.get("word") or ""))
+                    for w in line.get("words") or []
+                    if isinstance(w, dict)
+                ]
             if not any(normalized):
                 continue
             alignable_counts[i] = sum(1 for w in normalized if w)
@@ -792,7 +827,11 @@ def sync_lyrics(
         elif len(request_lines) < lyric_anchors.MIN_ANCHORS:
             song_pass, song_reason = "skipped", "too few lines to place in the song"
         else:
-            song_lines = [{"index": x["index"], "words": x["words"]} for x in request_lines]
+            song_lines = [
+                {"index": x["index"], "words": x["words"]}
+                for x in request_lines
+                if x["index"] not in romaji_lines
+            ]
         if request_lines:
             _report_progress(progress, 25, "Aligning words (neural)...")
             try:
@@ -803,6 +842,12 @@ def sync_lyrics(
                 neural_by_index = {
                     x.get("index"): x for x in response["lines"] if isinstance(x, dict)
                 }
+                for i in romaji_lines:
+                    if i in neural_by_index:
+                        neural_by_index[i] = romaji_onto_characters(
+                            neural_by_index[i], dsp_lines[i]
+                        )
+                        alignable_counts[i] = len(dsp_lines[i].get("words") or [])
                 if song_lines:
                     anchor_plan, song_pass, song_reason = _plan_anchors(
                         response.get("song"), words_by_index, sources, dsp_lines, timing
@@ -852,6 +897,8 @@ def sync_lyrics(
             if method == "dsp" and evidence is None:
                 method = "fallback"
         confidence = line_confidence(method, evidence_score(merged.get("words"), evidence), score)
+        if i < len(sources) and sources[i].get("romaji"):
+            merged["romaji"] = sources[i]["romaji"]
         merged["align_method"] = method
         if confidence is not None:
             merged["confidence"] = confidence

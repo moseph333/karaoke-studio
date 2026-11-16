@@ -401,6 +401,23 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
         )}
       </div>
 
+      {/* A Japanese (or other CJK) line's romanization, under it */}
+      {currentLine?.romaji && (
+        <p
+          data-testid="active-lyrics-romaji"
+          lang="ja-Latn"
+          style={{
+            fontSize: `${Math.max(0.7, fontSizeScale * 0.6)}em`,
+            color: unsungColor,
+            textShadow: outline,
+            fontFamily,
+          }}
+          className="-mt-1 text-sm font-semibold italic opacity-90 sm:text-lg md:text-2xl"
+        >
+          {currentLine.romaji}
+        </p>
+      )}
+
       {/* Upcoming Line (Line 2) */}
       <div className="ks-stage-next flex min-h-[1.5rem] items-center justify-center text-sm sm:min-h-[2rem] sm:text-lg md:text-xl">
         {nextLine ? (
