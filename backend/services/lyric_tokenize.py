@@ -35,6 +35,21 @@ def tokenize_lyric_text(text: str) -> list[str]:
     return [m.group(0) for m in TOKEN_RE.finditer(text.strip())]
 
 
+def adlib_flags(words: list[str]) -> list[bool]:
+    """Which of a line's words are sung in parentheses, the usual mark of a backing vocal or
+    ad-lib ("(It's the laser sharks)", "introspection, (hmm?)"). A parenthesis left open
+    runs to the end of the line. Mirrors ``adlibFlags`` in frontend/src/utils/lyrics.ts;
+    backend/assets/shared/adlib_cases.json pins both."""
+    flags: list[bool] = []
+    depth = 0
+    for word in words:
+        text = str(word or "")
+        opens, closes = text.count("("), text.count(")")
+        flags.append(depth > 0 or opens > 0)
+        depth = max(0, depth + opens - closes)
+    return flags
+
+
 @lru_cache(maxsize=1)
 def _num2words():
     try:

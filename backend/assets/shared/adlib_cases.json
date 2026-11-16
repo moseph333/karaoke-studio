@@ -1,0 +1,12 @@
+[
+  {"words": ["(It's", "the", "laser", "sharks)"], "adlib": [true, true, true, true]},
+  {"words": ["Interjection", "over", "introspection,", "(hmm?)"], "adlib": [false, false, false, true]},
+  {"words": ["Lasers", "(from", "the", "dark)", "tonight"], "adlib": [false, true, true, true, false]},
+  {"words": ["(Oh)"], "adlib": [true]},
+  {"words": ["Mutants", "from", "outer", "space"], "adlib": [false, false, false, false]},
+  {"words": ["Come", "on", "(yeah)", "(yeah)", "now"], "adlib": [false, false, true, true, false]},
+  {"words": ["Unclosed", "(and", "the", "rest"], "adlib": [false, true, true, true]},
+  {"words": ["Stray)", "close", "first"], "adlib": [false, false, false]},
+  {"words": ["幸せなサメ", "(Shiawase", "na", "same)"], "adlib": [false, true, true, true]},
+  {"words": [], "adlib": []}
+]
