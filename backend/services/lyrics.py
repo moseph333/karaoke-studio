@@ -278,7 +278,12 @@ class LyricsNormalizer:
         return a or "Unknown Artist"
 
     @classmethod
-    def extract_canonical(cls, track_title: str, artist_name: str) -> tuple[str, str]:
+    def extract_canonical(
+        cls, track_title: str, artist_name: str, artist_is_uploader: bool = False
+    ) -> tuple[str, str]:
+        """Split a video title into (title, artist). ``artist_is_uploader`` says the artist is
+        only the channel that posted the video (yt-dlp had no ``artist`` field): a fan upload
+        titled "Artist - Song" then names the real artist before the dash."""
         title = (track_title or "").strip()
         artist = (artist_name or "").strip()
 
@@ -303,11 +308,20 @@ class LyricsNormalizer:
                 title = parts[0].strip()
                 artist = parts[1].strip()
             # Case 2: Title is "Artist - Title" (parts[0] matches artist or artist is unknown/generic)
+            # or a fan upload, "Artist - Song" posted by a channel that is neither. For a fan
+            # upload the dash must survive cleaning, so "Song - Remastered 2011" or
+            # "Song - Live" from a channel without an artist field keeps its title.
             elif (
                 not artist
                 or artist in ("Unknown Artist", "Unknown", "Various Artists")
                 or clean_existing_a in ("Unknown Artist", "Unknown", "Various Artists")
                 or clean_part0.lower() == clean_existing_a.lower()
+                or (
+                    artist_is_uploader
+                    and clean_part0 != "Unknown Artist"
+                    and split_delim in cls.clean_title(title)
+                    and bool(cls.clean_title(parts[1]))
+                )
             ):
                 artist = parts[0].strip()
                 title = parts[1].strip()
@@ -317,8 +331,10 @@ class LyricsNormalizer:
         return (clean_t, clean_a)
 
     @classmethod
-    def normalize_track_metadata(cls, title: str, artist: str) -> tuple[str, str]:
-        return cls.extract_canonical(title, artist)
+    def normalize_track_metadata(
+        cls, title: str, artist: str, artist_is_uploader: bool = False
+    ) -> tuple[str, str]:
+        return cls.extract_canonical(title, artist, artist_is_uploader)
 
 
 class LyricsService:
