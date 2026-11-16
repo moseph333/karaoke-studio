@@ -1,6 +1,7 @@
 """Lyric fetching and parsing service integrating LRCLIB API and local LRC timestamp detection for custom and synced lyrics."""
 
 import difflib
+import itertools
 import logging
 import math
 import re
@@ -53,6 +54,54 @@ QUALITY_PENALTIES: dict[str, float] = {
 }
 LONG_LINE_CHARS = 120
 _LRC_TAG = re.compile(r"\[(\d{1,4}):(\d{2})(?:[.:](\d{1,3}))?\]")
+
+
+# A lyric file "writes repeats once" when a short line comes back (a hook) and a stretch of
+# at least SPARSE_GAP_SEC between two lines holds none: the hook sung there was not written
+SPARSE_GAP_SEC = 15.0
+# A fuller transcription has at least this many times the lines, shares at least this share
+# of the current one's words, and reaches at least as far into the song (within 15 s)
+FULLER_LINE_RATIO = 1.3
+FULLER_WORD_OVERLAP = 0.5
+
+
+def _line_key(text: str) -> str:
+    return re.sub(r"[^\w']+", " ", str(text or "").lower()).strip()
+
+
+def writes_repeats_once(lines: list[dict[str, Any]]) -> bool:
+    """Whether timed lyric lines look like a file that lists a repeated hook only once."""
+    keys = [_line_key(line.get("text", "")) for line in lines]
+    short = [k for k in keys if k and len(k.split()) <= 8]
+    if len(short) == len(set(short)):
+        return False
+    starts = sorted(float(line.get("start_time", 0)) for line in lines if line.get("text"))
+    return any(b - a >= SPARSE_GAP_SEC for a, b in itertools.pairwise(starts))
+
+
+def _words(texts: list[str]) -> set[str]:
+    return {w for t in texts for w in re.findall(r"[a-z']{3,}", t.lower())}
+
+
+def is_fuller_transcription(
+    current: dict[str, Any], text: str, lines: list[dict[str, Any]]
+) -> bool:
+    """Whether ``lines`` (parsed from ``text``) transcribe the same song as ``current`` more
+    fully: more lines (FULLER_LINE_RATIO), mostly the same words (FULLER_WORD_OVERLAP),
+    reaching as far into the song, and no sloppier (LyricsService.lyric_quality)."""
+    mine = [line for line in current.get("lines") or [] if line.get("text")]
+    theirs = [line for line in lines if line.get("text")]
+    if not mine or len(theirs) < FULLER_LINE_RATIO * len(mine):
+        return False
+    own_words = _words([line["text"] for line in mine])
+    if not own_words:
+        return False
+    shared = len(own_words & _words([line["text"] for line in theirs])) / len(own_words)
+    reach = max(float(line.get("start_time", 0)) for line in theirs)
+    if shared < FULLER_WORD_OVERLAP or reach < max(float(x["start_time"]) for x in mine) - 15:
+        return False
+    current_text = current.get("lrc") or "\n".join(line["text"] for line in mine)
+    return LyricsService.lyric_quality(text)[0] <= LyricsService.lyric_quality(current_text)[0]
 
 
 def is_section_heading(line: str) -> bool:
@@ -391,6 +440,10 @@ class LyricsService:
         # 1. Try LRCLIB API first
         lrclib_res = self._fetch_from_lrclib(clean_title, clean_artist, duration)
         if lrclib_res:
+            if lrclib_res.get("synced") and writes_repeats_once(lrclib_res.get("lines") or []):
+                fuller = self._fuller_transcription(lrclib_res, f"{clean_artist} - {clean_title}")
+                if fuller:
+                    return fuller
             return lrclib_res
 
         # 2. Try syncedlyrics library with strict timeout
@@ -437,6 +490,42 @@ class LyricsService:
             executor.shutdown(wait=False, cancel_futures=True)
 
         return {"source": "none", "synced": False, "plain_lyrics": "", "lrc": "", "lines": []}
+
+    def _fuller_transcription(self, current: dict[str, Any], query: str) -> dict[str, Any] | None:
+        """NetEase's synced lyrics for the song when they are a fuller transcription of the
+        same song than ``current`` (is_fuller_transcription), else None. NetEase often
+        writes out the repeats an LRCLIB upload lists once."""
+        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import TimeoutError as FuturesTimeout
+
+        executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="netease")
+        try:
+            future = executor.submit(
+                syncedlyrics.search, query, synced_only=True, providers=["NetEase"]
+            )
+            text = future.result(timeout=SYNCEDLYRICS_TIMEOUT_SEC)
+        except FuturesTimeout:
+            logger.info(f"NetEase lookup timed out for {query}")
+            return None
+        except Exception as e:
+            logger.info(f"NetEase lookup failed for {query}: {e}")
+            return None
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+        if not isinstance(text, str) or not self.is_lrc(text):
+            return None
+        lines = self.parse_lrc(text)
+        if not is_fuller_transcription(current, text, lines):
+            return None
+        logger.info(f"Using NetEase's fuller lyrics for {query}: {len(lines)} lines")
+        return {
+            "source": "netease",
+            "source_id": None,
+            "synced": True,
+            "plain_lyrics": "\n".join(line["text"] for line in lines),
+            "lrc": text,
+            "lines": lines,
+        }
 
     @classmethod
     def calculate_similarity(cls, str1: str, str2: str) -> float:
