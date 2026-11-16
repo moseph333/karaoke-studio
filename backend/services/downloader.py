@@ -45,6 +45,20 @@ def music_track_title(meta: dict[str, Any] | None) -> str | None:
     return None
 
 
+def track_artist(meta: dict[str, Any] | None, fallback: str) -> tuple[str, bool]:
+    """The artist yt-dlp reports, else the uploading channel, and whether it is only the
+    channel: a fan upload's channel is not the artist, so its title is trusted instead."""
+    if not isinstance(meta, dict):
+        return fallback, False
+    artist = meta.get("artist")
+    if isinstance(artist, str) and artist.strip():
+        return artist, False
+    uploader = meta.get("uploader")
+    if isinstance(uploader, str) and uploader.strip():
+        return uploader, True
+    return fallback, False
+
+
 class TrackDownloader:
     def __init__(self, output_dir: Path = DOWNLOADS_DIR):
         self.output_dir = output_dir
@@ -217,6 +231,7 @@ class TrackDownloader:
             artist = "Unknown Artist"
             duration = 0
             song_title = None
+            artist_is_uploader = False
 
             try:
                 ydl_opts_meta = {
@@ -235,7 +250,7 @@ class TrackDownloader:
                     meta = ydl.extract_info(url_or_id, download=False)
                     if meta:
                         title = meta.get("title") or title
-                        artist = meta.get("artist") or meta.get("uploader") or artist
+                        artist, artist_is_uploader = track_artist(meta, artist)
                         duration = meta.get("duration", 0)
                         song_title = music_track_title(meta)
             except Exception as e:
@@ -244,7 +259,7 @@ class TrackDownloader:
                 )
 
             clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(
-                song_title or title, artist
+                song_title or title, artist, artist_is_uploader
             )
 
             return {
@@ -322,7 +337,7 @@ class TrackDownloader:
 
         v_id = meta.get("id") or video_id
         title = meta.get("title") or "Unknown Track"
-        artist = meta.get("artist") or meta.get("uploader") or "Unknown Artist"
+        artist, artist_is_uploader = track_artist(meta, "Unknown Artist")
         duration = meta.get("duration", 0)
 
         # Audio file path
@@ -349,7 +364,7 @@ class TrackDownloader:
                 logger.warning(f"Could not download thumbnail directly: {e}")
 
         clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(
-            music_track_title(meta) or title, artist
+            music_track_title(meta) or title, artist, artist_is_uploader
         )
 
         return {
