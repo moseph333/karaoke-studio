@@ -22,6 +22,7 @@ import {
 } from '../utils/lyrics';
 import { useTapCursorHistory } from './useTapCursorHistory';
 import { markManualEdits, wordsSpreadEvenly } from '../utils/manualEdits';
+import { mergeLineWithNext, splitLineAfterWord } from '../utils/lineSplitMerge';
 
 export interface UseLyricEditorStateOptions {
   lines: LyricLine[];
@@ -420,6 +421,26 @@ export function useLyricEditorState({
     toast.info('Lyric line deleted');
   };
 
+  const handleSplitLineAfterWord = (lineId: number, wordIndex: number) => {
+    const split = splitLineAfterWord(editableLines, lineId, wordIndex);
+    if (!split) return;
+    pushSnapshot(editableLines);
+    setEditableLines(split);
+    toast.info('Line split in two');
+  };
+
+  const handleMergeWithNext = (lineId: number) => {
+    const merged = mergeLineWithNext(editableLines, lineId);
+    if (!merged) {
+      toast.info('There is no next line to merge with');
+      return;
+    }
+    pushSnapshot(editableLines);
+    setEditableLines(merged);
+    if (selectedLineId !== null && selectedLineId > lineId) setSelectedLineId(lineId);
+    toast.info('Lines merged');
+  };
+
   const handleCycleLineSinger = useCallback(
     (lineId: number) => {
       pushSnapshot(editableLines);
@@ -541,6 +562,8 @@ export function useLyricEditorState({
     handleCycleLineSinger,
     handleSetLineSinger,
     handleBulkAssignSinger,
+    handleSplitLineAfterWord,
+    handleMergeWithNext,
     isTapToSyncActive,
     setIsTapToSyncActive,
     tapSyncMode,

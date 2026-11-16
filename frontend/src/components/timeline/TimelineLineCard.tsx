@@ -14,6 +14,7 @@ import {
   ChevronRight,
   FastForward,
   Loader2,
+  Merge,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -82,6 +83,9 @@ export interface TimelineLineCardProps {
   /** Re-time this line against the vocals (row More menu). */
   onRealignLine?: (lineId: number) => void;
   isRealigning?: boolean;
+  /** Split the line after a word (expanded word editor) and join it with the next line. */
+  onSplitAfterWord?: (lineId: number, wordIndex: number) => void;
+  onMergeWithNext?: (lineId: number) => void;
 }
 
 // A shape per level as well as a colour, so the level reads without colour vision:
@@ -146,6 +150,8 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
   issues,
   showWords = true,
   onRealignLine,
+  onSplitAfterWord,
+  onMergeWithNext,
   isRealigning = false,
 }: TimelineLineCardProps) {
   const singerRole = normalizeSingerRole(line.singer);
@@ -482,6 +488,18 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   icon: <Plus className="h-4 w-4" />,
                   onSelect: () => onInsertLineBelow(idx),
                 },
+                ...(onMergeWithNext
+                  ? [
+                      {
+                        id: 'merge-next',
+                        group: 'Line',
+                        label: 'Merge with next line',
+                        icon: <Merge className="h-4 w-4" />,
+                        testId: `line-${line.id}-merge-next`,
+                        onSelect: () => onMergeWithNext(line.id),
+                      },
+                    ]
+                  : []),
                 {
                   id: 'delete',
                   group: 'Line',
@@ -596,6 +614,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
           onNudgeWord={onNudgeWord}
           onNudgeWordBoundary={onNudgeWordBoundary}
           onUpdateWordTiming={onUpdateWordTiming}
+          onSplitAfterWord={onSplitAfterWord}
         />
       )}
     </div>
