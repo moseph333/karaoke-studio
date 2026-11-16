@@ -56,6 +56,23 @@ export function tokenizeLyricText(text: string): string[] {
 }
 
 /**
+ * Which of a line's words are sung in parentheses, the usual mark of a backing vocal or
+ * ad-lib ("(It's the laser sharks)", "introspection, (hmm?)"). A parenthesis left open runs
+ * to the end of the line. Mirrors `adlib_flags` in backend/services/lyric_tokenize.py;
+ * backend/assets/shared/adlib_cases.json pins both.
+ */
+export function adlibFlags(words: string[]): boolean[] {
+  let depth = 0;
+  return words.map((word) => {
+    const opens = (word.match(/\(/g) ?? []).length;
+    const closes = (word.match(/\)/g) ?? []).length;
+    const inside = depth > 0 || opens > 0;
+    depth = Math.max(0, depth + opens - closes);
+    return inside;
+  });
+}
+
+/**
  * A word's share of its line when recalculateWordTimings spreads the words evenly: 2 plus its
  * character count without punctuation, counting at most 10 characters. The backend reads such
  * spreads with the same weights (lyric_sync.words_spread_evenly).

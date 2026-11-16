@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.config import DEFAULT_VIDEO_CONFIG
+from backend.services.lyric_tokenize import adlib_flags
 from backend.shared_assets import load
 
 _ASS_COLOR_DIGITS = re.compile(r"[0-9A-F]{6}(?:[0-9A-F]{2})?")
@@ -156,19 +157,41 @@ def instrumental_gaps(lines: Any) -> list[int]:
     return gaps
 
 
+# Words sung in parentheses (backing vocals, ad-libs) are smaller, italic and a little faded;
+# {\\r} then returns to the line's own style (its singer colours included)
+ADLIB_ON = "{\\i1\\fscx80\\fscy80\\alpha&H40&}"
+ADLIB_OFF = "{\\r}"
+
+
+def _adlib_text(tokens: list[str]) -> str:
+    """Escaped words joined by spaces, with the ad-lib runs (adlib_flags) styled."""
+    parts: list[str] = []
+    inside = False
+    for token, adlib in zip(tokens, adlib_flags(tokens), strict=True):
+        if adlib != inside:
+            parts.append(ADLIB_ON if adlib else ADLIB_OFF)
+            inside = adlib
+        parts.append(escape_ass_text(token) + " ")
+    return "".join(parts).strip()
+
+
 def _word_sweep_text(words: list, base_cs: int, line_start: float, escape: bool = True) -> str:
     """Karaoke text with one \\kf sweep per word, placed on absolute centisecond boundaries.
 
     Silent \\k spacers cover the lead-in and every pause between words, and each boundary is
     rounded once (not each duration), so the highlight neither runs ahead after a pause nor
-    drifts over a long line.
+    drifts over a long line. Words in parentheses are styled as ad-libs (ADLIB_ON).
     """
     parts: list[str] = []
     cursor = base_cs
     previous_end = line_start
-    for w in words:
-        if not isinstance(w, dict):
-            continue
+    words = [w for w in words if isinstance(w, dict)]
+    adlib = adlib_flags([str(w.get("word") or "") for w in words])
+    inside = False
+    for w, is_adlib in zip(words, adlib, strict=True):
+        if is_adlib != inside:
+            parts.append(ADLIB_ON if is_adlib else ADLIB_OFF)
+            inside = is_adlib
         start = safe_time(w.get("start_time"), previous_end)
         end = safe_time(w.get("end_time"), start + 0.4)
         start_cs = max(cursor, round(start * 100))
@@ -612,7 +635,7 @@ def generate_ass_content(
                         for w in words
                         if isinstance(w, dict) and str(w.get("word") or "").strip()
                     )
-                clean_line_text = escape_ass_text(raw_text)
+                clean_line_text = _adlib_text(raw_text.split())
 
                 if lead_in_cs > 0:
                     line_karaoke_text = f"{{\\k{lead_in_cs}}}{{\\k0}}{clean_line_text}"

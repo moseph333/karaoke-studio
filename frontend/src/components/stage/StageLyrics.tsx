@@ -14,6 +14,7 @@ import { cn } from '../../utils/cn';
 import { focusRing } from '../ui/variants';
 import { lyricOutline } from '../../theme/stageBackgrounds';
 import { NormalizedSinger, SINGER_CONFIG } from './singers';
+import { adlibFlags } from '../../utils/lyrics';
 
 export interface StageGapState {
   hasGap: boolean;
@@ -61,6 +62,8 @@ const wordButton = cn(
   'relative inline-block cursor-pointer rounded-theme-sm border-0 bg-transparent p-0.5 font-inherit text-inherit transition-transform hover:scale-[1.04]',
   focusRing
 );
+/** A word sung in parentheses (a backing vocal or ad-lib): smaller, italic, a little faded. */
+const adlibWord = 'self-center text-[0.72em] font-semibold italic opacity-80';
 
 /** Circular lead-in countdown (3-2-1) drawn as a draining ring. */
 const CountdownRing: React.FC<{ seconds: number; remaining: number; color: string }> = ({
@@ -146,6 +149,12 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
   // The outline the exported video draws around the lyrics
   const outline = lyricOutline(tone);
 
+  // Words in parentheses are backing vocals or ad-libs, styled apart (a line of words, or a
+  // line of text only that is one parenthesis)
+  const lineAdlib = adlibFlags((currentLine?.words ?? []).map((w) => w.word));
+  const lineTextAdlib = adlibFlags((currentLine?.text ?? '').split(/\s+/).filter(Boolean));
+  const wholeLineAdlib = lineTextAdlib.length > 0 && lineTextAdlib.every(Boolean);
+
   const wordProgress = (word: WordTiming) => {
     if (syncMode === 'line') {
       return !currentLine || time < currentLine.start_time ? 0 : 100;
@@ -226,13 +235,15 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
             {currentLine.words && currentLine.words.length > 0 ? (
               currentLine.words.map((w, idx) => {
                 const progress = wordProgress(w);
+                const adlib = lineAdlib[idx];
                 return (
                   <button
                     type="button"
                     key={idx}
                     onClick={() => onSeek?.(w.start_time)}
                     aria-label={`Jump playback to word ${w.word} at ${w.start_time.toFixed(2)} seconds`}
-                    className={wordButton}
+                    data-adlib={adlib || undefined}
+                    className={cn(wordButton, adlib && adlibWord)}
                     title={`${w.word} (${w.start_time.toFixed(2)}s - ${w.end_time.toFixed(2)}s)`}
                   >
                     <span
@@ -277,7 +288,8 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
                 type="button"
                 onClick={() => onSeek?.(currentLine.start_time)}
                 aria-label={`Jump playback to line at ${currentLine.start_time.toFixed(2)} seconds`}
-                className={wordButton}
+                data-adlib={wholeLineAdlib || undefined}
+                className={cn(wordButton, wholeLineAdlib && adlibWord)}
                 title={`${currentLine.text} (${currentLine.start_time.toFixed(2)}s - ${currentLine.end_time.toFixed(2)}s)`}
               >
                 <span
