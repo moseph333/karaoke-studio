@@ -40,7 +40,13 @@ from backend.services import alignment_config, emission_cache, lyric_anchors
 from backend.services.aligner import enforce_monotonic_words
 from backend.services.lyric_tokenize import normalize_for_mms
 from backend.services.process_watchdog import ProcessWatchdog, duration_text, quietly, worker_env
-from backend.services.sync_confidence import evidence_score, line_confidence, load_evidence
+from backend.services.sync_confidence import (
+    evidence_score,
+    line_confidence,
+    load_evidence,
+    uncovered_vocals,
+    vocal_regions,
+)
 from backend.shared_assets import load
 
 logger = logging.getLogger(__name__)
@@ -57,6 +63,8 @@ AGREES_WITH_DSP = 0.5  # an anchor this close to a timed line's DSP start confir
 TIMED_AFTER = 2.0  # neural window after a timed line's end (LRC ends are estimates)
 # Below this a line counts as low confidence, as the studio's "Needs review" filter does
 LOW_CONFIDENCE = load("confidence_thresholds")["low"]
+# How long singing with no lyric line must last to be reported (shared with the studio)
+UNCOVERED = load("uncovered_vocals")
 # The studio editor's even word spread (wordSpreadWeight and recalculateWordTimings in
 # frontend/src/utils/lyrics.ts); backend/assets/shared/word_spread_cases.json pins both sides
 _SPREAD_PUNCTUATION = re.compile(r"[\s.,/#!$%^&*;:{}=\-_`~()\"<>\[\]?]")
@@ -854,6 +862,7 @@ def sync_lyrics(
         if confidence is not None:
             confidences.append(confidence)
 
+    regions = vocal_regions(evidence)
     report = {
         "version": REPORT_VERSION,
         "engine": effective,
@@ -874,6 +883,12 @@ def sync_lyrics(
         "lines_relocated": relocated,
         "offset_segments": (anchor_plan.segments[:8] if song_pass == "ok" and anchor_plan else []),
         "low_confidence_lines": sum(1 for c in confidences if c < LOW_CONFIDENCE),
+        # Where the stem sings, and where it sings with no line to show (the studio redoes
+        # the second live from the first as lines change)
+        "vocal_regions": [list(r) for r in regions],
+        "uncovered_vocals": uncovered_vocals(
+            regions, result_lines, UNCOVERED["min_seconds"], UNCOVERED["line_margin_seconds"]
+        ),
         "mean_confidence": round(statistics.fmean(confidences), 3) if confidences else None,
         "elapsed_seconds": round(time.monotonic() - started, 2),
         "aligned_at": int(time.time()),
