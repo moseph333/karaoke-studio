@@ -23,7 +23,7 @@ import {
   Music,
   Wand2,
 } from 'lucide-react';
-import { LyricCandidate, LyricLine } from '../../types';
+import { LyricCandidate, LyricLine, LyricQualityFlag } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { useToast } from '../../hooks/useToast';
 import { useCapabilities } from '../../hooks/useCapabilities';
@@ -35,6 +35,15 @@ import { SegmentedControl } from '../ui/SegmentedControl';
 import { EmptyState } from '../ui/EmptyState';
 import { cn } from '../../utils/cn';
 import { formatTime } from '../../utils/format';
+
+/** What each of the server's quality flags means, for the list of LRCLIB versions. */
+const QUALITY_FLAG_LABELS: Record<LyricQualityFlag, string> = {
+  all_caps: 'All caps',
+  long_lines: 'Run-on lines',
+  repeat_markers: '“x2” markers',
+  annotations: 'Translator notes',
+  crammed_tail: 'Junk at the end',
+};
 
 const fieldCls =
   'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm md:min-h-[38px]';
@@ -244,7 +253,11 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
 
     try {
       await realign(
-        { custom_lyrics: lyricsToApply, fetch_lrclib: false },
+        {
+          custom_lyrics: lyricsToApply,
+          fetch_lrclib: false,
+          ...(candidate.id != null ? { lyric_source_id: candidate.id } : {}),
+        },
         'Candidate lyrics applied and realigned successfully',
         'Failed to apply candidate lyrics'
       );
@@ -558,6 +571,23 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                               [Plain Lyrics]
                             </span>
                           )}
+                          {cand.in_use && (
+                            <span
+                              data-testid="badge-in-use"
+                              className="rounded-theme-sm border border-theme-accent/35 bg-theme-accent/15 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-highlight"
+                            >
+                              In use
+                            </span>
+                          )}
+                          {(cand.quality_flags ?? []).map((flag) => (
+                            <span
+                              key={flag}
+                              data-testid={`quality-flag-${flag}`}
+                              className="rounded-theme-sm border border-theme-warning/35 bg-theme-warning/10 px-1.5 py-0.5 text-[10px] text-theme-warning"
+                            >
+                              {QUALITY_FLAG_LABELS[flag] ?? flag}
+                            </span>
+                          ))}
                           {cand.instrumental && (
                             <span className="rounded-theme-sm border border-theme-accent/35 bg-theme-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-theme-highlight">
                               Instrumental

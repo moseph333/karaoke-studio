@@ -1370,6 +1370,8 @@ def test_search_lyrics_is_a_service_method_with_one_normaliser():
             "instrumental": False,
             "plain_lyrics": "",
             "synced_lyrics": "",
+            "quality_flags": [],
         }
     ]
-    assert LyricsService.normalize_candidate(found[0]) == found[0]
+    mapped = {k: v for k, v in found[0].items() if k != "quality_flags"}
+    assert LyricsService.normalize_candidate(mapped) == mapped

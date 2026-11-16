@@ -412,6 +412,10 @@ class RealignLyricsRequest(BaseModel):
         default=False,
         description="Keep the word timing of lines timed by hand (align_method 'manual')",
     )
+    lyric_source_id: int | str | None = Field(
+        default=None,
+        description="The LRCLIB listing that custom_lyrics were taken from, if any",
+    )
 
 
 class RealignLineRequest(BaseModel):
@@ -713,6 +717,9 @@ class KaraokeProject(BaseModel):
     lines: list[LyricLineSchema] = Field(default_factory=list, description="Timed lyric lines")
     lyric_source: str | None = Field(
         default=None, description="Source of lyrics ('lrclib', 'custom', etc.)"
+    )
+    lyric_source_id: int | str | None = Field(
+        default=None, description="The LRCLIB listing the lyrics came from, when known"
     )
     is_synced: bool = Field(default=True, description="Whether lyrics are time-synchronized")
     created_by: str | None = Field(default="Friend", description="Creator username")

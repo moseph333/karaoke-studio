@@ -199,6 +199,7 @@ def run_realignment(
                     proj["lyric_timing"] = result.lyric_timing
             else:
                 proj["lyric_source"] = lyric_data.get("source", "custom")
+                proj["lyric_source_id"] = lyric_data.get("source_id")
                 proj["is_synced"] = lyric_data.get("synced", True)
                 proj["lyric_timing"] = result.lyric_timing
             proj["sync_report"] = result.report
