@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { LyricLine, ChordSegment, SyncDisplayMode, VisualTheme } from '../types';
+import { LyricLine, ChordSegment, SyncDisplayMode, VisualTheme, PartNames } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
 import { usePlaybackClock, usePlaybackTime } from '../hooks/usePlaybackClock';
 import { useIsVisible } from '../hooks/useIsVisible';
@@ -57,6 +57,8 @@ export interface LyricDisplayProps {
   themeUnsungColor?: string;
   singer2SungColor?: string;
   bothSungColor?: string;
+  /** Names the song gave its singer parts (project.part_names). */
+  partNames?: PartNames | null;
   className?: string;
   aspectRatio?: string;
   fontSizeScale?: number;
@@ -129,6 +131,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
   themeUnsungColor = '#ffffff',
   singer2SungColor = DEFAULT_SINGER2_COLOR,
   bothSungColor = DEFAULT_BOTH_COLOR,
+  partNames,
   className = '',
   aspectRatio = '16:9',
   fontSizeScale = 1.0,
@@ -507,6 +510,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
         activeSinger={activeSinger}
         activeSungColor={activeSungColor}
         hasMultipleSingers={hasMultipleSingers}
+        partNames={partNames}
         nextSinger={nextSinger}
         nextSungColor={nextSungColor}
         gap={

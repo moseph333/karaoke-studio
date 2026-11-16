@@ -15,6 +15,7 @@ import { InstallAppDialog } from './components/InstallAppDialog';
 import { StudioSkeleton, WhenShown } from './components/studio/StudioSkeleton';
 import { StudioWorkspace, TransportDock } from './deferredScreens';
 import { LyricLine, ProjectState, SyncDisplayMode, StudioWorkspaceTab } from './types';
+import type { EditedMetadata } from './components/EditMetadataModal';
 import { useProjectChords } from './hooks/useProjectChords';
 import { useVocalRangeBackfill } from './hooks/useVocalRangeBackfill';
 import { useTrackIntake } from './hooks/useTrackIntake';
@@ -433,7 +434,7 @@ export const AppContent: React.FC = () => {
     onInstallApp: installApp.canInstall ? installApp.install : undefined,
   });
 
-  const handleStudioMetadataSaved = (updated: { id: string; title: string; artist: string }) => {
+  const handleStudioMetadataSaved = (updated: EditedMetadata) => {
     setProject((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
     setShowStudioEditModal(false);
     toast.success('Project details updated');

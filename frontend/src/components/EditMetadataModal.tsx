@@ -1,13 +1,14 @@
 /**
  * Edit Project Metadata Modal Component
  *
- * Edits a song's title and artist and saves them with PATCH /api/project/:id. Focus
- * starts on the title field.
+ * Edits a song's title and artist, and in the studio the names of its singer parts, and
+ * saves them with PATCH /api/project/:id. Focus starts on the title field.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Pencil, AlertCircle, Check } from 'lucide-react';
 import { apiFetch, readApiError } from '../api';
+import type { PartNames } from '../types';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
 
@@ -17,10 +18,33 @@ export interface EditMetadataModalProps {
     id: string;
     title?: string;
     artist?: string;
+    /** Given (even empty) in the studio, where the singer parts can be named. */
+    part_names?: PartNames | null;
   } | null;
   onClose: () => void;
-  onSaved: (updatedProject: { id: string; title: string; artist: string }) => void;
+  onSaved: (updatedProject: EditedMetadata) => void;
 }
+
+/** What a save changed on the song. */
+export interface EditedMetadata {
+  id: string;
+  title: string;
+  artist: string;
+  part_names?: PartNames | null;
+}
+
+const PART_FIELDS = [
+  {
+    role: 'singer1',
+    label: 'Singer 1 name',
+    placeholder: 'e.g. Rapper (default: Singer 1 / Lead)',
+  },
+  {
+    role: 'singer2',
+    label: 'Singer 2 name',
+    placeholder: 'e.g. Miho (default: Singer 2 / Partner)',
+  },
+] as const;
 
 const inputCls =
   'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
@@ -34,6 +58,8 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
 }) => {
   const [title, setTitle] = useState(project?.title || '');
   const [artist, setArtist] = useState(project?.artist || '');
+  const [partNames, setPartNames] = useState<PartNames>(project?.part_names ?? {});
+  const withParts = project?.part_names != null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
@@ -42,6 +68,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
     if (project) {
       setTitle(project.title || '');
       setArtist(project.artist || '');
+      setPartNames(project.part_names ?? {});
       setError(null);
     }
   }, [project, isOpen]);
@@ -72,6 +99,12 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         body: JSON.stringify({
           title: cleanTitle,
           artist: cleanArtist,
+          // Every shown part is sent: an emptied name goes back to the default label
+          ...(withParts && {
+            part_names: Object.fromEntries(
+              PART_FIELDS.map(({ role }) => [role, (partNames[role] ?? '').trim()])
+            ),
+          }),
         }),
       });
 
@@ -80,10 +113,11 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       }
 
       const data = await res.json();
-      const updated = data.project || {
+      const updated: EditedMetadata = data.project || {
         id: data.id || project.id,
         title: data.title || cleanTitle,
         artist: data.artist || cleanArtist,
+        ...(withParts && { part_names: data.part_names ?? null }),
       };
 
       onSaved(updated);
@@ -157,6 +191,24 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               className={inputCls}
             />
           </div>
+
+          {withParts &&
+            PART_FIELDS.map(({ role, label, placeholder }) => (
+              <div key={role} className="space-y-1.5">
+                <label htmlFor={`edit-part-${role}`} className={labelCls}>
+                  {label}
+                </label>
+                <input
+                  id={`edit-part-${role}`}
+                  type="text"
+                  maxLength={40}
+                  value={partNames[role] ?? ''}
+                  onChange={(e) => setPartNames((prev) => ({ ...prev, [role]: e.target.value }))}
+                  placeholder={placeholder}
+                  className={inputCls}
+                />
+              </div>
+            ))}
         </div>
 
         <DialogFooter>

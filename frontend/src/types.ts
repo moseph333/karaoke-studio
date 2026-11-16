@@ -27,6 +27,9 @@ export interface BulkAssignOptions {
   parts?: Record<number, SingerRole>;
 }
 
+/** Names for the singer parts (`{ singer2: 'Miho' }`); a missing name keeps the default. */
+export type PartNames = Partial<Record<SingerRole, string>>;
+
 /** Whether the server told two voices apart on the vocal stem (GET …/voice-parts). */
 export interface VoicePartsReport {
   detected: boolean;
@@ -218,6 +221,8 @@ export interface ProjectState {
   lyric_source_id?: number | string | null;
   /** Whether two voices were told apart when the song was processed. */
   voice_parts?: VoicePartsReport | null;
+  /** Names given to the singer parts, shown on the stage instead of "Singer 1" and so on. */
+  part_names?: PartNames | null;
   is_synced?: boolean;
   semitones: number;
   guide_volume: number;
