@@ -13,7 +13,7 @@ import { ChordSegment, LyricLine, SyncDisplayMode, WordTiming } from '../../type
 import { cn } from '../../utils/cn';
 import { focusRing } from '../ui/variants';
 import { lyricOutline } from '../../theme/stageBackgrounds';
-import { NormalizedSinger, SINGER_CONFIG } from './singers';
+import { NormalizedSinger, SINGER_CONFIG, singerLabels } from './singers';
 import { adlibFlags } from '../../utils/lyrics';
 
 export interface StageGapState {
@@ -43,6 +43,8 @@ export interface StageLyricsProps {
   activeSinger: NormalizedSinger;
   activeSungColor: string;
   hasMultipleSingers: boolean;
+  /** Names the song gave its singer parts, shown instead of "Singer 1" and so on. */
+  partNames?: Partial<Record<NormalizedSinger, string>> | null;
   nextSinger: NormalizedSinger | null;
   nextSungColor: string;
   gap: StageGapState | null;
@@ -128,6 +130,7 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
   activeSinger,
   activeSungColor,
   hasMultipleSingers,
+  partNames,
   nextSinger,
   nextSungColor,
   gap,
@@ -141,8 +144,10 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
   onSeek,
   onEditChord,
 }) => {
-  const activeConfig = SINGER_CONFIG[activeSinger];
-  const nextConfig = nextSinger ? SINGER_CONFIG[nextSinger] : null;
+  const activeConfig = { ...SINGER_CONFIG[activeSinger], ...singerLabels(activeSinger, partNames) };
+  const nextConfig = nextSinger
+    ? { ...SINGER_CONFIG[nextSinger], ...singerLabels(nextSinger, partNames) }
+    : null;
   const ActiveIcon = activeConfig.Icon;
   // Helper text sits over cover art too: it keeps its muted colour and gets the lyric outline
   const mutedText = tone === 'light' ? 'text-black/55' : 'text-white/55';

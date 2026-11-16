@@ -515,7 +515,7 @@ def force_redetect_chords(project_id: str):
 @router.patch("/api/project/{project_id}")
 @router.post("/api/project/{project_id}/metadata")
 def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
-    """Updates a project's title and/or artist metadata.
+    """Updates a project's title, artist and/or singer part names.
 
     Persists changes atomically to projects.json under PROJECTS_LOCK and
     refreshes the embedded YouTube metadata package if present.
@@ -524,10 +524,10 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
     if not proj:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    if req.title is None and req.artist is None:
+    if req.title is None and req.artist is None and req.part_names is None:
         raise HTTPException(
             status_code=400,
-            detail="At least one of 'title' or 'artist' must be provided",
+            detail="At least one of 'title', 'artist' or 'part_names' must be provided",
         )
 
     new_title = req.title.strip() if req.title is not None else None
@@ -541,11 +541,18 @@ def update_project_metadata(project_id: str, req: ProjectMetadataUpdate):
     with PROJECTS_LOCK:
         # Looked up again under the lock, in case the song was deleted meanwhile
         proj = get_project_or_404(project_id)
-        with restore_on_failed_save(proj, ("title", "artist", "youtube_package")):
+        with restore_on_failed_save(proj, ("title", "artist", "youtube_package", "part_names")):
             if new_title is not None:
                 proj["title"] = new_title
             if new_artist is not None:
                 proj["artist"] = new_artist
+            if req.part_names is not None:
+                names = {**(proj.get("part_names") or {}), **req.part_names}
+                names = {role: name for role, name in names.items() if name}
+                if names:
+                    proj["part_names"] = names
+                else:
+                    proj.pop("part_names", None)
 
             refresh_youtube_package(proj)
             save_projects(strict=True)

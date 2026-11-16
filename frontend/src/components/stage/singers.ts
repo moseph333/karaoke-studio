@@ -30,6 +30,16 @@ export const SINGER_CONFIG: Record<NormalizedSinger, SingerVisualConfig> = {
   both: { label: 'Both / Duet', tag: '[Both / Duet]', short: 'Both', Icon: Users },
 };
 
+/** A part's badge label and cue tag, with the name the song gave the part when it has one. */
+export function singerLabels(
+  role: NormalizedSinger,
+  names?: Partial<Record<NormalizedSinger, string>> | null
+): { label: string; tag: string } {
+  const name = names?.[role]?.trim();
+  const config = SINGER_CONFIG[role];
+  return name ? { label: name, tag: `[${name}]` } : { label: config.label, tag: config.tag };
+}
+
 export interface SingerColors {
   singer1: string;
   singer2: string;

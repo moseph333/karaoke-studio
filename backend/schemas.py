@@ -122,6 +122,9 @@ class WordTimingSchema(BaseModel):
         return self
 
 
+# The longest name a singer part may be given (the stage shows it in a badge)
+PART_NAME_MAX = 40
+
 # Every singer label a line may carry, mapped to its part (shared with the studio's stage)
 SINGER_ALIASES: dict[str, str] = load("singer_aliases")
 
@@ -386,6 +389,21 @@ class ProjectMetadataUpdate(BaseModel):
         max_length=300,
         description="Optional updated artist name (max 300 chars)",
     )
+    part_names: dict[Literal["singer1", "singer2", "both"], str] | None = Field(
+        default=None,
+        description="Names for the singer parts shown on the stage (e.g. {'singer2': 'Miho'}); "
+        "an empty name goes back to the default label",
+    )
+
+    @field_validator("part_names")
+    @classmethod
+    def _clean_part_names(cls, v: dict[str, str] | None) -> dict[str, str] | None:
+        if v is None:
+            return None
+        cleaned = {role: " ".join(str(name).split()) for role, name in v.items()}
+        if any(len(name) > PART_NAME_MAX for name in cleaned.values()):
+            raise ValueError(f"A part name can be at most {PART_NAME_MAX} characters")
+        return cleaned
 
 
 class RealignLyricsRequest(BaseModel):
@@ -720,6 +738,9 @@ class KaraokeProject(BaseModel):
     )
     lyric_source_id: int | str | None = Field(
         default=None, description="The LRCLIB listing the lyrics came from, when known"
+    )
+    part_names: dict[str, str] | None = Field(
+        default=None, description="Names given to the singer parts, shown on the stage"
     )
     voice_parts: dict[str, Any] | None = Field(
         default=None,

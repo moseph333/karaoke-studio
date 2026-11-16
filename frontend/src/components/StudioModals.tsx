@@ -9,7 +9,7 @@ import React, { Suspense, useState } from 'react';
 import { AuthModal } from './AuthModal';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { ErrorBoundary } from './ErrorBoundary';
-import { EditMetadataModal } from './EditMetadataModal';
+import { EditMetadataModal, type EditedMetadata } from './EditMetadataModal';
 import { ExportModal, HelpModal, ReseparateDialog } from '../deferredScreens';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 import type { UseQualityJobsReturn } from '../hooks/useQualityJobs';
@@ -51,7 +51,7 @@ export interface StudioModalsProps {
   onStudioProjectDeleted: () => void;
   showStudioEditModal: boolean;
   onCloseStudioEdit: () => void;
-  onStudioMetadataSaved: (updated: { id: string; title: string; artist: string }) => void;
+  onStudioMetadataSaved: (updated: EditedMetadata) => void;
   /** Stem re-separation dialog state and actions. */
   quality?: UseQualityJobsReturn;
   hasUnsavedLyricEdits?: boolean;
@@ -161,6 +161,7 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
                 id: project.id,
                 title: project.title || '',
                 artist: project.artist || '',
+                part_names: project.part_names ?? {},
               }
             : null
         }
