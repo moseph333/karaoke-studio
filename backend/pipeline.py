@@ -31,6 +31,7 @@ from backend.services.separation_presets import (
     estimate_seconds,
     normalize_preset,
 )
+from backend.services.voice_parts import assign_voice_parts
 
 logger = logging.getLogger("karaoke_backend")
 
@@ -231,11 +232,14 @@ def sync_project_lyrics(
         progress=on_progress,
         cancel_event=cancel_event,
     )
+    # A second voice (a hook singer beside a rapper, a narrator beside a lead) becomes Singer 2
+    lines, voices = assign_voice_parts(vocals_path, result.lines)
     with PROJECTS_LOCK:
         proj = get_project_or_404(project_id)
-        proj["lines"] = result.lines
+        proj["lines"] = lines
         proj["sync_report"] = result.report
         proj["lyric_timing"] = result.lyric_timing
+        proj["voice_parts"] = voices.report()
         save_projects()
 
 

@@ -499,6 +499,11 @@ export function useLyricEditorState({
           }
           return { ...line, singer: currentSinger };
         });
+      } else if (options.mode === 'voice') {
+        const parts = options.parts ?? {};
+        updated = editableLines.map((line) =>
+          parts[line.id] ? { ...line, singer: parts[line.id] } : line
+        );
       }
 
       setEditableLines(updated);

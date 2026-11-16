@@ -721,6 +721,11 @@ class KaraokeProject(BaseModel):
     lyric_source_id: int | str | None = Field(
         default=None, description="The LRCLIB listing the lyrics came from, when known"
     )
+    voice_parts: dict[str, Any] | None = Field(
+        default=None,
+        description="Whether two voices were told apart on the vocal stem when the song was "
+        "processed, how clearly, and how many lines went to Singer 2",
+    )
     is_synced: bool = Field(default=True, description="Whether lyrics are time-synchronized")
     created_by: str | None = Field(default="Friend", description="Creator username")
     created_at: int | None = Field(default=None, description="Creation epoch timestamp in seconds")
