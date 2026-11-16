@@ -129,6 +129,20 @@ def safe_time(val: Any, default: float = 0.0) -> float:
 # starts COUNTDOWN_LEAD_IN_SECONDS before that line.
 INSTRUMENTAL_GAP_THRESHOLD_SECONDS = 4.0
 COUNTDOWN_LEAD_IN_SECONDS = 3.0
+# During a gap the video says so (GapLabel) from GAP_LABEL_DELAY_SECONDS into it until the next
+# line shows; after the last line a title card shows from OUTRO_DELAY_SECONDS on, to the
+# song's end, when that leaves OUTRO_MIN_SECONDS for it
+GAP_LABEL_DELAY_SECONDS = 1.5
+OUTRO_DELAY_SECONDS = 1.5
+OUTRO_MIN_SECONDS = 3.0
+
+
+def export_title(proj: dict) -> str:
+    """The title an export carries (the subtitle file's title, the video's closing card):
+    "Artist - Title", or whichever of the two the song has."""
+    title = str(proj.get("title") or "").strip()
+    artist = str(proj.get("artist") or "").strip()
+    return f"{artist} - {title}" if (artist and title) else (title or artist or "Karaoke Track")
 
 
 def line_span(line: dict) -> tuple[float, float]:
@@ -527,6 +541,7 @@ def generate_ass_content(
     semitones: int = 0,
     key: str | None = None,
     sync_mode: str = "word",
+    song_duration: float | None = None,
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
@@ -534,7 +549,9 @@ def generate_ass_content(
     Supports dynamic 16:9 and 9:16 layout adjustments, visual theme presets,
     direct color overrides, font size scaling, control character escaping,
     and optional transposed musical chords on Layer 2. AssStyle.resolve decides which
-    of the arguments, style_config, the stage look and the defaults applies.
+    of the arguments, style_config, the stage look and the defaults applies. With the
+    countdown on, instrumental gaps also get a label, and the end of the song a title card
+    (when ``song_duration`` is given).
     """
     style = AssStyle.resolve(
         style_config=style_config,
@@ -576,6 +593,7 @@ def generate_ass_content(
         f"Style: KaraokeLine1_Both,{style.font_name},{style.font_size},{style.both_color},{style.secondary_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,1,0,1,{style.outline_width},{style.shadow_width},2,{style.margin_lr},{style.margin_lr},{style.margin_v_line1},1",
         f"Style: KaraokeLine2_Both,{style.font_name},{style.font_size},{style.both_color},{style.secondary_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,1,0,1,{style.outline_width},{style.shadow_width},2,{style.margin_lr},{style.margin_lr},{style.margin_v_line2},1",
         f"Style: Countdown,{style.font_name},{style.font_size + 10},{style.primary_color},{style.secondary_color},{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,2,0,1,{style.outline_width},{style.shadow_width},2,{style.margin_lr},{style.margin_lr},{style.margin_v_countdown},1",
+        f"Style: GapLabel,{style.font_name},{max(24, style.font_size - 12)},{style.secondary_color},{style.secondary_color},{style.outline_color},{style.shadow_color},0,-1,0,0,100,100,1,0,1,{style.outline_width},{style.shadow_width},2,{style.margin_lr},{style.margin_lr},{style.margin_v_line1},1",
         f"Style: TitleCard,{style.font_name},64,&H00FFFFFF,&H00FFFFFF,{style.outline_color},{style.shadow_color},-1,0,0,0,100,100,1,0,1,3,3,5,{style.margin_lr},{style.margin_lr},{style.margin_v_title},1",
     ]
 
@@ -611,6 +629,7 @@ def generate_ass_content(
             )
 
             # Show line early on screen so the singer can prepare
+            has_gap = i in gap_lines
             if i == 0:
                 display_start = max(0.0, l_start - 2.5)
             elif l_start > prev_end_time:
@@ -621,9 +640,15 @@ def generate_ass_content(
             display_start = max(0.0, min(l_start, display_start))
             display_end = max(display_start + 0.5, l_end + 1.2)
 
-            # Visual countdown cue after an instrumental gap (the rule is instrumental_gaps)
-            has_gap = i in gap_lines
+            # Visual countdown cue after an instrumental gap (the rule is instrumental_gaps),
+            # and a label while the gap lasts
             if style.countdown and has_gap:
+                label_start = (prev_end_time + GAP_LABEL_DELAY_SECONDS) if i else 0.0
+                if display_start - label_start >= 1.0:
+                    label = "♪ Instrumental Intro ♪" if prev_end_time == 0.0 else "♪ Instrumental ♪"
+                    ass_content.append(
+                        f"Dialogue: 3,{format_ass_time(label_start)},{format_ass_time(display_start)},GapLabel,,0,0,0,,{label}"
+                    )
                 countdown_start = max(0.0, l_start - COUNTDOWN_LEAD_IN_SECONDS)
                 part_color = {"singer2": style.singer2_color, "both": style.both_color}.get(part)
                 dots_color_tag = f"{{\\c{part_color}&}}" if part_color else ""
@@ -679,6 +704,16 @@ def generate_ass_content(
 
             prev_end_time = max(prev_end_time, l_end)
 
+        # The end of the song: its title, from a moment after the last line to the song's end
+        # (only when the song's length is known, so the card never outlasts the song)
+        card_start = prev_end_time + OUTRO_DELAY_SECONDS
+        duration = safe_time(song_duration, 0.0)
+        if style.countdown and prev_end_time > 0 and duration - card_start >= OUTRO_MIN_SECONDS:
+            ass_content.append(
+                f"Dialogue: 3,{format_ass_time(card_start)},{format_ass_time(duration)},TitleCard,,0,0,0,,"
+                f"{{\\fad(600,600)}}{escape_ass_text(doc_title)}"
+            )
+
     # Emit chord events on Layer 2 if enabled
     if style.chords_enabled and style.chords and isinstance(style.chords, list):
         from backend.services.chord_detector import NO_CHORD_VALUES, transpose_chord
@@ -731,6 +766,7 @@ def generate_ass_subtitles(
     semitones: int = 0,
     key: str | None = None,
     sync_mode: str = "word",
+    song_duration: float | None = None,
 ) -> str:
     """Generates Advanced SubStation Alpha (.ass) subtitle file
 
@@ -755,6 +791,7 @@ def generate_ass_subtitles(
         semitones=semitones,
         key=key,
         sync_mode=sync_mode,
+        song_duration=song_duration,
     )
     output_ass_path.write_text(content, encoding="utf-8")
     return str(output_ass_path)

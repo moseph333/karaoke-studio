@@ -18,7 +18,7 @@ from backend.project_store import (
     save_projects_throttled,
 )
 from backend.schemas import RenderRequest
-from backend.services.ass_generator import resolve_sync_mode
+from backend.services.ass_generator import export_title, resolve_sync_mode
 from backend.services.audio_mixer import mix_quality
 
 logger = logging.getLogger("karaoke_backend")
@@ -163,6 +163,8 @@ def run_video_render(project_id: str, req: RenderRequest):
             semitones=req.semitones,
             key=estimated_key(proj),
             sync_mode=resolve_sync_mode(req.sync_mode, style_cfg),
+            title=export_title(proj),
+            song_duration=proj.get("duration"),
         )
 
         update_render(15, "Mixing master audio with pitch adjustment...", 40)
