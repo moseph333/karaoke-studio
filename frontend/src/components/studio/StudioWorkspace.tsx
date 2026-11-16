@@ -132,6 +132,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
             singer2SungColor={theme.activeSinger2Color}
             bothSungColor={theme.activeBothColor}
             partNames={project.part_names}
+            syncReport={project.sync_report}
             onDirtyChange={onLyricsDirtyChange}
             aspectRatio={theme.aspectRatio}
             fontSizeScale={theme.fontSizeScale}

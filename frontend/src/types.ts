@@ -80,6 +80,10 @@ export interface SyncReport {
   offset_segments?: { first_line: number; last_line: number; offset: number; anchors: number }[];
   low_confidence_lines?: number;
   mean_confidence?: number | null;
+  /** Stretches of strong vocals on the stem, [start, end] in seconds. */
+  vocal_regions?: [number, number][];
+  /** Vocal stretches no line covered when the lyrics were aligned. */
+  uncovered_vocals?: { start: number; end: number }[];
   elapsed_seconds?: number;
   aligned_at?: number;
 }

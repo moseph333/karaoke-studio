@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { CheckCircle2, Plus } from 'lucide-react';
-import { LyricLine, WordTiming, StudioWorkspaceTab, SyncJob } from '../types';
+import { LyricLine, WordTiming, StudioWorkspaceTab, SyncJob, SyncReport } from '../types';
 import { LyricDisplay, LyricDisplayProps } from './LyricDisplay';
 import {
   recalculateWordTimings,
@@ -27,6 +27,8 @@ import { TimelineToolbar } from './timeline/TimelineToolbar';
 import { TimelineModals } from './timeline/TimelineModals';
 import { TapToSyncBanner } from './timeline/TapToSyncBanner';
 import { SyncJobBanner } from './timeline/SyncJobBanner';
+import { UncoveredVocalsNotice } from './timeline/UncoveredVocalsNotice';
+import { uncoveredVocals } from '../utils/uncoveredVocals';
 import { TimelineDialogs, type TimelineDialog } from './timeline/TimelineDialogs';
 import { Button } from './ui/Button';
 import { S_ADD_LINE_BTN, S_RESUME_PILL, S_SCROLL_AREA } from './timeline/timelineStyles';
@@ -49,6 +51,8 @@ export interface LyricTimelineEditorProps extends LyricDisplayProps {
   syncJob?: SyncJob | null;
   onStartBackgroundRealign?: (request: BackgroundRealignRequest) => Promise<unknown>;
   onCancelRealign?: () => void;
+  /** The last alignment's report: its vocal regions show singing that has no line. */
+  syncReport?: SyncReport | null;
 }
 
 /** The stage's own props: passing the editor's too would defeat LyricDisplay's memo. */
@@ -61,6 +65,7 @@ function stagePropsOf({
   syncJob: _syncJob,
   onStartBackgroundRealign: _onStartBackgroundRealign,
   onCancelRealign: _onCancelRealign,
+  syncReport: _syncReport,
   ...stage
 }: LyricTimelineEditorProps): LyricDisplayProps {
   return stage;
@@ -281,6 +286,11 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
             hasReadyResult={syncResult.hasReadyResult}
             onLoadResult={syncResult.loadResult}
             onKeepEdits={syncResult.keepEdits}
+          />
+
+          <UncoveredVocalsNotice
+            spans={uncoveredVocals(props.syncReport?.vocal_regions, ed.editableLines)}
+            onSeek={onSeek}
           />
 
           <TapToSyncBanner

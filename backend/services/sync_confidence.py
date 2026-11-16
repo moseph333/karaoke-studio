@@ -32,6 +32,12 @@ FRAME_SEC = 0.02
 ONSET_SIGMA = 0.06
 ONSET_GAP = 0.08  # a word after a pause this long should start with an onset
 ACTIVE_RANGE_DB = 30.0
+# Strong vocals, for finding singing the lyrics leave out: within this much of the stem's
+# loud level (stricter than ACTIVE_RANGE_DB, so bleed and breaths do not count), as runs
+# that bridge pauses shorter than REGION_BRIDGE_SEC and last at least REGION_MIN_SEC
+STRONG_RANGE_DB = 20.0
+REGION_BRIDGE_SEC = 0.5
+REGION_MIN_SEC = 0.5
 ONSET_RISE_DB = 6.0
 LRC_FLOOR = 0.9
 CTC_WEIGHT = 0.6
@@ -46,6 +52,7 @@ _cache_lock = threading.Lock()
 class VocalEvidence:
     active: np.ndarray  # bool per HOP_SEC frame
     onsets: np.ndarray  # onset times in seconds, ascending
+    strong: np.ndarray | None = None  # bool per HOP_SEC frame, within STRONG_RANGE_DB
 
     def activity(self, start: float, end: float) -> tuple[int, int]:
         """(active frames, frames) between two times."""
@@ -100,8 +107,10 @@ def _analyze(path: Path) -> VocalEvidence | None:
     db = 10.0 * np.log10(energy + 1e-12)
     reference = float(np.percentile(db, 95))
     if reference < -70.0:  # silence
-        return VocalEvidence(np.zeros(frames, dtype=bool), np.zeros(0))
+        silent = np.zeros(frames, dtype=bool)
+        return VocalEvidence(silent, np.zeros(0), silent)
     active = (db > reference - ACTIVE_RANGE_DB) & (energy > 1e-7)
+    strong = (db > reference - STRONG_RANGE_DB) & (energy > 1e-7)
 
     # Onset: energy rising by ONSET_RISE_DB within 30 ms into an active frame, taking the
     # steepest frame of each rise
@@ -120,7 +129,54 @@ def _analyze(path: Path) -> VocalEvidence | None:
             continue
         onsets.append(i)
         last = i
-    return VocalEvidence(active, np.asarray(onsets, dtype=np.float64) * HOP_SEC)
+    return VocalEvidence(active, np.asarray(onsets, dtype=np.float64) * HOP_SEC, strong)
+
+
+def vocal_regions(evidence: VocalEvidence | None) -> list[tuple[float, float]]:
+    """Stretches of strong vocals on the stem, (start, end) in seconds: runs of strong frames
+    that bridge pauses under REGION_BRIDGE_SEC and last at least REGION_MIN_SEC."""
+    if evidence is None or evidence.strong is None or not evidence.strong.any():
+        return []
+    frames = np.flatnonzero(evidence.strong)
+    bridge = int(REGION_BRIDGE_SEC / HOP_SEC)
+    runs: list[list[int]] = [[int(frames[0]), int(frames[0])]]
+    for f in frames[1:]:
+        if f - runs[-1][1] <= bridge:
+            runs[-1][1] = int(f)
+        else:
+            runs.append([int(f), int(f)])
+    return [
+        (round(a * HOP_SEC, 2), round((b + 1) * HOP_SEC, 2))
+        for a, b in runs
+        if (b + 1 - a) * HOP_SEC >= REGION_MIN_SEC
+    ]
+
+
+def uncovered_vocals(
+    regions: list[tuple[float, float]], lines: list[dict], min_seconds: float, margin: float
+) -> list[dict]:
+    """The parts of the vocal regions that no lyric line covers (each line widened by
+    ``margin`` on both sides), at least ``min_seconds`` long: singing the lyrics leave out,
+    such as a hook written once and sung three times."""
+    spans = sorted(
+        (float(line.get("start_time", 0)) - margin, float(line.get("end_time", 0)) + margin)
+        for line in lines
+        if isinstance(line, dict)
+    )
+    out: list[dict] = []
+    for start, end in regions:
+        cursor = start
+        for a, b in spans:
+            if b <= cursor or a >= end:
+                continue
+            if a - cursor >= min_seconds:
+                out.append({"start": round(cursor, 2), "end": round(a, 2)})
+            cursor = max(cursor, b)
+            if cursor >= end:
+                break
+        if end - cursor >= min_seconds:
+            out.append({"start": round(cursor, 2), "end": round(end, 2)})
+    return out
 
 
 def _timed_words(words) -> list[tuple[float, float]]:
