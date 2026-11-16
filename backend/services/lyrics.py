@@ -33,6 +33,31 @@ SYNCEDLYRICS_TIMEOUT_SEC = 6.0
 # A synced lyrics file timed for a recording longer or shorter than this is another version
 DURATION_MATCH_SEC = 10.0
 
+# Signs of a sloppy lyric file, and what each costs a candidate in score_candidate: an
+# uploader's ALL-CAPS transcription with "x2" markers and a translation crammed into the
+# last second loses to a clean listing of the same song.
+QUALITY_PENALTIES: dict[str, float] = {
+    "all_caps": 15.0,
+    "long_lines": 15.0,
+    "repeat_markers": 10.0,
+    "annotations": 20.0,
+    "crammed_tail": 20.0,
+}
+ALL_CAPS_SHARE = 0.7
+LONG_LINE_CHARS = 120
+_LRC_TAG = re.compile(r"\[(\d{1,4}):(\d{2})(?:[.:](\d{1,3}))?\]")
+# "x2", "X2", "(x2)", "2x" or a multiplication sign and a count at the end of a line
+_REPEAT_MARKER = re.compile(
+    r"(?:^|[\s(\[])(?:[x\u00d7]\s?\d{1,2}|\d{1,2}\s?[x\u00d7])[)\]]?\s*$", re.I
+)
+# A translator's or transcriber's note: "Translation Japanese:", "Romanized:", or a long
+# parenthesised explanation ("(This is phrased in present tense ...)")
+_ANNOTATION = re.compile(
+    r"^\s*(?:translation|translated|romanization|romanized|romaji|english)\b[^:]{0,30}:"
+    r"|\((?:this is|this could|could mean|literally|lit\.|note:|translator)[^)]{20,}\)?",
+    re.I,
+)
+
 
 def is_section_heading(line: str) -> bool:
     """True for a line that only labels a song section, such as "[Chorus]" or "Verse 2:"."""
@@ -526,6 +551,39 @@ class LyricsService:
             return True
         return abs(cand_duration - float(target_duration)) <= DURATION_MATCH_SEC
 
+    @staticmethod
+    def lyric_quality(text: str) -> tuple[float, list[str]]:
+        """(penalty, flags) for how sloppy a lyric file looks, from QUALITY_PENALTIES:
+        mostly ALL CAPS, lines too long to sing as one, "x2" repeat markers, translator's
+        notes, or three or more lines crammed into the file's last two seconds."""
+        flags: list[str] = []
+        stamps: list[float] = []
+        lines: list[str] = []
+        for raw in (text or "").splitlines():
+            for m in _LRC_TAG.finditer(raw):
+                frac = float(f"0.{m.group(3)}") if m.group(3) else 0.0
+                stamps.append(int(m.group(1)) * 60 + int(m.group(2)) + frac)
+            line = re.sub(r"\[[^\]]*\]|<[^>]*>", "", raw).strip()
+            if line:
+                lines.append(line)
+        letters = [ch for line in lines for ch in line if ch.isascii() and ch.isalpha()]
+        if len(letters) >= 40 and sum(ch.isupper() for ch in letters) / len(letters) > (
+            ALL_CAPS_SHARE
+        ):
+            flags.append("all_caps")
+        if any(len(line) > LONG_LINE_CHARS for line in lines):
+            flags.append("long_lines")
+        if any(_REPEAT_MARKER.search(line) for line in lines):
+            flags.append("repeat_markers")
+        if any(_ANNOTATION.search(line) for line in lines):
+            flags.append("annotations")
+        if len(stamps) >= 6:
+            last = max(stamps)
+            # The closing empty timestamp does not count as a crammed line
+            if sum(1 for t in stamps if last - 2.0 <= t < last) >= 3:
+                flags.append("crammed_tail")
+        return sum(QUALITY_PENALTIES[f] for f in flags), flags
+
     @classmethod
     def score_candidate(
         cls,
@@ -649,6 +707,9 @@ class LyricsService:
 
         # 7. Add metadata similarity
         score += meta_sim
+
+        # 8. A sloppy transcription loses to a clean one of the same song
+        score -= cls.lyric_quality(synced_lrc if is_synced else plain_lrc)[0]
 
         return score
 
