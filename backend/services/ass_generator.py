@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.config import DEFAULT_VIDEO_CONFIG
-from backend.services.lyric_tokenize import adlib_flags
+from backend.services.lyric_tokenize import adlib_flags, space_after, tokenize_lyric_text
 from backend.shared_assets import load
 
 _ASS_COLOR_DIGITS = re.compile(r"[0-9A-F]{6}(?:[0-9A-F]{2})?")
@@ -163,32 +163,40 @@ ADLIB_ON = "{\\i1\\fscx80\\fscy80\\alpha&H40&}"
 ADLIB_OFF = "{\\r}"
 
 
-def _adlib_text(tokens: list[str]) -> str:
-    """Escaped words joined by spaces, with the ad-lib runs (adlib_flags) styled."""
+def _adlib_text(text: str) -> str:
+    """A line's escaped words spaced as written (no spaces between CJK characters), with the
+    ad-lib runs (adlib_flags) styled."""
+    tokens = tokenize_lyric_text(text)
     parts: list[str] = []
     inside = False
-    for token, adlib in zip(tokens, adlib_flags(tokens), strict=True):
+    spaced = space_after(tokens, text)
+    for token, adlib, gap in zip(tokens, adlib_flags(tokens), spaced, strict=True):
         if adlib != inside:
             parts.append(ADLIB_ON if adlib else ADLIB_OFF)
             inside = adlib
-        parts.append(escape_ass_text(token) + " ")
+        parts.append(escape_ass_text(token) + (" " if gap else ""))
     return "".join(parts).strip()
 
 
-def _word_sweep_text(words: list, base_cs: int, line_start: float, escape: bool = True) -> str:
+def _word_sweep_text(
+    words: list, base_cs: int, line_start: float, escape: bool = True, source: str | None = None
+) -> str:
     """Karaoke text with one \\kf sweep per word, placed on absolute centisecond boundaries.
 
     Silent \\k spacers cover the lead-in and every pause between words, and each boundary is
     rounded once (not each duration), so the highlight neither runs ahead after a pause nor
-    drifts over a long line. Words in parentheses are styled as ad-libs (ADLIB_ON).
+    drifts over a long line. Words in parentheses are styled as ad-libs (ADLIB_ON). Words
+    are spaced as in the line's ``source`` text, so CJK characters are not spaced out.
     """
     parts: list[str] = []
     cursor = base_cs
     previous_end = line_start
     words = [w for w in words if isinstance(w, dict)]
-    adlib = adlib_flags([str(w.get("word") or "") for w in words])
+    tokens = [str(w.get("word") or "") for w in words]
+    adlib = adlib_flags(tokens)
+    spaced = space_after(tokens, source)
     inside = False
-    for w, is_adlib in zip(words, adlib, strict=True):
+    for w, is_adlib, gap in zip(words, adlib, spaced, strict=True):
         if is_adlib != inside:
             parts.append(ADLIB_ON if is_adlib else ADLIB_OFF)
             inside = is_adlib
@@ -200,7 +208,7 @@ def _word_sweep_text(words: list, base_cs: int, line_start: float, escape: bool 
             parts.append(f"{{\\k{start_cs - cursor}}}")
         raw_word = str(w.get("word") or "")
         word_text = escape_ass_text(raw_word) if escape else raw_word
-        parts.append(f"{{\\kf{end_cs - start_cs}}}{word_text} ")
+        parts.append(f"{{\\kf{end_cs - start_cs}}}{word_text}{' ' if gap else ''}")
         cursor = end_cs
         previous_end = max(start, end)
     return "".join(parts).strip()
@@ -635,7 +643,7 @@ def generate_ass_content(
                         for w in words
                         if isinstance(w, dict) and str(w.get("word") or "").strip()
                     )
-                clean_line_text = _adlib_text(raw_text.split())
+                clean_line_text = _adlib_text(raw_text)
 
                 if lead_in_cs > 0:
                     line_karaoke_text = f"{{\\k{lead_in_cs}}}{{\\k0}}{clean_line_text}"
@@ -644,7 +652,9 @@ def generate_ass_content(
             else:
                 base_cs = round(display_start * 100)  # the event start exactly as written
                 if words:
-                    line_karaoke_text = _word_sweep_text(words, base_cs, l_start)
+                    line_karaoke_text = _word_sweep_text(
+                        words, base_cs, l_start, source=str(line.get("text") or "")
+                    )
                 elif line.get("text"):
                     escaped_text = escape_ass_text(str(line.get("text") or ""))
                     line_karaoke_text = _word_sweep_text(

@@ -14,7 +14,7 @@ import { cn } from '../../utils/cn';
 import { focusRing } from '../ui/variants';
 import { lyricOutline } from '../../theme/stageBackgrounds';
 import { NormalizedSinger, SINGER_CONFIG, singerLabels } from './singers';
-import { adlibFlags } from '../../utils/lyrics';
+import { adlibFlags, spaceAfterTokens } from '../../utils/lyrics';
 
 export interface StageGapState {
   hasGap: boolean;
@@ -64,6 +64,8 @@ const wordButton = cn(
   'relative inline-block cursor-pointer rounded-theme-sm border-0 bg-transparent p-0.5 font-inherit text-inherit transition-transform hover:scale-[1.04]',
   focusRing
 );
+/** The space after a word that the line writes with one (none between CJK characters). */
+const wordSpace = 'mr-2 sm:mr-3';
 /** A word sung in parentheses (a backing vocal or ad-lib): smaller, italic, a little faded. */
 const adlibWord = 'self-center text-[0.72em] font-semibold italic opacity-80';
 
@@ -157,6 +159,11 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
   // Words in parentheses are backing vocals or ad-libs, styled apart (a line of words, or a
   // line of text only that is one parenthesis)
   const lineAdlib = adlibFlags((currentLine?.words ?? []).map((w) => w.word));
+  // Words are spaced as the line is written, so Japanese characters sit together
+  const lineSpaced = spaceAfterTokens(
+    (currentLine?.words ?? []).map((w) => w.word),
+    currentLine?.text
+  );
   const lineTextAdlib = adlibFlags((currentLine?.text ?? '').split(/\s+/).filter(Boolean));
   const wholeLineAdlib = lineTextAdlib.length > 0 && lineTextAdlib.every(Boolean);
 
@@ -235,7 +242,7 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
             data-font-scale={fontSizeScale}
             data-sync-mode={syncMode}
             style={{ fontSize: `${fontSizeScale}em`, fontFamily }}
-            className="flex flex-wrap justify-center gap-x-2 gap-y-1 text-xl font-extrabold tracking-tight transition-all sm:gap-x-3 sm:text-3xl md:text-5xl"
+            className="flex flex-wrap justify-center gap-y-1 text-xl font-extrabold tracking-tight transition-all sm:text-3xl md:text-5xl"
           >
             {currentLine.words && currentLine.words.length > 0 ? (
               currentLine.words.map((w, idx) => {
@@ -248,7 +255,7 @@ export const StageLyrics: React.FC<StageLyricsProps> = ({
                     onClick={() => onSeek?.(w.start_time)}
                     aria-label={`Jump playback to word ${w.word} at ${w.start_time.toFixed(2)} seconds`}
                     data-adlib={adlib || undefined}
-                    className={cn(wordButton, adlib && adlibWord)}
+                    className={cn(wordButton, adlib && adlibWord, lineSpaced[idx] && wordSpace)}
                     title={`${w.word} (${w.start_time.toFixed(2)}s - ${w.end_time.toFixed(2)}s)`}
                   >
                     <span

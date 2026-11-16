@@ -7,6 +7,8 @@ The patterns here also tell ``LyricsService.lyric_quality`` how sloppy a candida
 import re
 from typing import Any
 
+from backend.services.lyric_tokenize import is_cjk_token, join_lyric_tokens
+
 # "x2", "X2", "(x2)", "2x" or a multiplication sign and a count at the end of a line
 REPEAT_MARKER = re.compile(
     r"(?:^|[\s(\[])(?:[x\u00d7]\s?\d{1,2}|\d{1,2}\s?[x\u00d7])[)\]]?\s*$", re.I
@@ -131,10 +133,23 @@ def _split_index(words: list[str]) -> int:
     return best
 
 
+def _after(text: Any, head: list[dict[str, Any]]) -> str:
+    """The rest of a line's text after its first words (head)."""
+    text, pos = str(text or ""), 0
+    for w in head:
+        found = text.find(str(w.get("word", "")), pos)
+        if found < 0:
+            return text[pos:]
+        pos = found + len(str(w.get("word", "")))
+    return text[pos:]
+
+
 def _too_long(line: dict[str, Any]) -> bool:
     text = str(line.get("text") or "")
     words = line.get("words") or []
-    return len(words) >= 4 and (len(text) > MAX_LINE_CHARS or len(words) > MAX_LINE_WORDS)
+    # A CJK character is a word token of its own but not a word to read
+    readable = sum(1 for w in words if not is_cjk_token(str(w.get("word", ""))))
+    return len(words) >= 4 and (len(text) > MAX_LINE_CHARS or readable > MAX_LINE_WORDS)
 
 
 def split_long_line(line: dict[str, Any]) -> list[dict[str, Any]]:
@@ -147,13 +162,15 @@ def split_long_line(line: dict[str, Any]) -> list[dict[str, Any]]:
     head, tail = words[:k], words[k:]
     first = {
         **line,
-        "text": " ".join(str(w.get("word", "")) for w in head),
+        "text": join_lyric_tokens([str(w.get("word", "")) for w in head], line.get("text")),
         "words": head,
         "end_time": max(float(line.get("start_time", 0)), float(head[-1].get("end_time", 0))),
     }
     second = {
         **line,
-        "text": " ".join(str(w.get("word", "")) for w in tail),
+        "text": join_lyric_tokens(
+            [str(w.get("word", "")) for w in tail], _after(line.get("text"), head)
+        ),
         "words": tail,
         "start_time": min(float(line.get("end_time", 0)), float(tail[0].get("start_time", 0))),
     }

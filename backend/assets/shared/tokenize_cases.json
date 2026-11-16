@@ -1,50 +1,16 @@
 [
-  {
-    "text": "Hello, world!  ok",
-    "tokens": ["Hello,", "world!", "ok"]
-  },
-  {
-    "text": "  Leading and trailing  ",
-    "tokens": ["Leading", "and", "trailing"]
-  },
-  {
-    "text": "Rock-n-roll 2nite",
-    "tokens": ["Rock-n-roll", "2nite"]
-  },
-  {
-    "text": "Don’t stop",
-    "tokens": ["Don’t", "stop"]
-  },
-  {
-    "text": "你好世界！",
-    "tokens": ["你", "好", "世", "界！"]
-  },
-  {
-    "text": "東京へ行こう、ね",
-    "tokens": ["東", "京", "へ", "行", "こ", "う、", "ね"]
-  },
-  {
-    "text": "안녕 하세요",
-    "tokens": ["안", "녕", "하", "세", "요"]
-  },
-  {
-    "text": "チーカー",
-    "tokens": ["チー", "カー"]
-  },
-  {
-    "text": "I love 東京 so much",
-    "tokens": ["I", "love", "東", "京", "so", "much"]
-  },
-  {
-    "text": "「你好」",
-    "tokens": ["「", "你", "好」"]
-  },
-  {
-    "text": "",
-    "tokens": []
-  },
-  {
-    "text": "   ",
-    "tokens": []
-  }
+  {"text": "Hello, world!  ok", "tokens": ["Hello,", "world!", "ok"], "written": "Hello, world! ok", "joined": "Hello, world! ok"},
+  {"text": "  Leading and trailing  ", "tokens": ["Leading", "and", "trailing"], "written": "Leading and trailing", "joined": "Leading and trailing"},
+  {"text": "Rock-n-roll 2nite", "tokens": ["Rock-n-roll", "2nite"], "written": "Rock-n-roll 2nite", "joined": "Rock-n-roll 2nite"},
+  {"text": "Don’t stop", "tokens": ["Don’t", "stop"], "written": "Don’t stop", "joined": "Don’t stop"},
+  {"text": "你好世界！", "tokens": ["你", "好", "世", "界！"], "written": "你好世界！", "joined": "你好世界！"},
+  {"text": "東京へ行こう、ね", "tokens": ["東", "京", "へ", "行", "こ", "う、", "ね"], "written": "東京へ行こう、ね", "joined": "東京へ行こう、ね"},
+  {"text": "안녕 하세요", "tokens": ["안", "녕", "하", "세", "요"], "written": "안녕 하세요", "joined": "안녕하세요"},
+  {"text": "チーカー", "tokens": ["チー", "カー"], "written": "チーカー", "joined": "チーカー"},
+  {"text": "I love 東京 so much", "tokens": ["I", "love", "東", "京", "so", "much"], "written": "I love 東京 so much", "joined": "I love東京so much"},
+  {"text": "「你好」", "tokens": ["「", "你", "好」"], "written": "「你好」", "joined": "「你好」"},
+  {"text": "幸せなサメ サメ (Shiawase na same, same)", "tokens": ["幸", "せ", "な", "サ", "メ", "サ", "メ", "(Shiawase", "na", "same,", "same)"], "written": "幸せなサメ サメ (Shiawase na same, same)", "joined": "幸せなサメサメ(Shiawase na same, same)"},
+  {"text": "我々わ、LASERお設置", "tokens": ["我", "々", "わ、", "LASER", "お", "設", "置"], "written": "我々わ、LASERお設置", "joined": "我々わ、LASERお設置"},
+  {"text": "", "tokens": [], "written": "", "joined": ""},
+  {"text": "   ", "tokens": [], "written": "", "joined": ""}
 ]

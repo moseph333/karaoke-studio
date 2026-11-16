@@ -55,6 +55,45 @@ export function tokenizeLyricText(text: string): string[] {
   return matches ? Array.from(matches) : [];
 }
 
+const CJK_START =
+  /^[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/u;
+
+/** True for a token that is one CJK, kana or Hangul character (with punctuation attached). */
+export function isCjkToken(token: string): boolean {
+  return CJK_START.test(token);
+}
+
+/** Whether a space goes between two tokens with no source text: never around CJK. */
+export function needsSpace(prev: string, next: string): boolean {
+  return !(isCjkToken(prev) || isCjkToken(next));
+}
+
+/**
+ * For each token, whether a space follows it when the line is written out: wherever the
+ * `source` text had one, else by needsSpace (none around CJK characters); never after the
+ * last. Mirrors `space_after` in backend/services/lyric_tokenize.py; tokenize_cases.json
+ * pins both.
+ */
+export function spaceAfterTokens(tokens: string[], source?: string | null): boolean[] {
+  const text = source ?? '';
+  const gaps: boolean[] = [];
+  let pos = 0;
+  tokens.forEach((token, i) => {
+    const found = text ? text.indexOf(token, pos) : -1;
+    if (i > 0) {
+      gaps.push(found >= 0 ? /\s/.test(text.slice(pos, found)) : needsSpace(tokens[i - 1], token));
+    }
+    if (found >= 0) pos = found + token.length;
+  });
+  return tokens.length ? [...gaps, false] : [];
+}
+
+/** Tokens written back out as a line, spaced as spaceAfterTokens says. */
+export function joinLyricTokens(tokens: string[], source?: string | null): string {
+  const gaps = spaceAfterTokens(tokens, source);
+  return tokens.map((t, i) => t + (gaps[i] ? ' ' : '')).join('');
+}
+
 /**
  * Which of a line's words are sung in parentheses, the usual mark of a backing vocal or
  * ad-lib ("(It's the laser sharks)", "introspection, (hmm?)"). A parenthesis left open runs

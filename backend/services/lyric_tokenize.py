@@ -35,6 +35,50 @@ def tokenize_lyric_text(text: str) -> list[str]:
     return [m.group(0) for m in TOKEN_RE.finditer(text.strip())]
 
 
+_CJK_CHAR = re.compile(f"[{_CJK}]")
+
+
+def is_cjk_token(token: str) -> bool:
+    """True for a token that is one CJK, kana or Hangul character (with any punctuation
+    attached), as tokenize_lyric_text makes them."""
+    return bool(_CJK_CHAR.match(str(token or "")))
+
+
+def needs_space(prev: str, nxt: str) -> bool:
+    """Whether a space goes between two tokens when a line is written out: not between two
+    CJK characters, nor between a CJK character and the Latin word right after it without a
+    space in the source ("LASERサメ" is written as one)."""
+    return not (is_cjk_token(prev) or is_cjk_token(nxt))
+
+
+def space_after(tokens: list[str], source: str | None = None) -> list[bool]:
+    """For each token, whether a space follows it when the line is written out. With the
+    ``source`` text the tokens came from, a space follows wherever the source had one; for
+    tokens not found there (or with no source) needs_space decides: spaces between words,
+    none around CJK characters. The last token never has one. Mirrors ``spaceAfterTokens``
+    in frontend/src/utils/lyrics.ts; tokenize_cases.json pins both."""
+    text = source or ""
+    gaps: list[bool] = []
+    pos = 0
+    for i, token in enumerate(tokens):
+        found = text.find(token, pos) if text else -1
+        if i:
+            if found >= 0:
+                gaps.append(any(ch.isspace() for ch in text[pos:found]))
+            else:
+                gaps.append(needs_space(tokens[i - 1], token))
+        if found >= 0:
+            pos = found + len(token)
+    return [*gaps, False] if tokens else []
+
+
+def join_lyric_tokens(tokens: list[str], source: str | None = None) -> str:
+    """Tokens written back out as a line, spaced as space_after says."""
+    return "".join(
+        t + (" " if gap else "") for t, gap in zip(tokens, space_after(tokens, source), strict=True)
+    )
+
+
 def adlib_flags(words: list[str]) -> list[bool]:
     """Which of a line's words are sung in parentheses, the usual mark of a backing vocal or
     ad-lib ("(It's the laser sharks)", "introspection, (hmm?)"). A parenthesis left open

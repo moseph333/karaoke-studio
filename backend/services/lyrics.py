@@ -15,6 +15,7 @@ from backend.services.lyric_cleanup import (
     is_all_caps,
     is_annotation,
 )
+from backend.services.lyric_tokenize import tokenize_lyric_text
 
 logger = logging.getLogger(__name__)
 
@@ -1266,7 +1267,7 @@ class LyricsService:
                     end_time = max(end_time, word_objs[-1]["end_time"])
 
             if not has_word_sync:
-                words = [re.sub(r"\[.*?\]|<.*?>", "", w).strip() for w in text.split()]
+                words = [re.sub(r"\[.*?\]|<.*?>", "", w).strip() for w in tokenize_lyric_text(text)]
                 words = [w for w in words if w]
                 if words:
                     word_dur = (end_time - start_time) / len(words)
@@ -1418,7 +1419,7 @@ class LyricsService:
             if line.strip() and not is_section_heading(line) and not is_credit_line(line)
         ]
         for idx, line in enumerate(raw_lines):
-            words = line.split()
+            words = tokenize_lyric_text(line)
             lines.append(
                 {
                     "id": idx,

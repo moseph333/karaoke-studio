@@ -11,6 +11,7 @@ Verifies end-to-end full workflow scenarios from start to finish:
 
 import io
 import json
+import re
 import subprocess
 import time
 from pathlib import Path
@@ -377,7 +378,8 @@ def test_scenario_6_international_multilingual_production(client, sample_image):
     # Step 4: Verify ASS subtitle file preserves UTF-8 characters
     ass_path = main_mod.OUTPUT_DIR / f"{pid}.ass"
     if ass_path.exists():
-        content = ass_path.read_text(encoding="utf-8")
+        # Each character carries its own karaoke tag: read the text without the tags
+        content = re.sub(r"\{[^}]*\}", "", ass_path.read_text(encoding="utf-8"))
         assert "それぞれの場所へ" in content
         assert "桜の花びらが" in content
         assert "友達だ" in content
