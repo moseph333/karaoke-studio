@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   recalculateWordTimings,
   tokenizeLyricText,
+  joinLyricTokens,
   calculateLineInsertTimes,
   round3,
   sanitizeTimestamp,
@@ -314,4 +315,12 @@ describe('tokenizeLyricText shared cases', () => {
   it.each(tokenizeCases)('tokenizes %j like the server', ({ text, tokens }) => {
     expect(tokenizeLyricText(text)).toEqual(tokens);
   });
+
+  it.each(tokenizeCases)(
+    'writes %j back out like the server',
+    ({ text, tokens, written, joined }) => {
+      expect(joinLyricTokens(tokens, text)).toBe(written);
+      expect(joinLyricTokens(tokens)).toBe(joined);
+    }
+  );
 });

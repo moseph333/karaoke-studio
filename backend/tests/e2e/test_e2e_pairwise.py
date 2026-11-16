@@ -17,6 +17,7 @@ Verifies multi-feature interactions across the full Karaoke Studio matrix:
 
 import io
 import json
+import re
 import time
 from pathlib import Path
 
@@ -329,7 +330,8 @@ def test_pairwise_multilingual_cjk_lyrics_plus_custom_background_and_ass_render(
 
     ass_path = main_mod.OUTPUT_DIR / f"{pid}.ass"
     if ass_path.exists():
-        content = ass_path.read_text(encoding="utf-8")
+        # Each character carries its own karaoke tag: read the text without the tags
+        content = re.sub(r"\{[^}]*\}", "", ass_path.read_text(encoding="utf-8"))
         assert "夜に駆ける" in content
         assert "沈むように" in content
 

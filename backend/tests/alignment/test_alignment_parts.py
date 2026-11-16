@@ -14,7 +14,11 @@ from pydantic import ValidationError
 
 from backend.schemas import LyricLineSchema
 from backend.services import alignment_config, lyric_tokenize, sync_confidence
-from backend.services.lyric_tokenize import normalize_for_mms, tokenize_lyric_text
+from backend.services.lyric_tokenize import (
+    join_lyric_tokens,
+    normalize_for_mms,
+    tokenize_lyric_text,
+)
 from backend.services.sync_confidence import evidence_score, line_confidence, load_evidence
 from backend.shared_assets import load
 from backend.workers import ctc_align_worker as worker
@@ -118,6 +122,9 @@ def test_tokenizer_matches_the_studio_editor():
     # The same cases run against the studio's tokenizer (frontend tests/timeline/lyrics.test.ts)
     for case in load("tokenize_cases"):
         assert tokenize_lyric_text(case["text"]) == case["tokens"], case["text"]
+        # Written back out: spaced as the source was, else never around CJK characters
+        assert join_lyric_tokens(case["tokens"], case["text"]) == case["written"], case["text"]
+        assert join_lyric_tokens(case["tokens"]) == case["joined"], case["text"]
     assert tokenize_lyric_text(None) == []
 
 

@@ -7,6 +7,8 @@ import numpy as np
 import scipy.signal
 import soundfile as sf
 
+from backend.services.lyric_tokenize import tokenize_lyric_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -1200,7 +1202,7 @@ class AudioAligner:
                     r"\[\d{1,4}:\d{2}(?:\.\d{1,3})?\]|<\d{1,4}:\d{2}(?:\.\d{1,3})?>", "", text
                 )
                 text = re.sub(r"\s+", " ", text).strip()
-                words = [w for w in text.split() if w]
+                words = tokenize_lyric_text(text)
 
                 if not words:
                     aligned_lines.append(
@@ -1309,7 +1311,7 @@ class AudioAligner:
                 r"\[\d{1,4}:\d{2}(?:\.\d{1,3})?\]|<\d{1,4}:\d{2}(?:\.\d{1,3})?>", "", text
             )
             text = re.sub(r"\s+", " ", text).strip()
-            words = [w for w in text.split() if w]
+            words = tokenize_lyric_text(text)
             aligned_words = []
 
             if words:
@@ -1345,7 +1347,7 @@ class AudioAligner:
         text = str(line.get("text", "")).strip()
         text = re.sub(r"\[\d{1,4}:\d{2}(?:\.\d{1,3})?\]|<\d{1,4}:\d{2}(?:\.\d{1,3})?>", "", text)
         text = re.sub(r"\s+", " ", text).strip()
-        words = [w for w in text.split() if w]
+        words = tokenize_lyric_text(text)
         if not words:
             return 1.0
         weight = sum(calculate_word_weight(w) for w in words)
