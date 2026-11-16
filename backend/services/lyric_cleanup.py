@@ -7,7 +7,7 @@ The patterns here also tell ``LyricsService.lyric_quality`` how sloppy a candida
 import re
 from typing import Any
 
-from backend.services.lyric_tokenize import is_cjk_token, join_lyric_tokens
+from backend.services.lyric_tokenize import is_cjk_token, join_lyric_tokens, tokenize_lyric_text
 
 # "x2", "X2", "(x2)", "2x" or a multiplication sign and a count at the end of a line
 REPEAT_MARKER = re.compile(
@@ -34,6 +34,12 @@ CRAMMED_LINE_SEC = 0.4
 MAX_LINE_CHARS = 70
 MAX_LINE_WORDS = 14
 _BREAK_AFTER = re.compile(r"[,.;:!?\u2026)\]\u3001\u3002]$")
+# A Japanese (or other CJK) line followed by its romanization in parentheses:
+# "幸せなサメ サメ (Shiawase na same, same)"
+_ROMAJI = re.compile(
+    r"^(?P<lyric>.*\S)\s*\((?P<romaji>[A-Za-z][^()\u3000-\u9fff\uac00-\ud7af]*)\)\s*$"
+)
+
 # A song whose Latin letters are more than this share capitals is shouting, not stressing
 ALL_CAPS_SHARE = 0.7
 # Words kept in capitals when an all-caps song is put into sentence case
@@ -177,6 +183,28 @@ def split_long_line(line: dict[str, Any]) -> list[dict[str, Any]]:
     return split_long_line(first) + split_long_line(second)
 
 
+def split_romaji(line: dict[str, Any]) -> dict[str, Any]:
+    """A CJK line written with its romanization in parentheses, as the lyric alone with the
+    romanization kept as ``romaji`` (shown under it and used to time it). The line's words
+    become the lyric's characters, spread over the line's time. Other lines are unchanged."""
+    match = _ROMAJI.match(str(line.get("text") or ""))
+    if not match or not any(is_cjk_token(t) for t in tokenize_lyric_text(match["lyric"])):
+        return line
+    lyric, romaji = match["lyric"].strip(), " ".join(match["romaji"].split())
+    tokens = tokenize_lyric_text(lyric)
+    start, end = float(line.get("start_time", 0)), float(line.get("end_time", 0))
+    step = max(0.0, end - start) / len(tokens)
+    words = [
+        {
+            "word": t,
+            "start_time": round(start + i * step, 3),
+            "end_time": round(start + (i + 1) * step, 3),
+        }
+        for i, t in enumerate(tokens)
+    ]
+    return {**line, "text": lyric, "romaji": romaji, "words": words}
+
+
 def is_all_caps(texts: list[str]) -> bool:
     """True when at least 40 Latin letters are present and most of them are capitals."""
     letters = [ch for text in texts for ch in text if ch.isascii() and ch.isalpha()]
@@ -222,14 +250,15 @@ def sentence_case_lines(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def clean_fetched_lines(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Fetched lyric lines without the text uploaders add that is never sung: a translation
     block after the song, translator's notes and "x2" repeat markers; lines too long to sing
-    as one are split (split_long_line), and an all-caps song is put into sentence case
+    as one are split (split_long_line), a CJK line's romanization in parentheses becomes
+    its ``romaji`` (split_romaji), and an all-caps song is put into sentence case
     (sentence_case_lines). Lines are numbered again from 0."""
     kept = _drop_trailing_dump(list(lines or []))
     out: list[dict[str, Any]] = []
     for line in kept:
         cleaned = _strip_line(line)
         if cleaned is not None:
-            out.extend(split_long_line(cleaned))
+            out.extend(split_long_line(split_romaji(cleaned)))
     out = sentence_case_lines(out)
     if len(out) == len(lines or []) and all(a is b for a, b in zip(out, lines, strict=True)):
         return out

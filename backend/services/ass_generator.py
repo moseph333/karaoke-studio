@@ -666,6 +666,13 @@ def generate_ass_content(
                 else:
                     line_karaoke_text = f"{{\\k{lead_in_cs}}}" if lead_in_cs > 0 else ""
 
+            romaji = " ".join(str(line.get("romaji") or "").split())
+            if romaji:
+                # A CJK line's romanization, a smaller row under it in the unsung colour
+                tint = style.secondary_color.rstrip("&") + "&"
+                line_karaoke_text += (
+                    f"\\N{{\\r\\i1\\fscx62\\fscy62\\1c{tint}\\2c{tint}}}{escape_ass_text(romaji)}"
+                )
             ass_content.append(
                 f"Dialogue: 0,{format_ass_time(display_start)},{format_ass_time(display_end)},{style_name},,0,0,0,,{line_karaoke_text}"
             )

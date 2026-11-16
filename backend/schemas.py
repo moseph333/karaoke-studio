@@ -166,6 +166,11 @@ class LyricLineSchema(BaseModel):
         default=None,
         description="How the line was timed (neural, DSP, from the lyrics, fallback, by hand)",
     )
+    romaji: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="The romanization of a CJK line, shown under it and used to time it",
+    )
     added: Literal["repeat"] | None = Field(
         default=None,
         description="'repeat' for a line the server added: a repeat the lyric file left out",
@@ -174,7 +179,7 @@ class LyricLineSchema(BaseModel):
     @model_serializer(mode="wrap")
     def _drop_unset_timing_metadata(self, handler):
         data = handler(self)
-        for key in ("confidence", "align_method", "added"):
+        for key in ("confidence", "align_method", "added", "romaji"):
             if data.get(key) is None:
                 data.pop(key, None)
         return data
