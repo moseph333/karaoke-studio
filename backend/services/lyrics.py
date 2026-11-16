@@ -9,6 +9,8 @@ from typing import Any
 import requests
 import syncedlyrics
 
+from backend.services.lyric_cleanup import REPEAT_MARKER, clean_fetched_lines, is_annotation
+
 logger = logging.getLogger(__name__)
 
 # Section labels that pasted lyrics often carry ("[Verse 1]", "(Chorus x2)", "Bridge:").
@@ -46,17 +48,6 @@ QUALITY_PENALTIES: dict[str, float] = {
 ALL_CAPS_SHARE = 0.7
 LONG_LINE_CHARS = 120
 _LRC_TAG = re.compile(r"\[(\d{1,4}):(\d{2})(?:[.:](\d{1,3}))?\]")
-# "x2", "X2", "(x2)", "2x" or a multiplication sign and a count at the end of a line
-_REPEAT_MARKER = re.compile(
-    r"(?:^|[\s(\[])(?:[x\u00d7]\s?\d{1,2}|\d{1,2}\s?[x\u00d7])[)\]]?\s*$", re.I
-)
-# A translator's or transcriber's note: "Translation Japanese:", "Romanized:", or a long
-# parenthesised explanation ("(This is phrased in present tense ...)")
-_ANNOTATION = re.compile(
-    r"^\s*(?:translation|translated|romanization|romanized|romaji|english)\b[^:]{0,30}:"
-    r"|\((?:this is|this could|could mean|literally|lit\.|note:|translator)[^)]{20,}\)?",
-    re.I,
-)
 
 
 def is_section_heading(line: str) -> bool:
@@ -377,8 +368,17 @@ class LyricsService:
     ) -> dict[str, Any]:
         """
         Fetch synced or plain lyrics from LRCLIB, syncedlyrics, or NetEase.
-        Returns structured dict with raw text, synced lines, and source metadata.
+        Returns structured dict with raw text, synced lines, and source metadata. The
+        lines are tidied (clean_fetched_lines); the raw text stays as fetched.
         """
+        result = self._fetch_lyrics_raw(track_title, artist_name, duration)
+        if result.get("lines"):
+            result = {**result, "lines": clean_fetched_lines(result["lines"])}
+        return result
+
+    def _fetch_lyrics_raw(
+        self, track_title: str, artist_name: str, duration: float | None = None
+    ) -> dict[str, Any]:
         clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(
             track_title, artist_name
         )
@@ -573,9 +573,9 @@ class LyricsService:
             flags.append("all_caps")
         if any(len(line) > LONG_LINE_CHARS for line in lines):
             flags.append("long_lines")
-        if any(_REPEAT_MARKER.search(line) for line in lines):
+        if any(REPEAT_MARKER.search(line) for line in lines):
             flags.append("repeat_markers")
-        if any(_ANNOTATION.search(line) for line in lines):
+        if any(is_annotation(line) for line in lines):
             flags.append("annotations")
         if len(stamps) >= 6:
             last = max(stamps)
