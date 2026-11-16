@@ -592,7 +592,9 @@ def get_lyric_candidates(
         artist_name if artist_name is not None and artist_name.strip() else proj.get("artist", "")
     )
 
-    return main_mod.lyrics_service.search_lyrics(query_title, query_artist)
+    found = main_mod.lyrics_service.search_lyrics(query_title, query_artist, proj.get("duration"))
+    in_use = proj.get("lyric_source_id")
+    return [{**cand, "in_use": in_use is not None and cand.get("id") == in_use} for cand in found]
 
 
 # What an in-request re-alignment writes on a song (store_aligned_lines and the route)
@@ -602,6 +604,7 @@ REALIGNED_FIELDS = (
     "youtube_package",
     "lyric_timing",
     "lyric_source",
+    "lyric_source_id",
     "is_synced",
     "sync_report",
 )
@@ -670,6 +673,8 @@ def realign_lyrics(
         elif has_custom:
             mode = "custom"
             lyric_data = main_mod.lyrics_service.process_custom_lyrics(req.custom_lyrics or "")
+            # Lyrics applied from the studio's list of LRCLIB versions say which one they are
+            lyric_data["source_id"] = req.lyric_source_id
         else:
             mode = "lines"
             lines = prepare_existing_lines(
@@ -725,6 +730,7 @@ def realign_lyrics(
                         proj["lyric_timing"] = result.lyric_timing
                 else:
                     proj["lyric_source"] = lyric_data.get("source", "custom")
+                    proj["lyric_source_id"] = lyric_data.get("source_id")
                     proj["is_synced"] = lyric_data.get("synced", True)
                     proj["lyric_timing"] = result.lyric_timing
                 proj["sync_report"] = result.report

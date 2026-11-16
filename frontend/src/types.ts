@@ -204,6 +204,8 @@ export interface ProjectState {
   thumbnail_url?: string;
   lines: LyricLine[];
   lyric_source?: string;
+  /** The LRCLIB listing the lyrics came from, when known. */
+  lyric_source_id?: number | string | null;
   is_synced?: boolean;
   semitones: number;
   guide_volume: number;
@@ -248,7 +250,14 @@ export interface LyricCandidate {
   instrumental?: boolean;
   plain_lyrics?: string;
   synced_lyrics?: string;
+  /** Signs of a sloppy transcription, from the server's lyric_quality. */
+  quality_flags?: LyricQualityFlag[];
+  /** The listing the song's lyrics came from. */
+  in_use?: boolean;
 }
+
+export type LyricQualityFlag =
+  'all_caps' | 'long_lines' | 'repeat_markers' | 'annotations' | 'crammed_tail';
 
 export interface SearchResult {
   id: string;

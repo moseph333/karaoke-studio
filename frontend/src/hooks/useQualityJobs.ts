@@ -23,6 +23,8 @@ export interface BackgroundRealignRequest {
   lines?: LyricLine[];
   /** With `lines`: lines whose words were timed by hand keep their timing. */
   keep_manual?: boolean;
+  /** With `custom_lyrics`: the LRCLIB listing they were taken from. */
+  lyric_source_id?: number | string;
 }
 
 export interface UseQualityJobsOptions {

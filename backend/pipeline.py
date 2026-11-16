@@ -383,6 +383,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         with PROJECTS_LOCK:
             proj = get_project_or_404(project_id)
             proj["lyric_source"] = lyric_data["source"]
+            proj["lyric_source_id"] = lyric_data.get("source_id")
             proj["is_synced"] = lyric_data["synced"]
             save_projects()
 
@@ -596,6 +597,7 @@ def run_local_pipeline(
         with PROJECTS_LOCK:
             proj = get_project_or_404(project_id)
             proj["lyric_source"] = lyric_data["source"]
+            proj["lyric_source_id"] = lyric_data.get("source_id")
             proj["is_synced"] = lyric_data["synced"]
             save_projects()
 

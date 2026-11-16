@@ -918,11 +918,12 @@ class LyricsService:
         }
 
     def search_lyrics(
-        self, track_name: str, artist_name: str | None = None
+        self, track_name: str, artist_name: str | None = None, duration: float | None = None
     ) -> list[dict[str, Any]]:
         """LRCLIB's candidates for a title and artist, for the studio's lyric picker: a
-        structured search, then a free-text one when that finds nothing. A network error
-        gives no candidates."""
+        structured search, then a free-text one when that finds nothing. They come best
+        first (score_candidate, LRCLIB's order on ties), each with the ``quality_flags`` of
+        lyric_quality. A network error gives no candidates."""
         title = (track_name or "").strip()
         artist = (artist_name or "").strip()
         params = {
@@ -931,7 +932,19 @@ class LyricsService:
         results = self._search_lrclib(params)
         if not results and (title or artist):
             results = self._search_lrclib({"q": f"{title} {artist}".strip()})
-        return [self.normalize_candidate(item) for item in results if isinstance(item, dict)]
+        items = [item for item in results if isinstance(item, dict)]
+        scored = sorted(
+            items,
+            key=lambda item: self.score_candidate(item, title, artist, duration),
+            reverse=True,
+        )
+        out = []
+        for item in scored:
+            text = item.get("syncedLyrics") or item.get("plainLyrics") or ""
+            out.append(
+                {**self.normalize_candidate(item), "quality_flags": self.lyric_quality(text)[1]}
+            )
+        return out
 
     def _search_lrclib(self, params: dict[str, str]) -> list[Any]:
         try:
@@ -1001,6 +1014,7 @@ class LyricsService:
                                 lines = self.parse_lrc(lrc)
                                 return {
                                     "source": "lrclib",
+                                    "source_id": data.get("id"),
                                     "synced": True,
                                     "plain_lyrics": plain,
                                     "lrc": lrc,
@@ -1036,6 +1050,7 @@ class LyricsService:
                                     plain = best_cand.get("plainLyrics") or ""
                                     return {
                                         "source": "lrclib_search",
+                                        "source_id": best_cand.get("id"),
                                         "synced": True,
                                         "plain_lyrics": plain,
                                         "lrc": lrc,
@@ -1068,6 +1083,7 @@ class LyricsService:
                 if lines:
                     return {
                         "source": source,
+                        "source_id": chosen.get("id"),
                         "synced": has_synced,
                         "plain_lyrics": plain,
                         "lrc": lrc if has_synced else "",

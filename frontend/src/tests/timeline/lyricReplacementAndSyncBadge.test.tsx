@@ -217,6 +217,7 @@ describe('Milestone 2: UX-3 Candidate Search & Paste Inspector', () => {
         body: JSON.stringify({
           custom_lyrics: '[00:10.00] Tonight I’m gonna have myself a real good time',
           fetch_lrclib: false,
+          lyric_source_id: 201,
         }),
       })
     );
