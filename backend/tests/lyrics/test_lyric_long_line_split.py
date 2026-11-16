@@ -72,3 +72,19 @@ def test_short_lines_and_untimed_lines_split_safely():
     pieces = split_long_line(untimed)
     assert len(pieces) > 1
     assert all(p["start_time"] == 0.0 and p["end_time"] == 0.0 for p in pieces)
+
+
+def test_a_split_never_cuts_inside_parentheses():
+    line = timed(
+        "Computating thoughts through a terabyte of RAM stored in a floppy (Uh, battery-operated style)"
+    )
+    pieces = split_long_line(line)
+    assert [p["text"] for p in pieces] == [
+        "Computating thoughts through a terabyte of RAM stored in a floppy",
+        "(Uh, battery-operated style)",
+    ]
+
+
+def test_a_line_that_is_all_one_parenthesis_still_splits():
+    pieces = split_long_line(timed("(" + "la " * 30 + "la)"))
+    assert len(pieces) > 1
