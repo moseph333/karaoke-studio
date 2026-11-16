@@ -13,7 +13,7 @@ from backend.background_jobs import BUSY_PIPELINE_STATES
 from backend.export_utils import build_content_disposition
 from backend.project_analysis import StemMissing, chords_for_export, ensure_chords, estimated_key
 from backend.project_store import get_project_or_404
-from backend.services.ass_generator import VISUAL_THEMES
+from backend.services.ass_generator import VISUAL_THEMES, export_title
 from backend.services.chord_detector import (
     NO_CHORD_VALUES,
     project_key_signature,
@@ -382,9 +382,7 @@ def export_project_ass(
 
     title = proj.get("title", "").strip()
     artist = proj.get("artist", "").strip()
-    track_title = (
-        f"{artist} - {title}" if (artist and title) else (title or artist or "Karaoke Track")
-    )
+    track_title = export_title(proj)
 
     # Empty colours count as not chosen: the stage look's (or the default) applies. The
     # duet colours come from the stage look panel.
@@ -404,6 +402,7 @@ def export_project_ass(
         semitones=semitones,
         key=estimated_key(proj),
         sync_mode=clean_sync_mode,
+        song_duration=proj.get("duration"),
     )
 
     headers = {

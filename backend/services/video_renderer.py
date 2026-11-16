@@ -357,6 +357,7 @@ class VideoRenderer:
         *,
         singer2_color: str | None = None,
         both_color: str | None = None,
+        song_duration: float | None = None,
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file content
 
@@ -379,6 +380,7 @@ class VideoRenderer:
             semitones=semitones,
             key=key,
             sync_mode=sync_mode,
+            song_duration=song_duration,
         )
 
     def generate_ass_subtitles(
@@ -401,6 +403,7 @@ class VideoRenderer:
         singer2_color: str | None = None,
         both_color: str | None = None,
         font_size_scale: float = 1.0,
+        song_duration: float | None = None,
     ) -> str:
         """Generates Advanced SubStation Alpha (.ass) subtitle file
 
@@ -424,6 +427,7 @@ class VideoRenderer:
             semitones=semitones,
             key=key,
             sync_mode=sync_mode,
+            song_duration=song_duration,
         )
 
     def render_video(
