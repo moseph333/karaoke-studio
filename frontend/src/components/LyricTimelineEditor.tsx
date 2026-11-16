@@ -25,11 +25,9 @@ import type { BackgroundRealignRequest } from '../hooks/useQualityJobs';
 import { TimelineLineCard } from './timeline/TimelineLineCard';
 import { TimelineToolbar } from './timeline/TimelineToolbar';
 import { TimelineModals } from './timeline/TimelineModals';
-import { BatchOffsetModal } from './timeline/BatchOffsetModal';
 import { TapToSyncBanner } from './timeline/TapToSyncBanner';
 import { SyncJobBanner } from './timeline/SyncJobBanner';
-import { LyricReplacementModal } from './timeline/LyricReplacementModal';
-import { DuetAssignmentModal } from './timeline/DuetAssignmentModal';
+import { TimelineDialogs, type TimelineDialog } from './timeline/TimelineDialogs';
 import { Button } from './ui/Button';
 import { S_ADD_LINE_BTN, S_RESUME_PILL, S_SCROLL_AREA } from './timeline/timelineStyles';
 
@@ -88,9 +86,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
   const { readTime } = useStableHandlers({
     readTime: (): number => getCurrentTime?.() ?? currentTime ?? clock?.now() ?? 0,
   });
-  const [showBatchModal, setShowBatchModal] = useState(false);
-  const [showReplaceModal, setShowReplaceModal] = useState(false);
-  const [showDuetModal, setShowDuetModal] = useState(false);
+  const [dialog, setDialog] = useState<TimelineDialog>(null);
   const ed = useLyricEditorState({ ...props, getCurrentTime: readTime });
   const review = useTimelineFilter(ed.editableLines);
   const effectiveProjectId =
@@ -217,9 +213,9 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     onDiscard: () => ed.setShowDiscardModal(true),
     onUndo: ed.handleUndo,
     onRedo: ed.handleRedo,
-    onOpenOffset: () => setShowBatchModal(true),
-    onOpenDuet: () => setShowDuetModal(true),
-    onOpenReplace: () => setShowReplaceModal(true),
+    onOpenOffset: () => setDialog('offset'),
+    onOpenDuet: () => setDialog('duet'),
+    onOpenReplace: () => setDialog('replace'),
     onToggleTapToSync: toggleTapToSync,
     onFilterChange: review.setFilter,
     onAddLine: ed.handleInsertLineAtEnd,
@@ -264,9 +260,9 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
             canRedo={ed.canRedo}
             onUndo={ed.handleUndo}
             onRedo={ed.handleRedo}
-            onOpenOffset={() => setShowBatchModal(true)}
-            onOpenDuet={() => setShowDuetModal(true)}
-            onOpenReplace={() => setShowReplaceModal(true)}
+            onOpenOffset={() => setDialog('offset')}
+            onOpenDuet={() => setDialog('duet')}
+            onOpenReplace={() => setDialog('replace')}
             isTapToSyncActive={ed.isTapToSyncActive}
             onToggleTapToSync={toggleTapToSync}
             onDiscard={() => ed.setShowDiscardModal(true)}
@@ -401,29 +397,16 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
         onCloseDelete={() => ed.setLineToDelete(null)}
         onConfirmDelete={ed.handleConfirmDeleteLine}
       />
-      <BatchOffsetModal
-        isOpen={showBatchModal}
-        onClose={() => setShowBatchModal(false)}
-        onApplyOffset={ed.handleApplyBatchOffset}
-        selectedLineIndex={activeLineIdx}
-        totalLines={ed.editableLines.length}
-      />
-      <LyricReplacementModal
-        isOpen={showReplaceModal}
-        onClose={() => setShowReplaceModal(false)}
+      <TimelineDialogs
+        open={dialog}
+        onClose={() => setDialog(null)}
+        ed={ed}
+        lines={ed.editableLines}
         projectId={effectiveProjectId}
         trackTitle={trackTitle}
         trackArtist={trackArtist}
-        onSuccess={ed.handleReplaceLyrics}
-        currentLines={ed.editableLines}
-        onStartBackground={onStartBackgroundRealign}
-      />
-      <DuetAssignmentModal
-        isOpen={showDuetModal}
-        onClose={() => setShowDuetModal(false)}
-        lines={ed.editableLines}
-        onApply={ed.handleBulkAssignSinger}
         selectedLineIndex={activeLineIdx}
+        onStartBackground={onStartBackgroundRealign}
       />
     </div>
   );
