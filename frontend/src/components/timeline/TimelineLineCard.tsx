@@ -329,6 +329,15 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 {line.text}
               </span>
             </button>
+            {line.added === 'repeat' && (
+              <span
+                data-testid={`line-added-repeat-${line.id}`}
+                title="Added because this repeat is sung but the lyrics left it out"
+                className="shrink-0 rounded-theme-sm border border-theme-accent/35 bg-theme-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-theme-highlight"
+              >
+                Added repeat
+              </span>
+            )}
             {issueMessages && (
               <span
                 role="img"

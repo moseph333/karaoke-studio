@@ -51,6 +51,8 @@ export interface LyricLine {
   /** Alignment confidence from 0 to 1, when the server measured one. */
   confidence?: number;
   align_method?: AlignMethod;
+  /** 'repeat': added by the server, a repeat the lyric file left out but the song sings. */
+  added?: 'repeat';
 }
 
 export type LyricTiming = 'source_word' | 'source_line' | 'aligned' | 'none';

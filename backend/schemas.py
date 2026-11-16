@@ -166,11 +166,15 @@ class LyricLineSchema(BaseModel):
         default=None,
         description="How the line was timed (neural, DSP, from the lyrics, fallback, by hand)",
     )
+    added: Literal["repeat"] | None = Field(
+        default=None,
+        description="'repeat' for a line the server added: a repeat the lyric file left out",
+    )
 
     @model_serializer(mode="wrap")
     def _drop_unset_timing_metadata(self, handler):
         data = handler(self)
-        for key in ("confidence", "align_method"):
+        for key in ("confidence", "align_method", "added"):
             if data.get(key) is None:
                 data.pop(key, None)
         return data

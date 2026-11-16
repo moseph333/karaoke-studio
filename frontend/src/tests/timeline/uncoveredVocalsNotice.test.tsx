@@ -70,3 +70,20 @@ describe('vocals without lyrics', () => {
     expect(screen.queryByTestId('uncovered-vocals-notice')).not.toBeInTheDocument();
   });
 });
+
+describe('repeats the server added', () => {
+  it('are marked on their line', () => {
+    const added: LyricLine = { ...hook, id: 7, start_time: 46, end_time: 49, added: 'repeat' };
+    render(
+      <LyricTimelineEditor
+        lines={[hook, added]}
+        currentTime={0}
+        duration={206}
+        onSeek={vi.fn()}
+        onSaveLines={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('line-added-repeat-7')).toHaveTextContent('Added repeat');
+    expect(screen.queryByTestId('line-added-repeat-1')).not.toBeInTheDocument();
+  });
+});
