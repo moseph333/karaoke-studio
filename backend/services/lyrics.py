@@ -5,6 +5,7 @@ import itertools
 import logging
 import math
 import re
+from functools import lru_cache
 from typing import Any
 
 import requests
@@ -532,7 +533,12 @@ class LyricsService:
         """
         Calculate string similarity combining SequenceMatcher ratio, token-set intersection,
         and token-sort ratio for resilience against extra words and token reordering.
+        Cached (_similarity): ranking compares the same names many times.
         """
+        return _similarity(str1, str2)
+
+    @staticmethod
+    def _uncached_similarity(str1: str, str2: str) -> float:
         if not str1 and not str2:
             return 1.0
         if not str1 or not str2:
@@ -606,13 +612,12 @@ class LyricsService:
 
         title_sim = cls.calculate_similarity(target_title, c_title)
         if c_title:
-            title_sim = max(
-                title_sim,
-                cls.calculate_similarity(
-                    cls.candidate_song_name(target_title, target_artist),
-                    cls.candidate_song_name(c_title, c_artist, c_album),
-                ),
+            names = (
+                _song_name(target_title, target_artist, ""),
+                _song_name(c_title, c_artist, c_album),
             )
+            if names != (target_title, c_title):  # only when cleaning changed a name
+                title_sim = max(title_sim, cls.calculate_similarity(*names))
         artist_sim = cls.calculate_similarity(target_artist, c_artist)
 
         swapped_title_sim = cls.calculate_similarity(target_title, c_artist)
@@ -1519,6 +1524,17 @@ class LyricsService:
                 }
             )
         return lines
+
+
+@lru_cache(maxsize=8192)
+def _similarity(str1: str, str2: str) -> float:
+    return LyricsService._uncached_similarity(str1, str2)
+
+
+@lru_cache(maxsize=8192)
+def _song_name(track: str, artist: str, album: str) -> str:
+    """LyricsService.candidate_song_name, cached: ranking asks for the same names often."""
+    return LyricsService.candidate_song_name(track, artist, album)
 
 
 def extract_canonical(track_name: str, artist_name: str) -> tuple[str, str]:
