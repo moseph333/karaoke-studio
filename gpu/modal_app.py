@@ -135,9 +135,10 @@ if modal.is_local():  # the worker code is uploaded at deploy time
         ROOT / "backend", "/app/backend", ignore=["tests", "**/__pycache__"]
     )
 
-# The same Debian FFmpeg as the app image, plus the theme fonts the subtitles ask for
+# The same Debian FFmpeg and system fonts as the app image (Noto CJK draws Japanese, Chinese
+# and Korean lyrics, which the theme fonts lack), plus the theme fonts the subtitles ask for
 render_image = modal.Image.debian_slim(python_version="3.12").apt_install(
-    "ffmpeg", "fontconfig", "fonts-dejavu-core"
+    "ffmpeg", "fontconfig", "fonts-noto-cjk", "fonts-dejavu-core"
 )
 if modal.is_local():  # the fonts are uploaded at deploy time
     render_image = render_image.add_local_dir(ROOT / "backend" / "assets" / "fonts", FONTS_DIR)
