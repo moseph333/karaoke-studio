@@ -24,16 +24,16 @@ def line(text: str, start: float, end: float) -> dict:
 def test_the_translation_after_laser_sharks_is_dropped():
     lines = clean_fetched_lines(LyricsService.parse_lrc(LASER_SHARKS_ALL_CAPS["syncedLyrics"]))
     texts = [entry["text"] for entry in lines]
-    assert texts[-1] == "WAREWARE WA KATSU"
+    assert texts[-1] == "Wareware wa katsu"
     assert not any("Translation" in t or "Happy" in t for t in texts)
     assert [entry["id"] for entry in lines] == list(range(len(lines)))
 
 
 def test_repeat_markers_come_off_the_text_and_the_words():
     lines = clean_fetched_lines(LyricsService.parse_lrc(LASER_SHARKS_ALL_CAPS["syncedLyrics"]))
-    same = next(entry for entry in lines if entry["text"].startswith("SHIAWASENA SAME SAME"))
-    assert same["text"] == "SHIAWASENA SAME SAME"
-    assert [w["word"] for w in same["words"]] == ["SHIAWASENA", "SAME", "SAME"]
+    same = next(entry for entry in lines if entry["text"].startswith("Shiawasena same same"))
+    assert same["text"] == "Shiawasena same same"
+    assert [w["word"] for w in same["words"]] == ["Shiawasena", "same", "same"]
 
 
 def test_a_clean_file_keeps_every_sung_line():
@@ -91,4 +91,4 @@ def test_fetch_lyrics_returns_cleaned_lines(monkeypatch):
     )
     result = service.fetch_lyrics("Laser Sharks", "Savant", 244)
     assert result["lrc"] == "x"
-    assert result["lines"][-1]["text"] == "WAREWARE WA KATSU"
+    assert result["lines"][-1]["text"] == "Wareware wa katsu"

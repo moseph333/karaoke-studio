@@ -9,7 +9,12 @@ from typing import Any
 import requests
 import syncedlyrics
 
-from backend.services.lyric_cleanup import REPEAT_MARKER, clean_fetched_lines, is_annotation
+from backend.services.lyric_cleanup import (
+    REPEAT_MARKER,
+    clean_fetched_lines,
+    is_all_caps,
+    is_annotation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +50,6 @@ QUALITY_PENALTIES: dict[str, float] = {
     "annotations": 20.0,
     "crammed_tail": 20.0,
 }
-ALL_CAPS_SHARE = 0.7
 LONG_LINE_CHARS = 120
 _LRC_TAG = re.compile(r"\[(\d{1,4}):(\d{2})(?:[.:](\d{1,3}))?\]")
 
@@ -566,10 +570,7 @@ class LyricsService:
             line = re.sub(r"\[[^\]]*\]|<[^>]*>", "", raw).strip()
             if line:
                 lines.append(line)
-        letters = [ch for line in lines for ch in line if ch.isascii() and ch.isalpha()]
-        if len(letters) >= 40 and sum(ch.isupper() for ch in letters) / len(letters) > (
-            ALL_CAPS_SHARE
-        ):
+        if is_all_caps(lines):
             flags.append("all_caps")
         if any(len(line) > LONG_LINE_CHARS for line in lines):
             flags.append("long_lines")
