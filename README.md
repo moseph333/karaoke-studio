@@ -4,45 +4,16 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 
 ![Karaoke Studio](docs/karaoke-preview.png)
 
-## What's new in 2.5
+## What's new in 2.8
 
-- **Lyrics land where they're sung.** The neural aligner now listens to the whole song and places every line in order. A line no longer sticks to a wrong first guess on a slow or reverb-heavy song, after a long intro, or when the lyrics file was timed for another version of the song (a lyric video, a live cut). The studio only keeps placements it can check, so lyrics that don't fit the vocals keep the old timing; `ALIGNMENT_SONG_PASS=0` turns the new pass off. Lines from synced lyrics also end once they're sung instead of running on to the next line.
-- **The right lyrics more often.** Synced lyrics made for a much longer or shorter version aren't taken straight away, and another song with the same title can't win. Song names like "Live Forever" survive title cleanup, YouTube Music track names and uploaded file names are used to search, and credit lines such as "Written by: …" are no longer sung.
-- **An API reference.** `/api/docs` is an interactive reference for the studio's API, behind the same passphrase as everything else. FastAPI's open `/docs` pages are gone.
-- **See which version is running.** The Help dialog shows the version the server runs, so you can tell when an update has landed.
+- **The right lyrics more often.** A fan upload titled "Artist - Song" is looked up by the real artist instead of the channel that posted it. When LRCLIB holds several versions of a song, the clean one wins over ALL-CAPS, run-on or annotated uploads, and when LRCLIB writes a repeated hook only once, NetEase's fuller transcription is used instead. Fetched lyrics lose translation notes and "x2" markers, run-on lines are split at natural breaks, and all-caps lyrics become sentence case. **Re-import** lists the other versions best first, flags sloppy ones and marks the one in use.
+- **Songs with more than one voice.** When the vocals clearly hold two voices, such as a rapper and a singer on the hook, new songs get Singer 1 and Singer 2 parts by voice, and **Duet parts → By Voice** does the same later. Give the parts names ("Rapper", "Miho") in the track details and the stage shows them. Lines and words in parentheses, the usual mark of backing vocals and ad-libs, are drawn smaller and in italics. The timeline flags **Vocals without lyrics**, and with the neural aligner the repeats of a hook the lyrics wrote once are added and marked **Added repeat**.
+- **Japanese and other CJK lyrics.** Lines sweep one character at a time, without spaces between the characters, and the romaji a lyric file gives in parentheses shows under the line, on the stage and in the video. The neural aligner times the line from its romaji.
+- **Videos that don't go blank.** Long instrumental gaps show **♪ Instrumental ♪**, the outro shows the song's title until the end, and lines too long for two rows are drawn smaller. Cloud renders now include Japanese fonts: redeploy the Modal app (see **Cloud GPU** below).
+- **Split and merge lines.** Split a line after any word in the word editor, or merge it with the next one from its menu; both keep every word's timing.
+- **Under the hood.** Log lines and error replies carry a request id, session tokens are also signed with a server secret (`SESSION_SECRET`), `ALLOWED_HOSTS` limits the host names the server answers to, and API and media responses are sandboxed.
 
-## What's new in 2.4
-
-- **Updates that don't interrupt anyone.** `scripts/update_when_idle.sh` builds the new version while the studio keeps running, pauses new songs, uploads and renders (everyone sees a notice; editing and playback keep working), waits for running jobs to finish, and only then restarts. **Update now** goes through the same steps, so one person's update no longer cuts off another person's render.
-
-## What's new in 2.3
-
-- **Install it on your phone.** Add the studio to your home screen: tap **Install** on Android, or **Share → Add to Home Screen** in Safari on iPhone and iPad. It opens full screen, keeps clear of the notch, and Back takes you from a song to the library.
-- **Share songs to it.** On Android, share a video from the YouTube app to Karaoke Studio and it opens with the link filled in.
-- **Updates without waiting.** Where the server applies its own updates (`SELF_UPDATE=1`), an **Update now** toast appears as soon as GitHub has a newer version, followed by a **Reload** toast once it's installed.
-- **Fixes.** A "Can't reach your studio" screen instead of the browser's error page while the server restarts, and touch scrolling that works in the installed app.
-
-## What's new in 2.2
-
-- **New looks and Render Again.** Backgrounds can be the cover art drifting in a slow pan, soft **aurora** orbs or a **spectrum** that rises with the music, drawn the same on the stage and in the video. **Render Again** makes a new video after you change the lyrics, key or look, and opening the Export dialog warms up a cloud CPU so cloud renders start sooner.
-- **Safer with your work.** A full disk no longer loses lyric edits: the save fails with a clear message. Songs and renders cut off by a server restart say so instead of hanging, a failed render keeps the previous video, 16:9 and 9:16 videos are kept side by side, and lines you timed by hand keep their timing when the whole song is re-aligned.
-- **Lighter on the server.** Each song keeps only its most recent key and guide mixes (`MIX_CACHE_PER_SONG`), new songs, uploads and renders are refused with a clear message when free space drops below `DISK_MIN_FREE_MB`, the studio polls a small status reply, and `PREVIEW_AUDIO_FORMAT=aac` streams a 5 MB preview instead of a 40 MB WAV.
-- **Security.** Wrong passphrases sent with any request now share the login rate limit, `FORWARDED_TRUSTED_HOPS` says which proxy address identifies a client, and starting an update needs a session.
-- **Polish.** An end card after the last line, YouTube kit chapters that YouTube actually shows, videos drawn in the stage's font, a reload prompt when the server has a newer build, and a round of keyboard, screen reader and contrast fixes.
-
-## What's new in 2.1
-
-- **Balanced and Best on a cloud GPU.** On a slow server, the RoFormer presets can run on a [Modal](https://modal.com) GPU instead: about a minute for a 4-minute song on Balanced. Fast always runs on your server, and songs fall back to it when the cloud is unavailable.
-- **Real 60 fps exports.** The lyric sweep is drawn for every frame (still and colour backgrounds used to run at 25 fps), exports are faster on your own server, and they can render on a Modal cloud CPU instead.
-- **Fixes.** Balanced and Best no longer fall back to Fast in images built with librosa 1.0, and a newly opened song shows its key from the first frame.
-
-## What's new in 2.0
-
-- **A redesigned studio.** One screen: stage and timeline in the middle, the mix and look inspector on the right, a transport dock at the bottom. Built on a token-driven design system with a new default theme, **Afterglow**. The four classic themes are still there.
-- **Cleaner stems.** Choose **Fast**, **Balanced** or **Best** separation per song. Balanced (Mel-Band RoFormer) is the new default and falls back to Fast automatically. You can re-make a finished song's stems at another quality later, in the background.
-- **Better lyric sync.** A neural word aligner (Meta's MMS model) runs when available, with the DSP aligner as fallback. Every line gets a confidence score, shaky lines show up under **Needs review**, and any line can be re-aligned on its own.
-- **Exports match the stage.** The live preview uses the same backdrop, duet colours and font as the rendered video, and exported subtitles no longer run ahead of the singing.
-- **Power-user polish.** A command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd>), media keys, stage settings that persist, and more keyboard shortcuts.
+**2.7** looks lyrics up while the stems are separated, warms the cloud GPU while the audio downloads, and opens the studio while the chords and vocal range are still being detected. **2.6** added the home screen's live lyric preview and a faster first load, saved the neural aligner's listening pass (and computes it on the cloud GPU), and made updates wait for CI. Earlier releases are in [CHANGELOG.md](CHANGELOG.md) and on the [releases page](https://github.com/moseph333/karaoke-studio/releases).
 
 ## Screenshots
 
@@ -69,27 +40,30 @@ Pull audio from YouTube (`yt-dlp`) or upload `.mp3`, `.wav`, `.flac`, `.m4a`, `.
 
 When a preset cannot run (extras not installed, weights unavailable, out of memory), separation falls back Best → Balanced → Fast and the studio says why. The Mix panel shows which model made a song's stems, and **Improve** re-makes them at another quality while the song stays playable. You can also re-time the lyrics against the new vocals or detect the chords again.
 
-**Cloud GPU (optional).** On a slow CPU, Balanced and Best can run on a [Modal](https://modal.com) GPU instead: deploy `gpu/modal_app.py` once with `modal deploy gpu/modal_app.py`, then set `SEPARATION_REMOTE=modal` and a Modal token in `.env`. The GPU runs the same RoFormer worker, progress streams back to the studio, and a 4-minute song takes about a minute on Balanced and two on Best, billed per second. The same GPU job also runs the neural lyric aligner's listening pass over the new vocals, so lyric sync on your server skips its slowest step (a few seconds of GPU time instead of minutes of CPU). If the GPU service is unreachable or no GPU is free within `SEPARATION_REMOTE_QUEUE_SEC`, the song falls back to Fast on your server.
+**Cloud GPU (optional).** On a slow CPU, Balanced and Best can run on a [Modal](https://modal.com) GPU instead: deploy `gpu/modal_app.py` with `modal deploy gpu/modal_app.py` (again after updates that change it, the RoFormer or aligner workers, `backend/requirements-ml.txt` or the fonts, as 2.8 did by adding Japanese fonts to the cloud renders), then set `SEPARATION_REMOTE=modal` and a Modal token in `.env`. The GPU runs the same RoFormer worker, progress streams back to the studio, and a 4-minute song takes about a minute on Balanced and two on Best, billed per second. The same GPU job also runs the neural lyric aligner's listening pass over the new vocals, so lyric sync on your server skips its slowest step (a few seconds of GPU time instead of minutes of CPU). If the GPU service is unreachable or no GPU is free within `SEPARATION_REMOTE_QUEUE_SEC`, the song falls back to Fast on your server.
 
 ### Lyrics and sync
 
-- Lyrics come from LRCLIB and `syncedlyrics`, or you paste plain text or LRC (enhanced LRC word tags are kept).
+- Lyrics come from LRCLIB, NetEase and `syncedlyrics`, or you paste plain text or LRC (enhanced LRC word tags are kept). A fan upload titled "Artist - Song" is searched by its artist, the cleanest of LRCLIB's versions wins, and NetEase's version is used when it writes out repeats that LRCLIB lists once. **Re-import** lists every version best first, with what looks wrong with each and which one the song uses.
+- Fetched lyrics are tidied before they are timed: translation notes and "x2" markers go, lines too long to sing as one are split, all-caps lyrics become sentence case, and a Japanese (or other CJK) line's romaji in parentheses becomes a smaller row under it.
 - **Neural alignment** (MMS forced alignment through torchaudio) places each word when the model is available. The **DSP aligner** (vocal energy, spectral flux and phrase snapping) is the fallback and the in-request engine. The model's listening pass over a stem is saved (`<data dir>/alignment_cache`, the 200 most recent songs, about 1.5 MB each), so re-timing lyrics or a single line later only runs the alignment.
 - Every line gets a **confidence** score from how well the vocal stem supports its timing. The sync badge shows the song's average, a dot on each timeline row shows the line's, and **Needs review** filters the lines below 60%.
 - **Re-align this line** (row menu) finds where a line is really sung near its current place and applies the result as an undoable edit. Whole songs can be re-aligned in the background with the neural aligner while you keep working.
+- Singing with no line to show (a hook the lyrics wrote once but the song repeats) is listed above the timeline as **Vocals without lyrics**; with the neural aligner, new songs get those repeats added as lines marked **Added repeat**.
+- CJK lyrics are timed one character at a time, and the neural aligner times a line with romaji from its romaji.
 - Lines you change by hand are marked as manual and keep your timing, also when the whole song is re-aligned or its stems are re-made with re-timed lyrics. Lines of two or more words that the editor only spread evenly (line-by-line tap-to-sync, new or retyped lines) still get their words placed by the aligner; a one-word line, such as an ad-lib, keeps its timing.
 
 ### Timeline editor
 
-50-step undo and redo, live tap-to-sync (<kbd>T</kbd>), batch offsets, ±0.2 s and ±0.05 s nudges, an expandable per-word editor, inline text and chord editing, and duet parts (Singer 1, Singer 2, Both).
+50-step undo and redo, live tap-to-sync (<kbd>T</kbd>), batch offsets, ±0.2 s and ±0.05 s nudges, an expandable per-word editor, splitting a line after any word and merging it with the next, inline text and chord editing, and duet parts (Singer 1, Singer 2, Both). New songs whose vocals clearly hold two voices get their parts by voice, **Duet parts → By Voice** assigns them later, and the parts can be given names in the track details, which the stage shows.
 
 ### Stage, themes and export
 
-- Word-sweep or line-by-line highlighting, instrumental countdowns, an end card with the song's title after the last line, a beat visualizer (<kbd>V</kbd>), a transposing chord bar (<kbd>C</kbd>) and a fullscreen TV stage (<kbd>F</kbd>).
+- Word-sweep or line-by-line highlighting, backing vocals and ad-libs (words in parentheses) drawn smaller and in italics, Japanese and other CJK lyrics swept per character with their romaji underneath, instrumental countdowns, an end card with the song's title after the last line, a beat visualizer (<kbd>V</kbd>), a transposing chord bar (<kbd>C</kbd>) and a fullscreen TV stage (<kbd>F</kbd>).
 - Five app themes (**Afterglow**, **Basement Flyer**, **Reel-to-Reel '74**, **Midnight KTV Booth**, **Monolith Press**) and nine stage presets, with custom colours and font scale. Stage settings are remembered.
 - Backgrounds: the song's **cover art**, still or **drifting** in a slow pan, **aurora** (soft orbs in the preset's colours), a **spectrum** that rises with the music, a **plain** colour, or your own image or looping video. The stage draws each one the way the video does: cover art is the export's own image, and moving backgrounds follow the song, so a paused stage shows the video's frame at that moment.
 - Key shift (−12 to +12 semitones) and speed (0.5× to 1.5×), a 0–50% guide vocal, and the **Smart Key Recommender** that fits a song's vocal range to your voice. Final renders shift pitch with Rubber Band at high quality, keeping the guide vocal's formants.
-- Exports: 1080p60 MP4 (16:9 or 9:16 Shorts) with the lyric sweep drawn for every frame, `.lrc` and `.ass` subtitles, WAV stems, chord and lyric sheets, and a YouTube metadata kit. **Render Again** makes a new video after you change the lyrics, key or look, and **Try Again** retries a failed render. A failed or cancelled render keeps the previous video, and the 16:9 and 9:16 videos are kept side by side, so rendering one format never replaces the other.
+- Exports: 1080p60 MP4 (16:9 or 9:16 Shorts) with the lyric sweep drawn for every frame, an **♪ Instrumental ♪** label through long gaps and the song's title through the outro (both with the countdown), lines too long for two rows drawn smaller, `.lrc` and `.ass` subtitles, WAV stems, chord and lyric sheets, and a YouTube metadata kit. **Render Again** makes a new video after you change the lyrics, key or look, and **Try Again** retries a failed render. A failed or cancelled render keeps the previous video, and the 16:9 and 9:16 videos are kept side by side, so rendering one format never replaces the other.
 - **Cloud export (optional).** With `RENDER_REMOTE=modal` (same Modal deployment and token as the cloud GPU), MP4s render on a 16-core Modal CPU: about 1¼ minutes for a 3-minute song, around a cent each. Opening the Export dialog starts a cloud CPU in the background, so Modal finds one while you choose the options, and it stays ready for 2 minutes after each export. While the export waits for a CPU, the studio counts the seconds. If it is unavailable or fails, the export renders on your server.
 
 ### On your phone
