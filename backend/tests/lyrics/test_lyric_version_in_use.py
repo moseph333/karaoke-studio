@@ -84,7 +84,10 @@ def test_pasted_lyrics_clear_the_remembered_version(client, song):
     assert main_mod.projects[song]["lyric_source_id"] is None
 
 
-def test_a_fetched_listing_reports_its_id():
+def test_a_fetched_listing_reports_its_id(monkeypatch):
+    import backend.services.lyrics as lyrics_mod
+
+    monkeypatch.setattr(lyrics_mod.syncedlyrics, "search", lambda *a, **k: None)  # no NetEase
     service = LyricsService()
     with patch("requests.get", return_value=lrclib_answer(LASER_SHARKS_CLEAN)):
         result = service.fetch_lyrics("Laser Sharks", "Savant", 242)

@@ -84,6 +84,9 @@ def test_annotation_detection():
 
 
 def test_fetch_lyrics_returns_cleaned_lines(monkeypatch):
+    import backend.services.lyrics as lyrics_mod
+
+    monkeypatch.setattr(lyrics_mod.syncedlyrics, "search", lambda *a, **k: None)  # no NetEase
     service = LyricsService()
     raw = LyricsService.parse_lrc(LASER_SHARKS_ALL_CAPS["syncedLyrics"])
     monkeypatch.setattr(
