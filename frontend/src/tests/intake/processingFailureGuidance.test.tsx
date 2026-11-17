@@ -43,6 +43,26 @@ describe('explainProcessingError', () => {
       /blocked in the region/,
     ],
     ['ERROR: [youtube] abc: Video unavailable', /no longer available/],
+    [
+      'Failed to download audio from SoundCloud: ERROR: [soundcloud] x: Unable to download JSON metadata: HTTP Error 404: Not Found',
+      /no longer available at that link/,
+    ],
+    [
+      'Failed to download audio from SoundCloud: This track is not available in your country',
+      /blocked in the region/,
+    ],
+    [
+      'That Internet Archive link holds 23 recordings. Open the one you want and paste its link.',
+      /several recordings/,
+    ],
+    [
+      'Failed to download audio from Vimeo: ERROR: [vimeo] 76979871: The web client only works when logged-in. Use --cookies',
+      /sign-in or a password/,
+    ],
+    [
+      'Failed to download audio from Vimeo: ERROR: [vimeo] 1: This video is protected by a password, use the --video-password option',
+      /sign-in or a password/,
+    ],
     ['[Errno 28] No space left on device', /disk space/],
     ['No separation engine can run: fast: demucs is not installed', /Separating the vocals/],
     ['Stem separation failed: worker exited with code -9', /Separating the vocals/],

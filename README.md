@@ -70,7 +70,7 @@ After changing the lyrics, the key or the look, **Render Again** makes a new vid
 | I asked for Best and got Fast | The better model could not run (cloud GPU busy or unreachable, model not installed, too little memory). The check-up says why; **Improve** again later. |
 | It is a duet, but every line has one colour | **Duet parts → By Voice**; if it finds one voice, use Alternating or set lines with the singer chip. |
 | The song is too high or too low | Shift the key in Audio mix, or ask the **Smart Recommender**. |
-| Processing failed | The failed song says what happened in plain words (private, blocked or removed video, a sign-in check, a download that did not get through) and has **Try again**. If it fails the same way, download the audio yourself and upload it. |
+| Processing failed | The failed song says what happened in plain words (a private, blocked or removed song, a sign-in check, a link that holds a whole album, a download that did not get through) and has **Try again**. Most Vimeo videos need a sign-in the server does not have. If it fails the same way, paste another copy of the song or download the audio yourself and upload it. |
 | The video render failed, or takes very long | **Try Again** in Export. A render draws every frame, so a few minutes is normal; you can close the dialog while it runs, and a failed render keeps the previous video. |
 | I don't know how to get the video onto YouTube | Render and download it, then follow **Upload to YouTube** under the finished video. See [Putting the video on YouTube](#putting-the-video-on-youtube). |
 | Re-timing the lyrics or re-making the stems failed | The song keeps its previous timing and stems. Only one job runs on a song at a time: wait for it, then start again. |
