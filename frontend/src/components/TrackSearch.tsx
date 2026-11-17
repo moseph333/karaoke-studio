@@ -78,7 +78,7 @@ const STEPS: Array<{ Icon: LucideIcon; title: string; text: string }> = [
   {
     Icon: AudioLines,
     title: 'The studio does the work',
-    text: 'The vocals are lifted off the music and every word is timed to the singing. It takes a few minutes.',
+    text: 'The vocals are lifted off the music and every word is timed to the singing. Most songs take a few minutes; the best stem quality and a server’s first song take longer.',
   },
   {
     Icon: MicVocal,
@@ -536,6 +536,13 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
               </li>
             ))}
           </ol>
+          <p
+            data-testid="how-it-works-expectations"
+            className="text-pretty text-sm text-theme-text-muted"
+          >
+            It is all automatic, so now and then a lyric is wrong or a line is out of time. The
+            studio marks what to check and has a fix for each.
+          </p>
         </section>
       )}
 

@@ -4,7 +4,7 @@
  *
  * The pipeline progress screen: a progress ring, the current stage and its detail, the
  * engine heartbeat, a 4-stage stepper, elapsed/remaining timers, a reconnect banner with
- * Retry, tips for the wait, and a two-step cancel. Also renders the cancelled and failed end
+ * Retry, tips for the wait, what to expect of the result, and a two-step cancel. Also renders the cancelled and failed end
  * states: what happened in plain words (`utils/processingErrors`), the raw error under
  * "Technical details", and a button that starts the song again.
  */
@@ -25,6 +25,7 @@ import {
 import { ProjectState } from '../types';
 import { ProgressRing } from './ui/Progress';
 import { InlineConfirm } from './ui/InlineConfirm';
+import { ProcessingExpectations } from './ProcessingExpectations';
 import { ProcessingTips } from './ProcessingTips';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
@@ -416,6 +417,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
           </div>
 
           <ProcessingTips />
+          <ProcessingExpectations />
 
           <div className="pt-1">
             <InlineConfirm
