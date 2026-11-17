@@ -8,6 +8,7 @@
 import type { ProjectState, SeparationPreset } from '../types';
 import type { GuideAction } from './guideActions';
 import { formatTime } from './format';
+import { siteName } from './mediaLinks';
 import { PRESET_NAMES, stemsLabel } from './quality';
 import { getLyricSyncFidelity } from './syncStatus';
 import { LOW_CONFIDENCE_THRESHOLD, collectLineIssues } from './timelineReview';
@@ -217,9 +218,41 @@ function stemRows(project: ProjectState, options: CheckupOptions): CheckupRow[] 
   return rows;
 }
 
+// A matched upload this many seconds longer or shorter may be another edit of the song
+const MATCH_LENGTH_TIP_SEC = 4;
+
+/** A Spotify, Apple Music or TIDAL song: which YouTube upload stood in for it. */
+function matchRows(project: ProjectState): CheckupRow[] {
+  const match = project.song_match;
+  if (!match) return [];
+  const site = siteName(match.site);
+  const upload = match.youtube_title ? `“${match.youtube_title}”` : 'An upload';
+  const song = `“${match.title}” by ${match.artist}`;
+  const off =
+    match.duration && project.duration ? Math.round(project.duration - match.duration) : 0;
+  if (Math.abs(off) > MATCH_LENGTH_TIP_SEC) {
+    return [
+      {
+        id: 'matched-length',
+        level: 'tip',
+        title: `The YouTube upload is ${Math.abs(off)} s ${off > 0 ? 'longer' : 'shorter'} than the ${site} song`,
+        detail: `${upload} stood in for ${song}. It may be another edit; if the words drift, search for the song and pick another upload.`,
+      },
+    ];
+  }
+  return [
+    {
+      id: 'matched-ok',
+      level: 'ok',
+      title: `Found on YouTube from ${site}`,
+      detail: `${upload} stood in for ${song}.`,
+    },
+  ];
+}
+
 /** Every row for the song, the ones to fix first. */
 export function songCheckup(project: ProjectState, options: CheckupOptions = {}): CheckupRow[] {
-  return [...lyricRows(project), ...stemRows(project, options)]
+  return [...lyricRows(project), ...stemRows(project, options), ...matchRows(project)]
     .map((row, index) => ({ row, index }))
     .sort((a, b) => LEVEL_ORDER[a.row.level] - LEVEL_ORDER[b.row.level] || a.index - b.index)
     .map(({ row }) => row);

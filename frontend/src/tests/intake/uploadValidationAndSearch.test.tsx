@@ -226,9 +226,9 @@ describe('Milestone 1: UX-1 Search & URL Ergonomics (TrackSearch)', () => {
       undefined
     );
 
-    // A Spotify link cannot be downloaded: the box says which links work
+    // A Deezer link cannot be used: the box says which links work
     await user.clear(input);
-    await user.type(input, 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT');
+    await user.type(input, 'https://www.deezer.com/en/track/3135556');
     await user.click(searchBtn);
 
     expect(screen.getByText(UNSUPPORTED_LINK_MESSAGE)).toBeInTheDocument();

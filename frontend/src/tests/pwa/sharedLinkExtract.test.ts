@@ -57,6 +57,21 @@ describe('sharedIntakeQuery', () => {
     );
   });
 
+  it('takes links shared from Spotify, Apple Music and TIDAL', () => {
+    expect(
+      query({
+        title: 'Never Gonna Give You Up',
+        text: 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT?si=abc',
+      })
+    ).toBe('https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT?si=abc');
+    expect(query({ url: 'https://music.apple.com/us/album/x/1559885420?i=1559885421' })).toBe(
+      'https://music.apple.com/us/album/x/1559885420?i=1559885421'
+    );
+    expect(query({ text: 'Listen on TIDAL https://tidal.com/browse/track/77646168' })).toBe(
+      'https://tidal.com/browse/track/77646168'
+    );
+  });
+
   it('skips a link to another site for a song link later in the share', () => {
     expect(
       query({ text: 'https://example.com/blog then https://soundcloud.com/forss/flickermood' })
@@ -65,7 +80,7 @@ describe('sharedIntakeQuery', () => {
 
   it('falls back to the shared words, without other links, as search terms', () => {
     expect(
-      query({ title: 'Bohemian Rhapsody - Queen', text: 'https://open.spotify.com/track/1' })
+      query({ title: 'Bohemian Rhapsody - Queen', text: 'https://www.deezer.com/track/1' })
     ).toBe('Bohemian Rhapsody - Queen');
     expect(query({ text: 'Dancing Queen  ABBA https://example.com/x' })).toBe('Dancing Queen ABBA');
   });

@@ -233,8 +233,8 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
 
       const forbiddenUrls = [
-        'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT',
-        'https://music.apple.com/us/album/song/12345',
+        'https://www.deezer.com/en/track/3135556',
+        'https://www.apple.com/music/',
         'http://example.com/audio.mp3',
         'www.deezer.com/track/123456',
       ];
@@ -249,7 +249,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       }
     });
 
-    it('starts SoundCloud, Bandcamp, Vimeo and Internet Archive links like YouTube ones', async () => {
+    it('starts SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music and TIDAL links like YouTube ones', async () => {
       const user = userEvent.setup();
       const onSelectTrack = vi.fn();
 
@@ -262,6 +262,9 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
         'https://artist.bandcamp.com/track/heavy-metal',
         'https://vimeo.com/987654321',
         'archive.org/details/some-item/track01.mp3',
+        'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT',
+        'https://music.apple.com/us/album/song/1559885420?i=1559885421',
+        'https://tidal.com/browse/track/77646168',
       ];
 
       for (const link of songLinks) {

@@ -1,14 +1,17 @@
 /**
- * Which pasted text is a song link the intake can download (YouTube, SoundCloud, Bandcamp,
- * Vimeo, Internet Archive): the same sites and host rule as the backend, through the shared
+ * Which pasted text is a song link the intake takes (YouTube, SoundCloud, Bandcamp, Vimeo,
+ * Internet Archive, and Spotify, Apple Music and TIDAL, found on YouTube): the same sites and host rule as the backend, through the shared
  * cases in backend/assets/shared/media_sites.json.
  */
 
 import { describe, it, expect } from 'vitest';
 import mediaSites from '@shared/media_sites.json';
 import {
+  DOWNLOAD_SITES_SENTENCE,
+  LOOKUP_SITES_SENTENCE,
   MEDIA_SITES,
   SUPPORTED_SITES_SENTENCE,
+  siteName,
   linkSite,
   looksLikeLink,
 } from '../../utils/mediaLinks';
@@ -25,10 +28,18 @@ describe('song links', () => {
       'bandcamp',
       'vimeo',
       'archive',
+      'spotify',
+      'applemusic',
+      'tidal',
     ]);
     expect(SUPPORTED_SITES_SENTENCE).toBe(
-      'YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive'
+      'YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music or TIDAL'
     );
+    expect(DOWNLOAD_SITES_SENTENCE).toBe(
+      'YouTube, SoundCloud, Bandcamp, Vimeo and Internet Archive'
+    );
+    expect(LOOKUP_SITES_SENTENCE).toBe('Spotify, Apple Music and TIDAL');
+    expect(siteName('applemusic')).toBe('Apple Music');
   });
 
   it('tells a link to another site from search words', () => {

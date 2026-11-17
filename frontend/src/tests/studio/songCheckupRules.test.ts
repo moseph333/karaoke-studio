@@ -226,3 +226,40 @@ describe('order', () => {
     expect(ids(mixed)).toEqual(['tip:stems-fast', 'ok:lyrics-ok']);
   });
 });
+
+describe('a song found on YouTube from Spotify, Apple Music or TIDAL', () => {
+  const match = {
+    site: 'spotify',
+    title: 'Never Gonna Give You Up',
+    artist: 'Rick Astley',
+    duration: 214,
+    youtube_title: 'Rick Astley - Never Gonna Give You Up (Official Video)',
+  };
+
+  it('says which upload stood in for the song', () => {
+    const rows = songCheckup(song({ song_match: match, duration: 213 }));
+    expect(rows.map((row) => `${row.level}:${row.id}`)).toEqual([
+      'ok:lyrics-ok',
+      'ok:stems-ok',
+      'ok:matched-ok',
+    ]);
+    expect(rows[2].title).toBe('Found on YouTube from Spotify');
+    expect(rows[2].detail).toBe(
+      '“Rick Astley - Never Gonna Give You Up (Official Video)” stood in for “Never Gonna Give You Up” by Rick Astley.'
+    );
+  });
+
+  it('tips that an upload of another length may be another edit', () => {
+    const rows = songCheckup(song({ song_match: { ...match, site: 'tidal' }, duration: 226 }));
+    expect(rows[0]).toMatchObject({
+      id: 'matched-length',
+      level: 'tip',
+      title: 'The YouTube upload is 12 s longer than the TIDAL song',
+    });
+    expect(checkupFixCount(song({ song_match: match, duration: 226 }))).toBe(0);
+  });
+
+  it('adds nothing for a song from any other link', () => {
+    expect(ids(song())).toEqual(['ok:lyrics-ok', 'ok:stems-ok']);
+  });
+});
