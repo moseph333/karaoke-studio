@@ -42,7 +42,9 @@ describe('Toast Component & ToastProvider', () => {
       />
     );
     const region = screen.getByLabelText('Notifications');
-    expect(region.className).toContain('bottom-[calc(var(--dock-height,0px)+1rem)]');
+    expect(region.className).toContain(
+      'bottom-[calc(var(--dock-height,env(safe-area-inset-bottom,0px))+1rem)]'
+    );
     const toast = screen.getByText('Saved').closest('[data-toast-type]') as HTMLElement;
     expect(toast.className).toContain('border-theme-success/45');
     expect(toast.className).not.toMatch(/slate|emerald/);

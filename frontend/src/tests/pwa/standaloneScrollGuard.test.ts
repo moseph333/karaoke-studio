@@ -42,3 +42,23 @@ describe('installed-app scrolling', () => {
     expect(blockingOverscrollSelectors(broken).filter(targetsBody)).toHaveLength(1);
   });
 });
+
+describe('drawing under see-through system bars', () => {
+  // iOS home-screen apps draw under the status bar and home indicator today, and Chrome on
+  // Android does once its edge-to-edge mode for installed apps is on. Whatever touches the
+  // top or bottom edge keeps its content inside the safe area.
+  it('keeps the page end, the toasts and the boot shell clear of the bars', () => {
+    expect(readFrontendFile('src/App.tsx')).toContain(
+      'pb-[calc(1rem+env(safe-area-inset-bottom,0px))]'
+    );
+    expect(readFrontendFile('src/components/Toast.tsx')).toContain(
+      'var(--dock-height,env(safe-area-inset-bottom,0px))'
+    );
+    const bootBar = /\.boot-bar \{([^}]*)\}/.exec(readFrontendFile('index.html'));
+    expect(bootBar?.[1]).toContain('padding: env(safe-area-inset-top, 0px) 16px 0');
+  });
+
+  it('opts the page in to the full screen', () => {
+    expect(readFrontendFile('index.html')).toContain('viewport-fit=cover');
+  });
+});

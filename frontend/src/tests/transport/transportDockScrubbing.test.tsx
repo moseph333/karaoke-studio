@@ -347,7 +347,8 @@ describe('TransportDock stress', () => {
       render(<App />);
       const libraryMain = screen.getByRole('main');
       expect(libraryMain.className).not.toContain('--dock-height');
-      expect(libraryMain.className).toMatch(/pb-4\s+sm:pb-8/);
+      // Its own bottom padding, plus the gesture bar's height where the page draws under it
+      expect(libraryMain.className).toContain('pb-[calc(1rem+env(safe-area-inset-bottom,0px))]');
       expect(screen.queryByTestId('transport-dock')).not.toBeInTheDocument();
     });
 
