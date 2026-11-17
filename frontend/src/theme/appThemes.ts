@@ -222,6 +222,30 @@ export function applyThemeToDom(theme: AppTheme): void {
     (document.head || root).appendChild(meta);
   }
   meta.setAttribute('content', themeColor);
+
+  // The manifest carries the same colour (see manifestHrefForThemeColor)
+  const manifestLink = document.querySelector('link[rel="manifest"]');
+  const manifestHref = manifestHrefForThemeColor(themeColor);
+  if (manifestLink && manifestLink.getAttribute('href') !== manifestHref) {
+    manifestLink.setAttribute('href', manifestHref);
+  }
+}
+
+export const MANIFEST_URL = '/manifest.json';
+
+/**
+ * The manifest address for a theme background. An installed app's splash screen and, on
+ * Android, the strip under the gesture pill are painted from the manifest's colours, not
+ * from the page, so every theme but the default asks the server for the manifest in its own
+ * colour (`backend/web_manifest.py`). Chrome applies a changed manifest to an installed app
+ * within a day or so.
+ */
+export function manifestHrefForThemeColor(themeColor: string): string {
+  const hex = /^#([0-9a-f]{6})$/i.exec(themeColor)?.[1].toLowerCase();
+  if (!hex || `#${hex}` === APP_THEMES[DEFAULT_APP_THEME_ID].colors.bg.toLowerCase()) {
+    return MANIFEST_URL;
+  }
+  return `${MANIFEST_URL}?bg=${hex}`;
 }
 
 /* ==========================================================================

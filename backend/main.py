@@ -137,6 +137,7 @@ from backend.upload_utils import (
     validate_background_header,
     validate_image_header,
 )
+from backend.web_manifest import manifest_router
 
 configure_logging()
 logger = logging.getLogger("karaoke_backend")
@@ -390,6 +391,8 @@ app.include_router(api_docs_router)
 # Mount built frontend if available
 FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if FRONTEND_DIST.exists():
+    # Before the mount, which would otherwise serve the manifest file as it is
+    app.include_router(manifest_router(FRONTEND_DIST))
     app.mount("/", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
 
 __all__ = [
