@@ -10,6 +10,7 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 - **A check-up for every song.** A button next to the song's title counts what looks off and opens a list with a button to each fix: lyrics that were never found, lines that may be out of time, singing without lyrics, stems that fell back to another quality (and why), and a background job that failed.
 - **Help can fix a problem.** A new **Fix a problem** tab in Help lists what you are likely to notice ("I can still hear the singer", "the words light up late") with why it happens and what to do, and buttons that open the right tool on the open song.
 - **Failed songs say why.** A song that fails now explains what happened in plain words (a private, blocked or removed video, a sign-in check, a download that did not get through), keeps the raw error under **Technical details**, and has **Try again**.
+- **Export, then YouTube, step by step.** The Export dialog now says what a render uses and how long it takes, and that you can close it while it runs. Under the finished video, **Upload to YouTube** walks through the upload: the title, the description (with chapters and lyrics) and the tags to paste, in order, then what to check before publishing.
 - **What to expect, up front.** The home screen and the processing screen say how long a song takes, that you can leave the page, and that an automatic result sometimes needs a touch-up. A song with no lyrics leads straight to the lyric search.
 
 See [Using Karaoke Studio](#using-karaoke-studio) and [When results are off](#when-results-are-off).
@@ -28,6 +29,7 @@ See [Using Karaoke Studio](#using-karaoke-studio) and [When results are off](#wh
 | ![Phone stage](docs/screenshots/phone-stage.png) <br> Phone: stage | ![Phone timeline](docs/screenshots/phone-timeline.png) <br> Phone: timeline |
 | ![First-song steps](docs/screenshots/first-song.png) <br> First-song steps | ![Song check-up](docs/screenshots/song-checkup.png) <br> Song check-up |
 | ![Fix a problem in Help](docs/screenshots/help-fix-a-problem.png) <br> Help: Fix a problem | ![A failed song](docs/screenshots/processing-failed.png) <br> A song that failed |
+| ![Upload to YouTube steps](docs/screenshots/youtube-upload.png) <br> Export: Upload to YouTube | |
 
 ## Using Karaoke Studio
 
@@ -38,7 +40,19 @@ A first song, start to finish. The studio shows the same steps on a card the fir
 3. **Play and sing.** Press <kbd>Space</kbd>. The words light up as they are sung.
 4. **Check the lyrics.** Everything is automatic, so now and then a lyric is wrong or a line is out of time. The **check-up** button next to the song's title counts what looks off and takes you to each fix; **Needs review** above the timeline shows the lines the aligner was unsure about.
 5. **Set your key.** In **Audio mix**, shift the key to your range (the tempo stays the same) and turn the guide vocal up to sing along with the original singer.
-6. **Make a video.** **Export** renders a 1080p karaoke video, or gives you subtitle files and the stems.
+6. **Make a video.** **Export** renders a 1080p karaoke video of the song as it is now: its lyrics and timing, the key and guide vocal from Audio mix, and the look and format (16:9 or 9:16 Shorts) from Stage look. Most songs take a few minutes, and you can close the dialog while it renders. The same dialog has subtitle files, the stems and a chord sheet.
+
+### Putting the video on YouTube
+
+The upload itself happens on YouTube; the studio sends nothing. Once a render has finished, **Upload to YouTube** under the video in the Export dialog gives you each step:
+
+1. **Download** the MP4, open YouTube Studio, choose **Create → Upload videos** and pick the file.
+2. **Paste the title** (`Artist - Song (Karaoke Version / With Lyrics)`, shortened to fit YouTube's 100 characters).
+3. **Paste the description**: the song's details, the lyrics and, when the song has three sections of ten seconds or more, timestamps that YouTube turns into chapters.
+4. **Paste the tags.** On the upload's Details step they are under **Show more**.
+5. **Check before you publish.** Start as Unlisted or Private, watch it through, then make it Public. A 9:16 video of up to three minutes is published as a Short. YouTube may recognise the song and put a copyright claim on the video (the rights holder can run ads on it or block it in some countries), so upload only songs you have the right to share.
+
+After changing the lyrics, the key or the look, **Render Again** makes a new video; the title, description and tags follow the song.
 
 ## When results are off
 
@@ -57,6 +71,8 @@ A first song, start to finish. The studio shows the same steps on a card the fir
 | It is a duet, but every line has one colour | **Duet parts → By Voice**; if it finds one voice, use Alternating or set lines with the singer chip. |
 | The song is too high or too low | Shift the key in Audio mix, or ask the **Smart Recommender**. |
 | Processing failed | The failed song says what happened in plain words (private, blocked or removed video, a sign-in check, a download that did not get through) and has **Try again**. If it fails the same way, download the audio yourself and upload it. |
+| The video render failed, or takes very long | **Try Again** in Export. A render draws every frame, so a few minutes is normal; you can close the dialog while it runs, and a failed render keeps the previous video. |
+| I don't know how to get the video onto YouTube | Render and download it, then follow **Upload to YouTube** under the finished video. See [Putting the video on YouTube](#putting-the-video-on-youtube). |
 | Re-timing the lyrics or re-making the stems failed | The song keeps its previous timing and stems. Only one job runs on a song at a time: wait for it, then start again. |
 
 ## Features
