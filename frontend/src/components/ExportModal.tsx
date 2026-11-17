@@ -634,7 +634,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           )}
         </section>
 
-        {/* 2. Subtitles */}
+        {/* 2. The upload to YouTube, right under the finished video it is about */}
+        {isCompleted && yt && (
+          <ExportYouTubeKit
+            youtubePackage={yt}
+            format={latestVideoFormat}
+            durationSeconds={project.duration}
+          />
+        )}
+
+        {/* 3. Subtitles */}
         <ExportSubtitleSection
           project={project}
           selectedTheme={selectedTheme}
@@ -651,10 +660,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
           onSyncModeChange={handleSyncModeChange}
         />
 
-        {/* 3. Audio stems */}
+        {/* 4. Audio stems */}
         <ExportAudioSection project={project} />
 
-        {/* 4. Chord & lyric sheet */}
+        {/* 5. Chord & lyric sheet */}
         <section aria-labelledby="export-chord-sheet-heading" className={EXPORT_SECTION}>
           <div className="flex items-center justify-between gap-2">
             <h3 id="export-chord-sheet-heading" className={cn(EXPORT_HEADING, 'truncate')}>
@@ -719,9 +728,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             </div>
           )}
         </section>
-
-        {/* 5. YouTube metadata kit (after a completed render) */}
-        {isCompleted && yt && <ExportYouTubeKit youtubePackage={yt} />}
       </div>
     </Dialog>
   );
