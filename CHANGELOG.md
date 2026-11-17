@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.9.0](https://github.com/moseph333/karaoke-studio/compare/v2.8.0...v2.9.0) (2026-11-17)
+
+
+### Features
+
+* **export:** say what an export starts and that it can be left running ([76c158e](https://github.com/moseph333/karaoke-studio/commit/76c158eb801784d70bf96e61fbc8add25b3b74bc))
+* **export:** walk through the YouTube upload after a render ([3cbcff4](https://github.com/moseph333/karaoke-studio/commit/3cbcff46b455161d22cb2084809457fa9c52ef69))
+* **help:** add a "Fix a problem" tab and a first-song guide to Help ([0d1eae5](https://github.com/moseph333/karaoke-studio/commit/0d1eae5afb824d108c0b2cf2b39f00e4edf3efbc))
+* **help:** cover a failed render and the YouTube upload in "Fix a problem" ([811fa0f](https://github.com/moseph333/karaoke-studio/commit/811fa0f2db550d5def6df809b64943c134f4c97a))
+* **intake:** explain a failed song in plain words and offer to try again ([1abda64](https://github.com/moseph333/karaoke-studio/commit/1abda64357456edb52899808ee79e9b83fc3d1f1))
+* **intake:** say what to expect of a song before it is finished ([e5e390f](https://github.com/moseph333/karaoke-studio/commit/e5e390fb4128f496a9906669595e4862a4e3a3ce))
+* **palette:** let other screens run a registered command by its id ([d83d245](https://github.com/moseph333/karaoke-studio/commit/d83d2459f0577d4869a7a0f07d81b389318f1f90))
+* **studio:** add a song check-up that links each problem to its fix ([eb09312](https://github.com/moseph333/karaoke-studio/commit/eb093127e6e594dae0b1c843137a484f5d435ce6))
+* **studio:** show first-time users a getting-started card instead of a toast ([6ec7fee](https://github.com/moseph333/karaoke-studio/commit/6ec7feee28c5e1e4712cc8b3c4197b42af7ba6a9))
+* **timeline:** lead a song without lyrics to the lyric search ([cb51682](https://github.com/moseph333/karaoke-studio/commit/cb516827c42491d3e4456fbb046f68ca4c255285))
+
 ## [2.8.0](https://github.com/moseph333/karaoke-studio/compare/v2.7.0...v2.8.0) (2026-11-16)
 
 
