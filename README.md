@@ -35,7 +35,7 @@ See [Using Karaoke Studio](#using-karaoke-studio) and [When results are off](#wh
 
 A first song, start to finish. The studio shows the same steps on a card the first time you open a finished song, and **Help** (<kbd>?</kbd>) has them under **Studio Usage Guide**.
 
-1. **Add a song.** Paste a YouTube link, search by title, or switch to **Local Audio File** and upload one. **Advanced options** holds the stem quality (Fast, Balanced, Best) and a box for your own lyrics.
+1. **Add a song.** Paste a song link (YouTube, SoundCloud, Bandcamp, Vimeo or the Internet Archive), search YouTube by title, or switch to **Local Audio File** and upload one. **Advanced options** holds the stem quality (Fast, Balanced, Best) and a box for your own lyrics.
 2. **Wait a few minutes.** The screen shows the stage it is on and a time estimate. You can leave: the song keeps processing and waits in your library. Best quality on a CPU, and a server's first Balanced or Best song (it downloads its model once), take longer.
 3. **Play and sing.** Press <kbd>Space</kbd>. The words light up as they are sung.
 4. **Check the lyrics.** Everything is automatic, so now and then a lyric is wrong or a line is out of time. The **check-up** button next to the song's title counts what looks off and takes you to each fix; **Needs review** above the timeline shows the lines the aligner was unsure about.
@@ -79,7 +79,7 @@ After changing the lyrics, the key or the look, **Render Again** makes a new vid
 
 ### Stem separation
 
-Pull audio from YouTube (`yt-dlp`) or upload `.mp3`, `.wav`, `.flac`, `.m4a`, `.ogg`, `.opus` or `.aac`. The song is split into `vocals.wav` and `instrumental.wav` at the quality you pick in **Advanced options**:
+Pull audio from a YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive link (`yt-dlp`) or upload `.mp3`, `.wav`, `.flac`, `.m4a`, `.ogg`, `.opus` or `.aac`. A link must be one song: a track's own page, not a profile, an album or a playlist (an Internet Archive item that holds a whole concert is refused; open one of its tracks). The same link pasted again opens the song you already made. Most Vimeo videos need a sign-in the server doesn't have, so expect those to fail; Spotify, Apple Music and other streaming services can't be downloaded at all, so download the audio and upload it instead. The song is split into `vocals.wav` and `instrumental.wav` at the quality you pick in **Advanced options**:
 
 | Preset | Engine | Time on CPU (4-min song) | Notes |
 | :--- | :--- | :--- | :--- |
@@ -119,7 +119,7 @@ When a preset cannot run (extras not installed, weights unavailable, out of memo
 ### On your phone
 
 - **Install it as an app.** On Android (Chrome), tap **Install** in the header on the library screen, or pick **Install app** from the command palette or the browser menu. On iPhone and iPad, open the studio in Safari, tap **Share**, then **Add to Home Screen**. Installing needs the studio served over HTTPS, and the installed app keeps its own sign-in, so you enter the passphrase once more there.
-- **Share songs to it (Android).** Share a video from the YouTube app to Karaoke Studio and it opens with the link in the search box; tap **Go** to start.
+- **Share songs to it (Android).** Share a video from the YouTube app, or a track from SoundCloud or Bandcamp, to Karaoke Studio and it opens with the link in the search box; tap **Go** to start. A share from an app whose links can't be downloaded (Spotify) puts the shared words, such as the song's name, in the box to search YouTube.
 - **Shortcuts on the icon.** Long-press the app icon (or right-click it in the taskbar or dock on a computer) for **New song**, **Upload audio** and **Continue last song**, which reopens the song this device had open last.
 - **Feels like an app.** Back returns from a song to the library, the layout keeps clear of the notch and rounded corners, pull-to-refresh can't reload you mid-edit, the screen stays on while a song plays, the bar under Android's gesture pill takes the colour of your app theme (Chrome 153 or newer; after a theme change the installed app catches up within a day or so), and while your server is down or restarting the app shows a "Can't reach your studio" screen that reloads by itself when the server is back.
 - **Updates.** A **Reload** toast appears once the server runs a newer build. Where the server applies its own updates (`SELF_UPDATE=1`), an **Update now** toast also appears as soon as GitHub has a newer version.
