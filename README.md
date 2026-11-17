@@ -4,16 +4,17 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 
 ![Karaoke Studio](docs/karaoke-preview.png)
 
-## What's new in 2.8
+## What's new in 2.9
 
-- **The right lyrics more often.** A fan upload titled "Artist - Song" is looked up by the real artist instead of the channel that posted it. When LRCLIB holds several versions of a song, the clean one wins over ALL-CAPS, run-on or annotated uploads, and when LRCLIB writes a repeated hook only once, NetEase's fuller transcription is used instead. Fetched lyrics lose translation notes and "x2" markers, run-on lines are split at natural breaks, and all-caps lyrics become sentence case. **Re-import** lists the other versions best first, flags sloppy ones and marks the one in use.
-- **Songs with more than one voice.** When the vocals clearly hold two voices, such as a rapper and a singer on the hook, new songs get Singer 1 and Singer 2 parts by voice, and **Duet parts → By Voice** does the same later. Give the parts names ("Rapper", "Miho") in the track details and the stage shows them. Lines and words in parentheses, the usual mark of backing vocals and ad-libs, are drawn smaller and in italics. The timeline flags **Vocals without lyrics**, and with the neural aligner the repeats of a hook the lyrics wrote once are added and marked **Added repeat**.
-- **Japanese and other CJK lyrics.** Lines sweep one character at a time, without spaces between the characters, and the romaji a lyric file gives in parentheses shows under the line, on the stage and in the video. The neural aligner times the line from its romaji.
-- **Videos that don't go blank.** Long instrumental gaps show **♪ Instrumental ♪**, the outro shows the song's title until the end, and lines too long for two rows are drawn smaller. Cloud renders now include Japanese fonts: redeploy the Modal app (see **Cloud GPU** below).
-- **Split and merge lines.** Split a line after any word in the word editor, or merge it with the next one from its menu; both keep every word's timing.
-- **Under the hood.** Log lines and error replies carry a request id, session tokens are also signed with a server secret (`SESSION_SECRET`), `ALLOWED_HOSTS` limits the host names the server answers to, and API and media responses are sandboxed.
+- **A first song, step by step.** The first time you open a finished song, a card above the stage lists four steps (play and sing, check the lyrics, set your key, make a video), and each is a button that takes you there. Hide it when you are done; Help and the command palette bring it back.
+- **A check-up for every song.** A button next to the song's title counts what looks off and opens a list with a button to each fix: lyrics that were never found, lines that may be out of time, singing without lyrics, stems that fell back to another quality (and why), and a background job that failed.
+- **Help can fix a problem.** A new **Fix a problem** tab in Help lists what you are likely to notice ("I can still hear the singer", "the words light up late") with why it happens and what to do, and buttons that open the right tool on the open song.
+- **Failed songs say why.** A song that fails now explains what happened in plain words (a private, blocked or removed video, a sign-in check, a download that did not get through), keeps the raw error under **Technical details**, and has **Try again**.
+- **What to expect, up front.** The home screen and the processing screen say how long a song takes, that you can leave the page, and that an automatic result sometimes needs a touch-up. A song with no lyrics leads straight to the lyric search.
 
-**2.7** looks lyrics up while the stems are separated, warms the cloud GPU while the audio downloads, and opens the studio while the chords and vocal range are still being detected. **2.6** added the home screen's live lyric preview and a faster first load, saved the neural aligner's listening pass (and computes it on the cloud GPU), and made updates wait for CI. Earlier releases are in [CHANGELOG.md](CHANGELOG.md) and on the [releases page](https://github.com/moseph333/karaoke-studio/releases).
+See [Using Karaoke Studio](#using-karaoke-studio) and [When results are off](#when-results-are-off).
+
+**2.8** found the right lyrics more often, gave songs with two voices their parts by voice, swept Japanese and other CJK lyrics one character at a time with their romaji underneath, kept videos from going blank in long gaps and outros (cloud renders gained Japanese fonts, so redeploy the Modal app, see **Cloud GPU** below), and added splitting and merging lines. **2.7** looks lyrics up while the stems are separated, warms the cloud GPU while the audio downloads, and opens the studio while the chords and vocal range are still being detected. **2.6** added the home screen's live lyric preview and a faster first load, saved the neural aligner's listening pass (and computes it on the cloud GPU), and made updates wait for CI. Earlier releases are in [CHANGELOG.md](CHANGELOG.md) and on the [releases page](https://github.com/moseph333/karaoke-studio/releases).
 
 ## Screenshots
 
