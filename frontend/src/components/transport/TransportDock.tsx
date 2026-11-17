@@ -29,6 +29,7 @@ import {
 import { useInterpolatedTime } from '../../hooks/useInterpolatedTime';
 import { usePlaybackClock, usePlaybackTime } from '../../hooks/usePlaybackClock';
 import { useMediaSession } from '../../hooks/useMediaSession';
+import { useScreenWakeLock } from '../../hooks/useScreenWakeLock';
 import { lineStartAtOffset } from '../../utils/lineNavigation';
 
 export interface TransportDockProps {
@@ -234,6 +235,8 @@ const TransportDockView: React.FC<TransportDockProps> = ({
     const target = lineStartAtOffset(steps, liveTime(), offset);
     if (target !== null) onSeek(target);
   };
+  // A phone would otherwise dim and lock in the middle of a song
+  useScreenWakeLock(isPlaying);
   useMediaSession({
     enabled: Boolean(masterAudioUrl),
     title: mediaTitle,
