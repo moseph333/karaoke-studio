@@ -374,7 +374,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
       data-testid="transport-dock"
       aria-label="Playback transport"
       className={cn(
-        'fixed inset-x-0 bottom-0 z-40 border-t border-theme-border-subtle ks-glass shadow-theme-lg',
+        'fixed inset-x-0 bottom-0 z-40 border-t border-theme-border-subtle ks-glass ks-dock-edge shadow-theme-lg',
         'md:static md:z-auto md:mx-3 md:mb-3 md:rounded-theme-xl md:border lg:mx-6',
         className
       )}

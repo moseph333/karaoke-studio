@@ -9,6 +9,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Karaoke" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Above the theme script, which points it at the chosen theme's colours -->
+    <link rel="manifest" href="/manifest.json" />
     <!-- Zero-FOUC Blocking Pre-Render Theme Initialization Script -->
     <script>
       (function () {
@@ -34,12 +36,20 @@
           if (metaThemeColor) {
             metaThemeColor.setAttribute('content', themeColors[activeTheme] || '#0b0b12');
           }
+          // The installed app's splash screen and the strip under Android's gesture pill
+          // take their colour from the manifest, so it follows the theme too
+          var manifestLink = document.querySelector('link[rel="manifest"]');
+          if (manifestLink && activeTheme !== 'afterglow') {
+            manifestLink.setAttribute(
+              'href',
+              '/manifest.json?bg=' + themeColors[activeTheme].slice(1)
+            );
+          }
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'afterglow');
         }
       })();
     </script>
-    <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Karaoke Studio</title>
