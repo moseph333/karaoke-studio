@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.10.0](https://github.com/moseph333/karaoke-studio/compare/v2.9.0...v2.10.0) (2026-11-17)
+
+
+### Features
+
+* **help:** explain a streaming song that was not found on youtube ([0cbf9ac](https://github.com/moseph333/karaoke-studio/commit/0cbf9ac710e91eae17eb4094efbcec799d1168c9))
+* **help:** explain failed downloads from the new song sites ([07503c2](https://github.com/moseph333/karaoke-studio/commit/07503c2d1010b39906a5323db1d25f679c4fdddd))
+* **intake:** download songs from soundcloud, bandcamp, vimeo and internet archive links ([1688a45](https://github.com/moseph333/karaoke-studio/commit/1688a45f1604d47555febb88b57a748cbb472007))
+* **intake:** find spotify, apple music and tidal songs on youtube ([96a5e19](https://github.com/moseph333/karaoke-studio/commit/96a5e19ebce193eeb9151148131225889e19abca))
+* **intake:** paste and share soundcloud, bandcamp, vimeo and internet archive links ([b2a97c1](https://github.com/moseph333/karaoke-studio/commit/b2a97c11e14efbc5fb15a7a1146d4c52740ad9a0))
+* **intake:** take spotify, apple music and tidal links and show the youtube match ([39c3d6e](https://github.com/moseph333/karaoke-studio/commit/39c3d6e0576e564c25e4ce04d44746f7f887e01f))
+* **pwa:** add new song, upload and continue shortcuts to the app icon ([a26f8f5](https://github.com/moseph333/karaoke-studio/commit/a26f8f5f9fe65de689a485735a4d31d1e1a1284e))
+* **pwa:** match the bar under android's gesture pill to the app theme ([cd5076c](https://github.com/moseph333/karaoke-studio/commit/cd5076c60e81691770e1b0ab4cad5f07affb5c72))
+* **transport:** keep the screen on while a song plays ([6de2d84](https://github.com/moseph333/karaoke-studio/commit/6de2d846358cdf49a654037560fc393e4fb1835c))
+
+
+### Bug Fixes
+
+* **errors:** show a validator's own message without the field name and prefix ([8b6d602](https://github.com/moseph333/karaoke-studio/commit/8b6d602ce43b04e503801a1cb36ae0266b3ba507))
+* **pwa:** keep the page end, toasts and boot shell clear of see-through bars ([a1c3230](https://github.com/moseph333/karaoke-studio/commit/a1c3230f7eb37b41e537544e85af539aae31cabb))
+
 ## [2.9.0](https://github.com/moseph333/karaoke-studio/compare/v2.8.0...v2.9.0) (2026-11-17)
 
 
