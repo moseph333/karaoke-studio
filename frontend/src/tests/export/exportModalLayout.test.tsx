@@ -60,15 +60,16 @@ describe('ExportModal layout', () => {
     expect(index(/synchronized subtitles/i)).toBeGreaterThan(index(/full video render/i));
     expect(index(/audio stem downloads/i)).toBeGreaterThan(index(/synchronized subtitles/i));
     expect(index(/chord & lyric sheet/i)).toBeGreaterThan(index(/audio stem downloads/i));
-    // The YouTube kit only appears once a video has been rendered.
-    expect(index(/youtube metadata/i)).toBe(-1);
+    // The YouTube steps only appear once a video has been rendered.
+    expect(index(/upload to youtube/i)).toBe(-1);
   });
 
-  it('adds the YouTube kit last after a completed render', () => {
+  it('puts the YouTube steps right under the finished video', () => {
     render(<ExportModal project={completedProject} isOpen onClose={vi.fn()} />);
     const order = headingOrder();
     expect(order[0]).toMatch(/your video is ready/i);
-    expect(order[order.length - 1]).toMatch(/youtube metadata & upload kit/i);
+    expect(order[1]).toMatch(/^upload to youtube$/i);
+    expect(order[2]).toMatch(/synchronized subtitles/i);
   });
 
   it('labels each section region by its heading', () => {
@@ -78,7 +79,7 @@ describe('ExportModal layout', () => {
       /synchronized subtitles/i,
       /audio stem downloads/i,
       /chord & lyric sheet/i,
-      /youtube metadata/i,
+      /upload to youtube/i,
     ]) {
       expect(screen.getByRole('region', { name })).toBeInTheDocument();
     }
