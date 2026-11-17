@@ -108,7 +108,7 @@ const liveList = 'flex w-full flex-col items-center gap-2.5 sm:items-end';
 export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismiss }) => (
   <section
     aria-label="Notifications"
-    className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--dock-height,0px)+1rem)] z-[60] flex flex-col items-center gap-2.5 px-4 sm:inset-x-auto sm:right-5 sm:w-full sm:max-w-sm sm:items-end sm:px-0"
+    className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--dock-height,env(safe-area-inset-bottom,0px))+1rem)] z-[60] flex flex-col items-center gap-2.5 px-4 sm:inset-x-auto sm:right-5 sm:w-full sm:max-w-sm sm:items-end sm:px-0"
   >
     <div aria-live="polite" aria-relevant="additions text" className={liveList}>
       {toasts

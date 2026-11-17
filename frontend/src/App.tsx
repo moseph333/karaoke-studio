@@ -546,7 +546,12 @@ export const AppContent: React.FC = () => {
               'flex-1 w-full mx-auto',
               isStudioReady
                 ? 'max-w-screen-2xl pb-[calc(var(--dock-height,8.5rem)+1rem)] md:pb-0 studio:min-h-0'
-                : 'max-w-7xl px-3 sm:px-4 pt-4 sm:pt-8 pb-4 sm:pb-8'
+                : cn(
+                    'max-w-7xl px-3 sm:px-4 pt-4 sm:pt-8',
+                    // Where the page draws under the gesture bar or home indicator, the last
+                    // card stays clear of it
+                    'pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(2rem+env(safe-area-inset-bottom,0px))]'
+                  )
             )}
           >
             {!project ? (

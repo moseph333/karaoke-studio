@@ -78,8 +78,11 @@
         display: flex;
         align-items: center;
         gap: 10px;
+        /* Under a see-through status bar (installed app) the bar starts below it, as the
+           app's header does */
+        box-sizing: content-box;
         height: 3.5rem;
-        padding: 0 16px;
+        padding: env(safe-area-inset-top, 0px) 16px 0;
         border-bottom: 1px solid var(--theme-border-subtle, #26263a);
         font: 700 1rem/1 var(--theme-font-heading, Sora, Inter, system-ui, sans-serif);
         letter-spacing: -0.01em;
@@ -119,7 +122,7 @@
       }
       @media (min-width: 1024px) {
         .boot-bar {
-          padding: 0 24px;
+          padding: env(safe-area-inset-top, 0px) 24px 0;
         }
         .boot-page {
           grid-template-columns: 1.05fr 0.95fr;
