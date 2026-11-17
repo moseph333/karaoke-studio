@@ -6,7 +6,7 @@
  * areas become tabs (Stage / Timeline / Mix & Theme) and the page scrolls normally.
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StudioMetaHeader } from '../StudioMetaHeader';
 import { MobileStudioWorkspaceTabs } from '../MobileStudioWorkspaceTabs';
 import { LyricTimelineEditor } from '../LyricTimelineEditor';
@@ -17,7 +17,10 @@ import type { UseStudioAudioReturn } from '../../hooks/useStudioAudio';
 import type { UseMixControllerReturn } from '../../hooks/useMixController';
 import type { UseVisualThemeReturn } from '../../hooks/useVisualTheme';
 import type { UseQualityJobsReturn } from '../../hooks/useQualityJobs';
+import type { GuideAction } from '../../utils/guideActions';
+import { checkupFixCount } from '../../utils/songCheckup';
 import { normalizeSingerRole } from '../stage/singers';
+import { FirstSongCard } from './FirstSongCard';
 import { useWorkspaceTabs, workspacePanelProps } from './workspacePanels';
 import { cn } from '../../utils/cn';
 
@@ -43,6 +46,10 @@ export interface StudioWorkspaceProps {
   onToggleChordBar: () => void;
   /** Stem re-separation and lyric re-alignment jobs. */
   quality?: UseQualityJobsReturn;
+  /** The getting-started card for a first-time user, and where its steps go. */
+  showFirstSongCard?: boolean;
+  onDismissFirstSongCard?: () => void;
+  onGuideAction?: (action: GuideAction) => void;
 }
 
 /** Mobile tab visibility; every panel is visible from `md` up. */
@@ -69,8 +76,16 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
   showChordBar,
   onToggleChordBar,
   quality,
+  showFirstSongCard = false,
+  onDismissFirstSongCard,
+  onGuideAction,
 }) => {
   const asTabs = useWorkspaceTabs();
+  const firstSongCard = showFirstSongCard && onDismissFirstSongCard && onGuideAction;
+  const toCheck = useMemo(
+    () => (firstSongCard ? checkupFixCount(project) : 0),
+    [firstSongCard, project]
+  );
   const syncJobActive = ['queued', 'running'].includes(project.sync_job?.status ?? '');
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
   // The cover art exactly as exports draw it (the larger, panned still for the drift)
@@ -101,6 +116,14 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
           onOpenDeleteModal={onOpenDeleteModal}
           onOpenCheckup={onOpenCheckup}
         />
+
+        {firstSongCard && (
+          <FirstSongCard
+            toCheck={toCheck}
+            onAction={onGuideAction}
+            onDismiss={onDismissFirstSongCard}
+          />
+        )}
 
         <MobileStudioWorkspaceTabs
           activeTab={activeTab}

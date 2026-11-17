@@ -11,6 +11,7 @@ import {
   ImageIcon,
   Layers,
   LayoutPanelTop,
+  ListChecks,
   ListMusic,
   Maximize2,
   Mic,
@@ -74,6 +75,8 @@ export interface UseStudioCommandsOptions {
   onOpenHelp: () => void;
   /** Opens the song check-up (adds "Song check-up…"). */
   onOpenCheckup?: () => void;
+  /** Brings back the getting-started card; omitted while it is showing. */
+  onShowFirstSongSteps?: () => void;
   onNewSong: () => void;
   onOpenProject: (project: ProjectState) => void;
   onSelectTab: (tab: StudioWorkspaceTab) => void;
@@ -457,6 +460,17 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
     keywords: ['guide', 'keys', 'how to'],
     run: opts.onOpenHelp,
   });
+  if (isStudioReady && opts.onShowFirstSongSteps) {
+    add({
+      id: 'first-song-steps',
+      title: 'Show the first-song steps',
+      subtitle: 'Play, check the lyrics, set your key, make a video',
+      group: 'Help',
+      icon: <ListChecks />,
+      keywords: ['getting started', 'tutorial', 'intro', 'new', 'how to', 'guide'],
+      run: opts.onShowFirstSongSteps,
+    });
+  }
   if (opts.onInstallApp) {
     add({
       id: 'install-app',

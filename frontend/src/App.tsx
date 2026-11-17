@@ -23,7 +23,7 @@ import { useQualityJobs } from './hooks/useQualityJobs';
 import { apiFetch, readApiError } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useRenderOutcomeToast } from './hooks/useRenderOutcomeToast';
-import { useFirstSongHint } from './hooks/useFirstSongHint';
+import { useFirstSongGuide } from './hooks/useFirstSongGuide';
 import { useGuideActions } from './hooks/useGuideActions';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
@@ -198,8 +198,8 @@ export const AppContent: React.FC = () => {
   const isStudioReady = Boolean(project && project.status === 'ready');
   const openExport = useCallback(() => setIsExportOpen(true), []);
   useRenderOutcomeToast(project, openExport);
-  // First finished song in this browser: say what to do next, once
-  useFirstSongHint(isStudioReady, () => setShowHelpModal(true));
+  // First finished song in this browser: the studio shows its getting-started steps
+  const firstSong = useFirstSongGuide();
 
   // The tab title names the open song (and its progress while it is processed)
   const title = pageTitle(project);
@@ -442,6 +442,7 @@ export const AppContent: React.FC = () => {
     onOpenDelete: () => setShowStudioDeleteModal(true),
     onOpenHelp: () => setShowHelpModal(true),
     onOpenCheckup: handlers.openCheckup,
+    onShowFirstSongSteps: firstSong.visible ? undefined : firstSong.show,
     onNewSong: resetToLibrary,
     onOpenProject: (p) => {
       setProject(p);
@@ -547,6 +548,9 @@ export const AppContent: React.FC = () => {
                   showChordBar={showChordBar}
                   onToggleChordBar={handleToggleChordBar}
                   quality={quality}
+                  showFirstSongCard={firstSong.visible}
+                  onDismissFirstSongCard={firstSong.dismiss}
+                  onGuideAction={runGuideAction}
                 />
               </Suspense>
             )}
