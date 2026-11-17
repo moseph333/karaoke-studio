@@ -25,6 +25,7 @@ import {
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 import { ExportSubtitleSection } from './export/ExportSubtitleSection';
 import { ExportAudioSection } from './export/ExportAudioSection';
+import { ExportNextSteps } from './export/ExportNextSteps';
 import { ExportYouTubeKit } from './export/ExportYouTubeKit';
 import { ExportCheckOption } from './export/ExportCheckOption';
 import {
@@ -368,10 +369,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
           {isIdle && (
             <div className="space-y-4">
-              <p className="text-xs text-theme-text-muted">
-                Synthesize a 1080p60 MP4 karaoke video with progressive subtitle wipe animations,
-                visual theme, and high-fidelity audio.
+              <p className="text-pretty text-xs text-theme-text-muted">
+                Makes a 1080p karaoke video of the song as it is now: its lyrics and timing, the key
+                and guide vocal from Audio mix, and the look and format (16:9 or 9:16 Shorts) from
+                Stage look.
               </p>
+              {/* A song's first export: what the button starts, and what comes after */}
+              {!project.video_url && <ExportNextSteps />}
               {replacingVideo && (
                 <p className="text-xs text-theme-text">
                   Your current video stays available until a new render in the same format replaces
@@ -494,6 +498,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   </div>
                 </div>
               </div>
+              <p
+                className="text-pretty text-xs text-theme-text-muted"
+                data-testid="render-leave-note"
+              >
+                You can close this dialog and keep working. The header shows the progress, and a
+                message tells you when the video is ready.
+              </p>
               {/* A render can take minutes: one stray click must not throw it away */}
               <InlineConfirm
                 message="Cancel the render? Its progress will be lost."
