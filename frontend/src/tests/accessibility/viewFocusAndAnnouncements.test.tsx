@@ -82,7 +82,11 @@ describe('ProcessingView announcements and focus', () => {
         onResetProject={noop}
       />
     );
-    expect(screen.getByRole('alert')).toHaveTextContent('Demucs failed (exit 1)');
+    // The plain reason is announced; the raw error waits under "Technical details"
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Separating the vocals from the music failed.');
+    expect(alert).not.toHaveTextContent('Demucs failed (exit 1)');
+    expect(screen.getByText('Demucs failed (exit 1)').closest('details')).not.toBeNull();
   });
 
   it('moves focus into the cancel confirmation and back to Cancel', () => {

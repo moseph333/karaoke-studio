@@ -5,7 +5,8 @@
  * The pipeline progress screen: a progress ring, the current stage and its detail, the
  * engine heartbeat, a 4-stage stepper, elapsed/remaining timers, a reconnect banner with
  * Retry, tips for the wait, and a two-step cancel. Also renders the cancelled and failed end
- * states.
+ * states: what happened in plain words (`utils/processingErrors`), the raw error under
+ * "Technical details", and a button that starts the song again.
  */
 
 import React from 'react';
@@ -28,6 +29,7 @@ import { ProcessingTips } from './ProcessingTips';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 import { formatHeartbeat, formatTimer } from '../utils/format';
+import { explainProcessingError, isUploadedSong } from '../utils/processingErrors';
 import { presetInfo, stemsLabel } from '../utils/quality';
 import { useNow } from '../hooks/useNow';
 
@@ -68,7 +70,25 @@ export interface ProcessingViewProps {
   onRetryPolling?: () => void;
   /** Polling has failed repeatedly; when omitted it is inferred from the status detail. */
   isReconnecting?: boolean;
+  /** Starts a failed or cancelled song again. Left out for songs that cannot be restarted
+   * from here (an uploaded file has to be sent again). */
+  onRetry?: () => void;
+  /** The retry request is on its way. */
+  isRetrying?: boolean;
 }
+
+const endButtonCls =
+  'min-h-[40px] rounded-theme-md px-4 py-2 font-theme-heading text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60';
+const primaryEndButtonCls = cn(
+  endButtonCls,
+  'bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110',
+  focusRing
+);
+const secondaryEndButtonCls = cn(
+  endButtonCls,
+  'border border-theme-border-subtle bg-theme-surface-raised text-theme-text transition-colors hover:border-theme-border',
+  focusRing
+);
 
 const cardCls =
   'relative overflow-hidden rounded-theme-xl border border-theme-border-subtle bg-theme-surface p-5 text-center shadow-theme-lg sm:p-8';
@@ -79,6 +99,8 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
   onResetProject,
   onRetryPolling,
   isReconnecting: isReconnectingProp,
+  onRetry,
+  isRetrying = false,
 }) => {
   // Advances the heartbeat label and stall check between polls (only while processing)
   const now = useNow(1000, project.status !== 'cancelled' && project.status !== 'error');
@@ -96,6 +118,33 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     /download/i.test(project?.status_detail ?? '') &&
     /model|weights/i.test(project?.status_detail ?? '');
 
+  const uploadAgain = isUploadedSong(project) && (
+    <p className="text-sm text-theme-text-muted">
+      This song came from a file: choose New Song and upload it again.
+    </p>
+  );
+  const endActions = (retryLabel: string) => (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={isRetrying}
+          className={primaryEndButtonCls}
+        >
+          {isRetrying ? 'Starting…' : retryLabel}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={onResetProject}
+        className={onRetry ? secondaryEndButtonCls : primaryEndButtonCls}
+      >
+        New Song
+      </button>
+    </div>
+  );
+
   if (project?.status === 'cancelled') {
     return (
       <div className="mx-auto max-w-md py-8 font-theme-body sm:py-16">
@@ -111,24 +160,18 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
             Track Processing Cancelled
           </h1>
           <p className="text-sm text-theme-text-muted">
-            The processing job was aborted. You can search or select a new song anytime.
+            Processing was stopped before the song was finished, so there is nothing to open yet.
+            {onRetry ? ' Start it again, or pick another song.' : ''}
           </p>
-          <button
-            type="button"
-            onClick={onResetProject}
-            className={cn(
-              'min-h-[40px] rounded-theme-md bg-gradient-accent px-4 py-2 font-theme-heading text-sm font-semibold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110',
-              focusRing
-            )}
-          >
-            New Song
-          </button>
+          {uploadAgain}
+          {endActions('Start again')}
         </div>
       </div>
     );
   }
 
   if (project?.status === 'error') {
+    const explanation = explainProcessingError(project.error);
     return (
       <div className="mx-auto max-w-md py-8 font-theme-body sm:py-16">
         <div className={cn(cardCls, 'space-y-4')}>
@@ -142,22 +185,29 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
           >
             Track Processing Failed
           </h1>
-          <p
+          <div
             role="alert"
-            className="break-words rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-4 text-left font-mono text-xs text-theme-danger"
+            className="space-y-1.5 text-pretty text-sm"
+            data-testid="failure-reason"
           >
-            {project?.error || 'An unexpected error occurred during processing.'}
-          </p>
-          <button
-            type="button"
-            onClick={onResetProject}
-            className={cn(
-              'min-h-[40px] rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-4 py-2 font-theme-heading text-sm font-semibold text-theme-text transition-colors hover:border-theme-border',
-              focusRing
-            )}
-          >
-            New Song
-          </button>
+            <p className="font-semibold text-theme-text">{explanation.summary}</p>
+            <p className="text-theme-text-muted">{explanation.advice}</p>
+          </div>
+          {uploadAgain}
+          {endActions('Try again')}
+          <details className="text-left">
+            <summary
+              className={cn(
+                'inline-flex min-h-[44px] cursor-pointer items-center rounded-theme-sm px-1 text-xs font-semibold text-theme-text-muted hover:text-theme-text md:min-h-[32px]',
+                focusRing
+              )}
+            >
+              Technical details
+            </summary>
+            <p className="mt-1 break-words rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-4 font-mono text-xs text-theme-danger">
+              {project?.error || 'An unexpected error occurred during processing.'}
+            </p>
+          </details>
         </div>
       </div>
     );
