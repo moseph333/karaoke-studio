@@ -47,8 +47,8 @@ class ProcessRequest(BaseModel):
     url_or_id: str = Field(
         ...,
         description=(
-            "A song link (YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive) or an "
-            "11-character YouTube video ID"
+            "A song link (YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, or Spotify, "
+            "Apple Music or TIDAL, matched to YouTube) or an 11-character YouTube video ID"
         ),
     )
     custom_lyrics: str | None = Field(
@@ -720,12 +720,22 @@ class KaraokeProject(BaseModel):
     track_id: str | None = Field(
         default=None,
         description=(
-            "Audio track identifier: a YouTube video ID, or '<site>-<id>' for a SoundCloud, "
-            "Bandcamp, Vimeo or Internet Archive link; uploads have none"
+            "Audio track identifier: a YouTube video ID, or '<site>-<id>' for a link from "
+            "another site; uploads have none"
         ),
     )
     url: str | None = Field(
-        default=None, description="The link the song was downloaded from; uploads have none"
+        default=None,
+        description="The link the song was made from (a Spotify, Apple Music or TIDAL link "
+        "for a matched song); uploads have none",
+    )
+    song_match: dict | None = Field(
+        default=None,
+        description=(
+            "For a Spotify, Apple Music or TIDAL link: the song read from the service (site, "
+            "title, artist, duration) and the YouTube upload it was matched to (youtube_id, "
+            "youtube_title, youtube_url)"
+        ),
     )
     status: str = Field(
         default="queued",

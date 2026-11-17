@@ -1,6 +1,6 @@
-"""Starting a song from a SoundCloud, Bandcamp, Vimeo or Internet Archive link: the project is
-named by the song's track id, keeps its link from the start (so a failed download can be
-tried again), and the same song pasted twice opens the one project."""
+"""Starting a song from a SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music
+or TIDAL link: the project is named by the song's track id, keeps its link from the start (so
+a failed download can be tried again), and the same song pasted twice opens the one project."""
 
 import backend.main as main_mod
 from backend.services.media_links import parse_media_link
@@ -40,7 +40,20 @@ def test_a_link_that_is_not_one_song_explains_itself(client):
 
 
 def test_a_link_to_another_site_names_the_supported_ones(client):
-    res = client.post("/api/process", json={"url_or_id": "https://open.spotify.com/track/1"})
+    res = client.post("/api/process", json={"url_or_id": "https://www.deezer.com/track/1"})
     assert res.status_code == 422
     detail = str(res.json()["detail"])
-    assert "SoundCloud, Bandcamp, Vimeo or Internet Archive" in detail
+    assert "Internet Archive, Spotify, Apple Music or TIDAL" in detail
+
+
+def test_a_spotify_link_starts_a_project_named_by_its_spotify_id(client, monkeypatch):
+    started = []
+    monkeypatch.setattr(main_mod, "run_pipeline", lambda pid, url, lyrics=None: started.append(url))
+    link = "https://open.spotify.com/intl-de/track/4cOdK2wGLETKBW3PvgPWqT?si=abc"
+
+    res = client.post("/api/process", json={"url_or_id": link})
+
+    assert res.json() == {"project_id": "spotify-4cOdK2wGLETKBW3PvgPWqT", "status": "queued"}
+    proj = main_mod.projects["spotify-4cOdK2wGLETKBW3PvgPWqT"]
+    assert proj["url"] == "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
+    assert started == [link]

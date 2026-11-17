@@ -1,23 +1,29 @@
-"""Song links the intake accepts: YouTube, SoundCloud, Bandcamp, Vimeo and the Internet
-Archive (the sites in ``assets/shared/media_sites.json``). Turns a pasted link into the site,
-the address yt-dlp downloads and a file-safe track id, which names the song's audio in
-``downloads/``, its stems folder and its project, so the same link pasted twice opens the
-same song. Works offline: nothing here touches the network."""
+"""Song links the intake accepts (the sites in ``assets/shared/media_sites.json``): YouTube,
+SoundCloud, Bandcamp, Vimeo and the Internet Archive, whose audio yt-dlp downloads, and
+Spotify, Apple Music and TIDAL, whose audio cannot be downloaded, so the song is looked up
+there and matched to a YouTube upload (``song_lookup``). Turns a pasted link into the site,
+the address to read and a file-safe track id, which names the song's project (and, for the
+download sites, its audio in ``downloads/`` and its stems folder), so the same link pasted
+twice opens the same song. Works offline: nothing here touches the network."""
 
 import hashlib
 import re
 from dataclasses import dataclass
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from backend.shared_assets import load
 
 SITES: list[dict] = load("media_sites")["sites"]
 SITE_NAMES: dict[str, str] = {site["id"]: site["name"] for site in SITES}
+LOOKUP_SITES = frozenset(site["id"] for site in SITES if site.get("kind") == "lookup")
 
 _YOUTUBE_ID = re.compile(r"[0-9A-Za-z_-]{11}")
 _VIMEO_ID = re.compile(r"\d{4,}")
 _VIMEO_HASH = re.compile(r"[0-9a-f]{6,}")
 _ARCHIVE_IDENTIFIER = re.compile(r"[0-9A-Za-z._-]+")
+_SPOTIFY_ID = re.compile(r"[0-9A-Za-z]{22}")
+_NUMERIC_ID = re.compile(r"\d{1,20}")
+_COUNTRY = re.compile(r"[a-z]{2}")
 # SoundCloud pages under a profile that list tracks rather than being one
 _SOUNDCLOUD_LISTS = {
     "albums",
@@ -43,11 +49,18 @@ class UnusableLink(ValueError):
 @dataclass(frozen=True)
 class MediaLink:
     site: str
-    """One of the ids in media_sites.json: youtube, soundcloud, bandcamp, vimeo, archive."""
+    """One of the ids in media_sites.json (youtube, soundcloud, …, spotify, applemusic, tidal)."""
     url: str
-    """The address handed to yt-dlp."""
+    """The address handed to yt-dlp, or for a lookup site the song's page."""
     track_id: str
     """File-safe and stable for the same song: a YouTube video id, else ``<site>-<id>``."""
+    source_id: str = ""
+    """A lookup site's own id for the song (Spotify track, Apple Music song, TIDAL track)."""
+
+    @property
+    def lookup(self) -> bool:
+        """Whether the song is looked up on its site and matched to a YouTube upload."""
+        return self.site in LOOKUP_SITES
 
 
 def _with_scheme(text: str) -> str:
@@ -157,6 +170,61 @@ def _archive(url: str, parts: list[str]) -> MediaLink:
     return MediaLink("archive", url, f"archive-{_digest(key)}")
 
 
+def _spotify(parts: list[str]) -> MediaLink:
+    # open.spotify.com/track/<id>, with an optional /intl-xx/ or /embed/ before it
+    if parts and (parts[0].startswith("intl-") or parts[0] == "embed"):
+        parts = parts[1:]
+    if len(parts) >= 2 and parts[0] == "track" and _SPOTIFY_ID.fullmatch(parts[1]):
+        song = parts[1]
+        return MediaLink(
+            "spotify", f"https://open.spotify.com/track/{song}", f"spotify-{song}", song
+        )
+    if parts and parts[0] in ("album", "playlist", "artist", "show", "episode", "user"):
+        raise UnusableLink(
+            "That Spotify link is not one song. Open the song in Spotify, choose Share, "
+            "Copy Song Link, and paste that."
+        )
+    raise UnusableLink("Open one song on Spotify (open.spotify.com/track/…) and paste its link.")
+
+
+def _apple_music(url: str, query: str, parts: list[str]) -> MediaLink:
+    # music.apple.com/<country>/album/<slug>/<album id>?i=<song id>, or …/song/<slug>/<id>
+    if parts and _COUNTRY.fullmatch(parts[0]):
+        parts = parts[1:]
+    song = None
+    if parts and parts[0] == "album":
+        song = parse_qs(query).get("i", [None])[0]
+    elif parts and parts[0] == "song" and len(parts) >= 2:
+        song = parts[-1]
+    if song and _NUMERIC_ID.fullmatch(song):
+        return MediaLink("applemusic", url, f"applemusic-{song}", song)
+    if parts and parts[0] in ("album", "playlist", "artist", "station", "music-video"):
+        raise UnusableLink(
+            "That Apple Music link is not one song. Open the song's menu, choose Share, "
+            "Copy Link, and paste that."
+        )
+    raise UnusableLink("Open one song on Apple Music and paste its link.")
+
+
+def _tidal(parts: list[str]) -> MediaLink:
+    # tidal.com/track/<id>, tidal.com/browse/track/<id>, …/album/<id>/track/<id>
+    if parts and parts[0] == "browse":
+        parts = parts[1:]
+    song = None
+    if len(parts) >= 2 and parts[0] == "track":
+        song = parts[1]
+    elif len(parts) >= 4 and parts[0] == "album" and parts[2] == "track":
+        song = parts[3]
+    if song and _NUMERIC_ID.fullmatch(song):
+        return MediaLink("tidal", f"https://tidal.com/track/{song}", f"tidal-{song}", song)
+    if parts and parts[0] in ("album", "playlist", "artist", "mix", "video"):
+        raise UnusableLink(
+            "That TIDAL link is not one song. Open the song, choose Share, Copy Track Link, "
+            "and paste that."
+        )
+    raise UnusableLink("Open one song on TIDAL (tidal.com/track/…) and paste its link.")
+
+
 def parse_media_link(text: str | None) -> MediaLink | None:
     """The song a link points to; None when the text is not a link to a supported site
     (search words, a bare video id, another site). Raises UnusableLink for a supported
@@ -184,10 +252,17 @@ def parse_media_link(text: str | None) -> MediaLink | None:
         return _bandcamp(url, host, parts)
     if site == "vimeo":
         return _vimeo(url, host, parts)
-    return _archive(url, parts)
+    if site == "archive":
+        return _archive(url, parts)
+    if site == "spotify":
+        return _spotify(parts)
+    if site == "applemusic":
+        return _apple_music(url, parsed.query, parts)
+    return _tidal(parts)
 
 
 def supported_sites_sentence() -> str:
-    """ "YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive", for messages."""
+    """ "YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music or
+    TIDAL", for messages."""
     names = [site["name"] for site in SITES]
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]

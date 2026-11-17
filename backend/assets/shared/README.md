@@ -9,7 +9,7 @@ build stage copies this folder next to `frontend/` so the alias resolves there t
 |---|---|---|
 | `stage_presets.json` | Each stage look's id, name, description and sung/unsung colours (ASS), in the order the presets were added | `ass_generator.VISUAL_THEMES`; `theme/stagePresets.ts`, which adds the preview-only fields |
 | `singer_aliases.json` | Every singer label a lyric line may carry, mapped to `singer1`, `singer2` or `both` | `schemas.LyricLineSchema`, `ass_generator.singer_part`; `stage/singers.ts` |
-| `media_sites.json` | The sites a song link may come from (id, name, domains, an example address), and which site each sample link's host belongs to (`host_cases`) | `services/media_links` (`media/test_media_links.py`); `utils/mediaLinks.ts` (`tests/intake/mediaLinks.test.ts`) |
+| `media_sites.json` | The sites a song link may come from (id, name, domains, an example address, and `kind`: `download` for sites yt-dlp downloads from, `lookup` for Spotify, Apple Music and TIDAL, whose songs are matched to a YouTube upload), and which site each sample link's host belongs to (`host_cases`) | `services/media_links` (`media/test_media_links.py`); `utils/mediaLinks.ts` (`tests/intake/mediaLinks.test.ts`) |
 | `upload_limits.json` | Upload size limits in MB | `upload_utils`; the local audio uploader |
 | `confidence_thresholds.json` | Alignment confidence: below `low` a line needs review, from `high` it reads as high | `lyric_sync` (sync report); `utils/timelineReview.ts`, `utils/lineRealign.ts` |
 | `background_motion.json` | The drift, aurora and spectrum motion numbers | `stage_backgrounds.BACKGROUND_MOTION`; `theme/stageBackgrounds.ts` |
