@@ -1,9 +1,10 @@
 /**
- * Song links the intake accepts: YouTube, SoundCloud, Bandcamp, Vimeo and the Internet
- * Archive, from `@shared/media_sites.json`, which the backend reads too
- * (`backend/services/media_links.py`). The studio only tells a supported site's link from
- * search words and other sites; the server decides whether the link is one song (not a
- * profile, an album or a playlist) and says what to paste instead.
+ * Song links the intake accepts, from `@shared/media_sites.json`, which the backend reads too
+ * (`backend/services/media_links.py`): YouTube, SoundCloud, Bandcamp, Vimeo and the Internet
+ * Archive, whose audio the server downloads, and Spotify, Apple Music and TIDAL, whose songs
+ * it finds on YouTube. The studio only tells a supported site's link from search words and
+ * other sites; the server decides whether the link is one song (not a profile, an album or a
+ * playlist) and says what to paste instead.
  */
 
 import mediaSites from '@shared/media_sites.json';
@@ -13,17 +14,32 @@ export interface MediaSite {
   name: string;
   domains: string[];
   example: string;
+  /** `download`: the server downloads the audio. `lookup`: it finds the song on YouTube. */
+  kind: string;
 }
 
 export const MEDIA_SITES: readonly MediaSite[] = mediaSites.sites;
 
-/** "YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive" */
-export const SUPPORTED_SITES_SENTENCE = (() => {
-  const names = MEDIA_SITES.map((site) => site.name);
-  return names.length === 1
-    ? names[0]
-    : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`;
-})();
+function sentence(names: string[], last: string): string {
+  return names.length <= 1
+    ? (names[0] ?? '')
+    : `${names.slice(0, -1).join(', ')} ${last} ${names[names.length - 1]}`;
+}
+
+const namesOf = (kind?: string) =>
+  MEDIA_SITES.filter((site) => !kind || site.kind === kind).map((site) => site.name);
+
+/** "YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music or TIDAL" */
+export const SUPPORTED_SITES_SENTENCE = sentence(namesOf(), 'or');
+/** "YouTube, SoundCloud, Bandcamp, Vimeo and Internet Archive" */
+export const DOWNLOAD_SITES_SENTENCE = sentence(namesOf('download'), 'and');
+/** "Spotify, Apple Music and TIDAL" */
+export const LOOKUP_SITES_SENTENCE = sentence(namesOf('lookup'), 'and');
+
+/** A site's display name ("Spotify") from its id. */
+export function siteName(id: string): string {
+  return MEDIA_SITES.find((site) => site.id === id)?.name ?? id;
+}
 
 /** The supported site a link points to, or null for search words, a bare video id or a
  * link to another site. Same rule as `media_links.link_site`. */

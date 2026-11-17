@@ -2,7 +2,8 @@
  * Track Search Component
  *
  * The home screen: a hero with the intake card (a song link from YouTube, SoundCloud,
- * Bandcamp, Vimeo or the Internet Archive, a YouTube search, or a local upload, with
+ * Bandcamp, Vimeo or the Internet Archive, a Spotify, Apple Music or TIDAL link found on
+ * YouTube, a YouTube search, or a local upload, with
  * advanced options: stem separation quality and custom lyrics) beside a self-playing lyric
  * preview, search results, three "how it works" steps for visitors who have not made a song
  * yet, and the song library.
@@ -37,7 +38,13 @@ import { SegmentedControl } from './ui/SegmentedControl';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 import { formatTime } from '../utils/format';
-import { linkSite, looksLikeLink, SUPPORTED_SITES_SENTENCE } from '../utils/mediaLinks';
+import {
+  DOWNLOAD_SITES_SENTENCE,
+  LOOKUP_SITES_SENTENCE,
+  SUPPORTED_SITES_SENTENCE,
+  linkSite,
+  looksLikeLink,
+} from '../utils/mediaLinks';
 import { PRESET_NAMES, defaultPreset } from '../utils/quality';
 import { useCapabilities } from '../hooks/useCapabilities';
 
@@ -334,7 +341,8 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                   </div>
                 </form>
                 <p id={linkHintId} className="mt-2 text-xs text-theme-text-muted">
-                  Song links work from {SUPPORTED_SITES_SENTENCE}. Searches look on YouTube.
+                  Song links work from {DOWNLOAD_SITES_SENTENCE}; {LOOKUP_SITES_SENTENCE} songs are
+                  found on YouTube. Searches look on YouTube.
                 </p>
               </div>
             ) : (

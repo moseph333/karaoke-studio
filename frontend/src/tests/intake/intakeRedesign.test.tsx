@@ -70,7 +70,7 @@ describe('Home intake card', () => {
     render(<TrackSearch onSelectTrack={vi.fn()} isLoading={false} />);
     await user.type(
       screen.getByRole('textbox', { name: /Paste a song link/i }),
-      'https://open.spotify.com/track/1'
+      'https://www.deezer.com/track/1'
     );
     await user.click(screen.getByRole('button', { name: /search youtube or load track/i }));
     expect(screen.getByRole('alert')).toHaveTextContent(
