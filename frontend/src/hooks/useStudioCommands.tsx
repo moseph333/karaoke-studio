@@ -28,6 +28,7 @@ import {
   SkipForward,
   Smartphone,
   Sparkles,
+  Stethoscope,
   Trash2,
   Undo,
   Upload,
@@ -57,6 +58,8 @@ import type { UseMixControllerReturn } from './useMixController';
 import type { UseVisualThemeReturn } from './useVisualTheme';
 import type { UseQualityJobsReturn } from './useQualityJobs';
 import { stemsLabel } from '../utils/quality';
+import { checkupFixCount } from '../utils/songCheckup';
+import { focusWorkspacePanel } from '../components/studio/workspacePanels';
 
 export interface UseStudioCommandsOptions {
   project: ProjectState | null;
@@ -69,6 +72,8 @@ export interface UseStudioCommandsOptions {
   onOpenEdit: () => void;
   onOpenDelete: () => void;
   onOpenHelp: () => void;
+  /** Opens the song check-up (adds "Song check-up…"). */
+  onOpenCheckup?: () => void;
   onNewSong: () => void;
   onOpenProject: (project: ProjectState) => void;
   onSelectTab: (tab: StudioWorkspaceTab) => void;
@@ -90,11 +95,6 @@ const GUIDE_LEVELS = [
   { id: 'subtle', label: 'subtle', value: MIX_GUIDE_MAX / 2 },
   { id: 'loud', label: 'loud', value: MIX_GUIDE_MAX },
 ] as const;
-const PANEL_FOR_TAB: Record<StudioWorkspaceTab, string> = {
-  stage: 'workspace-panel-stage',
-  timeline: 'workspace-panel-timeline',
-  mix: 'workspace-panel-mix-audio',
-};
 
 const current = (isCurrent: boolean) => (isCurrent ? 'Current' : undefined);
 
@@ -351,6 +351,19 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
     }
 
     // Song
+    const { onOpenCheckup } = opts;
+    if (onOpenCheckup) {
+      const toFix = checkupFixCount(project);
+      add({
+        id: 'song-checkup',
+        title: 'Song check-up: what to fix…',
+        subtitle: toFix > 0 ? `${toFix} to look at` : 'Nothing to fix',
+        group: 'Song',
+        icon: <Stethoscope />,
+        keywords: ['problem', 'wrong', 'quality', 'lyrics', 'timing', 'stems', 'troubleshoot'],
+        run: onOpenCheckup,
+      });
+    }
     add({
       id: 'export',
       title: 'Export video, subtitles & stems…',
@@ -391,9 +404,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
         icon: <Layers />,
         run: () => {
           opts.onSelectTab(tab);
-          window.requestAnimationFrame(() =>
-            document.getElementById(PANEL_FOR_TAB[tab])?.focus({ preventScroll: false })
-          );
+          focusWorkspacePanel(tab);
         },
       })
     );

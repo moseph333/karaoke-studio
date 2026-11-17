@@ -31,6 +31,8 @@ export interface StudioWorkspaceProps {
   onEditChord: (index: number, chord: string) => void;
   onOpenEditModal: () => void;
   onOpenDeleteModal: () => void;
+  /** Opens the song check-up from the header's status badges. */
+  onOpenCheckup?: () => void;
   onCustomInstrumentalUploaded: (url: string) => void;
   audio: UseStudioAudioReturn;
   mix: UseMixControllerReturn;
@@ -57,6 +59,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
   onEditChord,
   onOpenEditModal,
   onOpenDeleteModal,
+  onOpenCheckup,
   onCustomInstrumentalUploaded,
   audio,
   mix,
@@ -96,6 +99,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
           project={project}
           onOpenEditModal={onOpenEditModal}
           onOpenDeleteModal={onOpenDeleteModal}
+          onOpenCheckup={onOpenCheckup}
         />
 
         <MobileStudioWorkspaceTabs

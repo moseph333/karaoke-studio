@@ -24,6 +24,7 @@ import { apiFetch, readApiError } from './api';
 import { useProjectPolling } from './hooks/useProjectPolling';
 import { useRenderOutcomeToast } from './hooks/useRenderOutcomeToast';
 import { useFirstSongHint } from './hooks/useFirstSongHint';
+import { useGuideActions } from './hooks/useGuideActions';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useServerUpdatePrompt } from './hooks/useServerUpdatePrompt';
@@ -60,6 +61,7 @@ export const AppContent: React.FC = () => {
   const [showStudioDeleteModal, setShowStudioDeleteModal] = useState(false);
   const [showStudioEditModal, setShowStudioEditModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showCheckup, setShowCheckup] = useState(false);
   const [showInstallSteps, setShowInstallSteps] = useState(false);
   const openInstallSteps = useCallback(() => setShowInstallSteps(true), []);
   const installApp = useInstallPrompt(openInstallSteps);
@@ -72,6 +74,7 @@ export const AppContent: React.FC = () => {
   if (trackedProjectId !== project?.id) {
     setTrackedProjectId(project?.id);
     setActiveWorkspaceTab('stage');
+    setShowCheckup(false);
   }
 
   // Stage look & preview toggles, remembered across reloads
@@ -270,6 +273,19 @@ export const AppContent: React.FC = () => {
     });
   }, []);
 
+  // Guidance buttons (the song check-up's fixes) take the user to the tool they name
+  const runGuideAction = useGuideActions({
+    project,
+    isPlaying,
+    onTogglePlay: audio.handleTogglePlay,
+    onSeek: audio.handleSeek,
+    onSelectTab: setActiveWorkspaceTab,
+    onOpenMix: handleOpenMixSettings,
+    onOpenExport: openExport,
+    onOpenCheckup: () => setShowCheckup(true),
+    onCloseGuidance: () => setShowCheckup(false),
+  });
+
   useKeyboardShortcuts({
     onTogglePlay: isStudioReady ? audio.handleTogglePlay : undefined,
     onSeek: isStudioReady ? audio.handleSeek : undefined,
@@ -404,6 +420,7 @@ export const AppContent: React.FC = () => {
     saveLines: handleSaveLines,
     openEditModal: () => setShowStudioEditModal(true),
     openDeleteModal: () => setShowStudioDeleteModal(true),
+    openCheckup: () => setShowCheckup(true),
     customInstrumentalUploaded: (url: string) =>
       setProject((prev) => (prev ? { ...prev, instrumental_url: url } : prev)),
     playbackEnded: () => setIsPlaying(false),
@@ -424,6 +441,7 @@ export const AppContent: React.FC = () => {
     onOpenEdit: () => setShowStudioEditModal(true),
     onOpenDelete: () => setShowStudioDeleteModal(true),
     onOpenHelp: () => setShowHelpModal(true),
+    onOpenCheckup: handlers.openCheckup,
     onNewSong: resetToLibrary,
     onOpenProject: (p) => {
       setProject(p);
@@ -519,6 +537,7 @@ export const AppContent: React.FC = () => {
                   onEditChord={handleEditChord}
                   onOpenEditModal={handlers.openEditModal}
                   onOpenDeleteModal={handlers.openDeleteModal}
+                  onOpenCheckup={handlers.openCheckup}
                   onCustomInstrumentalUploaded={handlers.customInstrumentalUploaded}
                   audio={audio}
                   mix={mix}
@@ -599,6 +618,9 @@ export const AppContent: React.FC = () => {
           onStudioMetadataSaved={handleStudioMetadataSaved}
           quality={quality}
           hasUnsavedLyricEdits={isLyricsDirty}
+          showCheckup={showCheckup}
+          onCloseCheckup={() => setShowCheckup(false)}
+          onGuideAction={runGuideAction}
         />
         <InstallAppDialog
           isOpen={showInstallSteps}

@@ -19,3 +19,17 @@ export function workspacePanelProps(tab: StudioWorkspaceTab, asTabs: boolean) {
     ? { role: 'tabpanel', 'aria-labelledby': `workspace-tab-${tab}`, tabIndex: 0 }
     : { tabIndex: -1 };
 }
+
+/** The element that takes focus when script moves to a workspace area. */
+export const WORKSPACE_PANEL_IDS: Record<StudioWorkspaceTab, string> = {
+  stage: 'workspace-panel-stage',
+  timeline: 'workspace-panel-timeline',
+  mix: 'workspace-panel-mix-audio',
+};
+
+/** Moves focus to a workspace area once the tab switch that shows it has rendered. */
+export function focusWorkspacePanel(tab: StudioWorkspaceTab): void {
+  window.requestAnimationFrame(() =>
+    document.getElementById(WORKSPACE_PANEL_IDS[tab])?.focus({ preventScroll: false })
+  );
+}
