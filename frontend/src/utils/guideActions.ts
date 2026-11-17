@@ -16,7 +16,8 @@ export type GuideAction =
   | 'improve-stems'
   | 'mix'
   | 'export'
-  | 'checkup';
+  | 'checkup'
+  | 'help-fix';
 
 /** What a button that performs the action says, unless the place it sits in words it. */
 export const GUIDE_ACTION_LABELS: Record<GuideAction, string> = {
@@ -32,4 +33,8 @@ export const GUIDE_ACTION_LABELS: Record<GuideAction, string> = {
   mix: 'Open the audio mix',
   export: 'Open export',
   checkup: 'Check this song',
+  'help-fix': 'Fix a problem',
 };
+
+/** The Help dialog's tabs. */
+export type HelpTab = 'shortcuts' | 'guide' | 'fix';

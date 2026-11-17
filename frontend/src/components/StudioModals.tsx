@@ -14,7 +14,7 @@ import { EditMetadataModal, type EditedMetadata } from './EditMetadataModal';
 import { ExportModal, HelpModal, ReseparateDialog, SongCheckupDialog } from '../deferredScreens';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 import type { UseQualityJobsReturn } from '../hooks/useQualityJobs';
-import type { GuideAction } from '../utils/guideActions';
+import type { GuideAction, HelpTab } from '../utils/guideActions';
 
 export interface StudioModalsProps {
   project: ProjectState | null;
@@ -47,7 +47,11 @@ export interface StudioModalsProps {
   /** The server checks a passphrase (APP_PASSWORD is set). */
   authRequiresPassword?: boolean;
   showHelpModal: boolean;
+  /** The tab Help opens on (its shortcut list unless guidance asked for another). */
+  helpTab?: HelpTab;
   onCloseHelp: () => void;
+  /** Brings back the first-song card from Help; left out while the card is showing. */
+  onShowFirstSongSteps?: () => void;
   showStudioDeleteModal: boolean;
   onCloseStudioDelete: () => void;
   onStudioProjectDeleted: () => void;
@@ -86,7 +90,9 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   authDismissable = false,
   authRequiresPassword = true,
   showHelpModal,
+  helpTab,
   onCloseHelp,
+  onShowFirstSongSteps,
   showStudioDeleteModal,
   onCloseStudioDelete,
   onStudioProjectDeleted,
@@ -149,7 +155,14 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
           instead of taking the studio, and any unsaved edits, down with it */}
       {helpOpened && (
         <ErrorBoundary fallback={() => null} resetKey={showHelpModal} onError={onCloseHelp}>
-          <HelpModal isOpen={showHelpModal} onClose={onCloseHelp} />
+          <HelpModal
+            isOpen={showHelpModal}
+            onClose={onCloseHelp}
+            initialTab={helpTab}
+            songOpen={project?.status === 'ready'}
+            onAction={onGuideAction}
+            onShowFirstSongSteps={onShowFirstSongSteps}
+          />
         </ErrorBoundary>
       )}
 

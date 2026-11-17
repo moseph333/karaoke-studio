@@ -22,6 +22,8 @@ export interface GuideActionTargets {
   onOpenMix: () => void;
   onOpenExport: () => void;
   onOpenCheckup: () => void;
+  /** Opens Help on its "Fix a problem" tab. */
+  onOpenHelpFix: () => void;
   /** Closes the guidance dialog the action was chosen in, before the tool opens. */
   onCloseGuidance: () => void;
 }
@@ -87,6 +89,9 @@ export function useGuideActions(targets: GuideActionTargets): (action: GuideActi
           break;
         case 'checkup':
           t.onOpenCheckup();
+          break;
+        case 'help-fix':
+          t.onOpenHelpFix();
           break;
       }
     },

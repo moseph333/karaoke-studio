@@ -115,6 +115,9 @@ const SongCheckupContent: React.FC<SongCheckupDialogProps> = ({ onClose, project
         })}
       </ul>
       <DialogFooter>
+        <Button variant="ghost" onClick={() => onAction('help-fix')} className="sm:mr-auto">
+          Not listed? Fix a problem
+        </Button>
         <Button variant="secondary" onClick={onClose}>
           Close
         </Button>

@@ -26,6 +26,7 @@ import { useRenderOutcomeToast } from './hooks/useRenderOutcomeToast';
 import { useFirstSongGuide } from './hooks/useFirstSongGuide';
 import { useGuideActions } from './hooks/useGuideActions';
 import { isUploadedSong } from './utils/processingErrors';
+import type { HelpTab } from './utils/guideActions';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useServerUpdatePrompt } from './hooks/useServerUpdatePrompt';
@@ -62,6 +63,12 @@ export const AppContent: React.FC = () => {
   const [showStudioDeleteModal, setShowStudioDeleteModal] = useState(false);
   const [showStudioEditModal, setShowStudioEditModal] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  // Help opens on its shortcut list, except from guidance that points at "Fix a problem"
+  const [helpTab, setHelpTab] = useState<HelpTab>('shortcuts');
+  const toggleHelp = useCallback(() => {
+    setHelpTab('shortcuts');
+    setShowHelpModal((prev) => !prev);
+  }, []);
   const [showCheckup, setShowCheckup] = useState(false);
   const [showInstallSteps, setShowInstallSteps] = useState(false);
   const openInstallSteps = useCallback(() => setShowInstallSteps(true), []);
@@ -284,7 +291,14 @@ export const AppContent: React.FC = () => {
     onOpenMix: handleOpenMixSettings,
     onOpenExport: openExport,
     onOpenCheckup: () => setShowCheckup(true),
-    onCloseGuidance: () => setShowCheckup(false),
+    onOpenHelpFix: () => {
+      setHelpTab('fix');
+      setShowHelpModal(true);
+    },
+    onCloseGuidance: () => {
+      setShowCheckup(false);
+      setShowHelpModal(false);
+    },
   });
 
   useKeyboardShortcuts({
@@ -293,7 +307,7 @@ export const AppContent: React.FC = () => {
     onToggleMute: isStudioReady ? audio.handleToggleMute : undefined,
     onToggleVisualizer: isStudioReady ? handleToggleVisualizer : undefined,
     onToggleChordBar: isStudioReady ? handleToggleChordBar : undefined,
-    onToggleHelp: () => setShowHelpModal((prev) => !prev),
+    onToggleHelp: toggleHelp,
     lines: isStudioReady ? project?.lines : undefined,
     precisionSeeking: isStudioReady,
     fineSeekStep: 1,
@@ -415,7 +429,7 @@ export const AppContent: React.FC = () => {
 
   // Fixed identities for the handlers given to the memoized header, workspace and dock
   const handlers = useStableHandlers({
-    toggleHelp: () => setShowHelpModal((prev) => !prev),
+    toggleHelp,
     openAuth: () => setShowAuthModal(true),
     newSong: resetToLibrary,
     saveLines: handleSaveLines,
@@ -441,7 +455,10 @@ export const AppContent: React.FC = () => {
     onOpenExport: () => setIsExportOpen(true),
     onOpenEdit: () => setShowStudioEditModal(true),
     onOpenDelete: () => setShowStudioDeleteModal(true),
-    onOpenHelp: () => setShowHelpModal(true),
+    onOpenHelp: () => {
+      setHelpTab('shortcuts');
+      setShowHelpModal(true);
+    },
     onOpenCheckup: handlers.openCheckup,
     onShowFirstSongSteps: firstSong.visible ? undefined : firstSong.show,
     onNewSong: resetToLibrary,
@@ -621,7 +638,9 @@ export const AppContent: React.FC = () => {
           authDismissable={!isAuthLocked}
           authRequiresPassword={authRequired}
           showHelpModal={showHelpModal}
+          helpTab={helpTab}
           onCloseHelp={() => setShowHelpModal(false)}
+          onShowFirstSongSteps={firstSong.visible ? undefined : firstSong.show}
           showStudioDeleteModal={showStudioDeleteModal}
           onCloseStudioDelete={() => setShowStudioDeleteModal(false)}
           onStudioProjectDeleted={handleStudioProjectDeleted}
