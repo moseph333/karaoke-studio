@@ -56,6 +56,19 @@ describe('explainProcessingError', () => {
       /several recordings/,
     ],
     [
+      'Could not find “Internal Calm” by Afterhour Chillout on YouTube. Search for it by name and pick an upload, or add the audio as a local file.',
+      /No YouTube upload of this song matched/,
+    ],
+    ['Spotify has no song at that link.', /did not say which song/],
+    [
+      "Could not read the song's title and artist from TIDAL. Search for the song by name instead.",
+      /did not say which song/,
+    ],
+    [
+      'YouTube search failed: ERROR: query "Rick Astley" page 1: Unable to download API page: HTTP Error 403',
+      /did not get through/,
+    ],
+    [
       'Failed to download audio from Vimeo: ERROR: [vimeo] 76979871: The web client only works when logged-in. Use --cookies',
       /sign-in or a password/,
     ],
