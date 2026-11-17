@@ -120,7 +120,8 @@ When a preset cannot run (extras not installed, weights unavailable, out of memo
 
 - **Install it as an app.** On Android (Chrome), tap **Install** in the header on the library screen, or pick **Install app** from the command palette or the browser menu. On iPhone and iPad, open the studio in Safari, tap **Share**, then **Add to Home Screen**. Installing needs the studio served over HTTPS, and the installed app keeps its own sign-in, so you enter the passphrase once more there.
 - **Share songs to it (Android).** Share a video from the YouTube app to Karaoke Studio and it opens with the link in the search box; tap **Go** to start.
-- **Feels like an app.** Back returns from a song to the library, the layout keeps clear of the notch and rounded corners, pull-to-refresh can't reload you mid-edit, and while your server is down or restarting the app shows a "Can't reach your studio" screen that reloads by itself when the server is back.
+- **Shortcuts on the icon.** Long-press the app icon (or right-click it in the taskbar or dock on a computer) for **New song**, **Upload audio** and **Continue last song**, which reopens the song this device had open last.
+- **Feels like an app.** Back returns from a song to the library, the layout keeps clear of the notch and rounded corners, pull-to-refresh can't reload you mid-edit, the screen stays on while a song plays, the bar under Android's gesture pill takes the colour of your app theme (Chrome 153 or newer; after a theme change the installed app catches up within a day or so), and while your server is down or restarting the app shows a "Can't reach your studio" screen that reloads by itself when the server is back.
 - **Updates.** A **Reload** toast appears once the server runs a newer build. Where the server applies its own updates (`SELF_UPDATE=1`), an **Update now** toast also appears as soon as GitHub has a newer version.
 
 ## Quick start
