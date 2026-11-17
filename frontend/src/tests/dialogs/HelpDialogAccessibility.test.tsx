@@ -586,7 +586,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       });
 
       const searchInput = screen.getByRole('textbox', {
-        name: /paste youtube or youtube music url/i,
+        name: /paste a song link/i,
       });
       expect(searchInput).toBeInTheDocument();
       searchInput.focus();

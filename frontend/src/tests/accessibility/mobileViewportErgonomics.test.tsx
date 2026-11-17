@@ -125,7 +125,7 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
         />
       );
 
-      const input = screen.getByPlaceholderText(/Paste YouTube.*or search.*title/i);
+      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
       await user.type(input, 'Long Title Song');
       const searchButton = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
       await user.click(searchButton);
@@ -325,7 +325,7 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
         />
       );
 
-      const input = screen.getByPlaceholderText(/Paste YouTube.*or search.*title/i);
+      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
       const submitButton = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
 
       // Verify input padding right
@@ -358,7 +358,7 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
         />
       );
 
-      const input = screen.getByPlaceholderText(/Paste YouTube.*or search.*title/i);
+      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
       const submitButton = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
 
       // 1. Initial empty state: button is disabled
@@ -460,7 +460,7 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       );
 
       // 1. Search input meets >= 48px height
-      const input = screen.getByPlaceholderText(/Paste YouTube.*or search.*title/i);
+      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
       expect(input.className).toMatch(/min-h-\[48px\]/);
 
       // 2. Submit button meets >= 36px on mobile, >= 44px on sm+

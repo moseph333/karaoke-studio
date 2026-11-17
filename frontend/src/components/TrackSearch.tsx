@@ -1,7 +1,8 @@
 /**
  * Track Search Component
  *
- * The home screen: a hero with the intake card (YouTube link/search or local upload, with
+ * The home screen: a hero with the intake card (a song link from YouTube, SoundCloud,
+ * Bandcamp, Vimeo or the Internet Archive, a YouTube search, or a local upload, with
  * advanced options: stem separation quality and custom lyrics) beside a self-playing lyric
  * preview, search results, three "how it works" steps for visitors who have not made a song
  * yet, and the song library.
@@ -36,6 +37,7 @@ import { SegmentedControl } from './ui/SegmentedControl';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 import { formatTime } from '../utils/format';
+import { linkSite, looksLikeLink, SUPPORTED_SITES_SENTENCE } from '../utils/mediaLinks';
 import { PRESET_NAMES, defaultPreset } from '../utils/quality';
 import { useCapabilities } from '../hooks/useCapabilities';
 
@@ -102,8 +104,8 @@ function readHasSongs(): boolean {
   }
 }
 
-const NON_YOUTUBE_HOSTS =
-  /(?:soundcloud\.com|spotify\.com|vimeo\.com|bandcamp\.com|apple\.com|deezer\.com|audiomack\.com|tidal\.com|music\.apple\.com)/i;
+/** Shown for a link to a site the intake cannot download from (Spotify, Apple Music, …). */
+export const UNSUPPORTED_LINK_MESSAGE = `Links from ${SUPPORTED_SITES_SENTENCE} work here. For another site, download the audio file and add it under Local Audio File.`;
 
 export const TrackSearch: React.FC<TrackSearchProps> = ({
   onSelectTrack,
@@ -127,6 +129,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [intakeMode, setIntakeMode] = useState<IntakeMode>(initialMode);
   const advancedHintId = useId();
+  const linkHintId = useId();
   const submitRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   // First visit (no songs of their own yet): show how it works, and keep the lyric preview
@@ -156,18 +159,15 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
     const trimmed = query.trim();
     if (!trimmed || searching || isLoading) return;
 
-    if (trimmed.includes('youtube.com/') || trimmed.includes('youtu.be/')) {
+    // A song link from a supported site starts at once; the server checks it is one song
+    if (linkSite(trimmed)) {
+      setError(null);
       onSelectTrack(trimmed, customLyrics.trim() || undefined);
       return;
     }
 
-    const isNonYoutubeUrl =
-      /^https?:\/\//i.test(trimmed) || /^www\./i.test(trimmed) || NON_YOUTUBE_HOSTS.test(trimmed);
-
-    if (isNonYoutubeUrl) {
-      setError(
-        'Direct URL import currently supports YouTube and YouTube Music links. For other platforms, please download the audio file and use the Local Audio File tab.'
-      );
+    if (looksLikeLink(trimmed)) {
+      setError(UNSUPPORTED_LINK_MESSAGE);
       return;
     }
 
@@ -253,9 +253,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 {
                   value: 'youtube',
                   id: 'toggle-youtube-mode',
-                  ariaLabel: 'YouTube Search',
+                  ariaLabel: 'Link or Search',
                   icon: <Search className="h-4 w-4" aria-hidden="true" />,
-                  label: <span>YouTube Search</span>,
+                  label: <span>Link or Search</span>,
                 },
                 {
                   value: 'local',
@@ -280,8 +280,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                       type="text"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      aria-label="Paste YouTube or YouTube Music URL or search song title"
-                      placeholder="Paste YouTube link or search song title..."
+                      aria-label="Paste a song link or search song title"
+                      aria-describedby={linkHintId}
+                      placeholder="Paste a song link or search song title..."
                       className="min-h-[48px] w-full rounded-theme-lg border border-theme-border bg-theme-bg py-3.5 pl-10 pr-24 text-base text-theme-text shadow-theme-sm placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:py-4 sm:pl-12 sm:pr-32"
                       // Read-only rather than disabled while busy, so keyboard focus stays put
                       readOnly={isLoading || searching}
@@ -332,6 +333,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                     </button>
                   </div>
                 </form>
+                <p id={linkHintId} className="mt-2 text-xs text-theme-text-muted">
+                  Song links work from {SUPPORTED_SITES_SENTENCE}. Searches look on YouTube.
+                </p>
               </div>
             ) : (
               <LocalAudioUploader

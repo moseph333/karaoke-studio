@@ -25,7 +25,7 @@ import {
   parseAudioFilename,
   MAX_AUDIO_SIZE,
 } from '../../components/track-search/LocalAudioUploader';
-import { TrackSearch } from '../../components/TrackSearch';
+import { TrackSearch, UNSUPPORTED_LINK_MESSAGE } from '../../components/TrackSearch';
 
 // UX-2 Components
 import { ProcessingView, getActivePipelineStage } from '../../components/ProcessingView';
@@ -193,7 +193,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
 
       render(<TrackSearch onSelectTrack={onSelectTrack} isLoading={false} />);
 
-      const input = screen.getByLabelText(/Paste YouTube or YouTube Music URL/i);
+      const input = screen.getByLabelText(/Paste a song link/i);
       const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
 
       // YouTube standard watch URL
@@ -223,20 +223,17 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       );
     });
 
-    it('intercepts non-YouTube URLs and surfaces exact guidance error', async () => {
+    it('intercepts links to sites it cannot download from and surfaces exact guidance error', async () => {
       const user = userEvent.setup();
       const onSelectTrack = vi.fn();
 
       render(<TrackSearch onSelectTrack={onSelectTrack} isLoading={false} />);
 
-      const input = screen.getByLabelText(/Paste YouTube or YouTube Music URL/i);
+      const input = screen.getByLabelText(/Paste a song link/i);
       const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
 
       const forbiddenUrls = [
         'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT',
-        'https://soundcloud.com/artist/great-song',
-        'https://vimeo.com/987654321',
-        'https://bandcamp.com/track/heavy-metal',
         'https://music.apple.com/us/album/song/12345',
         'http://example.com/audio.mp3',
         'www.deezer.com/track/123456',
@@ -248,12 +245,32 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
         await user.click(submitBtn);
 
         expect(onSelectTrack).not.toHaveBeenCalled();
-        expect(
-          screen.getByText(
-            'Direct URL import currently supports YouTube and YouTube Music links. For other platforms, please download the audio file and use the Local Audio File tab.'
-          )
-        ).toBeInTheDocument();
+        expect(screen.getByText(UNSUPPORTED_LINK_MESSAGE)).toBeInTheDocument();
       }
+    });
+
+    it('starts SoundCloud, Bandcamp, Vimeo and Internet Archive links like YouTube ones', async () => {
+      const user = userEvent.setup();
+      const onSelectTrack = vi.fn();
+
+      render(<TrackSearch onSelectTrack={onSelectTrack} isLoading={false} />);
+
+      const input = screen.getByLabelText(/Paste a song link/i);
+      const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
+      const songLinks = [
+        'https://soundcloud.com/artist/great-song',
+        'https://artist.bandcamp.com/track/heavy-metal',
+        'https://vimeo.com/987654321',
+        'archive.org/details/some-item/track01.mp3',
+      ];
+
+      for (const link of songLinks) {
+        await user.clear(input);
+        await user.type(input, link);
+        await user.click(submitBtn);
+        expect(onSelectTrack).toHaveBeenLastCalledWith(link, undefined);
+      }
+      expect(screen.queryByText(UNSUPPORTED_LINK_MESSAGE)).not.toBeInTheDocument();
     });
   });
 });

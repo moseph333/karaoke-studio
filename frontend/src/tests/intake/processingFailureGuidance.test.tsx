@@ -10,7 +10,7 @@ import userEvent from '@testing-library/user-event';
 import App from '../../App';
 import { ProcessingView } from '../../components/ProcessingView';
 import type { ProjectState } from '../../types';
-import { explainProcessingError, isUploadedSong } from '../../utils/processingErrors';
+import { explainProcessingError, isUploadedSong, retryInput } from '../../utils/processingErrors';
 import { json, mockStudioFetch } from '../helpers/qualityFixtures';
 
 const failed = (extra: Partial<ProjectState> = {}): ProjectState => ({
@@ -61,6 +61,15 @@ describe('explainProcessingError', () => {
   it('answers a missing error like an unknown one', () => {
     expect(explainProcessingError(undefined)).toEqual(explainProcessingError('???'));
     expect(explainProcessingError(null).summary).toMatch(/Something went wrong/);
+  });
+
+  it('starts a linked song again from its link, else its YouTube video id', () => {
+    const soundcloud = 'https://soundcloud.com/forss/flickermood';
+    expect(
+      retryInput({ id: 'soundcloud-1a2b', track_id: 'soundcloud-1a2b', url: soundcloud })
+    ).toBe(soundcloud);
+    expect(retryInput({ id: 'dQw4w9WgXcQ', track_id: 'dQw4w9WgXcQ' })).toBe('dQw4w9WgXcQ');
+    expect(retryInput({ id: 'dQw4w9WgXcQ' })).toBe('dQw4w9WgXcQ');
   });
 
   it('tells uploads from YouTube songs by their id', () => {

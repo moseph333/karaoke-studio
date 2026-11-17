@@ -1,6 +1,7 @@
 /**
  * Shares into the installed app (Android share sheet → /?title=…&text=…&url=…) become the
- * song search text: a YouTube link when there is one, otherwise the shared words.
+ * song search text: a song link from a supported site when there is one, otherwise the
+ * shared words.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -39,6 +40,27 @@ describe('sharedIntakeQuery', () => {
 
   it('does not mistake look-alike hosts for YouTube', () => {
     expect(query({ text: 'https://notyoutube.com.evil/watch' })).toBeNull();
+  });
+
+  it('takes links shared from SoundCloud, Bandcamp, Vimeo and the Internet Archive', () => {
+    expect(
+      query({
+        text: 'Listen to Flickermood by Forss on #SoundCloud https://on.soundcloud.com/Ab12',
+      })
+    ).toBe('https://on.soundcloud.com/Ab12');
+    expect(query({ url: 'https://artist.bandcamp.com/track/a-song' })).toBe(
+      'https://artist.bandcamp.com/track/a-song'
+    );
+    expect(query({ text: 'vimeo.com/76979871' })).toBe('https://vimeo.com/76979871');
+    expect(query({ url: 'https://archive.org/details/item/track.mp3' })).toBe(
+      'https://archive.org/details/item/track.mp3'
+    );
+  });
+
+  it('skips a link to another site for a song link later in the share', () => {
+    expect(
+      query({ text: 'https://example.com/blog then https://soundcloud.com/forss/flickermood' })
+    ).toBe('https://soundcloud.com/forss/flickermood');
   });
 
   it('falls back to the shared words, without other links, as search terms', () => {

@@ -8,7 +8,7 @@ import {
   validateAudioFile,
   parseAudioFilename,
 } from '../../components/track-search/LocalAudioUploader';
-import { TrackSearch } from '../../components/TrackSearch';
+import { TrackSearch, UNSUPPORTED_LINK_MESSAGE } from '../../components/TrackSearch';
 import {
   ProcessingView,
   getActivePipelineStage,
@@ -198,7 +198,7 @@ describe('Milestone 1: UX-1 Search & URL Ergonomics (TrackSearch)', () => {
     const user = userEvent.setup();
     render(<TrackSearch {...defaultProps} />);
 
-    const input = screen.getByPlaceholderText(/Paste YouTube.*or search.*title/i);
+    const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
     expect(screen.queryByLabelText(/Clear search query/i)).not.toBeInTheDocument();
 
     await user.type(input, 'David Bowie');
@@ -210,37 +210,33 @@ describe('Milestone 1: UX-1 Search & URL Ergonomics (TrackSearch)', () => {
     expect(screen.queryByLabelText(/Clear search query/i)).not.toBeInTheDocument();
   });
 
-  it('detects non-YouTube URLs and displays clear guidance message without calling /api/search', async () => {
+  it('starts links from supported sites and explains other links without calling /api/search', async () => {
     const user = userEvent.setup();
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
-    render(<TrackSearch {...defaultProps} />);
+    const onSelectTrack = vi.fn();
+    render(<TrackSearch {...defaultProps} onSelectTrack={onSelectTrack} />);
 
-    const input = screen.getByPlaceholderText(/Paste YouTube.*or search.*title/i);
+    const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
     await user.type(input, 'https://soundcloud.com/artist/great-song');
 
     const searchBtn = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
     await user.click(searchBtn);
-
-    expect(
-      screen.getByText(
-        'Direct URL import currently supports YouTube and YouTube Music links. For other platforms, please download the audio file and use the Local Audio File tab.'
-      )
-    ).toBeInTheDocument();
-    expect(fetchSpy).not.toHaveBeenCalledWith(
-      expect.stringContaining('/api/search'),
-      expect.anything()
+    expect(onSelectTrack).toHaveBeenCalledWith(
+      'https://soundcloud.com/artist/great-song',
+      undefined
     );
 
-    // Clear and test Spotify URL
+    // A Spotify link cannot be downloaded: the box says which links work
     await user.clear(input);
     await user.type(input, 'https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT');
     await user.click(searchBtn);
 
-    expect(
-      screen.getByText(
-        'Direct URL import currently supports YouTube and YouTube Music links. For other platforms, please download the audio file and use the Local Audio File tab.'
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByText(UNSUPPORTED_LINK_MESSAGE)).toBeInTheDocument();
+    expect(onSelectTrack).toHaveBeenCalledTimes(1);
+    expect(fetchSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining('/api/search'),
+      expect.anything()
+    );
   });
 
   it('renders Clear Results button when search results are visible and clicking it dismisses results', async () => {
@@ -264,7 +260,7 @@ describe('Milestone 1: UX-1 Search & URL Ergonomics (TrackSearch)', () => {
 
     render(<TrackSearch {...defaultProps} />);
 
-    const input = screen.getByPlaceholderText(/Paste YouTube.*or search.*title/i);
+    const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
     await user.type(input, 'Starman');
 
     const searchBtn = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
