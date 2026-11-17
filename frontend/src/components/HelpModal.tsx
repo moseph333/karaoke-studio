@@ -279,6 +279,7 @@ const STAGES: GuideStage[] = [
       'Direct 1-click downloads for isolated instrumental WAV, vocals WAV, and mixed master audio',
       'Instant downloads: export standalone .lrc and .ass (with multi-singer duet styles & gap countdowns)',
       'Render 1080p60 MP4 videos (with optional beat visualizer) and generate YouTube metadata packages',
+      'After a render, “Upload to YouTube” walks through the upload: the title, description (with chapters and lyrics) and tags to paste, and what to check before publishing',
     ],
   },
   {

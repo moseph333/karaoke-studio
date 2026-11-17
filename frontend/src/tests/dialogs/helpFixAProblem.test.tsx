@@ -114,6 +114,29 @@ describe('the Fix a problem tab', () => {
     }
   });
 
+  it('covers a failed render and the YouTube upload, both leading to Export', async () => {
+    const onAction = vi.fn();
+    render(<HelpModal isOpen onClose={vi.fn()} initialTab="fix" songOpen onAction={onAction} />);
+
+    const upload = fixPanel().querySelector('details[data-problem="youtube-upload"]');
+    expect(upload).toHaveTextContent('I don’t know how to get the video onto YouTube');
+    expect(upload).toHaveTextContent(/Follow “Upload to YouTube” under the finished video/);
+    expect(upload).toHaveTextContent(/Publish as Unlisted first/);
+    expect(fixPanel().querySelector('details[data-problem="render-failed"]')).toHaveTextContent(
+      /press Try Again/
+    );
+
+    for (const symptom of [
+      'The video render failed, or takes very long',
+      'I don’t know how to get the video onto YouTube',
+    ]) {
+      await userEvent.click(
+        within(fixPanel()).getByRole('button', { name: `Open export (${symptom})`, hidden: true })
+      );
+    }
+    expect(onAction.mock.calls.map(([action]) => action)).toEqual(['export', 'export']);
+  });
+
   it('keeps 44px touch targets on a phone', () => {
     setTestViewport(320);
     const { container } = render(
