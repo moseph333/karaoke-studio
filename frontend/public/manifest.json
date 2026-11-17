@@ -55,6 +55,62 @@
       "label": "The studio: live stage, lyric timeline and transport"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "New song",
+      "short_name": "New song",
+      "description": "Paste a YouTube link or search for a song",
+      "url": "/?shortcut=new",
+      "icons": [
+        {
+          "src": "/shortcuts/new-song-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        },
+        {
+          "src": "/shortcuts/new-song-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Upload audio",
+      "short_name": "Upload",
+      "description": "Make karaoke from an audio file of your own",
+      "url": "/?shortcut=upload",
+      "icons": [
+        {
+          "src": "/shortcuts/upload-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        },
+        {
+          "src": "/shortcuts/upload-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Continue last song",
+      "short_name": "Continue",
+      "description": "Reopen the song you had open last",
+      "url": "/?shortcut=resume",
+      "icons": [
+        {
+          "src": "/shortcuts/continue-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        },
+        {
+          "src": "/shortcuts/continue-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
   "share_target": {
     "action": "/",
     "method": "GET",

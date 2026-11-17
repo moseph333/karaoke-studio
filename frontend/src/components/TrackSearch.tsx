@@ -55,11 +55,15 @@ export interface TrackSearchProps {
   /** Pre-filled search text, e.g. a YouTube link shared into the installed app. It is never
    * submitted automatically. */
   initialQuery?: string;
+  /** The intake tab to open on, e.g. the upload tab for the "Upload audio" app shortcut. */
+  initialMode?: IntakeMode;
+  /** Puts keyboard focus in the song search, for the "New song" app shortcut. */
+  focusSearch?: boolean;
   /** The library song being fetched in full after its card was chosen. */
   openingProjectId?: string | null;
 }
 
-type IntakeMode = 'youtube' | 'local';
+export type IntakeMode = 'youtube' | 'local';
 
 /** What a finished song gives you, under the intake card. */
 const HIGHLIGHTS: Array<{ Icon: LucideIcon; label: string }> = [
@@ -111,6 +115,8 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   separationQuality = null,
   onSeparationQualityChange,
   initialQuery = '',
+  initialMode = 'youtube',
+  focusSearch = false,
   openingProjectId = null,
 }) => {
   const [query, setQuery] = useState(initialQuery);
@@ -119,9 +125,10 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customLyrics, setCustomLyrics] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [intakeMode, setIntakeMode] = useState<IntakeMode>('youtube');
+  const [intakeMode, setIntakeMode] = useState<IntakeMode>(initialMode);
   const advancedHintId = useId();
   const submitRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   // First visit (no songs of their own yet): show how it works, and keep the lyric preview
   // on phones too. Decided once, from what this browser remembered, and not changed when
   // the library answers: taking those sections away then would make the page jump. The
@@ -139,7 +146,8 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   // A shared link arrives pre-filled: put focus on Go so one tap (or Enter) starts it
   useEffect(() => {
     if (initialQuery) submitRef.current?.focus({ preventScroll: true });
-  }, [initialQuery]);
+    else if (focusSearch) searchInputRef.current?.focus({ preventScroll: true });
+  }, [initialQuery, focusSearch]);
   // Asked only once the picker is on screen
   const capabilities = useCapabilities(showAdvanced && Boolean(onSeparationQualityChange));
 
@@ -268,6 +276,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                       aria-hidden="true"
                     />
                     <input
+                      ref={searchInputRef}
                       type="text"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}

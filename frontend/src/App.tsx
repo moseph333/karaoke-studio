@@ -49,6 +49,14 @@ import { cn } from './utils/cn';
 import { focusQuietly } from './utils/focusIntent';
 import { pageTitle } from './utils/pageTitle';
 import { SHARE_PARAMS, sharedIntakeQuery, urlWithoutShareParams } from './utils/sharedLink';
+import {
+  SHORTCUT_PARAM,
+  forgetLastProject,
+  launchShortcut,
+  readLastProject,
+  rememberLastProject,
+  urlWithoutShortcut,
+} from './utils/appShortcut';
 import type { AudioPlaybackError } from './utils/audioErrors';
 
 export const AppContent: React.FC = () => {
@@ -107,9 +115,12 @@ export const AppContent: React.FC = () => {
 
   // Opens a song by id: from a ?project= link (with an optional ?t= seek) or a history entry
   const openProjectById = useCallback(
-    (projectId: string, seekTime?: number) => {
+    (projectId: string, seekTime?: number, onMissing?: () => void) => {
       apiFetch(`/api/project/${projectId}`)
-        .then((res) => (res.ok ? res.json() : null))
+        .then((res) => {
+          if (res.status === 404) onMissing?.();
+          return res.ok ? res.json() : null;
+        })
         .then((data) => {
           if (data?.id) {
             setProject(data);
@@ -175,6 +186,25 @@ export const AppContent: React.FC = () => {
     if (!SHARE_PARAMS.some((key) => new URLSearchParams(window.location.search).has(key))) return;
     window.history.replaceState(window.history.state, '', urlWithoutShareParams(window.location));
   }, []);
+
+  // Launched from the installed app's icon menu (`shortcuts` in the manifest): "New song"
+  // and "Upload audio" set up the intake card, "Continue last song" reopens the song this
+  // device had open last. The parameter then leaves the address.
+  const [shortcut, setShortcut] = useState(() =>
+    launchShortcut(new URLSearchParams(window.location.search))
+  );
+  if (shortcut && project) setShortcut(null); // used once, like a share
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has(SHORTCUT_PARAM)) return;
+    const launched = launchShortcut(params);
+    window.history.replaceState(window.history.state, '', urlWithoutShortcut(window.location));
+    const lastProjectId = launched === 'resume' ? readLastProject() : null;
+    if (lastProjectId) openProjectById(lastProjectId, undefined, forgetLastProject);
+  }, [openProjectById]);
+  useEffect(() => {
+    if (project?.id) rememberLastProject(project.id);
+  }, [project?.id]);
 
   const handleCancelProcess = async () => {
     if (!project?.id) return;
@@ -531,6 +561,8 @@ export const AppContent: React.FC = () => {
                 currentUser={currentUser}
                 authToken={authToken}
                 initialQuery={sharedQuery ?? undefined}
+                initialMode={shortcut === 'upload' ? 'local' : undefined}
+                focusSearch={shortcut === 'new'}
               />
             ) : project.status !== 'ready' ? (
               <ProcessingView
