@@ -102,12 +102,14 @@ class TestProcessEndpointAdversarialFuzzing:
             "   ",
             "\t\n  ",
             "vimeo.com",
-            "https://vimeo.com/12345678",
+            "https://vimeo.com/channels/staffpicks",
             "notyoutube.com",
             "http://",
             "https://",
             "ftp://youtube.com",
-            "https://soundcloud.com/artist/track",
+            "https://soundcloud.com/artist/sets/album",
+            "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+            "https://soundcloud.com.attacker.com/artist/track",
             "https://evil-youtube.com/watch?v=12345678901",
             "https://youtube.com.attacker.com/watch?v=12345678901",
             "http://localhost:8000",
@@ -132,12 +134,17 @@ class TestProcessEndpointAdversarialFuzzing:
             "https://youtube.com/shorts/dQw4w9WgXcQ",
             "dQw4w9WgXcQ",
             "pair_lyr_pitch1",
+            "https://soundcloud.com/artist/track",
+            "https://artist.bandcamp.com/track/song",
+            "https://vimeo.com/12345678",
+            "https://archive.org/details/some-item/track01.mp3",
         ],
     )
     def test_process_valid_identifiers_accepted(
         self, client: TestClient, valid_identifier, monkeypatch
     ):
-        """Verifies valid YouTube URLs and 11-32 char alphanumeric IDs pass schema validation."""
+        """Verifies song links from every supported site and 11-32 char alphanumeric IDs pass
+        schema validation."""
         # Mock run_pipeline to prevent background thread execution
         import backend.main as main_mod
 

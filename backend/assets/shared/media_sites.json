@@ -1,0 +1,56 @@
+{
+  "sites": [
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "domains": ["youtube.com", "youtu.be", "youtube-nocookie.com"],
+      "example": "youtube.com/watch?v=…"
+    },
+    {
+      "id": "soundcloud",
+      "name": "SoundCloud",
+      "domains": ["soundcloud.com"],
+      "example": "soundcloud.com/artist/song"
+    },
+    {
+      "id": "bandcamp",
+      "name": "Bandcamp",
+      "domains": ["bandcamp.com"],
+      "example": "artist.bandcamp.com/track/song"
+    },
+    {
+      "id": "vimeo",
+      "name": "Vimeo",
+      "domains": ["vimeo.com"],
+      "example": "vimeo.com/123456789"
+    },
+    {
+      "id": "archive",
+      "name": "Internet Archive",
+      "domains": ["archive.org"],
+      "example": "archive.org/details/item"
+    }
+  ],
+  "host_cases": [
+    { "text": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "site": "youtube" },
+    { "text": "youtu.be/dQw4w9WgXcQ", "site": "youtube" },
+    { "text": "https://music.youtube.com/watch?v=dQw4w9WgXcQ", "site": "youtube" },
+    { "text": "https://soundcloud.com/artist/song", "site": "soundcloud" },
+    { "text": "https://m.soundcloud.com/artist/song", "site": "soundcloud" },
+    { "text": "https://on.soundcloud.com/AbCdEf123", "site": "soundcloud" },
+    { "text": "HTTPS://SoundCloud.com/Artist/Song", "site": "soundcloud" },
+    { "text": "https://artist.bandcamp.com/track/song", "site": "bandcamp" },
+    { "text": "artist.bandcamp.com/album/record", "site": "bandcamp" },
+    { "text": "https://vimeo.com/123456789", "site": "vimeo" },
+    { "text": "https://player.vimeo.com/video/123456789", "site": "vimeo" },
+    { "text": "https://archive.org/details/some-item", "site": "archive" },
+    { "text": "www.archive.org/download/some-item/track.mp3", "site": "archive" },
+    { "text": "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", "site": null },
+    { "text": "https://music.apple.com/us/album/x/1", "site": null },
+    { "text": "https://notsoundcloud.com/artist/song", "site": null },
+    { "text": "https://soundcloud.com.evil.example/artist/song", "site": null },
+    { "text": "https://evil.example/?u=soundcloud.com/artist/song", "site": null },
+    { "text": "dQw4w9WgXcQ", "site": null },
+    { "text": "never gonna give you up", "site": null }
+  ]
+}

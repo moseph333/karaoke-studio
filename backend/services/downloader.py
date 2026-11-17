@@ -1,4 +1,6 @@
-"""YouTube audio extraction and search service wrapping yt-dlp to query tracks, download audio streams, and extract metadata and thumbnails."""
+"""Song downloads and YouTube search, wrapping yt-dlp: searches YouTube, downloads the audio
+(as WAV) and thumbnail of a YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive link
+(see ``media_links``), and reads the title, artist and length the lyric lookup needs."""
 
 import logging
 import re
@@ -11,6 +13,13 @@ import yt_dlp
 
 from backend.config import DOWNLOADS_DIR
 from backend.services.lyrics import LyricsNormalizer
+from backend.services.media_links import (
+    SITE_NAMES,
+    MediaLink,
+    UnusableLink,
+    link_site,
+    parse_media_link,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,15 +55,21 @@ def music_track_title(meta: dict[str, Any] | None) -> str | None:
 
 
 def track_artist(meta: dict[str, Any] | None, fallback: str) -> tuple[str, bool]:
-    """The artist yt-dlp reports, else the uploading channel, and whether it is only the
-    channel: a fan upload's channel is not the artist, so its title is trusted instead."""
+    """The artist yt-dlp reports (an Internet Archive recording names it as its creator),
+    else the uploading channel, and whether it is only the channel: a fan upload's channel is
+    not the artist, so its title is trusted instead. An uploader that is an email address
+    (Internet Archive accounts) is never shown as the artist."""
     if not isinstance(meta, dict):
         return fallback, False
     artist = meta.get("artist")
     if isinstance(artist, str) and artist.strip():
         return artist, False
+    creators = meta.get("creators")
+    creator = creators[0] if isinstance(creators, list) and creators else meta.get("creator")
+    if isinstance(creator, str) and creator.strip():
+        return creator, False
     uploader = meta.get("uploader")
-    if isinstance(uploader, str) and uploader.strip():
+    if isinstance(uploader, str) and uploader.strip() and "@" not in uploader:
         return uploader, True
     return fallback, False
 
@@ -207,11 +222,14 @@ class TrackDownloader:
         return None
 
     def extract_info_and_download(self, url_or_id: str, progress_hook=None) -> dict[str, Any]:
-        """Download audio and thumbnail from YouTube/YouTube Music."""
+        """Download the audio and thumbnail of a YouTube video (link or id) or of a song on
+        another supported site (see ``media_links``)."""
         if not url_or_id or not str(url_or_id).strip():
             raise ValueError("URL or video ID cannot be empty")
 
         url_or_id = str(url_or_id).strip()
+        if link_site(url_or_id) not in (None, "youtube"):
+            return self._download_from_site(parse_media_link(url_or_id), progress_hook)
         video_id = self.extract_video_id(url_or_id)
         wav_path = self.output_dir / f"{video_id}.wav" if video_id else None
 
@@ -378,3 +396,87 @@ class TrackDownloader:
             "thumbnail_url": meta.get("thumbnail"),
             "url": url,
         }
+
+    def _thumbnail_for(self, stem: str) -> Path | None:
+        """The thumbnail yt-dlp wrote beside the audio, if any."""
+        for ext in ["webp", "jpg", "jpeg", "png"]:
+            candidate = self.output_dir / f"{stem}.{ext}"
+            if candidate.is_file() and candidate.stat().st_size > 0:
+                return candidate
+        return None
+
+    def _download_from_site(self, link: MediaLink, progress_hook=None) -> dict[str, Any]:
+        """Download a SoundCloud, Bandcamp, Vimeo or Internet Archive song, named by its track
+        id (the site's own ids can collide across sites and Archive ones hold slashes). The
+        link is read first and the download refused when it holds several recordings (an
+        Archive item of a whole album), so one paste never downloads a dozen songs. Audio
+        already on disk is reused; its metadata is refreshed when the site answers."""
+        site_name = SITE_NAMES.get(link.site, link.site)
+        wav_path = self.output_dir / f"{link.track_id}.wav"
+        cached = wav_path.is_file() and wav_path.stat().st_size > 0
+        ydl_opts: dict[str, Any] = {
+            "format": "bestaudio/ba/b",
+            "outtmpl": str(self.output_dir / f"{link.track_id}.%(ext)s"),
+            "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "wav"}],
+            "writethumbnail": True,
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+        }
+        if progress_hook:
+            ydl_opts["progress_hooks"] = [progress_hook]
+
+        meta: dict[str, Any] = {}
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                meta = _single_recording(ydl.extract_info(link.url, download=False), site_name)
+                if not cached:
+                    meta = ydl.process_ie_result(meta, download=True) or meta
+        except UnusableLink:
+            raise
+        except Exception as e:
+            if _is_cancel(e):
+                raise
+            if not cached:
+                raise RuntimeError(f"Failed to download audio from {site_name}: {e}") from e
+            logger.warning(f"Could not refresh metadata for cached track {link.track_id}: {e}")
+            meta = {}
+
+        if not wav_path.is_file() or wav_path.stat().st_size == 0:
+            raise RuntimeError(f"Expected extracted audio file not found or empty: {wav_path}")
+
+        title = meta.get("title") or meta.get("track") or f"Track {link.track_id}"
+        artist, artist_is_uploader = track_artist(meta, "Unknown Artist")
+        clean_title, clean_artist = LyricsNormalizer.normalize_track_metadata(
+            music_track_title(meta) or title, artist, artist_is_uploader
+        )
+        thumb_path = self._thumbnail_for(link.track_id)
+        return {
+            "id": link.track_id,
+            "title": clean_title,
+            "raw_title": title,
+            "artist": clean_artist,
+            "duration": meta.get("duration") or 0,
+            "audio_path": str(wav_path),
+            "thumbnail_path": str(thumb_path) if thumb_path else None,
+            "thumbnail_url": f"/static/downloads/{thumb_path.name}" if thumb_path else None,
+            "url": link.url,
+        }
+
+
+def _single_recording(info: dict[str, Any] | None, site_name: str) -> dict[str, Any]:
+    """The one recording a link points to: a playlist of one is unwrapped, a longer one
+    refused with what to paste instead."""
+    if not isinstance(info, dict):
+        raise RuntimeError(f"{site_name} returned nothing for this link")
+    if info.get("_type") != "playlist" and "entries" not in info:
+        return info
+    entries = [entry for entry in (info.get("entries") or []) if isinstance(entry, dict)]
+    if len(entries) == 1:
+        return entries[0]
+    if not entries:
+        raise UnusableLink(f"That {site_name} link holds no recording that can be downloaded.")
+    raise UnusableLink(
+        f"That {site_name} link holds {len(entries)} recordings. "
+        "Open the one you want and paste its link."
+    )
