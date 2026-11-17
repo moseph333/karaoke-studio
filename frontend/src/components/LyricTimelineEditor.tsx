@@ -30,6 +30,7 @@ import { SyncJobBanner } from './timeline/SyncJobBanner';
 import { UncoveredVocalsNotice } from './timeline/UncoveredVocalsNotice';
 import { uncoveredVocals } from '../utils/uncoveredVocals';
 import { TimelineDialogs, type TimelineDialog } from './timeline/TimelineDialogs';
+import { TimelineEmptyState } from './timeline/TimelineEmptyState';
 import { Button } from './ui/Button';
 import { S_ADD_LINE_BTN, S_RESUME_PILL, S_SCROLL_AREA } from './timeline/timelineStyles';
 
@@ -319,19 +320,10 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
             className={S_SCROLL_AREA}
           >
             {isEmpty ? (
-              <div className="rounded-theme-lg border border-dashed border-theme-border-subtle px-4 py-8 text-center">
-                <p className="mb-3 text-sm text-theme-text-muted">No lyric lines yet.</p>
-                <Button
-                  onClick={ed.handleInsertLineAtEnd}
-                  aria-label="+ Add First Lyric Line"
-                  data-testid="add-line-btn"
-                  variant="primary"
-                  size="sm"
-                  leftIcon={<Plus className="h-4 w-4" />}
-                >
-                  + Add First Lyric Line
-                </Button>
-              </div>
+              <TimelineEmptyState
+                onFindLyrics={() => setDialog('replace')}
+                onAddLine={ed.handleInsertLineAtEnd}
+              />
             ) : review.rows.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
                 <CheckCircle2 className="h-6 w-6 text-theme-success" aria-hidden="true" />
