@@ -1,6 +1,7 @@
 /**
  * Plain words for a song that failed to process. The server reports the error as the failing
- * step raised it (yt-dlp, FFmpeg, the separation engine); this maps the common ones to what
+ * step raised it (yt-dlp for YouTube, SoundCloud, Bandcamp, Vimeo and Internet Archive links,
+ * FFmpeg, the separation engine); this maps the common ones to what
  * happened and what to try, and anything else to a general answer. The raw message stays
  * available on the failure screen under "Technical details".
  */
@@ -25,6 +26,12 @@ const RULES: { test: RegExp; summary: string; advice: string }[] = [
     advice: 'Nothing is wrong with the song. Try again.',
   },
   {
+    // An Internet Archive item of a whole album or concert
+    test: /holds \d+ recordings/i,
+    summary: 'This link holds several recordings, such as a whole album.',
+    advice: 'Open the one song you want on that site and paste its link.',
+  },
+  {
     test: /\bprivate\b/i,
     summary: 'This video is private, so the server cannot download it.',
     advice: `Pick another upload of the song, or ${OWN_FILE}.`,
@@ -36,13 +43,19 @@ const RULES: { test: RegExp; summary: string; advice: string }[] = [
     advice: `Try again in a while, pick another upload of the song, or ${OWN_FILE}.`,
   },
   {
+    // Vimeo, for most videos, and password-protected uploads on any site
+    test: /logged[- ]in|--cookies|protected by a password|--video-password/i,
+    summary: 'The site asked for a sign-in or a password before handing over this song.',
+    advice: `Many Vimeo videos need one. Pick another copy of the song (YouTube, SoundCloud or Bandcamp), or ${OWN_FILE}.`,
+  },
+  {
     test: /\b(in|from) your (country|region)\b|geo[- ]?(restrict|block)/i,
-    summary: 'This video is blocked in the region the server is in.',
+    summary: 'This song is blocked in the region the server is in.',
     advice: `Pick another upload of the song, or ${OWN_FILE}.`,
   },
   {
-    test: /video unavailable|has been removed|no longer available|does not exist|account.{0,20}terminated/i,
-    summary: 'This video is no longer available on YouTube.',
+    test: /video unavailable|has been removed|no longer available|does not exist|account.{0,20}terminated|http error 404/i,
+    summary: 'This song is no longer available at that link.',
     advice: `Pick another upload of the song, or ${OWN_FILE}.`,
   },
   {
