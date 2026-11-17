@@ -110,6 +110,7 @@ export const StudioWorkspace = deferred(studio, (m) => m.StudioWorkspace, {
 export const TransportDock = deferred(studio, (m) => m.TransportDock, { reloadOnFailure: true });
 export const ExportModal = deferred(studio, (m) => m.ExportModal);
 export const ReseparateDialog = deferred(studio, (m) => m.ReseparateDialog);
+export const SongCheckupDialog = deferred(studio, (m) => m.SongCheckupDialog);
 export const HelpModal = deferred(help, (m) => m.HelpModal);
 export const CommandPalette = deferred(palette, (m) => m.CommandPalette);
 

@@ -2,7 +2,8 @@
  * Studio Modals Orchestration Component
  *
  * Hosts global and studio-scoped modal dialogs (Export, Authentication,
- * Help/Usage Guide, Project Deletion, Metadata Editing and stem re-separation).
+ * Help/Usage Guide, Project Deletion, Metadata Editing, stem re-separation and the song
+ * check-up).
  */
 
 import React, { Suspense, useState } from 'react';
@@ -10,9 +11,10 @@ import { AuthModal } from './AuthModal';
 import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { EditMetadataModal, type EditedMetadata } from './EditMetadataModal';
-import { ExportModal, HelpModal, ReseparateDialog } from '../deferredScreens';
+import { ExportModal, HelpModal, ReseparateDialog, SongCheckupDialog } from '../deferredScreens';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 import type { UseQualityJobsReturn } from '../hooks/useQualityJobs';
+import type { GuideAction } from '../utils/guideActions';
 
 export interface StudioModalsProps {
   project: ProjectState | null;
@@ -55,6 +57,10 @@ export interface StudioModalsProps {
   /** Stem re-separation dialog state and actions. */
   quality?: UseQualityJobsReturn;
   hasUnsavedLyricEdits?: boolean;
+  /** The song check-up and what its buttons do. */
+  showCheckup?: boolean;
+  onCloseCheckup?: () => void;
+  onGuideAction?: (action: GuideAction) => void;
 }
 
 export const StudioModals: React.FC<StudioModalsProps> = ({
@@ -89,8 +95,11 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   onStudioMetadataSaved,
   quality,
   hasUnsavedLyricEdits = false,
+  showCheckup = false,
+  onCloseCheckup,
+  onGuideAction,
 }) => {
-  // The export, help and stem dialogs are deferred chunks (see deferredScreens.ts). Each is
+  // The export, help, stem and check-up dialogs are deferred chunks (see deferredScreens.ts). Each is
   // mounted from the first time it is opened, so a closed dialog fetches nothing.
   const [exportOpened, setExportOpened] = useState(isExportOpen);
   if (isExportOpen && !exportOpened) setExportOpened(true);
@@ -99,6 +108,8 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   const isReseparateOpen = Boolean(quality?.isReseparateOpen);
   const [reseparateOpened, setReseparateOpened] = useState(isReseparateOpen);
   if (isReseparateOpen && !reseparateOpened) setReseparateOpened(true);
+  const [checkupOpened, setCheckupOpened] = useState(showCheckup);
+  if (showCheckup && !checkupOpened) setCheckupOpened(true);
 
   return (
     <Suspense fallback={null}>
@@ -177,6 +188,16 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
           project={project}
           hasUnsavedLyricEdits={hasUnsavedLyricEdits}
           onSubmit={quality.startReseparation}
+        />
+      )}
+
+      {/* What looks off about the open song, and the tool that fixes each thing */}
+      {project && checkupOpened && onCloseCheckup && onGuideAction && (
+        <SongCheckupDialog
+          isOpen={showCheckup && project.status === 'ready'}
+          onClose={onCloseCheckup}
+          project={project}
+          onAction={onGuideAction}
         />
       )}
     </Suspense>

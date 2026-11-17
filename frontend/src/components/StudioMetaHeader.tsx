@@ -2,22 +2,28 @@
  * Studio Meta Header Component (song header)
  *
  * Compact header for the open song: album art, title, artist, line count, a lyric sync
- * badge (timing fidelity, confidence, auto-aligned), a stems badge, and quick actions to
- * edit details or delete the project. Exports live in the top bar's Export dialog.
+ * badge (timing fidelity, confidence, auto-aligned), a stems badge, the button that opens
+ * the song check-up (with a count of the things to fix), and quick actions to edit details
+ * or delete the project. Exports live in the top bar's Export dialog.
  */
 
-import React from 'react';
-import { Pencil, Trash2, Music } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Pencil, Stethoscope, Trash2, Music } from 'lucide-react';
 import { ProjectState } from '../types';
+import { checkupFixCount } from '../utils/songCheckup';
 import { getLyricSyncFidelity, getStemsBadge } from '../utils/syncStatus';
+import { cn } from '../utils/cn';
 import { Tooltip } from './Tooltip';
 import { Badge } from './ui/Badge';
 import { IconButton } from './ui/IconButton';
+import { focusRing } from './ui/variants';
 
 export interface StudioMetaHeaderProps {
   project: ProjectState;
   onOpenEditModal: () => void;
   onOpenDeleteModal: () => void;
+  /** Opens the song check-up; its button is left out without it. */
+  onOpenCheckup?: () => void;
   /** Kept for API compatibility; exports open from the top bar. */
   onOpenExportModal?: () => void;
   /** Kept for API compatibility; renders start from the Export dialog. */
@@ -28,10 +34,12 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
   project,
   onOpenEditModal,
   onOpenDeleteModal,
+  onOpenCheckup,
 }) => {
   const syncFidelity = getLyricSyncFidelity(project);
   const stems = getStemsBadge(project);
   const lineCount = project.lines?.length ?? 0;
+  const toFix = useMemo(() => checkupFixCount(project), [project]);
 
   return (
     <div className="flex min-w-0 items-center gap-3" data-testid="song-header">
@@ -94,6 +102,34 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
               </span>
             </Badge>
           </Tooltip>
+          {onOpenCheckup && (
+            <Tooltip content="What looks off about this song, and how to fix it" position="bottom">
+              <button
+                type="button"
+                onClick={onOpenCheckup}
+                data-testid="song-checkup-button"
+                aria-label={`Song check-up: ${toFix > 0 ? `${toFix} to fix` : 'nothing to fix'}`}
+                className={cn(
+                  // The chip is badge-sized; the button around it is the 44px touch target and
+                  // its negative margin keeps the header's height
+                  'group -my-2.5 inline-flex min-h-[44px] items-center rounded-theme-pill md:-my-1 md:min-h-[26px]',
+                  focusRing
+                )}
+              >
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 whitespace-nowrap rounded-theme-pill border px-2 py-0.5 text-[11px] font-semibold transition-colors',
+                    toFix > 0
+                      ? 'border-theme-warning/50 bg-theme-warning/10 text-theme-warning group-hover:bg-theme-warning/20'
+                      : 'border-theme-border-subtle text-theme-text-muted group-hover:border-theme-border group-hover:text-theme-text'
+                  )}
+                >
+                  <Stethoscope className="h-3 w-3" aria-hidden="true" />
+                  {toFix > 0 ? `${toFix} to fix` : 'Check-up'}
+                </span>
+              </button>
+            </Tooltip>
+          )}
         </div>
       </div>
 
