@@ -1,7 +1,7 @@
 /**
  * Plain words for a song that failed to process. The server reports the error as the failing
  * step raised it (yt-dlp for YouTube, SoundCloud, Bandcamp, Vimeo and Internet Archive links,
- * FFmpeg, the separation engine); this maps the common ones to what
+ * the song lookup for Spotify, Apple Music and TIDAL links, FFmpeg, the separation engine); this maps the common ones to what
  * happened and what to try, and anything else to a general answer. The raw message stays
  * available on the failure screen under "Technical details".
  */
@@ -30,6 +30,17 @@ const RULES: { test: RegExp; summary: string; advice: string }[] = [
     test: /holds \d+ recordings/i,
     summary: 'This link holds several recordings, such as a whole album.',
     advice: 'Open the one song you want on that site and paste its link.',
+  },
+  {
+    // A Spotify, Apple Music or TIDAL song with no matching YouTube upload
+    test: /could not find .* on youtube/i,
+    summary: 'No YouTube upload of this song matched its title, artist and length.',
+    advice: `Search for the song by name and pick an upload, or ${OWN_FILE}.`,
+  },
+  {
+    test: /has no song at that link|could not read the song's title/i,
+    summary: 'The streaming service did not say which song this link is.',
+    advice: `Copy the song's link again, search for it by name, or ${OWN_FILE}.`,
   },
   {
     test: /\bprivate\b/i,
