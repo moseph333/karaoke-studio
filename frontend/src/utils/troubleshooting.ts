@@ -135,6 +135,29 @@ export const PROBLEMS: Problem[] = [
     actions: [],
   },
   {
+    id: 'render-failed',
+    symptom: 'The video render failed, or takes very long',
+    why: 'A render draws the lyric sweep for every frame, so most songs take a few minutes. A cloud render that fails or finds no free machine is rendered on your server instead.',
+    steps: [
+      'Open Export and press Try Again.',
+      'You can close the Export dialog while it renders: the header shows the progress.',
+      'A failed or cancelled render keeps the previous video.',
+    ],
+    actions: ['export'],
+  },
+  {
+    id: 'youtube-upload',
+    symptom: 'I don’t know how to get the video onto YouTube',
+    why: 'The studio makes the video and writes its title, description and tags; the upload itself happens on YouTube.',
+    steps: [
+      'Open Export and render the video, then download it.',
+      'Follow “Upload to YouTube” under the finished video: it gives you the title, the description (with chapters and lyrics) and the tags to paste, in order.',
+      'Publish as Unlisted first, watch it through, then make it Public.',
+      'YouTube may put a copyright claim on a song it recognises. Upload only songs you have the right to share.',
+    ],
+    actions: ['export'],
+  },
+  {
     id: 'job-failed',
     symptom: 'Re-timing the lyrics or re-making the stems failed',
     why: 'Only one job runs on a song at a time, and a server restart stops the one that is running. The song keeps its previous timing and stems, so nothing is lost.',
