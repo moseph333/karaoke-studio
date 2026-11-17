@@ -62,6 +62,16 @@ export const CommandPaletteProvider: React.FC<CommandPaletteProviderProps> = ({
     () => Array.from(commandScopes.current.values()).flatMap((get) => get()),
     []
   );
+  // Guidance (the song check-up, Help's fixes) opens the studio's tools through their commands
+  const runCommand = useCallback(
+    (id: string) => {
+      const command = getCommands().find((c) => c.id === id);
+      if (!command) return false;
+      void command.run();
+      return true;
+    },
+    [getCommands]
+  );
   const getSources = useCallback(
     () =>
       Array.from(sourceGetters.current.values())
@@ -89,8 +99,8 @@ export const CommandPaletteProvider: React.FC<CommandPaletteProviderProps> = ({
   }, [enabled]);
 
   const value = useMemo<CommandPaletteContextValue>(
-    () => ({ isOpen, open, close, toggle, registerCommands, registerSource }),
-    [isOpen, open, close, toggle, registerCommands, registerSource]
+    () => ({ isOpen, open, close, toggle, registerCommands, registerSource, runCommand }),
+    [isOpen, open, close, toggle, registerCommands, registerSource, runCommand]
   );
 
   return (

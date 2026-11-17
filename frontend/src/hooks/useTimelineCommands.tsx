@@ -179,7 +179,7 @@ export function useTimelineCommands(opts: UseTimelineCommandsOptions): void {
   );
   if (opts.filter === 'review') {
     commands.push({
-      id: 'lyrics-review-filter',
+      id: 'lyrics-review-all',
       title: 'Show all lyric lines',
       group: GROUP,
       icon: <ListChecks />,
@@ -187,7 +187,7 @@ export function useTimelineCommands(opts: UseTimelineCommandsOptions): void {
     });
   } else if (opts.reviewCount > 0) {
     commands.push({
-      id: 'lyrics-review-filter',
+      id: 'lyrics-review-show',
       title: `Show lines that need review (${opts.reviewCount})`,
       group: GROUP,
       icon: <ListChecks />,

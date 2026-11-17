@@ -44,6 +44,9 @@ export interface CommandPaletteContextValue {
   toggle: () => void;
   registerCommands: (scope: string, getCommands: () => PaletteCommand[]) => () => void;
   registerSource: (id: string, getSource: () => PaletteSource) => () => void;
+  /** Runs the registered command with this id, as picking it in the palette would. False
+   * when no mounted component offers it right now. */
+  runCommand: (id: string) => boolean;
 }
 
 export const CommandPaletteContext = createContext<CommandPaletteContextValue | null>(null);
