@@ -133,15 +133,16 @@ class TestRouteValidationErrors:
     @pytest.mark.parametrize(
         "invalid_target",
         [
-            "https://vimeo.com/12345678",
-            "https://soundcloud.com/artist/track",
+            "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+            "https://soundcloud.com/artist",
             "invalid_non_youtube_protocol://something",
             "short",
             "too_long_string_with_illegal_characters_$$$###",
         ],
     )
     def test_process_invalid_url_format_rejected_422(self, client, invalid_target):
-        """Reject non-YouTube URLs and malformed video IDs with HTTP 422."""
+        """Reject links to unsupported sites, links that are not one song and malformed video
+        IDs with HTTP 422."""
         res = client.post("/api/process", json={"url_or_id": invalid_target})
         assert res.status_code == 422
         assert "detail" in res.json()

@@ -71,6 +71,7 @@ from backend.schemas import (
 )
 from backend.services import remote_render
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
+from backend.services.media_links import parse_media_link
 from backend.services.separator import adopt_provenance
 from backend.services.video_renderer import artwork_still, render_still
 from backend.services.voice_parts import detect_voice_parts
@@ -174,7 +175,10 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
 
     merge_disk_projects(main_mod.projects)
 
-    video_id = main_mod.downloader.extract_video_id(req.url_or_id)
+    # The song's track id: a YouTube video id, or one made from another site's link (the
+    # validator has already refused links that are not one song)
+    link = parse_media_link(req.url_or_id)
+    video_id = link.track_id if link else main_mod.downloader.extract_video_id(req.url_or_id)
     if video_id:
         for p_id, p in list(main_mod.projects.items()):
             if p.get("id") == video_id or p.get("track_id") == video_id or p_id == video_id:
@@ -219,6 +223,9 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
     }
     if video_id:
         proj_data["track_id"] = video_id
+    if link:
+        # Kept from the start, so a song whose download failed can be tried again by its link
+        proj_data["url"] = link.url
     if req.separation_quality:
         proj_data["separation_quality"] = req.separation_quality
     # Under the lock: a save or a project list running meanwhile iterates the store

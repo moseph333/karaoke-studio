@@ -13,7 +13,7 @@ from pydantic import (
     model_validator,
 )
 
-from backend.services.downloader import TrackDownloader
+from backend.services.media_links import UnusableLink, parse_media_link, supported_sites_sentence
 from backend.services.separation_presets import PRESET_IDS, normalize_preset
 from backend.shared_assets import load
 
@@ -46,7 +46,10 @@ class ProcessRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     url_or_id: str = Field(
         ...,
-        description="YouTube video URL or 11-character video ID",
+        description=(
+            "A song link (YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive) or an "
+            "11-character YouTube video ID"
+        ),
     )
     custom_lyrics: str | None = Field(
         default=None,
@@ -70,18 +73,21 @@ class ProcessRequest(BaseModel):
 
     @field_validator("url_or_id")
     @classmethod
-    def validate_youtube_url_or_id(cls, v: str) -> str:
+    def validate_url_or_id(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("URL or video ID cannot be empty or whitespace")
         clean = v.strip()
 
-        # Check for URL with non-YouTube domain
+        # A link: one song on a supported site
         if clean.startswith(("http://", "https://")) or "/" in clean or "." in clean:
-            vid = TrackDownloader.extract_video_id(clean)
-            if not vid:
+            try:
+                link = parse_media_link(clean)
+            except UnusableLink as e:
+                raise ValueError(str(e)) from e
+            if link is None:
                 raise ValueError(
-                    "Invalid YouTube URL or unsupported media domain. "
-                    "Only valid YouTube URLs (e.g. youtube.com/watch?v=..., youtu.be/...) are supported."
+                    f"Unsupported link. Paste a song link from {supported_sites_sentence()}. "
+                    "For another site, download the audio and add it as a local file."
                 )
             return clean
 
@@ -711,7 +717,16 @@ class KaraokeProject(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     id: str = Field(..., description="Unique project identifier")
-    track_id: str | None = Field(default=None, description="Audio/video track identifier")
+    track_id: str | None = Field(
+        default=None,
+        description=(
+            "Audio track identifier: a YouTube video ID, or '<site>-<id>' for a SoundCloud, "
+            "Bandcamp, Vimeo or Internet Archive link; uploads have none"
+        ),
+    )
+    url: str | None = Field(
+        default=None, description="The link the song was downloaded from; uploads have none"
+    )
     status: str = Field(
         default="queued",
         description="Lifecycle status: 'queued', 'downloading', 'separating', 'fetching_lyrics', 'aligning', 'mixing', 'ready', 'error', 'cancelled'",
