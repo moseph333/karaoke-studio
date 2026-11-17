@@ -83,9 +83,14 @@ export function clearAuth(): void {
   }
 }
 
+// Pydantic's prefix on a message a validator wrote for people ("That is a Bandcamp album…")
+const VALIDATOR_MESSAGE = /^Value error, /;
+
 /**
  * A readable message from a FastAPI error `detail`: a string for HTTP errors, a list of
  * `{loc, msg}` for validation errors (422), which used to surface as "[object Object]".
+ * A message one of the server's own validators wrote is shown as written, without the
+ * field name or Pydantic's "Value error, " prefix.
  */
 export function formatApiDetail(detail: unknown, fallback: string): string {
   if (typeof detail === 'string' && detail.trim()) return detail;
@@ -93,6 +98,7 @@ export function formatApiDetail(detail: unknown, fallback: string): string {
     const messages = detail.flatMap((item) => {
       const { loc, msg } = (item ?? {}) as { loc?: unknown; msg?: unknown };
       if (typeof msg !== 'string' || !msg) return [];
+      if (VALIDATOR_MESSAGE.test(msg)) return [msg.replace(VALIDATOR_MESSAGE, '')];
       const field = Array.isArray(loc)
         ? loc.filter((part) => part !== 'body' && part !== 'query').join('.')
         : '';

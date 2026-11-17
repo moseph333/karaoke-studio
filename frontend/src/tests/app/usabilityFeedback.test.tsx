@@ -28,6 +28,18 @@ describe('API error messages', () => {
     expect(formatApiDetail({ detail: 1 }, 'fallback')).toBe('fallback');
   });
 
+  it('shows a message the server wrote for people as written', () => {
+    const detail = [
+      {
+        loc: ['body', 'url_or_id'],
+        msg: 'Value error, That is a Bandcamp album. Open one of its tracks and paste that link.',
+      },
+    ];
+    expect(formatApiDetail(detail, 'fallback')).toBe(
+      'That is a Bandcamp album. Open one of its tracks and paste that link.'
+    );
+  });
+
   it('falls back when the body is not JSON', async () => {
     expect(await readApiError(new Response('Bad gateway', { status: 502 }), 'Try again')).toBe(
       'Try again'
