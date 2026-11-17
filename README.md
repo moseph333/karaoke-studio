@@ -25,6 +25,38 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 | ![Export dialog](docs/screenshots/export.png) <br> Export | ![Processing](docs/screenshots/processing.png) <br> Processing |
 | ![Monolith Press theme](docs/screenshots/theme-monolith-press.png) <br> Monolith Press theme | ![Midnight KTV Booth theme](docs/screenshots/theme-midnight-ktv.png) <br> Midnight KTV Booth theme |
 | ![Phone stage](docs/screenshots/phone-stage.png) <br> Phone: stage | ![Phone timeline](docs/screenshots/phone-timeline.png) <br> Phone: timeline |
+| ![First-song steps](docs/screenshots/first-song.png) <br> First-song steps | ![Song check-up](docs/screenshots/song-checkup.png) <br> Song check-up |
+| ![Fix a problem in Help](docs/screenshots/help-fix-a-problem.png) <br> Help: Fix a problem | ![A failed song](docs/screenshots/processing-failed.png) <br> A song that failed |
+
+## Using Karaoke Studio
+
+A first song, start to finish. The studio shows the same steps on a card the first time you open a finished song, and **Help** (<kbd>?</kbd>) has them under **Studio Usage Guide**.
+
+1. **Add a song.** Paste a YouTube link, search by title, or switch to **Local Audio File** and upload one. **Advanced options** holds the stem quality (Fast, Balanced, Best) and a box for your own lyrics.
+2. **Wait a few minutes.** The screen shows the stage it is on and a time estimate. You can leave: the song keeps processing and waits in your library. Best quality on a CPU, and a server's first Balanced or Best song (it downloads its model once), take longer.
+3. **Play and sing.** Press <kbd>Space</kbd>. The words light up as they are sung.
+4. **Check the lyrics.** Everything is automatic, so now and then a lyric is wrong or a line is out of time. The **check-up** button next to the song's title counts what looks off and takes you to each fix; **Needs review** above the timeline shows the lines the aligner was unsure about.
+5. **Set your key.** In **Audio mix**, shift the key to your range (the tempo stays the same) and turn the guide vocal up to sing along with the original singer.
+6. **Make a video.** **Export** renders a 1080p karaoke video, or gives you subtitle files and the stems.
+
+## When results are off
+
+**Help → Fix a problem** has these with a button to each tool. The song's **check-up** lists the ones the studio can see for itself: missing lyrics, lines that may be out of time, singing without lyrics, stems that fell back to another quality, and a background job that failed.
+
+| What you notice | What to do |
+| :--- | :--- |
+| There are no lyrics | **Re-import** in the timeline: search with a simpler title or the original artist, or paste the lyrics (plain text or LRC). Pasted words are timed to the singing. |
+| The lyrics are for another song or version | Fix the title or artist with the pencil next to the title, then **Re-import → Re-query LRCLIB** and apply the listing that matches what is sung. |
+| The words are early or late through the whole song | **Offset** shifts every line; start with 0.1 to 0.5 s. If the gap changes through the song, re-align all lines from the Re-import dialog or the command palette. |
+| One part is out of time | **Needs review** filters the unsure lines. A line's **⋯** menu has **Re-align this line**; you can also nudge it, expand it to move words, or use **Tap sync** for a long stretch. |
+| Some sung parts have no words | The **Vocals without lyrics** notice above the timeline plays each stretch. Insert a line there, type the words and re-align the line. |
+| I can still hear the singer | Set **Guide vocal** to Off in Audio mix. If it is still there, **Improve** re-makes the stems at Balanced or Best while the song stays playable. |
+| The backing track sounds thin or watery | **Improve** at a better quality, or **Replace** the instrumental with a real one. |
+| I asked for Best and got Fast | The better model could not run (cloud GPU busy or unreachable, model not installed, too little memory). The check-up says why; **Improve** again later. |
+| It is a duet, but every line has one colour | **Duet parts → By Voice**; if it finds one voice, use Alternating or set lines with the singer chip. |
+| The song is too high or too low | Shift the key in Audio mix, or ask the **Smart Recommender**. |
+| Processing failed | The failed song says what happened in plain words (private, blocked or removed video, a sign-in check, a download that did not get through) and has **Try again**. If it fails the same way, download the audio yourself and upload it. |
+| Re-timing the lyrics or re-making the stems failed | The song keeps its previous timing and stems. Only one job runs on a song at a time: wait for it, then start again. |
 
 ## Features
 
@@ -48,6 +80,7 @@ When a preset cannot run (extras not installed, weights unavailable, out of memo
 - Fetched lyrics are tidied before they are timed: translation notes and "x2" markers go, lines too long to sing as one are split, all-caps lyrics become sentence case, and a Japanese (or other CJK) line's romaji in parentheses becomes a smaller row under it.
 - **Neural alignment** (MMS forced alignment through torchaudio) places each word when the model is available. The **DSP aligner** (vocal energy, spectral flux and phrase snapping) is the fallback and the in-request engine. The model's listening pass over a stem is saved (`<data dir>/alignment_cache`, the 200 most recent songs, about 1.5 MB each), so re-timing lyrics or a single line later only runs the alignment.
 - Every line gets a **confidence** score from how well the vocal stem supports its timing. The sync badge shows the song's average, a dot on each timeline row shows the line's, and **Needs review** filters the lines below 60%.
+- The **song check-up**, the button next to the song's status badges, counts what looks off (missing lyrics, lines that may be out of time, singing without lyrics, stems that fell back and why, a failed background job) and has a button to the tool that fixes each. See [When results are off](#when-results-are-off).
 - **Re-align this line** (row menu) finds where a line is really sung near its current place and applies the result as an undoable edit. Whole songs can be re-aligned in the background with the neural aligner while you keep working.
 - Singing with no line to show (a hook the lyrics wrote once but the song repeats) is listed above the timeline as **Vocals without lyrics**; with the neural aligner, new songs get those repeats added as lines marked **Added repeat**.
 - CJK lyrics are timed one character at a time, and the neural aligner times a line with romaji from its romaji.
