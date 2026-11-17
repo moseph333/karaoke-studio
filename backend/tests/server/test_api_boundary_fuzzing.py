@@ -108,7 +108,8 @@ class TestProcessEndpointAdversarialFuzzing:
             "https://",
             "ftp://youtube.com",
             "https://soundcloud.com/artist/sets/album",
-            "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+            "https://www.deezer.com/track/3135556",
+            "https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT",
             "https://soundcloud.com.attacker.com/artist/track",
             "https://evil-youtube.com/watch?v=12345678901",
             "https://youtube.com.attacker.com/watch?v=12345678901",
@@ -138,6 +139,9 @@ class TestProcessEndpointAdversarialFuzzing:
             "https://artist.bandcamp.com/track/song",
             "https://vimeo.com/12345678",
             "https://archive.org/details/some-item/track01.mp3",
+            "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+            "https://music.apple.com/us/album/x/1559885420?i=1559885421",
+            "https://tidal.com/browse/track/77646168",
         ],
     )
     def test_process_valid_identifiers_accepted(

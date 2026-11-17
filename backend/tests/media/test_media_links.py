@@ -112,7 +112,7 @@ def test_links_that_are_not_one_song_say_what_to_paste(text, hint):
     [
         "dQw4w9WgXcQ",
         "never gonna give you up",
-        "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+        "https://www.deezer.com/track/3135556",
         "https://soundcloud.com.attacker.example/a/b",
         "",
         None,
@@ -123,4 +123,78 @@ def test_search_words_ids_and_other_sites_are_not_song_links(text):
 
 
 def test_messages_name_every_supported_site():
-    assert supported_sites_sentence() == "YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive"
+    assert supported_sites_sentence() == (
+        "YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music or TIDAL"
+    )
+
+
+@pytest.mark.parametrize(
+    "text,site,track_id,url",
+    [
+        (
+            "https://open.spotify.com/intl-de/track/4cOdK2wGLETKBW3PvgPWqT?si=abc",
+            "spotify",
+            "spotify-4cOdK2wGLETKBW3PvgPWqT",
+            "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+        ),
+        (
+            "https://open.spotify.com/embed/track/4cOdK2wGLETKBW3PvgPWqT",
+            "spotify",
+            "spotify-4cOdK2wGLETKBW3PvgPWqT",
+            "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+        ),
+        (
+            "https://music.apple.com/gb/album/never-gonna/1559885420?i=1559885421",
+            "applemusic",
+            "applemusic-1559885421",
+            "https://music.apple.com/gb/album/never-gonna/1559885420?i=1559885421",
+        ),
+        (
+            "https://music.apple.com/us/song/never-gonna-give-you-up/1559885421",
+            "applemusic",
+            "applemusic-1559885421",
+            "https://music.apple.com/us/song/never-gonna-give-you-up/1559885421",
+        ),
+        (
+            "https://tidal.com/browse/track/77646168?u",
+            "tidal",
+            "tidal-77646168",
+            "https://tidal.com/track/77646168",
+        ),
+        (
+            "listen.tidal.com/album/77646153/track/77646168",
+            "tidal",
+            "tidal-77646168",
+            "https://tidal.com/track/77646168",
+        ),
+    ],
+)
+def test_streaming_links_are_looked_up_by_the_services_song_id(text, site, track_id, url):
+    link = parse_media_link(text)
+    assert (link.site, link.track_id, link.url) == (site, track_id, url)
+    assert link.lookup
+    assert link.source_id == track_id.split("-", 1)[1]
+
+
+def test_download_sites_are_not_looked_up():
+    assert not parse_media_link("https://soundcloud.com/forss/flickermood").lookup
+    assert not parse_media_link("https://youtu.be/dQw4w9WgXcQ").lookup
+
+
+@pytest.mark.parametrize(
+    "text,hint",
+    [
+        ("https://open.spotify.com/album/5Z9iiGl2FcIfa3BMiv6OIw", "Copy Song Link"),
+        ("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M", "Copy Song Link"),
+        ("https://open.spotify.com/", "open.spotify.com/track"),
+        ("https://music.apple.com/us/album/whenever/1559885420", "Copy Link"),
+        ("https://music.apple.com/us/playlist/x/pl.123", "Copy Link"),
+        ("https://music.apple.com/us/browse", "one song on Apple Music"),
+        ("https://tidal.com/browse/album/77646153", "Copy Track Link"),
+        ("https://tidal.com/browse/playlist/abc", "Copy Track Link"),
+        ("https://tidal.com/", "tidal.com/track"),
+    ],
+)
+def test_streaming_links_that_are_not_one_song_say_how_to_copy_one(text, hint):
+    with pytest.raises(UnusableLink, match=hint):
+        parse_media_link(text)

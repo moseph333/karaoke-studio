@@ -20,6 +20,7 @@ from backend.services.media_links import (
     link_site,
     parse_media_link,
 )
+from backend.services.song_lookup import fetch_song_info, find_on_youtube
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +75,26 @@ def track_artist(meta: dict[str, Any] | None, fallback: str) -> tuple[str, bool]
     return fallback, False
 
 
+# Matched YouTube uploads a Spotify, Apple Music or TIDAL song tries before giving up
+LOOKUP_ATTEMPTS = 3
+
+
 class TrackDownloader:
     def __init__(self, output_dir: Path = DOWNLOADS_DIR):
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def search_tracks(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
-        """Search YouTube/YouTube Music for tracks."""
+        """Search YouTube/YouTube Music for tracks; a failed search finds nothing."""
+        try:
+            return self.search_tracks_or_raise(query, limit)
+        except Exception as e:
+            logger.warning(f"Error during YouTube search for query '{query}': {e}")
+            return []
+
+    def search_tracks_or_raise(self, query: str, limit: int = 5) -> list[dict[str, Any]]:
+        """search_tracks, raising yt-dlp's error when the search itself fails (so a song
+        lookup can tell "YouTube did not answer" from "no upload matches")."""
         if not query or not query.strip():
             return []
 
@@ -95,37 +109,31 @@ class TrackDownloader:
         # the server's network, and "scsearch:" or "ytsearchall:" would pick another site or
         # lift the result cap. With the prefix, everything after it is search text.
         search = f"ytsearch{bounded_limit}:{query.strip()}"
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(search, download=False)
-                if not info or "entries" not in info:
-                    return []
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(search, download=False)
+            if not info or "entries" not in info:
+                return []
 
-                results = []
-                for entry in info["entries"]:
-                    if not entry:
-                        continue
-                    results.append(
-                        {
-                            "id": entry.get("id"),
-                            "title": entry.get("title"),
-                            "artist": entry.get("uploader")
-                            or entry.get("channel")
-                            or "Unknown Artist",
-                            "duration": entry.get("duration", 0),
-                            "url": f"https://www.youtube.com/watch?v={entry.get('id')}",
-                            "thumbnail": entry.get("thumbnail")
-                            or (
-                                entry.get("thumbnails", [{}])[-1].get("url")
-                                if entry.get("thumbnails")
-                                else None
-                            ),
-                        }
-                    )
-                return results
-        except Exception as e:
-            logger.warning(f"Error during YouTube search for query '{query}': {e}")
-            return []
+            results = []
+            for entry in info["entries"]:
+                if not entry:
+                    continue
+                results.append(
+                    {
+                        "id": entry.get("id"),
+                        "title": entry.get("title"),
+                        "artist": entry.get("uploader") or entry.get("channel") or "Unknown Artist",
+                        "duration": entry.get("duration", 0),
+                        "url": f"https://www.youtube.com/watch?v={entry.get('id')}",
+                        "thumbnail": entry.get("thumbnail")
+                        or (
+                            entry.get("thumbnails", [{}])[-1].get("url")
+                            if entry.get("thumbnails")
+                            else None
+                        ),
+                    }
+                )
+            return results
 
     @staticmethod
     def extract_video_id(url_or_id: str | None) -> str | None:
@@ -221,24 +229,32 @@ class TrackDownloader:
 
         return None
 
-    def extract_info_and_download(self, url_or_id: str, progress_hook=None) -> dict[str, Any]:
+    def extract_info_and_download(
+        self, url_or_id: str, progress_hook=None, *, file_stem: str | None = None
+    ) -> dict[str, Any]:
         """Download the audio and thumbnail of a YouTube video (link or id) or of a song on
-        another supported site (see ``media_links``)."""
+        another supported site (see ``media_links``). ``file_stem`` names a YouTube video's
+        files (and the returned id) instead of its video id: a song matched from Spotify,
+        Apple Music or TIDAL keeps its own files, apart from a song made from the video."""
         if not url_or_id or not str(url_or_id).strip():
             raise ValueError("URL or video ID cannot be empty")
 
         url_or_id = str(url_or_id).strip()
         if link_site(url_or_id) not in (None, "youtube"):
-            return self._download_from_site(parse_media_link(url_or_id), progress_hook)
+            link = parse_media_link(url_or_id)
+            if link.lookup:
+                return self._download_by_lookup(link, progress_hook)
+            return self._download_from_site(link, progress_hook)
         video_id = self.extract_video_id(url_or_id)
-        wav_path = self.output_dir / f"{video_id}.wav" if video_id else None
+        stem = file_stem or video_id
+        wav_path = self.output_dir / f"{stem}.wav" if stem else None
 
         # Check for existing local cached audio (non-empty)
         if wav_path and wav_path.is_file() and wav_path.stat().st_size > 0:
-            logger.info(f"Local audio file already cached for {video_id}, skipping download.")
+            logger.info(f"Local audio file already cached for {stem}, skipping download.")
             thumb_path = None
             for ext in ["webp", "jpg", "jpeg", "png"]:
-                candidate = self.output_dir / f"{video_id}.{ext}"
+                candidate = self.output_dir / f"{stem}.{ext}"
                 if candidate.is_file() and candidate.stat().st_size > 0:
                     thumb_path = candidate
                     break
@@ -281,7 +297,7 @@ class TrackDownloader:
             )
 
             return {
-                "id": video_id,
+                "id": stem,
                 "title": clean_title,
                 "raw_title": title,
                 "artist": clean_artist,
@@ -304,7 +320,7 @@ class TrackDownloader:
 
         ydl_opts = {
             "format": "bestaudio/ba/b[height<=?720]/b",
-            "outtmpl": str(self.output_dir / "%(id)s.%(ext)s"),
+            "outtmpl": str(self.output_dir / f"{file_stem or '%(id)s'}.%(ext)s"),
             "postprocessors": [
                 {
                     "key": "FFmpegExtractAudio",
@@ -353,7 +369,7 @@ class TrackDownloader:
                 f"Failed to extract/download video from '{url}' across all client profiles. Errors: {summary}"
             ) from last_err
 
-        v_id = meta.get("id") or video_id
+        v_id = file_stem or meta.get("id") or video_id
         title = meta.get("title") or "Unknown Track"
         artist, artist_is_uploader = track_artist(meta, "Unknown Artist")
         duration = meta.get("duration", 0)
@@ -395,6 +411,44 @@ class TrackDownloader:
             "thumbnail_path": str(thumb_path) if thumb_path else None,
             "thumbnail_url": meta.get("thumbnail"),
             "url": url,
+        }
+
+    def _download_by_lookup(self, link: MediaLink, progress_hook=None) -> dict[str, Any]:
+        """A Spotify, Apple Music or TIDAL song: read its title, artist and length from the
+        service, find the same recording on YouTube and download that. The song keeps the
+        service's title and artist, which find the lyrics better than a video title, and its
+        link as ``url``, so Try again looks it up again; ``song_match`` records what was
+        matched."""
+        info = fetch_song_info(link)
+        matches = find_on_youtube(info, self.search_tracks_or_raise)[:LOOKUP_ATTEMPTS]
+        result: dict[str, Any] = {}
+        for attempt, match in enumerate(matches, start=1):
+            try:
+                result = self.extract_info_and_download(
+                    match["url"], progress_hook, file_stem=link.track_id
+                )
+                break
+            except Exception as e:
+                # An upload blocked where the server is, or removed since the search: the
+                # next match is the same song. YouTube's bot check blocks every upload alike
+                if _is_cancel(e) or attempt == len(matches) or "not a bot" in str(e).lower():
+                    raise
+                logger.warning(f"Matched upload {match.get('id')} failed, trying the next: {e}")
+        title, artist = LyricsNormalizer.normalize_track_metadata(info.title, info.artist)
+        return {
+            **result,
+            "title": title,
+            "artist": artist,
+            "url": link.url,
+            "song_match": {
+                "site": link.site,
+                "title": info.title,
+                "artist": ", ".join(info.artists),
+                "duration": info.duration,
+                "youtube_id": match.get("id"),
+                "youtube_title": result.get("raw_title"),
+                "youtube_url": match["url"],
+            },
         }
 
     def _thumbnail_for(self, stem: str) -> Path | None:

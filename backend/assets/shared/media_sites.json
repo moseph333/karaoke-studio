@@ -4,37 +4,69 @@
       "id": "youtube",
       "name": "YouTube",
       "domains": ["youtube.com", "youtu.be", "youtube-nocookie.com"],
-      "example": "youtube.com/watch?v=…"
+      "example": "youtube.com/watch?v=…",
+      "kind": "download"
     },
     {
       "id": "soundcloud",
       "name": "SoundCloud",
       "domains": ["soundcloud.com"],
-      "example": "soundcloud.com/artist/song"
+      "example": "soundcloud.com/artist/song",
+      "kind": "download"
     },
     {
       "id": "bandcamp",
       "name": "Bandcamp",
       "domains": ["bandcamp.com"],
-      "example": "artist.bandcamp.com/track/song"
+      "example": "artist.bandcamp.com/track/song",
+      "kind": "download"
     },
     {
       "id": "vimeo",
       "name": "Vimeo",
       "domains": ["vimeo.com"],
-      "example": "vimeo.com/123456789"
+      "example": "vimeo.com/123456789",
+      "kind": "download"
     },
     {
       "id": "archive",
       "name": "Internet Archive",
       "domains": ["archive.org"],
-      "example": "archive.org/details/item"
+      "example": "archive.org/details/item",
+      "kind": "download"
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "domains": ["spotify.com"],
+      "example": "open.spotify.com/track/…",
+      "kind": "lookup"
+    },
+    {
+      "id": "applemusic",
+      "name": "Apple Music",
+      "domains": ["music.apple.com", "itunes.apple.com"],
+      "example": "music.apple.com/…/album/…?i=…",
+      "kind": "lookup"
+    },
+    {
+      "id": "tidal",
+      "name": "TIDAL",
+      "domains": ["tidal.com"],
+      "example": "tidal.com/track/…",
+      "kind": "lookup"
     }
   ],
   "host_cases": [
-    { "text": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "site": "youtube" },
+    {
+      "text": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "site": "youtube"
+    },
     { "text": "youtu.be/dQw4w9WgXcQ", "site": "youtube" },
-    { "text": "https://music.youtube.com/watch?v=dQw4w9WgXcQ", "site": "youtube" },
+    {
+      "text": "https://music.youtube.com/watch?v=dQw4w9WgXcQ",
+      "site": "youtube"
+    },
     { "text": "https://soundcloud.com/artist/song", "site": "soundcloud" },
     { "text": "https://m.soundcloud.com/artist/song", "site": "soundcloud" },
     { "text": "https://on.soundcloud.com/AbCdEf123", "site": "soundcloud" },
@@ -44,12 +76,37 @@
     { "text": "https://vimeo.com/123456789", "site": "vimeo" },
     { "text": "https://player.vimeo.com/video/123456789", "site": "vimeo" },
     { "text": "https://archive.org/details/some-item", "site": "archive" },
-    { "text": "www.archive.org/download/some-item/track.mp3", "site": "archive" },
-    { "text": "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT", "site": null },
-    { "text": "https://music.apple.com/us/album/x/1", "site": null },
+    {
+      "text": "www.archive.org/download/some-item/track.mp3",
+      "site": "archive"
+    },
+    {
+      "text": "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT",
+      "site": "spotify"
+    },
+    { "text": "https://music.apple.com/us/album/x/1", "site": "applemusic" },
+    {
+      "text": "https://open.spotify.com/intl-de/track/4cOdK2wGLETKBW3PvgPWqT?si=abc",
+      "site": "spotify"
+    },
+    {
+      "text": "https://geo.music.apple.com/us/song/x/1559885421",
+      "site": "applemusic"
+    },
+    {
+      "text": "https://itunes.apple.com/us/album/x/1?i=2",
+      "site": "applemusic"
+    },
+    { "text": "https://www.apple.com/music/", "site": null },
+    { "text": "https://tidal.com/browse/track/77646168", "site": "tidal" },
+    { "text": "listen.tidal.com/track/77646168", "site": "tidal" },
+    { "text": "https://www.deezer.com/track/3135556", "site": null },
     { "text": "https://notsoundcloud.com/artist/song", "site": null },
     { "text": "https://soundcloud.com.evil.example/artist/song", "site": null },
-    { "text": "https://evil.example/?u=soundcloud.com/artist/song", "site": null },
+    {
+      "text": "https://evil.example/?u=soundcloud.com/artist/song",
+      "site": null
+    },
     { "text": "dQw4w9WgXcQ", "site": null },
     { "text": "never gonna give you up", "site": null }
   ]
