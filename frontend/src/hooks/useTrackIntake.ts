@@ -1,5 +1,6 @@
 /**
- * Track intake: starts processing for a YouTube URL/search pick or an uploaded audio file
+ * Track intake: starts processing for a song link (YouTube, SoundCloud, Bandcamp, Vimeo,
+ * Internet Archive), a YouTube search pick or an uploaded audio file
  * and hands the queued project to the app. Remembers the stem separation quality the user
  * picked (none means the server's default).
  */

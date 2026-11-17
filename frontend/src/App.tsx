@@ -25,7 +25,7 @@ import { useProjectPolling } from './hooks/useProjectPolling';
 import { useRenderOutcomeToast } from './hooks/useRenderOutcomeToast';
 import { useFirstSongGuide } from './hooks/useFirstSongGuide';
 import { useGuideActions } from './hooks/useGuideActions';
-import { isUploadedSong } from './utils/processingErrors';
+import { isUploadedSong, retryInput } from './utils/processingErrors';
 import type { HelpTab } from './utils/guideActions';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
@@ -579,11 +579,12 @@ export const AppContent: React.FC = () => {
                   setProject(null);
                   setActiveWorkspaceTab('stage');
                 }}
-                // The server starts a YouTube song again from its id; an upload is sent again
+                // The server starts a song again from its link (a YouTube song also from its
+                // id); an upload is sent again
                 onRetry={
                   isUploadedSong(project)
                     ? undefined
-                    : () => void intake.handleSelectTrack(project.track_id ?? project.id)
+                    : () => void intake.handleSelectTrack(retryInput(project))
                 }
                 isRetrying={intake.loading}
               />

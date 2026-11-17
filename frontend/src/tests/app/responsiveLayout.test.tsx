@@ -442,7 +442,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
         />
       );
 
-      const searchInput = screen.getByLabelText(/paste youtube/i);
+      const searchInput = screen.getByLabelText(/paste a song link/i);
       expect(searchInput.className).toContain('min-h-[48px]');
 
       const searchBtn = screen.getByRole('button', { name: /search youtube/i });

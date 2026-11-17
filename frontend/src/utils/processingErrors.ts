@@ -79,8 +79,15 @@ export function explainProcessingError(error?: string | null): ErrorExplanation 
   return rule ? { summary: rule.summary, advice: rule.advice } : UNKNOWN;
 }
 
-/** Songs made from an uploaded file: the server can start a YouTube song again from its id,
- * but an upload has to be sent again. */
+/** Songs made from an uploaded file: the server can start a linked song again, but an upload
+ * has to be sent again. */
 export function isUploadedSong(project: Pick<ProjectState, 'id'>): boolean {
   return project.id.startsWith('local_');
+}
+
+/** What "Try again" sends to start a linked song again: its link, kept from the start, else
+ * its YouTube video id (songs from before links were kept). Another site's track id cannot
+ * be downloaded from, so it is never sent. */
+export function retryInput(project: Pick<ProjectState, 'id' | 'track_id' | 'url'>): string {
+  return project.url || project.track_id || project.id;
 }

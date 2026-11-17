@@ -535,7 +535,7 @@ describe('Milestone 3 Challenger 2: Adversarial Evaluation of Layout Geometry & 
       );
 
       // Verify search input meets >= 48px
-      const input = screen.getByLabelText(/paste youtube/i);
+      const input = screen.getByLabelText(/paste a song link/i);
       expect(input.className).toContain('min-h-[48px]');
 
       // Verify search button meets >= 36px / sm:44px

@@ -196,8 +196,11 @@ export interface RealignLineResult {
 
 export interface ProjectState {
   id: string;
-  /** The YouTube video the song was made from; uploads have none. */
+  /** The song's audio: a YouTube video id, or `<site>-<id>` for a SoundCloud, Bandcamp,
+   * Vimeo or Internet Archive link; uploads have none. */
   track_id?: string;
+  /** The link the song was downloaded from, kept from the start; uploads have none. */
+  url?: string;
   /** A card-sized entry from GET /api/projects?summary=1: no lines, chords or media URLs.
    * The song is fetched in full (GET /api/project/{id}) before it is opened. */
   summary?: boolean;

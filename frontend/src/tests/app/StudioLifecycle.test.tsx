@@ -165,7 +165,9 @@ describe('Studio Dashboard Lifecycle & Header Controls', () => {
     // Studio view resets and returns to TrackSearch library
     await waitFor(() => {
       expect(screen.queryByText('Studio Anthem')).not.toBeInTheDocument();
-      expect(screen.getByPlaceholderText(/Paste YouTube.*or search.*title/i)).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText(/Paste a song link or search song title/i)
+      ).toBeInTheDocument();
     });
   });
 });

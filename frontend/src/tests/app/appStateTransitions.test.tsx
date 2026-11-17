@@ -80,7 +80,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       // 1. Initial Landing state verification
       const searchInput = screen.getByRole('textbox', {
-        name: /Paste YouTube or YouTube Music URL or search song title/i,
+        name: /Paste a song link or search song title/i,
       });
       expect(searchInput).toBeInTheDocument();
       expect(searchInput.className).toMatch(/min-h-\[48px\]/);
@@ -654,7 +654,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       );
 
       const input = screen.getByRole('textbox', {
-        name: /Paste YouTube or YouTube Music URL or search song title/i,
+        name: /Paste a song link or search song title/i,
       });
 
       const unicodeQuery = '🎵 日本語カラオケ • Студия караоке 🎤 Extra Spacing   ';
