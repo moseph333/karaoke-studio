@@ -1,0 +1,167 @@
+/**
+ * Fix a problem: what a user is likely to say is wrong with a song, why it happens and the
+ * steps that fix it. Help's "Fix a problem" tab lists these, with a button for each action
+ * while a song is open. The README's "When results are off" table says the same in short;
+ * keep the two in step by hand.
+ */
+
+import type { GuideAction } from './guideActions';
+
+export interface Problem {
+  id: string;
+  /** The symptom, as the user would put it. */
+  symptom: string;
+  /** Why it happens, when that helps choose a fix. */
+  why?: string;
+  steps: string[];
+  /** Places in the studio the steps lead to. */
+  actions: GuideAction[];
+}
+
+export const PROBLEMS: Problem[] = [
+  {
+    id: 'no-lyrics',
+    symptom: 'There are no lyrics',
+    why: 'No lyrics listing matched the song’s title and artist. It happens with rare songs and with titles that carry extras such as “Official Video”.',
+    steps: [
+      'Press Re-import in the timeline.',
+      'Search again with a simpler title or the original artist, or paste the lyrics yourself as plain text or an .lrc file.',
+      'Pasted words are timed to the singing for you.',
+    ],
+    actions: ['find-lyrics'],
+  },
+  {
+    id: 'wrong-lyrics',
+    symptom: 'The lyrics are for another song, or another version of it',
+    why: 'Lyrics are looked up by title and artist, so a live take, a remix or a cover can pick up the studio version’s words.',
+    steps: [
+      'If the song’s title or artist is wrong, fix it first with the pencil next to the title.',
+      'Press Re-import, open “Re-query LRCLIB” and search. Each listing says whether it is word-timed and flags sloppy transcriptions.',
+      'Preview a listing, then apply the one that matches what is sung.',
+    ],
+    actions: ['find-lyrics'],
+  },
+  {
+    id: 'all-off',
+    symptom: 'The words light up early or late through the whole song',
+    steps: [
+      'Press Offset in the timeline and shift every line earlier or later. Start with 0.1 to 0.5 seconds.',
+      'If the gap changes as the song goes on, re-time every line instead. Lines you timed by hand are kept.',
+    ],
+    actions: ['offset', 'realign-all'],
+  },
+  {
+    id: 'part-off',
+    symptom: 'One part is out of time',
+    steps: [
+      'Press “Needs review” above the timeline to see only the lines the studio is unsure about.',
+      'Open a line’s menu (⋯) and choose “Re-align this line”.',
+      'Or nudge the line with its arrows, or expand it to move single words.',
+      'For a long stretch, use Tap sync: play the song and tap as each line starts.',
+    ],
+    actions: ['review-lines'],
+  },
+  {
+    id: 'missing-parts',
+    symptom: 'Some sung parts have no words',
+    why: 'Lyrics often write a repeated chorus once. The studio adds the repeats it can hear and lists the rest above the timeline as “Vocals without lyrics”.',
+    steps: [
+      'Press a time in that notice to hear the part.',
+      'Add a line there (a line’s ⋯ menu, Insert below) and type the words.',
+      'Choose “Re-align this line” to time them.',
+    ],
+    actions: ['uncovered-vocals'],
+  },
+  {
+    id: 'singer-audible',
+    symptom: 'I can still hear the singer',
+    why: 'Either the guide vocal is turned up, or the separation left some of the voice in the backing track. Fast quality leaves the most.',
+    steps: [
+      'In Audio mix, set Guide vocal to Off.',
+      'Still there? Press Improve next to Stems and pick Balanced or Best. The song stays playable while the stems are re-made.',
+    ],
+    actions: ['mix', 'improve-stems'],
+  },
+  {
+    id: 'thin-backing',
+    symptom: 'The backing track sounds thin or watery',
+    why: 'Separation takes a little of the music away with the voice, most on dense mixes and at Fast quality.',
+    steps: [
+      'Re-make the stems at a better quality.',
+      'If you have the real instrumental, use Replace next to Instrumental in Audio mix.',
+    ],
+    actions: ['improve-stems', 'mix'],
+  },
+  {
+    id: 'fell-back',
+    symptom: 'I asked for Best quality and got Fast',
+    why: 'When the better model cannot run (the cloud GPU is busy or unreachable, the model is not installed, there is too little memory) the studio falls back so you still get a song.',
+    steps: [
+      'Open the song check-up: it says which quality was used and why.',
+      'Re-make the stems later, when the better model can run.',
+    ],
+    actions: ['checkup', 'improve-stems'],
+  },
+  {
+    id: 'duet',
+    symptom: 'It is a duet, but every line has the same colour',
+    why: 'A song is split between two singers only when their voices are clearly different.',
+    steps: [
+      'Press Duet parts in the timeline.',
+      'Try By Voice first. If it finds one voice, use Alternating, or set lines one by one with the singer chip on each line.',
+      'Name the singers with the pencil next to the song title.',
+    ],
+    actions: ['duet'],
+  },
+  {
+    id: 'key',
+    symptom: 'The song is too high or too low for me',
+    steps: [
+      'In Audio mix, shift the key up or down. The tempo stays the same.',
+      'Smart Recommender suggests a key from the song’s vocal range.',
+    ],
+    actions: ['mix'],
+  },
+  {
+    id: 'processing-failed',
+    symptom: 'Processing failed, or seems stuck',
+    why: 'Most failures are the download: the video is private, age-restricted, blocked where the server is, or was removed. A server restart also stops a song.',
+    steps: [
+      'Open the failed song from the library and press Try again.',
+      'If it fails the same way, download the audio yourself and add it under Local Audio File.',
+      'A server’s first Balanced or Best song downloads its model once, which can take several minutes with little progress.',
+      'You can leave the page: the song keeps processing and waits in the library.',
+    ],
+    actions: [],
+  },
+  {
+    id: 'job-failed',
+    symptom: 'Re-timing the lyrics or re-making the stems failed',
+    why: 'Only one job runs on a song at a time, and a server restart stops the one that is running. The song keeps its previous timing and stems, so nothing is lost.',
+    steps: [
+      'Open the song check-up for the reason.',
+      'Wait for any running job to finish, then start it again.',
+    ],
+    actions: ['checkup'],
+  },
+];
+
+/** The first-song steps, as Help's usage guide spells them out. */
+export const FIRST_SONG_STEPS: { title: string; text: string }[] = [
+  {
+    title: 'Play and sing',
+    text: 'Press Space or the play button. The words light up as they are sung.',
+  },
+  {
+    title: 'Check lyrics',
+    text: 'The check-up button next to the song title counts what looks off and takes you to each fix.',
+  },
+  {
+    title: 'Set your key',
+    text: 'In Audio mix, shift the key to your range and turn the guide vocal up or down.',
+  },
+  {
+    title: 'Make a video',
+    text: 'Export renders a 1080p karaoke video, or gives you subtitle files and the stems.',
+  },
+];

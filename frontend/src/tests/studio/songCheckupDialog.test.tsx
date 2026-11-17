@@ -108,7 +108,7 @@ describe('the dialog', () => {
       within(dialog)
         .getAllByRole('button')
         .map((b) => b.textContent)
-    ).toEqual(['', 'Close']);
+    ).toEqual(['', 'Not listed? Fix a problem', 'Close']);
   });
 
   it('drops the Fast stems tip once the server says it has nothing better', async () => {

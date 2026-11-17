@@ -61,7 +61,17 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
       >
         Your first song
       </h2>
-      <p className="text-xs text-theme-text-muted">Four steps, in any order.</p>
+      <button
+        type="button"
+        onClick={() => onAction('help-fix')}
+        className={cn(
+          // A 44px target on phones that does not make the card taller
+          '-my-3 inline-flex min-h-[44px] items-center rounded-theme-sm text-left text-xs text-theme-text-muted underline decoration-theme-border underline-offset-2 hover:text-theme-text md:-my-1 md:min-h-[24px]',
+          focusRing
+        )}
+      >
+        Something off? Fix a problem
+      </button>
     </div>
     <ol className="order-3 grid basis-full grid-cols-2 gap-2 lg:grid-cols-4 xl:order-2 xl:basis-0 xl:flex-1">
       {steps(toCheck).map(({ action, Icon, title, hint }, index) => (

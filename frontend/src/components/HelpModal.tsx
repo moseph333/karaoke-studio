@@ -1,8 +1,10 @@
 /**
  * Help & Usage Guide Modal Component
  *
- * In-app help with two tabs: a keyboard shortcut reference grouped by area (with the
- * typing/modal isolation note) and the five-stage studio workflow guide.
+ * In-app help with three tabs: a keyboard shortcut reference grouped by area (with the
+ * typing/modal isolation note), the studio usage guide (the first-song steps, what to expect
+ * and the workflow stage by stage) and "Fix a problem" (`utils/troubleshooting`), whose
+ * buttons go to the tool that fixes each problem while a song is open.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -17,7 +19,10 @@ import {
   Download,
   Info,
   Check,
+  ChevronDown,
   Smartphone,
+  Stethoscope,
+  Wrench,
 } from 'lucide-react';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
@@ -26,11 +31,21 @@ import { Tabs } from './ui/Tabs';
 import { modKeyLabel } from '../utils/platform';
 import { characterShortcutsEnabled, setCharacterShortcutsEnabled } from '../utils/shortcutPrefs';
 import { useServerVersion } from '../hooks/useServerVersion';
+import { GUIDE_ACTION_LABELS, type GuideAction, type HelpTab } from '../utils/guideActions';
+import { FIRST_SONG_STEPS, PROBLEMS } from '../utils/troubleshooting';
+import { cn } from '../utils/cn';
+import { focusRing } from './ui/variants';
 
 export interface HelpModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'shortcuts' | 'guide';
+  initialTab?: HelpTab;
+  /** A finished song is open, so the fixes can take the user to its tools. */
+  songOpen?: boolean;
+  /** Carries out a fix's action; the caller closes this dialog first. */
+  onAction?: (action: GuideAction) => void;
+  /** Brings back the studio's first-song card; left out while it is showing. */
+  onShowFirstSongSteps?: () => void;
 }
 
 interface ShortcutItem {
@@ -220,9 +235,10 @@ const STAGES: GuideStage[] = [
     badge: 'AI Engine',
     summary: 'Automated vocal isolation, vocal range/key detection, and acoustic word alignment.',
     features: [
-      'Demucs AI separates clean vocals from backing instrumental tracks and detects vocal range & key',
+      'Vocals are separated from the backing track at the quality you pick (Fast, Balanced or Best), and the vocal range & key are detected',
       'Synchronized lyrics are fetched automatically from LRCLIB or parsed from your LRC tags',
       'Hot-swap or re-import custom/LRCLIB lyrics anytime inside the studio without re-separating stems',
+      'Re-make the stems at a better quality later with Improve in Audio mix; the song stays playable meanwhile',
     ],
   },
   {
@@ -233,6 +249,7 @@ const STAGES: GuideStage[] = [
     summary: 'Fine-tune line and word timings, assign duet parts, and use power tools.',
     features: [
       'Scrub interactive audio waveform and observe live word-by-word progressive karaoke sweeps',
+      'Filter to the lines that need review, and re-align one line from its menu or every line in the background',
       'Assign Duet / Multi-Singer roles (Singer 1, Singer 2, Both) per line or via bulk/auto-split',
       'Use Undo/Redo (Ctrl+Z / Ctrl+Y), Batch Timestamp Offset, and live Tap-to-Sync [T] beat stamping',
       'Edit line text inline, insert new lines above/below, or delete unwanted lyric lines',
@@ -283,8 +300,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({
   isOpen,
   onClose,
   initialTab = 'shortcuts',
+  songOpen = false,
+  onAction,
+  onShowFirstSongSteps,
 }) => {
-  const [activeTab, setActiveTab] = useState<'shortcuts' | 'guide'>(initialTab);
+  const [activeTab, setActiveTab] = useState<HelpTab>(initialTab);
+  const canAct = songOpen && Boolean(onAction);
   const [characterKeysOn, setCharacterKeysOn] = useState(characterShortcutsEnabled);
   const serverVersion = useServerVersion(isOpen);
 
@@ -299,6 +320,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({
     }
   }, [isOpen, initialTab]);
 
+  // The tab list scrolls sideways on phones: keep the selected tab in view, since guidance
+  // can open the dialog on the last one
+  useEffect(() => {
+    if (!isOpen) return;
+    document
+      .getElementById(`tab-${activeTab}`)
+      ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+  }, [isOpen, activeTab]);
+
   return (
     <Dialog
       open={isOpen}
@@ -312,14 +342,14 @@ export const HelpModal: React.FC<HelpModalProps> = ({
       <DialogHeader
         title="Karaoke Studio Help & Usage Guide"
         titleId="help-modal-title"
-        description="Keyboard shortcuts reference and studio workflow guide"
+        description="Keyboard shortcuts, the studio workflow and fixes for common problems"
         descriptionId="help-modal-desc"
         icon={<HelpCircle className="h-5 w-5" />}
         onClose={onClose}
         closeLabel="Close help and usage guide"
       />
 
-      <Tabs<'shortcuts' | 'guide'>
+      <Tabs<HelpTab>
         ariaLabel="Help topics"
         value={activeTab}
         onChange={setActiveTab}
@@ -340,10 +370,16 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             icon: <BookOpen className="h-4 w-4" aria-hidden="true" />,
             controls: 'tabpanel-guide',
           },
+          {
+            id: 'fix',
+            label: 'Fix a problem',
+            icon: <Wrench className="h-4 w-4" aria-hidden="true" />,
+            controls: 'tabpanel-fix',
+          },
         ]}
       />
 
-      {activeTab === 'shortcuts' ? (
+      {activeTab === 'shortcuts' && (
         <div
           role="tabpanel"
           id="tabpanel-shortcuts"
@@ -411,7 +447,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             </div>
           </div>
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'guide' && (
         <div
           role="tabpanel"
           id="tabpanel-guide"
@@ -419,6 +457,53 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           tabIndex={0}
           className="space-y-3 focus:outline-none"
         >
+          <section
+            aria-labelledby="help-first-song-heading"
+            className="space-y-2.5 rounded-theme-lg border border-theme-accent/30 bg-theme-accent/10 p-3.5 sm:p-4"
+          >
+            <h3
+              id="help-first-song-heading"
+              className="font-theme-heading text-sm font-bold text-theme-text"
+            >
+              Your first song
+            </h3>
+            <ol className="space-y-1.5">
+              {FIRST_SONG_STEPS.map((step, index) => (
+                <li
+                  key={step.title}
+                  className="flex items-start gap-2 text-xs text-theme-text-muted"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-px font-mono text-[11px] font-semibold text-theme-highlight"
+                  >
+                    {index + 1}.
+                  </span>
+                  <span>
+                    <strong className="font-semibold text-theme-text">{step.title}.</strong>{' '}
+                    {step.text}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="border-t border-theme-accent/20 pt-2 text-xs text-theme-text-muted">
+              <strong className="font-semibold text-theme-text">What to expect.</strong> Songs are
+              made automatically. Most come out ready to sing; some need a lyric or a line&apos;s
+              timing fixed, and the studio marks which. See the Fix a problem tab.
+            </p>
+            {songOpen && onShowFirstSongSteps && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  onShowFirstSongSteps();
+                  onClose();
+                }}
+              >
+                Show the first-song steps
+              </Button>
+            )}
+          </section>
           {STAGES.map((stg) => {
             const IconComponent = stg.icon;
             return (
@@ -457,6 +542,86 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {activeTab === 'fix' && (
+        <div
+          role="tabpanel"
+          id="tabpanel-fix"
+          aria-labelledby="tab-fix"
+          tabIndex={0}
+          className="space-y-3 focus:outline-none"
+        >
+          <div className="flex items-start gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-3.5 text-xs sm:p-4">
+            <Stethoscope
+              className="mt-0.5 h-5 w-5 shrink-0 text-theme-highlight"
+              aria-hidden="true"
+            />
+            <div className="min-w-0 space-y-2">
+              <p className="leading-relaxed text-theme-text-muted">
+                Songs are made automatically, so a lyric, a line&apos;s timing or the vocal removal
+                can come out wrong. Pick what you notice below.{' '}
+                {canAct
+                  ? 'The song check-up lists what the studio itself sees in this song.'
+                  : 'Open a finished song and the fixes get buttons that take you to the right tool.'}
+              </p>
+              {canAct && (
+                <Button size="sm" variant="primary" onClick={() => onAction?.('checkup')}>
+                  {GUIDE_ACTION_LABELS.checkup}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <ul aria-label="Common problems" className="space-y-2">
+            {PROBLEMS.map((problem) => (
+              <li key={problem.id}>
+                <details
+                  data-problem={problem.id}
+                  className="group rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60"
+                >
+                  <summary
+                    className={cn(
+                      'flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 rounded-theme-lg px-3.5 py-2 font-theme-heading text-sm font-semibold text-theme-text sm:px-4 [&::-webkit-details-marker]:hidden',
+                      focusRing
+                    )}
+                  >
+                    <span className="min-w-0 text-pretty">{problem.symptom}</span>
+                    <ChevronDown
+                      className="h-4 w-4 shrink-0 text-theme-text-muted transition-transform group-open:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <div className="space-y-2.5 border-t border-theme-border-subtle px-3.5 py-3 text-xs sm:px-4">
+                    {problem.why && (
+                      <p className="leading-relaxed text-theme-text-muted">{problem.why}</p>
+                    )}
+                    <ol className="list-decimal space-y-1.5 pl-4 leading-relaxed text-theme-text marker:text-theme-text-muted">
+                      {problem.steps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                    {canAct && problem.actions.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-0.5">
+                        {problem.actions.map((action) => (
+                          <Button
+                            key={action}
+                            size="sm"
+                            variant="secondary"
+                            aria-label={`${GUIDE_ACTION_LABELS[action]} (${problem.symptom})`}
+                            onClick={() => onAction?.(action)}
+                          >
+                            {GUIDE_ACTION_LABELS[action]}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
