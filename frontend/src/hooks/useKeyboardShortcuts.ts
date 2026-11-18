@@ -89,6 +89,23 @@ export function isInputElement(element?: EventTarget | null): boolean {
   return false;
 }
 
+/**
+ * Whether the element takes typed text and so has its own undo: the lyric and chord undo
+ * shortcuts leave Ctrl/⌘+Z to it. Narrower than isInputElement on purpose: undo still works
+ * from a slider or another control that only looks like an input to the media shortcuts.
+ */
+export function isTextEntryElement(el: EventTarget | null): boolean {
+  if (!el || !(el instanceof HTMLElement)) return false;
+  const tag = el.tagName.toLowerCase();
+  return (
+    tag === 'input' ||
+    tag === 'textarea' ||
+    tag === 'select' ||
+    el.isContentEditable ||
+    el.getAttribute('contenteditable') === 'true'
+  );
+}
+
 // Controls that the browser presses on Space. Links are not among them: Space on a link
 // scrolls the page, so it stays play/pause there.
 const SPACE_ACTIVATED_SELECTOR = [
