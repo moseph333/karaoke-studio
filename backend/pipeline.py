@@ -9,7 +9,7 @@ from pathlib import Path
 
 import soundfile as sf
 
-from backend.background_jobs import release_cancel_event
+from backend.background_jobs import release_cancel_event, superseded
 from backend.config import DOWNLOADS_DIR
 from backend.errors import public_error
 from backend.master_audio import master_fields
@@ -285,6 +285,13 @@ def _progress_updater(project_id: str, cancel_event: threading.Event, started: f
     return update_pipe
 
 
+def _restarted(main_mod, project_id: str, cancel_event: threading.Event) -> bool:
+    """Whether the song was started again after this run was cancelled (Try again while the
+    old run was still queued or stopping). The song's status is the new run's from then on:
+    this run must not write "cancelled" or an error over it. Call with PROJECTS_LOCK held."""
+    return superseded(main_mod.active_cancellations, project_id, cancel_event)
+
+
 def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = None):
     import backend.main as main_mod
 
@@ -297,7 +304,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
     if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
         with PROJECTS_LOCK:
             proj = find_project(project_id)
-            if proj:
+            if proj and not _restarted(main_mod, project_id, cancel_event):
                 proj["status"] = "cancelled"
                 proj["status_detail"] = "Processing was cancelled by user"
                 proj["progress"] = 0
@@ -320,7 +327,7 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             logger.info(f"Project {project_id} was cancelled while queued")
             with PROJECTS_LOCK:
                 proj = find_project(project_id)
-                if proj:
+                if proj and not _restarted(main_mod, project_id, cancel_event):
                     proj["status"] = "cancelled"
                     proj["status_detail"] = "Processing was cancelled by user"
                     proj["progress"] = 0
@@ -430,7 +437,9 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             logger.error(f"Pipeline error for {project_id}: {e}", exc_info=True)
         with PROJECTS_LOCK:
             proj = find_project(project_id)
-            if proj is not None:
+            if proj is not None and _restarted(main_mod, project_id, cancel_event):
+                logger.info(f"Song {project_id} was started again; leaving its status alone.")
+            elif proj is not None:
                 if cancel_event.is_set():
                     proj["status"] = "cancelled"
                     proj["status_detail"] = "Processing was cancelled by user"
@@ -484,7 +493,7 @@ def run_local_pipeline(
     if cancel_event.is_set() or (proj and proj.get("status") == "cancelled"):
         with PROJECTS_LOCK:
             proj = find_project(project_id)
-            if proj:
+            if proj and not _restarted(main_mod, project_id, cancel_event):
                 proj["status"] = "cancelled"
                 proj["status_detail"] = "Processing was cancelled by user"
                 proj["progress"] = 0
@@ -506,7 +515,7 @@ def run_local_pipeline(
             logger.info(f"Local project {project_id} was cancelled while queued")
             with PROJECTS_LOCK:
                 proj = find_project(project_id)
-                if proj:
+                if proj and not _restarted(main_mod, project_id, cancel_event):
                     proj["status"] = "cancelled"
                     proj["status_detail"] = "Processing was cancelled by user"
                     proj["progress"] = 0
@@ -644,7 +653,9 @@ def run_local_pipeline(
             logger.error(f"Pipeline error for local track {project_id}: {e}", exc_info=True)
         with PROJECTS_LOCK:
             proj = find_project(project_id)
-            if proj is not None:
+            if proj is not None and _restarted(main_mod, project_id, cancel_event):
+                logger.info(f"Song {project_id} was started again; leaving its status alone.")
+            elif proj is not None:
                 if cancel_event.is_set():
                     proj["status"] = "cancelled"
                     proj["status_detail"] = "Processing was cancelled by user"
