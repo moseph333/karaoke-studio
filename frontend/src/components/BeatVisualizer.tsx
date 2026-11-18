@@ -63,6 +63,10 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
     dpr: 1,
   });
 
+  // Draws the resting frame again; set while nothing is animating. Sizing a canvas wipes
+  // it, and a paused visualizer has no next frame to paint it back.
+  const redrawIdleRef = useRef<(() => void) | null>(null);
+
   // Track container dimensions with ResizeObserver (zero-reflow inside RAF)
   useEffect(() => {
     const container = containerRef.current;
@@ -89,6 +93,7 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
         canvasRef.current.width = width * dpr;
         canvasRef.current.height = height * dpr;
       }
+      redrawIdleRef.current?.();
     };
 
     updateDimensions();
@@ -287,11 +292,13 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
     if (animate) {
       animationFrameId = requestAnimationFrame(draw);
     } else {
-      // Draw resting state frame once when paused
+      // Draw the resting frame once when paused, and again whenever the canvas is resized
       draw();
+      redrawIdleRef.current = draw;
     }
 
     return () => {
+      redrawIdleRef.current = null;
       if (animationFrameId) {
         cancelAnimationFrame(animationFrameId);
       }
