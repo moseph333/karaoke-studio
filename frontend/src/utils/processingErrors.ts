@@ -81,14 +81,15 @@ const RULES: { test: RegExp; summary: string; advice: string }[] = [
       'Try again. If it keeps failing, add the song again with Fast picked under Advanced options.',
   },
   {
-    test: /timed? ?out|connection|network|temporar|too many requests|http error (429|5\d\d)|unable to download|name resolution/i,
-    summary: 'The download did not get through.',
-    advice: 'This is usually temporary. Try again in a minute.',
-  },
-  {
+    // Before the download rule: "FFmpeg timed out" is about the audio, not the network
     test: /ffmpeg|could not (read|decode)|invalid data|unsupported|not found or empty/i,
     summary: 'The audio could not be read.',
     advice: 'Try another upload of the song, or another audio file (MP3, WAV, FLAC or M4A).',
+  },
+  {
+    test: /timed? ?out|connection|network|temporar|too many requests|http error (429|5\d\d)|unable to download|name resolution/i,
+    summary: 'The download did not get through.',
+    advice: 'This is usually temporary. Try again in a minute.',
   },
 ];
 
