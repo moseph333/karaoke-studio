@@ -179,57 +179,59 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
     # validator has already refused links that are not one song)
     link = parse_media_link(req.url_or_id)
     video_id = link.track_id if link else main_mod.downloader.extract_video_id(req.url_or_id)
-    if video_id:
-        for p_id, p in list(main_mod.projects.items()):
-            if p.get("id") == video_id or p.get("track_id") == video_id or p_id == video_id:
-                if p.get("status") == "ready":
-                    logger.info(f"Returning cached ready project {p_id} for {video_id}")
-                    return {"project_id": p.get("id", p_id), "status": "ready"}
-                elif p.get("status") in BUSY_PIPELINE_STATES:
-                    # Verify task is genuinely running in memory, not a stale session artifact
-                    is_active = (p_id in main_mod.active_cancellations) or (
-                        video_id in main_mod.active_cancellations
-                    )
-                    if is_active:
-                        logger.info(
-                            f"Project {p_id} for {video_id} already in progress ({p.get('status')})"
-                        )
-                        return {"project_id": p.get("id", p_id), "status": p.get("status")}
-                    logger.warning(
-                        f"Project {p_id} was left in state '{p.get('status')}' from a previous server session. Resuming pipeline."
-                    )
-
-    # A song that is already ready or running costs no disk; a new intake downloads and
-    # separates it
-    ensure_free_space()
-    ensure_not_draining()
-    project_id = video_id if video_id else str(uuid.uuid4())[:8]
-    previous = main_mod.projects.get(project_id)
-    if isinstance(previous, dict) and isinstance(previous.get("separation"), dict):
-        # A retry replaces the song, and with it the record of how its stems were made. Stems
-        # from before records were kept beside them would then count as Fast and be made again
-        stems_dir = getattr(main_mod, "STEMS_DIR", STEMS_DIR)
-        audio_id = previous.get("track_id") or previous.get("id") or project_id
-        adopt_provenance(stems_dir / audio_id, previous["separation"])
-    proj_data = {
-        "id": project_id,
-        "status": "queued",
-        "progress": 0,
-        "lines": [],
-        "semitones": 0,
-        "guide_volume": 0.0,
-        "created_by": req.created_by or "Friend",
-        "created_at": int(time.time()),
-    }
-    if video_id:
-        proj_data["track_id"] = video_id
-    if link:
-        # Kept from the start, so a song whose download failed can be tried again by its link
-        proj_data["url"] = link.url
-    if req.separation_quality:
-        proj_data["separation_quality"] = req.separation_quality
-    # Under the lock: a save or a project list running meanwhile iterates the store
+    # Checked and queued in one locked step: two requests for the same song at once (a double
+    # click, two singers pasting the same link) both passed the check before either had
+    # registered its run, and two pipelines then worked on the same files
     with PROJECTS_LOCK:
+        if video_id:
+            for p_id, p in list(main_mod.projects.items()):
+                if p.get("id") == video_id or p.get("track_id") == video_id or p_id == video_id:
+                    if p.get("status") == "ready":
+                        logger.info(f"Returning cached ready project {p_id} for {video_id}")
+                        return {"project_id": p.get("id", p_id), "status": "ready"}
+                    elif p.get("status") in BUSY_PIPELINE_STATES:
+                        # Verify task is genuinely running in memory, not a stale session artifact
+                        is_active = (p_id in main_mod.active_cancellations) or (
+                            video_id in main_mod.active_cancellations
+                        )
+                        if is_active:
+                            logger.info(
+                                f"Project {p_id} for {video_id} already in progress ({p.get('status')})"
+                            )
+                            return {"project_id": p.get("id", p_id), "status": p.get("status")}
+                        logger.warning(
+                            f"Project {p_id} was left in state '{p.get('status')}' from a previous server session. Resuming pipeline."
+                        )
+
+        # A song that is already ready or running costs no disk; a new intake downloads and
+        # separates it
+        ensure_free_space()
+        ensure_not_draining()
+        project_id = video_id if video_id else str(uuid.uuid4())[:8]
+        previous = main_mod.projects.get(project_id)
+        if isinstance(previous, dict) and isinstance(previous.get("separation"), dict):
+            # A retry replaces the song, and with it the record of how its stems were made. Stems
+            # from before records were kept beside them would then count as Fast and be made again
+            stems_dir = getattr(main_mod, "STEMS_DIR", STEMS_DIR)
+            audio_id = previous.get("track_id") or previous.get("id") or project_id
+            adopt_provenance(stems_dir / audio_id, previous["separation"])
+        proj_data = {
+            "id": project_id,
+            "status": "queued",
+            "progress": 0,
+            "lines": [],
+            "semitones": 0,
+            "guide_volume": 0.0,
+            "created_by": req.created_by or "Friend",
+            "created_at": int(time.time()),
+        }
+        if video_id:
+            proj_data["track_id"] = video_id
+        if link:
+            # Kept from the start, so a song whose download failed can be tried again by its link
+            proj_data["url"] = link.url
+        if req.separation_quality:
+            proj_data["separation_quality"] = req.separation_quality
         cancel_event = threading.Event()
         main_mod.active_cancellations[project_id] = cancel_event
         if video_id and video_id != project_id:
