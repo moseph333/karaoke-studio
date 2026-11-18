@@ -15,6 +15,7 @@ import {
   noteUndoableEdit,
   registerUndoScope,
 } from '../utils/undoRouter';
+import { isModalActive, isTextEntryElement } from './useKeyboardShortcuts';
 
 const DEFAULT_EMPTY_CHORDS: ChordSegment[] = [];
 
@@ -31,18 +32,6 @@ export interface UseChordHistoryOptions {
 
 const cloneChords = (chords: ChordSegment[]): ChordSegment[] => {
   return chords.map((c) => ({ ...c }));
-};
-
-const isInputElement = (el: EventTarget | null): boolean => {
-  if (!el || !(el instanceof HTMLElement)) return false;
-  const tag = el.tagName.toLowerCase();
-  return (
-    tag === 'input' ||
-    tag === 'textarea' ||
-    tag === 'select' ||
-    el.isContentEditable ||
-    el.getAttribute('contenteditable') === 'true'
-  );
 };
 
 export function useChordHistory({
@@ -248,7 +237,8 @@ export function useChordHistory({
     if (!enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isInputElement(e.target)) return;
+      // Not while typing (the field has its own undo), nor behind an open dialog
+      if (isTextEntryElement(e.target) || isModalActive(e.target)) return;
 
       const isMac =
         typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);

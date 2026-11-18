@@ -13,6 +13,7 @@ import {
   noteUndoableEdit,
   registerUndoScope,
 } from '../utils/undoRouter';
+import { isModalActive, isTextEntryElement } from './useKeyboardShortcuts';
 
 export interface UseLyricHistoryOptions {
   maxHistory?: number;
@@ -25,18 +26,6 @@ const cloneLines = (lines: LyricLine[]): LyricLine[] => {
     ...l,
     words: l.words ? l.words.map((w) => ({ ...w })) : [],
   }));
-};
-
-const isInputElement = (el: EventTarget | null): boolean => {
-  if (!el || !(el instanceof HTMLElement)) return false;
-  const tag = el.tagName.toLowerCase();
-  return (
-    tag === 'input' ||
-    tag === 'textarea' ||
-    tag === 'select' ||
-    el.isContentEditable ||
-    el.getAttribute('contenteditable') === 'true'
-  );
 };
 
 export function useLyricHistory({
@@ -143,7 +132,8 @@ export function useLyricHistory({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isInputElement(e.target)) return;
+      // Not while typing (the field has its own undo), nor behind an open dialog
+      if (isTextEntryElement(e.target) || isModalActive(e.target)) return;
 
       const isMac =
         typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
