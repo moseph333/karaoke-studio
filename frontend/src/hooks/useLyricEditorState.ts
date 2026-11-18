@@ -71,11 +71,14 @@ export function useLyricEditorState({
   const restoreTapCursorSnapshotRef = useRef<(direction?: 'undo' | 'redo') => number | null>(
     () => null
   );
+  const restoredTapCursorActive = useRef<{ current: boolean }>({ current: false });
 
   const handleApplySnapshot = useCallback((restored: LyricLine[], direction?: 'undo' | 'redo') => {
     setRawLines(restored);
     const restoredTargetIndex = restoreTapCursorSnapshotRef.current(direction);
-    if (restoredTargetIndex !== null) {
+    // Outside tap-to-sync the tap cursor sits on line 1: following it would collapse the
+    // line being edited and open the first one on every undo
+    if (restoredTargetIndex !== null && restoredTapCursorActive.current.current) {
       setSelectedLineId(restored[restoredTargetIndex]?.id ?? null);
     }
   }, []);
@@ -113,6 +116,7 @@ export function useLyricEditorState({
     handleTriggerTap,
     recordTapCursorSnapshot,
     restoreTapCursorSnapshot,
+    restoredTapCursorActiveRef,
     clearTapCursorHistory,
   } = useTapCursorHistory({
     editableLines,
@@ -127,6 +131,7 @@ export function useLyricEditorState({
 
   recordTapCursorSnapshotRef.current = recordTapCursorSnapshot;
   restoreTapCursorSnapshotRef.current = restoreTapCursorSnapshot;
+  restoredTapCursorActive.current = restoredTapCursorActiveRef;
 
   const clearHistory = useCallback(() => {
     clearRawHistory();
