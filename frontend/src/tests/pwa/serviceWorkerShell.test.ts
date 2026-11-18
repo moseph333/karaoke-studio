@@ -111,6 +111,15 @@ describe('service worker', () => {
     expect(other.respondWith).not.toHaveBeenCalled();
   });
 
+  it('leaves the API and media alone even when they are opened as a page', () => {
+    const worker = loadWorker(() => Promise.reject(new TypeError('Failed to fetch')));
+    for (const path of ['/static/output/song_karaoke.mp4', '/api/project/p1/lrc']) {
+      const event = fetchEvent(path, 'navigate');
+      worker.listeners.fetch(event);
+      expect(event.respondWith).not.toHaveBeenCalled();
+    }
+  });
+
   it('serves page loads from the network, never from cache', async () => {
     const worker = loadWorker(() => Promise.resolve(new Response('fresh page')));
     await install(worker);
