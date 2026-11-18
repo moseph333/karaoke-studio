@@ -193,9 +193,9 @@ def test_generate_ass_subtitles_escapes_special_characters(tmp_path):
 
     # Curly braces must be escaped so libass does not treat them as override tags
     assert "\\{override\\}" in content
-    # Backslashes must be escaped so libass does not interpret \\N as a newline
-    assert "\\\\N" in content
-    assert "AC\\\\DC" in content
+    # A backslash is parted from what follows so libass does not read \\N as a line break
+    assert "\\\u2060N" in content
+    assert "AC\\\u2060DC" in content
     # Standard karaoke sweep tag must still be valid unescaped braces
     assert "{\\kf" in content
 

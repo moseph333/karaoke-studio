@@ -456,9 +456,10 @@ class TestAssGeneratorLineModeAdversarial:
         ass = generate_ass_content([line], sync_mode="line", include_countdown=False)
         dialogues = parse_ass_dialogues(ass)
         txt = dialogues[0]["Text"]
-        # Backslash is escaped, so \N becomes \\N
+        # The backslash is parted from the N, so \N is drawn rather than breaking the line
         assert "\\{Roll\\}" in txt
-        assert "\\\\N" in txt  # Literal \N must have backslash escaped
+        assert "\\\u2060N" in txt
+        assert "\\N" not in txt
         assert "\\kf" not in txt
 
     def test_line_mode_multilingual_unicode(self):

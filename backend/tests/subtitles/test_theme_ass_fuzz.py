@@ -349,5 +349,5 @@ class TestHelperFunctionsFuzzing:
         assert escape_ass_text(None) == ""  # type: ignore
         assert escape_ass_text(123) == "123"  # type: ignore
         assert escape_ass_text("Normal lyrics") == "Normal lyrics"
-        assert escape_ass_text("Slash \\ and {curly}") == "Slash \\\\ and \\{curly\\}"
+        assert escape_ass_text("Slash \\ and {curly}") == "Slash \\\u2060 and \\{curly\\}"
         assert escape_ass_text("Multi\r\nline\rtext\n") == "Multi line text "

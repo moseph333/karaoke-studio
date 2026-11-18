@@ -233,7 +233,8 @@ def test_generate_ass_content_pathological_lines_and_words():
     assert "[Events]" in ass_result
 
     # Check that evil tags were escaped
-    assert r"Evil \{\\b1\} \\N \\h \{\\c&H0000FF&\} tags" in ass_result or r"\{\\b1\}" in ass_result
+    guarded = "Evil \\{\\⁠b1\\} \\⁠N \\⁠h \\{\\⁠c&H0000FF&\\} tags"
+    assert guarded in ass_result
 
 
 # ============================================================================

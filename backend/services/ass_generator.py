@@ -301,16 +301,22 @@ def format_ass_time(seconds: float) -> str:
     return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
 
-def escape_ass_text(text: str) -> str:
-    r"""Escapes ASS control characters ({, }, \) in lyric text
+# Follows each backslash a lyric contains. ASS has no escape for the backslash itself (libass
+# draws "\\" as two), so the only way to keep "\N", "\n", "\h" or a backslash before the next
+# word's "{" from acting is to part the pair. U+2060 WORD JOINER has no width, allows no line
+# break, and libass never draws it, whatever the font
+BACKSLASH_GUARD = "\u2060"
 
-    to prevent corrupting ASS override blocks or injecting unintended formatting.
-    """
+
+def escape_ass_text(text: str) -> str:
+    r"""Lyric text made safe for an ASS Dialogue line: braces are escaped (\{ and \}), a
+    backslash is drawn as the one character it is and never starts \N, \n or \h, and real
+    line breaks become spaces."""
     if not text:
         return ""
     text = str(text)
-    # Escape backslashes first, then curly braces
-    text = text.replace("\\", "\\\\")
+    # Backslashes first, then the braces, whose escapes add backslashes of their own
+    text = text.replace("\\", "\\" + BACKSLASH_GUARD)
     text = text.replace("{", "\\{")
     text = text.replace("}", "\\}")
     text = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
