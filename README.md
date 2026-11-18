@@ -154,7 +154,7 @@ docker compose --profile tunnel up -d
 
 To update a shared instance without cutting off anyone's song import or render, run `scripts/update_when_idle.sh` from the checkout (from cron or a systemd timer, say) instead of `git pull && docker compose up -d --build`. It builds the new image while the old container keeps serving, then pauses new songs, uploads, renders and re-made stems (everyone sees a notice; editing and playback keep working), waits until the running jobs finish or `UPDATE_DRAIN_MAX_SEC` passes, and only then recreates the container. `--force` rebuilds without a new commit.
 
-When the checkout's origin is on GitHub, the script moves to a new commit only once that commit's CI run has passed. A failed run keeps the install on the version it is running, and a run that is still going is waited for (`UPDATE_CI_WAIT_SEC`), then left for the next call. If there is no result to read (GitHub's API cannot be reached, or the commit has no CI run), the update goes ahead and the log says so. `UPDATE_REQUIRE_CI=0` turns the check off; `--force` does not.
+When the checkout's origin is on GitHub, the script moves to a new commit only once that commit's CI run has passed. A failed run keeps the install on the version it is running, and a run that is still going is waited for (`UPDATE_CI_WAIT_SEC`), then left for the next call. A commit whose run was seen failed or still going stays held back on later calls that cannot read a result. Otherwise, if there is no result to read (GitHub's API cannot be reached, or the commit has no CI run), the update goes ahead and the log says so. `UPDATE_REQUIRE_CI=0` turns the check off; `--force` does not.
 
 ### Manual development setup
 
