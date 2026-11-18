@@ -963,53 +963,70 @@ def align_words_spectral(
         if K_w == 1:
             raw_spans.append((b_s, b_e))
         else:
-            tot_w_sub = sum(w_slice_weights)
-            target_durs = [(b_e - b_s) * (w / tot_w_sub) for w in w_slice_weights]
-            cand_times = [b_s]
-            cum_t = b_s
-            for d in target_durs[:-1]:
-                cum_t += d
-                cand_times.append(cum_t)
-            for p_t, _ in onset_peaks:
-                if b_s + 0.03 < p_t < b_e - 0.03:
-                    cand_times.append(p_t)
-            cand_times.append(b_e)
-            cand_times = sorted({round(t, 3) for t in cand_times})
-            P = len(cand_times)
-            peak_dict = {round(p_t, 3): sal for p_t, sal in onset_peaks}
-            max_sal = max([sal for _, sal in onset_peaks], default=1.0)
-            dp_sub = np.full((K_w + 1, P), np.inf, dtype=np.float64)
-            parent_sub = np.full((K_w + 1, P), -1, dtype=np.int32)
-            dp_sub[0, 0] = 0.0
-            for j in range(1, K_w + 1):
-                target_d = target_durs[j - 1]
-                inv_target_d = 1.0 / max(0.05, target_d)
-                bonus_mult = 0.8 if j < K_w else 0.0
-                for p in range(j, P - (K_w - j)):
-                    t_p = cand_times[p]
-                    sal = peak_dict.get(t_p, 0.0) / max_sal
-                    onset_bonus = bonus_mult * sal
-                    for q in range(j - 1, p):
-                        t_q = cand_times[q]
-                        dur = t_p - t_q
-                        if dur < 0.02:
-                            continue
-                        dur_cost = ((dur - target_d) * inv_target_d) ** 2
-                        cost = dp_sub[j - 1, q] + dur_cost - onset_bonus
-                        if cost < dp_sub[j, p]:
-                            dp_sub[j, p] = cost
-                            parent_sub[j, p] = q
-            curr_p = P - 1
-            sub_splits = [cand_times[curr_p]]
-            for j in range(K_w, 0, -1):
-                prev = int(parent_sub[j, curr_p])
-                sub_splits.append(cand_times[prev])
-                curr_p = prev
-            sub_splits.reverse()
+            sub_splits = split_burst_between_words(b_s, b_e, w_slice_weights, onset_peaks)
             for j in range(K_w):
                 raw_spans.append((sub_splits[j], sub_splits[j + 1]))
 
     return enforce_monotonic_words(clean_words, raw_spans, l_start, l_end)
+
+
+def split_burst_between_words(
+    b_s: float, b_e: float, word_weights: list[float], onset_peaks: list[tuple[float, float]]
+) -> list[float]:
+    """Where each of several words sung in one burst of voice (b_s to b_e) starts and ends:
+    len(word_weights) + 1 rising times from b_s to b_e. Words get time by weight, and a
+    boundary moves onto an onset peak (time, salience) when one is near. A burst too short
+    to give every word 20 ms is shared out by weight alone."""
+    K_w = len(word_weights)
+    tot_w_sub = sum(word_weights)
+    target_durs = [(b_e - b_s) * (w / tot_w_sub) for w in word_weights]
+    cand_times = [b_s]
+    cum_t = b_s
+    for d in target_durs[:-1]:
+        cum_t += d
+        cand_times.append(cum_t)
+    proportional = [*cand_times, b_e]
+    for p_t, _ in onset_peaks:
+        if b_s + 0.03 < p_t < b_e - 0.03:
+            cand_times.append(p_t)
+    cand_times.append(b_e)
+    cand_times = sorted({round(t, 3) for t in cand_times})
+    P = len(cand_times)
+    peak_dict = {round(p_t, 3): sal for p_t, sal in onset_peaks}
+    max_sal = max([sal for _, sal in onset_peaks], default=1.0)
+    dp_sub = np.full((K_w + 1, P), np.inf, dtype=np.float64)
+    parent_sub = np.full((K_w + 1, P), -1, dtype=np.int32)
+    dp_sub[0, 0] = 0.0
+    for j in range(1, K_w + 1):
+        target_d = target_durs[j - 1]
+        inv_target_d = 1.0 / max(0.05, target_d)
+        bonus_mult = 0.8 if j < K_w else 0.0
+        for p in range(j, P - (K_w - j)):
+            t_p = cand_times[p]
+            sal = peak_dict.get(t_p, 0.0) / max_sal
+            onset_bonus = bonus_mult * sal
+            for q in range(j - 1, p):
+                t_q = cand_times[q]
+                dur = t_p - t_q
+                if dur < 0.02:
+                    continue
+                dur_cost = ((dur - target_d) * inv_target_d) ** 2
+                cost = dp_sub[j - 1, q] + dur_cost - onset_bonus
+                if cost < dp_sub[j, p]:
+                    dp_sub[j, p] = cost
+                    parent_sub[j, p] = q
+    if not np.isfinite(dp_sub[K_w, P - 1]):
+        # No way to give every word 20 ms between the candidate times: following the
+        # parents from here would read -1 as "the last time" and pile the words up there
+        return proportional
+    curr_p = P - 1
+    sub_splits = [cand_times[curr_p]]
+    for j in range(K_w, 0, -1):
+        prev = int(parent_sub[j, curr_p])
+        sub_splits.append(cand_times[prev])
+        curr_p = prev
+    sub_splits.reverse()
+    return sub_splits
 
 
 class AudioAligner:
