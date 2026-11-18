@@ -197,10 +197,12 @@ async def upload_background(file: UploadFile = File(...)):
 @router.post("/api/upload-audio")
 async def upload_audio_track(
     file: UploadFile = File(...),
-    title: str | None = Form(default=None),
-    artist: str | None = Form(default=None),
-    created_by: str | None = Form(default=None),
-    custom_lyrics: str | None = Form(default=None),
+    # The same limits as a link intake (ProcessRequest) and a rename (ProjectMetadataUpdate):
+    # without them a megabyte of text in any field went into projects.json
+    title: str | None = Form(default=None, max_length=300),
+    artist: str | None = Form(default=None, max_length=300),
+    created_by: str | None = Form(default=None, max_length=64),
+    custom_lyrics: str | None = Form(default=None, max_length=50000),
     separation_quality: str | None = Form(default=None),
     bg_tasks: BackgroundTasks = BackgroundTasks(),
 ):
