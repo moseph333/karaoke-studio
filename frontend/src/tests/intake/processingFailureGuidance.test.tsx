@@ -161,6 +161,39 @@ describe('the failed screen', () => {
     expect(screen.getByText(/choose New Song and upload it again/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New Song' })).toBeInTheDocument();
   });
+
+  it.each([
+    ['Read timed out.', /Something went wrong/],
+    ['Stem separation failed: worker exited with code -9', /Separating the vocals/],
+    ['[Errno 28] No space left on device', /disk space/],
+    ['ffmpeg: Invalid data found when processing input', /could not be read/],
+  ])(
+    'explains %j for an uploaded file without talking about links or retrying',
+    (error, summary) => {
+      const explanation = explainProcessingError(error, { uploaded: true });
+      expect(explanation.summary).toMatch(summary);
+      expect(explanation.advice).not.toMatch(/try again|another upload|link|youtube/i);
+      expect(explanation.advice.length).toBeGreaterThan(10);
+    }
+  );
+
+  it('shows an uploaded file that failed the advice for files', () => {
+    render(
+      <ProcessingView
+        project={failed({
+          id: 'local_1a2b3c4d',
+          track_id: undefined,
+          error: 'ffmpeg: Invalid data found when processing input',
+        })}
+        onCancelProcess={vi.fn()}
+        onResetProject={vi.fn()}
+      />
+    );
+    const reason = screen.getByTestId('failure-reason');
+    expect(reason).toHaveTextContent('The audio could not be read.');
+    expect(reason).toHaveTextContent('try another audio file');
+    expect(reason).not.toHaveTextContent('another upload of the song');
+  });
 });
 
 describe('the cancelled screen', () => {

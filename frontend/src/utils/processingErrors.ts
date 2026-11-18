@@ -19,11 +19,15 @@ const OWN_FILE = 'download the audio yourself and add it under Local Audio File'
 
 // The first rule that matches wins, so the specific reasons come before the general ones
 // ("Video unavailable. This video is private" is a private video, not a removed one)
-const RULES: { test: RegExp; summary: string; advice: string }[] = [
+// Rules with `uploadAdvice` can also happen to a song made from an uploaded file; the rest
+// are about a link and its download. The failed screen itself tells an upload's owner to
+// upload the file again, so that advice only adds what else to do.
+const RULES: { test: RegExp; summary: string; advice: string; uploadAdvice?: string }[] = [
   {
     test: /interrupted by a server restart/i,
     summary: 'The server restarted while this song was being made.',
     advice: 'Nothing is wrong with the song. Try again.',
+    uploadAdvice: 'Nothing is wrong with the song.',
   },
   {
     // An Internet Archive item of a whole album or concert
@@ -73,18 +77,21 @@ const RULES: { test: RegExp; summary: string; advice: string }[] = [
     test: /no space left|disk (is )?(almost )?full|not enough (free )?(disk )?space/i,
     summary: 'The server ran out of disk space.',
     advice: 'Delete songs you no longer need from the library, then try again.',
+    uploadAdvice: 'Delete songs you no longer need from the library first.',
   },
   {
     test: /no separation engine|stem separation|\bdemucs\b|roformer|separation (timed out|stalled|failed)|out of memory|\bcuda\b/i,
     summary: 'Separating the vocals from the music failed.',
     advice:
       'Try again. If it keeps failing, add the song again with Fast picked under Advanced options.',
+    uploadAdvice: 'If it keeps failing, pick Fast under Advanced options when you upload it.',
   },
   {
     // Before the download rule: "FFmpeg timed out" is about the audio, not the network
     test: /ffmpeg|could not (read|decode)|invalid data|unsupported|not found or empty/i,
     summary: 'The audio could not be read.',
     advice: 'Try another upload of the song, or another audio file (MP3, WAV, FLAC or M4A).',
+    uploadAdvice: 'If it fails the same way, try another audio file (MP3, WAV, FLAC or M4A).',
   },
   {
     test: /timed? ?out|connection|network|temporar|too many requests|http error (429|5\d\d)|unable to download|name resolution/i,
@@ -98,8 +105,23 @@ const UNKNOWN: ErrorExplanation = {
   advice: `Try again. If it fails the same way, pick another upload of the song or ${OWN_FILE}.`,
 };
 
-export function explainProcessingError(error?: string | null): ErrorExplanation {
+const UNKNOWN_UPLOAD: ErrorExplanation = {
+  summary: UNKNOWN.summary,
+  advice: 'If it fails the same way, try another audio file (MP3, WAV, FLAC or M4A).',
+};
+
+/** `uploaded`: the song came from a file, so nothing about links or other uploads applies. */
+export function explainProcessingError(
+  error?: string | null,
+  { uploaded = false }: { uploaded?: boolean } = {}
+): ErrorExplanation {
   const text = error ?? '';
+  if (uploaded) {
+    const rule = RULES.find((r) => r.uploadAdvice && r.test.test(text));
+    return rule?.uploadAdvice
+      ? { summary: rule.summary, advice: rule.uploadAdvice }
+      : UNKNOWN_UPLOAD;
+  }
   const rule = RULES.find((r) => r.test.test(text));
   return rule ? { summary: rule.summary, advice: rule.advice } : UNKNOWN;
 }

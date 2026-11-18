@@ -172,7 +172,9 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
   }
 
   if (project?.status === 'error') {
-    const explanation = explainProcessingError(project.error);
+    const explanation = explainProcessingError(project.error, {
+      uploaded: isUploadedSong(project),
+    });
     return (
       <div className="mx-auto max-w-md py-8 font-theme-body sm:py-16">
         <div className={cn(cardCls, 'space-y-4')}>
