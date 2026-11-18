@@ -356,7 +356,7 @@ class TrackDownloader:
                     if meta:
                         title = meta.get("title") or title
                         artist, artist_is_uploader = track_artist(meta, artist)
-                        duration = meta.get("duration", 0)
+                        duration = meta.get("duration") or 0
                         song_title = music_track_title(meta)
             except Exception as e:
                 logger.warning(
@@ -447,7 +447,8 @@ class TrackDownloader:
         v_id = file_stem or meta.get("id") or video_id
         title = meta.get("title") or "Unknown Track"
         artist, artist_is_uploader = track_artist(meta, "Unknown Artist")
-        duration = meta.get("duration", 0)
+        # yt-dlp reports an unknown length as None, which the song must not store
+        duration = meta.get("duration") or 0
 
         # Audio file path
         final_wav = self.output_dir / f"{v_id}.wav"
