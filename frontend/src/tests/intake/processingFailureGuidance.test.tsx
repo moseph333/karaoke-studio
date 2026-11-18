@@ -76,6 +76,14 @@ describe('explainProcessingError', () => {
       'Failed to download audio from Vimeo: ERROR: [vimeo] 1: This video is protected by a password, use the --video-password option',
       /sign-in or a password/,
     ],
+    [
+      'That link is a live stream, which has no end to download. Paste a link to a finished recording of the song.',
+      /live stream/,
+    ],
+    [
+      'That recording is 95 minutes long. The longest this server downloads is 60 minutes.',
+      /longer than this server downloads/,
+    ],
     ['[Errno 28] No space left on device', /disk space/],
     ['No separation engine can run: fast: demucs is not installed', /Separating the vocals/],
     ['Stem separation failed: worker exited with code -9', /Separating the vocals/],
