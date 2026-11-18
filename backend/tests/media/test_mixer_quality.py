@@ -253,3 +253,80 @@ def test_renders_load_the_bundled_theme_fonts(tmp_path, monkeypatch):
         pass  # the fake encoder writes no file; only the command matters here
     graph = commands[0][commands[0].index("-filter_complex") + 1]
     assert f":fontsdir='{renderer_mod.FONTS_DIR}'" in graph
+
+
+def _long_quiet_wav(path, seconds: int):
+    """A WAV that is long in time and small on disk."""
+    sf.write(str(path), np.zeros(seconds * 1000, dtype=np.int16), 1000)
+    return str(path)
+
+
+def _mix_timeouts(monkeypatch, has_rubberband: bool = True) -> list:
+    """Stands in for FFmpeg and records the time limit each mix command is given."""
+    timeouts: list = []
+
+    def fake_run(cmd, **kwargs):
+        if cmd[0] == "ffmpeg" and "-filters" not in cmd:
+            timeouts.append(kwargs.get("timeout"))
+            with open(cmd[-1], "wb") as out:
+                out.write(b"RIFF")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(audio_mixer.subprocess, "run", fake_run)
+    monkeypatch.setattr(audio_mixer, "ffmpeg_has_filter", lambda name: has_rubberband)
+    return timeouts
+
+
+def test_a_pitch_shifted_export_mix_gets_the_songs_length_on_top_of_the_time_limit(
+    tmp_path, monkeypatch
+):
+    inst = _long_quiet_wav(tmp_path / "inst.wav", 600)
+    timeouts = _mix_timeouts(monkeypatch)
+
+    with mix_quality("final"):
+        AudioMixer(output_dir=tmp_path).mix_and_shift(inst, semitones=2, output_filename="o.wav")
+
+    assert timeouts == [audio_mixer.MIX_TIMEOUT_SECONDS + 600]
+
+
+@pytest.mark.parametrize(
+    "quality, semitones, has_rubberband",
+    [("preview", 2, True), ("final", 0, True), ("final", 2, False)],
+)
+def test_a_mix_without_rubber_band_keeps_the_plain_time_limit(
+    tmp_path, monkeypatch, quality, semitones, has_rubberband
+):
+    inst = _long_quiet_wav(tmp_path / "inst.wav", 600)
+    timeouts = _mix_timeouts(monkeypatch, has_rubberband)
+
+    with mix_quality(quality):
+        AudioMixer(output_dir=tmp_path).mix_and_shift(
+            inst, semitones=semitones, output_filename="o.wav"
+        )
+
+    assert timeouts == [audio_mixer.MIX_TIMEOUT_SECONDS]
+
+
+def test_a_time_limit_passed_by_the_caller_is_used_as_given(tmp_path, monkeypatch):
+    inst = _long_quiet_wav(tmp_path / "inst.wav", 600)
+    timeouts = _mix_timeouts(monkeypatch)
+
+    with mix_quality("final"):
+        AudioMixer(output_dir=tmp_path).mix_and_shift(
+            inst, semitones=2, output_filename="o.wav", timeout=7
+        )
+
+    assert timeouts == [7]
+
+
+def test_a_stem_whose_length_cannot_be_read_keeps_the_plain_time_limit(tmp_path, monkeypatch):
+    inst = tmp_path / "inst.mp3"
+    inst.write_bytes(b"not audio")
+    timeouts = _mix_timeouts(monkeypatch)
+
+    with mix_quality("final"):
+        AudioMixer(output_dir=tmp_path).mix_and_shift(
+            str(inst), semitones=2, output_filename="o.wav"
+        )
+
+    assert timeouts == [audio_mixer.MIX_TIMEOUT_SECONDS]

@@ -34,6 +34,10 @@ MIX_QUALITY: ContextVar[str] = ContextVar("MIX_QUALITY", default="preview")
 # -0.5 dBFS ceiling; level=0 keeps the limiter from re-normalising the whole mix
 LIMITER = "alimiter=limit=0.944:level=0"
 _FINAL_PITCH = "rubberband=pitch={factor:.6f}:transients=mixed:pitchq=quality:channels=together"
+# How long FFmpeg gets for one mix. Rubber Band is the slow part: with a guide vocal it ran at
+# about 10x real time on a recent desktop and runs several times slower on an old server CPU,
+# so a mix that uses it also gets the song's own length
+MIX_TIMEOUT_SECONDS = 120
 _UNSUPPORTED_HINTS = (
     "Option not found",
     "No such filter",
@@ -152,6 +156,17 @@ class AudioMixer:
 
         return default
 
+    @staticmethod
+    def _duration_seconds(file_path: str) -> float:
+        """The length of an audio file soundfile can read (the stems are WAV), else 0."""
+        try:
+            info = sf.info(file_path)
+            seconds = info.frames / info.samplerate
+        except Exception as exc:
+            logger.debug(f"Could not read the length of {file_path}: {exc}")
+            return 0.0
+        return seconds if math.isfinite(seconds) and seconds > 0 else 0.0
+
     def mix_and_shift(
         self,
         instrumental_path: str,
@@ -159,11 +174,13 @@ class AudioMixer:
         semitones: int = 0,
         guide_volume: float = 0.0,
         output_filename: str = "master_audio.wav",
-        timeout: int = 120,
+        timeout: float | None = None,
     ) -> str:
         """
         Mixes instrumental track and optional guide vocals, applying pitch shift in semitones.
         Clamps semitones to [-12, 12], detects input sample rate dynamically, and cleans up on failure.
+        FFmpeg is stopped after `timeout` seconds; by default MIX_TIMEOUT_SECONDS, plus the
+        song's length when the mix is pitch-shifted with Rubber Band.
         """
         if not instrumental_path or not os.path.isfile(instrumental_path):
             raise FileNotFoundError(f"Instrumental audio file not found: {instrumental_path}")
@@ -201,6 +218,10 @@ class AudioMixer:
         pitch_factor = 2.0 ** (clamped_semitones / 12.0)
         final = MIX_QUALITY.get() == "final" and clamped_semitones != 0
         rubberband = final and ffmpeg_has_filter("rubberband")
+        if timeout is None:
+            timeout = MIX_TIMEOUT_SECONDS
+            if rubberband:
+                timeout += math.ceil(self._duration_seconds(instrumental_path))
 
         inputs = ["-i", str(instrumental_path)]
         has_vocals = vocals_path and os.path.isfile(vocals_path) and safe_guide_volume > 0.001
