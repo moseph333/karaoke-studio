@@ -49,18 +49,36 @@ def _git_cmd(args: list[str], timeout: float = 3.0) -> str:
     return ""
 
 
+# What git says about the checkout, kept for the life of the server process. The process
+# runs the code it started with, so its version and commit do not change until it restarts;
+# asking git again on every GET /api/health (which browsers and health checks poll) spawned
+# two git processes per request, and reported a commit the updater had only checked out.
+_LOCAL_GIT: dict[str, str] = {}
+
+
+def _local_git(what: str, args: list[str]) -> str:
+    """The answer to a git question about the local checkout, asked once per process. An
+    empty answer (git failed, or there is no checkout) is not kept, so it is asked again."""
+    known = _LOCAL_GIT.get(what)
+    if known:
+        return known
+    answer = _git_cmd(args, timeout=2.0)
+    if answer:
+        _LOCAL_GIT[what] = answer
+    return answer
+
+
 def get_app_version() -> str:
     """Resolve the running Karaoke Studio version from APP_VERSION env, git metadata, or default."""
     env_version = os.getenv("APP_VERSION", "").strip()
     if env_version:
         return env_version
-    desc = _git_cmd(["describe", "--tags", "--always"], timeout=2.0)
+    desc = _local_git("describe", ["describe", "--tags", "--always"])
     if desc:
         return desc
     return DEFAULT_APP_VERSION
 
 
-APP_VERSION = get_app_version()
 _UPDATE_CACHE: dict[str, Any] = {
     "checked_at": 0.0,
     "latest_version": None,
@@ -117,7 +135,7 @@ def self_update_enabled() -> bool:
 def check_for_updates(force_remote: bool = False) -> dict[str, Any]:
     """Check local version/commit against origin/main and tags."""
     current_version = get_app_version()
-    local_commit = _git_cmd(["rev-parse", "HEAD"], timeout=2.0)
+    local_commit = _local_git("commit", ["rev-parse", "HEAD"])
     now = time.time()
 
     if force_remote or (
@@ -239,6 +257,9 @@ if env_file.exists():
         v = v.strip().strip("'\"")
         if k and k not in os.environ:
             os.environ[k] = v
+
+# After .env is read, so an APP_VERSION set there counts here too (the API docs show it)
+APP_VERSION = get_app_version()
 
 DATA_DIR = Path(os.getenv("KARAOKE_DATA_DIR", BASE_DIR / "workspace_data"))
 DOWNLOADS_DIR = DATA_DIR / "downloads"
