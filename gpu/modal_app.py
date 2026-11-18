@@ -45,6 +45,10 @@ GPUS = [
     if gpu.strip()
 ]
 SCALEDOWN_SECONDS = int(os.environ.get("SEPARATION_REMOTE_SCALEDOWN_SEC", "30"))
+# Modal stops a separation (the emission step included) after this long. It is fixed when the
+# app is deployed, so the server's SEPARATION_TIMEOUT_SEC can only stop a job sooner: raise
+# this and deploy again to let a very long song run longer
+SEPARATE_TIMEOUT_SECONDS = int(os.environ.get("SEPARATION_REMOTE_TIMEOUT_SEC", "1800"))
 # Physical cores for an export; libx264 at 1080p60 keeps about 16 busy
 RENDER_CPUS = float(os.environ.get("RENDER_REMOTE_CPUS", "16"))
 RENDER_SCALEDOWN_SECONDS = int(os.environ.get("RENDER_REMOTE_SCALEDOWN_SEC", "120"))
@@ -150,7 +154,7 @@ app = modal.App(APP_NAME, image=image)
 @app.function(
     gpu=GPUS,
     volumes={"/models": weights},
-    timeout=1800,
+    timeout=SEPARATE_TIMEOUT_SECONDS,
     scaledown_window=SCALEDOWN_SECONDS,
 )
 def separate(

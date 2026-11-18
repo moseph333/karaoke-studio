@@ -258,6 +258,7 @@ cp .env.example .env
 | `SEPARATION_REMOTE` | *(empty)* | `modal` runs Balanced and Best on a Modal GPU (deploy `gpu/modal_app.py` first) |
 | `MODAL_TOKEN_ID` / `MODAL_TOKEN_SECRET` | *(empty)* | Modal token for the server |
 | `SEPARATION_REMOTE_APP` | `karaoke-studio-gpu` | Name of the deployed Modal app |
+| `SEPARATION_REMOTE_TIMEOUT_SEC` | `1800` | Longest a separation may run on the cloud GPU (read by `modal deploy`). `SEPARATION_TIMEOUT_SEC` on the server can only stop a job sooner |
 | `SEPARATION_REMOTE_QUEUE_SEC` | `300` | Longest wait for a free GPU before falling back to Fast here |
 | `SEPARATION_REMOTE_PREWARM` | `1` | Start a cloud GPU when a song's intake begins, so it is up by the time the audio has downloaded |
 

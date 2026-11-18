@@ -35,6 +35,8 @@ class RemoteUnavailable(RuntimeError):
 class RemoteOutcome:
     returncode: int | None
     reason: str | None = None  # "cancelled", "timeout" or "stalled" when the job was stopped
+    # A "timeout" that was the deployed function's own limit, not the server's timeout_s
+    remote_limit: bool = False
 
 
 def _cancel(call: Any) -> None:
@@ -173,7 +175,7 @@ def _follow(
         try:
             result = call.get(timeout=0)
         except job_timeout:  # the function hit its own time limit
-            return RemoteOutcome(None, "timeout"), None
+            return RemoteOutcome(None, "timeout", remote_limit=True), None
         except TimeoutError:  # still running
             continue
         except unavailable:
