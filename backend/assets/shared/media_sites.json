@@ -55,6 +55,13 @@
       "domains": ["tidal.com"],
       "example": "tidal.com/track/…",
       "kind": "lookup"
+    },
+    {
+      "id": "deezer",
+      "name": "Deezer",
+      "domains": ["deezer.com"],
+      "example": "deezer.com/track/…",
+      "kind": "lookup"
     }
   ],
   "host_cases": [
@@ -100,7 +107,10 @@
     { "text": "https://www.apple.com/music/", "site": null },
     { "text": "https://tidal.com/browse/track/77646168", "site": "tidal" },
     { "text": "listen.tidal.com/track/77646168", "site": "tidal" },
-    { "text": "https://www.deezer.com/track/3135556", "site": null },
+    { "text": "https://www.deezer.com/track/3135556", "site": "deezer" },
+    { "text": "deezer.com/en/track/3135556", "site": "deezer" },
+    { "text": "https://link.deezer.com/s/30AbCdEfGh", "site": "deezer" },
+    { "text": "https://music.amazon.com/tracks/B0ABCDEFGH", "site": null },
     { "text": "https://notsoundcloud.com/artist/song", "site": null },
     { "text": "https://soundcloud.com.evil.example/artist/song", "site": null },
     {

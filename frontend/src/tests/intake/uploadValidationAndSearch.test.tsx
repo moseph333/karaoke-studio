@@ -226,9 +226,9 @@ describe('Milestone 1: UX-1 Search & URL Ergonomics (TrackSearch)', () => {
       undefined
     );
 
-    // A Deezer link cannot be used: the box says which links work
+    // An Amazon Music link cannot be used: the box says which links work
     await user.clear(input);
-    await user.type(input, 'https://www.deezer.com/en/track/3135556');
+    await user.type(input, 'https://music.amazon.com/tracks/B0ABCDEFGH');
     await user.click(searchBtn);
 
     expect(screen.getByText(UNSUPPORTED_LINK_MESSAGE)).toBeInTheDocument();

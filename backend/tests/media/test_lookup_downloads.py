@@ -1,4 +1,4 @@
-"""Downloading a Spotify, Apple Music or TIDAL song: the matched YouTube upload is downloaded
+"""Downloading a Spotify, Apple Music, TIDAL or Deezer song: the matched YouTube upload is downloaded
 under the song's own track id, the song keeps the service's title, artist and link, and a
 match that cannot be downloaded gives way to the next one."""
 

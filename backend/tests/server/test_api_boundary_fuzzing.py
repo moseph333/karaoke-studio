@@ -108,7 +108,7 @@ class TestProcessEndpointAdversarialFuzzing:
             "https://",
             "ftp://youtube.com",
             "https://soundcloud.com/artist/sets/album",
-            "https://www.deezer.com/track/3135556",
+            "https://music.amazon.com/tracks/B0ABCDEFGH",
             "https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT",
             "https://soundcloud.com.attacker.com/artist/track",
             "https://evil-youtube.com/watch?v=12345678901",

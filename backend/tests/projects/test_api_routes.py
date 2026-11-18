@@ -133,7 +133,7 @@ class TestRouteValidationErrors:
     @pytest.mark.parametrize(
         "invalid_target",
         [
-            "https://www.deezer.com/track/3135556",
+            "https://music.amazon.com/tracks/B0ABCDEFGH",
             "https://soundcloud.com/artist",
             "invalid_non_youtube_protocol://something",
             "short",

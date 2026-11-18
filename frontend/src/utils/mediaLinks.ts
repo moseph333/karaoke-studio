@@ -1,7 +1,7 @@
 /**
  * Song links the intake accepts, from `@shared/media_sites.json`, which the backend reads too
  * (`backend/services/media_links.py`): YouTube, SoundCloud, Bandcamp, Vimeo and the Internet
- * Archive, whose audio the server downloads, and Spotify, Apple Music and TIDAL, whose songs
+ * Archive, whose audio the server downloads, and Spotify, Apple Music, TIDAL and Deezer, whose songs
  * it finds on YouTube. The studio only tells a supported site's link from search words and
  * other sites; the server decides whether the link is one song (not a profile, an album or a
  * playlist) and says what to paste instead.
@@ -29,11 +29,11 @@ function sentence(names: string[], last: string): string {
 const namesOf = (kind?: string) =>
   MEDIA_SITES.filter((site) => !kind || site.kind === kind).map((site) => site.name);
 
-/** "YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music or TIDAL" */
+/** "YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music, TIDAL or Deezer" */
 export const SUPPORTED_SITES_SENTENCE = sentence(namesOf(), 'or');
 /** "YouTube, SoundCloud, Bandcamp, Vimeo and Internet Archive" */
 export const DOWNLOAD_SITES_SENTENCE = sentence(namesOf('download'), 'and');
-/** "Spotify, Apple Music and TIDAL" */
+/** "Spotify, Apple Music, TIDAL and Deezer" */
 export const LOOKUP_SITES_SENTENCE = sentence(namesOf('lookup'), 'and');
 
 /** A site's display name ("Spotify") from its id. */

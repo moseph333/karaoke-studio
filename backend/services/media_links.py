@@ -1,7 +1,7 @@
 """Song links the intake accepts (the sites in ``assets/shared/media_sites.json``): YouTube,
 SoundCloud, Bandcamp, Vimeo and the Internet Archive, whose audio yt-dlp downloads, and
-Spotify, Apple Music and TIDAL, whose audio cannot be downloaded, so the song is looked up
-there and matched to a YouTube upload (``song_lookup``). Turns a pasted link into the site,
+Spotify, Apple Music, TIDAL and Deezer, whose audio cannot be downloaded, so the song is
+looked up there and matched to a YouTube upload (``song_lookup``). Turns a pasted link into the site,
 the address to read and a file-safe track id, which names the song's project (and, for the
 download sites, its audio in ``downloads/`` and its stems folder), so the same link pasted
 twice opens the same song. Works offline: nothing here touches the network."""
@@ -24,6 +24,7 @@ _ARCHIVE_IDENTIFIER = re.compile(r"[0-9A-Za-z._-]+")
 _SPOTIFY_ID = re.compile(r"[0-9A-Za-z]{22}")
 _NUMERIC_ID = re.compile(r"\d{1,20}")
 _COUNTRY = re.compile(r"[a-z]{2}")
+_DEEZER_SHARE_CODE = re.compile(r"[0-9A-Za-z_-]{4,40}")
 # SoundCloud pages under a profile that list tracks rather than being one
 _SOUNDCLOUD_LISTS = {
     "albums",
@@ -49,13 +50,14 @@ class UnusableLink(ValueError):
 @dataclass(frozen=True)
 class MediaLink:
     site: str
-    """One of the ids in media_sites.json (youtube, soundcloud, …, spotify, applemusic, tidal)."""
+    """One of the ids in media_sites.json (youtube, soundcloud, …, spotify, …, deezer)."""
     url: str
     """The address handed to yt-dlp, or for a lookup site the song's page."""
     track_id: str
     """File-safe and stable for the same song: a YouTube video id, else ``<site>-<id>``."""
     source_id: str = ""
-    """A lookup site's own id for the song (Spotify track, Apple Music song, TIDAL track)."""
+    """A lookup site's own id for the song (Spotify track, Apple Music song, TIDAL or Deezer
+    track); empty for a Deezer share link, which only says which song once it is followed."""
 
     @property
     def lookup(self) -> bool:
@@ -225,6 +227,31 @@ def _tidal(parts: list[str]) -> MediaLink:
     raise UnusableLink("Open one song on TIDAL (tidal.com/track/…) and paste its link.")
 
 
+def _deezer(host: str, parts: list[str]) -> MediaLink:
+    if host == "link.deezer.com":
+        # The app's share links: a short code that redirects to the song (song_lookup
+        # follows it). The "s" keeps these ids apart from Deezer's own, which are numbers
+        if len(parts) == 2 and parts[0] == "s" and _DEEZER_SHARE_CODE.fullmatch(parts[1]):
+            return MediaLink(
+                "deezer",
+                f"https://link.deezer.com/s/{parts[1]}",
+                f"deezer-s{_digest(parts[1])}",
+            )
+        raise UnusableLink("That Deezer share link is incomplete. Copy it again.")
+    # deezer.com/track/<id>, with an optional language (/en/, /fr/) before it
+    if parts and _COUNTRY.fullmatch(parts[0]):
+        parts = parts[1:]
+    if len(parts) >= 2 and parts[0] == "track" and _NUMERIC_ID.fullmatch(parts[1]):
+        song = parts[1]
+        return MediaLink("deezer", f"https://www.deezer.com/track/{song}", f"deezer-{song}", song)
+    if parts and parts[0] in ("album", "playlist", "artist", "show", "episode", "mixes"):
+        raise UnusableLink(
+            "That Deezer link is not one song. Open the song's menu, choose Share, "
+            "Copy link, and paste that."
+        )
+    raise UnusableLink("Open one song on Deezer (deezer.com/track/…) and paste its link.")
+
+
 def parse_media_link(text: str | None) -> MediaLink | None:
     """The song a link points to; None when the text is not a link to a supported site
     (search words, a bare video id, another site). Raises UnusableLink for a supported
@@ -258,11 +285,13 @@ def parse_media_link(text: str | None) -> MediaLink | None:
         return _spotify(parts)
     if site == "applemusic":
         return _apple_music(url, parsed.query, parts)
+    if site == "deezer":
+        return _deezer(host, parts)
     return _tidal(parts)
 
 
 def supported_sites_sentence() -> str:
-    """ "YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music or
-    TIDAL", for messages."""
+    """ "YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music, TIDAL
+    or Deezer", for messages."""
     names = [site["name"] for site in SITES]
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " or " + names[-1]

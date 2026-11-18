@@ -201,7 +201,7 @@ export interface ProjectState {
   track_id?: string;
   /** The link the song was made from, kept from the start; uploads have none. */
   url?: string;
-  /** A Spotify, Apple Music or TIDAL song: what the service said and the YouTube upload it
+  /** A Spotify, Apple Music, TIDAL or Deezer song: what the service said and the YouTube upload it
    * was matched to. */
   song_match?: {
     site: string;

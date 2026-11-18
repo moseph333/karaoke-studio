@@ -1,5 +1,5 @@
-"""Starting a song from a SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music
-or TIDAL link: the project is named by the song's track id, keeps its link from the start (so
+"""Starting a song from a SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music,
+TIDAL or Deezer link: the project is named by the song's track id, keeps its link from the start (so
 a failed download can be tried again), and the same song pasted twice opens the one project."""
 
 import backend.main as main_mod
@@ -40,10 +40,12 @@ def test_a_link_that_is_not_one_song_explains_itself(client):
 
 
 def test_a_link_to_another_site_names_the_supported_ones(client):
-    res = client.post("/api/process", json={"url_or_id": "https://www.deezer.com/track/1"})
+    res = client.post(
+        "/api/process", json={"url_or_id": "https://music.amazon.com/tracks/B0ABCDEFGH"}
+    )
     assert res.status_code == 422
     detail = str(res.json()["detail"])
-    assert "Internet Archive, Spotify, Apple Music or TIDAL" in detail
+    assert "Internet Archive, Spotify, Apple Music, TIDAL or Deezer" in detail
 
 
 def test_a_spotify_link_starts_a_project_named_by_its_spotify_id(client, monkeypatch):

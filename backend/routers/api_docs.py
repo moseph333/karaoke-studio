@@ -31,7 +31,7 @@ SCALAR_INTEGRITY = "sha384-hwB9WroDTpZaI38gr+u9CXA6ksz5gUYgD2GxXazKl/agT1L2GWUiR
 
 API_DESCRIPTION = """\
 The HTTP API behind the Karaoke Studio web app: intake (a YouTube, SoundCloud, Bandcamp,
-Vimeo or Internet Archive link, a Spotify, Apple Music or TIDAL link matched to a YouTube
+Vimeo or Internet Archive link, a Spotify, Apple Music, TIDAL or Deezer link matched to a YouTube
 upload, or an upload), project and lyric editing, background quality jobs, renders and
 exports.
 

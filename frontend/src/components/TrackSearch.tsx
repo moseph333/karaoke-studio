@@ -2,7 +2,7 @@
  * Track Search Component
  *
  * The home screen: a hero with the intake card (a song link from YouTube, SoundCloud,
- * Bandcamp, Vimeo or the Internet Archive, a Spotify, Apple Music or TIDAL link found on
+ * Bandcamp, Vimeo or the Internet Archive, a Spotify, Apple Music, TIDAL or Deezer link found on
  * YouTube, a YouTube search, or a local upload, with
  * advanced options: stem separation quality and custom lyrics) beside a self-playing lyric
  * preview, search results, three "how it works" steps for visitors who have not made a song

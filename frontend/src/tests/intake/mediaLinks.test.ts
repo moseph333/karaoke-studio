@@ -1,6 +1,6 @@
 /**
  * Which pasted text is a song link the intake takes (YouTube, SoundCloud, Bandcamp, Vimeo,
- * Internet Archive, and Spotify, Apple Music and TIDAL, found on YouTube): the same sites and host rule as the backend, through the shared
+ * Internet Archive, and Spotify, Apple Music, TIDAL and Deezer, found on YouTube): the same sites and host rule as the backend, through the shared
  * cases in backend/assets/shared/media_sites.json.
  */
 
@@ -31,14 +31,15 @@ describe('song links', () => {
       'spotify',
       'applemusic',
       'tidal',
+      'deezer',
     ]);
     expect(SUPPORTED_SITES_SENTENCE).toBe(
-      'YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music or TIDAL'
+      'YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music, TIDAL or Deezer'
     );
     expect(DOWNLOAD_SITES_SENTENCE).toBe(
       'YouTube, SoundCloud, Bandcamp, Vimeo and Internet Archive'
     );
-    expect(LOOKUP_SITES_SENTENCE).toBe('Spotify, Apple Music and TIDAL');
+    expect(LOOKUP_SITES_SENTENCE).toBe('Spotify, Apple Music, TIDAL and Deezer');
     expect(siteName('applemusic')).toBe('Apple Music');
   });
 
