@@ -397,8 +397,13 @@ export function getActiveWordLocation(
 ): ActiveWordLocation | null {
   if (!lines || lines.length === 0) return null;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     if (currentTime >= line.start_time - 0.5 && currentTime <= line.end_time + 0.5) {
+      // A line that has ended keeps its last word lit for a moment, but not once the next
+      // line has started
+      const next = lines[i + 1];
+      if (currentTime > line.end_time && next && currentTime >= next.start_time) continue;
       if (line.words && line.words.length > 0) {
         for (let wIdx = 0; wIdx < line.words.length; wIdx++) {
           const w = line.words[wIdx];
