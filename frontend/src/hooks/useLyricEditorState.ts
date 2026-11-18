@@ -149,9 +149,14 @@ export function useLyricEditorState({
   useEffect(() => {
     if (prevLinesRef.current !== lines) {
       prevLinesRef.current = lines;
-      if (!hasUnsavedChanges) {
-        setRawLines(lines);
+      if (hasUnsavedChanges) {
+        // The server's lines are what is saved, edits in progress or not: Discard goes back
+        // to them, and an unsaved edit never makes an older timing look saved. A new array
+        // with the same contents changes nothing (and must not re-render).
+        setInitialLines((prev) => (JSON.stringify(prev) === JSON.stringify(lines) ? prev : lines));
+      } else {
         setInitialLines(lines);
+        setRawLines(lines);
         clearHistory();
       }
     }
