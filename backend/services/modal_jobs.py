@@ -3,8 +3,8 @@
 Shared by remote_separation (RoFormer on a GPU) and remote_render (video export on a CPU).
 The function is spawned rather than awaited so the job can be cancelled. It puts STARTED on
 the queue once it runs, then its own output lines; the result comes back as the call's
-return value. RemoteUnavailable means the service could not be reached or nothing started
-the job in time, so the caller should fall back to running locally.
+return value. RemoteUnavailable means the service could not be reached, refused or lost the
+call, or nothing started the job in time, so the caller should fall back to running locally.
 """
 
 import logging
@@ -27,7 +27,8 @@ _WAITING_REPORT_SECONDS = 5.0
 
 
 class RemoteUnavailable(RuntimeError):
-    """The cloud service cannot take the job: not deployed, bad credentials, or nothing free."""
+    """The cloud service cannot take the job: not deployed, bad credentials, nothing free, or
+    any other error from the Modal client that is not the job's own failure."""
 
 
 @dataclass
@@ -63,7 +64,9 @@ def run_modal_job(
     runs, and until then on_waiting gets the seconds waited so far, about every 5 seconds.
     Returns the outcome and, when the function returned a dict, that dict (also on a
     non-zero returncode). Any exception while following, including one raised by on_line,
-    cancels the remote call before it propagates.
+    cancels the remote call before it propagates. Every error of the Modal client itself
+    (modal.exception.Error: looking the function up, spawning it, reading the queue) is
+    raised as RemoteUnavailable; an exception the remote function raised is a failed job.
     """
     try:
         import modal
@@ -100,7 +103,9 @@ def run_modal_job(
             except BaseException:
                 _cancel(call)
                 raise
-    except unavailable as exc:
+    except modal_errors.Error as exc:
+        # Not only the four above: a spending limit, a rate limit, a request too large or a
+        # server error would otherwise pass the callers' fallbacks and fail the whole job
         raise RemoteUnavailable(
             f"the cloud {resource} is unavailable ({type(exc).__name__}: {exc})"
         ) from exc
