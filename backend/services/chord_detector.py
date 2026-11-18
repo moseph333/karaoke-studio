@@ -177,10 +177,19 @@ def parse_chord_symbol(chord: str) -> tuple[str, str, str | None] | None:
     return normalized_root, raw_quality, bass_part
 
 
+# A flat on a chord's root or bass note: "Bb", "Ebm7", "C/Bb". The note B itself ("B", "Bm",
+# "C/B") has none.
+_FLAT_NOTE = re.compile(r"(?:^|/)\s*[A-Ga-g][bB\u266d]")
+
+
+def _is_flat_chord(chord: str) -> bool:
+    return bool(_FLAT_NOTE.search((chord or "").strip()))
+
+
 def classify_key_spelling(key: str | None, original_chord: str = "") -> str:
     """Determine whether to use 'flat' or 'sharp' scale based on key context and chord accidental."""
     if not key or key.strip().upper() in ("UNKNOWN", "NONE", ""):
-        return "flat" if "b" in original_chord.lower() else "sharp"
+        return "flat" if _is_flat_chord(original_chord) else "sharp"
 
     clean_key = key.strip()
     parts = clean_key.split()
@@ -220,7 +229,7 @@ def classify_key_spelling(key: str | None, original_chord: str = "") -> str:
         return "sharp"
 
     # Neutral keys (C Major, A Minor) fallback: check original chord accidental
-    return "flat" if "b" in original_chord.lower() else "sharp"
+    return "flat" if _is_flat_chord(original_chord) else "sharp"
 
 
 def project_key_signature(key: str | None, semitones: int) -> str:
