@@ -26,7 +26,7 @@ const baseProject: ProjectState = {
 
 const youtubePackage = {
   title: 'Golden Hour (Karaoke)',
-  description: 'Sing along\n00:00 Intro',
+  description: 'Sing along\n\n🕒 Timestamps:\n0:00 - Intro\n0:20 - Verse\n1:10 - Chorus',
   tags: ['karaoke', 'golden hour'],
   key_note: '0',
   lyrics: 'Hello there',
