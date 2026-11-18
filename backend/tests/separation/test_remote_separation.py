@@ -18,10 +18,13 @@ from backend.services.process_watchdog import PROJECT_ROOT
 
 
 class FakeQueue:
-    def __init__(self, items):
+    def __init__(self, items, error=None):
         self.items = list(items)
+        self.error = error
 
     def get_many(self, n_values, block=True, timeout=None):
+        if self.error is not None:
+            raise self.error
         if not self.items:
             if block:
                 raise queue.Empty
@@ -51,12 +54,24 @@ class FakeCall:
 
 @pytest.fixture
 def fake_modal(monkeypatch):
-    """Installs a stand-in modal client; set .call, .items and .spawn_error before running."""
+    """Installs a stand-in modal client; set .call, .items, .spawn_error and .queue_error
+    before running. Its errors share the base class the real client's do."""
     errors = types.ModuleType("modal.exception")
-    for name in ("NotFoundError", "AuthError", "ConnectionError", "InternalFailure"):
-        setattr(errors, name, type(name, (Exception,), {}))
-    errors.FunctionTimeoutError = type("FunctionTimeoutError", (TimeoutError,), {})
-    state = types.SimpleNamespace(errors=errors, call=FakeCall(), items=[], spawn_error=None)
+    errors.Error = type("Error", (Exception,), {})
+    for name in (
+        "NotFoundError",
+        "AuthError",
+        "ConnectionError",
+        "InternalFailure",
+        "ResourceExhaustedError",
+        "ServiceError",
+        "RequestSizeError",
+    ):
+        setattr(errors, name, type(name, (errors.Error,), {}))
+    errors.FunctionTimeoutError = type("FunctionTimeoutError", (errors.Error,), {})
+    state = types.SimpleNamespace(
+        errors=errors, call=FakeCall(), items=[], spawn_error=None, queue_error=None
+    )
 
     def from_name(app_name, name):
         state.target = (app_name, name)
@@ -71,7 +86,7 @@ def fake_modal(monkeypatch):
 
     @contextmanager
     def ephemeral():
-        state.queue = FakeQueue(state.items)
+        state.queue = FakeQueue(state.items, state.queue_error)
         yield state.queue
 
     module = types.ModuleType("modal")
@@ -166,6 +181,45 @@ def test_a_missing_app_or_bad_credentials_mean_unavailable(tmp_path, fake_modal)
 
     with pytest.raises(remote.RemoteUnavailable, match="NotFoundError"):
         _run(tmp_path)
+
+
+@pytest.mark.parametrize("name", ["ResourceExhaustedError", "ServiceError", "RequestSizeError"])
+def test_any_other_error_of_the_modal_client_means_unavailable_too(tmp_path, fake_modal, name):
+    fake_modal.spawn_error = getattr(fake_modal.errors, name)("the workspace is over its limit")
+
+    with pytest.raises(remote.RemoteUnavailable, match=f"{name}: the workspace is over"):
+        _run(tmp_path)
+
+
+def test_losing_the_queue_while_the_job_runs_cancels_it_and_means_unavailable(tmp_path, fake_modal):
+    fake_modal.call = FakeCall(polls_before_done=10**9)
+    fake_modal.queue_error = fake_modal.errors.ServiceError("503")
+
+    with pytest.raises(remote.RemoteUnavailable, match="ServiceError"):
+        _run(tmp_path)
+    assert fake_modal.call.cancelled
+
+
+def test_a_modal_error_raised_by_the_job_itself_is_a_failed_job(tmp_path, fake_modal):
+    fake_modal.items = [remote.STARTED]
+    fake_modal.call = FakeCall(
+        polls_before_done=0, error=fake_modal.errors.RequestSizeError("result too large")
+    )
+
+    outcome, lines, _ = _run(tmp_path)
+
+    assert outcome == remote.RemoteOutcome(1)
+    assert lines == ["The cloud GPU job failed: RequestSizeError: result too large"]
+
+
+def test_the_real_modal_clients_errors_share_the_base_class_the_fallback_catches():
+    modal_errors = pytest.importorskip("modal.exception")
+
+    for name in ("NotFoundError", "AuthError", "ConnectionError", "InternalFailure"):
+        assert issubclass(getattr(modal_errors, name), modal_errors.Error)
+    assert issubclass(modal_errors.FunctionTimeoutError, modal_errors.Error)
+    # The callers' own fallbacks catch RuntimeError and OSError, which these are not
+    assert not issubclass(modal_errors.Error, (RuntimeError, OSError))
 
 
 def test_a_job_that_raises_counts_as_a_failure(tmp_path, fake_modal, caplog):
