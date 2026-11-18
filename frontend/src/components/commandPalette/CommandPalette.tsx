@@ -11,6 +11,7 @@ import { Search } from 'lucide-react';
 import { Dialog } from '../ui/Dialog';
 import { Kbd } from '../ui/Kbd';
 import { cn } from '../../utils/cn';
+import { isImeKeyEvent } from '../../utils/imeComposition';
 import { PALETTE_MODAL_ID, PaletteCommand, PaletteSource } from './context';
 import { scoreItem } from './fuzzy';
 import { loadRecentCommandIds, rememberRecentCommand } from './recent';
@@ -161,6 +162,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // While an input method composes the query, Enter and the arrows belong to it
+    if (isImeKeyEvent(e)) return;
     const last = flat.length - 1;
     switch (e.key) {
       case 'ArrowDown':

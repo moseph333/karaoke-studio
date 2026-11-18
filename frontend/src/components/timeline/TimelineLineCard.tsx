@@ -28,6 +28,7 @@ import { formatLineTime } from '../../utils/lyrics';
 import type { LineIssue } from '../../utils/timelineReview';
 import { confidenceLevel, confidenceText, type ConfidenceLevel } from '../../utils/lineRealign';
 import { cn } from '../../utils/cn';
+import { isImeKeyEvent } from '../../utils/imeComposition';
 import { ExpandedWordEditor, type ActiveWordLocation } from './ExpandedWordEditor';
 import { Tooltip } from '../Tooltip';
 import { Menu } from '../ui/Menu';
@@ -212,6 +213,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               value={editingText}
               onChange={(e) => onSetEditingText(e.target.value)}
               onKeyDown={(e) => {
+                if (isImeKeyEvent(e)) return;
                 if (e.key === 'Enter') {
                   onCommitEditing(line.id, editingText);
                   refocusEditButton();
