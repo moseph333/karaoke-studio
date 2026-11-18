@@ -185,6 +185,11 @@ export function parseChordSymbol(chord: string | null | undefined): ParsedChord 
   };
 }
 
+// A flat on a chord's root or bass note: "Bb", "Ebm7", "C/Bb". The note B itself ("B", "Bm",
+// "C/B") has none. Same rule as _is_flat_chord in backend/services/chord_detector.py.
+const FLAT_NOTE = /(?:^|\/)\s*[A-Ga-g][bB\u266d]/;
+const isFlatChord = (chord: string): boolean => FLAT_NOTE.test((chord || '').trim());
+
 /**
  * Determine whether to use 'flat' or 'sharp' spelling based on key context and chord accidental.
  */
@@ -193,7 +198,7 @@ export function classifyKeySpelling(
   originalChord: string = ''
 ): 'flat' | 'sharp' {
   if (!key || ['UNKNOWN', 'NONE', ''].includes(key.trim().toUpperCase())) {
-    return originalChord.toLowerCase().includes('b') ? 'flat' : 'sharp';
+    return isFlatChord(originalChord) ? 'flat' : 'sharp';
   }
 
   const cleanKey = key.trim();
@@ -241,7 +246,7 @@ export function classifyKeySpelling(
   }
 
   // Neutral keys (C Major, A Minor) fallback: check original chord accidental
-  return originalChord.toLowerCase().includes('b') ? 'flat' : 'sharp';
+  return isFlatChord(originalChord) ? 'flat' : 'sharp';
 }
 
 /**
