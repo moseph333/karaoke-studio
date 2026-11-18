@@ -578,8 +578,16 @@ class VideoRenderer:
         ]
 
         logger.info(f"Rendering video with FFmpeg: {' '.join(cmd)}")
+        # FFmpeg echoes file names and metadata in whatever bytes they hold: decode them
+        # leniently, whatever the container's locale, so odd bytes cannot stop the render
         process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
         )
 
         stderr_lines: list[str] = []
@@ -605,20 +613,8 @@ class VideoRenderer:
 
             process.wait()
 
-        except Exception as e:
-            if process.poll() is None:
-                try:
-                    process.terminate()
-                    process.wait(timeout=2)
-                except (subprocess.TimeoutExpired, Exception):
-                    try:
-                        process.kill()
-                        process.wait(timeout=1)
-                    except Exception:
-                        pass
-            raise e
-
         finally:
+            # Also on a cancel or a failing progress callback: never leave FFmpeg running
             if process.poll() is None:
                 try:
                     process.terminate()
