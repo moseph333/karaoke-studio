@@ -82,6 +82,8 @@ describe('explainProcessingError', () => {
     ['Demucs failed (exit 1)', /Separating the vocals/],
     ['HTTP Error 503: Service Unavailable', /did not get through/],
     ['Read timed out.', /did not get through/],
+    // FFmpeg's own timeout is about the audio, not the network
+    ['FFmpeg timed out converting the audio after 300s', /could not be read/],
     ['Expected extracted audio file not found or empty: downloads/abc.wav', /could not be read/],
     ['KeyError: 7', /Something went wrong/],
     ['', /Something went wrong/],
