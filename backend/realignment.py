@@ -6,8 +6,9 @@ server's configured aligner, the neural one when available, while the song stays
 keeps its state on the project as ``sync_job`` so the studio can poll it. The result replaces
 the song's lines only if nobody saved other lines in the meantime.
 
-Project dicts can be replaced by fresh copies from disk at any time (see find_project), so
-every write looks the project up again instead of holding on to one dict.
+The song can be deleted, or replaced by a new intake of the same link, while the job runs,
+so every write looks the project up again instead of holding on to one dict. (A project in
+memory is never swapped for its copy on disk: merge_disk_projects only adds missing ones.)
 """
 
 import hashlib

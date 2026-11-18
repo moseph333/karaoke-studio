@@ -8,9 +8,10 @@ words are re-timed when asked (lines timed by hand keep their timing when the jo
 ``keep_manual``, and lyrics saved in the meantime are kept instead), the current master mix
 is rendered again, and the mixes of the old stems are deleted (prune_mix_cache).
 
-The job's state lives on the project as ``separation_job`` so the studio can poll it. Project
-dicts can be replaced by fresh copies from disk at any time (see find_project), so every
-write looks the project up again instead of holding on to one dict.
+The job's state lives on the project as ``separation_job`` so the studio can poll it. The
+song can be deleted, or replaced by a new intake of the same link, while the job runs, so
+every write looks the project up again instead of holding on to one dict. (A project in
+memory is never swapped for its copy on disk: merge_disk_projects only adds missing ones.)
 """
 
 import logging
