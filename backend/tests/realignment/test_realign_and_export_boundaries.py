@@ -706,4 +706,5 @@ class TestSubtitleFormattingFuzzing:
         # Far future timestamp formatted cleanly: 100000s = 27h 46m 40s
         assert "27:46:40.00" in ass
         # Verify override curly braces are escaped
-        assert r"\{\\c&H0000FF&\}EvilWord" in ass or r"\{\\c" in ass
+        # and the backslash is parted from the tag name it would otherwise start
+        assert "\\{\\⁠c&H0000FF&\\}EvilWord" in ass

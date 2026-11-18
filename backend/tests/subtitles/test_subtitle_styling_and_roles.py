@@ -525,8 +525,8 @@ class TestAssSubtitleGenerationStress:
 
         # Braces inside words must be escaped as \{ and \}
         assert "\\{tags\\}" in d_line
-        # Backslash escaped
-        assert "\\\\N" in d_line
+        # Backslash parted from the N
+        assert "\\\u2060N" in d_line
         # Valid kf tags remain unescaped
         assert "{\\kf" in d_line
 

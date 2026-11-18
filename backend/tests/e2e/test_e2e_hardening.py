@@ -852,7 +852,7 @@ def test_video_renderer_escape_ass_text_newlines_and_braces():
     assert "\r" not in escaped and "\n" not in escaped
     assert "\\{" in escaped
     assert "\\}" in escaped
-    assert "\\\\" in escaped
+    assert "\\\u2060slash" in escaped
 
 
 def test_video_renderer_generate_ass_plain_text_lines(tmp_path):
