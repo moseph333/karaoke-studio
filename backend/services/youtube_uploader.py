@@ -18,7 +18,12 @@ logger = logging.getLogger(__name__)
 # YouTube's limits. A title holds 100 characters. Tags hold 500 characters in all, counting
 # a comma between tags and the quotes YouTube puts around a tag with a space. Chapters show
 # only when there are at least 3, the first starts at 00:00 and each lasts 10 s or more.
+# A description holds 5,000 characters, and YouTube refuses "<" and ">" in a title, a
+# description or a tag.
 _TITLE_LIMIT = 100
+_DESCRIPTION_LIMIT = 5000
+# U+2039 and U+203A, the single angle quotation marks
+_ANGLE_BRACKETS = str.maketrans({"<": "\u2039", ">": "\u203a"})
 _TITLE_SUFFIXES = (" (Karaoke Version / With Lyrics)", " (Karaoke Version)", " (Karaoke)")
 _TAGS_LIMIT = 500
 _MIN_CHAPTER_SEC = 10
@@ -30,6 +35,45 @@ _PLACEHOLDER_TITLE = "Karaoke Track"
 
 def _collapse(text: Any) -> str:
     return " ".join(str(text or "").split())
+
+
+def _without_angle_brackets(text: str) -> str:
+    """The text with "<" and ">" swapped for the look-alike quotes YouTube accepts."""
+    return text.translate(_ANGLE_BRACKETS)
+
+
+def _counted_length(text: str) -> int:
+    """The length as YouTube's character counter sees it: an emoji counts as two."""
+    return len(text.encode("utf-16-le")) // 2
+
+
+def _cut_to(text: str, limit: int) -> str:
+    """The text cut to `limit` counted characters, ending with '…' when it was cut."""
+    if _counted_length(text) <= limit:
+        return text
+    cut = text[: max(0, limit - 1)]
+    while cut and _counted_length(cut) > limit - 1:
+        cut = cut[:-1]
+    return cut.rstrip() + "…"
+
+
+def _lyrics_within(lyric_lines: list[str], room: int) -> str:
+    """The lyrics for the description: all of them when they fit in `room` counted
+    characters, else as many whole lines as fit, followed by a line holding '…'."""
+    full = "\n".join(lyric_lines)
+    if _counted_length(full) <= room:
+        return full
+    kept: list[str] = []
+    used = 1  # the closing "…"
+    for text in lyric_lines:
+        cost = _counted_length(text) + 1  # and its line break
+        if used + cost > room:
+            break
+        kept.append(text)
+        used += cost
+    if not kept:  # not even the first line fits
+        return _cut_to(lyric_lines[0], max(0, room))
+    return "\n".join([*kept, "…"])
 
 
 def _credited_artist(artist: str) -> str:
@@ -173,7 +217,7 @@ class YouTubeMetadataService:
         chapters = youtube_chapters(lines, duration)
         timestamps = f"🕒 Timestamps:\n{chr(10).join(chapters)}\n\n" if chapters else ""
 
-        description = (
+        before_lyrics = _without_angle_brackets(
             f'Sing along to "{song}"{originally_by}!\n\n'
             f"🎵 Details:\n"
             f"• Song: {song}\n"
@@ -182,16 +226,24 @@ class YouTubeMetadataService:
             f"• Type: {vocal_type}\n\n"
             f"{timestamps}"
             f"📜 Lyrics:\n"
-            f"{lyrics_text}\n\n"
-            f"-----------------------------------------\n"
-            f"Created with Karaoke Studio.\n"
-            f"All rights belong to their respective copyright holders."
         )
+        after_lyrics = (
+            "\n\n"
+            "-----------------------------------------\n"
+            "Created with Karaoke Studio.\n"
+            "All rights belong to their respective copyright holders."
+        )
+        # A long song's lyrics are what gets cut: the details, chapters and credit stay whole
+        room = _DESCRIPTION_LIMIT - _counted_length(before_lyrics) - _counted_length(after_lyrics)
+        shown_lyrics = _lyrics_within(
+            [_without_angle_brackets(text) for text in lyric_lines if text], room
+        )
+        description = _cut_to(before_lyrics + shown_lyrics + after_lyrics, _DESCRIPTION_LIMIT)
 
         return {
-            "title": _video_title(artist, title),
+            "title": _without_angle_brackets(_video_title(artist, title)),
             "description": description,
-            "tags": _tags(artist, title),
+            "tags": [_without_angle_brackets(tag) for tag in _tags(artist, title)],
             "key_note": key_note,
             "lyrics": lyrics_text,
             "privacy_status": "unlisted",
