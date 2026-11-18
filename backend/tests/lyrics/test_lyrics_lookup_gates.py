@@ -91,6 +91,19 @@ def test_the_wrong_version_is_kept_when_nothing_better_exists():
     assert (result["source"], result["synced"]) == ("lrclib", True)
 
 
+def test_timing_for_another_version_loses_to_this_versions_plain_lyrics():
+    extended = _record(300.0)  # half a minute longer than the audio
+    this_version = _record(269.0, synced="", plain=PLAIN + "\nAnd one line more")
+
+    def get(params):
+        return extended if "duration" not in params else None
+
+    with patch("requests.get", side_effect=_lrclib(get=get, search=[this_version])):
+        result = LyricsService()._fetch_from_lrclib("Don't Ask Me", "Soccer Mommy", 269.0)
+    assert (result["source"], result["synced"]) == ("lrclib_search", False)
+    assert result["plain_lyrics"].endswith("And one line more")
+
+
 def test_a_length_check_needs_both_lengths():
     assert LyricsService.duration_matches({"duration": 270.0}, 262.0)
     assert not LyricsService.duration_matches({"duration": 300.0}, 262.0)
