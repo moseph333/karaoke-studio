@@ -339,6 +339,22 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
     };
   }, [isFullscreen]);
 
+  // The studio passes no volume or mute, so the fullscreen controls show the player's own:
+  // read when the stage goes fullscreen and followed from there (the transport dock or the
+  // M shortcut may change it). The player is the one `<audio>` element both controls set.
+  const ownsVolume = volume === undefined && isMuted === undefined;
+  useEffect(() => {
+    const el = audioRef?.current;
+    if (!ownsVolume || !isFullscreen || !el) return;
+    const follow = () => {
+      setInternalVolume(el.volume);
+      setInternalMuted(el.muted);
+    };
+    follow();
+    el.addEventListener('volumechange', follow);
+    return () => el.removeEventListener('volumechange', follow);
+  }, [ownsVolume, isFullscreen, audioRef]);
+
   // 'F' toggles the fullscreen stage, 'Escape' exits
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
