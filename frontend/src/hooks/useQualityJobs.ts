@@ -82,6 +82,12 @@ export function useQualityJobs({
 }: UseQualityJobsOptions): UseQualityJobsReturn {
   const { toast } = useToast();
   const [isReseparateOpen, setReseparateOpen] = useState(false);
+  // The dialog belongs to the song it was opened over: closing or switching songs closes it
+  const [dialogProjectId, setDialogProjectId] = useState(project?.id);
+  if (dialogProjectId !== project?.id) {
+    setDialogProjectId(project?.id);
+    setReseparateOpen(false);
+  }
   const projectId = project?.id;
 
   useJobOutcomeToast(project?.separation_job, 'Stem re-separation finished');

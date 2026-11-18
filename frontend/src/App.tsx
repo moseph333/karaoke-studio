@@ -86,11 +86,17 @@ export const AppContent: React.FC = () => {
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<StudioWorkspaceTab>('stage');
   const [trackedProjectId, setTrackedProjectId] = useState<string | undefined>(project?.id);
 
-  // Reset to 'stage' synchronously when switching active projects or resetting
+  // Reset to 'stage' and close the song's dialogs synchronously when switching active
+  // projects or resetting
   if (trackedProjectId !== project?.id) {
     setTrackedProjectId(project?.id);
     setActiveWorkspaceTab('stage');
     setShowCheckup(false);
+    // A dialog left open over one song (Back was pressed, the song was switched from the
+    // palette) must not reopen over the library or the next song
+    setIsExportOpen(false);
+    setShowStudioEditModal(false);
+    setShowStudioDeleteModal(false);
   }
 
   // Stage look & preview toggles, remembered across reloads
