@@ -1,10 +1,12 @@
 """The YouTube kit: chapters that follow the song's instrumental gaps and that YouTube will
-show, a title within 100 characters and tags within 500 (backend/services/youtube_uploader)."""
+show, a title within 100 characters, tags within 500, a description within 5,000 and no
+angle brackets anywhere (backend/services/youtube_uploader)."""
 
 import pytest
 
 from backend.services.youtube_uploader import (
     YouTubeMetadataService,
+    _counted_length,
     _tag_length,
     youtube_chapters,
 )
@@ -208,3 +210,52 @@ def test_malformed_lines_do_not_break_the_kit():
     assert pkg["lyrics"] == "42\nLine at 31"
     assert "00:17 - 42" in pkg["description"]
     assert _package(lines=None)["lyrics"] == ""
+
+
+def _long_song(lines: int, text: str = "Another line of a very wordy rap verse") -> list[dict]:
+    return [_line(i * 2.0, i * 2.0 + 1.5, f"{text} {i}") for i in range(lines)]
+
+
+def test_a_song_whose_lyrics_fit_keeps_them_all_in_the_description():
+    pkg = _package(lines=_long_song(20))
+
+    assert pkg["lyrics"] in pkg["description"]
+    assert "…" not in pkg["description"]
+
+
+def test_a_long_songs_description_fits_youtubes_5000_characters():
+    lines = _long_song(400)
+    pkg = _package(lines=lines, duration=900.0)
+    description = pkg["description"]
+
+    assert _counted_length(description) <= 5000
+    assert _counted_length(description) > 4900  # as many lyrics as fit
+    # Whole lines from the start, then a mark that there is more, then the credit
+    head, _, tail = description.partition("\n…\n\n")
+    assert head.endswith(lines[head.count("Another line") - 1]["text"])
+    assert tail.startswith("-----")
+    assert tail.endswith("All rights belong to their respective copyright holders.")
+    assert len(pkg["lyrics"].splitlines()) == 400  # the separate lyrics copy stays whole
+
+
+def test_the_description_limit_counts_an_emoji_as_two_characters():
+    pkg = _package(lines=_long_song(400, text="🎤🎶 sing it 🎤🎶"))
+
+    assert _counted_length(pkg["description"]) <= 5000
+
+
+def test_one_endless_line_is_cut_inside_the_line():
+    pkg = _package(lines=[_line(1.0, 5.0, "la " * 4000)])
+
+    assert _counted_length(pkg["description"]) <= 5000
+    assert "la la la" in pkg["description"]
+    assert pkg["description"].endswith("copyright holders.")
+
+
+def test_angle_brackets_never_reach_the_title_description_or_tags():
+    pkg = _package(title="I <3 U", artist="<Band>", lines=[_line(1.0, 3.0, "I <3 you >> so much")])
+
+    for text in (pkg["title"], pkg["description"], *pkg["tags"]):
+        assert "<" not in text and ">" not in text
+    assert pkg["title"].startswith("‹Band› - I ‹3 U")
+    assert "I ‹3 you ›› so much" in pkg["description"]
