@@ -23,6 +23,8 @@ from backend.services.lyric_sync import (
     NeuralAlignmentFailed,
     merge_line,
     neural_slot,
+    romaji_onto_characters,
+    romaji_spelling,
     run_neural_pass,
 )
 from backend.services.lyric_tokenize import normalize_for_mms, tokenize_lyric_text
@@ -291,7 +293,8 @@ def realign_line(
 
     merged, method, score = dsp_line, "dsp", None
     if effective == "ctc":
-        normalized = [normalize_for_mms(w) for w in words]
+        by_romaji = romaji_spelling(line)
+        normalized = by_romaji or [normalize_for_mms(w) for w in words]
         if any(normalized):
             request = [{"index": 0, "window_start": lo, "window_end": hi, "words": normalized}]
             try:
@@ -302,6 +305,9 @@ def realign_line(
                     None,
                 )
                 alignable = sum(1 for w in normalized if w)
+                if by_romaji and neural is not None:
+                    neural = romaji_onto_characters(neural, dsp_line)
+                    alignable = len(dsp_line["words"])
                 merged, method, score = merge_line(
                     dsp_line, neural, (lo, hi), alignable, widen_to_dsp=False
                 )

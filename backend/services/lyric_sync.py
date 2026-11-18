@@ -179,6 +179,13 @@ def _romaji_tokens(line: dict) -> list[str]:
     return tokenize_lyric_text(str(line.get("romaji") or ""))
 
 
+def romaji_spelling(line: dict) -> list[str]:
+    """A line's romanization as the neural aligner is given it, word by word; empty when the
+    line has none. Every neural pass over a line (the song's, one line's, a repeat's) times
+    such a line by this and maps the result back with romaji_onto_characters."""
+    return [normalize_for_mms(t) for t in _romaji_tokens(line)]
+
+
 def romaji_onto_characters(neural: dict, line: dict) -> dict:
     """A neural result aligned on a line's romanization, as one for its characters: the
     characters share the span the romanized words were sung in, evenly, at the words' mean
@@ -797,11 +804,10 @@ def sync_lyrics(
         for i, line in enumerate(dsp_lines):
             if keep_source[i]:
                 continue
-            romaji = _romaji_tokens(sources[i] if i < len(sources) else line)
-            if romaji:
+            normalized = romaji_spelling(sources[i] if i < len(sources) else line)
+            if normalized:
                 # Timed by its romanization, which reads kanji as sung (uroman would read
                 # them as Chinese); mapped back onto the characters once aligned
-                normalized = [normalize_for_mms(t) for t in romaji]
                 romaji_lines.add(i)
             else:
                 normalized = [
