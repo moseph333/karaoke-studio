@@ -42,8 +42,13 @@ FONTS_DIR = Path(__file__).resolve().parents[1] / "assets" / "fonts"
 
 
 def _escape_filter_path(path: str | Path) -> str:
-    """A path quoted for an FFmpeg filter option value."""
-    return str(path).replace("\\", "/").replace(":", "\\:").replace("'", "\\'")
+    """A path escaped for an FFmpeg filter option value that the caller wraps in '...'.
+
+    FFmpeg unescapes twice: the filter graph first, where nothing can be escaped inside
+    quotes, so an apostrophe has to close them, stand outside as \\' and reopen them; then the
+    option's value, where the colon and the apostrophe each need a backslash."""
+    value = str(path).replace("\\", "/").replace(":", "\\:")
+    return value.replace("'", "\\'\\''")
 
 
 def ffmpeg_color(value: Any, default: str = DEFAULT_BACKGROUND_COLOR) -> str:
