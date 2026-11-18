@@ -257,6 +257,9 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   );
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Only the primary button scrubs: a right or middle press opens a menu or scrolls, and
+    // its release often never arrives, which left the scrubber dragging on every hover
+    if (e.button > 0) return;
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
     } catch (_err) {
@@ -307,6 +310,9 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      // The capture can end without a pointerup (another element takes it, the tab loses
+      // the pointer): the drag is over then too
+      onLostPointerCapture={() => setIsDragging(false)}
       onPointerLeave={() => setHoverRatio(null)}
       // The real control is the invisible range input below, so the focus ring goes here
       className={`group relative flex h-14 w-full cursor-pointer select-none items-center gap-[2px] overflow-hidden rounded-theme-md px-0.5 touch-none has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-theme-focus ${className}`}
