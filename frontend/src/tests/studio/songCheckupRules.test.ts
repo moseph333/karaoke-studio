@@ -227,7 +227,7 @@ describe('order', () => {
   });
 });
 
-describe('a song found on YouTube from Spotify, Apple Music or TIDAL', () => {
+describe('a song found on YouTube from Spotify, Apple Music, TIDAL or Deezer', () => {
   const match = {
     site: 'spotify',
     title: 'Never Gonna Give You Up',

@@ -1,7 +1,8 @@
-"""Spotify, Apple Music and TIDAL links: their audio cannot be downloaded, so the song's
-title, artist and length are read from the service's public pages (Spotify's track page,
-Apple's iTunes lookup API, TIDAL's track page) and the song is matched to a YouTube upload
-of the same recording. The match must have the song's title and artist and, when the service
+"""Spotify, Apple Music, TIDAL and Deezer links: their audio cannot be downloaded, so the
+song's title, artist and length are read from the service's public pages (Spotify's track
+page, Apple's iTunes lookup API, TIDAL's track page, Deezer's track API) and the song is
+matched to a YouTube upload of the same recording. Songs picked from the song search
+(``song_search``) arrive as Deezer or Apple Music links and take the same path. The match must have the song's title and artist and, when the service
 gives a length, about the same length; covers, live takes, karaoke and other versions the
 song's own title does not name are never picked. With no such upload the link is refused
 rather than guessed, and the user is told to search instead."""
@@ -17,7 +18,7 @@ from urllib.parse import urlparse
 import requests
 
 from backend.services.lyrics import LyricsNormalizer, LyricsService
-from backend.services.media_links import SITE_NAMES, MediaLink
+from backend.services.media_links import SITE_NAMES, MediaLink, UnusableLink, parse_media_link
 
 logger = logging.getLogger(__name__)
 
@@ -156,11 +157,52 @@ def _tidal(link: MediaLink) -> SongInfo:
     return SongInfo(title="", artists=[])
 
 
-_READERS = {"spotify": _spotify, "applemusic": _apple_music, "tidal": _tidal}
+def _deezer(link: MediaLink) -> SongInfo:
+    song = link.source_id
+    if not song:
+        # A share link (link.deezer.com/s/…) redirects to the song's page
+        try:
+            target = parse_media_link(_get(link.url).url)
+        except UnusableLink:
+            target = None
+        if target is None or target.site != "deezer" or not target.source_id:
+            raise SongNotFound(
+                "That Deezer share link does not lead to one song. "
+                "Open the song on deezer.com and paste its link."
+            )
+        song = target.source_id
+    data = _get(f"https://api.deezer.com/track/{song}").json()
+    if not isinstance(data, dict):
+        return SongInfo(title="", artists=[])
+    error = data.get("error")
+    if isinstance(error, dict):
+        # Deezer answers 200 with an error body: 800 is "no data", 4 its request quota
+        if error.get("code") == 800:
+            raise SongNotFound("Deezer has no song at that link.")
+        raise SongNotFound(
+            f"Deezer did not answer ({error.get('message') or 'error'}). Try again in a minute."
+        )
+    artist = data.get("artist") if isinstance(data.get("artist"), dict) else {}
+    contributors = [
+        str(c["name"])
+        for c in data.get("contributors") or []
+        if isinstance(c, dict) and c.get("name")
+    ]
+    album = data.get("album") if isinstance(data.get("album"), dict) else {}
+    duration = data.get("duration")
+    return SongInfo(
+        title=str(data.get("title") or ""),
+        artists=contributors or [str(artist.get("name") or "")],
+        duration=float(duration) if isinstance(duration, (int, float)) and duration > 0 else None,
+        thumbnail=album.get("cover_big") or album.get("cover_medium"),
+    )
+
+
+_READERS = {"spotify": _spotify, "applemusic": _apple_music, "tidal": _tidal, "deezer": _deezer}
 
 
 def fetch_song_info(link: MediaLink) -> SongInfo:
-    """The song a Spotify, Apple Music or TIDAL link points to, read from the service."""
+    """The song a Spotify, Apple Music, TIDAL or Deezer link points to, read from the service."""
     site_name = SITE_NAMES.get(link.site, link.site)
     try:
         info = _READERS[link.site](link)

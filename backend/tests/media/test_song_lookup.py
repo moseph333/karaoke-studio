@@ -1,5 +1,5 @@
-"""Spotify, Apple Music and TIDAL songs: their title, artist and length are read from the
-service's public pages, and the song is matched to a YouTube upload of the same recording,
+"""Spotify, Apple Music, TIDAL and Deezer songs: their title, artist and length are read
+from the service's public pages, and the song is matched to a YouTube upload of the same recording,
 never a cover, a live take or another length, and refused when nothing matches."""
 
 from unittest.mock import MagicMock, patch
@@ -19,6 +19,17 @@ from backend.services.song_lookup import (
 SPOTIFY = "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"
 APPLE = "https://music.apple.com/gb/album/never-gonna/1559885420?i=1559885421"
 TIDAL = "https://tidal.com/browse/track/77646168"
+DEEZER = "https://www.deezer.com/en/track/3135556"
+DEEZER_SHARE = "https://link.deezer.com/s/30AbCdEfGh"
+
+DEEZER_TRACK = {
+    "id": 3135556,
+    "title": "Harder, Better, Faster, Stronger",
+    "duration": 226,
+    "artist": {"name": "Daft Punk"},
+    "contributors": [{"name": "Daft Punk"}],
+    "album": {"cover_big": "https://cdn-images.dzcdn.net/images/cover/x/500x500.jpg"},
+}
 
 SPOTIFY_PAGE = """<html><head>
 <meta property="og:title" content="Never Gonna Give You Up"/>
@@ -96,6 +107,58 @@ def test_a_tidal_page_without_structured_data_is_read_from_its_title():
     page = TIDAL_PAGE.split("<script")[0] + "</head></html>"
     info, _ = _fetch(TIDAL, _response(page))
     assert (info.title, info.artist, info.duration) == ("Internal Calm", "Afterhour Chillout", None)
+
+
+def test_a_deezer_song_is_read_from_deezers_track_api():
+    info, get = _fetch(DEEZER, _response(data=DEEZER_TRACK))
+    assert (info.title, info.artists, info.duration) == (
+        "Harder, Better, Faster, Stronger",
+        ["Daft Punk"],
+        226.0,
+    )
+    assert info.thumbnail == "https://cdn-images.dzcdn.net/images/cover/x/500x500.jpg"
+    assert get.call_args.args[0] == "https://api.deezer.com/track/3135556"
+
+
+def test_a_deezer_song_names_every_credited_artist():
+    track = {**DEEZER_TRACK, "contributors": [{"name": "Queen"}, {"name": "David Bowie"}]}
+    info, _ = _fetch(DEEZER, _response(data=track))
+    assert info.artists == ["Queen", "David Bowie"]
+
+
+def test_a_deezer_share_link_is_followed_to_its_song():
+    page = _response("<html></html>")
+    page.url = "https://www.deezer.com/us/track/3135556?host=0&utm_campaign=clipboard"
+    responses = [page, _response(data=DEEZER_TRACK)]
+    with patch("backend.services.song_lookup.requests.get", side_effect=responses) as get:
+        info = fetch_song_info(parse_media_link(DEEZER_SHARE))
+    assert info.title == "Harder, Better, Faster, Stronger"
+    assert [call.args[0] for call in get.call_args_list] == [
+        DEEZER_SHARE,
+        "https://api.deezer.com/track/3135556",
+    ]
+
+
+@pytest.mark.parametrize(
+    "landed", ["https://www.deezer.com/us/album/302127", "https://www.deezer.com/deezer-links-404"]
+)
+def test_a_deezer_share_link_to_something_else_is_refused(landed):
+    page = _response("<html></html>")
+    page.url = landed
+    with pytest.raises(SongNotFound, match="does not lead to one song"):
+        _fetch(DEEZER_SHARE, page)
+
+
+@pytest.mark.parametrize(
+    "error,message",
+    [
+        ({"type": "DataException", "message": "no data", "code": 800}, "Deezer has no song"),
+        ({"type": "Exception", "message": "Quota limit exceeded", "code": 4}, "Deezer did not"),
+    ],
+)
+def test_deezers_error_answers_say_why(error, message):
+    with pytest.raises(SongNotFound, match=message):
+        _fetch(DEEZER, _response(data={"error": error}))
 
 
 @pytest.mark.parametrize(

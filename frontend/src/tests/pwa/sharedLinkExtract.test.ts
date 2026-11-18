@@ -57,7 +57,7 @@ describe('sharedIntakeQuery', () => {
     );
   });
 
-  it('takes links shared from Spotify, Apple Music and TIDAL', () => {
+  it('takes links shared from Spotify, Apple Music, TIDAL and Deezer', () => {
     expect(
       query({
         title: 'Never Gonna Give You Up',
@@ -80,7 +80,10 @@ describe('sharedIntakeQuery', () => {
 
   it('falls back to the shared words, without other links, as search terms', () => {
     expect(
-      query({ title: 'Bohemian Rhapsody - Queen', text: 'https://www.deezer.com/track/1' })
+      query({
+        title: 'Bohemian Rhapsody - Queen',
+        text: 'https://music.amazon.com/tracks/B0ABCDEFGH',
+      })
     ).toBe('Bohemian Rhapsody - Queen');
     expect(query({ text: 'Dancing Queen  ABBA https://example.com/x' })).toBe('Dancing Queen ABBA');
   });

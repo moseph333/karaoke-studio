@@ -112,7 +112,7 @@ def test_links_that_are_not_one_song_say_what_to_paste(text, hint):
     [
         "dQw4w9WgXcQ",
         "never gonna give you up",
-        "https://www.deezer.com/track/3135556",
+        "https://music.amazon.com/tracks/B0ABCDEFGH",
         "https://soundcloud.com.attacker.example/a/b",
         "",
         None,
@@ -124,7 +124,8 @@ def test_search_words_ids_and_other_sites_are_not_song_links(text):
 
 def test_messages_name_every_supported_site():
     assert supported_sites_sentence() == (
-        "YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music or TIDAL"
+        "YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music, "
+        "TIDAL or Deezer"
     )
 
 
@@ -167,6 +168,18 @@ def test_messages_name_every_supported_site():
             "tidal-77646168",
             "https://tidal.com/track/77646168",
         ),
+        (
+            "https://www.deezer.com/en/track/3135556?utm_source=deezer",
+            "deezer",
+            "deezer-3135556",
+            "https://www.deezer.com/track/3135556",
+        ),
+        (
+            "deezer.com/track/3135556",
+            "deezer",
+            "deezer-3135556",
+            "https://www.deezer.com/track/3135556",
+        ),
     ],
 )
 def test_streaming_links_are_looked_up_by_the_services_song_id(text, site, track_id, url):
@@ -174,6 +187,19 @@ def test_streaming_links_are_looked_up_by_the_services_song_id(text, site, track
     assert (link.site, link.track_id, link.url) == (site, track_id, url)
     assert link.lookup
     assert link.source_id == track_id.split("-", 1)[1]
+
+
+def test_a_deezer_share_link_is_a_song_whose_id_is_read_when_it_is_followed():
+    link = parse_media_link("https://link.deezer.com/s/30AbCdEfGh?utm=x")
+    assert (link.site, link.url, link.source_id) == (
+        "deezer",
+        "https://link.deezer.com/s/30AbCdEfGh",
+        "",
+    )
+    assert link.lookup
+    # Never the shape of a Deezer track id, which is a number
+    assert link.track_id.startswith("deezer-s")
+    assert link.track_id == parse_media_link("link.deezer.com/s/30AbCdEfGh").track_id
 
 
 def test_download_sites_are_not_looked_up():
@@ -193,6 +219,10 @@ def test_download_sites_are_not_looked_up():
         ("https://tidal.com/browse/album/77646153", "Copy Track Link"),
         ("https://tidal.com/browse/playlist/abc", "Copy Track Link"),
         ("https://tidal.com/", "tidal.com/track"),
+        ("https://www.deezer.com/us/album/302127", "Copy link"),
+        ("https://www.deezer.com/playlist/908622995", "Copy link"),
+        ("https://www.deezer.com/", "deezer.com/track"),
+        ("https://link.deezer.com/s/", "share link is incomplete"),
     ],
 )
 def test_streaming_links_that_are_not_one_song_say_how_to_copy_one(text, hint):

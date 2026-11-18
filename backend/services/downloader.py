@@ -146,7 +146,7 @@ def refuse_unsuitable(info: dict[str, Any] | None, *, incomplete: bool = False) 
     return None
 
 
-# Matched YouTube uploads a Spotify, Apple Music or TIDAL song tries before giving up
+# Matched YouTube uploads a Spotify, Apple Music, TIDAL or Deezer song tries before giving up
 LOOKUP_ATTEMPTS = 3
 
 
@@ -306,7 +306,8 @@ class TrackDownloader:
         """Download the audio and thumbnail of a YouTube video (link or id) or of a song on
         another supported site (see ``media_links``). ``file_stem`` names a YouTube video's
         files (and the returned id) instead of its video id: a song matched from Spotify,
-        Apple Music or TIDAL keeps its own files, apart from a song made from the video."""
+        Apple Music, TIDAL or Deezer (or picked from the song search) keeps its own files,
+        apart from a song made from the video."""
         if not url_or_id or not str(url_or_id).strip():
             raise ValueError("URL or video ID cannot be empty")
 
@@ -490,7 +491,7 @@ class TrackDownloader:
         }
 
     def _download_by_lookup(self, link: MediaLink, progress_hook=None) -> dict[str, Any]:
-        """A Spotify, Apple Music or TIDAL song: read its title, artist and length from the
+        """A Spotify, Apple Music, TIDAL or Deezer song: read its title, artist and length from the
         service, find the same recording on YouTube and download that. The song keeps the
         service's title and artist, which find the lyrics better than a video title, and its
         link as ``url``, so Try again looks it up again; ``song_match`` records what was

@@ -221,7 +221,7 @@ function stemRows(project: ProjectState, options: CheckupOptions): CheckupRow[] 
 // A matched upload this many seconds longer or shorter may be another edit of the song
 const MATCH_LENGTH_TIP_SEC = 4;
 
-/** A Spotify, Apple Music or TIDAL song: which YouTube upload stood in for it. */
+/** A Spotify, Apple Music, TIDAL or Deezer song: which YouTube upload stood in for it. */
 function matchRows(project: ProjectState): CheckupRow[] {
   const match = project.song_match;
   if (!match) return [];

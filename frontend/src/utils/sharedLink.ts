@@ -4,7 +4,7 @@
  * The YouTube app puts the video link in `text` (sometimes after the video title), other
  * apps use `url`. This picks what to put in the song search box: a song link from a
  * supported site (YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple
- * Music, TIDAL) when the share has one, otherwise the shared words as search terms (e.g. a
+ * Music, TIDAL, Deezer) when the share has one, otherwise the shared words as search terms (e.g. a
  * song title shared from another music app).
  */
 

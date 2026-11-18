@@ -233,10 +233,10 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
 
       const forbiddenUrls = [
-        'https://www.deezer.com/en/track/3135556',
+        'https://music.amazon.com/tracks/B0ABCDEFGH',
         'https://www.apple.com/music/',
         'http://example.com/audio.mp3',
-        'www.deezer.com/track/123456',
+        'www.qobuz.com/us-en/album/x/123456',
       ];
 
       for (const badUrl of forbiddenUrls) {
@@ -249,7 +249,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       }
     });
 
-    it('starts SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music and TIDAL links like YouTube ones', async () => {
+    it('starts SoundCloud, Bandcamp, Vimeo, Internet Archive, Spotify, Apple Music, TIDAL and Deezer links like YouTube ones', async () => {
       const user = userEvent.setup();
       const onSelectTrack = vi.fn();
 

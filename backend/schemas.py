@@ -48,7 +48,7 @@ class ProcessRequest(BaseModel):
         ...,
         description=(
             "A song link (YouTube, SoundCloud, Bandcamp, Vimeo, Internet Archive, or Spotify, "
-            "Apple Music or TIDAL, matched to YouTube) or an 11-character YouTube video ID"
+            "Apple Music, TIDAL or Deezer, matched to YouTube) or an 11-character YouTube video ID"
         ),
     )
     custom_lyrics: str | None = Field(
@@ -726,13 +726,13 @@ class KaraokeProject(BaseModel):
     )
     url: str | None = Field(
         default=None,
-        description="The link the song was made from (a Spotify, Apple Music or TIDAL link "
+        description="The link the song was made from (a Spotify, Apple Music, TIDAL or Deezer link "
         "for a matched song); uploads have none",
     )
     song_match: dict | None = Field(
         default=None,
         description=(
-            "For a Spotify, Apple Music or TIDAL link: the song read from the service (site, "
+            "For a Spotify, Apple Music, TIDAL or Deezer link: the song read from the service (site, "
             "title, artist, duration) and the YouTube upload it was matched to (youtube_id, "
             "youtube_title, youtube_url)"
         ),
