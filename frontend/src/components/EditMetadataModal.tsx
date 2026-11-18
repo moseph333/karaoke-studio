@@ -64,14 +64,20 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
+  // The fields start over when the dialog opens or is handed another song, not on every
+  // render: both parents build `project` inline, so its identity changes with each poll
+  const projectRef = useRef(project);
+  projectRef.current = project;
+  const projectId = project?.id;
   useEffect(() => {
-    if (project) {
-      setTitle(project.title || '');
-      setArtist(project.artist || '');
-      setPartNames(project.part_names ?? {});
+    const current = projectRef.current;
+    if (current) {
+      setTitle(current.title || '');
+      setArtist(current.artist || '');
+      setPartNames(current.part_names ?? {});
       setError(null);
     }
-  }, [project, isOpen]);
+  }, [projectId, isOpen]);
 
   if (!project) return null;
 
