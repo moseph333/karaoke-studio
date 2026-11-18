@@ -38,6 +38,7 @@ import { SegmentedControl } from './ui/SegmentedControl';
 import { Spinner } from './ui/Spinner';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
+import { backgroundTooLarge, isVideoFile } from '../utils/uploadLimits';
 
 export { THEMES };
 
@@ -171,6 +172,12 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const sizeError = backgroundTooLarge(file);
+    if (sizeError) {
+      toast.error(sizeError);
+      e.target.value = '';
+      return;
+    }
 
     setUploadingBg(true);
     const formData = new FormData();
@@ -188,9 +195,8 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
       }
       const data = await res.json();
       onCustomBgUploaded(data.bg_id);
-      const isVideo = file.type.startsWith('video/') || /\.(mp4|webm)$/i.test(file.name);
       toast.success(
-        isVideo
+        isVideoFile(file)
           ? 'Custom background video uploaded successfully'
           : 'Custom background image uploaded successfully'
       );
