@@ -833,6 +833,10 @@ def cloud(monkeypatch, engines):
             return remote_mod.RemoteOutcome(5)
         if state.mode == "cancelled":
             return remote_mod.RemoteOutcome(None, "cancelled")
+        if state.mode == "server timeout":
+            return remote_mod.RemoteOutcome(None, "timeout")
+        if state.mode == "function timeout":
+            return remote_mod.RemoteOutcome(None, "timeout", remote_limit=True)
         _write_wav(out_dir / "vocals.wav", 0.5)
         _write_wav(out_dir / "no_vocals.wav", -0.5)
         on_line('{"event": "stage", "pct": 100, "detail": "Stems ready"}\n')
@@ -884,6 +888,28 @@ def test_a_failed_cloud_job_falls_back_to_fast_here(tmp_path, cloud, engines):
     assert info["fallback_reason"] == (
         "Balanced · Mel-Band RoFormer: RoFormer separation failed (exit 5): CUDA error: device lost"
     )
+
+
+def test_a_job_stopped_by_the_servers_time_limit_names_that_setting(tmp_path, cloud, engines):
+    cloud.mode = "server timeout"
+    result, _ = _separate(tmp_path, "balanced")
+
+    assert _engine_modules(engines) == ["demucs"]
+    reason = result["separation"]["fallback_reason"]
+    assert "stopped after 2 hours (SEPARATION_TIMEOUT_SEC)" in reason
+
+
+def test_a_job_stopped_by_the_gpu_functions_own_limit_does_not_blame_the_servers_setting(
+    tmp_path, cloud, engines
+):
+    cloud.mode = "function timeout"
+    result, _ = _separate(tmp_path, "balanced")
+
+    assert _engine_modules(engines) == ["demucs"]
+    reason = result["separation"]["fallback_reason"]
+    assert "the cloud GPU stopped it at its own time limit" in reason
+    assert "SEPARATION_REMOTE_TIMEOUT_SEC" in reason
+    assert "2 hours" not in reason and "(SEPARATION_TIMEOUT_SEC)" not in reason
 
 
 def test_an_unreachable_cloud_gpu_skips_the_other_cloud_presets(tmp_path, cloud, engines):

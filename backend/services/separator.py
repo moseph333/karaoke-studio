@@ -157,12 +157,22 @@ def _failure_hint(plan: SeparationPlan, returncode: Any, text: str) -> str | Non
 
 
 def _failure_message(
-    plan: SeparationPlan, returncode: Any, tracker: ProgressTracker, reason: str | None = None
+    plan: SeparationPlan,
+    returncode: Any,
+    tracker: ProgressTracker,
+    reason: str | None = None,
+    remote_limit: bool = False,
 ) -> str:
     lines = [line for line in tracker.tail if line != tracker.error_detail]
     text = "\n".join([*lines, tracker.error_detail or ""])
     name = _engine_name(plan)
-    if reason == "timeout":
+    if reason == "timeout" and remote_limit:
+        # Not SEPARATION_TIMEOUT_SEC: the limit the Modal function was deployed with
+        head = (
+            f"{name} failed: the cloud GPU stopped it at its own time limit "
+            "(SEPARATION_REMOTE_TIMEOUT_SEC when gpu/modal_app.py was deployed)"
+        )
+    elif reason == "timeout":
         head = (
             f"{name} failed: stopped after {duration_text(separation_timeout_seconds())} "
             "(SEPARATION_TIMEOUT_SEC)"
@@ -569,7 +579,9 @@ class AudioSeparator:
         if (cancel_event is not None and cancel_event.is_set()) or outcome.reason == "cancelled":
             raise SeparationCancelled("RoFormer separation cancelled by user")
         if outcome.reason in ("timeout", "stalled"):
-            message = _failure_message(plan, outcome.returncode, tracker, outcome.reason)
+            message = _failure_message(
+                plan, outcome.returncode, tracker, outcome.reason, outcome.remote_limit
+            )
             logger.error(message)
             raise RuntimeError(message)
         if outcome.returncode != 0:

@@ -241,7 +241,7 @@ def test_the_gpu_functions_own_time_limit_is_a_timeout(tmp_path, fake_modal):
 
     outcome, _, _ = _run(tmp_path)
 
-    assert outcome == remote.RemoteOutcome(None, "timeout")
+    assert outcome == remote.RemoteOutcome(None, "timeout", remote_limit=True)
 
 
 def test_a_failed_worker_returns_its_exit_code_without_stems(tmp_path, fake_modal):
@@ -271,6 +271,28 @@ def test_the_gpu_app_uses_the_same_start_marker():
         and any(isinstance(t, ast.Name) and t.id == "STARTED" for t in node.targets)
     ]
     assert markers == [remote.STARTED]
+
+
+def test_the_gpu_functions_time_limit_is_read_at_deploy_time_and_defaults_to_30_minutes():
+    tree = ast.parse((PROJECT_ROOT / "gpu" / "modal_app.py").read_text())
+    (limit,) = [
+        ast.unparse(node.value)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Assign)
+        and any(
+            isinstance(t, ast.Name) and t.id == "SEPARATE_TIMEOUT_SECONDS" for t in node.targets
+        )
+    ]
+    assert limit == "int(os.environ.get('SEPARATION_REMOTE_TIMEOUT_SEC', '1800'))"
+
+    (separate,) = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "separate"
+    ]
+    (decorator,) = separate.decorator_list
+    options = {keyword.arg: ast.unparse(keyword.value) for keyword in decorator.keywords}
+    assert options["timeout"] == "SEPARATE_TIMEOUT_SECONDS"
 
 
 def test_an_aborting_progress_callback_cancels_the_cloud_job(tmp_path, fake_modal):
