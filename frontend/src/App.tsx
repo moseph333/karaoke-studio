@@ -32,7 +32,7 @@ import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useServerUpdatePrompt } from './hooks/useServerUpdatePrompt';
 import { useUpdateDrainNotice } from './hooks/useUpdateDrainNotice';
 import { useInstallPrompt } from './hooks/useInstallPrompt';
-import { useProjectHistory } from './hooks/useProjectHistory';
+import { PROJECT_PARAM, useProjectHistory } from './hooks/useProjectHistory';
 import { isInputElement, isModalActive, useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useStudioAudio } from './hooks/useStudioAudio';
 import { useStableHandlers } from './hooks/useStableHandlers';
@@ -113,47 +113,43 @@ export const AppContent: React.FC = () => {
   const { audioRef, duration, isPlaying, isMuted, setIsPlaying } = audio;
   const { queueSeek } = audio;
 
-  // Opens a song by id: from a ?project= link (with an optional ?t= seek) or a history entry
-  const openProjectById = useCallback(
-    (projectId: string, seekTime?: number, onMissing?: () => void) => {
-      apiFetch(`/api/project/${projectId}`)
-        .then((res) => {
-          if (res.status === 404) onMissing?.();
-          return res.ok ? res.json() : null;
-        })
-        .then((data) => {
-          if (data?.id) {
-            setProject(data);
-            if (seekTime !== undefined && !isNaN(seekTime)) queueSeek(seekTime);
-          }
-        })
-        .catch((e) => console.error('Failed to load project from URL parameter', e));
-    },
-    [setProject, queueSeek]
-  );
-
-  // Fetches a song in full, then opens it; a failure says so and stays put
+  // Fetches a song in full, then opens it; a failure says so and stays put. The song asked
+  // for last wins, whichever reply arrives first.
   const [openingProjectId, setOpeningProjectId] = useState<string | null>(null);
   const openingRef = useRef<string | null>(null);
   const fetchAndOpenProject = useCallback(
-    (projectId: string) => {
+    (
+      projectId: string,
+      {
+        seekTime,
+        onFailed,
+        onMissing,
+      }: { seekTime?: number; onFailed?: () => void; onMissing?: () => void } = {}
+    ) => {
       setActiveWorkspaceTab('stage');
       openingRef.current = projectId;
       setOpeningProjectId(projectId);
       apiFetch(`/api/project/${projectId}`)
         .then(async (res) => {
+          // Signed out: the sign-in dialog is the message, and the address keeps the song
+          // for the retry after signing in
+          if (res.status === 401) return null;
+          if (res.status === 404) onMissing?.();
           if (!res.ok) throw new Error(await readApiError(res, 'Could not open this song'));
-          return res.json();
-        })
-        .then((data: ProjectState | null) => {
+          const data: ProjectState | null = await res.json();
           if (!data?.id) throw new Error('Could not open this song');
-          // Another song chosen meanwhile wins
-          if (openingRef.current === projectId) setProject(data);
+          return data;
+        })
+        .then((data) => {
+          if (!data || openingRef.current !== projectId) return;
+          setProject(data);
+          if (seekTime !== undefined && !isNaN(seekTime)) queueSeek(seekTime);
         })
         .catch((err) => {
           if (openingRef.current !== projectId) return;
           console.error('Failed to open project', err);
           toast.error(err instanceof Error ? err.message : 'Could not open this song');
+          onFailed?.();
         })
         .finally(() => {
           if (openingRef.current !== projectId) return;
@@ -161,7 +157,31 @@ export const AppContent: React.FC = () => {
           setOpeningProjectId(null);
         });
     },
-    [setProject, toast]
+    [setProject, queueSeek, toast]
+  );
+
+  // Opens a song by id: from a ?project= link (with an optional ?t= seek) or a history
+  // entry. A song that cannot be opened is taken out of the address again: left there, the
+  // next song opened would replace that entry and Back would leave the app.
+  const openProjectById = useCallback(
+    (projectId: string, seekTime?: number, onMissing?: () => void) =>
+      fetchAndOpenProject(projectId, {
+        seekTime,
+        onMissing,
+        onFailed: () => {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get(PROJECT_PARAM) !== projectId) return;
+          params.delete(PROJECT_PARAM);
+          params.delete('t');
+          const query = params.toString();
+          window.history.replaceState(
+            window.history.state,
+            '',
+            `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+          );
+        },
+      }),
+    [fetchAndOpenProject]
   );
 
   // A library card: the list holds card-sized entries (marked `summary`), so the song is
@@ -178,13 +198,18 @@ export const AppContent: React.FC = () => {
     [setProject, fetchAndOpenProject]
   );
 
+  // The song named in the address: on load, and again after signing in when the first
+  // attempt was turned away
+  const openProjectRef = useRef(project);
+  openProjectRef.current = project;
   useEffect(() => {
+    if (openProjectRef.current) return;
     const params = new URLSearchParams(window.location.search);
-    const projectId = params.get('project');
+    const projectId = params.get(PROJECT_PARAM);
     const tParam = params.get('t');
     if (!projectId) return;
     openProjectById(projectId, tParam ? parseFloat(tParam) : undefined);
-  }, [openProjectById]);
+  }, [openProjectById, authToken]);
 
   // Something shared into the installed app (Android share sheet): pre-fill the song search
   // with it, then tidy the address bar
