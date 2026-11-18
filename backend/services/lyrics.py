@@ -1057,6 +1057,15 @@ class LyricsService:
             logger.warning(f"LRCLIB search failed ({params}): {e}")
         return []
 
+    @classmethod
+    def _as_plain(cls, cand: dict[str, Any]) -> dict[str, Any]:
+        """A candidate without its timing: its plain lyrics, or its synced lines' text."""
+        lrc = cand.get("syncedLyrics") or ""
+        if not lrc or not cls.is_lrc(lrc):
+            return cand
+        plain = cand.get("plainLyrics") or "\n".join(x["text"] for x in cls.parse_lrc(lrc))
+        return {**cand, "syncedLyrics": "", "plainLyrics": plain}
+
     def _fetch_from_lrclib(
         self, track_name: str, artist_name: str, duration: float | None
     ) -> dict[str, Any] | None:
@@ -1172,7 +1181,13 @@ class LyricsService:
                 )
             ):
                 if cand is not None:
-                    score = self.score_candidate(cand, clean_title, clean_artist, safe_duration)
+                    # Timing made for a version of another length earns no credit here: it
+                    # is ranked by its words alone, so this version's plain lyrics beat it.
+                    # If it still wins, its timing is kept (the aligner corrects it).
+                    ranked = cand
+                    if not self.duration_matches(cand, safe_duration):
+                        ranked = self._as_plain(cand)
+                    score = self.score_candidate(ranked, clean_title, clean_artist, safe_duration)
                     finalists.append((score, -order, cand, source))
             if finalists:
                 _, _, chosen, source = max(finalists, key=lambda x: (x[0], x[1]))
