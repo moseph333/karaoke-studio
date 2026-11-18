@@ -39,6 +39,10 @@ logger = logging.getLogger("karaoke_backend")
 
 router = APIRouter(tags=["uploads"])
 
+# What a song id looks like: a YouTube video id, "local_…" for an upload, "<site>-<id>" for
+# another site's song. Letters, digits, "-" and "_" only, so it is safe as a folder name
+PROJECT_ID_RE = re.compile(r"[A-Za-z0-9_-]{1,64}")
+
 # These handlers are async (they stream the upload), so their file and store work runs in
 # the threadpool: on the event loop it would hold up every other request
 
@@ -47,10 +51,21 @@ router = APIRouter(tags=["uploads"])
 async def upload_instrumental(project_id: str = Form(...), file: UploadFile = File(...)):
     import backend.main as main_mod
 
-    safe_proj_id = sanitize_upload_filename(project_id, default_stem="project")
+    # The id as the song has it: cleaning it like a file name cut the "-" or "_" a YouTube
+    # id can start or end with, and the song was then not found. Anything that is not an
+    # id is no song (and never becomes part of a path)
+    if not PROJECT_ID_RE.fullmatch(project_id):
+        raise HTTPException(status_code=404, detail="Project not found")
     # 404 and 409 answer before the free-space guard; _store_instrumental checks the song
     # again once the file is in, since it can change while the upload streams
-    await run_in_threadpool(_refuse_busy_song, safe_proj_id)
+    proj = await run_in_threadpool(_refuse_busy_song, project_id)
+    # The folder is named after the stored song, whichever of its ids the request used
+    stored_id = proj.get("id")
+    safe_proj_id = (
+        stored_id
+        if isinstance(stored_id, str) and PROJECT_ID_RE.fullmatch(stored_id)
+        else project_id
+    )
 
     raw_ext = Path(file.filename or "custom.wav").suffix.lower()
     if raw_ext not in ALLOWED_AUDIO_EXTS:
