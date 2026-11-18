@@ -624,7 +624,7 @@ export const AppContent: React.FC = () => {
                 onRetry={
                   isUploadedSong(project)
                     ? undefined
-                    : () => void intake.handleSelectTrack(retryInput(project))
+                    : () => void intake.handleSelectTrack(retryInput(project), undefined, project)
                 }
                 isRetrying={intake.loading}
               />
