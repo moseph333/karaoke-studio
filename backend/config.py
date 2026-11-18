@@ -291,6 +291,21 @@ def _min_free_mb(raw: str | None) -> int:
         return 1024
 
 
+def _max_song_minutes(raw: str | None) -> int:
+    """MAX_SONG_MINUTES from its setting: whole minutes, at least 0; unset or unreadable
+    is 60."""
+    try:
+        return max(0, int((raw or "").strip()))
+    except ValueError:
+        return 60
+
+
+# The longest recording a pasted link may download, in minutes. A link to an hours-long
+# video or mix is refused before anything is downloaded; 0 lifts the limit. Uploaded files
+# have their own size limit.
+MAX_SONG_MINUTES = _max_song_minutes(os.getenv("MAX_SONG_MINUTES"))
+
+
 # Free space (MB) to keep on the data folder's disk. Below it, new songs, uploads, renders and
 # re-separations are refused with HTTP 507; edits to existing songs are never blocked. 0 turns
 # the check off.

@@ -61,6 +61,8 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     # The free-space guard is off, so results never depend on the host's disk; tests that
     # cover it switch it on themselves
     monkeypatch.setattr(config, "DISK_MIN_FREE_MB", 0)
+    # Links download recordings of up to an hour, the default, whatever a developer's .env says
+    monkeypatch.setattr(config, "MAX_SONG_MINUTES", 60)
     # The mix cache keeps its default size whatever a developer's .env says
     monkeypatch.setattr(config, "MIX_CACHE_PER_SONG", 6)
     # So do the login limits and the proxy hops the rate limit trusts: one proxy in front,
