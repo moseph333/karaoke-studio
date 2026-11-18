@@ -937,7 +937,7 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
     with PROJECTS_LOCK:
         proj = get_project_or_404(project_id)
         # run_video_render removes this event when it ends; a set one is a cancelled render
-        # winding down
+        # still stopping, which the new render replaces and waits for
         running = main_mod.active_cancellations.get(render_key)
         if running is not None and not running.is_set():
             raise HTTPException(
@@ -959,8 +959,9 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
         logger.info(
             f"Queuing video render for project {project_id} (aspect_ratio={req.aspect_ratio}, semitones={req.semitones})"
         )
-        # The event exists whenever "queued" can be seen
-        main_mod.active_cancellations.setdefault(render_key, threading.Event())
+        # The event exists whenever "queued" can be seen. Always a new one: the set event
+        # of a cancelled render would cancel this render before it started
+        main_mod.active_cancellations[render_key] = threading.Event()
         proj["render_status"] = "queued"
         proj["render_progress"] = 5
         proj["render_detail"] = "Queueing render job..."

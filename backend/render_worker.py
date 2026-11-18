@@ -5,7 +5,7 @@ import threading
 import time
 from pathlib import Path
 
-from backend.background_jobs import release_cancel_event
+from backend.background_jobs import release_cancel_event, superseded
 from backend.config import BACKGROUNDS_DIR, OUTPUT_DIR
 from backend.errors import public_error
 from backend.project_analysis import chords_for_export, estimated_key, youtube_package
@@ -68,12 +68,46 @@ def remove_render_leftovers() -> int:
     return removed
 
 
+# One render at a time per song: a render requested while a cancelled one is still stopping
+# waits here for it, since both write the same scratch mix, subtitles and video files
+_SONG_RENDER_LOCKS: dict[str, threading.Lock] = {}
+_SONG_RENDER_LOCKS_GUARD = threading.Lock()
+
+
+def _song_render_lock(render_key: str) -> threading.Lock:
+    with _SONG_RENDER_LOCKS_GUARD:
+        return _SONG_RENDER_LOCKS.setdefault(render_key, threading.Lock())
+
+
+def _acquire_unless_cancelled(lock, cancel_event: threading.Event) -> bool:
+    """Waits for a lock or a job slot, giving up (False) once the render is cancelled, so a
+    cancelled render never sits in the queue holding its song's event."""
+    while not lock.acquire(timeout=0.25):
+        if cancel_event.is_set():
+            return False
+    return True
+
+
 def run_video_render(project_id: str, req: RenderRequest):
     import backend.main as main_mod
 
     render_key = f"{project_id}_render"
     cancel_event = main_mod.active_cancellations.setdefault(render_key, threading.Event())
     render_start = time.time()
+
+    def replaced() -> bool:
+        """Whether a newer render of the song was requested after this one was cancelled:
+        the song's render fields are that render's from then on."""
+        return superseded(main_mod.active_cancellations, render_key, cancel_event)
+
+    def mark_cancelled() -> None:
+        with PROJECTS_LOCK:
+            proj = find_project(project_id)
+            if proj and not replaced():
+                proj["render_status"] = "idle"
+                proj["render_detail"] = "Rendering cancelled"
+                proj["render_progress"] = 0
+                save_projects()
 
     def update_render(progress: int, detail: str, eta_s: int | None = None):
         if cancel_event.is_set():
@@ -99,13 +133,7 @@ def run_video_render(project_id: str, req: RenderRequest):
 
     # Fast pre-acquire check
     if cancel_event.is_set():
-        with PROJECTS_LOCK:
-            proj = find_project(project_id)
-            if proj:
-                proj["render_status"] = "idle"
-                proj["render_detail"] = "Rendering cancelled"
-                proj["render_progress"] = 0
-                save_projects()
+        mark_cancelled()
         release_cancel_event(main_mod.active_cancellations, render_key, cancel_event)
         return
 
@@ -113,21 +141,18 @@ def run_video_render(project_id: str, req: RenderRequest):
         release_cancel_event(main_mod.active_cancellations, render_key, cancel_event)
         return
 
+    song_lock = _song_render_lock(render_key)
+    song_lock_acquired = False
     semaphore_acquired = False
     final_audio: Path | None = None
     try:
-        main_mod.WORKER_SEMAPHORE.acquire()
-        semaphore_acquired = True
+        song_lock_acquired = _acquire_unless_cancelled(song_lock, cancel_event)
+        if song_lock_acquired:
+            semaphore_acquired = _acquire_unless_cancelled(main_mod.WORKER_SEMAPHORE, cancel_event)
 
         if cancel_event.is_set():
             logger.info(f"Render for {project_id} was cancelled while queued")
-            with PROJECTS_LOCK:
-                proj = find_project(project_id)
-                if proj:
-                    proj["render_status"] = "idle"
-                    proj["render_detail"] = "Rendering cancelled"
-                    proj["render_progress"] = 0
-                    save_projects()
+            mark_cancelled()
             return
 
         if find_project(project_id) is None:
@@ -219,6 +244,10 @@ def run_video_render(project_id: str, req: RenderRequest):
         # project once, as soon as a status poll reads "completed"
         with PROJECTS_LOCK:
             proj = get_project_or_404(project_id)
+            if replaced():
+                # Cancelled too late to stop, with a newer render already queued: that
+                # render makes the video again and reports on it
+                return
             # What the video was made with, which its YouTube kit describes from now on
             proj["render_settings"] = {"semitones": req.semitones, "guide_volume": req.guide_volume}
             proj["youtube_package"] = youtube_package(proj)
@@ -246,7 +275,7 @@ def run_video_render(project_id: str, req: RenderRequest):
             logger.error(f"Render failed for {project_id}: {e}", exc_info=True)
         with PROJECTS_LOCK:
             proj = find_project(project_id)
-            if proj is not None:
+            if proj is not None and not replaced():
                 if cancel_event.is_set():
                     proj["render_status"] = "idle"
                     proj["render_detail"] = "Rendering cancelled"
@@ -273,6 +302,8 @@ def run_video_render(project_id: str, req: RenderRequest):
         if semaphore_acquired:
             main_mod.WORKER_SEMAPHORE.release()
         release_cancel_event(main_mod.active_cancellations, render_key, cancel_event)
+        if song_lock_acquired:
+            song_lock.release()
         if find_project(project_id) is None:
             try:
                 cleanup_project_disk_artifacts(project_id)

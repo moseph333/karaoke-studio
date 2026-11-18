@@ -228,8 +228,9 @@ def test_the_render_job_writes_its_end_states_under_the_store_lock(monkeypatch, 
     elif branch == "cancelled while queued":
 
         class CancelWhileWaiting:
-            def acquire(self):
+            def acquire(self, timeout=None):
                 event.set()
+                return True
 
             def release(self):
                 pass
