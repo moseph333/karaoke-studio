@@ -313,6 +313,7 @@ describe('studio commands', () => {
         );
       }
       if (u.includes('/api/project/palette-proj')) return new Response(JSON.stringify(project));
+      if (u.includes('/api/project/other-proj')) return new Response(JSON.stringify(other));
       return new Response('{}');
     });
   });
