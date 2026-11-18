@@ -30,6 +30,17 @@ const RULES: { test: RegExp; summary: string; advice: string; uploadAdvice?: str
     uploadAdvice: 'Nothing is wrong with the song.',
   },
   {
+    test: /is a live stream/i,
+    summary: 'This link is a live stream, which has no end to download.',
+    advice: 'Paste a link to a finished recording of the song.',
+  },
+  {
+    // Longer than the server's MAX_SONG_MINUTES
+    test: /minutes long\. the longest this server downloads/i,
+    summary: 'This recording is longer than this server downloads.',
+    advice: `Pick a video of the song alone, not a whole album or concert, or ${OWN_FILE}.`,
+  },
+  {
     // An Internet Archive item of a whole album or concert
     test: /holds \d+ recordings/i,
     summary: 'This link holds several recordings, such as a whole album.',
