@@ -591,7 +591,10 @@ export const AppContent: React.FC = () => {
             ) : (
               <Suspense fallback={<StudioSkeleton />}>
                 <WhenShown onShown={handleStudioShown} />
+                {/* Keyed by song: another song starts with a fresh editor, never with the
+                    previous song's unsaved lines, filters or open tools */}
                 <StudioWorkspace
+                  key={project.id}
                   project={project}
                   activeTab={activeWorkspaceTab}
                   onSelectTab={setActiveWorkspaceTab}
