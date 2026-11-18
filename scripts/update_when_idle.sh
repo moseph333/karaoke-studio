@@ -9,7 +9,9 @@
 #    the install where it is; a run still going is waited for (UPDATE_CI_WAIT_SEC, default
 #    900 s), then left for the next call. Where there is no result to read (origin is not on
 #    GitHub, the API cannot be reached, the commit has no CI run) the update goes ahead and
-#    says so. --force does not skip this; UPDATE_REQUIRE_CI=0 does.
+#    says so, unless an earlier call saw that commit's run failed or still going (kept in
+#    <data dir>/.update_ci_hold): then it stays until a result can be read again.
+#    --force does not skip this; UPDATE_REQUIRE_CI=0 does.
 # 3. Resets the checkout and builds the new image while the old container keeps serving.
 # 4. Writes <data dir>/.update_draining: the running server stops accepting new songs,
 #    uploads, renders and re-made stems (503), while editing and playback keep working.
@@ -86,6 +88,20 @@ main() {
   # A commit's CI run exists within seconds of the push; none after this long means none
   # is coming (CI skipped for the commit, or Actions is off)
   CI_NO_RUN_GRACE=120
+  # The commit whose CI run was last seen failed or still going. Calls are minutes apart and
+  # share nothing else, so without it a later call that cannot read the result would deploy
+  # a commit an earlier call had refused
+  CI_HOLD_FILE="$DATA_DIR/.update_ci_hold"
+
+  ci_hold() {
+    { mkdir -p "$DATA_DIR" && printf '%s\n' "$1" >"$CI_HOLD_FILE.tmp" &&
+      mv "$CI_HOLD_FILE.tmp" "$CI_HOLD_FILE"; } 2>/dev/null ||
+      log "Could not write $CI_HOLD_FILE; a later call may not know CI held ${1:0:7} back"
+  }
+
+  ci_held() {
+    [[ -f "$CI_HOLD_FILE" && "$(head -n 1 "$CI_HOLD_FILE" 2>/dev/null)" == "$1" ]]
+  }
 
   # Prints what the CI workflow's newest run says about a commit: "passed",
   # "failed:<conclusion>", "running", "none" (no run for it) or "unknown:<why>"
@@ -126,7 +142,7 @@ main() {
 
   # Returns 0 when the update may move to the commit, 1 when it must stay where it is
   ci_allows() {
-    local sha="$1" short="${1:0:7}" started verdict elapsed readable=0
+    local sha="$1" short="${1:0:7}" started verdict elapsed readable=0 held=0
     if [[ -z "$CI_REPO" ]]; then
       CI_REPO="$(git config --get remote.origin.url 2>/dev/null | sed 's#/*$##' |
         sed -n 's#^.*github\.com[:/]\([^/]*/[^/]*\)$#\1#p')"
@@ -140,32 +156,48 @@ main() {
       log "curl is not installed, so CI cannot be checked; updating without a CI result"
       return 0
     fi
+    ci_held "$sha" && held=1
     started="$(date +%s)"
     while :; do
       verdict="$(ci_verdict "$sha")"
       elapsed=$(($(date +%s) - started))
       case "$verdict" in
         passed)
+          rm -f "$CI_HOLD_FILE"
           log "CI passed for $short"
           return 0
           ;;
         failed:*)
+          ci_hold "$sha"
           log "CI did not pass for $short (${verdict#failed:}); staying on ${LOCAL:0:7}." \
             "Push a fix, or set UPDATE_REQUIRE_CI=0 to update anyway"
           return 1
           ;;
         running)
+          ((readable == 1)) || ci_hold "$sha"
           readable=1
           ;;
         none)
+          if ((held == 1)); then
+            log "No CI run is listed for $short now, but an earlier call saw one failed or" \
+              "still running; staying on ${LOCAL:0:7}." \
+              "Push a fix, or set UPDATE_REQUIRE_CI=0 to update anyway"
+            return 1
+          fi
           if ((elapsed >= CI_NO_RUN_GRACE || elapsed >= CI_WAIT)); then
             log "No CI run exists for $short; updating without a CI result"
             return 0
           fi
           ;;
         *)
-          # Never read a result at all: behave as before the check existed. Lost after a
-          # run was seen going: keep waiting for it rather than update around it.
+          # Never read a result at all, in this call or an earlier one: behave as before
+          # the check existed. Lost after a run was seen going: keep waiting for it rather
+          # than update around it. Seen failed or going by an earlier call: stay.
+          if ((held == 1 && readable == 0)); then
+            log "Could not read the CI result for $short (${verdict#unknown:}), and an" \
+              "earlier call saw its run failed or still running; staying on ${LOCAL:0:7}"
+            return 1
+          fi
           if ((readable == 0)); then
             log "Could not read the CI result for $short (${verdict#unknown:});" \
               "updating without it"

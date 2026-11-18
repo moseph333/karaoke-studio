@@ -429,6 +429,83 @@ def test_an_api_that_cannot_be_reached_does_not_hold_the_update(install):
     assert install.deployed() == "v2"
 
 
+@pytest.mark.parametrize("unreadable", [500, 403, NO_RUN])
+def test_a_commit_seen_failing_is_not_deployed_when_a_later_call_reads_no_result(
+    install, unreadable
+):
+    sha = install.push_new_commit()
+
+    with FakeGitHub(FAILED) as github:
+        install.run(**github.env())
+        assert install.deployed() == "v1"
+
+        github.replies = [unreadable]
+        res = install.run(**github.env(UPDATE_CI_WAIT_SEC="1"))
+
+    assert res.returncode == 0, res.stderr
+    assert "an earlier call saw" in res.stdout
+    assert sha[:7] in res.stdout
+    assert install.deployed() == "v1"
+    assert install.compose_calls() == []
+
+
+def test_a_commit_seen_failing_is_not_deployed_when_the_api_is_down_later(install):
+    install.push_new_commit()
+    with FakeGitHub(FAILED) as github:
+        env = github.env()
+        install.run(**env)
+
+    res = install.run(**env)  # the port is closed now
+
+    assert res.returncode == 0, res.stderr
+    assert "did not answer" in res.stdout
+    assert install.deployed() == "v1"
+    assert install.compose_calls() == []
+
+
+def test_a_run_left_going_is_not_deployed_when_a_later_call_reads_no_result(install):
+    install.push_new_commit()
+
+    with FakeGitHub(RUNNING) as github:
+        install.run(**github.env(UPDATE_CI_WAIT_SEC="1"))
+        github.replies = [500]
+        res = install.run(**github.env())
+        assert install.deployed() == "v1"
+        assert install.compose_calls() == []
+
+        github.replies = [PASSED]
+        res = install.run(**github.env())
+
+    assert res.returncode == 0, res.stderr
+    assert install.deployed() == "v2"
+    assert not (install.data / ".update_ci_hold").exists()
+
+
+def test_a_fix_pushed_after_a_failed_commit_is_judged_on_its_own(install):
+    install.push_new_commit()
+
+    with FakeGitHub(FAILED) as github:
+        install.run(**github.env())
+        install.push_new_commit("v3")
+        github.replies = [500]
+        res = install.run(**github.env())
+
+    assert res.returncode == 0, res.stderr
+    assert "updating without it" in res.stdout
+    assert install.deployed() == "v3"
+
+
+def test_the_check_switched_off_deploys_a_commit_seen_failing(install):
+    install.push_new_commit()
+
+    with FakeGitHub(FAILED) as github:
+        install.run(**github.env())
+        res = install.run(**github.env(UPDATE_REQUIRE_CI="0"))
+
+    assert res.returncode == 0, res.stderr
+    assert install.deployed() == "v2"
+
+
 def test_a_lost_connection_while_a_run_is_going_keeps_waiting(install):
     install.push_new_commit()
 
