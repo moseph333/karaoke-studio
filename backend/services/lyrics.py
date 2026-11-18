@@ -199,11 +199,15 @@ class LyricsNormalizer:
         r"\s*[\(\[\{]\s*(?:ft\.?|feat\.?|featuring)\s+[^()\[\]{}]*$",
         flags=re.IGNORECASE,
     )
-    # Unbracketed: ft. Guest, feat. Guest, featuring Guest, with Guest
-    # Avoid matching normal song titles ending in pronouns with 'with' (e.g. 'Stay With Me', 'With You')
+    # Unbracketed: ft. Guest, feat. Guest, featuring Guest. Not "with Guest": in a title that
+    # is far more often part of the name ("Die With A Smile", "Dances With Wolves")
     FEAT_UNBRACKETED_RE = re.compile(
-        r"(?:\s+(?:ft\.?|feat\.?|featuring)\s+([^()\[\]{}]+)$|"
-        r"\s+with\s+(?!(?:me|you|us|myself|him|her|them)\b)([^()\[\]{}]+)$)",
+        r"\s+(?:ft\.?|feat\.?|featuring)\s+([^()\[\]{}]+)$",
+        flags=re.IGNORECASE,
+    )
+    # In an artist string "with Guest" does name a guest: "Lady Gaga with Bruno Mars"
+    ARTIST_WITH_RE = re.compile(
+        r"\s+with\s+(?!(?:me|you|us|myself|him|her|them)\b)[^()\[\]{}]+$",
         flags=re.IGNORECASE,
     )
 
@@ -258,7 +262,7 @@ class LyricsNormalizer:
             return m_bracket.group(1).strip()
         m_unbracket = cls.FEAT_UNBRACKETED_RE.search(text)
         if m_unbracket:
-            return (m_unbracket.group(1) or m_unbracket.group(2) or "").strip()
+            return m_unbracket.group(1).strip()
         return None
 
     @classmethod
@@ -346,6 +350,7 @@ class LyricsNormalizer:
         # Remove featured artist tags in artist string
         a = cls.FEAT_BRACKET_RE.sub("", a)
         a = cls.FEAT_UNBRACKETED_RE.sub("", a)
+        a = cls.ARTIST_WITH_RE.sub("", a)
         # Strip generic brackets
         a = re.sub(r"[\(\[\{].*?[\)\]\}]", "", a)
         a = cls._strip_unbalanced_brackets(a)

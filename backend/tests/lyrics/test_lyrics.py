@@ -567,7 +567,13 @@ def test_lyrics_normalizer_featured_artists():
 
     assert LyricsNormalizer.clean_title("Song Name feat. Co-Singer") == "Song Name"
     assert LyricsNormalizer.clean_title("Song Name featuring Famous Star") == "Song Name"
-    assert LyricsNormalizer.clean_title("Song Name with Guest Artist") == "Song Name"
+    # An unbracketed "with" is part of the title, not a guest credit
+    assert LyricsNormalizer.clean_title("Die With A Smile") == "Die With A Smile"
+    assert LyricsNormalizer.clean_title("Dances With Wolves") == "Dances With Wolves"
+    assert LyricsNormalizer.normalize_track_metadata(
+        "Lady Gaga - Die With A Smile (Official Music Video)", "Lady Gaga"
+    ) == ("Die With A Smile", "Lady Gaga")
+    assert LyricsNormalizer.clean_artist("Lady Gaga with Bruno Mars") == "Lady Gaga"
 
     # Bracketed variations
     assert LyricsNormalizer.clean_title("Song Name (feat. Guest Artist)") == "Song Name"
