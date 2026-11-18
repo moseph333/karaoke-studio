@@ -422,9 +422,12 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
             guide_volume=0.0,
             output_filename=f"{audio_id}_master.wav",
         )
+        # Before the lock: with the AAC preview on, this encodes the mix with FFmpeg, which
+        # would hold up every status poll and save for seconds
+        first_mix = master_fields(master_path)
         with PROJECTS_LOCK:
             proj = get_project_or_404(project_id)
-            proj.update(master_fields(master_path))
+            proj.update(first_mix)
 
         # Step 6: Ready!
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
@@ -638,9 +641,12 @@ def run_local_pipeline(
             guide_volume=0.0,
             output_filename=f"{project_id}_master.wav",
         )
+        # Before the lock: with the AAC preview on, this encodes the mix with FFmpeg, which
+        # would hold up every status poll and save for seconds
+        first_mix = master_fields(master_path)
         with PROJECTS_LOCK:
             proj = get_project_or_404(project_id)
-            proj.update(master_fields(master_path))
+            proj.update(first_mix)
 
         # Step 6: Ready!
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
