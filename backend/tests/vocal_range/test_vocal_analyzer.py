@@ -81,6 +81,11 @@ def test_project_key_transpositions():
     assert project_key("", 3) == "Unknown"
     assert project_key("A Major", 12) == "A Major"
     assert project_key("D Minor", -12) == "D Minor"
+    # Flat keys are spelled as the chord sheet spells them, not as sharps
+    assert project_key("A Major", 1) == "Bb Major"
+    assert project_key("C Major", -2) == "Bb Major"
+    assert project_key("G Minor", 3) == "Bb Minor"
+    assert project_key("Bb Major", 0) == "Bb Major"
 
 
 def test_pure_sine_wave_pitch_accuracy(analyzer: VocalRangeAnalyzer):

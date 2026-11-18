@@ -17,6 +17,8 @@ import numpy as np
 import scipy.signal
 import soundfile as sf
 
+from backend.services.chord_detector import project_key_signature
+
 logger = logging.getLogger("karaoke_backend")
 
 NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
@@ -110,7 +112,10 @@ def hz_to_note_name(hz: float) -> str:
 
 
 def project_key(original_key: str, semitones: int) -> str:
-    """Transpose a musical key string by integer semitones."""
+    """Transpose a musical key string by integer semitones.
+
+    Spelled as the chord sheet spells the same key (chord_detector.project_key_signature),
+    so a song moved to B flat reads "Bb Major" here too, not "A# Major"."""
     if not original_key or original_key.strip().lower() == "unknown":
         return "Unknown"
     parts = original_key.strip().split()
@@ -125,12 +130,11 @@ def project_key(original_key: str, semitones: int) -> str:
         .replace("AB", "G#")
         .replace("BB", "A#")
     )
-    mode = " ".join(parts[1:]) if len(parts) > 1 else ""
     if root not in NOTE_TO_SEMITONE:
         return original_key
-    new_idx = (NOTE_TO_SEMITONE[root] + semitones) % 12
-    new_root = NOTE_NAMES[new_idx]
-    return f"{new_root} {mode}".strip()
+    if semitones % 12 == 0:
+        return original_key.strip()
+    return project_key_signature(original_key.strip(), semitones)
 
 
 class VocalRangeAnalyzer:
