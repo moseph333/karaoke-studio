@@ -90,6 +90,21 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
   const [expandedCandidateId, setExpandedCandidateId] = useState<string | number | null>(null);
   const [applyingCandidateId, setApplyingCandidateId] = useState<string | number | null>(null);
 
+  // The timeline keeps this dialog mounted, so each opening starts the search over: the
+  // song's current title and artist, no results or error left from the last visit. Pasted
+  // text is kept, so closing by accident does not lose it.
+  const [wasOpen, setWasOpen] = useState(isOpen);
+  if (isOpen !== wasOpen) {
+    setWasOpen(isOpen);
+    if (isOpen) {
+      setSearchTitle(trackTitle);
+      setSearchArtist(trackArtist);
+      setCandidates([]);
+      setExpandedCandidateId(null);
+      setErrorMsg(null);
+    }
+  }
+
   const isBusy = isLoading || isSearching;
   const handleClose = () => {
     if (!isLoading) onClose();
