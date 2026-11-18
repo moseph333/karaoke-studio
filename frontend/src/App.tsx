@@ -132,40 +132,50 @@ export const AppContent: React.FC = () => {
     [setProject, queueSeek]
   );
 
-  // A library card: the list holds card-sized entries (marked `summary`), so the song is
-  // fetched in full first. Other callers (uploads, tests' fixtures) pass whole songs.
+  // Fetches a song in full, then opens it; a failure says so and stays put
   const [openingProjectId, setOpeningProjectId] = useState<string | null>(null);
   const openingRef = useRef<string | null>(null);
-  const openLibraryProject = useCallback(
-    (p: ProjectState) => {
+  const fetchAndOpenProject = useCallback(
+    (projectId: string) => {
       setActiveWorkspaceTab('stage');
-      if (!p.summary) {
-        setProject(p);
-        return;
-      }
-      openingRef.current = p.id;
-      setOpeningProjectId(p.id);
-      apiFetch(`/api/project/${p.id}`)
+      openingRef.current = projectId;
+      setOpeningProjectId(projectId);
+      apiFetch(`/api/project/${projectId}`)
         .then(async (res) => {
           if (!res.ok) throw new Error(await readApiError(res, 'Could not open this song'));
           return res.json();
         })
-        .then((data: ProjectState) => {
-          // Another card chosen meanwhile wins
-          if (openingRef.current === p.id) setProject(data);
+        .then((data: ProjectState | null) => {
+          if (!data?.id) throw new Error('Could not open this song');
+          // Another song chosen meanwhile wins
+          if (openingRef.current === projectId) setProject(data);
         })
         .catch((err) => {
-          if (openingRef.current !== p.id) return;
+          if (openingRef.current !== projectId) return;
           console.error('Failed to open project', err);
           toast.error(err instanceof Error ? err.message : 'Could not open this song');
         })
         .finally(() => {
-          if (openingRef.current !== p.id) return;
+          if (openingRef.current !== projectId) return;
           openingRef.current = null;
           setOpeningProjectId(null);
         });
     },
     [setProject, toast]
+  );
+
+  // A library card: the list holds card-sized entries (marked `summary`), so the song is
+  // fetched in full first. Other callers (uploads, tests' fixtures) pass whole songs.
+  const openLibraryProject = useCallback(
+    (p: ProjectState) => {
+      if (p.summary) {
+        fetchAndOpenProject(p.id);
+        return;
+      }
+      setActiveWorkspaceTab('stage');
+      setProject(p);
+    },
+    [setProject, fetchAndOpenProject]
   );
 
   useEffect(() => {
@@ -492,10 +502,9 @@ export const AppContent: React.FC = () => {
     onOpenCheckup: handlers.openCheckup,
     onShowFirstSongSteps: firstSong.visible ? undefined : firstSong.show,
     onNewSong: resetToLibrary,
-    onOpenProject: (p) => {
-      setProject(p);
-      setActiveWorkspaceTab('stage');
-    },
+    // The palette's song list is a snapshot that can be half a minute old: open the song
+    // as the server has it now
+    onOpenProject: (p) => fetchAndOpenProject(p.id),
     onSelectTab: setActiveWorkspaceTab,
     quality,
     onInstallApp: installApp.canInstall ? installApp.install : undefined,
