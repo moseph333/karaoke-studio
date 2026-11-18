@@ -4,6 +4,8 @@
 
 import logging
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -73,6 +75,45 @@ def track_artist(meta: dict[str, Any] | None, fallback: str) -> tuple[str, bool]
     if isinstance(uploader, str) and uploader.strip() and "@" not in uploader:
         return uploader, True
     return fallback, False
+
+
+def _unfinished_marker(wav_path: Path) -> Path:
+    return wav_path.with_name(f"{wav_path.name}.unfinished")
+
+
+def cached_audio(wav_path: Path | None) -> bool:
+    """Whether a finished download is at wav_path. A WAV whose download never finished (the
+    server was stopped while FFmpeg wrote it) still has its marker beside it: it holds only
+    the start of the song, so it is deleted instead of reused."""
+    if wav_path is None:
+        return False
+    marker = _unfinished_marker(wav_path)
+    if marker.exists():
+        logger.warning(f"Removing {wav_path.name}: its download never finished")
+        wav_path.unlink(missing_ok=True)
+        marker.unlink(missing_ok=True)
+        return False
+    return wav_path.is_file() and wav_path.stat().st_size > 0
+
+
+@contextmanager
+def fresh_download(wav_path: Path | None) -> Iterator[None]:
+    """Wraps a download that writes wav_path. yt-dlp's FFmpeg step writes the WAV straight
+    to its final name and leaves it there when it fails, and the next request would take
+    that file for the whole song. So a marker sits beside the WAV while it is written
+    (see cached_audio), and a download that raises takes its partial WAV with it."""
+    if wav_path is None:
+        yield
+        return
+    marker = _unfinished_marker(wav_path)
+    marker.touch()
+    try:
+        yield
+    except BaseException:
+        wav_path.unlink(missing_ok=True)
+        marker.unlink(missing_ok=True)
+        raise
+    marker.unlink(missing_ok=True)
 
 
 # Matched YouTube uploads a Spotify, Apple Music or TIDAL song tries before giving up
@@ -249,8 +290,8 @@ class TrackDownloader:
         stem = file_stem or video_id
         wav_path = self.output_dir / f"{stem}.wav" if stem else None
 
-        # Check for existing local cached audio (non-empty)
-        if wav_path and wav_path.is_file() and wav_path.stat().st_size > 0:
+        # Check for existing local cached audio (non-empty, and downloaded to the end)
+        if cached_audio(wav_path):
             logger.info(f"Local audio file already cached for {stem}, skipping download.")
             thumb_path = None
             for ext in ["webp", "jpg", "jpeg", "png"]:
@@ -345,29 +386,30 @@ class TrackDownloader:
         attempt_errors: list[str] = []
         last_err: Exception | None = None
 
-        for clients in client_profiles:
-            ydl_opts["extractor_args"] = {"youtube": {"player_client": clients}}
-            try:
-                logger.info(f"Attempting download with client profile: {clients}")
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    meta = ydl.extract_info(url, download=True)
-                    if meta:
-                        logger.info(f"Download succeeded with client profile: {clients}")
-                        break
-            except Exception as e:
-                if _is_cancel(e):
-                    # The user cancelled: trying the next client would only start over
-                    raise
-                err_msg = f"Profile {clients} failed: {e}"
-                logger.warning(err_msg)
-                attempt_errors.append(err_msg)
-                last_err = e
+        with fresh_download(wav_path):
+            for clients in client_profiles:
+                ydl_opts["extractor_args"] = {"youtube": {"player_client": clients}}
+                try:
+                    logger.info(f"Attempting download with client profile: {clients}")
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        meta = ydl.extract_info(url, download=True)
+                        if meta:
+                            logger.info(f"Download succeeded with client profile: {clients}")
+                            break
+                except Exception as e:
+                    if _is_cancel(e):
+                        # The user cancelled: trying the next client would only start over
+                        raise
+                    err_msg = f"Profile {clients} failed: {e}"
+                    logger.warning(err_msg)
+                    attempt_errors.append(err_msg)
+                    last_err = e
 
-        if not meta:
-            summary = "; ".join(attempt_errors) if attempt_errors else "unknown error"
-            raise RuntimeError(
-                f"Failed to extract/download video from '{url}' across all client profiles. Errors: {summary}"
-            ) from last_err
+            if not meta:
+                summary = "; ".join(attempt_errors) if attempt_errors else "unknown error"
+                raise RuntimeError(
+                    f"Failed to extract/download video from '{url}' across all client profiles. Errors: {summary}"
+                ) from last_err
 
         v_id = file_stem or meta.get("id") or video_id
         title = meta.get("title") or "Unknown Track"
@@ -467,7 +509,7 @@ class TrackDownloader:
         already on disk is reused; its metadata is refreshed when the site answers."""
         site_name = SITE_NAMES.get(link.site, link.site)
         wav_path = self.output_dir / f"{link.track_id}.wav"
-        cached = wav_path.is_file() and wav_path.stat().st_size > 0
+        cached = cached_audio(wav_path)
         ydl_opts: dict[str, Any] = {
             "format": "bestaudio/ba/b",
             "outtmpl": str(self.output_dir / f"{link.track_id}.%(ext)s"),
@@ -485,7 +527,8 @@ class TrackDownloader:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 meta = _single_recording(ydl.extract_info(link.url, download=False), site_name)
                 if not cached:
-                    meta = ydl.process_ie_result(meta, download=True) or meta
+                    with fresh_download(wav_path):
+                        meta = ydl.process_ie_result(meta, download=True) or meta
         except UnusableLink:
             raise
         except Exception as e:
