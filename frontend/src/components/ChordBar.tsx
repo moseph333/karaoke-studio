@@ -12,6 +12,7 @@ import { ChordSegment } from '../types';
 import { transposeChord, NO_CHORD_VALUES } from '../utils/chords';
 import { Edit2, Check, X } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { isImeKeyEvent } from '../utils/imeComposition';
 import { formatTime } from '../utils/format';
 import { focusRing } from './ui/variants';
 
@@ -126,6 +127,7 @@ export const ChordBar: React.FC<ChordBarProps> = ({
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={(e) => {
+              if (isImeKeyEvent(e)) return;
               if (e.key === 'Enter') handleSaveEdit();
               if (e.key === 'Escape') handleCancelEdit();
             }}
