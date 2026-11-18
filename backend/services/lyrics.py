@@ -12,10 +12,10 @@ import requests
 import syncedlyrics
 
 from backend.services.lyric_cleanup import (
-    REPEAT_MARKER,
     clean_fetched_lines,
     is_all_caps,
     is_annotation,
+    repeat_marker,
 )
 from backend.services.lyric_tokenize import tokenize_lyric_text
 
@@ -684,7 +684,7 @@ class LyricsService:
             flags.append("all_caps")
         if any(len(line) > LONG_LINE_CHARS for line in lines):
             flags.append("long_lines")
-        if any(REPEAT_MARKER.search(line) for line in lines):
+        if any(repeat_marker(line) for line in lines):
             flags.append("repeat_markers")
         if any(is_annotation(line) for line in lines):
             flags.append("annotations")

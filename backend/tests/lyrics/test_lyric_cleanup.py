@@ -66,6 +66,46 @@ def test_sung_parentheses_and_short_lines_stay():
     ]
 
 
+def test_a_name_ending_in_x_and_a_number_is_not_a_repeat_marker():
+    lines = [
+        line("We're live on Channel X5", 10, 13),
+        line("He drives a BMW X5", 14, 17),
+        line("La la la x2", 18, 21),
+        line("La la la (X2)", 22, 25),
+        line("LA LA LA X2", 26, 29),
+        line("Na na na 2x", 30, 33),
+    ]
+    assert [entry["text"] for entry in clean_fetched_lines(lines)] == [
+        "We're live on Channel X5",
+        "He drives a BMW X5",
+        "La la la",
+        "La la la",
+        "LA LA LA",
+        "Na na na",
+    ]
+    flags = LyricsService.lyric_quality
+    assert "repeat_markers" not in flags("Intro\nWe're live on Channel X5")[1]
+    assert "repeat_markers" in flags("Intro\nLa la la x2")[1]
+
+
+def test_a_sung_line_in_parentheses_is_not_a_translators_note():
+    for sung in (
+        "(this is the rhythm of the night)",
+        "Oh yeah (this is how we do it every night)",
+        "(I'm literally dying over here tonight)",
+        "(originally I thought that you were mine)",
+    ):
+        assert not is_annotation(sung)
+        assert [entry["text"] for entry in clean_fetched_lines([line(sung, 1, 4)])] == [sung]
+    for note in (
+        "Went away (This is phrased in present tense Japanese)",
+        "Sora (literally means the sky above us all)",
+        "Kimi (Note: an informal word for you)",
+        "Yoru (translator: night, or evening here)",
+    ):
+        assert is_annotation(note)
+
+
 def test_a_crammed_run_at_the_end_is_dropped_but_not_a_whole_short_file():
     tail = [line(f"note {i}", 60 + i * 0.2, 60 + i * 0.2 + 0.15) for i in range(3)]
     song = [line("Sung line one", 10, 13), line("Sung line two", 14, 17)]
