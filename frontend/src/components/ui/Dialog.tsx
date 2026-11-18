@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
@@ -72,6 +72,11 @@ export const Dialog: React.FC<DialogProps> = ({
     escapeDeactivates: dismissOnEscape,
   });
 
+  // A press that starts in the panel and is released on the backdrop (selecting text or
+  // dragging a slider past the edge) is reported by the browser as a click on the backdrop,
+  // their common ancestor. Only a press that also started on the backdrop dismisses.
+  const pressStartedInsideRef = useRef(false);
+
   if (!open) return null;
 
   const isSheetLike = variant !== 'center';
@@ -86,9 +91,14 @@ export const Dialog: React.FC<DialogProps> = ({
       data-modal={dataModal}
       data-testid={testId}
       tabIndex={-1}
+      onPointerDown={(e) => {
+        pressStartedInsideRef.current = e.target !== e.currentTarget;
+      }}
       onClick={(e) => {
+        const startedInside = pressStartedInsideRef.current;
+        pressStartedInsideRef.current = false;
         if (e.target !== e.currentTarget) return;
-        if (dismissOnBackdrop) onClose?.();
+        if (dismissOnBackdrop && !startedInside) onClose?.();
         else e.stopPropagation();
       }}
       onKeyDown={(e) => {
