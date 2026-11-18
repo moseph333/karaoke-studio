@@ -24,6 +24,7 @@ import { StemQualityControl } from './quality/StemQualityControl';
 import { Panel } from './ui/Panel';
 import { SeparationInfo, SeparationJob, VocalRangeData } from '../types';
 import { formatSemitones } from '../utils/format';
+import { instrumentalTooLarge } from '../utils/uploadLimits';
 
 export { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY };
 export { parseMediaError, type AudioPlaybackError };
@@ -231,6 +232,12 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   const handleInstrumentalUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const sizeError = instrumentalTooLarge(file);
+    if (sizeError) {
+      toast.error(sizeError);
+      e.target.value = '';
+      return;
+    }
 
     setUploadingInst(true);
     const formData = new FormData();
