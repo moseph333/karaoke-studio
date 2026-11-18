@@ -4,6 +4,7 @@ noisy titles keep the song's name, credit lines are not sung, and LRC lines end 
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from backend.services.downloader import music_track_title
 from backend.services.lyrics import (
@@ -75,6 +76,36 @@ def test_another_songs_search_hit_loses_to_the_exact_plain_lyrics():
         result = LyricsService()._fetch_from_lrclib("Don't Ask Me", "Soccer Mommy", 269.0)
     assert result["synced"] is False
     assert result["plain_lyrics"] == PLAIN
+
+
+def test_a_search_that_times_out_keeps_the_exact_match_found_before_it():
+    exact_plain = _record(269.0, synced="")
+    answer = _lrclib(get=exact_plain)
+
+    def fake(url, params=None, timeout=5):
+        if url.endswith("/search"):
+            raise requests.exceptions.Timeout("read timed out")
+        return answer(url, params=params, timeout=timeout)
+
+    with patch("requests.get", side_effect=fake):
+        result = LyricsService()._fetch_from_lrclib("Don't Ask Me", "Soccer Mommy", 269.0)
+    assert result is not None
+    assert (result["source"], result["synced"]) == ("lrclib", False)
+    assert result["plain_lyrics"] == PLAIN
+
+
+def test_an_exact_lookup_that_fails_still_lets_the_search_answer():
+    studio = _record(268.0)
+    answer = _lrclib(search=[studio])
+
+    def fake(url, params=None, timeout=5):
+        if url.endswith("/get"):
+            raise requests.exceptions.ConnectionError("reset")
+        return answer(url, params=params, timeout=timeout)
+
+    with patch("requests.get", side_effect=fake):
+        result = LyricsService()._fetch_from_lrclib("Don't Ask Me", "Soccer Mommy", 269.0)
+    assert (result["source"], result["synced"]) == ("lrclib_search", True)
 
 
 def test_another_songs_search_hit_alone_is_not_taken():
