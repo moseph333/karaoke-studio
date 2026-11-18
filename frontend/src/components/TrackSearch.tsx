@@ -487,8 +487,17 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
           {results.map((track) => (
             <div
               key={track.id}
-              onClick={() => onSelectTrack(track.url, customLyrics.trim() || undefined)}
-              className="group flex cursor-pointer items-center justify-between gap-2 rounded-theme-lg border border-theme-border-subtle bg-theme-surface p-2.5 shadow-theme-sm transition-colors hover:border-theme-border hover:bg-theme-surface-subtle sm:p-3"
+              // One song at a time: while a start is on its way, a second click (or a
+              // double click) would create the song twice
+              onClick={() => {
+                if (!isLoading) onSelectTrack(track.url, customLyrics.trim() || undefined);
+              }}
+              className={cn(
+                'group flex items-center justify-between gap-2 rounded-theme-lg border border-theme-border-subtle bg-theme-surface p-2.5 shadow-theme-sm transition-colors sm:p-3',
+                isLoading
+                  ? 'cursor-progress opacity-60'
+                  : 'cursor-pointer hover:border-theme-border hover:bg-theme-surface-subtle'
+              )}
             >
               <div className="flex min-w-0 flex-1 items-center gap-3">
                 {track.thumbnail ? (
@@ -513,6 +522,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
               </div>
               <button
                 type="button"
+                disabled={isLoading}
                 aria-label={`Create Karaoke: ${track.title}${track.artist ? ` – ${track.artist}` : ''}`}
                 className={cn(
                   'ml-2 flex min-h-[36px] shrink-0 items-center justify-center rounded-theme-md border border-theme-accent/40 bg-theme-accent/15 px-3 font-theme-heading text-xs font-semibold text-theme-highlight transition-colors group-hover:border-transparent group-hover:bg-gradient-accent group-hover:text-theme-accent-text sm:ml-4 sm:px-3.5',
