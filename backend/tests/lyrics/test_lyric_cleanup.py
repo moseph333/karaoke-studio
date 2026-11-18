@@ -53,6 +53,30 @@ def test_a_note_inside_a_line_is_cut_out():
     assert len(cleaned[0]["words"]) == 4
 
 
+def test_a_note_in_the_middle_of_a_line_leaves_the_words_after_it():
+    noted = line("Kimi (Note: an informal word for you) wa doko", 1, 10)
+    (cleaned,) = clean_fetched_lines([noted])
+    assert cleaned["text"] == "Kimi wa doko"
+    assert [w["word"] for w in cleaned["words"]] == ["Kimi", "wa", "doko"]
+    # each word keeps its own timing: the last two were the line's eighth and ninth
+    assert [w["start_time"] for w in cleaned["words"]] == [1, 8, 9]
+
+
+def test_a_repeat_marker_after_a_japanese_line_leaves_every_character():
+    (parsed,) = LyricsService.parse_lrc("[00:01.00]幸せなサメ x2\n[00:05.00]\n")
+    (cleaned,) = clean_fetched_lines([parsed])
+    assert cleaned["text"] == "幸せなサメ"
+    assert [w["word"] for w in cleaned["words"]] == list("幸せなサメ")
+    assert cleaned["words"] == parsed["words"][:5]
+
+
+def test_words_that_do_not_follow_the_text_are_spread_over_the_cleaned_line():
+    noted = {**line("La la la x2", 2, 6), "words": [{"word": "other", "start_time": 2}]}
+    (cleaned,) = clean_fetched_lines([noted])
+    assert [w["word"] for w in cleaned["words"]] == ["La", "la", "la"]
+    assert cleaned["words"][0]["start_time"] == 2 and cleaned["words"][-1]["end_time"] == 6
+
+
 def test_sung_parentheses_and_short_lines_stay():
     lines = [
         line("Mutants from outer space", 10, 12),
