@@ -407,7 +407,9 @@ export function useKeyboardShortcuts({
         if (onNextLine) {
           onNextLine();
         } else if (projectLines && seekFn) {
-          const activeIdx = findActiveLineIndex(projectLines, current);
+          // Before the first line nothing is playing yet: "next" is line 1
+          const activeIdx =
+            current < projectLines[0].start_time ? -1 : findActiveLineIndex(projectLines, current);
           seekFn(projectLines[Math.min(projectLines.length - 1, activeIdx + 1)].start_time);
         }
         return;
