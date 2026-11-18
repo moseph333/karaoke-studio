@@ -84,7 +84,7 @@ describe('after a render: the upload to YouTube', () => {
   const kit = {
     title: 'The Night Shift - Golden Hour (Karaoke Version)',
     description:
-      'Sing along\n\n🕒 Timestamps:\n00:00 Intro\n00:20 Verse\n01:10 Chorus\n\n📜 Lyrics:\nHello there',
+      'Sing along\n\n🕒 Timestamps:\n0:00 - Intro\n0:20 - Verse\n1:10 - Chorus\n\n📜 Lyrics:\nHello there',
     tags: ['karaoke', 'golden hour'],
     key_note: 'Key: Original Key',
     lyrics: 'Hello there',
@@ -135,6 +135,19 @@ describe('after a render: the upload to YouTube', () => {
     expect(screen.getByText(/too few sections for chapters/)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Description (with Lyrics)' })).toBeInTheDocument();
     expect(screen.queryByText(/with Chapters/)).toBeNull();
+  });
+
+  it('does not take a lyric that starts with a clock time for a chapter', () => {
+    render(
+      <ExportYouTubeKit
+        youtubePackage={{
+          ...kit,
+          description: 'Sing along\n\n📜 Lyrics:\n3:00 in the morning\n10:15 on a Saturday night',
+        }}
+      />
+    );
+    expect(screen.getByRole('region', { name: 'Description (with Lyrics)' })).toBeInTheDocument();
+    expect(screen.getByText(/too few sections for chapters/)).toBeInTheDocument();
   });
 
   it('advises an unlisted first upload and warns about copyright claims', () => {

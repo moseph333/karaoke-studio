@@ -113,9 +113,10 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
     </div>
   );
 
-  // The kit leaves chapters out when YouTube would not show them; they are lines that start
-  // with a timestamp
-  const hasChapters = /^\d{1,2}:\d{2}(:\d{2})?\s/m.test(yt.description);
+  // The kit leaves chapters out when YouTube would not show them. They are the list under
+  // the kit's "Timestamps:" heading; a lyric that starts with a clock time ("3:00 in the
+  // morning") is not one.
+  const hasChapters = /Timestamps:\n\d{1,2}:\d{2}(:\d{2})? - /.test(yt.description);
   const descriptionLabel = hasChapters
     ? 'Description (with Chapters & Lyrics)'
     : 'Description (with Lyrics)';
