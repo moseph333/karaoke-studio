@@ -9,6 +9,7 @@ import { apiFetch, readApiError } from '../api';
 import type { LyricLine, ProjectState, SeparationJob, SeparationPreset, SyncJob } from '../types';
 import { PRESET_NAMES } from '../utils/quality';
 import { useToast } from './useToast';
+import { isActiveJobStatus } from '../utils/jobs';
 
 export interface ReseparateOptions {
   quality: SeparationPreset;
@@ -43,7 +44,6 @@ export interface UseQualityJobsReturn {
 }
 
 type JobField = 'separation_job' | 'sync_job';
-const ACTIVE = ['queued', 'running'];
 
 async function postJson(url: string, body?: unknown) {
   const res = await apiFetch(url, {
@@ -67,8 +67,8 @@ function useJobOutcomeToast(job: SeparationJob | SyncJob | null | undefined, fal
     if (!job?.id) return;
     const previous = seen.current;
     seen.current = { id: job.id, status: job.status };
-    if (!previous || previous.id !== job.id || !ACTIVE.includes(previous.status)) return;
-    if (ACTIVE.includes(job.status)) return;
+    if (!previous || previous.id !== job.id || !isActiveJobStatus(previous.status)) return;
+    if (isActiveJobStatus(job.status)) return;
     const message = job.detail || fallback;
     if (job.status === 'done') toast.success(message);
     else if (job.status === 'cancelled') toast.info(message);

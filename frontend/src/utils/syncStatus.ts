@@ -6,8 +6,7 @@
 import type { ProjectState } from '../types';
 import type { BadgeTone } from '../components/ui/variants';
 import { PRESET_NAMES, stemsLabel } from './quality';
-
-const isActiveJob = (status?: string) => status === 'queued' || status === 'running';
+import { isActiveJobStatus } from './jobs';
 
 /** The sync badge: how the lyrics are timed, how well, and whether a re-alignment runs. */
 export function getLyricSyncFidelity(project: ProjectState): {
@@ -19,7 +18,7 @@ export function getLyricSyncFidelity(project: ProjectState): {
 } {
   const lines = project.lines || [];
   const job = project.sync_job;
-  if (job && isActiveJob(job.status)) {
+  if (job && isActiveJobStatus(job.status)) {
     return {
       label: 'Re-aligning',
       tone: 'accent',
@@ -81,7 +80,7 @@ export function getStemsBadge(project: ProjectState): {
   active: boolean;
 } {
   const job = project.separation_job;
-  if (job && isActiveJob(job.status)) {
+  if (job && isActiveJobStatus(job.status)) {
     return {
       text: `Re-making stems · ${Math.round(job.progress)}%`,
       tooltip: job.detail || 'Re-making the stems in the background',

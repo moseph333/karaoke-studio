@@ -18,6 +18,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ProjectState } from '../types';
 import { apiFetch, getAuthToken } from '../api';
+import { isJobActive } from '../utils/jobs';
 
 const POLL_INTERVAL_MS = 1000;
 // Consecutive failed polls before the reconnect banner shows
@@ -49,11 +50,6 @@ const ACTIVE_PIPELINE_STATUSES = [
 ];
 
 const ACTIVE_RENDER_STATUSES = ['queued', 'rendering'];
-
-const ACTIVE_JOB_STATUSES = ['queued', 'running'];
-
-const isJobActive = (job?: { status?: string } | null): boolean =>
-  Boolean(job?.status && ACTIVE_JOB_STATUSES.includes(job.status));
 
 // Fields that can be large and rarely change while a job runs
 const STABLE_FIELDS = [

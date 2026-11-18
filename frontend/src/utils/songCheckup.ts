@@ -13,6 +13,7 @@ import { PRESET_NAMES, stemsLabel } from './quality';
 import { getLyricSyncFidelity } from './syncStatus';
 import { LOW_CONFIDENCE_THRESHOLD, collectLineIssues } from './timelineReview';
 import { uncoveredVocals } from './uncoveredVocals';
+import { isActiveJobStatus } from './jobs';
 
 /** `fix`: something is likely wrong. `tip`: it works, and could be better. `ok`: fine. */
 export type CheckupLevel = 'fix' | 'tip' | 'ok';
@@ -34,7 +35,6 @@ export interface CheckupOptions {
 }
 
 const LEVEL_ORDER: Record<CheckupLevel, number> = { fix: 0, tip: 1, ok: 2 };
-const isActiveJob = (status?: string) => status === 'queued' || status === 'running';
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const jobFailure = (job: { detail?: string; error?: string | null }, fallback: string) =>
   [job.detail || fallback, job.error ? `(${job.error})` : ''].filter(Boolean).join(' ');
@@ -45,7 +45,7 @@ function lyricRows(project: ProjectState): CheckupRow[] {
   const job = project.sync_job;
   const rows: CheckupRow[] = [];
 
-  if (job && isActiveJob(job.status)) {
+  if (job && isActiveJobStatus(job.status)) {
     rows.push({
       id: 'sync-running',
       level: 'tip',
@@ -162,7 +162,7 @@ function stemRows(project: ProjectState, options: CheckupOptions): CheckupRow[] 
   // Songs from before stem presets existed were all made with Fast
   const preset = separation?.preset ?? 'fast';
 
-  if (job && isActiveJob(job.status)) {
+  if (job && isActiveJobStatus(job.status)) {
     rows.push({
       id: 'stems-running',
       level: 'tip',

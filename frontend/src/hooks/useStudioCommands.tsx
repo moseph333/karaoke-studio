@@ -61,6 +61,7 @@ import type { UseQualityJobsReturn } from './useQualityJobs';
 import { stemsLabel } from '../utils/quality';
 import { checkupFixCount } from '../utils/songCheckup';
 import { focusWorkspacePanel } from '../components/studio/workspacePanels';
+import { isActiveJobStatus } from '../utils/jobs';
 
 export interface UseStudioCommandsOptions {
   project: ProjectState | null;
@@ -322,8 +323,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
 
     // Stems: re-make them at another quality, or stop a re-separation
     const { quality } = opts;
-    const isActive = (status?: string) => status === 'queued' || status === 'running';
-    if (quality && isActive(project.separation_job?.status)) {
+    if (quality && isActiveJobStatus(project.separation_job?.status)) {
       add({
         id: 'stems-cancel',
         title: 'Cancel stem re-separation',
@@ -333,7 +333,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
         keywords: ['stop', 'separation', 'stems'],
         run: () => quality.cancelReseparation(),
       });
-    } else if (quality && !isActive(project.sync_job?.status)) {
+    } else if (quality && !isActiveJobStatus(project.sync_job?.status)) {
       add({
         id: 'stems-improve',
         title: 'Improve stem separation…',
