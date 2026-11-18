@@ -140,6 +140,27 @@ def test_a_crammed_run_at_the_end_is_dropped_but_not_a_whole_short_file():
     assert len(clean_fetched_lines(tail)) == 3
 
 
+def test_a_crammed_run_is_dropped_from_a_file_without_a_closing_timestamp():
+    lrc = (
+        "[00:10.00]Sung line one\n"
+        "[00:14.00]Sung line two\n"
+        "[00:20.00]Sung line three\n"
+        "[01:00.00]Translated line one\n"
+        "[01:00.20]Translated line two\n"
+        "[01:00.40]Translated line three\n"
+    )
+    parsed = LyricsService.parse_lrc(lrc)
+    assert parsed[-1]["end_time"] - parsed[-1]["start_time"] >= 2.5  # no stamp ends it
+    assert [entry["text"] for entry in clean_fetched_lines(parsed)] == [
+        "Sung line one",
+        "Sung line two",
+        "Sung line three",
+    ]
+    # a last line sung right after a quick one is no run
+    quick = [line("Sung line one", 10, 13), line("Hey", 14, 14.3), line("Last line", 14.3, 17)]
+    assert len(clean_fetched_lines(quick)) == 3
+
+
 def test_annotation_detection():
     assert is_annotation("Translation Japanese:")
     assert is_annotation('Japan went to space. (Space could mean "empty space" or "outer space")')
