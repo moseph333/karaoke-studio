@@ -6,7 +6,7 @@
  * title/artist fields and project creation.
  */
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { FileAudio, Upload, X } from 'lucide-react';
 import uploadLimits from '@shared/upload_limits.json';
 import { ProjectState } from '../../types';
@@ -86,6 +86,12 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
   const [trackArtist, setTrackArtist] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingTrack, setUploadingTrack] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // A file input reports no change when the file it already holds is picked again, so it
+  // is emptied whenever the selection stops coming from it
+  const clearFileInput = () => {
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -130,6 +136,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
     setIsDragging(false);
     const file = e.dataTransfer.files?.[0];
     if (file) {
+      clearFileInput();
       processFile(file);
     }
   };
@@ -223,6 +230,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
           <input
             type="file"
             id="local-audio-file-input"
+            ref={fileInputRef}
             accept=".mp3,.wav,.flac,.m4a,.ogg,.opus,.aac,audio/*"
             onChange={handleFileChange}
             className="sr-only"
@@ -260,6 +268,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
                   type="button"
                   onClick={() => {
                     setSelectedFile(null);
+                    clearFileInput();
                     setTrackTitle('');
                     setTrackArtist('');
                     onError(null);
