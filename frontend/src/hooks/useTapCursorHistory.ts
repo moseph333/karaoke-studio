@@ -85,6 +85,10 @@ export function useTapCursorHistory({
     tapCursorRedoStackRef.current = [];
   }, []);
 
+  // Whether the cursor last restored was a tap-to-sync one: only then does undo/redo
+  // move the selected line with it
+  const restoredTapCursorActiveRef = useRef(false);
+
   const restoreTapCursorSnapshot = useCallback((direction?: 'undo' | 'redo'): number | null => {
     if (direction === 'undo' && tapCursorUndoStackRef.current.length > 0) {
       const prevCursor = tapCursorUndoStackRef.current.pop()!;
@@ -98,6 +102,7 @@ export function useTapCursorHistory({
       setTapSyncMode(prevCursor.mode);
       setTapTargetIndex(prevCursor.targetIndex);
       setTapTargetWordIndex(prevCursor.targetWordIndex);
+      restoredTapCursorActiveRef.current = prevCursor.isActive;
       return prevCursor.targetIndex;
     }
     if (direction === 'redo' && tapCursorRedoStackRef.current.length > 0) {
@@ -112,6 +117,7 @@ export function useTapCursorHistory({
       setTapSyncMode(nextCursor.mode);
       setTapTargetIndex(nextCursor.targetIndex);
       setTapTargetWordIndex(nextCursor.targetWordIndex);
+      restoredTapCursorActiveRef.current = nextCursor.isActive;
       return nextCursor.targetIndex;
     }
     return null;
@@ -220,6 +226,7 @@ export function useTapCursorHistory({
     handleTriggerTap,
     recordTapCursorSnapshot,
     restoreTapCursorSnapshot,
+    restoredTapCursorActiveRef,
     clearTapCursorHistory,
   };
 }
