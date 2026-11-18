@@ -266,6 +266,12 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
+# Inside the security headers, so a 401 carries them too (Starlette runs the middleware
+# added last first)
+app.add_middleware(PassphraseAuth)
+# Outside auth: a browser sends a CORS preflight (OPTIONS) without credentials, so behind
+# auth every preflight got a 401 and no request from an allowed origin could follow; a 401
+# also needs the CORS headers, or the page at that origin cannot read it to show the login
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.ALLOWED_ORIGINS,
@@ -274,11 +280,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-# Inside the security headers, so a 401 carries them too (Starlette runs the middleware
-# added last first)
-app.add_middleware(PassphraseAuth)
 # Outside auth, so a request for another host is refused before its credentials count
 app.add_middleware(AllowedHosts)
 # Outside auth, so an oversized body is refused before anything else looks at the request,
