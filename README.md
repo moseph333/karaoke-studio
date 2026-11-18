@@ -241,6 +241,7 @@ cp .env.example .env
 | `PREVIEW_AUDIO_FORMAT` | `wav` | What the studio streams: the WAV master, or `aac` for a 160 kbps `.m4a` copy (about 5 MB instead of 40 MB for a 4-minute song; each new mix takes a few seconds longer). Exports and videos always use the WAV. |
 | `MIX_CACHE_PER_SONG` | `6` | Key and guide mixes kept per song (each about 40 MB for a 4-minute song, plus its `.m4a` copy); the least recently used are deleted first and the current mix is always kept. Applied after each remix and re-separation, and to every song when the server starts. `0` keeps every mix. |
 | `KARAOKE_DATA_DIR` | `./workspace_data` | Audio, stems, renders and `projects.json` |
+| `MAX_SONG_MINUTES` | `60` | The longest recording a pasted link may download, in minutes. A longer video is refused before anything is downloaded, as is a live stream; `0` lifts the length limit. Uploaded files have their own size limit. |
 | `DISK_MIN_FREE_MB` | `1024` | Free space (MB) to keep on the data folder's disk. Below it, new songs, uploads, renders and re-separations are refused with HTTP `507`; edits are never blocked. `0` turns the check off. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Cloudflare tunnel token (Docker `--profile tunnel`) |
 | `LOG_LEVEL` | `INFO` | Level of the app's own log lines |

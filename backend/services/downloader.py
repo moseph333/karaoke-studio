@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 import requests
 import yt_dlp
 
+from backend import config
 from backend.config import DOWNLOADS_DIR
 from backend.services.lyrics import LyricsNormalizer
 from backend.services.media_links import (
@@ -114,6 +115,35 @@ def fresh_download(wav_path: Path | None) -> Iterator[None]:
         marker.unlink(missing_ok=True)
         raise
     marker.unlink(missing_ok=True)
+
+
+def refuse_unsuitable(info: dict[str, Any] | None, *, incomplete: bool = False) -> None:
+    """Refuses a recording that is no song to download: a live stream (yt-dlp would record
+    it for as long as it runs) or one longer than MAX_SONG_MINUTES (an hours-long video
+    fills the disk). Raises UnusableLink saying why; a length yt-dlp does not know passes.
+
+    Also yt-dlp's ``match_filter``, which it calls with the video's metadata before it
+    downloads anything: returning None accepts the video."""
+    if not isinstance(info, dict):
+        return None
+    if info.get("is_live") or info.get("live_status") in ("is_live", "is_upcoming"):
+        raise UnusableLink(
+            "That link is a live stream, which has no end to download. "
+            "Paste a link to a finished recording of the song."
+        )
+    limit = config.MAX_SONG_MINUTES
+    duration = info.get("duration")
+    if (
+        limit
+        and isinstance(duration, (int, float))
+        and not isinstance(duration, bool)
+        and duration > limit * 60
+    ):
+        raise UnusableLink(
+            f"That recording is {int(duration // 60)} minutes long. "
+            f"The longest this server downloads is {limit} minutes."
+        )
+    return None
 
 
 # Matched YouTube uploads a Spotify, Apple Music or TIDAL song tries before giving up
@@ -371,6 +401,8 @@ class TrackDownloader:
             "writethumbnail": True,
             "quiet": True,
             "no_warnings": True,
+            # Checked on the metadata, before the download starts
+            "match_filter": refuse_unsuitable,
         }
 
         if progress_hook:
@@ -397,8 +429,9 @@ class TrackDownloader:
                             logger.info(f"Download succeeded with client profile: {clients}")
                             break
                 except Exception as e:
-                    if _is_cancel(e):
-                        # The user cancelled: trying the next client would only start over
+                    if _is_cancel(e) or isinstance(e, UnusableLink):
+                        # The user cancelled, or the video is live or too long: trying the
+                        # next client would only start over
                         raise
                     err_msg = f"Profile {clients} failed: {e}"
                     logger.warning(err_msg)
@@ -527,6 +560,7 @@ class TrackDownloader:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 meta = _single_recording(ydl.extract_info(link.url, download=False), site_name)
                 if not cached:
+                    refuse_unsuitable(meta)
                     with fresh_download(wav_path):
                         meta = ydl.process_ie_result(meta, download=True) or meta
         except UnusableLink:
