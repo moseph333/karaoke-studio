@@ -5,6 +5,7 @@ The patterns here also tell ``LyricsService.lyric_quality`` how sloppy a candida
 """
 
 import re
+import unicodedata
 from typing import Any
 
 from backend.services.lyric_tokenize import is_cjk_token, join_lyric_tokens, tokenize_lyric_text
@@ -39,6 +40,18 @@ _BREAK_AFTER = re.compile(r"[,.;:!?\u2026)\]\u3001\u3002]$")
 _ROMAJI = re.compile(
     r"^(?P<lyric>.*\S)\s*\((?P<romaji>[A-Za-z][^()\u3000-\u9fff\uac00-\ud7af]*)\)\s*$"
 )
+# A romanization has about as many syllables as its line has sounds: one or more per
+# character, never under ROMAJI_MIN_SYLLABLES of them or over ROMAJI_MAX_SYLLABLES each
+# (plus ROMAJI_SLACK). "(Yeah)" after a long line, or a sentence after one character, is an
+# ad-lib or a translation.
+ROMAJI_MIN_SYLLABLES = 0.5
+ROMAJI_MAX_SYLLABLES = 3.0
+ROMAJI_SLACK = 2
+# In a file that romanizes its lines, at least this share of the CJK lines carry one
+ROMAJI_LINE_SHARE = 0.5
+# Kana that add no syllable of their own: small kana, the long-vowel mark, n, the repeat mark
+_SILENT_KANA = frozenset("ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮーんン々")
+_VOWELS = re.compile(r"[aeiouy]+")
 
 # A song whose Latin letters are more than this share capitals is shouting, not stressing
 ALL_CAPS_SHARE = 0.7
@@ -188,15 +201,44 @@ def split_long_line(line: dict[str, Any]) -> list[dict[str, Any]]:
     return split_long_line(first) + split_long_line(second)
 
 
+def _latin_syllables(text: str) -> int:
+    """Vowel groups in Latin text, accents ignored ("Tōkyō" has two)."""
+    plain = "".join(
+        ch for ch in unicodedata.normalize("NFD", text.lower()) if not unicodedata.combining(ch)
+    )
+    return len(_VOWELS.findall(plain))
+
+
+def _romanizes(romaji: str, tokens: list[str]) -> bool:
+    """Whether Latin text in parentheses has the length of a romanization of the lyric
+    before it (see ROMAJI_MIN_SYLLABLES)."""
+    sounds = 0
+    for token in tokens:
+        if is_cjk_token(token):
+            sounds += sum(1 for ch in token if ch not in _SILENT_KANA)
+        else:
+            sounds += _latin_syllables(token)
+    syllables = _latin_syllables(romaji)
+    low = ROMAJI_MIN_SYLLABLES * sounds
+    return low <= syllables <= ROMAJI_MAX_SYLLABLES * sounds + ROMAJI_SLACK
+
+
+def _has_cjk(line: dict[str, Any]) -> bool:
+    return any(is_cjk_token(t) for t in tokenize_lyric_text(str(line.get("text") or "")))
+
+
 def split_romaji(line: dict[str, Any]) -> dict[str, Any]:
     """A CJK line written with its romanization in parentheses, as the lyric alone with the
     romanization kept as ``romaji`` (shown under it and used to time it). The line's words
-    become the lyric's characters, spread over the line's time. Other lines are unchanged."""
+    become the lyric's characters, spread over the line's time. Other lines are unchanged,
+    as is a line whose parentheses hold an ad-lib or a translation (_romanizes)."""
     match = _ROMAJI.match(str(line.get("text") or ""))
-    if not match or not any(is_cjk_token(t) for t in tokenize_lyric_text(match["lyric"])):
+    if not match:
+        return line
+    tokens = tokenize_lyric_text(match["lyric"])
+    if not any(is_cjk_token(t) for t in tokens) or not _romanizes(match["romaji"], tokens):
         return line
     lyric, romaji = match["lyric"].strip(), " ".join(match["romaji"].split())
-    tokens = tokenize_lyric_text(lyric)
     start, end = float(line.get("start_time", 0)), float(line.get("end_time", 0))
     step = max(0.0, end - start) / len(tokens)
     words = [
@@ -259,11 +301,17 @@ def clean_fetched_lines(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
     its ``romaji`` (split_romaji), and an all-caps song is put into sentence case
     (sentence_case_lines). Lines are numbered again from 0."""
     kept = _drop_trailing_dump(list(lines or []))
+    stripped = [cleaned for line in kept if (cleaned := _strip_line(line)) is not None]
+    # A file romanizes most of its CJK lines or none: a few Latin parentheticals in a
+    # Japanese song are ad-libs, however long they are
+    romanized = [split_romaji(line) for line in stripped]
+    cjk_lines = sum(1 for line in stripped if _has_cjk(line))
+    with_romaji = sum(1 for line in romanized if line.get("romaji"))
+    if with_romaji < ROMAJI_LINE_SHARE * cjk_lines:
+        romanized = stripped
     out: list[dict[str, Any]] = []
-    for line in kept:
-        cleaned = _strip_line(line)
-        if cleaned is not None:
-            out.extend(split_long_line(split_romaji(cleaned)))
+    for line in romanized:
+        out.extend(split_long_line(line))
     out = sentence_case_lines(out)
     if len(out) == len(lines or []) and all(a is b for a, b in zip(out, lines, strict=True)):
         return out
