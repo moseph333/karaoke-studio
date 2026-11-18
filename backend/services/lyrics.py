@@ -1105,10 +1105,18 @@ class LyricsService:
                 endpoint = step["endpoint"]
                 params = step["params"]
 
-                if stype == "get":
+                # A request that fails (a timeout, a bad answer) only loses its own stage:
+                # what earlier stages found is still used
+                try:
                     resp = requests.get(f"{self.lrclib_url}{endpoint}", params=params, timeout=5)
-                    if resp.status_code == 200:
-                        data = resp.json()
+                    payload = resp.json() if resp.status_code == 200 else None
+                except Exception as e:
+                    logger.warning(f"LRCLIB {stype} failed ({params}): {e}")
+                    continue
+
+                if stype == "get":
+                    if payload is not None:
+                        data = payload
                         if isinstance(data, list) and data:
                             data = data[0]
                         if not isinstance(data, dict):
@@ -1141,40 +1149,38 @@ class LyricsService:
                                 }
                     # If 404 or plain-only or invalid synced, proceed to next stage
 
-                elif stype == "search":
-                    resp = requests.get(f"{self.lrclib_url}{endpoint}", params=params, timeout=5)
-                    if resp.status_code == 200:
-                        results = resp.json()
-                        if results and isinstance(results, list):
-                            best_cand, cand_score = self.rank_candidates_with_score(
-                                results,
-                                target_title=clean_title,
-                                target_artist=clean_artist,
-                                target_duration=safe_duration,
-                            )
-                            if best_cand and cand_score > best_score_overall:
-                                best_score_overall = cand_score
-                                best_candidate_overall = best_cand
+                elif stype == "search" and payload is not None:
+                    results = payload
+                    if results and isinstance(results, list):
+                        best_cand, cand_score = self.rank_candidates_with_score(
+                            results,
+                            target_title=clean_title,
+                            target_artist=clean_artist,
+                            target_duration=safe_duration,
+                        )
+                        if best_cand and cand_score > best_score_overall:
+                            best_score_overall = cand_score
+                            best_candidate_overall = best_cand
 
-                                # If we found a high quality synced candidate in search:
-                                has_synced = bool(best_cand.get("syncedLyrics")) and self.is_lrc(
-                                    best_cand["syncedLyrics"]
-                                )
-                                if (
-                                    has_synced
-                                    and cand_score >= 50.0
-                                    and self.duration_matches(best_cand, safe_duration)
-                                ):
-                                    lrc = best_cand["syncedLyrics"]
-                                    plain = best_cand.get("plainLyrics") or ""
-                                    return {
-                                        "source": "lrclib_search",
-                                        "source_id": best_cand.get("id"),
-                                        "synced": True,
-                                        "plain_lyrics": plain,
-                                        "lrc": lrc,
-                                        "lines": self.parse_lrc(lrc),
-                                    }
+                            # If we found a high quality synced candidate in search:
+                            has_synced = bool(best_cand.get("syncedLyrics")) and self.is_lrc(
+                                best_cand["syncedLyrics"]
+                            )
+                            if (
+                                has_synced
+                                and cand_score >= 50.0
+                                and self.duration_matches(best_cand, safe_duration)
+                            ):
+                                lrc = best_cand["syncedLyrics"]
+                                plain = best_cand.get("plainLyrics") or ""
+                                return {
+                                    "source": "lrclib_search",
+                                    "source_id": best_cand.get("id"),
+                                    "synced": True,
+                                    "plain_lyrics": plain,
+                                    "lrc": lrc,
+                                    "lines": self.parse_lrc(lrc),
+                                }
 
             # Every stage done without an early answer: the best-scoring of the search's best
             # candidate and the exact matches. A search hit for another song never wins.
