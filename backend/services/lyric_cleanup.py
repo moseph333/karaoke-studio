@@ -15,7 +15,6 @@ from backend.services.lyric_tokenize import is_cjk_token, join_lyric_tokens, tok
 REPEAT_MARKER = re.compile(
     r"(?:^|[\s(\[])(?:[x\u00d7]\s?\d{1,2}|\d{1,2}\s?[x\u00d7])[)\]]?\s*$", re.I
 )
-_REPEAT_WORD = re.compile(r"^[(\[]?(?:[x\u00d7]\d{1,2}|\d{1,2}[x\u00d7])[)\]]?$", re.I)
 # A header that starts a translation or romanization block: "Translation Japanese:"
 ANNOTATION_HEADER = re.compile(
     r"^\s*(?:translation|translated|romanization|romanized|romaji|english)\b[^:]{0,30}:\s*$",
@@ -103,31 +102,62 @@ def repeat_marker(text: str) -> re.Match[str] | None:
     return match
 
 
-def _with_text(line: dict[str, Any], text: str) -> dict[str, Any]:
-    """The line with new text, keeping the timing of the words that remain (text only
-    loses words at its end or in a cut-out note, so the first N words stay)."""
-    words = list(line.get("words") or [])
-    kept = text.split()
-    if words and len(kept) < len(words):
-        if len(kept) and _REPEAT_WORD.match(str(words[-1].get("word", ""))):
-            words = [w for w in words if not _REPEAT_WORD.match(str(w.get("word", "")))]
-        words = words[: len(kept)]
-    return {**line, "text": text, "words": words}
+def _spread_words(text: str, start: float, end: float) -> list[dict[str, Any]]:
+    """The text's words spread evenly over a span of time."""
+    tokens = tokenize_lyric_text(text)
+    step = max(0.0, end - start) / max(1, len(tokens))
+    return [
+        {
+            "word": t,
+            "start_time": round(start + i * step, 3),
+            "end_time": round(start + (i + 1) * step, 3),
+        }
+        for i, t in enumerate(tokens)
+    ]
+
+
+def _without_cut(line: dict[str, Any], text: str, kept: list[bool]) -> dict[str, Any]:
+    """The line with new text after some characters of its old text were cut (``kept`` is
+    False for those): the words outside the cuts keep their timing, wherever in the line
+    the cut was. When the words cannot be placed in the old text, or a cut runs through
+    one, the new text's words are spread over the line instead."""
+    old = str(line.get("text") or "")
+    words, pos = [], 0
+    for word in line.get("words") or []:
+        token = str(word.get("word", ""))
+        found = old.find(token, pos) if token else -1
+        if found < 0:
+            break
+        pos = found + len(token)
+        inside = kept[found:pos]
+        if all(inside):
+            words.append(word)
+        elif any(inside):
+            break
+    else:
+        return {**line, "text": text, "words": words}
+    start, end = float(line.get("start_time", 0)), float(line.get("end_time", 0))
+    return {**line, "text": text, "words": _spread_words(text, start, end)}
 
 
 def _strip_line(line: dict[str, Any]) -> dict[str, Any] | None:
     """The line without repeat markers or notes, or None when nothing sung is left."""
     text = str(line.get("text") or "")
-    cleaned = ANNOTATION_NOTE.sub("", text)
+    kept = [True] * len(text)
+    for note in ANNOTATION_NOTE.finditer(text):
+        kept[note.start() : note.end()] = [False] * (note.end() - note.start())
     while True:
-        marker = repeat_marker(cleaned)
+        at = [i for i, keep in enumerate(kept) if keep]
+        marker = repeat_marker("".join(text[i] for i in at).rstrip())
         if not marker:
             break
-        cleaned = cleaned[: marker.start()].rstrip()
+        for i in at[marker.start() :]:
+            kept[i] = False
+    cleaned = "".join(ch for ch, keep in zip(text, kept, strict=True) if keep)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if not any(ch.isalnum() for ch in cleaned):
         return None
-    return line if cleaned == text.strip() else _with_text(line, cleaned)
+    return line if all(kept) else _without_cut(line, cleaned, kept)
 
 
 def _drop_trailing_dump(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -257,16 +287,7 @@ def split_romaji(line: dict[str, Any]) -> dict[str, Any]:
         return line
     lyric, romaji = match["lyric"].strip(), " ".join(match["romaji"].split())
     start, end = float(line.get("start_time", 0)), float(line.get("end_time", 0))
-    step = max(0.0, end - start) / len(tokens)
-    words = [
-        {
-            "word": t,
-            "start_time": round(start + i * step, 3),
-            "end_time": round(start + (i + 1) * step, 3),
-        }
-        for i, t in enumerate(tokens)
-    ]
-    return {**line, "text": lyric, "romaji": romaji, "words": words}
+    return {**line, "text": lyric, "romaji": romaji, "words": _spread_words(lyric, start, end)}
 
 
 def is_all_caps(texts: list[str]) -> bool:
