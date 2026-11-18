@@ -10,9 +10,9 @@ started with ``BackgroundTasks.add_task(run_job, func, *args)``, on worker threa
 A job registers a cancel event in ``active_cancellations`` before its song shows it as busy and
 removes only its own event when it ends (release_cancel_event), so a busy song with no event was
 cut off by a server restart: the settle_orphaned_* helpers mark such intakes and renders as
-interrupted, at startup and whenever a song is read. The one exception: a render requested while
-a cancelled one is still stopping reuses that render's event, already set, instead of getting
-its own.
+interrupted, at startup and whenever a song is read. A job requested while a cancelled one of
+the same kind is still stopping registers its own event in place of the set one; the stopping
+job then leaves the song's fields to the new job (superseded).
 """
 
 import functools
@@ -152,6 +152,15 @@ def settle_orphaned_render(proj: dict, active_cancellations: dict) -> bool:
     proj["render_detail"] = f"Render error: {INTERRUPTED_BY_RESTART}"
     proj["render_eta_seconds"] = None
     return True
+
+
+def superseded(active_cancellations: dict, key: str, event: threading.Event) -> bool:
+    """Whether a newer job has registered its own cancel event under key since the job that
+    holds ``event`` started (it was cancelled, and the song was requested again while it was
+    still stopping). The song's status then belongs to the new job: the old one must not
+    write "cancelled" or an error over it."""
+    current = active_cancellations.get(key)
+    return current is not None and current is not event
 
 
 def release_cancel_event(active_cancellations: dict, key: str, event: threading.Event) -> None:
