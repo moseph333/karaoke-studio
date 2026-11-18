@@ -15,7 +15,8 @@ export function lineStartAtOffset(
   offset: number
 ): number | null {
   if (lines.length === 0) return null;
-  const active = findActiveLineIndex(lines, time);
+  // Before the first line nothing is playing yet: "next" is line 1, not line 2
+  const active = time < lines[0].start_time ? -1 : findActiveLineIndex(lines, time);
   const target = Math.min(lines.length - 1, Math.max(0, active + offset));
   return lines[target].start_time;
 }
