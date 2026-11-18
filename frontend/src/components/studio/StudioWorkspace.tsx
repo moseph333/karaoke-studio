@@ -23,6 +23,7 @@ import { normalizeSingerRole } from '../stage/singers';
 import { FirstSongCard } from './FirstSongCard';
 import { useWorkspaceTabs, workspacePanelProps } from './workspacePanels';
 import { cn } from '../../utils/cn';
+import { isJobActive } from '../../utils/jobs';
 
 export interface StudioWorkspaceProps {
   project: ProjectState;
@@ -86,7 +87,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
     () => (firstSongCard ? checkupFixCount(project) : 0),
     [firstSongCard, project]
   );
-  const syncJobActive = ['queued', 'running'].includes(project.sync_job?.status ?? '');
+  const syncJobActive = isJobActive(project.sync_job);
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
   // The cover art exactly as exports draw it (the larger, panned still for the drift)
   const artworkUrl = project.thumbnail_url
