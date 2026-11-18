@@ -45,7 +45,14 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
   }, []);
 
   // Start processing a new track
-  const handleSelectTrack = async (urlOrId: string, customLyrics?: string) => {
+  // `again`: the failed or cancelled song being started again, which keeps its owner and
+  // its quality rather than taking this browser's
+  const handleSelectTrack = async (
+    urlOrId: string,
+    customLyrics?: string,
+    again?: Pick<ProjectState, 'created_by' | 'separation_quality'>
+  ) => {
+    const quality = again?.separation_quality || separationQuality;
     setLoading(true);
     try {
       const res = await apiFetch('/api/process', {
@@ -54,8 +61,8 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
         body: JSON.stringify({
           url_or_id: urlOrId,
           custom_lyrics: customLyrics,
-          created_by: currentUser || 'Friend',
-          ...(separationQuality ? { separation_quality: separationQuality } : {}),
+          created_by: again?.created_by || currentUser || 'Friend',
+          ...(quality ? { separation_quality: quality } : {}),
         }),
       });
       if (!res.ok) {
