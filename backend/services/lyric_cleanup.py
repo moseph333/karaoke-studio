@@ -11,6 +11,7 @@ from typing import Any
 from backend.services.lyric_tokenize import is_cjk_token, join_lyric_tokens, tokenize_lyric_text
 
 # "x2", "X2", "(x2)", "2x" or a multiplication sign and a count at the end of a line
+# (repeat_marker decides whether a capital "X5" is a marker or a name)
 REPEAT_MARKER = re.compile(
     r"(?:^|[\s(\[])(?:[x\u00d7]\s?\d{1,2}|\d{1,2}\s?[x\u00d7])[)\]]?\s*$", re.I
 )
@@ -20,10 +21,12 @@ ANNOTATION_HEADER = re.compile(
     r"^\s*(?:translation|translated|romanization|romanized|romaji|english)\b[^:]{0,30}:\s*$",
     re.I,
 )
-# A long parenthesised explanation inside a line: "(This is phrased in present tense ...)"
+# A long parenthesised explanation inside a line: "(This is phrased in present tense ...)".
+# Only wording a translator uses about the text: "(this is the rhythm of the night)" is sung.
 ANNOTATION_NOTE = re.compile(
-    r"\s*\((?=[^)]{25,})[^)]*\b(?:this is|could mean|literally|lit\.|note:|translator|"
-    r"originally|phrased)\b[^)]*(?:\)|$)",
+    r"\s*\((?=[^)]{25,})[^)]*(?:\b(?:could mean|literally (?:means?|meaning|translate[sd]?)|"
+    r"translator|translates? (?:to|as)|originally (?:written|sung|means?|meant)|phrased)\b|"
+    r"\b(?:lit\.|note:|literally:))[^)]*(?:\)|$)",
     re.I,
 )
 # A run of this many lines or more at the very end, each shorter than CRAMMED_LINE_SEC, is
@@ -86,6 +89,20 @@ def is_annotation(text: str) -> bool:
     return bool(ANNOTATION_HEADER.match(text or "") or ANNOTATION_NOTE.search(text or ""))
 
 
+def repeat_marker(text: str) -> re.Match[str] | None:
+    """The repeat marker ending a line ("x2", "(X2)", "2x"), if it has one. A bare capital
+    "X5" after text with lower-case letters is part of a name ("on Channel X5"); in an
+    all-caps line it is a marker ("SAME SAME X2")."""
+    match = REPEAT_MARKER.search(text or "")
+    if not match:
+        return None
+    marker = match.group()
+    bare = "(" not in marker and "[" not in marker
+    if bare and "X" in marker and any(ch.islower() for ch in text[: match.start()]):
+        return None
+    return match
+
+
 def _with_text(line: dict[str, Any], text: str) -> dict[str, Any]:
     """The line with new text, keeping the timing of the words that remain (text only
     loses words at its end or in a cut-out note, so the first N words stay)."""
@@ -103,10 +120,10 @@ def _strip_line(line: dict[str, Any]) -> dict[str, Any] | None:
     text = str(line.get("text") or "")
     cleaned = ANNOTATION_NOTE.sub("", text)
     while True:
-        stripped = REPEAT_MARKER.sub("", cleaned).rstrip()
-        if stripped == cleaned:
+        marker = repeat_marker(cleaned)
+        if not marker:
             break
-        cleaned = stripped
+        cleaned = cleaned[: marker.start()].rstrip()
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if not any(ch.isalnum() for ch in cleaned):
         return None
