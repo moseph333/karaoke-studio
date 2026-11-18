@@ -85,11 +85,15 @@ def _words(texts: list[str]) -> set[str]:
 
 
 def is_fuller_transcription(
-    current: dict[str, Any], text: str, lines: list[dict[str, Any]]
+    current: dict[str, Any],
+    text: str,
+    lines: list[dict[str, Any]],
+    duration: float | None = None,
 ) -> bool:
     """Whether ``lines`` (parsed from ``text``) transcribe the same song as ``current`` more
     fully: more lines (FULLER_LINE_RATIO), mostly the same words (FULLER_WORD_OVERLAP),
-    reaching as far into the song, and no sloppier (LyricsService.lyric_quality)."""
+    reaching as far into the song, and no sloppier (LyricsService.lyric_quality). With the
+    audio's ``duration``, lines that start after it ends are timed for a longer version."""
     mine = [line for line in current.get("lines") or [] if line.get("text")]
     theirs = [line for line in lines if line.get("text")]
     if not mine or len(theirs) < FULLER_LINE_RATIO * len(mine):
@@ -100,6 +104,8 @@ def is_fuller_transcription(
     shared = len(own_words & _words([line["text"] for line in theirs])) / len(own_words)
     reach = max(float(line.get("start_time", 0)) for line in theirs)
     if shared < FULLER_WORD_OVERLAP or reach < max(float(x["start_time"]) for x in mine) - 15:
+        return False
+    if duration and reach > float(duration):
         return False
     current_text = current.get("lrc") or "\n".join(line["text"] for line in mine)
     return LyricsService.lyric_quality(text)[0] <= LyricsService.lyric_quality(current_text)[0]
@@ -447,7 +453,9 @@ class LyricsService:
         lrclib_res = self._fetch_from_lrclib(clean_title, clean_artist, duration)
         if lrclib_res:
             if lrclib_res.get("synced") and writes_repeats_once(lrclib_res.get("lines") or []):
-                fuller = self._fuller_transcription(lrclib_res, f"{clean_artist} - {clean_title}")
+                fuller = self._fuller_transcription(
+                    lrclib_res, f"{clean_artist} - {clean_title}", duration
+                )
                 if fuller:
                     return fuller
             return lrclib_res
@@ -497,10 +505,12 @@ class LyricsService:
 
         return {"source": "none", "synced": False, "plain_lyrics": "", "lrc": "", "lines": []}
 
-    def _fuller_transcription(self, current: dict[str, Any], query: str) -> dict[str, Any] | None:
+    def _fuller_transcription(
+        self, current: dict[str, Any], query: str, duration: float | None = None
+    ) -> dict[str, Any] | None:
         """NetEase's synced lyrics for the song when they are a fuller transcription of the
-        same song than ``current`` (is_fuller_transcription), else None. NetEase often
-        writes out the repeats an LRCLIB upload lists once."""
+        same song than ``current`` and fit the audio's ``duration`` (is_fuller_transcription),
+        else None. NetEase often writes out the repeats an LRCLIB upload lists once."""
         from concurrent.futures import ThreadPoolExecutor
         from concurrent.futures import TimeoutError as FuturesTimeout
 
@@ -521,7 +531,7 @@ class LyricsService:
         if not isinstance(text, str) or not self.is_lrc(text):
             return None
         lines = self.parse_lrc(text)
-        if not is_fuller_transcription(current, text, lines):
+        if not is_fuller_transcription(current, text, lines, duration):
             return None
         logger.info(f"Using NetEase's fuller lyrics for {query}: {len(lines)} lines")
         return {

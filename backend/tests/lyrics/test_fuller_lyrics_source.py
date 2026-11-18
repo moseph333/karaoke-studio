@@ -1,6 +1,7 @@
 """When LRCLIB's lyrics list a repeated hook only once, NetEase's fuller transcription of the
 same song is used instead, if it is no sloppier."""
 
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -83,6 +84,29 @@ def test_lrclibs_lyrics_stay_when_netease_has_nothing_better(netease):
         result = LyricsService().fetch_lyrics("Laser Sharks", "Savant", 242)
     assert result["source"] == "lrclib"
     netease.answer = "[00:01.00] some other song entirely\n[00:05.00] with words\n"
+    with patch("requests.get", return_value=lrclib_answer(METAPHYSICAL)):
+        result = LyricsService().fetch_lyrics(
+            "Metaphysical (A Good Day)", "Handsome Boy Modeling School", 206
+        )
+    assert result["source"] == "lrclib"
+
+
+def test_neteases_lyrics_for_a_longer_version_are_not_taken(netease):
+    current = {
+        "lines": LyricsService.parse_lrc(METAPHYSICAL["syncedLyrics"]),
+        "lrc": METAPHYSICAL["syncedLyrics"],
+    }
+    # The same words a minute later: an extended version whose last lines start after the
+    # 206 s of audio have ended
+    extended = re.sub(r"\[(\d\d):", lambda m: f"[{int(m.group(1)) + 1:02d}:", METAPHYSICAL_NETEASE)
+    lines = LyricsService.parse_lrc(extended)
+    assert is_fuller_transcription(current, extended, lines)
+    assert not is_fuller_transcription(current, extended, lines, 206)
+    assert is_fuller_transcription(
+        current, METAPHYSICAL_NETEASE, LyricsService.parse_lrc(METAPHYSICAL_NETEASE), 206
+    )
+
+    netease.answer = extended
     with patch("requests.get", return_value=lrclib_answer(METAPHYSICAL)):
         result = LyricsService().fetch_lyrics(
             "Metaphysical (A Good Day)", "Handsome Boy Modeling School", 206
