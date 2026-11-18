@@ -39,7 +39,8 @@ export interface MenuProps {
   side?: 'bottom' | 'top' | 'auto';
   /**
    * Render into document.body with fixed positioning so scrolling containers cannot clip
-   * the menu. The menu closes when the page scrolls or resizes.
+   * the menu. It follows its trigger when something scrolls, and closes when the trigger
+   * scrolls out of sight or the window resizes.
    */
   portal?: boolean;
   className?: string;
@@ -96,6 +97,21 @@ export const Menu: React.FC<MenuProps> = ({
     if (restoreFocus) triggerRef.current?.focus();
   }, []);
 
+  // Where a portaled menu was last put: the trigger's box and the side it opened toward
+  const placedRef = useRef<{ top: number; left: number; side: 'bottom' | 'top' } | null>(null);
+  const placeFixed = (rect: DOMRect, placedSide: 'bottom' | 'top') => {
+    placedRef.current = { top: rect.top, left: rect.left, side: placedSide };
+    setFixedStyle({
+      position: 'fixed',
+      ...(placedSide === 'bottom'
+        ? { top: rect.bottom + 6 }
+        : { bottom: window.innerHeight - rect.top + 6 }),
+      ...(align === 'end'
+        ? { right: Math.max(8, window.innerWidth - rect.right) }
+        : { left: Math.max(8, rect.left) }),
+    });
+  };
+
   // Pick the side and (for portals) the fixed coordinates before the menu paints.
   useLayoutEffect(() => {
     if (!open || !triggerRef.current) return;
@@ -114,17 +130,7 @@ export const Menu: React.FC<MenuProps> = ({
       nextSide = below < needed && above > below ? 'top' : 'bottom';
     }
     setResolvedSide(nextSide);
-    if (portal) {
-      setFixedStyle({
-        position: 'fixed',
-        ...(nextSide === 'bottom'
-          ? { top: rect.bottom + 6 }
-          : { bottom: window.innerHeight - rect.top + 6 }),
-        ...(align === 'end'
-          ? { right: Math.max(8, window.innerWidth - rect.right) }
-          : { left: Math.max(8, rect.left) }),
-      });
-    }
+    if (portal) placeFixed(rect, nextSide);
     // Measure once per opening
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -140,9 +146,25 @@ export const Menu: React.FC<MenuProps> = ({
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
       if (!isInside(e.target)) setOpen(false);
     };
+    // Scroll events arrive from every scroller on the page (the stage's lyrics and the
+    // timeline both scroll by themselves during playback). One that leaves the trigger
+    // where it was is ignored; one that moves it takes the menu along, until the trigger
+    // is scrolled out of sight.
     const onViewportChange = (e: Event) => {
-      if (e.type === 'scroll' && isInside(e.target)) return;
-      setOpen(false);
+      const triggerEl = triggerRef.current;
+      const placed = placedRef.current;
+      if (e.type !== 'scroll' || !triggerEl || !placed) {
+        setOpen(false);
+        return;
+      }
+      if (isInside(e.target)) return;
+      const rect = triggerEl.getBoundingClientRect();
+      if (rect.top === placed.top && rect.left === placed.left) return;
+      const edges = clippingEdges(triggerEl);
+      const top = Math.max(0, edges.top);
+      const bottom = Math.min(window.innerHeight, edges.bottom);
+      if (rect.bottom <= top || rect.top >= bottom) setOpen(false);
+      else placeFixed(rect, placed.side);
     };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('touchstart', onPointerDown);

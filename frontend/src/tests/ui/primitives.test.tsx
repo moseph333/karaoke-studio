@@ -380,7 +380,7 @@ describe('Menu', () => {
     expect(onPick).toHaveBeenCalledWith('b');
   });
 
-  it('portals into document.body with fixed positioning and closes on scroll', () => {
+  it('portals into document.body with fixed positioning and closes when scrolled out of sight', () => {
     const { container } = render(
       <div style={{ overflow: 'auto' }}>
         <Menu
@@ -401,6 +401,12 @@ describe('Menu', () => {
     fireEvent.mouseDown(screen.getByRole('menuitem', { name: 'Item' }));
     expect(screen.getByRole('menu')).toBeInTheDocument();
 
+    // A scroll that leaves the trigger in place keeps the menu; one that takes it out of
+    // sight closes it
+    fireEvent.scroll(window);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    screen.getByRole('button', { name: 'Open' }).getBoundingClientRect = () =>
+      new DOMRect(0, -80, 40, 40);
     fireEvent.scroll(window);
     expect(screen.queryByRole('menu')).toBeNull();
   });
