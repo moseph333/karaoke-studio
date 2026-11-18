@@ -12,6 +12,8 @@
 import { createElement, lazy, useState, type ComponentType } from 'react';
 
 const RETRY_DELAY_MS = 600;
+// How long after a failed load a screen shown again fetches its chunk again
+const REOPEN_RETRY_MS = 1000;
 // When the page last reloaded itself for a missing chunk; no second reload within the window,
 // so a chunk that is gone for another reason cannot reload the page in a loop
 export const CHUNK_RELOAD_KEY = 'karaoke_chunk_reload_at';
@@ -77,20 +79,33 @@ function deferred<M, P extends object>(
   pick: (mod: M) => ComponentType<P>,
   { reloadOnFailure = false }: { reloadOnFailure?: boolean } = {}
 ): ComponentType<P> {
-  const Lazy = lazy(() =>
-    source.load().then(
-      (mod) => ({ default: pick(mod) }),
-      (err: unknown) => {
-        if (reloadOnFailure) reloadForMissingChunk();
-        throw err;
-      }
-    )
-  );
+  // React keeps a failed lazy component failed for good, so a later mount (the dialog opened
+  // again) needs a new one to fetch the chunk again. Not straight away: React renders the
+  // suspended component once more as soon as the fetch fails, and that render must get the
+  // failure, not start another fetch.
+  let failedAt: number | null = null;
+  const makeLazy = () =>
+    lazy(() =>
+      source.load().then(
+        (mod) => ({ default: pick(mod) }),
+        (err: unknown) => {
+          failedAt = Date.now();
+          if (reloadOnFailure) reloadForMissingChunk();
+          throw err;
+        }
+      )
+    );
+  let Lazy = makeLazy();
   const Deferred = (props: P) => {
     // Chosen once per mount: switching component type later would remount the screen
     const [Component] = useState<ComponentType<P>>(() => {
       const mod = source.loaded();
-      return mod ? pick(mod) : (Lazy as unknown as ComponentType<P>);
+      if (mod) return pick(mod);
+      if (failedAt !== null && Date.now() - failedAt >= REOPEN_RETRY_MS) {
+        failedAt = null;
+        Lazy = makeLazy();
+      }
+      return Lazy as unknown as ComponentType<P>;
     });
     return createElement(Component, props);
   };
