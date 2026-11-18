@@ -129,6 +129,8 @@ export const PROBLEMS: Problem[] = [
     steps: [
       'Open the failed song from the library and press Try again.',
       'If it fails the same way, paste another copy of the song (YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive), or download the audio yourself and add it under Local Audio File.',
+      'A live stream or a recording longer than the server allows (an hour unless it was changed) is refused: paste a video of the song alone, not a whole album or concert.',
+      'A song made from an uploaded file has no Try again: upload the file again from New Song.',
       'A server’s first Balanced or Best song downloads its model once, which can take several minutes with little progress.',
       'You can leave the page: the song keeps processing and waits in the library.',
     ],
