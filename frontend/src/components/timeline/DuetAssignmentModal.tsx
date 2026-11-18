@@ -37,6 +37,48 @@ const PREVIEW_TONES: Record<SingerRole, string> = {
 
 const groupLabel = 'text-xs font-semibold text-theme-text';
 
+const numberInput =
+  'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base tabular-nums text-theme-text focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
+
+/**
+ * A line number typed as a draft. A value inside the range applies as it is typed, so the
+ * preview follows; one below the minimum waits, because it may be the first digit of a
+ * larger number ("1" of "12" when the range starts at 5), and is clamped when the field
+ * loses focus. (Clamping every keystroke turned "12" typed over 5 into 512.)
+ */
+const LineNumberInput: React.FC<{
+  id: string;
+  min: number;
+  max: number;
+  value: number;
+  onChange: (value: number) => void;
+}> = ({ id, min, max, value, onChange }) => {
+  const [draft, setDraft] = useState<string | null>(null);
+  const clamp = (n: number) => Math.min(max, Math.max(min, n));
+  return (
+    <input
+      id={id}
+      type="number"
+      inputMode="numeric"
+      min={min}
+      max={max}
+      value={draft ?? value}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const typed = parseInt(e.target.value, 10);
+        if (Number.isFinite(typed) && typed >= min) onChange(clamp(typed));
+      }}
+      onBlur={() => {
+        if (draft === null) return;
+        const typed = parseInt(draft, 10);
+        setDraft(null);
+        if (Number.isFinite(typed)) onChange(clamp(typed));
+      }}
+      className={numberInput}
+    />
+  );
+};
+
 export interface DuetAssignmentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -231,8 +273,6 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
     onClose();
   };
 
-  const numberInput =
-    'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base tabular-nums text-theme-text focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
   const thresholdPct = ((pauseThreshold - 1.5) / (5.0 - 1.5)) * 100;
 
   return (
@@ -361,14 +401,12 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                     >
                       From Line #
                     </label>
-                    <input
+                    <LineNumberInput
                       id="range-start-input"
-                      type="number"
                       min={1}
                       max={lines.length || 1}
                       value={startLineNum}
-                      onChange={(e) => setStartLineNum(Math.max(1, parseInt(e.target.value) || 1))}
-                      className={numberInput}
+                      onChange={setStartLineNum}
                     />
                   </div>
                   <div>
@@ -378,18 +416,12 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                     >
                       To Line #
                     </label>
-                    <input
+                    <LineNumberInput
                       id="range-end-input"
-                      type="number"
                       min={startLineNum}
-                      max={lines.length || 1}
+                      max={Math.max(startLineNum, lines.length || 1)}
                       value={endLineNum}
-                      onChange={(e) =>
-                        setEndLineNum(
-                          Math.max(startLineNum, parseInt(e.target.value) || startLineNum)
-                        )
-                      }
-                      className={numberInput}
+                      onChange={setEndLineNum}
                     />
                   </div>
                 </div>
