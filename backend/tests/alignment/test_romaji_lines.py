@@ -4,9 +4,11 @@ under it and is timed by it."""
 import json
 
 from backend.services.ass_generator import generate_ass_content
+from backend.services.line_realign import realign_line
 from backend.services.lyric_cleanup import clean_fetched_lines, split_romaji
 from backend.services.lyric_sync import romaji_onto_characters, sync_lyrics
 from backend.services.lyrics import LyricsService
+from backend.services.repeat_fill import fill_repeats
 from backend.tests.helpers.audio_signals import write_test_wav
 from backend.tests.helpers.fake_ctc_worker import install_fake_ctc
 from backend.tests.helpers.lrclib_listings import LASER_SHARKS_CLEAN
@@ -75,6 +77,35 @@ def test_the_neural_aligner_is_given_the_romanization(tmp_path, monkeypatch):
     assert [w["word"] for w in timed["words"]] == list("我々和かつ")
     starts = [w["start_time"] for w in timed["words"]]
     assert starts == sorted(starts)
+
+
+def test_re_timing_one_line_gives_the_neural_aligner_the_romanization(tmp_path, monkeypatch):
+    state = install_fake_ctc(tmp_path, monkeypatch)
+    path = write_test_wav(str(tmp_path / "v.wav"), 8.0, [{"start": 1.0, "end": 5.0, "freq": 440}])
+    line = split_romaji(parsed("我々和かつ (Wareware wa katsu)", 1.0, 5.0))
+    result = realign_line(path, line, engine="ctc")
+    request = json.loads(state.log.read_text())
+    assert request["lines"][0]["words"] == ["wareware", "wa", "katsu"]
+    assert (result.status, result.engine) == ("ok", "ctc")
+    assert result.line["romaji"] == "Wareware wa katsu"
+    assert [w["word"] for w in result.line["words"]] == list("我々和かつ")
+    starts = [w["start_time"] for w in result.line["words"]]
+    assert starts == sorted(starts)
+
+
+def test_a_repeated_japanese_hook_is_listened_for_by_its_romanization(tmp_path, monkeypatch):
+    state = install_fake_ctc(tmp_path, monkeypatch)
+    path = write_test_wav(str(tmp_path / "v.wav"), 60.0, [{"start": 1.0, "end": 50.0, "freq": 440}])
+    hook = split_romaji(parsed("我々和かつ (Wareware wa katsu)", 1.0, 5.0))
+    lines = [{**hook, "id": 0}, {**hook, "id": 1, "start_time": 40.0, "end_time": 44.0}]
+    filled, added = fill_repeats(path, lines, [{"start": 10.0, "end": 14.0}])
+    request = json.loads(state.log.read_text())
+    assert request["lines"][0]["words"] == ["wareware", "wa", "katsu"]
+    assert added >= 1
+    repeat = next(entry for entry in filled if entry.get("added") == "repeat")
+    assert repeat["romaji"] == "Wareware wa katsu"
+    assert [w["word"] for w in repeat["words"]] == list("我々和かつ")
+    assert 10.0 <= repeat["start_time"] < repeat["end_time"] <= 14.0
 
 
 def test_romanized_timing_is_spread_over_the_characters():

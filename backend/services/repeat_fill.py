@@ -15,7 +15,13 @@ import re
 from typing import Any
 
 from backend.services.line_realign import line_words
-from backend.services.lyric_sync import NeuralAlignmentFailed, neural_slot, run_neural_pass
+from backend.services.lyric_sync import (
+    NeuralAlignmentFailed,
+    neural_slot,
+    romaji_onto_characters,
+    romaji_spelling,
+    run_neural_pass,
+)
 from backend.services.lyric_tokenize import normalize_for_mms
 
 logger = logging.getLogger(__name__)
@@ -81,9 +87,14 @@ def fill_repeats(
     if not candidates or not windows:
         return lines, 0
     spelled = {}
+    romanized: set[int] = set()  # candidates listened for by their romanization
     for ci in candidates:
         words = line_words(lines[ci])
-        normalized = [normalize_for_mms(w) for w in words]
+        normalized = romaji_spelling(lines[ci])
+        if normalized:
+            romanized.add(ci)
+        else:
+            normalized = [normalize_for_mms(w) for w in words]
         if words and all(normalized):
             spelled[ci] = (words, normalized)
     if not spelled:
@@ -135,6 +146,9 @@ def fill_repeats(
             if wi not in best:
                 continue
             _, ci, result = best[wi]
+            if ci in romanized:
+                characters = {"words": [{"word": w} for w in spelled[ci][0]]}
+                result = romaji_onto_characters(result, characters)
             line = _placed_line(lines[ci], spelled[ci][0], result, next_id)
             if line is None or line["start_time"] < a - 0.5 or line["end_time"] > b + 0.5:
                 continue
