@@ -4,7 +4,10 @@
 #   scripts/update_when_idle.sh            # update if origin/main has a new commit
 #   scripts/update_when_idle.sh --force    # rebuild and restart even without one
 #
-# 1. Fetches origin/main and stops if there is nothing new (unless --force).
+# 1. Fetches origin/main and stops if the running container was already built from it
+#    (unless --force). What runs is the commit in <data dir>/.update_deployed, written after
+#    each restart; the checkout's HEAD stands in until that file exists. So an update whose
+#    build or restart failed is tried again by the next call.
 # 2. Moves to a new commit only once its CI run on GitHub has passed. A failed run leaves
 #    the install where it is; a run still going is waited for (UPDATE_CI_WAIT_SEC, default
 #    900 s), then left for the next call. Where there is no result to read (origin is not on
@@ -76,6 +79,15 @@ main() {
 
   DRAIN_FILE="$DATA_DIR/.update_draining"
   JOBS_FILE="$DATA_DIR/.jobs_active"
+  # The commit the running container was built from. The checkout cannot say: it moves to
+  # the new commit before the build, and stays there when the build or the restart fails
+  DEPLOYED_FILE="$DATA_DIR/.update_deployed"
+
+  record_deployed() {
+    { mkdir -p "$DATA_DIR" && printf '%s\n' "$1" >"$DEPLOYED_FILE.tmp" &&
+      mv "$DEPLOYED_FILE.tmp" "$DEPLOYED_FILE"; } 2>/dev/null ||
+      log "Could not write $DEPLOYED_FILE"
+  }
 
   REQUIRE_CI="$(setting UPDATE_REQUIRE_CI 1)"
   CI_WAIT="$(setting UPDATE_CI_WAIT_SEC 900)"
@@ -169,7 +181,7 @@ main() {
           ;;
         failed:*)
           ci_hold "$sha"
-          log "CI did not pass for $short (${verdict#failed:}); staying on ${LOCAL:0:7}." \
+          log "CI did not pass for $short (${verdict#failed:}); staying on ${DEPLOYED:0:7}." \
             "Push a fix, or set UPDATE_REQUIRE_CI=0 to update anyway"
           return 1
           ;;
@@ -180,7 +192,7 @@ main() {
         none)
           if ((held == 1)); then
             log "No CI run is listed for $short now, but an earlier call saw one failed or" \
-              "still running; staying on ${LOCAL:0:7}." \
+              "still running; staying on ${DEPLOYED:0:7}." \
               "Push a fix, or set UPDATE_REQUIRE_CI=0 to update anyway"
             return 1
           fi
@@ -195,7 +207,7 @@ main() {
           # than update around it. Seen failed or going by an earlier call: stay.
           if ((held == 1 && readable == 0)); then
             log "Could not read the CI result for $short (${verdict#unknown:}), and an" \
-              "earlier call saw its run failed or still running; staying on ${LOCAL:0:7}"
+              "earlier call saw its run failed or still running; staying on ${DEPLOYED:0:7}"
             return 1
           fi
           if ((readable == 0)); then
@@ -206,7 +218,7 @@ main() {
           ;;
       esac
       if ((elapsed >= CI_WAIT)); then
-        log "CI is still running for $short after ${elapsed}s; staying on ${LOCAL:0:7}" \
+        log "CI is still running for $short after ${elapsed}s; staying on ${DEPLOYED:0:7}" \
           "until the next call"
         return 1
       fi
@@ -218,9 +230,21 @@ main() {
   git fetch --quiet --tags origin "$BRANCH"
   LOCAL="$(git rev-parse HEAD)"
   REMOTE="$(git rev-parse "origin/$BRANCH")"
-  if [[ "$LOCAL" == "$REMOTE" && "$FORCE" -eq 0 ]]; then
-    log "Already at ${LOCAL:0:7}; nothing to update"
+  DEPLOYED=""
+  [[ -f "$DEPLOYED_FILE" ]] && DEPLOYED="$(head -n 1 "$DEPLOYED_FILE" 2>/dev/null || true)"
+  if [[ ! "$DEPLOYED" =~ ^[0-9a-f]{40}$ ]]; then
+    # No record yet (the first run of this version of the script): the container is taken
+    # to run the checkout's commit, and that is written down before the checkout moves
+    DEPLOYED="$LOCAL"
+    record_deployed "$DEPLOYED"
+  fi
+  if [[ "$DEPLOYED" == "$REMOTE" && "$FORCE" -eq 0 ]]; then
+    log "Already at ${DEPLOYED:0:7}; nothing to update"
     exit 0
+  fi
+  if [[ "$LOCAL" == "$REMOTE" && "$DEPLOYED" != "$REMOTE" ]]; then
+    log "The checkout is at ${LOCAL:0:7} but the running container was built from" \
+      "${DEPLOYED:0:7} (an earlier build or restart did not finish); trying again"
   fi
   # Only a move to another commit is checked: a forced rebuild of the running one is not
   if [[ "$LOCAL" != "$REMOTE" && "$REQUIRE_CI" != "0" ]]; then
@@ -228,7 +252,7 @@ main() {
     # A release tag created while CI ran (best effort: the commit is already here)
     git fetch --quiet --tags origin "$BRANCH" || true
   fi
-  log "Updating ${LOCAL:0:7} -> ${REMOTE:0:7}"
+  log "Updating ${DEPLOYED:0:7} -> ${REMOTE:0:7}"
   # The commit that was checked, even if the branch moved on meanwhile
   git reset --hard --quiet "$REMOTE"
 
@@ -278,6 +302,7 @@ main() {
 
   log "Restarting: $REASON"
   "${COMPOSE[@]}" up -d
+  record_deployed "$REMOTE"
   log "Update to ${REMOTE:0:7} done"
 }
 

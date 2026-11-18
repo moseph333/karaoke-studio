@@ -63,6 +63,7 @@ class Install:
             'state=absent; [[ -f "$marker" ]] && state=present\n'
             f'echo "$* marker=$state" >> "{self.calls}"\n'
             '[[ "$1" == build && -n "${FAIL_BUILD:-}" ]] && exit 1\n'
+            '[[ "$1" == up && -n "${FAIL_UP:-}" ]] && exit 1\n'
             "exit 0\n"
         )
         self.compose.chmod(0o755)
@@ -227,6 +228,71 @@ def test_a_failed_build_keeps_the_old_container_and_pauses_nothing(install):
     assert res.returncode != 0
     assert install.compose_calls() == ["build marker=absent"]
     assert not (install.data / ".update_draining").exists()
+
+
+def test_an_update_whose_build_failed_is_tried_again_by_the_next_call(install):
+    sha = install.push_new_commit()
+    install.run(FAIL_BUILD="1")
+    assert _git(install.checkout, "rev-parse", "HEAD") == sha  # the checkout already moved
+
+    res = install.run()
+
+    assert res.returncode == 0, res.stderr
+    assert "nothing to update" not in res.stdout
+    assert "trying again" in res.stdout
+    assert install.compose_calls() == [
+        "build marker=absent",
+        "build marker=absent",
+        "up -d marker=present",
+    ]
+    assert (install.data / ".update_deployed").read_text().strip() == sha
+
+
+def test_an_update_whose_restart_failed_is_tried_again_by_the_next_call(install):
+    install.push_new_commit()
+    failed = install.run(FAIL_UP="1")
+    assert failed.returncode != 0
+
+    res = install.run()
+
+    assert res.returncode == 0, res.stderr
+    assert install.compose_calls()[-2:] == ["build marker=absent", "up -d marker=present"]
+
+
+def test_a_finished_update_is_not_repeated(install):
+    sha = install.push_new_commit()
+    install.run()
+
+    res = install.run()
+
+    assert res.returncode == 0, res.stderr
+    assert f"Already at {sha[:7]}; nothing to update" in res.stdout
+    assert install.compose_calls() == ["build marker=absent", "up -d marker=present"]
+
+
+def test_a_retried_build_is_not_checked_against_ci_again(install):
+    install.push_new_commit()
+
+    with FakeGitHub(PASSED) as github:
+        install.run(FAIL_BUILD="1", **github.env())
+        github.replies = [500]
+        github.requests.clear()
+        res = install.run(**github.env())
+
+    assert res.returncode == 0, res.stderr
+    assert github.requests == []
+    assert install.compose_calls()[-1] == "up -d marker=present"
+
+
+def test_an_unreadable_record_of_the_running_commit_falls_back_to_the_checkout(install):
+    install.data.mkdir()
+    (install.data / ".update_deployed").write_text("not a commit\n")
+
+    res = install.run()
+
+    assert res.returncode == 0, res.stderr
+    assert "nothing to update" in res.stdout
+    assert install.compose_calls() == []
 
 
 def test_the_limit_is_read_from_the_env_file(install):
