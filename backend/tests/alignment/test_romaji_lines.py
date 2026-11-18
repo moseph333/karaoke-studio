@@ -31,6 +31,29 @@ def test_lines_that_are_not_a_cjk_line_with_its_romanization_stay():
         assert split_romaji(line) is line
 
 
+def test_an_ad_lib_or_translation_in_parentheses_is_not_a_romanization():
+    for text in (
+        "君のことが好きだから (Yeah)",
+        "愛 (I love you so much, baby, tonight)",
+    ):
+        line = parsed(text)
+        assert split_romaji(line) is line
+    for text, romaji in (
+        ("東京 (Tōkyō)", "Tōkyō"),
+        ("ちょっと待って (Chotto matte)", "Chotto matte"),
+        ("我爱你 (Wo ai ni)", "Wo ai ni"),
+    ):
+        assert split_romaji(parsed(text))["romaji"] == romaji
+
+
+def test_a_few_latin_parentheticals_in_a_japanese_song_stay_in_the_lyrics():
+    texts = ["君のことが好き", "忘れないよ", "愛してる (Oh baby yeah)", "夢の中で", "さよなら"]
+    lrc = "".join(f"[00:{4 * i + 1:02d}.00]{text}\n" for i, text in enumerate(texts))
+    lines = clean_fetched_lines(LyricsService.parse_lrc(lrc))
+    assert [line["text"] for line in lines] == texts
+    assert not any(line.get("romaji") for line in lines)
+
+
 def test_every_japanese_line_of_laser_sharks_gets_its_romaji():
     lines = clean_fetched_lines(LyricsService.parse_lrc(LASER_SHARKS_CLEAN["syncedLyrics"]))
     japanese = [line for line in lines if line.get("romaji")]
