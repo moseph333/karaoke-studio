@@ -581,7 +581,8 @@ def update_lyrics(project_id: str, req: LyricsUpdateRequest):
             # Recalculate duration if lines expand beyond existing duration
             if req.lines:
                 max_end = max(line.end_time for line in req.lines)
-                if max_end > proj.get("duration", 0.0):
+                # A stored duration can be None: yt-dlp does not know every video's length
+                if max_end > (proj.get("duration") or 0.0):
                     proj["duration"] = max_end
 
             # The YouTube kit's chapters follow the lyrics

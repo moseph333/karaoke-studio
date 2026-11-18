@@ -101,7 +101,8 @@ def store_aligned_lines(proj: dict, lines: list[dict]) -> None:
     proj["lines"] = lines
     if lines:
         max_end = max((float(line.get("end_time", 0.0)) for line in lines), default=0.0)
-        if max_end > proj.get("duration", 0.0):
+        # A stored duration can be None: yt-dlp does not know every video's length
+        if max_end > (proj.get("duration") or 0.0):
             proj["duration"] = max_end
     refresh_youtube_package(proj)
 
