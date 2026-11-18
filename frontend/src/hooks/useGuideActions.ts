@@ -28,18 +28,39 @@ export interface GuideActionTargets {
   onCloseGuidance: () => void;
 }
 
-/** The palette command behind each action that is one of the studio's own tools. */
-const TOOL_COMMANDS: Partial<Record<GuideAction, { id: string; busy: string }>> = {
-  'find-lyrics': { id: 'lyrics-replace', busy: 'Open a song first to change its lyrics' },
-  offset: { id: 'lyrics-offset', busy: 'Open a song first to shift its timing' },
-  duet: { id: 'lyrics-duet', busy: 'Open a song first to assign its parts' },
+/**
+ * The palette command behind each action that is one of the studio's own tools. `busy` says
+ * why the command is not on offer right now. `timeline` marks tools whose dialog lives in
+ * the timeline panel: on a phone that panel is hidden unless its tab is selected.
+ */
+const TOOL_COMMANDS: Partial<
+  Record<
+    GuideAction,
+    { id: string; timeline?: boolean; busy: (project: ProjectState | null) => string }
+  >
+> = {
+  'find-lyrics': {
+    id: 'lyrics-replace',
+    timeline: true,
+    busy: () => 'Open a song first to change its lyrics',
+  },
+  offset: {
+    id: 'lyrics-offset',
+    timeline: true,
+    busy: () => 'Open a song first to shift its timing',
+  },
+  duet: { id: 'lyrics-duet', timeline: true, busy: () => 'Open a song first to assign its parts' },
   'realign-all': {
     id: 'lyrics-realign-all',
-    busy: 'The lyrics are already being re-timed',
+    timeline: true,
+    busy: (project) =>
+      project && project.lines.length === 0
+        ? 'This song has no lyrics to re-time yet. Add its lyrics first.'
+        : 'The lyrics are already being re-timed',
   },
   'improve-stems': {
     id: 'stems-improve',
-    busy: 'Wait for the job that is running on this song to finish first',
+    busy: () => 'Wait for the job that is running on this song to finish first',
   },
 };
 
@@ -57,7 +78,8 @@ export function useGuideActions(targets: GuideActionTargets): (action: GuideActi
 
       const tool = TOOL_COMMANDS[action];
       if (tool) {
-        if (!commands?.runCommand(tool.id)) toast.info(tool.busy);
+        if (tool.timeline) t.onSelectTab('timeline');
+        if (!commands?.runCommand(tool.id)) toast.info(tool.busy(t.project));
         return;
       }
       switch (action) {
