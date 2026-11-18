@@ -37,7 +37,7 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.chords && Array.isArray(data.chords)) {
-          setInitialChords(data.chords);
+          // Only onto the song the reply is for; the effect below takes them as saved
           setProject((prev) =>
             prev && prev.id === data.project_id ? { ...prev, chords: data.chords } : prev
           );
@@ -46,7 +46,20 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
       .catch((e) => console.error('Failed to load project chords', e));
   }, [project?.id, project?.status, project?.chords, setProject]);
 
-  // Sync initial baseline chords when project changes or chords arrive
+  // The chords this hook last put on the project itself (an edit, an undo, a save's reply).
+  // Any other chords array came from the server.
+  const localChordsRef = useRef<ChordSegment[] | null>(null);
+  const setLocalChords = useCallback(
+    (chords: ChordSegment[]) => {
+      localChordsRef.current = chords;
+      setProject((prev) => (prev ? { ...prev, chords } : null));
+    },
+    [setProject]
+  );
+
+  // The saved baseline: the chords a song opens with, and any the server sends later (the
+  // first detection, a re-detection after new stems). Without the latter a song whose
+  // chords the server replaced stayed "unsaved" for good.
   const prevProjectIdRef = useRef<string | undefined>(project?.id);
   useEffect(() => {
     if (!project?.id) {
@@ -54,11 +67,16 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
       prevProjectIdRef.current = undefined;
     } else if (prevProjectIdRef.current !== project.id) {
       prevProjectIdRef.current = project.id;
+      localChordsRef.current = null;
       setInitialChords(project.chords && project.chords.length > 0 ? project.chords : []);
-    } else if (project.chords && project.chords.length > 0 && initialChords.length === 0) {
+    } else if (
+      project.chords &&
+      project.chords.length > 0 &&
+      project.chords !== localChordsRef.current
+    ) {
       setInitialChords(project.chords);
     }
-  }, [project?.id, project?.chords, initialChords.length]);
+  }, [project?.id, project?.chords]);
 
   const chordHistoryRef = useRef<ReturnType<typeof useChordHistory> | null>(null);
 
@@ -76,7 +94,7 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
         if (res.ok) {
           const data = await res.json().catch(() => null);
           const savedChords = (data?.chords as ChordSegment[]) || chordsToSave;
-          setProject((prev) => (prev ? { ...prev, chords: savedChords } : null));
+          setLocalChords(savedChords);
           chordHistoryRef.current?.updateBaseline(savedChords);
           toast.success('Chord progression saved');
           return true;
@@ -89,7 +107,7 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
         throw err;
       }
     },
-    [project?.id, project?.chords, setProject, toast]
+    [project?.id, project?.chords, setLocalChords, toast]
   );
 
   // 50-step bounded Undo / Redo history stack hook
@@ -99,13 +117,13 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
     currentChords: project?.chords,
     enabled: isStudioReady,
     onApplySnapshot: (restoredChords) => {
-      setProject((prev) => (prev ? { ...prev, chords: restoredChords } : null));
+      setLocalChords(restoredChords);
       handleSaveChords(restoredChords).catch((e) =>
         console.error('Failed to persist snapshot chords', e)
       );
     },
     onSaveSuccess: (savedChords) => {
-      setProject((prev) => (prev ? { ...prev, chords: savedChords } : null));
+      setLocalChords(savedChords);
     },
   });
   chordHistoryRef.current = chordHistory;
@@ -120,7 +138,7 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
       pushSnapshot(current);
 
       const updated = current.map((c, i) => (i === index ? { ...c, chord: newChord } : c));
-      setProject((prev) => (prev ? { ...prev, chords: updated } : null));
+      setLocalChords(updated);
 
       try {
         await handleSaveChords(updated);
@@ -128,7 +146,7 @@ export function useProjectChords({ project, setProject, isStudioReady }: UseProj
         console.error('Failed to persist edited chord', e);
       }
     },
-    [project?.chords, pushSnapshot, handleSaveChords, setProject]
+    [project?.chords, pushSnapshot, handleSaveChords, setLocalChords]
   );
 
   return { chordHistory, handleSaveChords, handleEditChord };
