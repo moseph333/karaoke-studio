@@ -71,6 +71,9 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Never the API or media, not even opened as a page (a video or an export in a new tab):
+  // those must not get the offline page in place of their own error
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/static/')) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(pageWithOfflineFallback(request));
