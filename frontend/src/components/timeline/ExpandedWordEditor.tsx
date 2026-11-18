@@ -127,6 +127,10 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
     const live = getCurrentTime?.();
     return typeof live === 'number' && Number.isFinite(live) ? live : (currentTime ?? 0);
   };
+  // A word ends no later than the next one starts. The last word has no such limit: the line
+  // ends where its last word does, so capping it at `line.end_time` would only let it shrink
+  const endLimit = (wordIndex: number) =>
+    wordIndex < line.words.length - 1 ? line.words[wordIndex + 1].start_time : Infinity;
   const hasTimeProp = currentTime !== undefined && Number.isFinite(currentTime);
   // The live clock is read on click; a `currentTime` prop is also shown in the tooltips
   const canSnap = hasTimeProp || getCurrentTime !== undefined;
@@ -257,11 +261,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                   value={w.end_time}
                   label={`End time for word ${w.word}`}
                   clamp={(seconds) => {
-                    const nextStart =
-                      wIdx < line.words.length - 1
-                        ? line.words[wIdx + 1].start_time
-                        : line.end_time || Infinity;
-                    return Math.min(nextStart, Math.max(w.start_time, seconds));
+                    return Math.min(endLimit(wIdx), Math.max(w.start_time, seconds));
                   }}
                   onCommit={(seconds) => onUpdateWordTiming(line.id, wIdx, 'end_time', seconds)}
                 />
@@ -311,11 +311,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const nextStart =
-                      wIdx < line.words.length - 1
-                        ? line.words[wIdx + 1].start_time
-                        : line.end_time || Infinity;
-                    const snappedEnd = Math.min(nextStart, Math.max(w.start_time, playhead()));
+                    const snappedEnd = Math.min(endLimit(wIdx), Math.max(w.start_time, playhead()));
                     onUpdateWordTiming(
                       line.id,
                       wIdx,
