@@ -162,14 +162,19 @@ def _strip_line(line: dict[str, Any]) -> dict[str, Any] | None:
 
 def _drop_trailing_dump(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Without a translation block: everything from a translator's header in the second
-    half of the song, and a final run of lines crammed into a fraction of a second each."""
+    half of the song, and a final run of lines crammed into a fraction of a second each.
+    The file's last line has no line after it to end it (an LRC without a closing timestamp
+    gives it seconds), so it is crammed when it starts that soon after the line before."""
     for i, line in enumerate(lines):
         if i >= len(lines) // 2 and ANNOTATION_HEADER.match(str(line.get("text") or "")):
             lines = lines[:i]
             break
     run = 0
-    for line in reversed(lines):
-        length = float(line.get("end_time", 0)) - float(line.get("start_time", 0))
+    for i in range(len(lines) - 1, -1, -1):
+        start = float(lines[i].get("start_time", 0))
+        length = float(lines[i].get("end_time", 0)) - start
+        if i == len(lines) - 1 and i > 0 and length >= CRAMMED_LINE_SEC:
+            length = start - float(lines[i - 1].get("start_time", 0))
         if 0 <= length < CRAMMED_LINE_SEC:
             run += 1
         else:
