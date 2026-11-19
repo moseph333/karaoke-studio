@@ -18,15 +18,15 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 
 | | |
 | :---: | :---: |
-| ![Song library and intake](docs/screenshots/library.png) <br> Library and intake | ![Stem quality picker](docs/screenshots/separation-quality.png) <br> Stem quality at intake |
-| ![Improve stem separation](docs/screenshots/improve-stems.png) <br> Re-make stems at another quality | ![Re-align a line](docs/screenshots/realign-line.png) <br> Re-align one line |
-| ![Lines that need review](docs/screenshots/needs-review.png) <br> Needs review | ![Command palette](docs/screenshots/command-palette.png) <br> Command palette |
-| ![Export dialog](docs/screenshots/export.png) <br> Export | ![Processing](docs/screenshots/processing.png) <br> Processing |
-| ![Monolith Press theme](docs/screenshots/theme-monolith-press.png) <br> Monolith Press theme | ![Midnight KTV Booth theme](docs/screenshots/theme-midnight-ktv.png) <br> Midnight KTV Booth theme |
-| ![Phone stage](docs/screenshots/phone-stage.png) <br> Phone: stage | ![Phone timeline](docs/screenshots/phone-timeline.png) <br> Phone: timeline |
-| ![First-song steps](docs/screenshots/first-song.png) <br> First-song steps | ![Song check-up](docs/screenshots/song-checkup.png) <br> Song check-up |
-| ![Fix a problem in Help](docs/screenshots/help-fix-a-problem.png) <br> Help: Fix a problem | ![A failed song](docs/screenshots/processing-failed.png) <br> A song that failed |
-| ![Upload to YouTube steps](docs/screenshots/youtube-upload.png) <br> Export: Upload to YouTube | |
+| ![Song library and intake](docs/screenshots/library.png) <br> Library and intake | ![Song search](docs/screenshots/song-search.png) <br> Song search: a misspelled title, versions, a song already made |
+| ![Stem quality picker](docs/screenshots/separation-quality.png) <br> Stem quality at intake | ![Improve stem separation](docs/screenshots/improve-stems.png) <br> Re-make stems at another quality |
+| ![Re-align a line](docs/screenshots/realign-line.png) <br> Re-align one line | ![Lines that need review](docs/screenshots/needs-review.png) <br> Needs review |
+| ![Command palette](docs/screenshots/command-palette.png) <br> Command palette | ![Export dialog](docs/screenshots/export.png) <br> Export |
+| ![Processing](docs/screenshots/processing.png) <br> Processing | ![Monolith Press theme](docs/screenshots/theme-monolith-press.png) <br> Monolith Press theme |
+| ![Midnight KTV Booth theme](docs/screenshots/theme-midnight-ktv.png) <br> Midnight KTV Booth theme | ![Phone stage](docs/screenshots/phone-stage.png) <br> Phone: stage |
+| ![Phone timeline](docs/screenshots/phone-timeline.png) <br> Phone: timeline | ![First-song steps](docs/screenshots/first-song.png) <br> First-song steps |
+| ![Song check-up](docs/screenshots/song-checkup.png) <br> Song check-up | ![Fix a problem in Help](docs/screenshots/help-fix-a-problem.png) <br> Help: Fix a problem |
+| ![A failed song](docs/screenshots/processing-failed.png) <br> A song that failed | ![Upload to YouTube steps](docs/screenshots/youtube-upload.png) <br> Export: Upload to YouTube |
 
 ## Using Karaoke Studio
 
@@ -57,7 +57,6 @@ After changing the lyrics, the key or the look, **Render Again** makes a new vid
 
 | What you notice | What to do |
 | :--- | :--- |
-| The search does not list my song, or lists another version | Add the artist to the title, or type a line of the lyrics; small typos are fine. Tell versions apart by the album, the year, the length and the badge (Live, Remix, Edit), and tap the artwork to hear 30 seconds. **Show more songs** lists the matches after the first five. **Search YouTube uploads**, under the songs, lists videos of a recording the catalogs do not have; or paste a link, or upload the audio. |
 | There are no lyrics | **Re-import** in the timeline: search with a simpler title or the original artist, or paste the lyrics (plain text or LRC). Pasted words are timed to the singing. |
 | The lyrics are for another song or version | Fix the title or artist with the pencil next to the title, then **Re-import → Re-query LRCLIB** and apply the listing that matches what is sung. |
 | The words are early or late through the whole song | **Offset** shifts every line; start with 0.1 to 0.5 s. If the gap changes through the song, re-align all lines from the Re-import dialog or the command palette. |
@@ -68,6 +67,7 @@ After changing the lyrics, the key or the look, **Render Again** makes a new vid
 | I asked for Best and got Fast | The better model could not run (cloud GPU busy or unreachable, model not installed, too little memory). The check-up says why; **Improve** again later. |
 | It is a duet, but every line has one colour | **Duet parts → By Voice**; if it finds one voice, use Alternating or set lines with the singer chip. |
 | The song is too high or too low | Shift the key in Audio mix, or ask the **Smart Recommender**. |
+| The search does not list my song, or lists another version | Add the artist to the title, or type a line of the lyrics; small typos are fine. Tell versions apart by the album, the year, the length and the badge (Live, Remix, Edit), and tap the artwork to hear 30 seconds. **Show more songs** lists the matches after the first five. **Search YouTube uploads**, under the songs, lists videos of a recording the catalogs do not have; or paste a link, or upload the audio. |
 | Processing failed | The failed song says what happened in plain words (a private, blocked or removed song, a sign-in check, a link that holds a whole album, a song picked from the search, or a Spotify, Apple Music, TIDAL or Deezer link, with no matching YouTube upload, a live stream or a recording longer than the server allows, a download that did not get through) and has **Try again** (a song from an uploaded file is uploaded again instead). Most Vimeo videos need a sign-in the server does not have. If it fails the same way, search for the song again and pick one of the YouTube uploads listed under the songs, paste another copy of it, or download the audio yourself and upload it. |
 | The video render failed, or takes very long | **Try Again** in Export. A render draws every frame, so a few minutes is normal; you can close the dialog while it runs, and a failed render keeps the previous video. |
 | I don't know how to get the video onto YouTube | Render and download it, then follow **Upload to YouTube** under the finished video. See [Putting the video on YouTube](#putting-the-video-on-youtube). |
