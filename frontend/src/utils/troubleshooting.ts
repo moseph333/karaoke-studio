@@ -20,6 +20,19 @@ export interface Problem {
 
 export const PROBLEMS: Problem[] = [
   {
+    id: 'search-misses',
+    symptom: 'The search does not list my song, or lists another version',
+    why: 'The songs come from two music catalogs, which do not carry every recording, and one song often has several versions: the album cut, a single edit, live takes, remixes and covers.',
+    steps: [
+      'Add the artist to the title, or type a line of the lyrics. Small typos are fine.',
+      'Tell versions apart by the album, the year, the length and the badge (Live, Remix, Edit), and tap the artwork to hear 30 seconds.',
+      'The list starts with the five best matches; Show more songs lists the rest.',
+      'Search YouTube uploads, under the songs, lists videos of a recording the catalogs do not have.',
+      'Or paste a link to the song, or add your own audio under Local Audio File.',
+    ],
+    actions: [],
+  },
+  {
     id: 'no-lyrics',
     symptom: 'There are no lyrics',
     why: 'No lyrics listing matched the song’s title and artist. It happens with rare songs and with titles that carry extras such as “Official Video”.',
