@@ -64,6 +64,9 @@ SPARSE_GAP_SEC = 15.0
 # of the current one's words, and reaches at least as far into the song (within 15 s)
 FULLER_LINE_RATIO = 1.3
 FULLER_WORD_OVERLAP = 0.5
+# Artist credits at least this alike name one artist ("Beyonce"/"Beyoncé" 0.86, "Charli XCX"
+# and "Charli XCX/Tom Boddy" 0.81); "Prince" and "Princess Nokia" are 0.6
+SAME_ARTIST_SIM = 0.7
 
 
 def _line_key(text: str) -> str:
@@ -646,12 +649,50 @@ class LyricsService:
     @classmethod
     def is_related(cls, cand: dict[str, Any], target_title: str, target_artist: str) -> bool:
         """Whether a candidate is plausibly the song asked for (score_candidate's unrelated
-        test: title similarity of at least 0.40 and combined similarity of at least 35/70)."""
+        test: title similarity of at least 0.40, combined similarity of at least 35/70, and
+        not another artist's song of another name, is_other_artists_song)."""
         names = ("trackName", "name", "title", "artistName", "artist")
         if not any(str(cand.get(key) or "").strip() for key in names):
             return True  # nothing to compare
         best_title_sim, meta_sim = cls.metadata_similarity(cand, target_title, target_artist)
-        return best_title_sim >= 0.40 and meta_sim >= 35.0
+        return (
+            best_title_sim >= 0.40
+            and meta_sim >= 35.0
+            and not cls.is_other_artists_song(cand, target_title, target_artist)
+        )
+
+    @staticmethod
+    def same_artist(name: str, target_artist: str) -> bool:
+        """Whether two artist credits name one artist (SAME_ARTIST_SIM), as written or by
+        their primary artist ("Taylor Swift feat. Ed Sheeran")."""
+        if _similarity(name, target_artist) >= SAME_ARTIST_SIM:
+            return True
+        primary = LyricsNormalizer.extract_primary_artist
+        return _similarity(primary(name), primary(target_artist)) >= SAME_ARTIST_SIM
+
+    @classmethod
+    def is_other_artists_song(
+        cls, cand: dict[str, Any], target_title: str, target_artist: str
+    ) -> bool:
+        """Whether a candidate is another artist's song under another name, such as
+        Guerilla Black's "You're The One" for Imperial Teen's "You're One": alike titles, but
+        not the song. Another artist's listing still counts when it has the song's very name
+        (a cover, or an upload credited to a channel), when the artist and title are
+        swapped, or when the target's title names the candidate's artist (an "Artist - Song"
+        upload title). An unknown artist on either side decides nothing."""
+        c_title = str(cand.get("trackName") or cand.get("name") or cand.get("title") or "")
+        c_artist = str(cand.get("artistName") or cand.get("artist") or "")
+        c_album = str(cand.get("albumName") or cand.get("album") or "")
+        target_artist = (target_artist or "").strip()
+        if not c_artist.strip() or not target_artist or target_artist == "Unknown Artist":
+            return False
+        if cls.same_artist(c_artist, target_artist) or cls.same_artist(c_title, target_artist):
+            return False
+        artist_words = set(re.findall(r"\w+", c_artist.casefold()))
+        if artist_words and artist_words <= set(re.findall(r"\w+", target_title.casefold())):
+            return False
+        wanted = _song_key(_song_name(target_title, target_artist, ""))
+        return wanted not in (_song_key(c_title), _song_key(_song_name(c_title, c_artist, c_album)))
 
     @staticmethod
     def duration_matches(cand: dict[str, Any], target_duration: float | None) -> bool:
@@ -751,8 +792,13 @@ class LyricsService:
         # 1. Title & Artist Similarity (Token-set, SequenceMatcher, and Swapped check)
         best_title_sim, meta_sim = cls.metadata_similarity(cand, target_title, target_artist)
 
-        # Unrelated check: title similarity < 0.40 or combined similarity < 35.0 (out of 70.0)
-        is_unrelated = bool(best_title_sim < 0.40 or meta_sim < 35.0)
+        # Unrelated check: title similarity < 0.40 or combined similarity < 35.0 (out of 70.0),
+        # or another artist's song of another name
+        is_unrelated = bool(
+            best_title_sim < 0.40
+            or meta_sim < 35.0
+            or cls.is_other_artists_song(cand, target_title, target_artist)
+        )
 
         # Completeness / Stub check:
         # If target duration > 60s, or cand duration > 60s, or target_duration is None
@@ -1166,10 +1212,12 @@ class LyricsService:
                             has_synced = bool(best_cand.get("syncedLyrics")) and self.is_lrc(
                                 best_cand["syncedLyrics"]
                             )
+                            # An unrelated song can still score 50 on length and line count
                             if (
                                 has_synced
                                 and cand_score >= 50.0
                                 and self.duration_matches(best_cand, safe_duration)
+                                and self.is_related(best_cand, clean_title, clean_artist)
                             ):
                                 lrc = best_cand["syncedLyrics"]
                                 plain = best_cand.get("plainLyrics") or ""
@@ -1565,6 +1613,12 @@ class LyricsService:
 @lru_cache(maxsize=8192)
 def _similarity(str1: str, str2: str) -> float:
     return LyricsService._uncached_similarity(str1, str2)
+
+
+def _song_key(name: str) -> str:
+    """A song name for equality: case, spacing and punctuation dropped ("Don't Stop" is
+    "Dont Stop")."""
+    return re.sub(r"[\W_]+", "", name.casefold())
 
 
 @lru_cache(maxsize=8192)

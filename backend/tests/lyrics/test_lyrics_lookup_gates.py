@@ -230,3 +230,24 @@ def test_sung_length_counts_syllables_within_limits():
     assert sung_line_seconds("No longer wanting") == 3.5
     assert sung_line_seconds("word " * 40) == 8.0
     assert sung_line_seconds("我们一起唱歌") == 4.0
+
+
+def test_another_artists_like_named_song_loses_to_the_songs_plain_lyrics():
+    # Imperial Teen's "You're One" is on LRCLIB only as plain lyrics; the title-only search
+    # then finds Guerilla Black's "You're The One", synced and a second longer
+    exact_plain = _record(218.0, synced="", track="You're One", artist="Imperial Teen")
+    other_song = _record(219.0, track="You're The One", artist="Guerilla Black feat. Mario Winans")
+
+    def search(params):
+        return [exact_plain] if "Imperial" in params["q"] else [other_song]
+
+    def fake(url, params=None, timeout=5):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = exact_plain if url.endswith("/get") else search(params)
+        return response
+
+    with patch("requests.get", side_effect=fake):
+        result = LyricsService()._fetch_from_lrclib("You're One", "Imperial Teen", 218.0)
+    assert result["synced"] is False
+    assert result["plain_lyrics"] == PLAIN
