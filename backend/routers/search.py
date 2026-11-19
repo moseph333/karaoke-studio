@@ -63,10 +63,11 @@ def _in_library(
             return entry
     if not title or not artist:
         return None
-    wanted = song_search.fold(song_search.base_title(title))
+    # The same recording by name: "Halo" is not "Halo (Live)", whatever their lengths
+    wanted = song_search.title_key(title)
     plain = not song_search.version_labels(title)
     for entry in library:
-        if song_search.fold(song_search.base_title(entry["title"])) != wanted:
+        if song_search.title_key(entry["title"]) != wanted:
             continue
         if not song_search.same_artist(entry["artist"], artist):
             continue
