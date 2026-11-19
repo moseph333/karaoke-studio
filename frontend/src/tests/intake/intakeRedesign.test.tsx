@@ -37,7 +37,7 @@ describe('Home intake card', () => {
     const user = userEvent.setup();
     render(<TrackSearch onSelectTrack={vi.fn()} isLoading={false} />);
     const group = screen.getByRole('group', { name: 'Track intake mode' });
-    const youtube = within(group).getByRole('button', { name: 'Link or Search' });
+    const youtube = within(group).getByRole('button', { name: 'Search or Link' });
     const local = within(group).getByRole('button', { name: 'Local Audio File' });
     expect(youtube).toHaveAttribute('id', 'toggle-youtube-mode');
     expect(local).toHaveAttribute('id', 'toggle-local-mode');
@@ -72,7 +72,7 @@ describe('Home intake card', () => {
       screen.getByRole('textbox', { name: /Paste a song link/i }),
       'https://music.amazon.com/tracks/B0ABCDEFGH'
     );
-    await user.click(screen.getByRole('button', { name: /search youtube or load track/i }));
+    await user.click(screen.getByRole('button', { name: /search for a song or load a link/i }));
     expect(screen.getByRole('alert')).toHaveTextContent(
       /Links from YouTube, SoundCloud, .* work here/
     );

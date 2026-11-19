@@ -125,7 +125,7 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
         />
       );
 
-      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
+      const input = screen.getByPlaceholderText(/Search for a song or artist/i);
       await user.type(input, 'Long Title Song');
       const searchButton = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
       await user.click(searchButton);
@@ -144,15 +144,10 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       expect(textContainer?.className).toMatch(/flex-1/);
       expect(textContainer?.className).toMatch(/min-w-0/);
 
-      // Verify the parent flex item also enforces min-w-0 flex-1
-      const flexWrapper = textContainer?.parentElement;
-      expect(flexWrapper?.className).toMatch(/min-w-0/);
-      expect(flexWrapper?.className).toMatch(/flex-1/);
-
       // Verify Create button is shrink-0 to prevent button squishing
       const createButton = screen.getByRole('button', { name: /Create Karaoke/i });
       expect(createButton.className).toMatch(/shrink-0/);
-      expect(createButton.className).toMatch(/min-h-\[36px\]/);
+      expect(createButton.className).toMatch(/min-h-\[44px\]/);
     });
 
     it('truncates 150-character titles in Recent Project Cards using min-w-0 flex-1', async () => {
@@ -325,11 +320,11 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
         />
       );
 
-      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
+      const input = screen.getByPlaceholderText(/Search for a song or artist/i);
       const submitButton = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
 
       // Verify input padding right
-      expect(input.className).toMatch(/pr-24/); // pr-24 is 6rem = 96px
+      expect(input.className).toMatch(/pr-28/); // pr-28 is 7rem = 112px
       expect(input.className).toMatch(/sm:pr-32/); // sm:pr-32 is 8rem = 128px
 
       // Verify submit button positioning
@@ -337,11 +332,8 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       expect(submitButton.className).toMatch(/right-1\.5/); // right-1.5 is 6px offset
       expect(submitButton.className).toMatch(/min-h-\[36px\]/);
 
-      // Verify responsive label: "Go" on mobile, "Search / Go" on sm+
-      const mobileSpan = submitButton.querySelector('.sm\\:hidden');
-      expect(mobileSpan?.textContent).toBe('Go');
-      const desktopSpan = submitButton.querySelector('.hidden.sm\\:inline');
-      expect(desktopSpan?.textContent).toBe('Search / Go');
+      // One short label at every width: "Search" for words, "Go" for a link
+      expect(submitButton.textContent).toBe('Search');
     });
 
     it('disables submit button and blocks submission on empty or whitespace-only queries', async () => {
@@ -358,7 +350,7 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
         />
       );
 
-      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
+      const input = screen.getByPlaceholderText(/Search for a song or artist/i);
       const submitButton = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
 
       // 1. Initial empty state: button is disabled
@@ -460,7 +452,7 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       );
 
       // 1. Search input meets >= 48px height
-      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
+      const input = screen.getByPlaceholderText(/Search for a song or artist/i);
       expect(input.className).toMatch(/min-h-\[48px\]/);
 
       // 2. Submit button meets >= 36px on mobile, >= 44px on sm+

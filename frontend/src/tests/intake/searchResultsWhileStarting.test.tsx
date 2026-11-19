@@ -23,7 +23,7 @@ async function renderWithResults() {
   const user = userEvent.setup();
   const { rerender } = render(view(false));
   await user.type(screen.getByLabelText(/Paste a song link/i), 'some song');
-  await user.click(screen.getByRole('button', { name: /Search YouTube or load track/i }));
+  await user.click(screen.getByRole('button', { name: /search for a song or load a link/i }));
   await screen.findByText('First Song');
   return { onSelectTrack, setLoading: (isLoading: boolean) => rerender(view(isLoading)) };
 }

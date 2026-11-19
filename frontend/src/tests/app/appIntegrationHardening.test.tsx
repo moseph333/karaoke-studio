@@ -1250,7 +1250,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
+      const input = screen.getByPlaceholderText(/Search for a song or artist/i);
       await user.type(input, 'Nonexistent Song Query 123987');
 
       const submitBtn = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
@@ -1258,9 +1258,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
 
       await waitFor(() => {
         expect(
-          screen.getByText(
-            /No matching tracks found\. Try a different title or paste a direct YouTube URL\./i
-          )
+          screen.getByText(/No matching tracks found\. Try a different title/i)
         ).toBeInTheDocument();
       });
     });
@@ -1286,7 +1284,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
+      const input = screen.getByPlaceholderText(/Search for a song or artist/i);
       await user.type(input, 'Rate Limit Song');
 
       const submitBtn = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });

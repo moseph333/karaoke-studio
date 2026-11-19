@@ -148,10 +148,10 @@ describe('names contain the visible label', () => {
   it('the search button and the custom lyrics field', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
     render(<TrackSearch onSelectTrack={vi.fn()} isLoading={false} />);
-    const go = screen.getByRole('button', { name: /search youtube or load track/i });
+    const go = screen.getByRole('button', { name: /search for a song or load a link/i });
     expect(go.getAttribute('aria-label')).toMatch(/^Search \/ Go/);
     within(go)
-      .getAllByText(/Go/)
+      .getAllByText(/Search/)
       .forEach((label) => expect(go.getAttribute('aria-label')).toContain(label.textContent));
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
     vi.restoreAllMocks();

@@ -45,7 +45,7 @@ function pngSize(src: string): [number, number] {
   return [view.getUint32(16), view.getUint32(20)];
 }
 
-const SEARCH_BOX = 'Paste a song link or search song title';
+const SEARCH_BOX = 'Search for a song or artist, or paste a song link';
 
 describe('manifest shortcuts', () => {
   it('lists one shortcut for every id the app understands, inside the app scope', () => {

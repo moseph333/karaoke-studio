@@ -300,13 +300,37 @@ export interface LyricCandidate {
 export type LyricQualityFlag =
   'all_caps' | 'long_lines' | 'repeat_markers' | 'annotations' | 'crammed_tail';
 
+/** A YouTube upload from POST /api/search. */
 export interface SearchResult {
   id: string;
   title: string;
   artist: string;
-  duration: number;
+  duration?: number | null;
+  /** What POST /api/process starts the song with. */
   url: string;
-  thumbnail?: string;
+  thumbnail?: string | null;
+  /** Set when the song is already in the library (ready or being made). */
+  project_id?: string | null;
+  project_status?: string | null;
+}
+
+/** A song from POST /api/search/songs: one recording, from the music catalogs. */
+export interface SongSearchResult extends SearchResult {
+  album?: string;
+  year?: number | null;
+  /** A 30-second audio clip to check it is the right recording. */
+  preview?: string | null;
+  explicit?: boolean;
+  /** What kind of recording the title says it is: "live", "remix", "remaster"… */
+  versions?: string[];
+}
+
+export interface SongSearchResponse {
+  results: SongSearchResult[];
+  /** The respelled query that was searched as well, when the typed one looked misspelled. */
+  corrected?: string | null;
+  /** The catalogs that answered; empty when none is configured or reachable. */
+  sources?: string[];
 }
 
 export interface VisualTheme {

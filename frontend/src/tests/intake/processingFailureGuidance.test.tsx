@@ -56,7 +56,7 @@ describe('explainProcessingError', () => {
       /several recordings/,
     ],
     [
-      'Could not find “Internal Calm” by Afterhour Chillout on YouTube. Search for it by name and pick an upload, or add the audio as a local file.',
+      'Could not find “Internal Calm” by Afterhour Chillout on YouTube. Search for it and pick one of the YouTube uploads listed under the songs, or add the audio as a local file.',
       /No YouTube upload of this song matched/,
     ],
     ['Spotify has no song at that link.', /did not say which song/],

@@ -397,9 +397,7 @@ describe('Milestone 1 Challenger 2: Adversarial Frontend Controls & Stress Harne
       // Verify that studio cleanly reset and returned to search view
       await waitFor(() => {
         expect(screen.queryByText('Adversarial Test Track')).not.toBeInTheDocument();
-        expect(
-          screen.getByPlaceholderText(/Paste a song link or search song title/i)
-        ).toBeInTheDocument();
+        expect(screen.getByPlaceholderText(/Search for a song or artist/i)).toBeInTheDocument();
       });
     });
   });

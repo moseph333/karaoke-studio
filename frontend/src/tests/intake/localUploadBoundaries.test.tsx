@@ -194,7 +194,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       render(<TrackSearch onSelectTrack={onSelectTrack} isLoading={false} />);
 
       const input = screen.getByLabelText(/Paste a song link/i);
-      const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
+      const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
 
       // YouTube standard watch URL
       await user.clear(input);
@@ -230,7 +230,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       render(<TrackSearch onSelectTrack={onSelectTrack} isLoading={false} />);
 
       const input = screen.getByLabelText(/Paste a song link/i);
-      const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
+      const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
 
       const forbiddenUrls = [
         'https://music.amazon.com/tracks/B0ABCDEFGH',
@@ -256,7 +256,7 @@ describe('CHALLENGER 1: UX-1 Boundary Tests (LocalAudioUploader & TrackSearch)',
       render(<TrackSearch onSelectTrack={onSelectTrack} isLoading={false} />);
 
       const input = screen.getByLabelText(/Paste a song link/i);
-      const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
+      const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
       const songLinks = [
         'https://soundcloud.com/artist/great-song',
         'https://artist.bandcamp.com/track/heavy-metal',

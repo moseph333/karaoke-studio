@@ -80,14 +80,14 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       // 1. Initial Landing state verification
       const searchInput = screen.getByRole('textbox', {
-        name: /Paste a song link or search song title/i,
+        name: /Search for a song or artist/i,
       });
       expect(searchInput).toBeInTheDocument();
       expect(searchInput.className).toMatch(/min-h-\[48px\]/);
-      expect(searchInput.className).toMatch(/pr-24/);
+      expect(searchInput.className).toMatch(/pr-28/);
 
       // Search button in initial state
-      const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
+      const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
       expect(submitBtn).toBeDisabled();
 
       // Type query
@@ -97,11 +97,11 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       // Submit search -> Transitions to "Searching" state
       await user.click(submitBtn);
 
-      // Verify searching spinner in button
-      const spinner = submitBtn.querySelector('span[role="status"]');
-      expect(spinner).toBeInTheDocument();
-      expect(spinner?.className).toMatch(/animate-spin/);
-      expect(submitBtn).toBeDisabled();
+      // The box stays usable while the search runs; the results area says it is searching
+      expect(searchInput).toHaveAttribute('aria-busy', 'true');
+      expect(screen.getByRole('status')).toHaveTextContent(/Searching for “Adversarial Song”/);
+      expect(screen.getByRole('status').querySelector('.animate-spin')).toBeInTheDocument();
+      expect(submitBtn).not.toBeDisabled();
 
       // Resolve the search promise
       act(() => {
@@ -124,7 +124,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const createBtn = screen.getByRole('button', { name: /Create Karaoke/i });
       expect(createBtn).toBeInTheDocument();
       expect(createBtn.className).toMatch(/shrink-0/);
-      expect(createBtn.className).toMatch(/min-h-\[36px\]/);
+      expect(createBtn.className).toMatch(/min-h-\[44px\]/);
 
       await user.click(createBtn);
       expect(onSelectTrack).toHaveBeenCalledTimes(1);
@@ -499,11 +499,8 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       expect(heroSection?.className).toMatch(/lg:grid-cols-/);
 
       // Submit button text labels
-      const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
-      const mobileSpan = submitBtn.querySelector('span.sm\\:hidden');
-      const desktopSpan = submitBtn.querySelector('span.hidden.sm\\:inline');
-      expect(mobileSpan?.textContent).toBe('Go');
-      expect(desktopSpan?.textContent).toBe('Search / Go');
+      const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
+      expect(submitBtn.textContent).toBe('Search');
 
       // Library tab bar
       const tabs = screen.getAllByRole('tab');
@@ -654,14 +651,14 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       );
 
       const input = screen.getByRole('textbox', {
-        name: /Paste a song link or search song title/i,
+        name: /Search for a song or artist/i,
       });
 
       const unicodeQuery = '🎵 日本語カラオケ • Студия караоке 🎤 Extra Spacing   ';
       await user.type(input, unicodeQuery);
       expect((input as HTMLInputElement).value).toBe(unicodeQuery);
 
-      const submitBtn = screen.getByRole('button', { name: /Search YouTube or load track/i });
+      const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
       expect(submitBtn).not.toBeDisabled();
     });
 

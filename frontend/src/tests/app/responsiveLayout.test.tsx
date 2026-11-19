@@ -445,7 +445,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
       const searchInput = screen.getByLabelText(/paste a song link/i);
       expect(searchInput.className).toContain('min-h-[48px]');
 
-      const searchBtn = screen.getByRole('button', { name: /search youtube/i });
+      const searchBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
       expect(searchBtn.className).toContain('min-h-[36px]');
       expect(searchBtn.className).toContain('sm:min-h-[44px]');
     });
