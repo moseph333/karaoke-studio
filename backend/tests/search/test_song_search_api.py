@@ -101,6 +101,22 @@ def test_a_song_made_from_a_youtube_link_is_marked_by_its_name_and_length(client
     assert live["project_id"] is None
 
 
+def test_another_version_of_about_the_same_length_is_not_marked(client, monkeypatch):
+    acoustic = deezer_entry("Halo (Acoustic)", "Beyoncé", song_id=102, duration=265)
+    remaster = deezer_entry("Halo (2011 Remaster)", "Beyoncé", song_id=103, duration=268)
+    _catalogs(monkeypatch, deezer={"halo": [acoustic, remaster]}, itunes={})
+    monkeypatch.setitem(
+        main_mod.projects,
+        "pasted",
+        {"id": "pasted", "status": "ready", "title": "Halo", "artist": "Beyoncé", "duration": 261},
+    )
+
+    marked = {r["title"]: r["project_id"] for r in _search(client)["results"]}
+
+    # A remaster is the recording the library has; the acoustic take is another one
+    assert marked == {"Halo (2011 Remaster)": "pasted", "Halo (Acoustic)": None}
+
+
 def test_other_songs_failed_songs_and_other_artists_are_not_marked(client, monkeypatch):
     _catalogs(monkeypatch)
     library = {

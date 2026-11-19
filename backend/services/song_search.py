@@ -342,7 +342,7 @@ def _variant_words(title: str) -> list[str]:
     return found
 
 
-def _title_key(title: str) -> str:
+def title_key(title: str) -> str:
     """Titles with the same key name the same recording of a song: "Song", "Song (feat. X)"
     and "Song (2011 Remaster)" share one, "Song (Live)" and "Song (Piano Version)" do not."""
     return fold(base_title(_FEATURING.sub(" ", title))) + "|" + " ".join(_variant_words(title))
@@ -664,7 +664,7 @@ def merge_songs(songs: Iterable[Song]) -> list[Song]:
     The entry shows the plainest title of its copies and keeps every catalog's link."""
     merged: list[tuple[str, Song]] = []
     for song in songs:
-        key = _title_key(song.title)
+        key = title_key(song.title)
         twin = next(
             (
                 kept
