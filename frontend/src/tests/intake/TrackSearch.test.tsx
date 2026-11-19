@@ -27,9 +27,7 @@ describe('TrackSearch', () => {
   it('renders search input and placeholder', async () => {
     render(<TrackSearch {...defaultProps} />);
 
-    expect(
-      screen.getByPlaceholderText(/Paste a song link or search song title/i)
-    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Search for a song or artist/i)).toBeInTheDocument();
   });
 
   it('directly triggers onSelectTrack when submitting a YouTube URL', async () => {
@@ -37,7 +35,7 @@ describe('TrackSearch', () => {
     const onSelectTrack = vi.fn();
     render(<TrackSearch {...defaultProps} onSelectTrack={onSelectTrack} />);
 
-    const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
+    const input = screen.getByPlaceholderText(/Search for a song or artist/i);
     await user.type(input, 'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
 
     const searchBtn = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
@@ -71,7 +69,7 @@ describe('TrackSearch', () => {
 
     render(<TrackSearch {...defaultProps} />);
 
-    const input = screen.getByPlaceholderText(/Paste a song link or search song title/i);
+    const input = screen.getByPlaceholderText(/Search for a song or artist/i);
     await user.type(input, 'Bohemian Rhapsody');
 
     const searchButton = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });

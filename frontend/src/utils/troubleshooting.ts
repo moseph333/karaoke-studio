@@ -125,10 +125,10 @@ export const PROBLEMS: Problem[] = [
   {
     id: 'processing-failed',
     symptom: 'Processing failed, or seems stuck',
-    why: 'Most failures are the download: the song is private, age-restricted, blocked where the server is, or was removed, the link holds a whole album, the site wants a sign-in (most Vimeo videos do), or a Spotify, Apple Music, TIDAL or Deezer song has no matching upload on YouTube. A server restart also stops a song.',
+    why: 'Most failures are the download: the song is private, age-restricted, blocked where the server is, or was removed, the link holds a whole album, the site wants a sign-in (most Vimeo videos do), or a song picked from the search (or a Spotify, Apple Music, TIDAL or Deezer link) has no matching upload on YouTube. A server restart also stops a song.',
     steps: [
       'Open the failed song from the library and press Try again.',
-      'If it fails the same way, paste another copy of the song (YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive), or download the audio yourself and add it under Local Audio File.',
+      'If it fails the same way, search for the song again and pick one of the YouTube uploads listed under the songs, paste another copy of it (YouTube, SoundCloud, Bandcamp, Vimeo or Internet Archive), or download the audio yourself and add it under Local Audio File.',
       'A live stream or a recording longer than the server allows (an hour unless it was changed) is refused: paste a video of the song alone, not a whole album or concert.',
       'A song made from an uploaded file has no Try again: upload the file again from New Song.',
       'A server’s first Balanced or Best song downloads its model once, which can take several minutes with little progress.',

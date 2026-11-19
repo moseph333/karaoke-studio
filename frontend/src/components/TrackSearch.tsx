@@ -1,12 +1,15 @@
 /**
  * Track Search Component
  *
- * The home screen: a hero with the intake card (a song link from YouTube, SoundCloud,
- * Bandcamp, Vimeo or the Internet Archive, a Spotify, Apple Music, TIDAL or Deezer link found on
- * YouTube, a YouTube search, or a local upload, with
- * advanced options: stem separation quality and custom lyrics) beside a self-playing lyric
- * preview, search results, three "how it works" steps for visitors who have not made a song
- * yet, and the song library.
+ * The home screen: a hero with the intake card beside a self-playing lyric preview, three
+ * "how it works" steps for visitors who have not made a song yet, and the song library.
+ *
+ * The intake card takes a song three ways. Typed words are searched as the typing pauses
+ * (`useSongSearch`): songs from the music catalogs, listed under the box with a preview of
+ * each (`track-search/SongSearchResults`), and YouTube uploads on request. A song link
+ * (YouTube, SoundCloud, Bandcamp, Vimeo, the Internet Archive; Spotify, Apple Music, TIDAL
+ * or Deezer, found on YouTube) starts at once. Or an audio file is uploaded. Advanced
+ * options hold the stem separation quality and custom lyrics.
  */
 
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
@@ -19,7 +22,6 @@ import {
   Link2,
   MicOff,
   MicVocal,
-  Music,
   Music2,
   Search,
   SlidersHorizontal,
@@ -29,24 +31,19 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { SearchResult, ProjectState, SeparationPreset } from '../types';
-import { apiFetch } from '../api';
 import { LocalAudioUploader, type UploadTrackParams } from './track-search/LocalAudioUploader';
 import { ProjectLibrary, type LibraryCounts } from './track-search/ProjectLibrary';
 import { HeroStageDemo } from './track-search/HeroStageDemo';
+import { SongSearchResults } from './track-search/SongSearchResults';
 import { SeparationQualityPicker } from './quality/SeparationQualityPicker';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
-import { formatTime } from '../utils/format';
-import {
-  DOWNLOAD_SITES_SENTENCE,
-  LOOKUP_SITES_SENTENCE,
-  SUPPORTED_SITES_SENTENCE,
-  linkSite,
-  looksLikeLink,
-} from '../utils/mediaLinks';
+import { SUPPORTED_SITES_SENTENCE, linkSite, looksLikeLink } from '../utils/mediaLinks';
 import { PRESET_NAMES, defaultPreset } from '../utils/quality';
 import { useCapabilities } from '../hooks/useCapabilities';
+import { useSongSearch } from '../hooks/useSongSearch';
+import { useSongPreview } from '../hooks/useSongPreview';
 
 export type { UploadTrackParams };
 
@@ -86,7 +83,7 @@ const STEPS: Array<{ Icon: LucideIcon; title: string; text: string }> = [
   {
     Icon: Link2,
     title: 'Pick a song',
-    text: 'Paste a link, search by title, or upload an audio file of your own.',
+    text: 'Search for it by name, paste a link, or upload an audio file of your own.',
   },
   {
     Icon: AudioLines,
@@ -129,8 +126,6 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   openingProjectId = null,
 }) => {
   const [query, setQuery] = useState(initialQuery);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searching, setSearching] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [customLyrics, setCustomLyrics] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +134,14 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   const linkHintId = useId();
   const submitRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLElement>(null);
+  const resultsId = useId();
+  // Typed words are searched as the typing pauses; a link is not searched at all
+  const search = useSongSearch(query, intakeMode === 'youtube');
+  const preview = useSongPreview();
+  const showResults =
+    intakeMode === 'youtube' && (search.phase !== 'idle' || search.videosPhase !== 'idle');
+  const isLink = Boolean(linkSite(query.trim()));
   // First visit (no songs of their own yet): show how it works, and keep the lyric preview
   // on phones too. Decided once, from what this browser remembered, and not changed when
   // the library answers: taking those sections away then would make the page jump. The
@@ -161,10 +164,10 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   // Asked only once the picker is on screen
   const capabilities = useCapabilities(showAdvanced && Boolean(onSeparationQualityChange));
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = query.trim();
-    if (!trimmed || searching || isLoading) return;
+    if (!trimmed || isLoading) return;
 
     // A song link from a supported site starts at once; the server checks it is one song
     if (linkSite(trimmed)) {
@@ -178,24 +181,39 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
       return;
     }
 
-    setSearching(true);
     setError(null);
-    try {
-      const res = await apiFetch('/api/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: query.trim(), limit: 5 }),
-      });
-      if (!res.ok) throw new Error('Search failed');
-      const data = await res.json();
-      setResults(data.results || []);
-      if (!data.results || data.results.length === 0) {
-        setError('No matching tracks found. Try a different title or paste a direct YouTube URL.');
+    search.submit();
+  };
+
+  const createFromResult = (result: SearchResult) => {
+    onSelectTrack(result.url, customLyrics.trim() || undefined);
+  };
+
+  // A result that is already in the library opens that song; the app fetches it in full
+  const openFromResult = (projectId: string, status: string) => {
+    if (!onOpenProject) return;
+    onOpenProject({
+      id: projectId,
+      status: status as ProjectState['status'],
+      progress: 0,
+      lines: [],
+      semitones: 0,
+      guide_volume: 0,
+      summary: true,
+    });
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' && showResults) {
+      const first = resultsRef.current?.querySelector<HTMLButtonElement>('[data-result-primary]');
+      if (first) {
+        e.preventDefault();
+        first.focus();
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error searching YouTube');
-    } finally {
-      setSearching(false);
+    } else if (e.key === 'Escape' && showResults) {
+      e.preventDefault();
+      preview.stop();
+      search.clear();
     }
   };
 
@@ -242,8 +260,8 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 hasOwnSongs && 'hidden sm:block'
               )}
             >
-              Paste a link or upload your own audio. You get word-synced lyrics, a clean
-              instrumental, key control and 1080p video exports.
+              Search for a song, paste a link or upload your own audio. You get word-synced lyrics,
+              a clean instrumental, key control and 1080p video exports.
             </p>
           </div>
 
@@ -260,9 +278,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                 {
                   value: 'youtube',
                   id: 'toggle-youtube-mode',
-                  ariaLabel: 'Link or Search',
+                  ariaLabel: 'Search or Link',
                   icon: <Search className="h-4 w-4" aria-hidden="true" />,
-                  label: <span>Link or Search</span>,
+                  label: <span>Search or Link</span>,
                 },
                 {
                   value: 'local',
@@ -286,14 +304,25 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                       ref={searchInputRef}
                       type="text"
                       value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      aria-label="Paste a song link or search song title"
+                      onChange={(e) => {
+                        setQuery(e.target.value);
+                        setError(null);
+                      }}
+                      onKeyDown={handleSearchKeyDown}
+                      aria-label="Search for a song or artist, or paste a song link"
                       aria-describedby={linkHintId}
-                      placeholder="Paste a song link or search song title..."
-                      className="min-h-[48px] w-full rounded-theme-lg border border-theme-border bg-theme-bg py-3.5 pl-10 pr-24 text-base text-theme-text shadow-theme-sm placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:py-4 sm:pl-12 sm:pr-32"
-                      // Read-only rather than disabled while busy, so keyboard focus stays put
-                      readOnly={isLoading || searching}
-                      aria-busy={searching || undefined}
+                      aria-controls={showResults ? resultsId : undefined}
+                      placeholder="Search for a song or artist, or paste a link..."
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      enterKeyHint={isLink ? 'go' : 'search'}
+                      className="min-h-[48px] w-full rounded-theme-lg border border-theme-border bg-theme-bg py-3.5 pl-10 pr-28 text-base text-theme-text shadow-theme-sm placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:py-4 sm:pl-12 sm:pr-32"
+                      // Read-only rather than disabled while a song starts, so keyboard
+                      // focus stays put
+                      readOnly={isLoading}
+                      aria-busy={search.phase === 'searching' || undefined}
                     />
                     {query ? (
                       <button
@@ -301,10 +330,12 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                         onClick={() => {
                           setQuery('');
                           setError(null);
+                          preview.stop();
+                          searchInputRef.current?.focus({ preventScroll: true });
                         }}
                         aria-label="Clear search query"
                         className={cn(
-                          'absolute right-14 flex min-h-[32px] min-w-[32px] items-center justify-center rounded-theme-pill p-1.5 text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:right-32',
+                          'absolute right-[4.75rem] flex min-h-[32px] min-w-[32px] items-center justify-center rounded-theme-pill p-1.5 text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:right-32',
                           focusRing
                         )}
                       >
@@ -314,36 +345,34 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                     <button
                       ref={submitRef}
                       type="submit"
-                      disabled={isLoading || searching || !query.trim()}
-                      aria-label={
-                        searching
-                          ? 'Searching YouTube...'
-                          : 'Search / Go: search YouTube or load track'
-                      }
+                      disabled={isLoading || !query.trim()}
+                      aria-label="Search / Go: search for a song or load a link"
                       className={cn(
                         'absolute right-1.5 flex min-h-[36px] items-center justify-center gap-1.5 rounded-theme-md bg-gradient-accent px-3 py-2 font-theme-heading text-xs font-semibold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 sm:right-2 sm:min-h-[44px] sm:gap-2 sm:px-5 sm:text-sm',
                         focusRing
                       )}
                     >
-                      {searching ? (
-                        <span
-                          className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-theme-accent-text border-t-transparent"
-                          role="status"
-                          aria-label="Loading"
-                        ></span>
-                      ) : (
-                        <>
-                          <span className="sm:hidden">Go</span>
-                          <span className="hidden sm:inline">Search / Go</span>
-                        </>
-                      )}
+                      {isLink ? 'Go' : 'Search'}
                     </button>
                   </div>
                 </form>
-                <p id={linkHintId} className="mt-2 text-xs text-theme-text-muted">
-                  Song links work from {DOWNLOAD_SITES_SENTENCE}; {LOOKUP_SITES_SENTENCE} songs are
-                  found on YouTube. Searches look on YouTube.
+                <p id={linkHintId} className="mt-2 text-pretty text-xs text-theme-text-muted">
+                  Type a title, an artist or both; small typos are fine. Or paste a song link from{' '}
+                  {SUPPORTED_SITES_SENTENCE}.
                 </p>
+                {showResults && (
+                  <SongSearchResults
+                    ref={resultsRef}
+                    id={resultsId}
+                    className="mt-3"
+                    search={search}
+                    preview={preview}
+                    isLoading={isLoading}
+                    onCreate={createFromResult}
+                    onOpen={openFromResult}
+                    onReturnFocus={() => searchInputRef.current?.focus({ preventScroll: true })}
+                  />
+                )}
               </div>
             ) : (
               <LocalAudioUploader
@@ -461,81 +490,6 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
           )}
         />
       </section>
-
-      {results.length > 0 && (
-        <div className="mx-auto w-full max-w-3xl space-y-2.5 sm:px-4">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="font-theme-heading text-xs font-semibold uppercase tracking-wider text-theme-text-muted">
-              Search Results
-            </h2>
-            <button
-              type="button"
-              onClick={() => {
-                setResults([]);
-                setError(null);
-              }}
-              aria-label="Clear search results"
-              className={cn(
-                'flex min-h-[32px] cursor-pointer items-center gap-1 rounded-theme-sm px-2 py-1 text-xs text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text',
-                focusRing
-              )}
-            >
-              <X className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Clear Results</span>
-            </button>
-          </div>
-          {results.map((track) => (
-            <div
-              key={track.id}
-              // One song at a time: while a start is on its way, a second click (or a
-              // double click) would create the song twice
-              onClick={() => {
-                if (!isLoading) onSelectTrack(track.url, customLyrics.trim() || undefined);
-              }}
-              className={cn(
-                'group flex items-center justify-between gap-2 rounded-theme-lg border border-theme-border-subtle bg-theme-surface p-2.5 shadow-theme-sm transition-colors sm:p-3',
-                isLoading
-                  ? 'cursor-progress opacity-60'
-                  : 'cursor-pointer hover:border-theme-border hover:bg-theme-surface-subtle'
-              )}
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-3">
-                {track.thumbnail ? (
-                  <img
-                    src={track.thumbnail}
-                    alt={track.title}
-                    className="h-11 w-16 shrink-0 rounded-theme-sm object-cover sm:h-12 sm:w-20"
-                  />
-                ) : (
-                  <div className="flex h-11 w-16 shrink-0 items-center justify-center rounded-theme-sm bg-theme-surface-raised sm:h-12 sm:w-20">
-                    <Music className="h-5 w-5 text-theme-text-muted" aria-hidden="true" />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1 truncate">
-                  <h3 className="truncate font-theme-heading text-sm font-semibold text-theme-text transition-colors group-hover:text-theme-highlight">
-                    {track.title}
-                  </h3>
-                  <p className="mt-0.5 truncate text-xs text-theme-text-muted">
-                    {track.artist} {track.duration ? `• ${formatTime(track.duration)}` : ''}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                disabled={isLoading}
-                aria-label={`Create Karaoke: ${track.title}${track.artist ? ` – ${track.artist}` : ''}`}
-                className={cn(
-                  'ml-2 flex min-h-[36px] shrink-0 items-center justify-center rounded-theme-md border border-theme-accent/40 bg-theme-accent/15 px-3 font-theme-heading text-xs font-semibold text-theme-highlight transition-colors group-hover:border-transparent group-hover:bg-gradient-accent group-hover:text-theme-accent-text sm:ml-4 sm:px-3.5',
-                  focusRing
-                )}
-              >
-                <span className="sm:hidden">Create</span>
-                <span className="hidden sm:inline">Create Karaoke</span>
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
 
       {!hasOwnSongs && (
         <section aria-labelledby="how-it-works-heading" className="space-y-3 sm:px-4">

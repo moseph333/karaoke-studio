@@ -47,10 +47,11 @@ const RULES: { test: RegExp; summary: string; advice: string; uploadAdvice?: str
     advice: 'Open the one song you want on that site and paste its link.',
   },
   {
-    // A Spotify, Apple Music, TIDAL or Deezer song with no matching YouTube upload
+    // A song picked from the search, or a Spotify, Apple Music, TIDAL or Deezer link, with
+    // no matching YouTube upload
     test: /could not find .* on youtube/i,
     summary: 'No YouTube upload of this song matched its title, artist and length.',
-    advice: `Search for the song by name and pick an upload, or ${OWN_FILE}.`,
+    advice: `Search for the song again and pick one of the YouTube uploads listed under the songs, or ${OWN_FILE}.`,
   },
   {
     test: /has no song at that link|could not read the song's title/i,

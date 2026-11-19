@@ -306,7 +306,8 @@ def find_on_youtube(info: SongInfo, search) -> list[dict[str, Any]]:
         logger.info(f"No YouTube upload matches {query!r} among {len(results)} results")
         raise SongNotFound(
             f"Could not find “{info.title}” by {info.artist} on YouTube. "
-            "Search for it by name and pick an upload, or add the audio as a local file."
+            "Search for it and pick one of the YouTube uploads listed under the songs, "
+            "or add the audio as a local file."
         )
     logger.info(f"{query!r} matches {len(ranked)} YouTube uploads, best {ranked[0].get('id')}")
     return ranked
