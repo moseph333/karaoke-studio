@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.11.0](https://github.com/moseph333/karaoke-studio/compare/v2.10.1...v2.11.0) (2026-11-19)
+
+
+### Features
+
+* **help:** say what to do when the search misses a song ([4e96308](https://github.com/moseph333/karaoke-studio/commit/4e963085a9c76cfb4d998d7ddcf1974670a143dc))
+* **links:** make karaoke from a deezer song link ([e374aa6](https://github.com/moseph333/karaoke-studio/commit/e374aa6112aa9080f2cf7d1fd4e5398807f0c2f1))
+* **search:** find songs by name in the music catalogs, typos and all ([3a3d47f](https://github.com/moseph333/karaoke-studio/commit/3a3d47f13ef733eb79d070945fca326b6643e0c3))
+* **search:** list songs under the search box as you type ([65912e6](https://github.com/moseph333/karaoke-studio/commit/65912e69c976981bcd72c8497120b7ad1d6d298c))
+
+
+### Bug Fixes
+
+* **help:** cover refused live streams, over-long recordings and failed uploads in "Fix a problem" ([b6b7cd3](https://github.com/moseph333/karaoke-studio/commit/b6b7cd3d3ffe25e529ba3282db0feee725359450))
+* **help:** list the search problem beside the other intake problem ([d98cb20](https://github.com/moseph333/karaoke-studio/commit/d98cb206d002192fef325dd1054c8420552ce98f))
+* **intake:** fit the search box's placeholder and shorten the phone hint ([9c8a426](https://github.com/moseph333/karaoke-studio/commit/9c8a426a499571afd9f481934eb1c6b98650a85a))
+* **search:** keep another version from being marked as the library's song ([6a85044](https://github.com/moseph333/karaoke-studio/commit/6a850443b3d1180e59aaa5eeca8b9c28d52db0af))
+
 ## [2.10.1](https://github.com/moseph333/karaoke-studio/compare/v2.10.0...v2.10.1) (2026-11-18)
 
 
