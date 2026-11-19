@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Disc3,
   type LucideIcon,
   FolderHeart,
   Globe,
@@ -75,6 +76,7 @@ const statusBadge = (status: string): { label: string; Icon: LucideIcon; tone: s
     return { label: 'Ready', Icon: CheckCircle2, tone: 'bg-theme-success/30' };
   if (status === 'error') return { label: 'Error', Icon: AlertCircle, tone: 'bg-theme-danger/50' };
   if (status === 'cancelled') return { label: 'Cancelled', Icon: XCircle, tone: 'bg-black/50' };
+  if (status === 'album') return { label: 'Album', Icon: Disc3, tone: 'bg-theme-accent/50' };
   return { label: statusLabel(status), Icon: Clock, tone: 'bg-theme-warning/35' };
 };
 
