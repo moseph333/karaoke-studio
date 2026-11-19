@@ -9,6 +9,7 @@ import React, { Suspense, useState, useEffect, useCallback, useContext, useRef }
 import { TrackSearch } from './components/TrackSearch';
 import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
+import { AlbumTrackPicker } from './components/album/AlbumTrackPicker';
 import { RenderProgressAnnouncer } from './components/RenderProgressAnnouncer';
 import { StudioModals } from './components/StudioModals';
 import { InstallAppDialog } from './components/InstallAppDialog';
@@ -609,6 +610,16 @@ export const AppContent: React.FC = () => {
                 initialMode={shortcut === 'upload' ? 'local' : undefined}
                 focusSearch={shortcut === 'new'}
               />
+            ) : project.status === 'album' ? (
+              <AlbumTrackPicker
+                key={project.id}
+                project={project}
+                onMakeSongs={intake.handleAlbumSongs}
+                onMakeWhole={intake.handleAlbumWhole}
+                onOpenSong={(projectId) => fetchAndOpenProject(projectId)}
+                onBack={handlers.newSong}
+                isStarting={intake.loading}
+              />
             ) : project.status !== 'ready' ? (
               <ProcessingView
                 project={project}
@@ -622,9 +633,17 @@ export const AppContent: React.FC = () => {
                 // The server starts a song again from its link (a YouTube song also from its
                 // id); an upload is sent again
                 onRetry={
-                  isUploadedSong(project)
-                    ? undefined
-                    : () => void intake.handleSelectTrack(retryInput(project), undefined, project)
+                  project.album_track
+                    ? () =>
+                        void intake.handleAlbumSongs(
+                          project.album_track!.album_id,
+                          [{ number: project.album_track!.number }],
+                          undefined,
+                          project
+                        )
+                    : isUploadedSong(project)
+                      ? undefined
+                      : () => void intake.handleSelectTrack(retryInput(project), undefined, project)
                 }
                 isRetrying={intake.loading}
               />

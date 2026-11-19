@@ -35,10 +35,22 @@ const RULES: { test: RegExp; summary: string; advice: string; uploadAdvice?: str
     advice: 'Paste a link to a finished recording of the song.',
   },
   {
+    // A whole album longer than the server's MAX_ALBUM_MINUTES
+    test: /the longest album this server downloads/i,
+    summary: 'This album is longer than this server downloads.',
+    advice: `Find a video of the song you want on its own, or ${OWN_FILE}.`,
+  },
+  {
     // Longer than the server's MAX_SONG_MINUTES
     test: /minutes long\. the longest this server downloads/i,
     summary: 'This recording is longer than this server downloads.',
-    advice: `Pick a video of the song alone, not a whole album or concert, or ${OWN_FILE}.`,
+    advice: `Pick a video of the song alone, not a concert, or ${OWN_FILE}.`,
+  },
+  {
+    // A song picked from an album whose album was deleted meanwhile
+    test: /the album (?:file )?this song came from (?:is gone|was deleted)/i,
+    summary: 'The album this song was picked from is no longer in the library.',
+    advice: 'Paste the album’s link again (or upload the album again) and pick the song.',
   },
   {
     // An Internet Archive item of a whole album or concert
@@ -140,8 +152,9 @@ export function explainProcessingError(
 
 /** Songs made from an uploaded file: the server can start a linked song again, but an upload
  * has to be sent again. */
-export function isUploadedSong(project: Pick<ProjectState, 'id'>): boolean {
-  return project.id.startsWith('local_');
+export function isUploadedSong(project: Pick<ProjectState, 'id' | 'album_track'>): boolean {
+  // A song picked from an uploaded album is cut out of the album again, not uploaded again
+  return project.id.startsWith('local_') && !project.album_track;
 }
 
 /** What "Try again" sends to start a linked song again: its link, kept from the start, else

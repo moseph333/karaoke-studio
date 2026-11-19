@@ -7,7 +7,7 @@
  */
 
 import React, { useCallback, useState } from 'react';
-import { ProjectState, SeparationPreset } from '../types';
+import { AlbumSongsStarted, ProjectState, SeparationPreset } from '../types';
 import { apiFetch, readApiError } from '../api';
 import { useToast } from './useToast';
 import { SEPARATION_PRESET_ORDER } from '../utils/quality';
@@ -127,9 +127,85 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
     }
   };
 
+  const queuedProject = (id: string): ProjectState => ({
+    id,
+    status: 'queued',
+    progress: 5,
+    lines: [],
+    semitones: 0,
+    guide_volume: 0,
+  });
+
+  // Make songs picked from a whole album; the first one opens, the others queue behind it
+  // and show in the library. `again`: a failed album song started again keeps its quality
+  const handleAlbumSongs = async (
+    albumId: string,
+    songs: Array<{ number: number; title?: string }>,
+    artist?: string,
+    again?: Pick<ProjectState, 'created_by' | 'separation_quality'>
+  ): Promise<AlbumSongsStarted | null> => {
+    const quality = again?.separation_quality || separationQuality;
+    setLoading(true);
+    try {
+      const res = await apiFetch(`/api/project/${encodeURIComponent(albumId)}/album/songs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          songs,
+          ...(artist ? { artist } : {}),
+          created_by: again?.created_by || currentUser || 'Friend',
+          ...(quality ? { separation_quality: quality } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, 'Could not start the songs'));
+      const data: AlbumSongsStarted = await res.json();
+      const first = data.projects[0];
+      if (first) {
+        setProject({
+          ...queuedProject(first.project_id),
+          status: first.status as ProjectState['status'],
+        });
+        if (data.projects.length > 1) {
+          toast.info(
+            `${data.projects.length} songs are on their way. The others are in your library.`
+          );
+        }
+      }
+      return data;
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Could not start the songs');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Make a whole album recording one song after all
+  const handleAlbumWhole = async (albumId: string): Promise<boolean> => {
+    setLoading(true);
+    try {
+      const res = await apiFetch(`/api/project/${encodeURIComponent(albumId)}/album/whole`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(separationQuality ? { separation_quality: separationQuality } : {}),
+      });
+      if (!res.ok) throw new Error(await readApiError(res, 'Could not start the song'));
+      const data = await res.json();
+      setProject(queuedProject(data.project_id));
+      return true;
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Could not start the song');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     loading,
     handleSelectTrack,
+    handleAlbumSongs,
+    handleAlbumWhole,
     handleUploadTrack,
     separationQuality,
     setSeparationQuality,

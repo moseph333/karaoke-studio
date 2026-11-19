@@ -56,6 +56,19 @@ describe('explainProcessingError', () => {
       /several recordings/,
     ],
     [
+      'That album recording is 185 minutes long. The longest album this server downloads is 120 minutes.',
+      /album is longer than this server downloads/,
+    ],
+    [
+      'That recording is 95 minutes long. The longest this server downloads is 60 minutes.',
+      /recording is longer than this server downloads/,
+    ],
+    ['The album this song came from is gone. Paste its link again.', /no longer in the library/],
+    [
+      'The album file this song came from was deleted. Upload the album again.',
+      /no longer in the library/,
+    ],
+    [
       'Could not find “Internal Calm” by Afterhour Chillout on YouTube. Search for it and pick one of the YouTube uploads listed under the songs, or add the audio as a local file.',
       /No YouTube upload of this song matched/,
     ],

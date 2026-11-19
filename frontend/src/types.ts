@@ -212,6 +212,24 @@ export interface ProjectState {
     youtube_title?: string;
     youtube_url?: string;
   };
+  /** A whole album that was pasted or uploaded (status `album`): its songs are picked from it,
+   * each becoming a song of its own. The full list is GET /api/project/{id}/album. */
+  album?: {
+    kind: 'link' | 'upload';
+    title: string;
+    artist: string;
+    duration: number;
+    source: AlbumSource;
+    tracks: AlbumTrack[];
+  };
+  /** A song picked from an album: which album and which of its songs. */
+  album_track?: {
+    album_id: string;
+    album_title?: string | null;
+    number: number;
+    start: number;
+    end: number;
+  };
   /** A card-sized entry from GET /api/projects?summary=1: no lines, chords or media URLs.
    * The song is fetched in full (GET /api/project/{id}) before it is opened. */
   summary?: boolean;
@@ -224,6 +242,7 @@ export interface ProjectState {
     | 'aligning'
     | 'mixing'
     | 'ready'
+    | 'album'
     | 'error'
     | 'cancelled';
   progress: number;
@@ -280,6 +299,48 @@ export interface ProjectState {
     lyrics: string;
     privacy_status: string;
   };
+}
+
+/** Where an album's song list came from: the recording's chapters, a music catalog's track
+ * list (each start checked against the audio), the pauses between songs, or nowhere. */
+export type AlbumSource = 'chapters' | 'catalog' | 'pauses' | 'none';
+
+/** One song of an album, in seconds from the start of the album's recording. */
+export interface AlbumTrack {
+  number: number;
+  title: string;
+  start: number;
+  end: number;
+  /** The song's own artist on a compilation; empty when it is the album's. */
+  artist?: string;
+  /** False for a stand-in name ("Track 3") that has to be replaced to find the lyrics. */
+  named: boolean;
+  /** The song made from this track, when there is one. */
+  project_id?: string | null;
+  project_status?: string | null;
+}
+
+/** GET /api/project/{id}/album: an album's songs and the songs made from them. */
+export interface AlbumListing {
+  id: string;
+  kind: 'link' | 'upload';
+  url?: string | null;
+  title: string;
+  artist: string;
+  duration: number;
+  source: AlbumSource;
+  catalog?: { site: string; title: string; artist: string; link: string } | null;
+  thumbnail_url?: string | null;
+  separation_quality?: SeparationPreset | null;
+  /** Whether the whole recording may be made into one song (its length is within the server's
+   * limit for one song). */
+  whole_allowed: boolean;
+  tracks: AlbumTrack[];
+}
+
+/** POST /api/project/{id}/album/songs: each picked song's project. */
+export interface AlbumSongsStarted {
+  projects: Array<{ project_id: string; number: number; status: string }>;
 }
 
 export interface LyricCandidate {
