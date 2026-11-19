@@ -6,6 +6,8 @@ Generates synthetic (royalty-free) stems, album art and a ``projects.json`` with
   and auto-aligned lyrics with per-line confidence (one line flagged for review),
 * ``demo_processing`` - a song mid-way through stem separation,
 * ``demo_error`` - a failed import,
+* ``demo_album`` - a whole album pasted as one link, resting as its song list, with
+  ``demo_album-t02`` made from it,
 * a few extra ready songs so the library grid has content.
 
 Usage::
@@ -310,6 +312,82 @@ def ready_project(
     return project
 
 
+# A made-up album (title, length in seconds), split by its chapters
+DEMO_ALBUM_SONGS: list[tuple[str, float]] = [
+    ("First Light Over Harbor Street", 212.0),
+    ("Paper Satellites", 187.5),
+    ("Slow Motion Static", 241.0),
+    ("Undertow", 198.5),
+    ("Glass Avenue", 224.0),
+    ("Night Bus Hymn", 263.5),
+    ("Lanterns", 176.0),
+    ("Echo Park Afterglow", 231.5),
+    ("Last Call Radio", 254.0),
+]
+
+
+def album_projects(lines: list[dict], now: float) -> dict[str, dict]:
+    """The demo album (status ``album``, its songs from its chapters) and the one song made
+    from it, so the album picker shows songs to pick and a song to open."""
+    tracks, position = [], 0.0
+    for number, (title, length) in enumerate(DEMO_ALBUM_SONGS, start=1):
+        tracks.append(
+            {
+                "number": number,
+                "title": title,
+                "start": round(position, 2),
+                "end": round(position + length, 2),
+                "artist": "",
+                "named": True,
+            }
+        )
+        position += length
+    cover = DOWNLOADS_DIR / "demo_album.jpg"
+    album = {
+        "id": "demo_album",
+        "track_id": "demo_album",
+        "status": "album",
+        "progress": 100,
+        "status_detail": f"{len(tracks)} songs found. Pick the ones to make.",
+        "title": "Lanterns & Static",
+        "artist": "The Midnight Static",
+        "duration": position,
+        "thumbnail_url": "/static/downloads/demo_album.jpg",
+        "thumbnail_path": str(cover),
+        "lines": [],
+        "semitones": 0,
+        "guide_volume": 0.0,
+        "created_by": "Friend",
+        "created_at": now - 1800,
+        "album": {
+            "kind": "link",
+            "url": None,
+            "title": "Lanterns & Static",
+            "artist": "The Midnight Static",
+            "duration": position,
+            "source": "chapters",
+            "catalog": None,
+            "audio_file": "demo_album.album.wav",
+            "tracks": tracks,
+        },
+    }
+    made = tracks[1]
+    song = ready_project(
+        "demo_album-t02", made["title"], "The Midnight Static", "demo_album.jpg", lines
+    )
+    song["album_track"] = {
+        "album_id": "demo_album",
+        "album_title": "Lanterns & Static",
+        "number": made["number"],
+        "start": made["start"],
+        "end": made["end"],
+        "kind": "link",
+        "url": None,
+        "audio_file": "demo_album.album.wav",
+    }
+    return {"demo_album": album, "demo_album-t02": song}
+
+
 def main() -> None:
     lines = build_lines()
     instrumental = synth_instrumental()
@@ -324,6 +402,7 @@ def main() -> None:
         "demo_b.jpg": ((14, 116, 144), (30, 27, 75)),
         "demo_c.jpg": ((234, 88, 12), (127, 29, 29)),
         "demo_d.jpg": ((22, 101, 52), (15, 23, 42)),
+        "demo_album.jpg": ((79, 70, 229), (190, 24, 93)),
     }
     for name, (a, b) in covers.items():
         make_cover(DOWNLOADS_DIR / name, a, b)
@@ -375,6 +454,7 @@ def main() -> None:
             "created_at": now - 7200,
         },
     }
+    projects.update(album_projects(lines, now))
     (DATA_DIR / "projects.json").write_text(json.dumps(projects, indent=2), encoding="utf-8")
     print(f"Seeded demo workspace in {DATA_DIR} ({len(projects)} projects)")
 
