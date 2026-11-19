@@ -75,6 +75,7 @@ from backend.project_store import (
 )
 from backend.render_worker import remove_render_leftovers, run_video_render
 from backend.reseparation import remove_staged_stems
+from backend.routers.albums import router as albums_router
 from backend.routers.api_docs import OPENAPI_URL, install_openapi
 from backend.routers.api_docs import router as api_docs_router
 from backend.routers.auth import router as auth_router
@@ -384,6 +385,7 @@ async def system_update_action(request: Request):
 # Mount domain routers
 app.include_router(auth_router)
 app.include_router(projects_router)
+app.include_router(albums_router)
 app.include_router(search_router)
 app.include_router(exports_router)
 app.include_router(uploads_router)

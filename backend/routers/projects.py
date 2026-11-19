@@ -15,6 +15,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 
 from backend import realignment
+from backend.album_pipeline import ALBUM_STATUS
 from backend.background_jobs import (
     BUSY_PIPELINE_STATES,
     RENDER_ACTIVE_STATES,
@@ -173,9 +174,10 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
         if video_id:
             for p_id, p in list(main_mod.projects.items()):
                 if p.get("id") == video_id or p.get("track_id") == video_id or p_id == video_id:
-                    if p.get("status") == "ready":
-                        logger.info(f"Returning cached ready project {p_id} for {video_id}")
-                        return {"project_id": p.get("id", p_id), "status": "ready"}
+                    if p.get("status") in ("ready", ALBUM_STATUS):
+                        # A ready song opens; an album opens its list of songs to pick from
+                        logger.info(f"Returning {p.get('status')} project {p_id} for {video_id}")
+                        return {"project_id": p.get("id", p_id), "status": p.get("status")}
                     elif p.get("status") in BUSY_PIPELINE_STATES:
                         # Verify task is genuinely running in memory, not a stale session artifact
                         is_active = (p_id in main_mod.active_cancellations) or (
@@ -219,6 +221,9 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
             proj_data["url"] = link.url
         if req.separation_quality:
             proj_data["separation_quality"] = req.separation_quality
+        if isinstance(previous, dict) and previous.get("album_whole"):
+            # An album being made as one song is tried again as one song
+            proj_data["album_whole"] = True
         cancel_event = threading.Event()
         main_mod.active_cancellations[project_id] = cancel_event
         if video_id and video_id != project_id:
