@@ -198,7 +198,7 @@ describe('Milestone 1: UX-1 Search & URL Ergonomics (TrackSearch)', () => {
     const user = userEvent.setup();
     render(<TrackSearch {...defaultProps} />);
 
-    const input = screen.getByPlaceholderText(/Search for a song or artist/i);
+    const input = screen.getByPlaceholderText(/Song, artist or link/i);
     expect(screen.queryByLabelText(/Clear search query/i)).not.toBeInTheDocument();
 
     await user.type(input, 'David Bowie');
@@ -216,7 +216,7 @@ describe('Milestone 1: UX-1 Search & URL Ergonomics (TrackSearch)', () => {
     const onSelectTrack = vi.fn();
     render(<TrackSearch {...defaultProps} onSelectTrack={onSelectTrack} />);
 
-    const input = screen.getByPlaceholderText(/Search for a song or artist/i);
+    const input = screen.getByPlaceholderText(/Song, artist or link/i);
     await user.type(input, 'https://soundcloud.com/artist/great-song');
 
     const searchBtn = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
@@ -260,7 +260,7 @@ describe('Milestone 1: UX-1 Search & URL Ergonomics (TrackSearch)', () => {
 
     render(<TrackSearch {...defaultProps} />);
 
-    const input = screen.getByPlaceholderText(/Search for a song or artist/i);
+    const input = screen.getByPlaceholderText(/Song, artist or link/i);
     await user.type(input, 'Starman');
 
     const searchBtn = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });

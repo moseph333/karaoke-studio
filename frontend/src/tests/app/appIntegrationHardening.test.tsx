@@ -1250,7 +1250,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/Search for a song or artist/i);
+      const input = screen.getByPlaceholderText(/Song, artist or link/i);
       await user.type(input, 'Nonexistent Song Query 123987');
 
       const submitBtn = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
@@ -1284,7 +1284,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         </ToastProvider>
       );
 
-      const input = screen.getByPlaceholderText(/Search for a song or artist/i);
+      const input = screen.getByPlaceholderText(/Song, artist or link/i);
       await user.type(input, 'Rate Limit Song');
 
       const submitBtn = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
