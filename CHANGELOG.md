@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.12.0](https://github.com/moseph333/karaoke-studio/compare/v2.11.0...v2.12.0) (2026-11-19)
+
+
+### Features
+
+* **intake:** find the songs in a whole-album link or upload ([a65c790](https://github.com/moseph333/karaoke-studio/commit/a65c790d3005219f590986c12d5bb08769bb1f34))
+* **studio:** pick the songs to make from a whole album ([e17ae48](https://github.com/moseph333/karaoke-studio/commit/e17ae4812db0e00f75023dcbd3745585cc2d5c4d))
+
+
+### Bug Fixes
+
+* **lyrics:** keep another artist's like-named song from replacing the song's own lyrics ([19b7463](https://github.com/moseph333/karaoke-studio/commit/19b746315d1e156729f40f43671d3ec9458026d0))
+* **sync:** start a song's first lines where they are sung, not on the intro's stage talk ([15f579f](https://github.com/moseph333/karaoke-studio/commit/15f579fcb11e6fb5b173ddcab0a5914cc8b4c42c))
+
 ## [2.11.0](https://github.com/moseph333/karaoke-studio/compare/v2.10.1...v2.11.0) (2026-11-19)
 
 
