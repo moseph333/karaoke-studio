@@ -656,10 +656,12 @@ def place_with_anchors(
         if not good and near and _inside(dsp_lines[index], lo, hi, None):
             placed[index] = (dict(dsp_lines[index]), "dsp", None)
             continue
-        if not good:
+        if not good and (expected is not None or any(j < index for j in fixed)):
             # Between two anchors even an unsure song-pass placement beats the DSP guess:
             # the model had to put the line in that gap, in order. Its low score keeps it
-            # flagged for review.
+            # flagged for review. Before the first anchor nothing bounds it but the song's
+            # start, and an unsure model puts plain lyrics on an intro's stage talk or
+            # count-in; after the last one it still lands on sung outro repeats.
             unsure = merge_line(
                 dsp_lines[index],
                 anchor_plan.results.get(index),
@@ -692,6 +694,11 @@ def place_with_anchors(
         if run:
             lo, hi = gap(run[0])
             lines = [placed[i][0] for i in run]
+            # A run with no fixed line before it starts where the DSP pass heard its first
+            # line sung, not at the song's start: an intro is no place to spread lyrics over
+            first_start = _num(lines[0].get("start_time"))
+            if not any(j < run[0] for j in fixed) and lo < first_start < hi:
+                lo = first_start
             if any(not _inside(x, lo, hi, None) for x in lines):
                 fitted = _spread(lines, lo, hi) if source_starts is None else lines
                 for i, line in zip(run, fitted, strict=True):
