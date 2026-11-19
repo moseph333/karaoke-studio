@@ -9,6 +9,7 @@ from pathlib import Path
 
 import soundfile as sf
 
+from backend import album_pipeline
 from backend.background_jobs import release_cancel_event, superseded
 from backend.config import DOWNLOADS_DIR
 from backend.errors import public_error
@@ -23,7 +24,9 @@ from backend.project_store import (
     save_projects_throttled,
 )
 from backend.services import remote_separation
-from backend.services.downloader import DownloadCancelled
+from backend.services.album_audio import file_chapters
+from backend.services.album_tracks import ALBUM_MIN_SECONDS
+from backend.services.downloader import AlbumDetected, DownloadCancelled
 from backend.services.lyric_sync import UNCOVERED, sync_lyrics
 from backend.services.repeat_fill import fill_repeats
 from backend.services.separation_presets import (
@@ -367,7 +370,22 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
                     eta_s=eta,
                 )
 
-        meta = main_mod.downloader.extract_info_and_download(url_or_id, progress_hook=dl_hook)
+        proj = get_project_or_404(project_id)
+        if proj.get("album_track"):
+            # A song picked from an album: cut out of the album's audio
+            meta = album_pipeline.song_audio(main_mod, project_id, dl_hook, update_pipe)
+        else:
+            # A whole album is noticed before it downloads; made as one song only on request
+            whole = {"detect_album": False} if proj.get("album_whole") else {}
+            try:
+                meta = main_mod.downloader.extract_info_and_download(
+                    url_or_id, progress_hook=dl_hook, **whole
+                )
+            except AlbumDetected as found:
+                album_pipeline.open_link_album(
+                    main_mod, project_id, url_or_id, found.info, dl_hook, update_pipe, cancel_event
+                )
+                return
         track_id = meta.get("id")
         with PROJECTS_LOCK:
             proj = get_project_or_404(project_id)
@@ -535,6 +553,13 @@ def run_local_pipeline(
 
         raw_path = Path(raw_audio_path)
         wav_target = downloads_dir / f"{project_id}.wav"
+        album_check = not find_project(project_id).get("album_whole")
+        # Chapters are lost in the WAV: read them while the upload is still as it was sent
+        chapters = (
+            file_chapters(raw_path)
+            if album_check and raw_path.resolve() != wav_target.resolve()
+            else []
+        )
 
         needs_transcode = True
         if raw_path.resolve() == wav_target.resolve() and wav_target.exists():
@@ -606,6 +631,16 @@ def run_local_pipeline(
             proj["audio_path"] = str(wav_target)
             proj["audio_url"] = f"/static/downloads/{project_id}.wav"
             save_projects()
+
+        # A file long enough to hold a whole album shows its songs to pick from instead
+        if (
+            album_check
+            and duration >= ALBUM_MIN_SECONDS
+            and album_pipeline.open_upload_album(
+                project_id, wav_target, title, artist, duration, chapters, update_pipe, cancel_event
+            )
+        ):
+            return
 
         # Step 3 starts here: the lyric lookup runs while the stems are separated
         lyrics_job = start_lyrics(main_mod, custom_lyrics, title, artist, duration)

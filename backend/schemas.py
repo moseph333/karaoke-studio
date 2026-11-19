@@ -52,6 +52,46 @@ def parse_separation_quality(value: Any, optional: bool = False) -> str | None:
     return preset
 
 
+class AlbumSongPick(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    number: int = Field(..., ge=1, le=999, description="The song's number on the album")
+    title: str | None = Field(
+        default=None,
+        max_length=300,
+        description="The song's name, when the one found is wrong or a stand-in (Track 3)",
+    )
+
+
+class AlbumSongsRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    songs: list[AlbumSongPick] = Field(
+        ..., min_length=1, max_length=99, description="The songs of the album to make"
+    )
+    artist: str | None = Field(
+        default=None, max_length=300, description="The album's artist, when the one found is wrong"
+    )
+    created_by: str | None = Field(default=None, max_length=64)
+    separation_quality: str | None = Field(
+        default=None,
+        description="Stem separation preset for the songs (the album's, else the server default)",
+    )
+
+    @field_validator("separation_quality", mode="before")
+    @classmethod
+    def validate_separation_quality(cls, v: Any) -> str | None:
+        return parse_separation_quality(v, optional=True)
+
+
+class AlbumWholeRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    separation_quality: str | None = Field(default=None)
+
+    @field_validator("separation_quality", mode="before")
+    @classmethod
+    def validate_separation_quality(cls, v: Any) -> str | None:
+        return parse_separation_quality(v, optional=True)
+
+
 class ProcessRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     url_or_id: str = Field(

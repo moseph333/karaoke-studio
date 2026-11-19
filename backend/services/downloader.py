@@ -15,6 +15,7 @@ import yt_dlp
 
 from backend import config
 from backend.config import DOWNLOADS_DIR
+from backend.services.album_tracks import album_limit_seconds, looks_like_album
 from backend.services.lyrics import LyricsNormalizer
 from backend.services.media_links import (
     SITE_NAMES,
@@ -30,6 +31,16 @@ logger = logging.getLogger(__name__)
 
 class DownloadCancelled(RuntimeError):
     """Raised from a progress hook to stop a download the user cancelled."""
+
+
+class AlbumDetected(Exception):
+    """Raised before anything downloads when a link is a whole album (``album_tracks.
+    looks_like_album``): the pipeline then lists its songs to pick from instead of making
+    one song of it. Carries yt-dlp's metadata of the recording."""
+
+    def __init__(self, info: dict[str, Any]):
+        super().__init__("That link is a whole album")
+        self.info = info
 
 
 def _is_cancel(exc: BaseException | None) -> bool:
@@ -144,6 +155,70 @@ def refuse_unsuitable(info: dict[str, Any] | None, *, incomplete: bool = False) 
             f"The longest this server downloads is {limit} minutes."
         )
     return None
+
+
+def intake_filter(detect_album: bool):
+    """yt-dlp's ``match_filter`` for a pasted link: a whole album raises AlbumDetected (when
+    ``detect_album``), anything else goes through refuse_unsuitable. Both happen on the
+    metadata, before the download starts."""
+
+    def check(info: dict[str, Any] | None, *, incomplete: bool = False) -> None:
+        if detect_album and not incomplete and looks_like_album(info):
+            raise AlbumDetected(info)
+        return refuse_unsuitable(info, incomplete=incomplete)
+
+    return check
+
+
+def refuse_long_album(info: dict[str, Any] | None, *, incomplete: bool = False) -> None:
+    """``match_filter`` for an album download: a live stream, or an album longer than
+    MAX_ALBUM_MINUTES, is refused before it downloads."""
+    if not isinstance(info, dict):
+        return None
+    if info.get("is_live") or info.get("live_status") in ("is_live", "is_upcoming"):
+        raise UnusableLink("That link is a live stream, which has no end to download.")
+    limit = album_limit_seconds()
+    duration = info.get("duration")
+    if limit and isinstance(duration, (int, float)) and duration > limit:
+        raise UnusableLink(
+            f"That album recording is {int(duration // 60)} minutes long. "
+            f"The longest album this server downloads is {int(limit // 60)} minutes."
+        )
+    return None
+
+
+# The audio formats an album download may end in (yt-dlp keeps what the site served)
+_ALBUM_AUDIO_SUFFIXES = (
+    ".m4a",
+    ".webm",
+    ".opus",
+    ".ogg",
+    ".mp3",
+    ".mp4",
+    ".aac",
+    ".flac",
+    ".wav",
+    ".mka",
+    ".mkv",
+)
+
+
+def album_audio_path(folder: Path, stem: str) -> Path | None:
+    """The finished album download of ``stem`` in ``folder``, if there is one. One whose
+    download never finished (its marker is still beside it) is deleted instead."""
+    marker = folder / f"{stem}.album.unfinished"
+    found = [
+        path
+        for path in folder.glob(f"{stem}.album.*")
+        if path.suffix.lower() in _ALBUM_AUDIO_SUFFIXES and path.is_file()
+    ]
+    if marker.exists():
+        for path in found:
+            path.unlink(missing_ok=True)
+        marker.unlink(missing_ok=True)
+        return None
+    found = [path for path in found if path.stat().st_size > 0]
+    return found[0] if found else None
 
 
 # Matched YouTube uploads a Spotify, Apple Music, TIDAL or Deezer song tries before giving up
@@ -301,13 +376,21 @@ class TrackDownloader:
         return None
 
     def extract_info_and_download(
-        self, url_or_id: str, progress_hook=None, *, file_stem: str | None = None
+        self,
+        url_or_id: str,
+        progress_hook=None,
+        *,
+        file_stem: str | None = None,
+        detect_album: bool = True,
     ) -> dict[str, Any]:
         """Download the audio and thumbnail of a YouTube video (link or id) or of a song on
         another supported site (see ``media_links``). ``file_stem`` names a YouTube video's
         files (and the returned id) instead of its video id: a song matched from Spotify,
         Apple Music, TIDAL or Deezer (or picked from the song search) keeps its own files,
-        apart from a song made from the video."""
+        apart from a song made from the video.
+
+        A link to a whole album raises AlbumDetected before anything downloads, unless
+        ``detect_album`` is off (the album was chosen to be made as one song)."""
         if not url_or_id or not str(url_or_id).strip():
             raise ValueError("URL or video ID cannot be empty")
 
@@ -316,7 +399,7 @@ class TrackDownloader:
             link = parse_media_link(url_or_id)
             if link.lookup:
                 return self._download_by_lookup(link, progress_hook)
-            return self._download_from_site(link, progress_hook)
+            return self._download_from_site(link, progress_hook, detect_album=detect_album)
         video_id = self.extract_video_id(url_or_id)
         stem = file_stem or video_id
         wav_path = self.output_dir / f"{stem}.wav" if stem else None
@@ -402,8 +485,9 @@ class TrackDownloader:
             "writethumbnail": True,
             "quiet": True,
             "no_warnings": True,
-            # Checked on the metadata, before the download starts
-            "match_filter": refuse_unsuitable,
+            # Checked on the metadata, before the download starts. A song matched from a
+            # catalog is one song whatever its upload looks like
+            "match_filter": intake_filter(detect_album and not file_stem),
         }
 
         if progress_hook:
@@ -430,9 +514,9 @@ class TrackDownloader:
                             logger.info(f"Download succeeded with client profile: {clients}")
                             break
                 except Exception as e:
-                    if _is_cancel(e) or isinstance(e, UnusableLink):
-                        # The user cancelled, or the video is live or too long: trying the
-                        # next client would only start over
+                    if _is_cancel(e) or isinstance(e, (UnusableLink, AlbumDetected)):
+                        # The user cancelled, the video is live or too long, or it is a
+                        # whole album: trying the next client would only start over
                         raise
                     err_msg = f"Profile {clients} failed: {e}"
                     logger.warning(err_msg)
@@ -502,7 +586,7 @@ class TrackDownloader:
         for attempt, match in enumerate(matches, start=1):
             try:
                 result = self.extract_info_and_download(
-                    match["url"], progress_hook, file_stem=link.track_id
+                    match["url"], progress_hook, file_stem=link.track_id, detect_album=False
                 )
                 break
             except Exception as e:
@@ -536,7 +620,9 @@ class TrackDownloader:
                 return candidate
         return None
 
-    def _download_from_site(self, link: MediaLink, progress_hook=None) -> dict[str, Any]:
+    def _download_from_site(
+        self, link: MediaLink, progress_hook=None, *, detect_album: bool = True
+    ) -> dict[str, Any]:
         """Download a SoundCloud, Bandcamp, Vimeo or Internet Archive song, named by its track
         id (the site's own ids can collide across sites and Archive ones hold slashes). The
         link is read first and the download refused when it holds several recordings (an
@@ -562,10 +648,10 @@ class TrackDownloader:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 meta = _single_recording(ydl.extract_info(link.url, download=False), site_name)
                 if not cached:
-                    refuse_unsuitable(meta)
+                    intake_filter(detect_album)(meta)
                     with fresh_download(wav_path):
                         meta = ydl.process_ie_result(meta, download=True) or meta
-        except UnusableLink:
+        except (UnusableLink, AlbumDetected):
             raise
         except Exception as e:
             if _is_cancel(e):
@@ -595,6 +681,60 @@ class TrackDownloader:
             "thumbnail_url": f"/static/downloads/{thumb_path.name}" if thumb_path else None,
             "url": link.url,
         }
+
+    def download_album_audio(self, url: str, stem: str, progress_hook=None) -> dict[str, Any]:
+        """Download a whole album recording to pick songs from, kept in the format the site
+        served (a 40-minute album is tens of MB rather than the 400 MB of a WAV) as
+        ``<stem>.album.<ext>``, with its thumbnail as ``<stem>.<ext>``. A finished download
+        already on disk is reused. Returns ``audio_path`` and ``thumbnail_path``; refuses a
+        live stream or an album longer than MAX_ALBUM_MINUTES before it downloads."""
+        existing = album_audio_path(self.output_dir, stem)
+        if existing is not None:
+            thumb = self._thumbnail_for(stem)
+            return {"audio_path": str(existing), "thumbnail_path": str(thumb) if thumb else None}
+        marker = self.output_dir / f"{stem}.album.unfinished"
+        ydl_opts: dict[str, Any] = {
+            "format": "bestaudio/ba/b[height<=?720]/b",
+            "outtmpl": {
+                "default": str(self.output_dir / f"{stem}.album.%(ext)s"),
+                "thumbnail": str(self.output_dir / f"{stem}.%(ext)s"),
+            },
+            "writethumbnail": True,
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+            "match_filter": refuse_long_album,
+        }
+        if progress_hook:
+            ydl_opts["progress_hooks"] = [progress_hook]
+        youtube = link_site(url) in (None, "youtube")
+        profiles = [["ios", "android", "mweb"], ["android"], ["web"]] if youtube else [None]
+        errors: list[str] = []
+        marker.touch()
+        try:
+            for clients in profiles:
+                if clients:
+                    ydl_opts["extractor_args"] = {"youtube": {"player_client": clients}}
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        meta = ydl.extract_info(url, download=True)
+                    if meta:
+                        break
+                except Exception as e:
+                    if _is_cancel(e) or isinstance(e, UnusableLink):
+                        raise
+                    errors.append(f"{clients or 'default'}: {e}")
+            marker.unlink(missing_ok=True)
+        except BaseException:
+            for path in self.output_dir.glob(f"{stem}.album.*"):
+                path.unlink(missing_ok=True)
+            raise
+        audio = album_audio_path(self.output_dir, stem)
+        if audio is None:
+            summary = "; ".join(errors) or "no audio was written"
+            raise RuntimeError(f"Failed to download the album from '{url}': {summary}")
+        thumb = self._thumbnail_for(stem)
+        return {"audio_path": str(audio), "thumbnail_path": str(thumb) if thumb else None}
 
 
 def _single_recording(info: dict[str, Any] | None, site_name: str) -> dict[str, Any]:

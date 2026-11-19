@@ -327,6 +327,21 @@ def _max_song_minutes(raw: str | None) -> int:
 MAX_SONG_MINUTES = _max_song_minutes(os.getenv("MAX_SONG_MINUTES"))
 
 
+def _max_album_minutes(raw: str | None) -> int:
+    """MAX_ALBUM_MINUTES from its setting: whole minutes, at least 0; unset or unreadable
+    is 120."""
+    try:
+        return max(0, int((raw or "").strip()))
+    except ValueError:
+        return 120
+
+
+# The longest whole-album recording a pasted link may download to pick songs from, in
+# minutes (kept compressed, as yt-dlp fetched it; each picked song is cut out of it). Albums
+# are told apart from songs before anything downloads; 0 lifts the limit.
+MAX_ALBUM_MINUTES = _max_album_minutes(os.getenv("MAX_ALBUM_MINUTES"))
+
+
 def _song_search_sources(raw: str | None) -> tuple[str, ...]:
     """SONG_SEARCH_SOURCES from its setting: the known names in it, lower case, once each;
     unset is all of them, and "none" (or any text naming no known service) is none."""
