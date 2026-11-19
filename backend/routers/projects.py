@@ -1,4 +1,4 @@
-"""Project management API router handling search, intake processing, project queries, metadata updates, lyric editing, audio mixing, cancellation, deletion, and YouTube metadata generation."""
+"""Project management API router handling intake processing, project queries, metadata updates, lyric editing, audio mixing, cancellation, deletion, and YouTube metadata generation."""
 
 import copy
 import hashlib
@@ -66,7 +66,6 @@ from backend.schemas import (
     ProjectMetadataUpdate,
     RealignLyricsRequest,
     RenderRequest,
-    SearchRequest,
     VocalRangeData,
 )
 from backend.services import remote_render
@@ -155,18 +154,6 @@ def settle_all_stale_jobs() -> int:
         if settled:
             save_projects()
     return settled
-
-
-@router.post("/api/search")
-def search_tracks(req: SearchRequest):
-    import backend.main as main_mod
-
-    try:
-        results = main_mod.downloader.search_tracks(req.query, limit=req.limit or 5)
-        return {"results": results}
-    except Exception as e:
-        logger.exception("Search failed")
-        raise HTTPException(status_code=500, detail="Search failed. Try again in a moment.") from e
 
 
 @router.post("/api/process")

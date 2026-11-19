@@ -89,6 +89,7 @@ from backend.routers.projects import (
     router as projects_router,
 )
 from backend.routers.quality import router as quality_router
+from backend.routers.search import router as search_router
 from backend.routers.system import router as system_router
 from backend.routers.uploads import (
     router as uploads_router,
@@ -383,6 +384,7 @@ async def system_update_action(request: Request):
 # Mount domain routers
 app.include_router(auth_router)
 app.include_router(projects_router)
+app.include_router(search_router)
 app.include_router(exports_router)
 app.include_router(uploads_router)
 app.include_router(quality_router)

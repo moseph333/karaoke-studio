@@ -30,6 +30,16 @@ class SearchRequest(BaseModel):
     limit: int | None = Field(default=5, ge=1, le=50, description="Max results to return")
 
 
+class SongSearchRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    query: str = Field(
+        ...,
+        max_length=200,
+        description="A song title, an artist, or both; misspellings are tolerated",
+    )
+    limit: int | None = Field(default=8, ge=1, le=25, description="Max songs to return")
+
+
 def parse_separation_quality(value: Any, optional: bool = False) -> str | None:
     """A preset id from user input such as " Best ", or a ValueError listing the choices."""
     if value is None or (isinstance(value, str) and not value.strip()):

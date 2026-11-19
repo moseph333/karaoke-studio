@@ -327,6 +327,32 @@ def _max_song_minutes(raw: str | None) -> int:
 MAX_SONG_MINUTES = _max_song_minutes(os.getenv("MAX_SONG_MINUTES"))
 
 
+def _song_search_sources(raw: str | None) -> tuple[str, ...]:
+    """SONG_SEARCH_SOURCES from its setting: the known names in it, lower case, once each;
+    unset is all of them, and "none" (or any text naming no known service) is none."""
+    known = ("deezer", "itunes", "suggest")
+    if raw is None or not raw.strip():
+        return known
+    asked = {part.strip().lower() for part in raw.split(",")}
+    return tuple(name for name in known if name in asked)
+
+
+def _song_search_country(raw: str | None) -> str:
+    """SONG_SEARCH_COUNTRY from its setting: a two-letter store code, lower case; unset or
+    unreadable is "us"."""
+    code = (raw or "").strip().lower()
+    return code if len(code) == 2 and code.isascii() and code.isalpha() else "us"
+
+
+# The services the song search asks, comma-separated: "deezer" and "itunes" are the music
+# catalogs the results come from, "suggest" is YouTube's search suggestions, used to respell
+# a misspelled query. "none" turns the catalog search off; the studio then lists YouTube
+# uploads, as it does when no catalog answers.
+SONG_SEARCH_SOURCES = _song_search_sources(os.getenv("SONG_SEARCH_SOURCES"))
+# The iTunes Store whose songs are searched (a two-letter country code)
+SONG_SEARCH_COUNTRY = _song_search_country(os.getenv("SONG_SEARCH_COUNTRY"))
+
+
 # Free space (MB) to keep on the data folder's disk. Below it, new songs, uploads, renders and
 # re-separations are refused with HTTP 507; edits to existing songs are never blocked. 0 turns
 # the check off.

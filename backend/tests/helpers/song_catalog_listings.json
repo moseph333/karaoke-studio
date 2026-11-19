@@ -1,0 +1,2950 @@
+{
+ "suggest": {
+  "wondewall oasis": [
+   "wonderwall oasis",
+   "wonderwall oasis lyrics",
+   "wonderwall oasis karaoke",
+   "wonderwall oasis live",
+   "wonderwall oasis guitar"
+  ],
+  "adel rolling in the deap": [
+   "adele rolling in the deep",
+   "adele rolling in the deep karaoke",
+   "adele rolling in the deep lyrics",
+   "adele rolling in the deep tekst",
+   "adele rolling in the deep sözleri"
+  ],
+  "nirvna smels lik ten sprit": [
+   "nirvana like smell spirit",
+   "nirvana it smells like",
+   "is smells like teen spirit"
+  ],
+  "is this the real life is this just fantasy": [
+   "is this the real life is this just fantasy",
+   "is this the real life is this just fantasy caught in a landslide no escape from reality",
+   "is this the real life is this just fantasy meme",
+   "is this the real life is this just fantasy caught in a landslide no escape from reality lyrics",
+   "is this the real life is this just fantasy song"
+  ],
+  "queen": [
+   "queen",
+   "queens domain",
+   "queen naija",
+   "queens of the stone age",
+   "queen opp"
+  ],
+  "rick astly never gona give you up": [
+   "rick astley never gonna give you up",
+   "rick astley lyrics never gonna give you up",
+   "rick astley never gonna give you up lyrics karaoke",
+   "rick astley - never gonna give you up (official music video) lyrics",
+   "rick astley never gonna give you up lyrics live"
+  ],
+  "beyonse halo": [
+   "beyonce halo",
+   "beyonce halo lyrics",
+   "beyonce halo live",
+   "beyonce halo acoustic",
+   "beyonce halo karaoke"
+  ]
+ },
+ "deezer": {
+  "wondewall oasis": [
+   {
+    "id": 985721612,
+    "type": "track",
+    "title": "The Swamp Song",
+    "duration": 259,
+    "rank": 99872,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Wonderwall"
+    }
+   },
+   {
+    "id": 3537756951,
+    "type": "track",
+    "title": "Wonderwall (Live from Dublin, 16 August '25)",
+    "duration": 261,
+    "rank": 413120,
+    "explicit_lyrics": true,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Wonderwall (Live from Dublin, 16 August '25)"
+    }
+   },
+   {
+    "id": 985721622,
+    "type": "track",
+    "title": "The Masterplan",
+    "duration": 322,
+    "rank": 104174,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Wonderwall"
+    }
+   },
+   {
+    "id": 3418942591,
+    "type": "track",
+    "title": "Wonderwall (Unplugged)",
+    "duration": 251,
+    "rank": 597923,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "(What's The Story) Morning Glory? (30th Anniversary Deluxe Edition)"
+    }
+   },
+   {
+    "id": 1546043892,
+    "type": "track",
+    "title": "Wonderwall",
+    "duration": 144,
+    "rank": 191774,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Osis"
+    },
+    "album": {
+     "title": "Wonderwall"
+    }
+   },
+   {
+    "id": 985721602,
+    "type": "track",
+    "title": "Round Are Way",
+    "duration": 342,
+    "rank": 138740,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Wonderwall"
+    }
+   },
+   {
+    "id": 1635275152,
+    "type": "track",
+    "title": "Wonderwall",
+    "duration": 260,
+    "rank": 165238,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Ohasis"
+    },
+    "album": {
+     "title": "Après Ski Partyhits - Best of Hüttengaudi (Die Mega Hits Partyedition - Das Beste für die Piste)"
+    }
+   },
+   {
+    "id": 3118004121,
+    "type": "track",
+    "title": "Wonderwall (Oasis)",
+    "duration": 253,
+    "rank": 57934,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The Fourth Floor"
+    },
+    "album": {
+     "title": "The Snack Pack EP (Volume One)"
+    }
+   },
+   {
+    "id": 1033615732,
+    "type": "track",
+    "title": "My Oasis",
+    "duration": 179,
+    "rank": 516674,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Sam Smith"
+    },
+    "album": {
+     "title": "My Oasis"
+    }
+   },
+   {
+    "id": 132233388,
+    "type": "track",
+    "title": "Wonderwall (in the style of Oasis)",
+    "duration": 262,
+    "rank": 147641,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Pop Music Workshop"
+    },
+    "album": {
+     "title": "Free Guitar Backing Tracks, Vol. 12"
+    }
+   },
+   {
+    "id": 2875411322,
+    "type": "track",
+    "title": "Wonderwall (Karaoke Version Originally Performed by Oasis)",
+    "duration": 257,
+    "rank": 100083,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Singer's Best"
+    },
+    "album": {
+     "title": "Karaoke Version - A Tribute to Oasis"
+    }
+   },
+   {
+    "id": 2674328662,
+    "type": "track",
+    "title": "Oasis by Wonderwall",
+    "duration": 139,
+    "rank": 46510,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Sledding With Tigers"
+    },
+    "album": {
+     "title": "A Necessary Bummer"
+    }
+   }
+  ],
+  "wonderwall oasis": [
+   {
+    "id": 985985832,
+    "type": "track",
+    "title": "Wonderwall",
+    "duration": 258,
+    "rank": 872702,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Stop The Clocks"
+    }
+   },
+   {
+    "id": 3418942591,
+    "type": "track",
+    "title": "Wonderwall (Unplugged)",
+    "duration": 251,
+    "rank": 597923,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "(What's The Story) Morning Glory? (30th Anniversary Deluxe Edition)"
+    }
+   },
+   {
+    "id": 1540063342,
+    "type": "track",
+    "title": "Wonderwall (Live at Knebworth, 10 August '96)",
+    "duration": 244,
+    "rank": 464628,
+    "explicit_lyrics": true,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Wonderwall (Live at Knebworth, 10 August '96)"
+    }
+   },
+   {
+    "id": 3537756951,
+    "type": "track",
+    "title": "Wonderwall (Live from Dublin, 16 August '25)",
+    "duration": 261,
+    "rank": 413120,
+    "explicit_lyrics": true,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Wonderwall (Live from Dublin, 16 August '25)"
+    }
+   },
+   {
+    "id": 3118004121,
+    "type": "track",
+    "title": "Wonderwall (Oasis)",
+    "duration": 253,
+    "rank": 57934,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The Fourth Floor"
+    },
+    "album": {
+     "title": "The Snack Pack EP (Volume One)"
+    }
+   },
+   {
+    "id": 985721612,
+    "type": "track",
+    "title": "The Swamp Song",
+    "duration": 259,
+    "rank": 99872,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Wonderwall"
+    }
+   },
+   {
+    "id": 985721622,
+    "type": "track",
+    "title": "The Masterplan",
+    "duration": 322,
+    "rank": 104174,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Wonderwall"
+    }
+   },
+   {
+    "id": 1033615732,
+    "type": "track",
+    "title": "My Oasis",
+    "duration": 179,
+    "rank": 516674,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Sam Smith"
+    },
+    "album": {
+     "title": "My Oasis"
+    }
+   },
+   {
+    "id": 132233388,
+    "type": "track",
+    "title": "Wonderwall (in the style of Oasis)",
+    "duration": 262,
+    "rank": 147641,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Pop Music Workshop"
+    },
+    "album": {
+     "title": "Free Guitar Backing Tracks, Vol. 12"
+    }
+   },
+   {
+    "id": 2875411322,
+    "type": "track",
+    "title": "Wonderwall (Karaoke Version Originally Performed by Oasis)",
+    "duration": 257,
+    "rank": 100083,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Singer's Best"
+    },
+    "album": {
+     "title": "Karaoke Version - A Tribute to Oasis"
+    }
+   },
+   {
+    "id": 2674328662,
+    "type": "track",
+    "title": "Oasis by Wonderwall",
+    "duration": 139,
+    "rank": 46510,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Sledding With Tigers"
+    },
+    "album": {
+     "title": "A Necessary Bummer"
+    }
+   },
+   {
+    "id": 985721602,
+    "type": "track",
+    "title": "Round Are Way",
+    "duration": 342,
+    "rank": 138740,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Oasis"
+    },
+    "album": {
+     "title": "Wonderwall"
+    }
+   }
+  ],
+  "adel rolling in the deap": [
+   {
+    "id": 24147971,
+    "type": "track",
+    "title": "Rolling in the Deep (Piano Version)",
+    "duration": 238,
+    "rank": 196468,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Piano Superstar"
+    },
+    "album": {
+     "title": "Adele Piano Hits"
+    }
+   },
+   {
+    "id": 458455942,
+    "type": "track",
+    "title": "Rolling In The Deep",
+    "duration": 228,
+    "rank": 131056,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rolling With Adele"
+    },
+    "album": {
+     "title": "Rolling In The Deep"
+    }
+   },
+   {
+    "id": 120726068,
+    "type": "track",
+    "title": "Adele Medley (Someone Like You / Hello / Set Fire to the Rain / Rolling in the Deep)",
+    "duration": 253,
+    "rank": 133376,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "KO"
+    },
+    "album": {
+     "title": "Adele Medley (Someone Like You / Hello / Set Fire to the Rain / Rolling in the Deep)"
+    }
+   },
+   {
+    "id": 10128133,
+    "type": "track",
+    "title": "Rolling In The Deep (Adele 808 Re-Mix Party Tribute)",
+    "duration": 200,
+    "rank": 142188,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The 808 Remixers"
+    },
+    "album": {
+     "title": "2010 Pop Hit 808 Re-Mixes"
+    }
+   },
+   {
+    "id": 4289197602,
+    "type": "track",
+    "title": "Rolling in the Deep",
+    "duration": 229,
+    "rank": 147783,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Yako Strings"
+    },
+    "album": {
+     "title": "Rolling in the Deep"
+    }
+   },
+   {
+    "id": 62535515,
+    "type": "track",
+    "title": "Rolling in the Deep",
+    "duration": 228,
+    "rank": 172332,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Sweet Little Band"
+    },
+    "album": {
+     "title": "Sweet Little Band Play Adele for Babies"
+    }
+   },
+   {
+    "id": 123633164,
+    "type": "track",
+    "title": "Rolling in the Deep",
+    "duration": 164,
+    "rank": 159720,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Midnite String Quartet"
+    },
+    "album": {
+     "title": "MSQ Performs ADELE"
+    }
+   },
+   {
+    "id": 840715802,
+    "type": "track",
+    "title": "Rolling In the Deep (Acoustic Tribute to Adele)",
+    "duration": 207,
+    "rank": 54384,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Corey Gray"
+    },
+    "album": {
+     "title": "Discovery, Vol. 1"
+    }
+   },
+   {
+    "id": 69379852,
+    "type": "track",
+    "title": "Rolling in the Deep (Originally Performed By Adele)",
+    "duration": 237,
+    "rank": 37138,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The Piano Man"
+    },
+    "album": {
+     "title": "Ultimate Chart Hits On Piano"
+    }
+   },
+   {
+    "id": 10149031,
+    "type": "track",
+    "title": "Rolling In The Deep (Adele Drum & Bass Re-Mix Party Tribute)",
+    "duration": 166,
+    "rank": 40418,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The Drum & Bass Remixers"
+    },
+    "album": {
+     "title": "2010 Pop Hit Drum & Bass Remixes"
+    }
+   },
+   {
+    "id": 63018520,
+    "type": "track",
+    "title": "Rolling in the Deep (Originally By Adele Karaoke / Instrumental)",
+    "duration": 228,
+    "rank": 39416,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "HOT 100"
+    },
+    "album": {
+     "title": "Rolling in the Deep - (Originally By Adele) [Karaoke / Instrumental] - Single"
+    }
+   },
+   {
+    "id": 1519275882,
+    "type": "track",
+    "title": "Rolling in the Deep (Originally performed by Adele)",
+    "duration": 223,
+    "rank": 33213,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Liz Luna"
+    },
+    "album": {
+     "title": "Rolling in the Deep"
+    }
+   }
+  ],
+  "adele rolling in the deep": [
+   {
+    "id": 346975901,
+    "type": "track",
+    "title": "Rolling In The Deep",
+    "duration": 228,
+    "rank": 155543,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Hello I'm Adele"
+    },
+    "album": {
+     "title": "Rolling In The Deep"
+    }
+   },
+   {
+    "id": 120726068,
+    "type": "track",
+    "title": "Adele Medley (Someone Like You / Hello / Set Fire to the Rain / Rolling in the Deep)",
+    "duration": 253,
+    "rank": 133376,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "KO"
+    },
+    "album": {
+     "title": "Adele Medley (Someone Like You / Hello / Set Fire to the Rain / Rolling in the Deep)"
+    }
+   },
+   {
+    "id": 10128133,
+    "type": "track",
+    "title": "Rolling In The Deep (Adele 808 Re-Mix Party Tribute)",
+    "duration": 200,
+    "rank": 142188,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The 808 Remixers"
+    },
+    "album": {
+     "title": "2010 Pop Hit 808 Re-Mixes"
+    }
+   },
+   {
+    "id": 4289197602,
+    "type": "track",
+    "title": "Rolling in the Deep",
+    "duration": 229,
+    "rank": 147783,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Yako Strings"
+    },
+    "album": {
+     "title": "Rolling in the Deep"
+    }
+   },
+   {
+    "id": 840715802,
+    "type": "track",
+    "title": "Rolling In the Deep (Acoustic Tribute to Adele)",
+    "duration": 207,
+    "rank": 54384,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Corey Gray"
+    },
+    "album": {
+     "title": "Discovery, Vol. 1"
+    }
+   },
+   {
+    "id": 69379852,
+    "type": "track",
+    "title": "Rolling in the Deep (Originally Performed By Adele)",
+    "duration": 237,
+    "rank": 37138,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The Piano Man"
+    },
+    "album": {
+     "title": "Ultimate Chart Hits On Piano"
+    }
+   },
+   {
+    "id": 10149031,
+    "type": "track",
+    "title": "Rolling In The Deep (Adele Drum & Bass Re-Mix Party Tribute)",
+    "duration": 166,
+    "rank": 40418,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The Drum & Bass Remixers"
+    },
+    "album": {
+     "title": "2010 Pop Hit Drum & Bass Remixes"
+    }
+   },
+   {
+    "id": 63018520,
+    "type": "track",
+    "title": "Rolling in the Deep (Originally By Adele Karaoke / Instrumental)",
+    "duration": 228,
+    "rank": 39416,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "HOT 100"
+    },
+    "album": {
+     "title": "Rolling in the Deep - (Originally By Adele) [Karaoke / Instrumental] - Single"
+    }
+   },
+   {
+    "id": 1519275882,
+    "type": "track",
+    "title": "Rolling in the Deep (Originally performed by Adele)",
+    "duration": 223,
+    "rank": 33213,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Liz Luna"
+    },
+    "album": {
+     "title": "Rolling in the Deep"
+    }
+   },
+   {
+    "id": 144602656,
+    "type": "track",
+    "title": "Rolling In The Deep",
+    "duration": 133,
+    "rank": 23171,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Sing To Adele"
+    },
+    "album": {
+     "title": "Rolling In The Deep"
+    }
+   },
+   {
+    "id": 10183033,
+    "type": "track",
+    "title": "Rolling in the deep (Karaoke)",
+    "duration": 226,
+    "rank": 18529,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Adele's Karaoke Band"
+    },
+    "album": {
+     "title": "Rolling in the deep (Karaoke)"
+    }
+   },
+   {
+    "id": 3027250121,
+    "type": "track",
+    "title": "Adele - Rolling In The Deep - Piano Cover",
+    "duration": 223,
+    "rank": 26611,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Katrina Hundred"
+    },
+    "album": {
+     "title": "Adele - Piano Covers"
+    }
+   }
+  ],
+  "nirvna smels lik ten sprit": [
+   {
+    "id": 1543592472,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live In Del Mar, California/1991)",
+    "duration": 289,
+    "rank": 497131,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Nevermind (30th Anniversary Super Deluxe)"
+    }
+   },
+   {
+    "id": 605632792,
+    "type": "track",
+    "title": "Smells Like Teen Spirit",
+    "duration": 331,
+    "rank": 729278,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Shaka Ponk"
+    },
+    "album": {
+     "title": "Smells Like Teen Spirit"
+    }
+   },
+   {
+    "id": 4601811,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (1992/Live at Reading)",
+    "duration": 285,
+    "rank": 419606,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Live at Reading"
+    }
+   },
+   {
+    "id": 1409015812,
+    "type": "track",
+    "title": "Smells Like Teen Spirit",
+    "duration": 239,
+    "rank": 693867,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Malia J"
+    },
+    "album": {
+     "title": "Smells Like Teen Spirit"
+    }
+   },
+   {
+    "id": 1105768,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live In Del Mar, California/1991)",
+    "duration": 287,
+    "rank": 324309,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "From The Muddy Banks Of The Wishkah (Live)"
+    }
+   },
+   {
+    "id": 1166334,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Rehearsal Demo)",
+    "duration": 338,
+    "rank": 156048,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Sliver - The Best Of The Box"
+    }
+   },
+   {
+    "id": 661518662,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live At The Paramount/1991)",
+    "duration": 285,
+    "rank": 349911,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Live At The Paramount (Live)"
+    }
+   },
+   {
+    "id": 1540470302,
+    "type": "track",
+    "title": "Lithium (Live In Melbourne, Australia For Triple J/1992)",
+    "duration": 283,
+    "rank": 258166,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Smells Like Teen Spirit / In Bloom / On A Plain / Lithium / Breed"
+    }
+   },
+   {
+    "id": 1540470292,
+    "type": "track",
+    "title": "On A Plain (Live In Tokyo, Japan/1992)",
+    "duration": 192,
+    "rank": 143552,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Smells Like Teen Spirit / In Bloom / On A Plain / Lithium / Breed"
+    }
+   },
+   {
+    "id": 1543592292,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live In Amsterdam, Netherlands/1991)",
+    "duration": 289,
+    "rank": 200845,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Nevermind (30th Anniversary Super Deluxe)"
+    }
+   },
+   {
+    "id": 1540470312,
+    "type": "track",
+    "title": "Breed (Live In Amsterdam, Netherlands/1991)",
+    "duration": 219,
+    "rank": 128736,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Smells Like Teen Spirit / In Bloom / On A Plain / Lithium / Breed"
+    }
+   },
+   {
+    "id": 3061746871,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live 1991)",
+    "duration": 273,
+    "rank": 93122,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "No Recess (Live)"
+    }
+   }
+  ],
+  "nirvana smells like teen spirit": [
+   {
+    "id": 1543592472,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live In Del Mar, California/1991)",
+    "duration": 289,
+    "rank": 497131,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Nevermind (30th Anniversary Super Deluxe)"
+    }
+   },
+   {
+    "id": 605632792,
+    "type": "track",
+    "title": "Smells Like Teen Spirit",
+    "duration": 331,
+    "rank": 729278,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Shaka Ponk"
+    },
+    "album": {
+     "title": "Smells Like Teen Spirit"
+    }
+   },
+   {
+    "id": 4601811,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (1992/Live at Reading)",
+    "duration": 285,
+    "rank": 419606,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Live at Reading"
+    }
+   },
+   {
+    "id": 661518662,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live At The Paramount/1991)",
+    "duration": 285,
+    "rank": 349911,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Live At The Paramount (Live)"
+    }
+   },
+   {
+    "id": 1105768,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live In Del Mar, California/1991)",
+    "duration": 287,
+    "rank": 324309,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "From The Muddy Banks Of The Wishkah (Live)"
+    }
+   },
+   {
+    "id": 1166334,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Rehearsal Demo)",
+    "duration": 338,
+    "rank": 156048,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Sliver - The Best Of The Box"
+    }
+   },
+   {
+    "id": 1543592292,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live In Amsterdam, Netherlands/1991)",
+    "duration": 289,
+    "rank": 200845,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Nevermind (30th Anniversary Super Deluxe)"
+    }
+   },
+   {
+    "id": 2506654421,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live In Los Angeles, Great Western Forum - December 30, 1993)",
+    "duration": 293,
+    "rank": 105963,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "In Utero (30th Anniversary Super Deluxe)"
+    }
+   },
+   {
+    "id": 1543592772,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live In Melbourne, Australia For Triple J/1992)",
+    "duration": 319,
+    "rank": 126091,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "Nevermind (30th Anniversary Super Deluxe)"
+    }
+   },
+   {
+    "id": 2506654761,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live In Seattle, Seattle Center Arena - January 7, 1994)",
+    "duration": 279,
+    "rank": 131215,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "In Utero (30th Anniversary Super Deluxe)"
+    }
+   },
+   {
+    "id": 78933810,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Butch Vig Mix)",
+    "duration": 299,
+    "rank": 194361,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "With The Lights Out - Box Set"
+    }
+   },
+   {
+    "id": 3061746871,
+    "type": "track",
+    "title": "Smells Like Teen Spirit (Live 1991)",
+    "duration": 273,
+    "rank": 93122,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nirvana"
+    },
+    "album": {
+     "title": "No Recess (Live)"
+    }
+   }
+  ],
+  "is this the real life is this just fantasy": [
+   {
+    "id": 4091937401,
+    "type": "track",
+    "title": "Bohemian Rhapsody",
+    "duration": 354,
+    "rank": 958949,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "A Night At The Opera"
+    }
+   },
+   {
+    "id": 129568048,
+    "type": "track",
+    "title": "Bohemian Rhapsody",
+    "duration": 361,
+    "rank": 466061,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Panic! At The Disco"
+    },
+    "album": {
+     "title": "Suicide Squad: The Album"
+    }
+   },
+   {
+    "id": 94973468,
+    "type": "track",
+    "title": "Bohemian Rhapsody (feat. The White Buffalo, Billy Valentine & Franky Perez) (From Sons of Anarchy)",
+    "duration": 402,
+    "rank": 450643,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The Forest Rangers"
+    },
+    "album": {
+     "title": "Songs of Anarchy, Vol. 4 (Music from Sons of Anarchy)"
+    }
+   },
+   {
+    "id": 343545021,
+    "type": "track",
+    "title": "Bohemian Rhapsody",
+    "duration": 355,
+    "rank": 431207,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Pentatonix"
+    },
+    "album": {
+     "title": "PTX Vol. IV - Classics"
+    }
+   },
+   {
+    "id": 1372667642,
+    "type": "track",
+    "title": "Bohemian Rhapsody (Live)",
+    "duration": 349,
+    "rank": 402896,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "P!nk"
+    },
+    "album": {
+     "title": "All I Know So Far: Setlist"
+    }
+   },
+   {
+    "id": 10686464,
+    "type": "track",
+    "title": "Bohemian Rhapsody (feat. Jonathan Groff)",
+    "duration": 356,
+    "rank": 308928,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Glee Cast"
+    },
+    "album": {
+     "title": "Glee: The Music, Journey To Regionals"
+    }
+   },
+   {
+    "id": 681343762,
+    "type": "track",
+    "title": "Bohemian Rhapsody",
+    "duration": 362,
+    "rank": 324383,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Forestella"
+    },
+    "album": {
+     "title": "Mystique"
+    }
+   },
+   {
+    "id": 3920929171,
+    "type": "track",
+    "title": "Bohemian Rhapsody",
+    "duration": 358,
+    "rank": 315651,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Julien cohen"
+    },
+    "album": {
+     "title": "Bohemian Rhapsody"
+    }
+   },
+   {
+    "id": 874192022,
+    "type": "track",
+    "title": "Bohemian Rhapsody",
+    "duration": 357,
+    "rank": 184401,
+    "explicit_lyrics": true,
+    "artist": {
+     "name": "ChuggaBoom"
+    },
+    "album": {
+     "title": "Bohemian Rhapsody"
+    }
+   },
+   {
+    "id": 438383892,
+    "type": "track",
+    "title": "Bohemian Rhapsody (Live at Amway Center, Orlando, FL, 4/14/2017)",
+    "duration": 424,
+    "rank": 183732,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Panic! At The Disco"
+    },
+    "album": {
+     "title": "All My Friends We're Glorious: Death of a Bachelor Tour Live"
+    }
+   },
+   {
+    "id": 948570932,
+    "type": "track",
+    "title": "Bohemian Rhapsody",
+    "duration": 352,
+    "rank": 176994,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Marc Martel"
+    },
+    "album": {
+     "title": "A One-Take Rhapsody"
+    }
+   },
+   {
+    "id": 569041,
+    "type": "track",
+    "title": "Bohemian Polka",
+    "duration": 219,
+    "rank": 165818,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "\"Weird Al\" Yankovic"
+    },
+    "album": {
+     "title": "Alapalooza"
+    }
+   }
+  ],
+  "queen": [
+   {
+    "id": 4091937401,
+    "type": "track",
+    "title": "Bohemian Rhapsody",
+    "duration": 354,
+    "rank": 958949,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "A Night At The Opera"
+    }
+   },
+   {
+    "id": 4092329741,
+    "type": "track",
+    "title": "Don't Stop Me Now",
+    "duration": 212,
+    "rank": 942478,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "Jazz"
+    }
+   },
+   {
+    "id": 4091932171,
+    "type": "track",
+    "title": "Under Pressure (feat. David Bowie)",
+    "duration": 247,
+    "rank": 951938,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "Hot Space (Deluxe Edition)"
+    }
+   },
+   {
+    "id": 4092324041,
+    "type": "track",
+    "title": "Another One Bites The Dust",
+    "duration": 217,
+    "rank": 918200,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "The Game"
+    }
+   },
+   {
+    "id": 4092312801,
+    "type": "track",
+    "title": "We Will Rock You",
+    "duration": 123,
+    "rank": 851674,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "News Of The World"
+    }
+   },
+   {
+    "id": 4091936611,
+    "type": "track",
+    "title": "Somebody To Love",
+    "duration": 298,
+    "rank": 832516,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "Bohemian Rhapsody (The Original Soundtrack)"
+    }
+   },
+   {
+    "id": 4091936641,
+    "type": "track",
+    "title": "Killer Queen",
+    "duration": 182,
+    "rank": 828086,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "Bohemian Rhapsody (The Original Soundtrack)"
+    }
+   },
+   {
+    "id": 4092335521,
+    "type": "track",
+    "title": "I Want to Break Free",
+    "duration": 201,
+    "rank": 815586,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "The Works"
+    }
+   },
+   {
+    "id": 4092326741,
+    "type": "track",
+    "title": "The Show Must Go On",
+    "duration": 264,
+    "rank": 867070,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "Greatest Hits II"
+    }
+   },
+   {
+    "id": 4092323401,
+    "type": "track",
+    "title": "I Want It All (Single Version)",
+    "duration": 241,
+    "rank": 783007,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "The Miracle (Collector's Edition)"
+    }
+   },
+   {
+    "id": 4091936691,
+    "type": "track",
+    "title": "Crazy Little Thing Called Love",
+    "duration": 164,
+    "rank": 769459,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "Bohemian Rhapsody (The Original Soundtrack)"
+    }
+   },
+   {
+    "id": 4092326601,
+    "type": "track",
+    "title": "Radio Ga Ga",
+    "duration": 347,
+    "rank": 842811,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Queen"
+    },
+    "album": {
+     "title": "Greatest Hits II"
+    }
+   }
+  ],
+  "rick astly never gona give you up": [
+   {
+    "id": 3816551372,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Cake Mix)",
+    "duration": 347,
+    "rank": 296310,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3794316162,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Pianoforte)",
+    "duration": 213,
+    "rank": 186406,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Never Gonna Give You Up (Pianoforte)"
+    }
+   },
+   {
+    "id": 3816551312,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Phil Harding 12\" Mix)",
+    "duration": 444,
+    "rank": 131944,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3816551402,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Escape from Newton Mix)",
+    "duration": 386,
+    "rank": 88724,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3816551432,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Escape to New York Mix) (Escape to New York Mix)",
+    "duration": 423,
+    "rank": 102937,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3816551472,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Instrumental)",
+    "duration": 379,
+    "rank": 64856,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3545557331,
+    "type": "track",
+    "title": "Never Gonna Give You Up Remix",
+    "duration": 187,
+    "rank": 156676,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Remix Kingz"
+    },
+    "album": {
+     "title": "Never Gonna Give You Up"
+    }
+   },
+   {
+    "id": 3801686902,
+    "type": "track",
+    "title": "Cry for Help (Reimagined)",
+    "duration": 229,
+    "rank": 37997,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Never Gonna Give You Up (Pianoforte)"
+    }
+   },
+   {
+    "id": 3801686922,
+    "type": "track",
+    "title": "Every One of Us",
+    "duration": 186,
+    "rank": 25844,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Never Gonna Give You Up (Pianoforte)"
+    }
+   },
+   {
+    "id": 8518713,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Rick Astley)",
+    "duration": 268,
+    "rank": 619,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Stegosaurus Rex"
+    },
+    "album": {
+     "title": "The Dino Soars"
+    }
+   },
+   {
+    "id": 94514498,
+    "type": "track",
+    "title": "Never Gonna Give You Up By Rick Astley Meets Metal",
+    "duration": 205,
+    "rank": 21127,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Erock"
+    },
+    "album": {
+     "title": "Meets Metal Vol. 1 (The Early Year)"
+    }
+   },
+   {
+    "id": 1875181747,
+    "type": "track",
+    "title": "Never Gonna Give You Up",
+    "duration": 229,
+    "rank": 11578,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Twinkle Twinkle Little Rock Star"
+    },
+    "album": {
+     "title": "Lullaby Versions of Rick Astley"
+    }
+   }
+  ],
+  "rick astley never gonna give you up": [
+   {
+    "id": 3816551372,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Cake Mix)",
+    "duration": 347,
+    "rank": 296310,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3794316162,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Pianoforte)",
+    "duration": 213,
+    "rank": 186406,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Never Gonna Give You Up (Pianoforte)"
+    }
+   },
+   {
+    "id": 3816551312,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Phil Harding 12\" Mix)",
+    "duration": 444,
+    "rank": 131944,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3816551402,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Escape from Newton Mix)",
+    "duration": 386,
+    "rank": 88724,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3816551432,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Escape to New York Mix) (Escape to New York Mix)",
+    "duration": 423,
+    "rank": 102937,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3816551472,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Instrumental)",
+    "duration": 379,
+    "rank": 64856,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Rick Astley"
+    },
+    "album": {
+     "title": "Whenever You Need Somebody (Deluxe Edition / Remastered 2022)"
+    }
+   },
+   {
+    "id": 3582891001,
+    "type": "track",
+    "title": "Never Gonna Give You Up Remix",
+    "duration": 187,
+    "rank": 184144,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Remix Kingz"
+    },
+    "album": {
+     "title": "80's Remixes"
+    }
+   },
+   {
+    "id": 8518713,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Rick Astley)",
+    "duration": 268,
+    "rank": 619,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Stegosaurus Rex"
+    },
+    "album": {
+     "title": "The Dino Soars"
+    }
+   },
+   {
+    "id": 94514498,
+    "type": "track",
+    "title": "Never Gonna Give You Up By Rick Astley Meets Metal",
+    "duration": 205,
+    "rank": 21127,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Erock"
+    },
+    "album": {
+     "title": "Meets Metal Vol. 1 (The Early Year)"
+    }
+   },
+   {
+    "id": 2477742761,
+    "type": "track",
+    "title": "Never Gonna Give You Up - Rick Roll (Rick Astley) [Marimba Ringtone] (Ringtone)",
+    "duration": 39,
+    "rank": 384,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Anime Ringtones"
+    },
+    "album": {
+     "title": "Never Gonna Give You Up - Rick Roll (Rick Astley) [Marimba Ringtone]"
+    }
+   },
+   {
+    "id": 1213062,
+    "type": "track",
+    "title": "Never Gonna Give You Up - Sound-A-Like As Made Famous By: Rick Astley",
+    "duration": 179,
+    "rank": 26718,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Studio Group"
+    },
+    "album": {
+     "title": "Almost Pop: Don't Talk Just Kiss"
+    }
+   },
+   {
+    "id": 66279293,
+    "type": "track",
+    "title": "Never Gonna Give You Up (Professional Backing Track) (In the Style of Rick Astley)",
+    "duration": 210,
+    "rank": 21329,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "You Entertain"
+    },
+    "album": {
+     "title": "Male Solos - Professional Backing Tracks, Vol. 5"
+    }
+   }
+  ],
+  "beyonse halo": [
+   {
+    "id": 2485113,
+    "type": "track",
+    "title": "Ave Maria",
+    "duration": 222,
+    "rank": 791368,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "I AM...SASHA FIERCE"
+    }
+   },
+   {
+    "id": 15593283,
+    "type": "track",
+    "title": "Halo (Radio Edit)",
+    "duration": 224,
+    "rank": 385239,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 7512203,
+    "type": "track",
+    "title": "Halo (Live)",
+    "duration": 392,
+    "rank": 390915,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "I Am...World Tour"
+    }
+   },
+   {
+    "id": 15593284,
+    "type": "track",
+    "title": "Halo (Dave Audé Club Remix)",
+    "duration": 534,
+    "rank": 181206,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 15593286,
+    "type": "track",
+    "title": "Halo (Karmatronic Club Remix)",
+    "duration": 433,
+    "rank": 128142,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 15593287,
+    "type": "track",
+    "title": "Halo (Lost Daze Club Remix)",
+    "duration": 482,
+    "rank": 70831,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 15593285,
+    "type": "track",
+    "title": "Halo (Gomi Club Remix)",
+    "duration": 537,
+    "rank": 35330,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 127031771,
+    "type": "track",
+    "title": "Halo (Acoustic)",
+    "duration": 198,
+    "rank": 359224,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Madilyn Bailey"
+    },
+    "album": {
+     "title": "Halo (Originally Performed By Beyonce) (Acoustic)"
+    }
+   },
+   {
+    "id": 68923625,
+    "type": "track",
+    "title": "Halo (In the Style of Beyonce) [Karaoke Instrumental Version]",
+    "duration": 263,
+    "rank": 167124,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "All Hits Gold"
+    },
+    "album": {
+     "title": "Pop Instrumentals: Noughties Classics, Vol. 24"
+    }
+   },
+   {
+    "id": 1878928927,
+    "type": "track",
+    "title": "Halo (In the Style of Beyoncé)",
+    "duration": 260,
+    "rank": 76212,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Stingray"
+    },
+    "album": {
+     "title": "2000's Hits"
+    }
+   },
+   {
+    "id": 73428519,
+    "type": "track",
+    "title": "Halo (Originally Performed By Beyoncé) (Karaoke Version)",
+    "duration": 265,
+    "rank": 46953,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "The Backing Tracks "
+    },
+    "album": {
+     "title": "Beyoncé Songs for Solo Singers (Karaoke)"
+    }
+   },
+   {
+    "id": 66763243,
+    "type": "track",
+    "title": "Halo (Beyoncé Cover)",
+    "duration": 203,
+    "rank": 33215,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Nitrokill"
+    },
+    "album": {
+     "title": "Veneno - EP"
+    }
+   }
+  ],
+  "beyonce halo": [
+   {
+    "id": 15593283,
+    "type": "track",
+    "title": "Halo (Radio Edit)",
+    "duration": 224,
+    "rank": 385239,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 7512203,
+    "type": "track",
+    "title": "Halo (Live)",
+    "duration": 392,
+    "rank": 390915,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "I Am...World Tour"
+    }
+   },
+   {
+    "id": 15593284,
+    "type": "track",
+    "title": "Halo (Dave Audé Club Remix)",
+    "duration": 534,
+    "rank": 181206,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 15593286,
+    "type": "track",
+    "title": "Halo (Karmatronic Club Remix)",
+    "duration": 433,
+    "rank": 128142,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 15593287,
+    "type": "track",
+    "title": "Halo (Lost Daze Club Remix)",
+    "duration": 482,
+    "rank": 70831,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 15593285,
+    "type": "track",
+    "title": "Halo (Gomi Club Remix)",
+    "duration": 537,
+    "rank": 35330,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "Halo - Single & Remixes"
+    }
+   },
+   {
+    "id": 2658723742,
+    "type": "track",
+    "title": "TEXAS HOLD 'EM",
+    "duration": 233,
+    "rank": 898042,
+    "explicit_lyrics": true,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "TEXAS HOLD 'EM"
+    }
+   },
+   {
+    "id": 2485113,
+    "type": "track",
+    "title": "Ave Maria",
+    "duration": 222,
+    "rank": 791368,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "I AM...SASHA FIERCE"
+    }
+   },
+   {
+    "id": 90408871,
+    "type": "track",
+    "title": "Haunted",
+    "duration": 369,
+    "rank": 782631,
+    "explicit_lyrics": true,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "BEYONCÉ [Platinum Edition]"
+    }
+   },
+   {
+    "id": 1842063477,
+    "type": "track",
+    "title": "ALIEN SUPERSTAR",
+    "duration": 215,
+    "rank": 669587,
+    "explicit_lyrics": true,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "RENAISSANCE"
+    }
+   },
+   {
+    "id": 2485126,
+    "type": "track",
+    "title": "Hello",
+    "duration": 257,
+    "rank": 480889,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "I AM...SASHA FIERCE"
+    }
+   },
+   {
+    "id": 90408881,
+    "type": "track",
+    "title": "Jealous",
+    "duration": 184,
+    "rank": 405623,
+    "explicit_lyrics": false,
+    "artist": {
+     "name": "Beyoncé"
+    },
+    "album": {
+     "title": "BEYONCÉ [Platinum Edition]"
+    }
+   }
+  ]
+ },
+ "itunes": {
+  "wonderwall oasis": [
+   {
+    "kind": "song",
+    "trackId": 1517447333,
+    "trackName": "Wonderwall",
+    "artistName": "Oasis",
+    "collectionName": "(What's the Story) Morning Glory?",
+    "trackTimeMillis": 258907,
+    "releaseDate": "1995-10-02T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1821193283,
+    "trackName": "Wonderwall (Unplugged)",
+    "artistName": "Oasis",
+    "collectionName": "(What's The Story) Morning Glory? (30th Anniversary Deluxe Edition)",
+    "trackTimeMillis": 251024,
+    "releaseDate": "2025-10-03T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1517519391,
+    "trackName": "Wonderwall (Live at Wembley Stadium, July 2000)",
+    "artistName": "Oasis",
+    "collectionName": "Familiar To Millions (Live)",
+    "trackTimeMillis": 286467,
+    "releaseDate": "2000-11-13T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1517520101,
+    "trackName": "Wonderwall",
+    "artistName": "Oasis",
+    "collectionName": "Stop The Clocks",
+    "trackTimeMillis": 258613,
+    "releaseDate": "1995-10-02T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1525933490,
+    "trackName": "Wonderwall (Remastered)",
+    "artistName": "Oasis",
+    "collectionName": "(What's The Story) Morning Glory? [Deluxe Remastered Edition]",
+    "trackTimeMillis": 258773,
+    "releaseDate": "1995-10-02T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1771447879,
+    "trackName": "Wonderwall (Live at Wembley Stadium, July 2000)",
+    "artistName": "Oasis",
+    "collectionName": "Familiar To Millions (Live)",
+    "trackTimeMillis": 286467,
+    "releaseDate": "2000-11-13T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1821192766,
+    "trackName": "Wonderwall (Remastered)",
+    "artistName": "Oasis",
+    "collectionName": "(What's The Story) Morning Glory? (30th Anniversary Deluxe Edition)",
+    "trackTimeMillis": 258773,
+    "releaseDate": "1995-10-02T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1541380023,
+    "trackName": "Wonderwall (Oasis) [Future House 2020 Remix]",
+    "artistName": "Fran Garro",
+    "collectionName": "Wonderwall (Oasis) [Future House 2020 Remix] - Single",
+    "trackTimeMillis": 187638,
+    "releaseDate": "2020-11-23T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1552559297,
+    "trackName": "Wonderwall (Oasis Cover)",
+    "artistName": "Sunfly House Band",
+    "collectionName": "Ultimate Sunfly Classics Vol 4",
+    "trackTimeMillis": 250306,
+    "releaseDate": "2021-02-06T12:00:00Z",
+    "trackExplicitness": "cleaned"
+   },
+   {
+    "kind": "song",
+    "trackId": 416925262,
+    "trackName": "Wonderwall",
+    "artistName": "Sponsors",
+    "collectionName": "Wonderwall (OASIS) - Single",
+    "trackTimeMillis": 213478,
+    "releaseDate": "2009-11-03T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 383392588,
+    "trackName": "Wonderwall (Oasis)",
+    "artistName": "Lucky Voice Karaoke",
+    "collectionName": "Wonderwall - Single",
+    "trackTimeMillis": 253063,
+    "releaseDate": "2010-08-27T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1436306092,
+    "trackName": "Wonderwall (Oasis Acoustic Cover)",
+    "artistName": "Last Day Of Summer",
+    "collectionName": "Hard to Swallow",
+    "trackTimeMillis": 256174,
+    "releaseDate": "2018-09-22T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   }
+  ],
+  "adele rolling in the deep": [
+   {
+    "kind": "song",
+    "trackId": 1544491233,
+    "trackName": "Rolling in the Deep",
+    "artistName": "Adele",
+    "collectionName": "21",
+    "trackTimeMillis": 228093,
+    "releaseDate": "2010-11-29T08:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1544490791,
+    "trackName": "Rolling in the Deep (Live)",
+    "artistName": "Adele",
+    "collectionName": "iTunes Festival: London 2011 - EP",
+    "trackTimeMillis": 321084,
+    "releaseDate": "2011-07-12T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1545039948,
+    "trackName": "Rolling in the Deep (Jamie xx Shuffle)",
+    "artistName": "Adele",
+    "collectionName": "Rolling in the Deep (Jamie xx Shuffle) - Single",
+    "trackTimeMillis": 257652,
+    "releaseDate": "2011-01-16T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 478335376,
+    "trackName": "Rolling In the Deep (Nu:Tone Remix)",
+    "artistName": "Adele",
+    "collectionName": "Fifteen Years of Hospital Records",
+    "trackTimeMillis": 335719,
+    "releaseDate": "2011-11-27T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 923074875,
+    "trackName": "Rolling In the Deep (The Aretha Version)",
+    "artistName": "Aretha Franklin",
+    "collectionName": "Aretha Franklin Sings the Great Diva Classics",
+    "trackTimeMillis": 240305,
+    "releaseDate": "2014-09-29T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1464601568,
+    "trackName": "Rolling in the Deep (Live)",
+    "artistName": "Hello Adele Tribute",
+    "collectionName": "Rolling in the Deep (Live) - Single",
+    "trackTimeMillis": 274714,
+    "releaseDate": "2019-05-31T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1223605699,
+    "trackName": "Rolling In the Deep",
+    "artistName": "Hello I'm Adele",
+    "collectionName": "Rolling In the Deep - Single",
+    "trackTimeMillis": 228000,
+    "releaseDate": "2016-08-16T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 449087660,
+    "trackName": "Rolling In the Deep (Live)",
+    "artistName": "LINKIN PARK",
+    "collectionName": "iTunes Festival: London 2011 - EP",
+    "trackTimeMillis": 264864,
+    "releaseDate": "2011-07-07T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 487737129,
+    "trackName": "Rolling In the Deep",
+    "artistName": "Vázquez Sounds",
+    "collectionName": "Rolling In the Deep - Single",
+    "trackTimeMillis": 228000,
+    "releaseDate": "2011-12-13T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 936189265,
+    "trackName": "Rolling In the Deep",
+    "artistName": "Straight No Chaser",
+    "collectionName": "Under the Influence (Ultimate Edition)",
+    "trackTimeMillis": 205868,
+    "releaseDate": "2013-05-03T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 555825023,
+    "trackName": "Rolling In The Deep (feat. Jonathan Groff)",
+    "artistName": "Glee Cast",
+    "collectionName": "Glee: The Music, The Complete Season Two",
+    "trackTimeMillis": 204600,
+    "releaseDate": "2011-05-10T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1032849334,
+    "trackName": "Rolling In the Deep - Metal Cover",
+    "artistName": "Leo",
+    "collectionName": "Leo Metal Covers Volume 1",
+    "trackTimeMillis": 225600,
+    "releaseDate": "2014-10-31T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   }
+  ],
+  "nirvna smels lik ten sprit": [],
+  "nirvana smells like teen spirit": [
+   {
+    "kind": "song",
+    "trackId": 1440783625,
+    "trackName": "Smells Like Teen Spirit",
+    "artistName": "Nirvana",
+    "collectionName": "Nevermind",
+    "trackTimeMillis": 301096,
+    "releaseDate": "1991-09-10T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1440783636,
+    "trackName": "Come As You Are",
+    "artistName": "Nirvana",
+    "collectionName": "Nevermind",
+    "trackTimeMillis": 218971,
+    "releaseDate": "1991-09-24T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1440825970,
+    "trackName": "Smells Like Teen Spirit (Devonshire Mix)",
+    "artistName": "Nirvana",
+    "collectionName": "Nevermind (Super Deluxe Edition)",
+    "trackTimeMillis": 302040,
+    "releaseDate": "1991-09-24T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1413921155,
+    "trackName": "Smells Like Teen Spirit",
+    "artistName": "Nirvana",
+    "collectionName": "Nirvana",
+    "trackTimeMillis": 301453,
+    "releaseDate": "1991-09-10T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1440917612,
+    "trackName": "Smells Like Teen Spirit (Live At Del Mar Fairgrounds, CA., December 28, 1991)",
+    "artistName": "Nirvana",
+    "collectionName": "From the Muddy Banks of the Wishkah (Live)",
+    "trackTimeMillis": 287067,
+    "releaseDate": "1996-10-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1586410661,
+    "trackName": "Smells Like Teen Spirit (Remastered)",
+    "artistName": "Nirvana",
+    "collectionName": "Nevermind (30th Anniversary Super Deluxe)",
+    "trackTimeMillis": 300893,
+    "releaseDate": "1991-09-24T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1440835137,
+    "trackName": "Smells Like Teen Spirit (Butch Vig Mix)",
+    "artistName": "Nirvana",
+    "collectionName": "With the Lights Out",
+    "trackTimeMillis": 299160,
+    "releaseDate": "2004-11-23T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1458927240,
+    "trackName": "Smells Like Teen Spirit (Live at The Paramount, 1991)",
+    "artistName": "Nirvana",
+    "collectionName": "Live at the Paramount",
+    "trackTimeMillis": 285573,
+    "releaseDate": "2011-09-24T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1702926404,
+    "trackName": "Smells Like Teen Spirit (Live In Los Angeles, Great Western Forum - December 30, 1993)",
+    "artistName": "Nirvana",
+    "collectionName": "In Utero (30th Anniversary Super Deluxe)",
+    "trackTimeMillis": 293448,
+    "releaseDate": "1993-09-21T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1586895442,
+    "trackName": "Smells Like Teen Spirit",
+    "artistName": "Nirvana",
+    "collectionName": "Nevermind (Deluxe Edition)",
+    "trackTimeMillis": 301096,
+    "releaseDate": "1991-09-10T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1440823697,
+    "trackName": "Smells Like Teen Spirit",
+    "artistName": "Nirvana",
+    "collectionName": "Nevermind (Super Deluxe Edition)",
+    "trackTimeMillis": 301920,
+    "releaseDate": "1991-09-10T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1453357740,
+    "trackName": "Smells Like Teen Spirit",
+    "artistName": "Robyn Adele Anderson",
+    "collectionName": "Vol. 1",
+    "trackTimeMillis": 220056,
+    "releaseDate": "2019-02-26T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   }
+  ],
+  "is this the real life is this just fantasy": [
+   {
+    "kind": "song",
+    "trackId": 6781080302,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Queen",
+    "collectionName": "Greatest Hits",
+    "trackTimeMillis": 355145,
+    "releaseDate": "1975-10-31T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1125281672,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Panic! At the Disco",
+    "collectionName": "Suicide Squad: The Album",
+    "trackTimeMillis": 361800,
+    "releaseDate": "2016-08-04T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1212561324,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Pentatonix",
+    "collectionName": "PTX, Vol. IV: Classics - EP",
+    "trackTimeMillis": 355671,
+    "releaseDate": "2017-04-07T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781024437,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Queen",
+    "collectionName": "A Night At The Opera (Deluxe Edition)",
+    "trackTimeMillis": 354320,
+    "releaseDate": "1975-10-31T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1446857494,
+    "trackName": "Bohemian Rhapsody (Muppets Version)",
+    "artistName": "The Muppets & Queen",
+    "collectionName": "Bohemian Rhapsody (Muppets Version) - Single",
+    "trackTimeMillis": 277200,
+    "releaseDate": "1992-01-14T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 372770279,
+    "trackName": "Bohemian Rhapsody (feat. Jonathan Groff) [Cover of Queen]",
+    "artistName": "Glee Cast",
+    "collectionName": "Glee: The Music, Journey To Regionals - EP",
+    "trackTimeMillis": 356073,
+    "releaseDate": "2010-06-08T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781080934,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Queen",
+    "collectionName": "The Platinum Collection",
+    "trackTimeMillis": 355145,
+    "releaseDate": "1975-10-31T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781023657,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Queen",
+    "collectionName": "A Night At The Opera",
+    "trackTimeMillis": 354320,
+    "releaseDate": "1975-10-31T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1155842531,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Panic! At the Disco",
+    "collectionName": "Suicide Squad: The Album (Collector's Edition)",
+    "trackTimeMillis": 361800,
+    "releaseDate": "2016-08-04T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781027645,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Queen",
+    "collectionName": "Bohemian Rhapsody (The Original Soundtrack)",
+    "trackTimeMillis": 354947,
+    "releaseDate": "1975-10-31T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 947603130,
+    "trackName": "Bohemian Rhapsody (feat. The White Buffalo, Billy Valentine & Franky Perez) [From Sons of Anarchy]",
+    "artistName": "The Forest Rangers",
+    "collectionName": "Songs of Anarchy, Vol. 4 (Music from Sons of Anarchy)",
+    "trackTimeMillis": 404760,
+    "releaseDate": "2014-09-09T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1125271064,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Panic! At the Disco",
+    "collectionName": "Suicide Squad: The Album",
+    "trackTimeMillis": 361800,
+    "releaseDate": "2016-08-04T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   }
+  ],
+  "queen": [
+   {
+    "kind": "song",
+    "trackId": 6781080934,
+    "trackName": "Bohemian Rhapsody",
+    "artistName": "Queen",
+    "collectionName": "The Platinum Collection",
+    "trackTimeMillis": 355145,
+    "releaseDate": "1975-10-31T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6832831741,
+    "trackName": "Thank God It's Christmas... Again! (Radio Edit)",
+    "artistName": "Queen",
+    "collectionName": "Thank God It's Christmas... Again! - EP",
+    "trackTimeMillis": 248193,
+    "releaseDate": "2026-11-16T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6832831743,
+    "trackName": "Thank God It's Christmas",
+    "artistName": "Queen",
+    "collectionName": "Thank God It's Christmas... Again! - EP",
+    "trackTimeMillis": 259442,
+    "releaseDate": "1984-02-27T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6832831744,
+    "trackName": "A Winter's Tale",
+    "artistName": "Queen",
+    "collectionName": "Thank God It's Christmas... Again! - EP",
+    "trackTimeMillis": 230160,
+    "releaseDate": "1995-11-06T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781080941,
+    "trackName": "Don't Stop Me Now",
+    "artistName": "Queen",
+    "collectionName": "The Platinum Collection",
+    "trackTimeMillis": 210333,
+    "releaseDate": "1978-11-10T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781081101,
+    "trackName": "We Will Rock You",
+    "artistName": "Queen",
+    "collectionName": "The Platinum Collection",
+    "trackTimeMillis": 122123,
+    "releaseDate": "1977-10-07T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6832831742,
+    "trackName": "Thank God It's Christmas... Again!",
+    "artistName": "Queen",
+    "collectionName": "Thank God It's Christmas... Again! - EP",
+    "trackTimeMillis": 298193,
+    "releaseDate": "2026-11-16T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781076397,
+    "trackName": "Another One Bites The Dust",
+    "artistName": "Queen",
+    "collectionName": "The Game (Deluxe Edition)",
+    "trackTimeMillis": 214653,
+    "releaseDate": "1980-06-30T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781080944,
+    "trackName": "Somebody To Love",
+    "artistName": "Queen",
+    "collectionName": "The Platinum Collection",
+    "trackTimeMillis": 297017,
+    "releaseDate": "1976-11-12T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781080937,
+    "trackName": "Fat Bottomed Girls",
+    "artistName": "Queen",
+    "collectionName": "The Platinum Collection",
+    "trackTimeMillis": 203213,
+    "releaseDate": "1978-10-13T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781080936,
+    "trackName": "Killer Queen",
+    "artistName": "Queen",
+    "collectionName": "The Platinum Collection",
+    "trackTimeMillis": 181024,
+    "releaseDate": "1974-10-11T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 6781081105,
+    "trackName": "Radio Ga Ga",
+    "artistName": "Queen",
+    "collectionName": "The Platinum Collection",
+    "trackTimeMillis": 343293,
+    "releaseDate": "1984-01-23T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   }
+  ],
+  "rick astley never gonna give you up": [
+   {
+    "kind": "song",
+    "trackId": 1559885421,
+    "trackName": "Never Gonna Give You Up",
+    "artistName": "Rick Astley",
+    "collectionName": "Whenever You Need Somebody",
+    "trackTimeMillis": 213573,
+    "releaseDate": "1987-07-27T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1612648434,
+    "trackName": "Never Gonna Give You Up (Cake Mix)",
+    "artistName": "Rick Astley",
+    "collectionName": "Whenever You Need Somebody (Deluxe Edition - 2022 Remaster)",
+    "trackTimeMillis": 347427,
+    "releaseDate": "1987-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1612648427,
+    "trackName": "Never Gonna Give You Up (Phil Harding 12\" Mix)",
+    "artistName": "Rick Astley",
+    "collectionName": "Whenever You Need Somebody (Deluxe Edition - 2022 Remaster)",
+    "trackTimeMillis": 441280,
+    "releaseDate": "1987-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1612648440,
+    "trackName": "Never Gonna Give You Up (Escape to New York Mix)",
+    "artistName": "Rick Astley",
+    "collectionName": "Whenever You Need Somebody (Deluxe Edition - 2022 Remaster)",
+    "trackTimeMillis": 422600,
+    "releaseDate": "1987-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1485596522,
+    "trackName": "Never Gonna Give You Up (Pianoforte)",
+    "artistName": "Rick Astley",
+    "collectionName": "The Best of Me",
+    "trackTimeMillis": 209413,
+    "releaseDate": "1987-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1624945512,
+    "trackName": "Never Gonna Give You Up (2022 Remaster)",
+    "artistName": "Rick Astley",
+    "collectionName": "Whenever You Need Somebody (2022 Remaster)",
+    "trackTimeMillis": 213560,
+    "releaseDate": "1987-01-01T08:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1612648319,
+    "trackName": "Never Gonna Give You Up (2022 Remaster)",
+    "artistName": "Rick Astley",
+    "collectionName": "Whenever You Need Somebody (Deluxe Edition - 2022 Remaster)",
+    "trackTimeMillis": 213560,
+    "releaseDate": "1987-07-27T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1612648423,
+    "trackName": "Never Gonna Give You Up (Pianoforte)",
+    "artistName": "Rick Astley",
+    "collectionName": "Whenever You Need Somebody (Deluxe Edition - 2022 Remaster)",
+    "trackTimeMillis": 209413,
+    "releaseDate": "1987-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1485596041,
+    "trackName": "Never Gonna Give You Up",
+    "artistName": "Rick Astley",
+    "collectionName": "The Best of Me",
+    "trackTimeMillis": 213960,
+    "releaseDate": "1987-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1773293593,
+    "trackName": "Never Gonna Give You Up (Pianoforte)",
+    "artistName": "Rick Astley",
+    "collectionName": "The Best Of Me: Never Edition",
+    "trackTimeMillis": 209413,
+    "releaseDate": "1987-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1773293184,
+    "trackName": "Never Gonna Give You Up",
+    "artistName": "Rick Astley",
+    "collectionName": "The Best Of Me: Never Edition",
+    "trackTimeMillis": 213960,
+    "releaseDate": "1987-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1559523359,
+    "trackName": "Never Gonna Give You Up",
+    "artistName": "Rick Astley",
+    "collectionName": "3 Originals",
+    "trackTimeMillis": 214720,
+    "releaseDate": "1987-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   }
+  ],
+  "beyonce halo": [
+   {
+    "kind": "song",
+    "trackId": 296016893,
+    "trackName": "Halo",
+    "artistName": "Beyoncé",
+    "collectionName": "I AM...SASHA FIERCE",
+    "trackTimeMillis": 261640,
+    "releaseDate": "2008-11-12T08:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 399851179,
+    "trackName": "Halo (Live)",
+    "artistName": "Beyoncé",
+    "collectionName": "I Am... World Tour",
+    "trackTimeMillis": 391893,
+    "releaseDate": "2010-11-26T08:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 311092331,
+    "trackName": "Halo (Radio Edit)",
+    "artistName": "Beyoncé",
+    "collectionName": "Halo & Remixes",
+    "trackTimeMillis": 224400,
+    "releaseDate": "2008-01-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1687671153,
+    "trackName": "Beyoncé - Halo - Piano Cover (feat. Piano Relaxation & Relaxing Piano)",
+    "artistName": "Piano Covers",
+    "collectionName": "Beyoncé - Halo - Piano Cover (feat. Piano Relaxation & Relaxing Piano) - Single",
+    "trackTimeMillis": 271533,
+    "releaseDate": "2023-05-17T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 311092434,
+    "trackName": "Halo (Dave Audé Club Remix)",
+    "artistName": "Beyoncé",
+    "collectionName": "Halo & Remixes",
+    "trackTimeMillis": 534187,
+    "releaseDate": "2009-06-16T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 318741509,
+    "trackName": "Halo (Dave Audé Club Remix)",
+    "artistName": "Beyoncé",
+    "collectionName": "Above and Beyoncé - Dance Mixes",
+    "trackTimeMillis": 533271,
+    "releaseDate": "2009-06-16T07:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1614703987,
+    "trackName": "Halo (Solo Violin and Strings Version)",
+    "artistName": "Mari Samuelsen, Scoring Berlin & Jonathan Stockhammer",
+    "collectionName": "LYS",
+    "trackTimeMillis": 214275,
+    "releaseDate": "2022-05-20T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 667498557,
+    "trackName": "Halo (Piano Version)",
+    "artistName": "Piano Superstar",
+    "collectionName": "Beyoncé Piano Hits",
+    "trackTimeMillis": 215091,
+    "releaseDate": "2013-06-01T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 311092453,
+    "trackName": "Halo (Gomi Club Remix)",
+    "artistName": "Beyoncé",
+    "collectionName": "Halo & Remixes",
+    "trackTimeMillis": 537267,
+    "releaseDate": "2009-02-05T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 1196522293,
+    "trackName": "Halo (Instrumental)",
+    "artistName": "Rockabye Baby!",
+    "collectionName": "Lullaby Renditions of Beyoncé",
+    "trackTimeMillis": 204516,
+    "releaseDate": "2017-02-24T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 295784003,
+    "trackName": "Halo",
+    "artistName": "Beyoncé",
+    "collectionName": "I AM...SASHA FIERCE (Deluxe Version)",
+    "trackTimeMillis": 261640,
+    "releaseDate": "2008-11-12T08:00:00Z",
+    "trackExplicitness": "notExplicit"
+   },
+   {
+    "kind": "song",
+    "trackId": 311092455,
+    "trackName": "Halo (Lost Daze Club Remix)",
+    "artistName": "Beyoncé",
+    "collectionName": "Halo & Remixes",
+    "trackTimeMillis": 482347,
+    "releaseDate": "2009-02-05T12:00:00Z",
+    "trackExplicitness": "notExplicit"
+   }
+  ]
+ }
+}
