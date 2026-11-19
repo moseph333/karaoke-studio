@@ -63,6 +63,17 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(config, "DISK_MIN_FREE_MB", 0)
     # Links download recordings of up to an hour, the default, whatever a developer's .env says
     monkeypatch.setattr(config, "MAX_SONG_MINUTES", 60)
+    # The song search asks every catalog in the US store, remembers nothing between tests
+    # and never reaches the network: a test that searches stubs song_search._get_json
+    from backend.services import song_search
+
+    def no_network(url, params):
+        raise ConnectionError(f"tests do not reach {url}")
+
+    monkeypatch.setattr(config, "SONG_SEARCH_SOURCES", ("deezer", "itunes", "suggest"))
+    monkeypatch.setattr(config, "SONG_SEARCH_COUNTRY", "us")
+    monkeypatch.setattr(song_search, "_get_json", no_network)
+    song_search.reset()
     # What git said about the checkout is kept per server process: each test asks afresh
     monkeypatch.setattr(config, "_LOCAL_GIT", {})
     # The mix cache keeps its default size whatever a developer's .env says
