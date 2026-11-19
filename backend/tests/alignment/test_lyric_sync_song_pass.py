@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from backend.services import lyric_sync
+from backend.services import lyric_anchors, lyric_sync
 from backend.services.lyric_sync import sync_lyrics
 from backend.tests.helpers.fake_ctc_worker import install_fake_ctc
 
@@ -23,12 +23,14 @@ def neural(tmp_path, monkeypatch):
     return install_fake_ctc(tmp_path, monkeypatch)
 
 
-def _vocals(path: Path, spans, duration: float) -> str:
+def _vocals(path: Path, spans, duration: float, quiet=()) -> str:
+    """A stem singing a tone over ``spans``, and 16 dB softer over ``quiet`` (talk)."""
     t = np.arange(int(RATE * duration)) / RATE
     audio = np.zeros_like(t, dtype=np.float32)
-    for start, end in spans:
-        mask = (t >= start) & (t < end)
-        audio[mask] = 0.4 * np.sin(2 * np.pi * 220 * t[mask])
+    for level, parts in ((0.4, spans), (0.06, quiet)):
+        for start, end in parts:
+            mask = (t >= start) & (t < end)
+            audio[mask] = level * np.sin(2 * np.pi * 220 * t[mask])
     sf.write(str(path), audio, RATE)
     return str(path)
 
@@ -116,6 +118,27 @@ def test_an_anchored_line_is_not_widened_to_its_estimated_span(tmp_path, neural,
         assert line["end_time"] < start + 3.0
 
 
+def test_an_unsure_first_line_is_not_put_on_the_intros_stage_talk(tmp_path, neural, monkeypatch):
+    # A live recording: a word to the crowd at 1 s, then the singing from 10 s. Unsure of
+    # the opening lines, the song pass put the first on the talk and the second where the
+    # first is sung; the first confident line comes third
+    texts = [*TEXTS, "and then some more", "one last line here"]
+    sung = [10.0, 14.0, 18.0, 22.0, 26.0, 30.0]
+    talk = (1.0, 1.8)
+    vocals = _vocals(tmp_path / "v.wav", [(s, s + 2.0) for s in sung], 34.0, quiet=[talk])
+    monkeypatch.setenv("FAKE_CTC_MODE", "lowscore")  # the lines' own windows are unsure too
+    song = {str(i): {"start": s, "score": 0.85} for i, s in enumerate(sung) if i >= 2}
+    song |= {"0": {"start": talk[0], "score": 0.06}, "1": {"start": sung[0], "score": 0.06}}
+    monkeypatch.setenv("FAKE_CTC_SONG", json.dumps(song))
+    result = sync_lyrics(vocals, _plain(texts))
+
+    assert result.report["song_pass"] == "ok"
+    first, second = result.lines[:2]
+    assert first["start_time"] == pytest.approx(sung[0], abs=1.0)
+    assert first["end_time"] <= second["start_time"] < sung[2]
+    assert _first_words(result)[2:] == pytest.approx(sung[2:], abs=0.05)
+
+
 def test_unsure_song_passes_keep_todays_timing(tmp_path, neural, monkeypatch):
     sung = [3.0, 9.0, 15.0, 21.0]
     vocals = _vocals(tmp_path / "v.wav", [(s, s + 2.0) for s in sung], duration=26.0)
@@ -188,3 +211,49 @@ def test_progress_follows_the_phases_of_a_song_pass():
     assert lyric_sync._stage_percent({"phase": "lines", "done": 1, "total": 1}) == 93
     assert lyric_sync._stage_percent({"phase": "song"}) == 93
     assert lyric_sync._stage_percent({"phase": "emission"}) is None
+
+
+def _line(text: str, start: float, end: float) -> dict:
+    words = text.split()
+    step = (end - start) / len(words)
+    timed = [
+        {"word": w, "start_time": start + i * step, "end_time": start + (i + 1) * step}
+        for i, w in enumerate(words)
+    ]
+    return {"text": text, "start_time": start, "end_time": end, "words": timed}
+
+
+def _song_result(start: float, words: int, score: float) -> dict:
+    timed = [{"start": start + i * 0.4, "end": start + i * 0.4 + 0.25} for i in range(words)]
+    return {
+        "status": "ok",
+        "line_score": score,
+        "start": start,
+        "end": timed[-1]["end"],
+        "words": [dict(w, score=score) for w in timed],
+    }
+
+
+def test_opening_lines_before_the_first_anchor_start_where_they_are_sung():
+    # The DSP pass heard the first line at 10 s and ran the second past the first anchor;
+    # the song pass, unsure, put the first on the intro's talk at 1 s
+    texts = TEXTS
+    dsp = [_line(texts[0], 10.0, 14.0), _line(texts[1], 14.0, 19.0)]
+    dsp += [_line(texts[2], 18.0, 20.0), _line(texts[3], 22.0, 24.0)]
+    counts = {i: len(t.split()) for i, t in enumerate(texts)}
+    results = {
+        0: _song_result(1.0, counts[0], 0.06),
+        1: _song_result(10.0, counts[1], 0.06),
+        2: _song_result(18.0, counts[2], 0.85),
+        3: _song_result(22.0, counts[3], 0.85),
+    }
+    plan = lyric_anchors.AnchorPlan(
+        status="ok", anchors={2: results[2], 3: results[3]}, results=results, strong=0.5
+    )
+    windows = [(x["start_time"] - 0.75, x["end_time"] + 0.75) for x in dsp]
+    placed = lyric_sync.place_with_anchors(dsp, {}, plan, {}, windows, counts, None, 30.0)
+
+    first, second = placed[0][0], placed[1][0]
+    assert (placed[0][1], placed[1][1]) == ("dsp", "dsp")
+    assert first["start_time"] == pytest.approx(10.0)
+    assert first["end_time"] <= second["start_time"] < second["end_time"] <= 18.0
