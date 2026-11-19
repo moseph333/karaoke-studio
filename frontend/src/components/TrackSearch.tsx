@@ -312,7 +312,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                       aria-label="Search for a song or artist, or paste a song link"
                       aria-describedby={linkHintId}
                       aria-controls={showResults ? resultsId : undefined}
-                      placeholder="Search for a song or artist, or paste a link..."
+                      placeholder="Song, artist or link"
                       autoComplete="off"
                       autoCorrect="off"
                       autoCapitalize="none"
@@ -356,9 +356,10 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                     </button>
                   </div>
                 </form>
+                {/* The sites are named where there is room; a phone gets to the library sooner */}
                 <p id={linkHintId} className="mt-2 text-pretty text-xs text-theme-text-muted">
-                  Type a title, an artist or both; small typos are fine. Or paste a song link from{' '}
-                  {SUPPORTED_SITES_SENTENCE}.
+                  Type a title, an artist or both; small typos are fine. Or paste a song link
+                  <span className="hidden sm:inline"> from {SUPPORTED_SITES_SENTENCE}</span>.
                 </p>
                 {showResults && (
                   <SongSearchResults
