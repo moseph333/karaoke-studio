@@ -393,13 +393,18 @@ class VocalLevels(BaseModel):
     backing: float | None = _part_level(
         "Level of the backing vocals, once the vocals are split into lead and backing"
     )
-    by: Literal["lines"] | None = Field(
+    by: Literal["lines", "voices"] | None = Field(
         default=None,
-        description="'lines': the lead takes each singer's level during that singer's lines",
+        description=(
+            "'lines': the lead takes each singer's level during that singer's lines; "
+            "'voices': the lead is its male and female voice, each at its level"
+        ),
     )
     singer1: float | None = _part_level("Level of the lead during Singer 1's lines")
     singer2: float | None = _part_level("Level of the lead during Singer 2's lines")
     both: float | None = _part_level("Level of the lead during lines sung together")
+    male: float | None = _part_level("Level of the male voice, once the voices are split")
+    female: float | None = _part_level("Level of the female voice, once the voices are split")
 
     def stored(self) -> dict[str, Any]:
         """What a song keeps: only what was set, rounded as the mix names it."""
@@ -597,9 +602,9 @@ class ReseparateRequest(BaseModel):
 
 class VocalSplitRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    kind: Literal["lead_backing"] = Field(
+    kind: Literal["lead_backing", "male_female"] = Field(
         default="lead_backing",
-        description="Which split of the vocal stem to make: 'lead_backing'",
+        description="Which split of the vocal stem to make: 'lead_backing' or 'male_female'",
     )
 
 

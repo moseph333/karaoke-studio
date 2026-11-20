@@ -66,5 +66,26 @@ def test_an_unknown_stem_type_lists_every_type(client, split_song):
     assert res.status_code == 400
     assert res.json()["detail"] == (
         "Invalid stem type 'drums'. Allowed: 'instrumental', 'vocals', 'master', "
-        "'lead_vocals', 'backing_vocals'"
+        "'lead_vocals', 'backing_vocals', 'male_vocals', 'female_vocals'"
     )
+
+
+def test_the_male_and_female_voices_download_once_they_are_split(client, split_song):
+    stems = split_song["stems"]
+    assert client.get("/api/project/vs1/export/audio/male_vocals").status_code == 400
+    vocal_parts.install(
+        stems,
+        "male_female",
+        wav(stems / "work" / "m.wav", 0.15),
+        wav(stems / "work" / "f.wav", 0.05),
+        {"model": "duet", "source": "lead"},
+    )
+
+    for stem_type, name, words in (
+        ("male_vocals", "vocals_male.wav", "Male Vocals"),
+        ("female_vocals", "vocals_female.wav", "Female Vocals"),
+    ):
+        res = client.get(f"/api/project/vs1/export/audio/{stem_type}")
+        assert res.status_code == 200
+        assert res.content == (stems / name).read_bytes()
+        assert f"Starlight ({words})" in res.headers["content-disposition"]

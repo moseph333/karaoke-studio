@@ -514,6 +514,8 @@ def _get_audio_media_type(ext: str) -> str:
 _PART_STEMS = {
     "lead_vocals": ("lead", " (Lead Vocals)"),
     "backing_vocals": ("backing", " (Backing Vocals)"),
+    "male_vocals": ("male", " (Male Vocals)"),
+    "female_vocals": ("female", " (Female Vocals)"),
 }
 
 

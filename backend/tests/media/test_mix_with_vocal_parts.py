@@ -174,7 +174,7 @@ def test_sending_no_levels_clears_the_stored_ones(client, split, mixer):
 
 
 def test_levels_out_of_range_are_rejected(client, split, mixer):
-    for bad in ({"backing": 1.5}, {"singer1": -0.1}, {"by": "voices"}, {"backing": "loud"}):
+    for bad in ({"backing": 1.5}, {"singer1": -0.1}, {"by": "choir"}, {"male": "loud"}):
         res = client.post("/api/project/vs1/mix", json={"vocal_levels": bad})
         assert res.status_code == 422, bad
     assert mixer == []
