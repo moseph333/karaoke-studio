@@ -136,15 +136,22 @@ def run_remote(
     """
     audio = audio_file.read_bytes()
     started_at = time.monotonic()
+    kwargs: dict[str, Any] = {
+        "audio": audio,
+        "filename": audio_file.name,
+        "models": list(plan.models),
+        "overlap": int(plan.params.get("overlap", 2)),
+        "ensemble": str(plan.params.get("ensemble", "avg_wave")),
+    }
+    # Sent only by the plans that need them: a cloud app deployed before it knew these
+    # arguments keeps serving every other separation
+    first_tags, second_tags = plan.params.get("first_tags"), plan.params.get("second_tags")
+    if first_tags and second_tags:
+        kwargs["first_tags"] = list(first_tags)
+        kwargs["second_tags"] = list(second_tags)
     outcome, result = run_modal_job(
         FUNCTION_NAME,
-        {
-            "audio": audio,
-            "filename": audio_file.name,
-            "models": list(plan.models),
-            "overlap": int(plan.params.get("overlap", 2)),
-            "ensemble": str(plan.params.get("ensemble", "avg_wave")),
-        },
+        kwargs,
         on_line,
         cancel_event,
         timeout_s=timeout_s,

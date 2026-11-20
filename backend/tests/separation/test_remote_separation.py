@@ -262,6 +262,48 @@ def test_without_the_modal_package_the_gpu_is_unavailable(tmp_path, monkeypatch)
         _run(tmp_path)
 
 
+def test_stem_tags_are_sent_only_by_the_plans_that_have_them(tmp_path, fake_modal):
+    """A cloud app deployed before it knew the tags must keep serving everything else."""
+    fake_modal.items = [remote.STARTED]
+    fake_modal.call = FakeCall({"returncode": 0, "vocals": b"RIFFv", "no_vocals": b"RIFFn"})
+    usual = {"audio", "filename", "models", "overlap", "ensemble", "lines"}
+
+    _run(tmp_path)
+    assert set(fake_modal.kwargs) == usual
+    _run(tmp_path, plan=presets.preset_plan("best"))
+    assert set(fake_modal.kwargs) == usual
+
+    tagged = presets.SeparationPlan(
+        preset="male_female",
+        engine="roformer",
+        models=("duet.ckpt",),
+        params={"overlap": 2, "first_tags": ("male",), "second_tags": ("female",)},
+    )
+    _run(tmp_path, plan=tagged, keep_emission=False)
+    assert set(fake_modal.kwargs) == usual | {"first_tags", "second_tags"}
+    assert (fake_modal.kwargs["first_tags"], fake_modal.kwargs["second_tags"]) == (
+        ["male"],
+        ["female"],
+    )
+
+
+def test_every_argument_the_server_sends_is_one_the_gpu_function_takes_with_a_default():
+    tree = ast.parse((PROJECT_ROOT / "gpu" / "modal_app.py").read_text())
+    (separate,) = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "separate"
+    ]
+    names = [arg.arg for arg in separate.args.args]
+    # Every parameter has a default, so an older server's call still works
+    assert len(separate.args.defaults) == len(names)
+    assert {"audio", "filename", "models", "overlap", "ensemble", "lines", "warmup"} <= set(names)
+    assert {"first_tags", "second_tags"} <= set(names)
+    # ... and the tags reach the worker under the flags it reads
+    source = ast.unparse(separate)
+    assert "'--first-tags', *first_tags, '--second-tags', *second_tags" in source
+
+
 def test_the_gpu_app_uses_the_same_start_marker():
     tree = ast.parse((PROJECT_ROOT / "gpu" / "modal_app.py").read_text())
     markers = [

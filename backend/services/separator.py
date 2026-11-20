@@ -466,6 +466,10 @@ class AudioSeparator:
         ]
         if len(plan.models) > 1:
             cmd += ["--ensemble", str(plan.params.get("ensemble", "avg_wave"))]
+        first_tags, second_tags = plan.params.get("first_tags"), plan.params.get("second_tags")
+        if first_tags and second_tags:
+            # A model whose two outputs are not "vocals" and "instrumental" (see the worker)
+            cmd += ["--first-tags", *first_tags, "--second-tags", *second_tags]
         return cmd
 
     def _run_plan(
