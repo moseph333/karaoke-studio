@@ -62,6 +62,42 @@ def test_the_kind_defaults_to_lead_and_backing(client, song):
     assert song["log"][0][2] == LEAD_MODEL
 
 
+def test_the_voices_of_a_song_without_a_lead_are_split_from_its_whole_vocals(client, song):
+    res = client.post("/api/project/vs1/vocal-split", json={"kind": "male_female"})
+    assert res.status_code == 202
+    assert res.json()["job"]["label"] == "Male and female voices"
+
+    proj = client.get("/api/project/vs1").json()
+    assert proj["vocal_split_job"]["detail"] == "Male and female voices are split"
+    [(source, _, model)] = song["log"]
+    assert (source, model) == ("vocals.wav", vocal_parts.DEFAULT_DUET_MODEL)
+    assert level(song["stems"] / "vocals_male.wav") == pytest.approx(0.2, abs=1e-3)
+    assert level(song["stems"] / "vocals_female.wav") == pytest.approx(0.1, abs=1e-3)
+    assert proj["vocal_splits"]["male_female"]["source"] == "vocals"
+
+
+def test_the_voices_are_split_from_the_lead_once_the_song_has_one(client, song):
+    assert client.post("/api/project/vs1/vocal-split", json={}).status_code == 202
+    res = client.post("/api/project/vs1/vocal-split", json={"kind": "male_female"})
+    assert res.status_code == 202
+
+    assert [entry[0] for entry in song["log"]] == ["vocals.wav", "vocals_lead.wav"]
+    proj = client.get("/api/project/vs1").json()
+    assert list(proj["vocal_splits"]) == ["lead_backing", "male_female"]
+    assert proj["vocal_splits"]["male_female"]["source"] == "lead"
+
+
+def test_splitting_lead_and_backing_afterwards_retires_the_voices(client, song):
+    assert (
+        client.post("/api/project/vs1/vocal-split", json={"kind": "male_female"}).status_code == 202
+    )
+    assert client.post("/api/project/vs1/vocal-split", json={}).status_code == 202
+
+    proj = client.get("/api/project/vs1").json()
+    assert list(proj["vocal_splits"]) == ["lead_backing"]
+    assert not (song["stems"] / "vocals_male.wav").exists()
+
+
 def test_parts_that_are_already_current_are_not_split_again(client, song):
     assert client.post("/api/project/vs1/vocal-split", json={}).status_code == 202
     # A second song sharing the stems, or the same one after an intake retry

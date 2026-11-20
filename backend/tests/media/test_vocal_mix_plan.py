@@ -152,7 +152,11 @@ def test_stored_levels_keep_known_keys_within_range():
         "both": 0.33,
         "by": "lines",
     }
-    assert normalize_levels({"by": "voices", "male": 1, "backing": None}) == {}
+    assert normalize_levels({"by": "voices", "male": 1, "backing": None}) == {
+        "male": 1.0,
+        "by": "voices",
+    }
+    assert normalize_levels({"by": "choir", "tenor": 1}) == {}
     assert normalize_levels({"backing": True}) == {"backing": 0.0}
     assert normalize_levels(["backing"]) == {}
 
@@ -162,3 +166,74 @@ def test_whether_any_vocal_is_kept():
     assert vocal_mix.any_vocal_kept(0.2, None) is True
     assert vocal_mix.any_vocal_kept(0.0, {"backing": 1.0}) is True
     assert vocal_mix.any_vocal_kept(0.0, {"backing": 0.02, "by": "lines"}) is False
+
+
+# --- The male and the female voice ---------------------------------------------------
+
+
+def _voices(folder: Path) -> None:
+    """Splits the song's lead (or whole vocals) into a male (0.15) and a female (0.05) voice."""
+    source = vocal_parts.source_name(folder, "male_female")
+    vocal_parts.install(
+        folder,
+        "male_female",
+        wav(folder / "work" / "m.wav", 0.15),
+        wav(folder / "work" / "f.wav", 0.05),
+        {"model": "duet", "source": source},
+    )
+
+
+def _kept(plan):
+    return [(Path(part.path).name, part.gain) for part in plan.parts]
+
+
+def test_one_voice_of_a_duet_stays_in(vocals):
+    os.utime(vocals, (time.time() - 60,) * 2)
+    _voices(Path(vocals).parent)
+
+    plan = plan_mix(vocals, LINES, 0.0, {"by": "voices", "male": 0.0, "female": 1.0})
+
+    assert _kept(plan) == [("vocals_female.wav", 1.0)]
+    assert plan.key is not None
+
+
+def test_voices_stand_in_for_the_lead_and_the_backing_keeps_its_own_level(split, vocals):
+    _voices(split)
+
+    plan = plan_mix(vocals, LINES, 0.2, {"by": "voices", "male": 1.0, "backing": 0.5})
+
+    # The female voice was given no level: it follows the guide
+    assert _kept(plan) == [
+        ("vocals_male.wav", 1.0),
+        ("vocals_female.wav", 0.2),
+        ("vocals_backing.wav", 0.5),
+    ]
+    assert "vocals_lead.wav" not in [Path(source).name for source in plan.sources]
+
+
+def test_both_voices_and_the_backing_at_one_level_are_the_whole_vocal_stem(split, vocals):
+    _voices(split)
+
+    plan = plan_mix(
+        vocals, LINES, 0.1, {"by": "voices", "male": 0.6, "female": 0.6, "backing": 0.6}
+    )
+
+    assert (plan.key, plan.guide_volume) == (None, 0.6)
+
+
+def test_voice_levels_wait_for_the_voices_to_be_split(split, vocals):
+    plan = plan_mix(vocals, LINES, 0.3, {"by": "voices", "male": 0.0, "female": 1.0})
+
+    assert (plan.key, plan.guide_volume) == (None, 0.3)
+    # ... and are ignored unless the lead is divided by voice
+    _voices(split)
+    assert plan_mix(vocals, LINES, 0.3, {"male": 0.0, "female": 1.0}).key is None
+
+
+def test_voices_by_voice_ignore_the_singers_of_the_lines(split, vocals):
+    _voices(split)
+
+    plan = plan_mix(vocals, LINES, 0.0, {"by": "voices", "female": 1.0, "singer1": 1.0})
+
+    assert all(part.gate is None for part in plan.parts)
+    assert _kept(plan) == [("vocals_female.wav", 1.0)]

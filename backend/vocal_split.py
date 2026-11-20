@@ -1,4 +1,5 @@
-"""Split a finished song's vocals into parts (lead and backing) without disturbing it.
+"""Split a finished song's vocals into parts (lead and backing, or the male and the female
+voice of the lead) without disturbing it.
 
 The split is made under STEMS_DIR/.staging/<audio_id>/<job id> and its two stems are moved
 beside the song's vocals only once both are complete (vocal_parts.install), so a cancelled
@@ -153,6 +154,8 @@ def run_vocal_split(project_id: str, job_id: str) -> None:
 
         stem_dir = stem_dir_of(_live(project_id, job_id)[0])
         source = vocal_parts.source_path(stem_dir, kind) if stem_dir else None
+        # Which stem that is, read now: a lead/backing split cannot arrive while this job runs
+        made_from = vocal_parts.source_name(stem_dir, kind) if stem_dir else None
         if source is None or not os.path.isfile(source):
             raise RuntimeError("The vocal stem is missing, so it cannot be split")
         update(status="running", progress=1, detail=f"Starting the {label.lower()} split…")
@@ -180,7 +183,9 @@ def run_vocal_split(project_id: str, job_id: str) -> None:
                 cancel_event=cancel_event,
             )
             update(progress=90, detail="Saving the vocal parts…", eta_seconds=None)
-            record = vocal_parts.split_record(kind, plan, time.monotonic() - split_started)
+            record = vocal_parts.split_record(
+                kind, plan, time.monotonic() - split_started, source=made_from
+            )
             vocal_parts.install(stem_dir, kind, first, second, record)
         installed = True
 

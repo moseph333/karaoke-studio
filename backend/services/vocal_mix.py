@@ -7,10 +7,13 @@ ask for more than that:
                        and backing parts (see vocal_parts)
     by: "lines"        the lead follows who sings: singer1, singer2 and both each have a
                        level, applied during that singer's lyric lines
+    by: "voices"       the lead is the male and the female voice it was split into (see
+                       vocal_parts), each with a level: male and female
 
 A key that is not set takes the guide level, and one whose stems are missing is ignored, so
 the levels of a song survive its parts being dropped and made again. Singer levels likewise
-wait for lines of more than one singer: until then the lead is the guide vocal. plan_mix turns the
+wait for lines of more than one singer, and voice levels for the male/female split: until
+then the lead is the guide vocal. plan_mix turns the
 levels, the song's lines and the stems on disk into a MixPlan. When the plan asks for
 nothing the mixer cannot already do (every vocal at one level), its ``key`` is None and the
 mix is today's: the whole vocal stem at ``guide_volume``, under the same file name. Otherwise
@@ -39,8 +42,10 @@ logger = logging.getLogger(__name__)
 # Bump when the kept vocals of the same levels and lines would sound different
 VOCAL_MIX_VERSION = "1"
 BY_LINES = "lines"
+BY_VOICES = "voices"
 SINGER_KEYS = ("singer1", "singer2", "both")
-LEVEL_KEYS = ("backing", *SINGER_KEYS)
+VOICE_KEYS = ("male", "female")
+LEVEL_KEYS = ("backing", *SINGER_KEYS, *VOICE_KEYS)
 LEAD_SECONDS = 0.15
 TAIL_SECONDS = 1.0
 RAMP_SECONDS = 0.05
@@ -88,8 +93,8 @@ def normalize_levels(raw: Any) -> dict[str, Any]:
     for key in LEVEL_KEYS:
         if raw.get(key) is not None:
             levels[key] = _level(raw[key], 0.0)
-    if raw.get("by") == BY_LINES:
-        levels["by"] = BY_LINES
+    if raw.get("by") in (BY_LINES, BY_VOICES):
+        levels["by"] = raw["by"]
     return levels
 
 
@@ -216,17 +221,22 @@ def plan_mix(vocals_path: Any, lines: Any, guide_volume: Any, levels: Any) -> Mi
             gate = gate_curve(lines, singers)
             if gate is None:
                 lead_gain = singers[runs[0][2]]  # every singer at one level
-    backing_gain = asked.get("backing", guide) if split else lead_gain
 
-    if gate is None and backing_gain == lead_gain:
-        # Every vocal at one level, which is what the guide vocal already is
-        return MixPlan(lead_gain)
-
-    lead_path = str(parts["lead"]) if split else vocals_path
-    # A gated part's gain is all in its curve
-    kept = [PartMix(lead_path, 1.0 if gate else lead_gain, gate)]
+    if asked.get("by") == BY_VOICES and all(voice in parts for voice in VOICE_KEYS):
+        # The two voices are what the lead was split into (the whole vocal stem, for a song
+        # without a lead/backing split), so they stand in for it
+        kept = [PartMix(str(parts[voice]), asked.get(voice, guide)) for voice in VOICE_KEYS]
+    else:
+        lead_path = str(parts["lead"]) if split else vocals_path
+        # A gated part's gain is all in its curve
+        kept = [PartMix(lead_path, 1.0 if gate else lead_gain, gate)]
     if split:
-        kept.append(PartMix(str(parts["backing"]), backing_gain))
+        kept.append(PartMix(str(parts["backing"]), asked.get("backing", guide)))
+
+    gains = {part.gain for part in kept}
+    if gate is None and len(gains) == 1:
+        # Every vocal at one level, which is what the guide vocal already is
+        return MixPlan(gains.pop())
     audible = tuple(part for part in kept if part.gate is not None or part.gain > _SILENT)
     if not audible:
         return MixPlan(0.0)
