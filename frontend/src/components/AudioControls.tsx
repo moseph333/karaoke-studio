@@ -228,7 +228,9 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   };
 
   const leadIsBySinger = Boolean(
-    vocalParts && vocalParts.levels.by === 'lines' && vocalParts.singerParts.length > 1
+    vocalParts &&
+    ((vocalParts.levels.by === 'lines' && vocalParts.singerParts.length > 1) ||
+      (vocalParts.levels.by === 'voices' && vocalParts.voiceSplit?.split))
   );
 
   const requestRemix = () => {

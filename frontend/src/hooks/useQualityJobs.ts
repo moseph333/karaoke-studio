@@ -173,7 +173,11 @@ export function useQualityJobs({
       try {
         const data = await postJson(`/api/project/${projectId}/vocal-split`, { kind });
         putJob('vocal_split_job', data.job);
-        toast.info('Splitting the lead and backing vocals. The song stays playable.');
+        toast.info(
+          kind === 'male_female'
+            ? 'Splitting the male and female voices. The song stays playable.'
+            : 'Splitting the lead and backing vocals. The song stays playable.'
+        );
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Could not split the vocals', 8000);
       }

@@ -138,16 +138,21 @@ export interface AlignmentCapabilities {
 export interface VocalLevels {
   /** The backing vocals, once the vocals are split into lead and backing parts. */
   backing?: number;
-  /** 'lines': the lead takes each singer's level during that singer's lyric lines. */
-  by?: 'lines';
+  /** 'lines': the lead takes each singer's level during that singer's lyric lines.
+   * 'voices': the lead is the male and the female voice it was split into. */
+  by?: 'lines' | 'voices';
   singer1?: number;
   singer2?: number;
   /** Lines sung together, and lines of two singers that overlap. */
   both?: number;
+  /** The two voices, once the lead is split into them. */
+  male?: number;
+  female?: number;
 }
 
-/** A split of the vocal stem into parts: lead and backing vocals. */
-export type VocalSplitKind = 'lead_backing';
+/** A split of the vocal stem into parts: lead and backing vocals, or the male and the female
+ * voice of the lead. */
+export type VocalSplitKind = 'lead_backing' | 'male_female';
 
 /** One vocal split as this server reports it (GET /api/capabilities). */
 export interface VocalSplitCapability {
@@ -204,6 +209,8 @@ export interface VocalSplitInfo {
   model_label?: string;
   elapsed_seconds?: number;
   split_at?: number;
+  /** The stem the male and female voices were split from. */
+  source?: 'vocals' | 'lead';
 }
 
 /** The splits a song's vocals have: the parts of each can be mixed and downloaded. */

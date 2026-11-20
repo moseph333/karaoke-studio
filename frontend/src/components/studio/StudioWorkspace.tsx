@@ -93,9 +93,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
   const vocalSplitActive = isJobActive(project.vocal_split_job);
   // Whether this server can split vocals, asked only where a split can be started
   const capabilities = useCapabilities(Boolean(quality));
-  const splitCapability = capabilities?.separation.vocal_parts?.find(
-    (split) => split.id === 'lead_backing'
-  );
+  const splitCapabilities = capabilities?.separation.vocal_parts;
   const splitBusyReason = vocalSplitBusyReason(project);
   const singerParts = useMemo(() => singerPartsInLines(project.lines), [project.lines]);
   const vocalParts = useMemo(
@@ -106,16 +104,33 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
       onLevelsCommit: mix.commitVocalLevels,
       singerParts,
       partNames: project.part_names,
-      split: quality
-        ? {
-            split: project.vocal_splits?.lead_backing,
-            job: project.vocal_split_job,
-            capability: splitCapability,
-            onSplit: () => void quality.startVocalSplit('lead_backing'),
-            onCancel: () => void quality.cancelVocalSplit(),
-            busyReason: splitBusyReason,
-          }
-        : undefined,
+      // One split runs at a time: each row shows its own job and waits for the other's
+      ...(quality
+        ? Object.fromEntries(
+            (
+              [
+                ['split', 'lead_backing'],
+                ['voiceSplit', 'male_female'],
+              ] as const
+            ).map(([prop, kind]) => {
+              const job = project.vocal_split_job;
+              const other = job && job.kind !== kind && isJobActive(job);
+              return [
+                prop,
+                {
+                  split: project.vocal_splits?.[kind],
+                  job: job?.kind === kind ? job : null,
+                  capability: splitCapabilities?.find((split) => split.id === kind),
+                  onSplit: () => void quality.startVocalSplit(kind),
+                  onCancel: () => void quality.cancelVocalSplit(),
+                  busyReason:
+                    splitBusyReason ??
+                    (other ? 'Wait for the other vocal split to finish first' : null),
+                },
+              ];
+            })
+          )
+        : {}),
     }),
     [
       mix.vocalLevels,
@@ -127,7 +142,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
       quality,
       project.vocal_splits,
       project.vocal_split_job,
-      splitCapability,
+      splitCapabilities,
       splitBusyReason,
     ]
   );

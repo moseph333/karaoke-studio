@@ -215,6 +215,27 @@ describe('Vocal split jobs', () => {
     expect(current()?.vocal_split_job?.status).toBe('running');
   });
 
+  it('start a male and female split by its kind', async () => {
+    const bodies: unknown[] = [];
+    mockStudioFetch((url, init) => {
+      if (!url.endsWith('/vocal-split')) return undefined;
+      bodies.push(JSON.parse(String(init?.body)));
+      return json(
+        { status: 'queued', job: job({ status: 'queued', kind: 'male_female', progress: 0 }) },
+        202
+      );
+    });
+    const { hook, current } = setup(song);
+
+    await act(() => hook.result.current.startVocalSplit('male_female'));
+
+    expect(bodies).toEqual([{ kind: 'male_female' }]);
+    expect(current()?.vocal_split_job?.kind).toBe('male_female');
+    expect(
+      await screen.findByText('Splitting the male and female voices. The song stays playable.')
+    ).toBeInTheDocument();
+  });
+
   it('show why the server refused, and put no job on the song', async () => {
     mockStudioFetch(() =>
       json({ detail: 'This server cannot split the vocals: PyTorch is not installed' }, 400)
@@ -347,6 +368,40 @@ describe('Splitting vocals from the studio', () => {
     expect(
       await screen.findByRole('progressbar', { name: 'Vocal split progress' })
     ).toBeInTheDocument();
+  });
+
+  it('shows a male and female split in its own row while the other split waits', async () => {
+    served = {
+      ...song,
+      vocal_levels: { by: 'voices', male: 0, female: 1 },
+      vocal_split_job: job({ kind: 'male_female', label: 'Male and female voices' }),
+    };
+
+    const panel = await openStudio();
+
+    expect(
+      await screen.findByRole('progressbar', { name: 'Voice split progress' })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar', { name: 'Vocal split progress' })).toBeNull();
+    const other = within(panel).getByRole('button', { name: 'Split lead and backing vocals' });
+    expect(other).toBeDisabled();
+    expect(other).toHaveAttribute('title', 'Wait for the other vocal split to finish first');
+  });
+
+  it('starts the male and female split from the Mix panel', async () => {
+    await openStudio();
+    const posted = () =>
+      vi
+        .mocked(globalThis.fetch)
+        .mock.calls.filter(
+          ([url, init]) => String(url).endsWith('/vocal-split') && init?.method === 'POST'
+        )
+        .map(([, init]) => JSON.parse(String(init?.body)).kind);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Male / female' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Split male and female voices' }));
+
+    await waitFor(() => expect(posted()).toEqual(['male_female']));
   });
 
   it('disables the split on a server that cannot run it, with the reason', async () => {

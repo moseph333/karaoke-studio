@@ -1,9 +1,9 @@
 /**
  * Export Audio Section Component
  *
- * Provides one-click downloads for isolated stems (instrumental, vocals, and the lead and
- * backing vocals of a song whose vocals have been split) and active master mix audio
- * directly from the export modal.
+ * Provides one-click downloads for isolated stems (instrumental, vocals, and the parts of a
+ * song whose vocals have been split: lead and backing, the male and the female voice) and
+ * active master mix audio directly from the export modal.
  */
 
 import React, { useState } from 'react';
@@ -21,7 +21,14 @@ export interface ExportAudioSectionProps {
   project: ProjectState;
 }
 
-type StemType = 'instrumental' | 'vocals' | 'master' | 'lead_vocals' | 'backing_vocals';
+type StemType =
+  | 'instrumental'
+  | 'vocals'
+  | 'master'
+  | 'lead_vocals'
+  | 'backing_vocals'
+  | 'male_vocals'
+  | 'female_vocals';
 
 interface StemOption {
   id: StemType;
@@ -70,6 +77,24 @@ const PART_STEM_OPTIONS: StemOption[] = [
     badge: 'Harmonies',
     description: 'Backing vocals and harmonies without the lead',
     icon: Users,
+  },
+];
+
+/** The two voices of a song whose lead has been split into a male and a female voice. */
+const VOICE_STEM_OPTIONS: StemOption[] = [
+  {
+    id: 'male_vocals',
+    label: 'Male Voice Stem',
+    badge: 'Duet',
+    description: 'The male voice on its own',
+    icon: Mic,
+  },
+  {
+    id: 'female_vocals',
+    label: 'Female Voice Stem',
+    badge: 'Duet',
+    description: 'The female voice on its own',
+    icon: Mic2,
   },
 ];
 
@@ -133,9 +158,11 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
   };
 
   const isReady = project.status === 'ready';
-  const stems = project.vocal_splits?.lead_backing
-    ? [...STEM_OPTIONS, ...PART_STEM_OPTIONS]
-    : STEM_OPTIONS;
+  const stems = [
+    ...STEM_OPTIONS,
+    ...(project.vocal_splits?.lead_backing ? PART_STEM_OPTIONS : []),
+    ...(project.vocal_splits?.male_female ? VOICE_STEM_OPTIONS : []),
+  ];
 
   return (
     <section aria-labelledby="export-stems-heading" className={EXPORT_SECTION}>

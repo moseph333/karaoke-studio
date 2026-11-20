@@ -42,6 +42,27 @@ describe('vocal part stems in the export dialog', () => {
     for (const button of buttons) expect(button.className).toContain('min-h-[44px]');
   });
 
+  it('include the male and the female voice once those are split', () => {
+    render(
+      <ExportAudioSection
+        project={{
+          ...song,
+          vocal_splits: { male_female: { model: 'duet', source: 'vocals' } },
+        }}
+      />
+    );
+
+    expect(
+      screen.getAllByRole('button', { name: /^Download/ }).map((b) => b.getAttribute('aria-label'))
+    ).toEqual([
+      'Download Instrumental Stem',
+      'Download Vocal Stem',
+      'Download Master Mix',
+      'Download Male Voice Stem',
+      'Download Female Voice Stem',
+    ]);
+  });
+
   it('download from the stem route under the name the server gives', async () => {
     const user = userEvent.setup();
     const apiSpy = vi.spyOn(apiModule, 'apiFetch').mockResolvedValue(
