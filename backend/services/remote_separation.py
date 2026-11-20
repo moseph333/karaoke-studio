@@ -99,14 +99,14 @@ def warm_up(preset: str | None, background: bool = False) -> str:
         return "failed" if _last_warmup is None else "warming"
 
 
-def _save_stems(result: dict, out_dir: Path) -> None:
+def _save_stems(result: dict, out_dir: Path, keep_emission: bool = True) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for key, name in (("vocals", "vocals.wav"), ("no_vocals", "no_vocals.wav")):
         data = result.get(key)
         if data:
             (out_dir / name).write_bytes(data)
     vocals, emission = result.get("vocals"), result.get("emission")
-    if isinstance(vocals, bytes) and isinstance(emission, bytes):
+    if keep_emission and isinstance(vocals, bytes) and isinstance(emission, bytes):
         kept = emission_cache.store(vocals, emission)
         if kept is not None:
             logger.info(f"Kept the cloud GPU's neural listening pass as {kept.name}")
@@ -123,13 +123,16 @@ def run_remote(
     stall_s: float,
     queue_s: float,
     on_started: Callable[[], None] | None = None,
+    keep_emission: bool = True,
 ) -> RemoteOutcome:
     """Separate audio_file with plan on the cloud GPU into out_dir/vocals.wav and
     out_dir/no_vocals.wav, as the local worker would.
 
     on_line receives every line the worker writes to stderr and on_started fires once a GPU
-    picks the job up. Raises RemoteUnavailable when the service cannot be reached or no GPU
-    starts the job within queue_s.
+    picks the job up. keep_emission=False drops the aligner emission the GPU sends back with
+    the stems: a vocal split's "vocals" are one part of the song's, which lyrics are never
+    timed on. Raises RemoteUnavailable when the service cannot be reached or no GPU starts
+    the job within queue_s.
     """
     audio = audio_file.read_bytes()
     started_at = time.monotonic()
@@ -158,5 +161,5 @@ def run_remote(
             f"after {time.monotonic() - started_at:.0f}s"
         )
         if outcome.returncode == 0:
-            _save_stems(result, out_dir)
+            _save_stems(result, out_dir, keep_emission)
     return outcome

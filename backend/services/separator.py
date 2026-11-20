@@ -142,7 +142,8 @@ def _failure_hint(plan: SeparationPlan, returncode: Any, text: str) -> str | Non
     if code in (137, -9) or any(
         s in lower for s in ("out of memory", "memoryerror", "cannot allocate memory")
     ):
-        if plan.engine == "demucs":
+        if plan.engine == "demucs" or plan.params.get("split"):
+            # A vocal split has no cheaper preset to suggest
             return "it ran out of memory. Close other heavy jobs or give the server more RAM"
         return "it ran out of memory. Try the Fast preset or give the server more RAM"
     if "no space left on device" in lower:
@@ -575,6 +576,8 @@ class AudioSeparator:
             stall_s=separation_stall_seconds(),
             queue_s=remote_queue_seconds(),
             on_started=lambda: report(5.0, f"{plan.label} is running on a cloud GPU…", None),
+            # A split's "vocals" are one part of the song's: lyrics are never timed on them
+            **({"keep_emission": False} if plan.params.get("split") else {}),
         )
         if (cancel_event is not None and cancel_event.is_set()) or outcome.reason == "cancelled":
             raise SeparationCancelled("RoFormer separation cancelled by user")
@@ -588,6 +591,49 @@ class AudioSeparator:
             message = _failure_message(plan, outcome.returncode, tracker)
             logger.error(message)
             raise RuntimeError(message)
+
+    def split_vocals(
+        self,
+        source_path: str,
+        work_id: str,
+        plan: SeparationPlan,
+        progress_callback: Any | None = None,
+        cancel_event: Any | None = None,
+    ) -> tuple[Path, Path]:
+        """Run a vocal split plan (see vocal_parts.split_plan) over a vocal stem.
+
+        Returns the model's two outputs, still inside output_base_dir/work_id: its "vocals"
+        (for a lead/backing split, the lead) and the rest of what it was given. The caller
+        moves them into place and removes the work folder. Unlike separate_stems there is no
+        cache and no cheaper plan to fall back to: raises SeparationCancelled on cancel,
+        RemoteUnavailable when the cloud GPU cannot be reached, RuntimeError otherwise.
+        """
+        source = Path(source_path)
+        if not self._is_valid_stem(source):
+            raise FileNotFoundError(f"Vocal stem not found or empty: {source_path}")
+        ready, why = plan_status(plan)
+        if not ready:
+            raise RuntimeError(f"{plan.label} cannot run: {why or 'RoFormer is unavailable'}")
+
+        work_dir = self.output_base_dir / work_id
+        work_dir.mkdir(parents=True, exist_ok=True)
+        self._purge_work_dirs(work_dir)
+        report = _ProgressReporter(progress_callback)
+        report(5.0, f"Starting {plan.label}…", None)
+        logger.info(f"Splitting {source.name} in {work_id} with {plan.label}")
+        try:
+            self._run_plan(plan, source, work_dir, report, cancel_event)
+            # The work folder holds no finished stems of its own to tell the outputs from
+            first, second = self._find_outputs(
+                work_dir, work_dir / "vocals.wav", work_dir / "instrumental.wav"
+            )
+        except BaseException:
+            self._purge_work_dirs(work_dir)
+            raise
+        if not self._is_valid_stem(first) or not self._is_valid_stem(second):
+            self._purge_work_dirs(work_dir)
+            raise RuntimeError(f"{plan.label} wrote invalid or empty stems")
+        return first, second
 
     def set_custom_instrumental(self, track_id: str, custom_file_path: str) -> str:
         """Override the instrumental stem with a user-supplied audio file."""
