@@ -23,7 +23,6 @@ import { DeleteConfirmModal } from '../../components/DeleteConfirmModal';
 import { DuetAssignmentModal } from '../../components/timeline/DuetAssignmentModal';
 import { BatchOffsetModal } from '../../components/timeline/BatchOffsetModal';
 import { LyricReplacementModal } from '../../components/timeline/LyricReplacementModal';
-import { AppThemeProvider } from '../../context/AppThemeContext';
 import { ProjectState, LyricLine } from '../../types';
 import {
   setTestViewport,
@@ -97,102 +96,79 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
       {
         name: 'ExportModal',
         render: (onClose = vi.fn()) =>
-          render(
-            <AppThemeProvider>
-              <ExportModal project={mockProject} isOpen={true} onClose={onClose} />
-            </AppThemeProvider>
-          ),
+          render(<ExportModal project={mockProject} isOpen={true} onClose={onClose} />),
       },
       {
         name: 'HelpModal',
-        render: (onClose = vi.fn()) =>
-          render(
-            <AppThemeProvider>
-              <HelpModal isOpen={true} onClose={onClose} />
-            </AppThemeProvider>
-          ),
+        render: (onClose = vi.fn()) => render(<HelpModal isOpen={true} onClose={onClose} />),
       },
       {
         name: 'AuthModal',
         render: (onClose = vi.fn()) =>
-          render(
-            <AppThemeProvider>
-              <AuthModal isOpen={true} onSuccess={vi.fn()} onClose={onClose} />
-            </AppThemeProvider>
-          ),
+          render(<AuthModal isOpen={true} onSuccess={vi.fn()} onClose={onClose} />),
       },
       {
         name: 'EditMetadataModal',
         render: (onClose = vi.fn()) =>
           render(
-            <AppThemeProvider>
-              <EditMetadataModal
-                isOpen={true}
-                project={mockProject}
-                onClose={onClose}
-                onSaved={vi.fn()}
-              />
-            </AppThemeProvider>
+            <EditMetadataModal
+              isOpen={true}
+              project={mockProject}
+              onClose={onClose}
+              onSaved={vi.fn()}
+            />
           ),
       },
       {
         name: 'DeleteConfirmModal',
         render: (onClose = vi.fn()) =>
           render(
-            <AppThemeProvider>
-              <DeleteConfirmModal
-                isOpen={true}
-                projectId="challenger-test-project"
-                projectTitle="Bohemian Rhapsody"
-                projectArtist="Queen"
-                onClose={onClose}
-                onDeleted={vi.fn()}
-              />
-            </AppThemeProvider>
+            <DeleteConfirmModal
+              isOpen={true}
+              projectId="challenger-test-project"
+              projectTitle="Bohemian Rhapsody"
+              projectArtist="Queen"
+              onClose={onClose}
+              onDeleted={vi.fn()}
+            />
           ),
       },
       {
         name: 'DuetAssignmentModal',
         render: (onClose = vi.fn()) =>
           render(
-            <AppThemeProvider>
-              <DuetAssignmentModal
-                isOpen={true}
-                lines={mockLines}
-                onClose={onClose}
-                onApply={vi.fn()}
-              />
-            </AppThemeProvider>
+            <DuetAssignmentModal
+              isOpen={true}
+              lines={mockLines}
+              onClose={onClose}
+              onApply={vi.fn()}
+            />
           ),
       },
       {
         name: 'BatchOffsetModal',
         render: (onClose = vi.fn()) =>
           render(
-            <AppThemeProvider>
-              <BatchOffsetModal
-                isOpen={true}
-                totalLines={mockLines.length}
-                onClose={onClose}
-                onApplyOffset={vi.fn()}
-              />
-            </AppThemeProvider>
+            <BatchOffsetModal
+              isOpen={true}
+              totalLines={mockLines.length}
+              onClose={onClose}
+              onApplyOffset={vi.fn()}
+            />
           ),
       },
       {
         name: 'LyricReplacementModal',
         render: (onClose = vi.fn()) =>
           render(
-            <AppThemeProvider>
-              <LyricReplacementModal
-                isOpen={true}
-                projectId="challenger-test-project"
-                trackTitle="Bohemian Rhapsody"
-                trackArtist="Queen"
-                onClose={onClose}
-                onSuccess={vi.fn()}
-              />
-            </AppThemeProvider>
+            <LyricReplacementModal
+              isOpen={true}
+              projectId="challenger-test-project"
+              trackTitle="Bohemian Rhapsody"
+              trackArtist="Queen"
+              onClose={onClose}
+              onSuccess={vi.fn()}
+            />
           ),
       },
     ];
@@ -274,90 +250,71 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
       {
         name: 'ExportModal',
         render: (onClose: () => void) =>
-          render(
-            <AppThemeProvider>
-              <ExportModal project={mockProject} isOpen={true} onClose={onClose} />
-            </AppThemeProvider>
-          ),
+          render(<ExportModal project={mockProject} isOpen={true} onClose={onClose} />),
       },
       {
         name: 'HelpModal',
-        render: (onClose: () => void) =>
-          render(
-            <AppThemeProvider>
-              <HelpModal isOpen={true} onClose={onClose} />
-            </AppThemeProvider>
-          ),
+        render: (onClose: () => void) => render(<HelpModal isOpen={true} onClose={onClose} />),
       },
       {
         name: 'EditMetadataModal',
         render: (onClose: () => void) =>
           render(
-            <AppThemeProvider>
-              <EditMetadataModal
-                isOpen={true}
-                project={mockProject}
-                onClose={onClose}
-                onSaved={vi.fn()}
-              />
-            </AppThemeProvider>
+            <EditMetadataModal
+              isOpen={true}
+              project={mockProject}
+              onClose={onClose}
+              onSaved={vi.fn()}
+            />
           ),
       },
       {
         name: 'DeleteConfirmModal',
         render: (onClose: () => void) =>
           render(
-            <AppThemeProvider>
-              <DeleteConfirmModal
-                isOpen={true}
-                projectId="p1"
-                projectTitle="Title"
-                onClose={onClose}
-                onDeleted={vi.fn()}
-              />
-            </AppThemeProvider>
+            <DeleteConfirmModal
+              isOpen={true}
+              projectId="p1"
+              projectTitle="Title"
+              onClose={onClose}
+              onDeleted={vi.fn()}
+            />
           ),
       },
       {
         name: 'DuetAssignmentModal',
         render: (onClose: () => void) =>
           render(
-            <AppThemeProvider>
-              <DuetAssignmentModal
-                isOpen={true}
-                lines={mockLines}
-                onClose={onClose}
-                onApply={vi.fn()}
-              />
-            </AppThemeProvider>
+            <DuetAssignmentModal
+              isOpen={true}
+              lines={mockLines}
+              onClose={onClose}
+              onApply={vi.fn()}
+            />
           ),
       },
       {
         name: 'BatchOffsetModal',
         render: (onClose: () => void) =>
           render(
-            <AppThemeProvider>
-              <BatchOffsetModal
-                isOpen={true}
-                totalLines={mockLines.length}
-                onClose={onClose}
-                onApplyOffset={vi.fn()}
-              />
-            </AppThemeProvider>
+            <BatchOffsetModal
+              isOpen={true}
+              totalLines={mockLines.length}
+              onClose={onClose}
+              onApplyOffset={vi.fn()}
+            />
           ),
       },
       {
         name: 'LyricReplacementModal',
         render: (onClose: () => void) =>
           render(
-            <AppThemeProvider>
-              <LyricReplacementModal
-                isOpen={true}
-                projectId="p1"
-                onClose={onClose}
-                onSuccess={vi.fn()}
-              />
-            </AppThemeProvider>
+            <LyricReplacementModal
+              isOpen={true}
+              projectId="p1"
+              onClose={onClose}
+              onSuccess={vi.fn()}
+            />
           ),
       },
     ];
@@ -391,11 +348,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
 
     it('AuthModal: Studio Access Gate blocks backdrop dismissal and escape (security invariant)', () => {
       const onCloseMock = vi.fn();
-      render(
-        <AppThemeProvider>
-          <AuthModal isOpen={true} onSuccess={vi.fn()} onClose={onCloseMock} />
-        </AppThemeProvider>
-      );
+      render(<AuthModal isOpen={true} onSuccess={vi.fn()} onClose={onCloseMock} />);
 
       const dialog = screen.getByRole('dialog');
       fireEvent.click(dialog);
@@ -412,11 +365,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
 
   describe('Dimension 3: Touch Target Sizing (>=44x44px) & Safe Area Insets', () => {
     it('ExportModal: primary close button satisfies >=44x44px touch target with accessible label', () => {
-      render(
-        <AppThemeProvider>
-          <ExportModal project={mockProject} isOpen={true} onClose={vi.fn()} />
-        </AppThemeProvider>
-      );
+      render(<ExportModal project={mockProject} isOpen={true} onClose={vi.fn()} />);
 
       const closeBtn = screen.getByRole('button', { name: /close export dialog/i });
       expect(closeBtn.className).toContain('min-w-[44px]');
@@ -426,11 +375,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
     });
 
     it('HelpModal: top close button and footer "Got it" button satisfy >=44x44px touch target', () => {
-      render(
-        <AppThemeProvider>
-          <HelpModal isOpen={true} onClose={vi.fn()} />
-        </AppThemeProvider>
-      );
+      render(<HelpModal isOpen={true} onClose={vi.fn()} />);
 
       const topCloseBtn = screen.getByRole('button', { name: /close help and usage guide/i });
       expect(topCloseBtn.className).toContain('min-w-[44px]');
@@ -443,14 +388,12 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
 
     it('EditMetadataModal: close button satisfies >=44x44px touch target', () => {
       render(
-        <AppThemeProvider>
-          <EditMetadataModal
-            isOpen={true}
-            project={mockProject}
-            onClose={vi.fn()}
-            onSaved={vi.fn()}
-          />
-        </AppThemeProvider>
+        <EditMetadataModal
+          isOpen={true}
+          project={mockProject}
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+        />
       );
 
       const closeBtn = screen.getByRole('button', { name: /close edit metadata dialog/i });
@@ -461,15 +404,13 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
 
     it('DeleteConfirmModal: close button satisfies >=44x44px touch target', () => {
       render(
-        <AppThemeProvider>
-          <DeleteConfirmModal
-            isOpen={true}
-            projectId="p1"
-            projectTitle="Title"
-            onClose={vi.fn()}
-            onDeleted={vi.fn()}
-          />
-        </AppThemeProvider>
+        <DeleteConfirmModal
+          isOpen={true}
+          projectId="p1"
+          projectTitle="Title"
+          onClose={vi.fn()}
+          onDeleted={vi.fn()}
+        />
       );
 
       const closeBtn = screen.getByRole('button', { name: /close delete confirmation dialog/i });
@@ -479,14 +420,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
 
     it('DuetAssignmentModal: close button satisfies >=44x44px touch target and mode tabs meet >=44px height', () => {
       render(
-        <AppThemeProvider>
-          <DuetAssignmentModal
-            isOpen={true}
-            lines={mockLines}
-            onClose={vi.fn()}
-            onApply={vi.fn()}
-          />
-        </AppThemeProvider>
+        <DuetAssignmentModal isOpen={true} lines={mockLines} onClose={vi.fn()} onApply={vi.fn()} />
       );
 
       const closeBtn = screen.getByRole('button', { name: /close dialog/i });
@@ -501,14 +435,12 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
 
     it('BatchOffsetModal: close button satisfies >=44x44px touch target', () => {
       render(
-        <AppThemeProvider>
-          <BatchOffsetModal
-            isOpen={true}
-            totalLines={mockLines.length}
-            onClose={vi.fn()}
-            onApplyOffset={vi.fn()}
-          />
-        </AppThemeProvider>
+        <BatchOffsetModal
+          isOpen={true}
+          totalLines={mockLines.length}
+          onClose={vi.fn()}
+          onApplyOffset={vi.fn()}
+        />
       );
 
       const closeBtn = screen.getByRole('button', { name: /close dialog/i });
@@ -518,14 +450,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
 
     it('LyricReplacementModal: close button satisfies >=44x44px touch target', () => {
       render(
-        <AppThemeProvider>
-          <LyricReplacementModal
-            isOpen={true}
-            projectId="p1"
-            onClose={vi.fn()}
-            onSuccess={vi.fn()}
-          />
-        </AppThemeProvider>
+        <LyricReplacementModal isOpen={true} projectId="p1" onClose={vi.fn()} onSuccess={vi.fn()} />
       );
 
       const closeBtn = screen.getByRole('button', { name: /close dialog/i });
@@ -610,9 +535,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
     it('survives rapid open/close cycling (20 iterations) without memory leaks or unhandled errors', () => {
       let isOpen = false;
       const Harness: React.FC<{ open: boolean }> = ({ open }) => (
-        <AppThemeProvider>
-          <ExportModal project={mockProject} isOpen={open} onClose={() => {}} />
-        </AppThemeProvider>
+        <ExportModal project={mockProject} isOpen={open} onClose={() => {}} />
       );
 
       const { rerender } = render(<Harness open={false} />);
@@ -639,11 +562,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
       viewports.forEach(({ w, h }) => {
         setTestViewport(w, h);
         const onCloseMock = vi.fn();
-        const { unmount } = render(
-          <AppThemeProvider>
-            <HelpModal isOpen={true} onClose={onCloseMock} />
-          </AppThemeProvider>
-        );
+        const { unmount } = render(<HelpModal isOpen={true} onClose={onCloseMock} />);
 
         const dialog = screen.getByRole('dialog');
         fireEvent.keyDown(dialog, { key: 'Escape', code: 'Escape' });
@@ -654,14 +573,12 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
 
     it('focus trap maintains focus within modal when Tab is pressed', () => {
       render(
-        <AppThemeProvider>
-          <BatchOffsetModal
-            isOpen={true}
-            totalLines={mockLines.length}
-            onClose={vi.fn()}
-            onApplyOffset={vi.fn()}
-          />
-        </AppThemeProvider>
+        <BatchOffsetModal
+          isOpen={true}
+          totalLines={mockLines.length}
+          onClose={vi.fn()}
+          onApplyOffset={vi.fn()}
+        />
       );
 
       const dialog = screen.getByRole('dialog');
@@ -678,15 +595,13 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
     it('rapid close button clicks invoke onClose cleanly without state corruption', () => {
       const onCloseMock = vi.fn();
       render(
-        <AppThemeProvider>
-          <DeleteConfirmModal
-            isOpen={true}
-            projectId="p1"
-            projectTitle="Title"
-            onClose={onCloseMock}
-            onDeleted={vi.fn()}
-          />
-        </AppThemeProvider>
+        <DeleteConfirmModal
+          isOpen={true}
+          projectId="p1"
+          projectTitle="Title"
+          onClose={onCloseMock}
+          onDeleted={vi.fn()}
+        />
       );
 
       const closeBtn = screen.getByRole('button', { name: /close delete confirmation dialog/i });

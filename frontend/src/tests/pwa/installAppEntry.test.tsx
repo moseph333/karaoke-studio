@@ -8,7 +8,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { StudioHeader } from '../../components/StudioHeader';
 import { InstallAppDialog } from '../../components/InstallAppDialog';
-import { AppThemeProvider } from '../../context/AppThemeContext';
 import { ProjectState } from '../../types';
 import { setTestViewport, resetTestViewport } from '../helpers/responsiveTestUtils';
 
@@ -25,17 +24,15 @@ const project = {
 
 function renderHeader(props: Partial<React.ComponentProps<typeof StudioHeader>> = {}) {
   return render(
-    <AppThemeProvider>
-      <StudioHeader
-        currentUser="Friend"
-        project={null}
-        isLyricsDirty={false}
-        onOpenHelp={vi.fn()}
-        onOpenAuth={vi.fn()}
-        onNewSong={vi.fn()}
-        {...props}
-      />
-    </AppThemeProvider>
+    <StudioHeader
+      currentUser="Friend"
+      project={null}
+      isLyricsDirty={false}
+      onOpenHelp={vi.fn()}
+      onOpenAuth={vi.fn()}
+      onNewSong={vi.fn()}
+      {...props}
+    />
   );
 }
 
