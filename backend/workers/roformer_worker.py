@@ -6,9 +6,14 @@ out-of-memory kill or a hang never takes the API down:
     python -u -m backend.workers.roformer_worker --audio IN.wav --out DIR
         --models vocals_mel_band_roformer.ckpt [more.ckpt ...] --overlap 2
         --model-dir MODELS --allow-download 1 [--ensemble avg_wave] [--download-only]
+        [--first-tags male --second-tags female]
 
 It writes DIR/vocals.wav and DIR/no_vocals.wav. With several models each one separates the
-song in turn and the results are averaged sample by sample ("avg_wave"). Progress goes to
+song in turn and the results are averaged sample by sample ("avg_wave"). A model names each
+output with a stem tag; by default the one tagged vocals becomes vocals.wav and the
+instrumental one no_vocals.wav. --first-tags and --second-tags name the tags of the two
+outputs instead, for a model that splits something else (a male and a female voice): the
+first is written as vocals.wav, the second as no_vocals.wav. Progress goes to
 stderr as one JSON object per line ({"event": "stage" | "download" | "error", ...}) next to
 audio-separator's own progress bars; stdout is unused.
 
@@ -60,7 +65,15 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--allow-download", type=int, choices=(0, 1), default=1)
     parser.add_argument("--ensemble", choices=("avg_wave",), default="avg_wave")
     parser.add_argument("--download-only", action="store_true", help="Fetch the weights and exit")
+    parser.add_argument(
+        "--first-tags", nargs="+", default=None, help="Stem tags of the output for vocals.wav"
+    )
+    parser.add_argument(
+        "--second-tags", nargs="+", default=None, help="Stem tags of the output for no_vocals.wav"
+    )
     args = parser.parse_args(argv)
+    if bool(args.first_tags) != bool(args.second_tags):
+        parser.error("--first-tags and --second-tags are given together")
     if not args.download_only and (args.audio is None or args.out is None):
         parser.error("--audio and --out are required unless --download-only is given")
     if not 1 <= args.overlap <= 50:
@@ -68,13 +81,23 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     return args
 
 
-def classify_stem(path: Path) -> str | None:
-    """'vocals' or 'instrumental' for an audio-separator output file, else None."""
+def classify_stem(
+    path: Path, first_tags: list[str] | None = None, second_tags: list[str] | None = None
+) -> str | None:
+    """'vocals' or 'instrumental' for an audio-separator output file, else None. With
+    first_tags and second_tags, the outputs carrying those stem tags instead (whatever the
+    model calls them): the first is the worker's 'vocals', the second its 'instrumental'."""
     tags = _STEM_TAG.findall(path.name)
     if not tags:
         return None
     # The input file name may contain "_(...)" too; the stem tag is the last one
     tag = tags[-1].strip().lower()
+    if first_tags or second_tags:
+        if tag in {name.strip().lower() for name in first_tags or []}:
+            return "vocals"
+        if tag in {name.strip().lower() for name in second_tags or []}:
+            return "instrumental"
+        return None
     if tag in _INSTRUMENTAL_TAGS:
         return "instrumental"
     if tag.startswith("vocal"):
@@ -147,12 +170,17 @@ def run_pass(separator_cls, args, model: str, index: int, total: int) -> dict[st
         path = Path(name)
         if not path.is_absolute():
             path = pass_dir / path
-        kind = classify_stem(path)
+        kind = classify_stem(path, args.first_tags, args.second_tags)
         if kind and kind not in stems and path.is_file():
             stems[kind] = path
     missing = {"vocals", "instrumental"} - set(stems)
     if missing:
         found = ", ".join(Path(o).name for o in outputs or []) or "nothing"
+        if args.first_tags:
+            # Names what was asked for and what came back, so a wrong tag can be corrected
+            wanted = {"vocals": args.first_tags, "instrumental": args.second_tags}
+            asked = " or ".join("/".join(wanted[kind]) for kind in sorted(missing))
+            raise RuntimeError(f"{label} did not produce a stem tagged {asked} ({found})")
         raise RuntimeError(
             f"{label} did not produce a {' or '.join(sorted(missing))} stem ({found})"
         )

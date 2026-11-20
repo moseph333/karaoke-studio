@@ -165,10 +165,14 @@ def separate(
     ensemble: str = "avg_wave",
     lines: modal.Queue | None = None,
     warmup: bool = False,
+    first_tags: list[str] | None = None,
+    second_tags: list[str] | None = None,
 ) -> dict:
     """Separate one song: the worker's stderr goes to `lines`, the two stems (and, when it
     could be made, the vocals' MMS emission) are returned. With warmup=True it returns at
-    once: the call only starts a GPU container for a separation that is about to follow."""
+    once: the call only starts a GPU container for a separation that is about to follow.
+    first_tags and second_tags go to the worker, for a model whose two outputs are not
+    vocals and instrumental (the server sends them only for such a model)."""
     if warmup or lines is None or not models:
         return {"warmup": True}
     lines.put(STARTED)
@@ -197,6 +201,8 @@ def separate(
         ]
         if len(models) > 1:
             cmd += ["--ensemble", ensemble]
+        if first_tags and second_tags:
+            cmd += ["--first-tags", *first_tags, "--second-tags", *second_tags]
         process = subprocess.Popen(
             cmd,
             cwd="/app",

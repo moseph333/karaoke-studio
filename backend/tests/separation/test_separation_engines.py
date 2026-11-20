@@ -205,6 +205,8 @@ class FakeSeparator:
 
     instances: ClassVar[list["FakeSeparator"]] = []
     levels: ClassVar[dict[str, float]] = {BALANCED_MODEL: 0.2, BEST_MODELS[1]: 0.4}
+    # The stem tags a model names its two outputs with, when not Vocals and Instrumental
+    stem_tags: ClassVar[dict[str, tuple[str, str]]] = {}
     fail_on_separate = False
 
     def __init__(self, model_file_dir, output_dir, info_only=False, **kwargs):
@@ -231,7 +233,8 @@ class FakeSeparator:
             raise RuntimeError("index out of bounds")
         level = self.levels.get(self.model, 0.1)
         names = []
-        for stem, value in (("Vocals", level), ("Instrumental", -level)):
+        first, second = self.stem_tags.get(self.model, ("Vocals", "Instrumental"))
+        for stem, value in ((first, level), (second, -level)):
             name = f"{Path(audio_path).stem}_({stem})_{Path(self.model).stem}.wav"
             _write_wav(self.output_dir / name, value)
             names.append(name)
@@ -242,6 +245,7 @@ class FakeSeparator:
 def fake_audio_separator(monkeypatch):
     FakeSeparator.instances = []
     FakeSeparator.fail_on_separate = False
+    monkeypatch.setattr(FakeSeparator, "stem_tags", {})
     package = types.ModuleType("audio_separator")
     module = types.ModuleType("audio_separator.separator")
     module.Separator = FakeSeparator
@@ -380,6 +384,94 @@ def test_worker_rejects_incomplete_arguments(tmp_path):
 )
 def test_worker_classifies_audio_separator_outputs(name, kind):
     assert worker.classify_stem(Path(name)) == kind
+
+
+DUET_MODEL = "bs_roformer_male_female_by_aufr33_sdr_7.2889.ckpt"
+DUET_TAGS = ("--first-tags", "male", "--second-tags", "female")
+
+
+def test_worker_writes_the_outputs_with_the_given_tags(tmp_path, capsys, fake_audio_separator):
+    """A model that splits a male and a female voice names its outputs after them."""
+    fake_audio_separator.stem_tags = {DUET_MODEL: ("male", "female")}
+
+    assert worker.main(_worker_args(tmp_path, DUET_MODEL, extra=DUET_TAGS)) == worker.EXIT_OK
+
+    out = tmp_path / "out"
+    assert sorted(p.name for p in out.iterdir()) == ["no_vocals.wav", "vocals.wav"]
+    assert sf.read(str(out / "vocals.wav"))[0].mean() == pytest.approx(0.1, abs=1e-3)
+    assert sf.read(str(out / "no_vocals.wav"))[0].mean() == pytest.approx(-0.1, abs=1e-3)
+
+
+def test_worker_without_the_tags_rejects_outputs_it_does_not_know(
+    tmp_path, capsys, fake_audio_separator
+):
+    fake_audio_separator.stem_tags = {DUET_MODEL: ("male", "female")}
+
+    assert worker.main(_worker_args(tmp_path, DUET_MODEL)) == worker.EXIT_FAILED
+
+    error = _events(capsys)[-1]
+    assert error["code"] == "failed"
+    assert "did not produce a instrumental or vocals stem" in error["detail"]
+
+
+def test_worker_names_the_tags_it_wanted_and_the_files_it_got(
+    tmp_path, capsys, fake_audio_separator
+):
+    """A model whose tags were guessed wrong fails with what is needed to correct them."""
+    fake_audio_separator.stem_tags = {DUET_MODEL: ("Male", "Other")}
+
+    assert worker.main(_worker_args(tmp_path, DUET_MODEL, extra=DUET_TAGS)) == worker.EXIT_FAILED
+
+    detail = _events(capsys)[-1]["detail"]
+    assert "did not produce a stem tagged female" in detail
+    assert "song_(Male)_" in detail and "song_(Other)_" in detail
+    assert not (tmp_path / "out" / "vocals.wav").exists()
+
+
+@pytest.mark.parametrize(
+    ("name", "kind"),
+    [
+        ("song_(male)_model.wav", "vocals"),
+        ("song_(Female)_model.wav", "instrumental"),
+        # With tags given, the usual names mean nothing
+        ("song_(Vocals)_model.wav", None),
+        ("song_(Instrumental)_model.wav", None),
+        ("vocals_(Vocals)_(female)_model.wav", "instrumental"),
+    ],
+)
+def test_worker_classifies_by_the_given_tags_only(name, kind):
+    assert worker.classify_stem(Path(name), ["Male"], ["female", "woman"]) == kind
+
+
+def test_worker_needs_both_tag_lists_or_neither(tmp_path):
+    with pytest.raises(SystemExit) as exit_info:
+        worker.main(_worker_args(tmp_path, DUET_MODEL, extra=("--first-tags", "male")))
+    assert exit_info.value.code == worker.EXIT_USAGE
+
+
+def test_a_plan_with_stem_tags_passes_them_to_the_worker(tmp_path, engines):
+    plan = presets.SeparationPlan(
+        preset="male_female",
+        engine="roformer",
+        models=(DUET_MODEL,),
+        params={"overlap": 2, "first_tags": ("male",), "second_tags": ("female",)},
+        label="Male and female voices split",
+    )
+    vocals = _write_wav(tmp_path / "stems" / "trk" / "vocals.wav")
+
+    AudioSeparator(output_base_dir=tmp_path / "stems").split_vocals(str(vocals), "work", plan)
+
+    cmd = engines.calls[0]["cmd"]
+    assert cmd[cmd.index("--models") + 1 : cmd.index("--overlap")] == [DUET_MODEL]
+    assert cmd[-4:] == ["--first-tags", "male", "--second-tags", "female"]
+
+
+def test_plans_without_stem_tags_run_the_worker_as_before(tmp_path, engines):
+    _separate(tmp_path, "balanced")
+    _split(tmp_path)
+
+    for call in engines.calls:
+        assert "--first-tags" not in call["cmd"] and "--second-tags" not in call["cmd"]
 
 
 # ==============================================================================
