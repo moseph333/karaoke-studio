@@ -83,6 +83,16 @@ export const PROBLEMS: Problem[] = [
     actions: ['mix', 'improve-stems'],
   },
   {
+    id: 'keep-backing',
+    symptom: 'I want the backing vocals left in',
+    why: 'The harmonies leave with the lead singer because they are one stem, until the vocals are split into lead and backing.',
+    steps: [
+      'In Audio mix, press Split next to Backing vocals. The song stays playable while it runs.',
+      'Raise the Backing vocals level and leave Guide vocal at Off.',
+    ],
+    actions: ['mix'],
+  },
+  {
     id: 'thin-backing',
     symptom: 'The backing track sounds thin or watery',
     why: 'Separation takes a little of the music away with the voice, most on dense mixes and at Fast quality.',
@@ -112,6 +122,17 @@ export const PROBLEMS: Problem[] = [
       'Name the singers with the pencil next to the song title.',
     ],
     actions: ['duet'],
+  },
+  {
+    id: 'keep-partner',
+    symptom: 'I want my duet partner’s voice left in',
+    why: 'The studio can keep one singer and remove the other when it knows who sings what: from the singer of each lyric line, or from a split of a male and a female voice.',
+    steps: [
+      'Give each line its singer with Duet parts in the timeline.',
+      'In Audio mix, choose By singer under Lead by singer, turn your own part down and your partner’s up.',
+      'If a man and a woman sing at the same time, choose Male / female there instead and press Split.',
+    ],
+    actions: ['duet', 'mix'],
   },
   {
     id: 'key',
