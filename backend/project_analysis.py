@@ -20,6 +20,7 @@ import threading
 from typing import Any
 
 from backend.project_store import PROJECTS_LOCK, get_project_or_404, save_projects
+from backend.services.vocal_mix import any_vocal_kept
 
 logger = logging.getLogger("karaoke_backend")
 
@@ -152,12 +153,17 @@ def youtube_package(proj: dict) -> dict[str, Any]:
     import backend.main as main_mod
 
     settings = proj.get("render_settings") or {}
+    # A render's own vocal levels, never the song's later ones over a render that had none
+    made_with = settings if settings else proj
+    vocals_kept = any_vocal_kept(
+        settings.get("guide_volume", proj.get("guide_volume", 0.0)), made_with.get("vocal_levels")
+    )
     return main_mod.youtube_service.generate_youtube_package(
         title=proj.get("title", "Karaoke Track"),
         artist=proj.get("artist", "Artist"),
         lines=proj.get("lines", []),
         semitones=settings.get("semitones", proj.get("semitones", 0)),
-        has_guide_vocal=settings.get("guide_volume", proj.get("guide_volume", 0.0)) > 0.05,
+        has_guide_vocal=vocals_kept,
         duration=proj.get("duration"),
     )
 

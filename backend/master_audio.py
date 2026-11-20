@@ -4,6 +4,12 @@ The mixer writes a WAV, which exports, renders and the waveform use. With
 PREVIEW_AUDIO_FORMAT=aac the studio streams a compressed .m4a copy of it instead (about an
 eighth of the size); without an AAC encoder, or if encoding fails, it streams the WAV.
 
+make_master_mix is how every caller but the intake's first mix gets a master: it asks
+vocal_mix which vocals the song keeps (the guide level, the song's vocal_levels, its vocal
+parts and lyric lines) and either runs the mixer as it always ran, or first sums the kept
+vocals into a temporary file for the mixer to blend in. A mix that needed that step carries
+eight hex digits after its guide level, naming the choice and the lines it was made for.
+
 /mix and re-separation reuse a rendered mix while it is newer than its stems and was made
 by the current mixer version. Reusing one refreshes its access time, never its modification
 time (which versions its URL and dates its .m4a copy). After each /mix and re-separation,
@@ -22,18 +28,25 @@ import os
 import re
 import threading
 import time
+import uuid
 from pathlib import Path
+from typing import Any
 
 from backend import config
+from backend.services import vocal_mix, vocal_parts
 from backend.services.audio_mixer import ffmpeg_has_encoder
 
 logger = logging.getLogger("karaoke_backend")
 
 
-def mix_filename(track_id: str, semitones: int, guide_volume: float) -> str:
+def mix_filename(
+    track_id: str, semitones: int, guide_volume: float, vocal_key: str | None = None
+) -> str:
     """The WAV name for a key and guide level; the level in whole percent (round, not int:
-    int() named the 0.29 mix "_28")."""
-    return f"{track_id}_mix_{semitones}_{round(guide_volume * 100)}.wav"
+    int() named the 0.29 mix "_28"). ``vocal_key`` (a vocal_mix plan's key) names a mix whose
+    vocals are not simply the whole stem at the guide level."""
+    name = f"{track_id}_mix_{semitones}_{round(guide_volume * 100)}"
+    return f"{name}_{vocal_key}.wav" if vocal_key else f"{name}.wav"
 
 
 # Smallest plausible WAV render: anything at or below a bare RIFF header is a broken file
@@ -108,6 +121,112 @@ def reusable_mix_path(output_dir, output_filename: str, sources: list) -> str | 
     return str(candidate)
 
 
+def _part_files(vocals: str | None) -> list[str]:
+    """The vocal part stems beside a song's vocals, whether or not they are current."""
+    if not isinstance(vocals, str) or not vocals:
+        return []
+    folder = Path(vocals).parent
+    return [str(folder / name) for name in vocal_parts.PART_FILES.values()]
+
+
+def planned_mix(proj: dict, semitones: int, guide_volume: float, vocal_levels: Any):
+    """The vocal_mix plan for a song at these settings, and the file name of that mix."""
+    plan = vocal_mix.plan_mix(
+        proj.get("vocals_path"), proj.get("lines"), guide_volume, vocal_levels
+    )
+    track_id = proj.get("track_id") or proj.get("id") or "track"
+    return plan, mix_filename(track_id, semitones, plan.guide_volume, plan.key)
+
+
+def master_is_stale(proj: dict) -> bool:
+    """Whether the song's current master is no longer the mix its stored settings ask for:
+    its lines moved under levels that follow them, or its vocal parts came or went. A song
+    without a master, or whose master is not a cached mix (the intake's first one), is never
+    stale: nothing but the vocal levels can make it so, and those are set through /mix."""
+    master = proj.get("master_audio_path")
+    if not isinstance(master, str) or not master or not proj.get("vocal_levels"):
+        return False
+    try:
+        semitones = int(proj.get("semitones") or 0)
+        guide_volume = float(proj.get("guide_volume") or 0.0)
+    except (TypeError, ValueError):
+        return False
+    _, expected = planned_mix(proj, semitones, guide_volume, proj.get("vocal_levels"))
+    return Path(master).name != expected
+
+
+def mark_master_stale(proj: dict) -> None:
+    """Sets or clears ``master_stale`` on a song whose lines or vocal parts just changed, so
+    the studio asks for the mix again (POST /mix). Call with PROJECTS_LOCK held."""
+    if master_is_stale(proj):
+        proj["master_stale"] = True
+    else:
+        proj.pop("master_stale", None)
+
+
+def make_master_mix(
+    proj: dict,
+    semitones: int,
+    guide_volume: float,
+    vocal_levels: Any = None,
+    *,
+    output_filename: str | None = None,
+    reuse: bool = True,
+) -> str:
+    """Makes (or, with ``reuse``, finds) the song's mix at this key with these vocals kept
+    and returns the WAV's path.
+
+    With nothing asked of the vocals beyond one level, the mixer is called exactly as it
+    always was. Otherwise the kept vocals are first written to a temporary file beside the
+    mixes (deleted afterwards; a restart's leftovers match UNFINISHED_MIX_GLOBS) and blended
+    in at full level. ``output_filename`` overrides the cached mix's name, for a render's
+    scratch mix; the mixer's quality follows the caller's mix_quality context."""
+    import backend.main as main_mod
+
+    output_dir = getattr(main_mod, "OUTPUT_DIR", config.OUTPUT_DIR)
+    instrumental, vocals = proj["instrumental_path"], proj.get("vocals_path")
+    plan, cached_name = planned_mix(proj, semitones, guide_volume, vocal_levels)
+    name = output_filename or cached_name
+    if plan.key is None:
+        sources = [instrumental]
+        if plan.guide_volume > 0.001 and vocals:
+            sources.append(vocals)
+    else:
+        sources = [instrumental, *plan.sources]
+    if reuse:
+        found = reusable_mix_path(output_dir, name, sources)
+        if found:
+            logger.info(f"Reusing cached mix {name}")
+            return found
+
+    mixer = main_mod.audio_mixer
+    if plan.key is None:
+        return mixer.mix_and_shift(
+            instrumental_path=instrumental,
+            vocals_path=vocals,
+            semitones=semitones,
+            guide_volume=plan.guide_volume,
+            output_filename=name,
+        )
+    folder = getattr(mixer, "output_dir", None)
+    folder = Path(folder) if isinstance(folder, (str, os.PathLike)) else Path(output_dir)
+    kept = folder / f"{Path(name).stem}.vocals.tmp_{uuid.uuid4().hex[:8]}.wav"
+    try:
+        vocal_mix.write_kept_vocals(plan, kept)
+        return mixer.mix_and_shift(
+            instrumental_path=instrumental,
+            vocals_path=str(kept),
+            semitones=semitones,
+            guide_volume=1.0,
+            output_filename=name,
+        )
+    finally:
+        try:
+            kept.unlink(missing_ok=True)
+        except OSError as exc:
+            logger.warning(f"Could not remove the kept vocals {kept.name}: {exc}")
+
+
 def _current_masters() -> set[str]:
     """The file names of every song's current master mix, copied under PROJECTS_LOCK.
 
@@ -157,11 +276,12 @@ def prune_mix_cache(
     keep: str | None = None,
 ) -> list[str]:
     """Deletes a song's cached key and guide mixes that are no longer worth keeping, each
-    ``{track_id}_mix_<semitones>_<guide %>.wav`` with its .m4a copy, and returns the names of
-    the deleted WAVs.
+    ``{track_id}_mix_<semitones>_<guide %>[_<vocal key>].wav`` with its .m4a copy, and returns
+    the names of the deleted WAVs.
 
     First the mixes that can never be served again (made by an older mixer, or older than the
-    instrumental, or than the vocals when the guide vocal is mixed in), then, newest use
+    instrumental, or than the vocals when the guide vocal is mixed in, or, for a mix with a
+    vocal key, than the vocals or any vocal part beside them), then, newest use
     first, those past the MIX_CACHE_PER_SONG most recently used. Mixes that are any song's
     current master (or ``keep``) or that were made or reused in the last minute are never
     deleted: such a mix takes one of those slots only when it is among the most recently
@@ -179,7 +299,10 @@ def prune_mix_cache(
         protected = _current_masters()
         if keep:
             protected.add(Path(keep).name)
-        pattern = re.compile(re.escape(track_id) + r"_mix_-?\d+_(\d+)\.wav")
+        pattern = re.compile(re.escape(track_id) + r"_mix_-?\d+_(\d+)(_[0-9a-f]{8})?\.wav")
+        # A mix with a vocal key may hold any of the song's vocals: it is dated against all of
+        # them, which can delete one that was still good but never keeps a stale one
+        every_vocal = [vocals, *_part_files(vocals)]
         removed: list[str] = []
         with _MIX_CACHE_LOCK:
             epoch = mix_cache_epoch(folder, create=False)
@@ -201,7 +324,9 @@ def prune_mix_cache(
                 used = _last_used(wav, stat)
                 in_use = wav.name in protected or now - used < _IN_USE_SEC
                 sources = [instrumental]
-                if int(match.group(1)) > 0:
+                if match.group(2):
+                    sources.extend(every_vocal)
+                elif int(match.group(1)) > 0:
                     sources.append(vocals)
                 if not in_use and not _is_current(stat, epoch, sources):
                     if _delete_mix(wav):

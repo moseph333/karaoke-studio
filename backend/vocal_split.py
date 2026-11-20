@@ -26,6 +26,7 @@ from backend.background_jobs import VOCAL_SPLIT_JOB, job_active, release_cancel_
 from backend.background_jobs import conflict_reason as job_conflict
 from backend.config import STEMS_DIR
 from backend.errors import public_error
+from backend.master_audio import make_master_mix, mark_master_stale, master_fields, master_is_stale
 from backend.project_store import (
     PROJECTS_LOCK,
     find_project,
@@ -187,6 +188,11 @@ def run_vocal_split(project_id: str, job_id: str) -> None:
             proj, job = _live(project_id, job_id)
             # A new dict, never an edit in place: restore_on_failed_save keeps shallow copies
             proj["vocal_splits"] = vocal_parts.splits_summary(stem_dir)
+            save_projects()
+        _remix_if_needed(project_id, job_id, update)
+
+        with PROJECTS_LOCK:
+            proj, job = _live(project_id, job_id)
             job.update(
                 status="done",
                 progress=100,
@@ -214,6 +220,34 @@ def run_vocal_split(project_id: str, job_id: str) -> None:
                 empty.rmdir()
             except OSError:
                 break
+
+
+def _remix_if_needed(project_id: str, job_id: str, update) -> None:
+    """Mixes the master again when the song's stored vocal levels ask for the new parts (a
+    backing level set before the vocals were re-made, say). A failure leaves the old master
+    and marks it stale, so the studio asks for the mix itself."""
+    proj = _live(project_id, job_id)[0]
+    if not proj.get("instrumental_path") or not master_is_stale(proj):
+        return
+    update(progress=96, detail="Mixing the master track…")
+    try:
+        master_path = make_master_mix(
+            proj,
+            int(proj.get("semitones") or 0),
+            float(proj.get("guide_volume") or 0.0),
+            proj.get("vocal_levels"),
+        )
+        fields = master_fields(master_path)
+    except VocalSplitCancelled:
+        raise
+    except Exception as exc:
+        logger.warning(f"Mixing the master after a vocal split failed: {exc}")
+        fields = {}
+    with PROJECTS_LOCK:
+        current = _live(project_id, job_id)[0]
+        current.update(fields)
+        mark_master_stale(current)
+        save_projects()
 
 
 def _record_failure(

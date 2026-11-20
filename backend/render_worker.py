@@ -8,6 +8,7 @@ from pathlib import Path
 from backend.background_jobs import release_cancel_event, superseded
 from backend.config import BACKGROUNDS_DIR, OUTPUT_DIR
 from backend.errors import public_error
+from backend.master_audio import make_master_mix
 from backend.project_analysis import chords_for_export, estimated_key, youtube_package
 from backend.project_store import (
     PROJECTS_LOCK,
@@ -195,13 +196,15 @@ def run_video_render(project_id: str, req: RenderRequest):
         update_render(15, "Mixing master audio with pitch adjustment...", 40)
 
         # 2. Mix audio with current pitch & guide vocal settings (export-grade pitch shifting)
+        vocal_levels = req.vocal_levels.stored() if req.vocal_levels else {}
         with mix_quality("final"):
-            mixed_audio = main_mod.audio_mixer.mix_and_shift(
-                instrumental_path=proj["instrumental_path"],
-                vocals_path=proj.get("vocals_path"),
-                semitones=req.semitones,
-                guide_volume=req.guide_volume,
+            mixed_audio = make_master_mix(
+                proj,
+                req.semitones,
+                req.guide_volume,
+                vocal_levels,
                 output_filename=final_audio.name,
+                reuse=False,
             )
 
         update_render(22, "Initializing FFmpeg 1080p60 encoding engine...", 35)
@@ -249,7 +252,11 @@ def run_video_render(project_id: str, req: RenderRequest):
                 # render makes the video again and reports on it
                 return
             # What the video was made with, which its YouTube kit describes from now on
-            proj["render_settings"] = {"semitones": req.semitones, "guide_volume": req.guide_volume}
+            proj["render_settings"] = {
+                "semitones": req.semitones,
+                "guide_volume": req.guide_volume,
+                **({"vocal_levels": vocal_levels} if vocal_levels else {}),
+            }
             proj["youtube_package"] = youtube_package(proj)
             # A new render in the same format replaces that format's file; the version makes
             # browsers fetch the new video rather than show or download their cached copy of

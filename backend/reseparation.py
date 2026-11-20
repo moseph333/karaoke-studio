@@ -29,7 +29,12 @@ from backend.background_jobs import SEPARATION_JOB, job_active, release_cancel_e
 from backend.background_jobs import conflict_reason as job_conflict
 from backend.config import OUTPUT_DIR, STEMS_DIR
 from backend.errors import public_error
-from backend.master_audio import master_fields, mix_filename, prune_mix_cache
+from backend.master_audio import (
+    make_master_mix,
+    mark_master_stale,
+    master_fields,
+    prune_mix_cache,
+)
 from backend.project_analysis import analyze_vocals, detect_chords
 from backend.project_store import (
     PROJECTS_LOCK,
@@ -395,14 +400,15 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
     semitones = int(proj.get("semitones") or 0)
     guide_volume = float(proj.get("guide_volume") or 0.0)
     track_id = proj.get("track_id") or proj.get("id") or "track"
-    master_path = main_mod.audio_mixer.mix_and_shift(
-        instrumental_path=proj["instrumental_path"],
-        vocals_path=vocals_path,
-        semitones=semitones,
-        guide_volume=guide_volume,
-        output_filename=mix_filename(track_id, semitones, guide_volume),
+    # With the song's vocal levels, as far as they apply without the parts that just went
+    master_path = make_master_mix(
+        proj, semitones, guide_volume, proj.get("vocal_levels"), reuse=False
     )
-    store(**master_fields(master_path))
+    with PROJECTS_LOCK:
+        current = _live(project_id, job_id)[0]
+        current.update(master_fields(master_path))
+        mark_master_stale(current)
+        save_projects()
     # Mixes of the old stems can never be served again (guide mixes always, the others unless
     # the instrumental is a custom one), so they go now, as do mixes past the per-song limit
     prune_mix_cache(
