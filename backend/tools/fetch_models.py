@@ -3,6 +3,7 @@
     python -m backend.tools.fetch_models                 # Demucs + the configured preset
     python -m backend.tools.fetch_models --separation all
     python -m backend.tools.fetch_models --separation none --no-demucs --alignment
+    python -m backend.tools.fetch_models --vocal-parts all   # also the vocal part splitters
 
 RoFormer weights go to AUDIO_SEPARATOR_MODEL_DIR (default <data dir>/models/audio-separator)
 and need the optional extras in backend/requirements-ml.txt; Demucs weights go to the
@@ -22,6 +23,7 @@ from backend.services.separation_presets import (
     model_dir,
     preset_plan,
 )
+from backend.services.vocal_parts import SPLIT_KINDS, split_model
 
 _DEMUCS_FETCH = "import demucs.pretrained as p; p.get_model({name!r})"
 _MMS_FETCH = (
@@ -45,7 +47,17 @@ def roformer_models(choice: str) -> list[str]:
     return models
 
 
-def commands(choice: str, demucs: bool, alignment: bool = False) -> list[tuple[str, list[str]]]:
+def vocal_part_models(choice: str) -> list[str]:
+    """Model files for --vocal-parts: a split kind, "all" or "none"."""
+    if choice == "none":
+        return []
+    kinds = SPLIT_KINDS if choice == "all" else (choice,)
+    return list(dict.fromkeys(split_model(kind) for kind in kinds))
+
+
+def commands(
+    choice: str, demucs: bool, alignment: bool = False, vocal_parts: str = "none"
+) -> list[tuple[str, list[str]]]:
     jobs = []
     if demucs:
         jobs.append(
@@ -55,6 +67,7 @@ def commands(choice: str, demucs: bool, alignment: bool = False) -> list[tuple[s
             )
         )
     models = roformer_models(choice)
+    models.extend(m for m in vocal_part_models(vocal_parts) if m not in models)
     if models:
         jobs.append(
             (
@@ -91,6 +104,12 @@ def main(argv: list[str] | None = None) -> int:
         help="RoFormer weights to fetch (default: those of SEPARATION_QUALITY)",
     )
     parser.add_argument(
+        "--vocal-parts",
+        choices=("none", *SPLIT_KINDS, "all"),
+        default="none",
+        help="RoFormer weights of the vocal part splitters to fetch (default: none)",
+    )
+    parser.add_argument(
         "--no-demucs", action="store_true", help="Skip the Demucs weights used by Fast"
     )
     parser.add_argument(
@@ -100,7 +119,10 @@ def main(argv: list[str] | None = None) -> int:
 
     failures = 0
     for label, cmd in commands(
-        args.separation, demucs=not args.no_demucs, alignment=args.alignment
+        args.separation,
+        demucs=not args.no_demucs,
+        alignment=args.alignment,
+        vocal_parts=args.vocal_parts,
     ):
         print(f"→ Fetching {label}…", flush=True)
         result = subprocess.run(cmd)

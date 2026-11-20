@@ -68,7 +68,7 @@ def model_label(name: str) -> str:
 
 @dataclass(frozen=True)
 class SeparationPlan:
-    preset: str  # fast | balanced | best | custom
+    preset: str  # fast | balanced | best | custom, or a vocal split's kind (see vocal_parts)
     engine: str  # demucs | roformer
     models: tuple[str, ...]
     passes: int = 1

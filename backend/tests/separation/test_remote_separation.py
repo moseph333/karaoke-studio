@@ -334,6 +334,24 @@ def test_the_gpus_emission_is_kept_for_the_new_vocals(tmp_path, fake_modal):
     assert kept.read_bytes() == emission
 
 
+def test_a_vocal_splits_emission_is_not_kept(tmp_path, fake_modal):
+    from backend.services import emission_cache, vocal_parts
+
+    fake_modal.items = [remote.STARTED]
+    fake_modal.call = FakeCall(
+        {"returncode": 0, "vocals": b"RIFFv", "no_vocals": b"RIFFn", "emission": b"\x93NUMPY"}
+    )
+
+    outcome, _, _ = _run(tmp_path, plan=vocal_parts.split_plan("lead_backing"), keep_emission=False)
+
+    assert outcome == remote.RemoteOutcome(0)
+    assert (tmp_path / "out" / "vocals.wav").read_bytes() == b"RIFFv"
+    assert (tmp_path / "out" / "no_vocals.wav").read_bytes() == b"RIFFn"
+    assert not emission_cache.path_for(tmp_path / "out" / "vocals.wav").exists()
+    # The deployed function is called with exactly the arguments of an ordinary separation
+    assert set(fake_modal.kwargs) == {"audio", "filename", "models", "overlap", "ensemble", "lines"}
+
+
 @pytest.mark.parametrize("emission", [None, b"not an array"])
 def test_stems_without_a_usable_emission_still_arrive(tmp_path, fake_modal, emission):
     from backend.services import emission_cache

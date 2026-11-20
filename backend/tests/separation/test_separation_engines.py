@@ -22,6 +22,7 @@ import soundfile as sf
 from backend.services import remote_separation as remote_mod
 from backend.services import separation_presets as presets
 from backend.services import separator as separator_mod
+from backend.services import vocal_parts
 from backend.services.process_watchdog import PROJECT_ROOT
 from backend.services.separation_progress import ProgressTracker, parse_eta_seconds
 from backend.services.separator import AudioSeparator, SeparationCancelled
@@ -930,6 +931,118 @@ def test_cancelling_a_cloud_job_does_not_fall_back(tmp_path, cloud, engines):
         _separate(tmp_path, "balanced")
     assert engines.calls == []
     assert not any(p.is_dir() for p in (tmp_path / "stems" / "trk").iterdir())
+
+
+# ==============================================================================
+# Vocal part splits (one RoFormer plan over the vocal stem, no fallback)
+# ==============================================================================
+
+
+def _split(tmp_path: Path, **kwargs):
+    reports: list[tuple] = []
+    separator = AudioSeparator(output_base_dir=tmp_path / "stems")
+    vocals = _write_wav(tmp_path / "stems" / "trk" / "vocals.wav")
+    found = separator.split_vocals(
+        str(vocals),
+        ".staging/trk/job1",
+        vocal_parts.split_plan("lead_backing"),
+        progress_callback=lambda *update: reports.append(update),
+        **kwargs,
+    )
+    return found, reports
+
+
+def test_a_split_runs_the_karaoke_model_over_the_vocal_stem(tmp_path, engines):
+    (first, second), reports = _split(tmp_path)
+
+    [call] = engines.calls
+    cmd = call["cmd"]
+    assert "backend.workers.roformer_worker" in cmd
+    assert cmd[cmd.index("--audio") + 1].endswith("stems/trk/vocals.wav")
+    assert cmd[cmd.index("--models") + 1 : cmd.index("--overlap")] == [
+        vocal_parts.DEFAULT_LEAD_MODEL
+    ]
+    assert "--ensemble" not in cmd
+    work = tmp_path / "stems" / ".staging" / "trk" / "job1"
+    assert (first, second) == (
+        work / "roformer" / "vocals.wav",
+        work / "roformer" / "no_vocals.wav",
+    )
+    assert first.is_file() and second.is_file()
+    # The song's own stems are left as they were
+    assert sorted(p.name for p in (tmp_path / "stems" / "trk").iterdir()) == ["vocals.wav"]
+    assert reports[0] == (5.0, "Starting Lead and backing vocals split…", None)
+    assert reports[-1] == (100.0, "Stems ready", None)
+
+
+def test_a_failed_split_has_no_cheaper_engine_to_fall_back_to(tmp_path, engines, monkeypatch):
+    monkeypatch.setenv("FAKE_ROFORMER_MODE", "fail")
+
+    with pytest.raises(RuntimeError, match="RoFormer separation failed"):
+        _split(tmp_path)
+
+    assert _engine_modules(engines) == ["backend.workers.roformer_worker"]
+    work = tmp_path / "stems" / ".staging" / "trk" / "job1"
+    assert list(work.iterdir()) == []
+
+
+def test_a_split_that_cannot_run_says_why_without_launching_anything(
+    tmp_path, engines, monkeypatch
+):
+    monkeypatch.setattr(
+        separator_mod, "plan_status", lambda plan: (False, "audio-separator is not installed")
+    )
+
+    with pytest.raises(RuntimeError, match="cannot run: audio-separator is not installed"):
+        _split(tmp_path)
+    assert engines.calls == []
+
+    with pytest.raises(FileNotFoundError):
+        AudioSeparator(output_base_dir=tmp_path / "stems").split_vocals(
+            str(tmp_path / "missing.wav"), "work", vocal_parts.split_plan("lead_backing")
+        )
+
+
+def test_cancelling_a_split_stops_it(tmp_path, engines, monkeypatch):
+    monkeypatch.setenv("FAKE_ROFORMER_MODE", "slow")
+    cancel = threading.Event()
+    threading.Timer(0.5, cancel.set).start()
+
+    with pytest.raises(SeparationCancelled):
+        _split(tmp_path, cancel_event=cancel)
+
+
+def test_a_split_out_of_memory_does_not_suggest_the_fast_preset():
+    plan = vocal_parts.split_plan("lead_backing")
+    hint = separator_mod._failure_hint(plan, 137, "")
+    assert "ran out of memory" in hint and "Fast" not in hint
+    assert "Fast preset" in separator_mod._failure_hint(presets.preset_plan("balanced"), 137, "")
+
+
+def test_a_split_on_the_cloud_gpu_keeps_no_lyric_emission(tmp_path, cloud, engines):
+    (first, second), reports = _split(tmp_path)
+
+    assert engines.calls == []
+    [job] = cloud.jobs
+    assert (job["models"], job["audio"]) == ([vocal_parts.DEFAULT_LEAD_MODEL], "vocals.wav")
+    assert job["keep_emission"] is False
+    assert first.name == "vocals.wav" and second.name == "no_vocals.wav"
+    details = [detail for _, detail, _ in reports]
+    assert "Waiting for a cloud GPU for Lead and backing vocals split…" in details
+
+
+def test_an_ordinary_cloud_separation_still_keeps_the_emission(tmp_path, cloud, engines):
+    _separate(tmp_path, "balanced")
+
+    assert "keep_emission" not in cloud.jobs[0]
+
+
+def test_an_unreachable_cloud_gpu_fails_the_split(tmp_path, cloud, engines):
+    cloud.mode = "unavailable"
+
+    with pytest.raises(remote_mod.RemoteUnavailable):
+        _split(tmp_path)
+    assert engines.calls == []
 
 
 # ==============================================================================
