@@ -1,12 +1,13 @@
 /**
  * Export Audio Section Component
  *
- * Provides one-click downloads for isolated stems (instrumental, vocals)
- * and active master mix audio directly from the export modal.
+ * Provides one-click downloads for isolated stems (instrumental, vocals, and the lead and
+ * backing vocals of a song whose vocals have been split) and active master mix audio
+ * directly from the export modal.
  */
 
 import React, { useState } from 'react';
-import { Download, Music, Mic, Volume2, Loader2, AlertCircle } from 'lucide-react';
+import { Download, Music, Mic, Mic2, Users, Volume2, Loader2, AlertCircle } from 'lucide-react';
 import { ProjectState } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { Tooltip } from '../Tooltip';
@@ -20,7 +21,7 @@ export interface ExportAudioSectionProps {
   project: ProjectState;
 }
 
-type StemType = 'instrumental' | 'vocals' | 'master';
+type StemType = 'instrumental' | 'vocals' | 'master' | 'lead_vocals' | 'backing_vocals';
 
 interface StemOption {
   id: StemType;
@@ -49,8 +50,26 @@ const STEM_OPTIONS: StemOption[] = [
     id: 'master',
     label: 'Master Mix',
     badge: 'Active Key',
-    description: 'Active mix with pitch shift and guide vocal',
+    description: 'Active mix with pitch shift and the vocals kept in',
     icon: Volume2,
+  },
+];
+
+/** The parts of a song whose vocals have been split into lead and backing. */
+const PART_STEM_OPTIONS: StemOption[] = [
+  {
+    id: 'lead_vocals',
+    label: 'Lead Vocal Stem',
+    badge: 'Lead',
+    description: 'The lead voice without the backing vocals',
+    icon: Mic2,
+  },
+  {
+    id: 'backing_vocals',
+    label: 'Backing Vocal Stem',
+    badge: 'Harmonies',
+    description: 'Backing vocals and harmonies without the lead',
+    icon: Users,
   },
 ];
 
@@ -114,6 +133,9 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
   };
 
   const isReady = project.status === 'ready';
+  const stems = project.vocal_splits?.lead_backing
+    ? [...STEM_OPTIONS, ...PART_STEM_OPTIONS]
+    : STEM_OPTIONS;
 
   return (
     <section aria-labelledby="export-stems-heading" className={EXPORT_SECTION}>
@@ -135,7 +157,7 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
       )}
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {STEM_OPTIONS.map((stem) => {
+        {stems.map((stem) => {
           const Icon = stem.icon;
           const isDownloading = downloadingStem === stem.id;
 

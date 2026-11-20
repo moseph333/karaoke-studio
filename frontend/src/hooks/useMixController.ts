@@ -1,15 +1,20 @@
 /**
  * Mix Controller Hook
  *
- * Owns the requested vs. applied audio mix (key transposition + guide vocal blend).
- * Changes are applied automatically: key steps and slider releases schedule a debounced
- * POST /api/project/{id}/mix, newer requests abort older ones, and only the latest response
- * is committed. Consumers render the requested values immediately (e.g. transposed chords)
- * while `isRemixing` reports the server-side re-render.
+ * Owns the requested vs. applied audio mix (key transposition, guide vocal blend, and the
+ * levels of the vocal parts and singers). Changes are applied automatically: key steps and
+ * slider releases schedule a debounced POST /api/project/{id}/mix, newer requests abort older
+ * ones, and only the latest response is committed. Consumers render the requested values
+ * immediately (e.g. transposed chords) while `isRemixing` reports the server-side re-render.
+ *
+ * Vocal levels are an object, so they are compared (and re-seeded from the project) by
+ * vocalLevelsKey: a new object that says the same thing is not a change.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, readApiError } from '../api';
+import type { VocalLevels } from '../types';
+import { cleanVocalLevels, vocalLevelsKey } from '../utils/vocalLevels';
 
 export const MIX_SEMITONE_MIN = -12;
 export const MIX_SEMITONE_MAX = 12;
@@ -19,6 +24,7 @@ export const MIX_DEBOUNCE_MS = 500;
 export interface MixAppliedResult {
   semitones: number;
   guideVolume: number;
+  vocalLevels: VocalLevels;
   masterAudioUrl?: string;
 }
 
@@ -27,6 +33,7 @@ export interface UseMixControllerOptions {
   /** Applied values from the project record. */
   initialSemitones?: number;
   initialGuideVolume?: number;
+  initialVocalLevels?: VocalLevels | null;
   onApplied?: (result: MixAppliedResult) => void;
   onError?: (error: unknown) => void;
   debounceMs?: number;
@@ -38,6 +45,8 @@ export interface UseMixControllerReturn {
   guideVolume: number;
   appliedSemitones: number;
   appliedGuideVolume: number;
+  /** Requested levels of the vocal parts and singers; empty when none are set. */
+  vocalLevels: VocalLevels;
   isRemixing: boolean;
   isPending: boolean;
   setSemitones: (semitones: number) => void;
@@ -45,6 +54,10 @@ export interface UseMixControllerReturn {
   resetSemitones: () => void;
   setGuideVolume: (volume: number) => void;
   commitGuideVolume: (volume?: number) => void;
+  /** Shows new vocal levels at once (while a slider drags), without mixing. */
+  setVocalLevels: (levels: VocalLevels) => void;
+  /** Schedules the mix with the current (or the given) vocal levels. */
+  commitVocalLevels: (levels?: VocalLevels) => void;
   applyNow: (semitones?: number, guideVolume?: number) => Promise<boolean>;
 }
 
@@ -58,6 +71,7 @@ export function useMixController({
   projectId,
   initialSemitones = 0,
   initialGuideVolume = 0,
+  initialVocalLevels,
   onApplied,
   onError,
   debounceMs = MIX_DEBOUNCE_MS,
@@ -69,6 +83,9 @@ export function useMixController({
   const [appliedGuideVolume, setAppliedGuideVolume] = useState(() =>
     clampGuide(initialGuideVolume)
   );
+  const initialLevelsKey = vocalLevelsKey(initialVocalLevels);
+  const [vocalLevels, setVocalLevelsState] = useState(() => cleanVocalLevels(initialVocalLevels));
+  const [appliedLevelsKey, setAppliedLevelsKey] = useState(initialLevelsKey);
   const [isRemixing, setIsRemixing] = useState(false);
 
   // A newly opened song shows its own key and guide level from its first frame. Adjusting the
@@ -83,14 +100,19 @@ export function useMixController({
     setGuideVolumeState(g);
     setAppliedSemitones(s);
     setAppliedGuideVolume(g);
+    setVocalLevelsState(cleanVocalLevels(initialVocalLevels));
+    setAppliedLevelsKey(initialLevelsKey);
     setIsRemixing(false);
   }
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const seqRef = useRef(0);
-  const latestRef = useRef({ semitones, guideVolume });
-  latestRef.current = { semitones, guideVolume };
+  const latestRef = useRef({ semitones, guideVolume, vocalLevels });
+  latestRef.current = { semitones, guideVolume, vocalLevels };
+  // The project's levels as last passed in, read when a re-seed is due
+  const initialLevelsRef = useRef(initialVocalLevels);
+  initialLevelsRef.current = initialVocalLevels;
   const callbacksRef = useRef({ onApplied, onError });
   callbacksRef.current = { onApplied, onError };
 
@@ -102,7 +124,11 @@ export function useMixController({
   };
 
   // Values committed by this hook; echoes of them from the project record are ignored.
-  const appliedRef = useRef({ semitones: appliedSemitones, guideVolume: appliedGuideVolume });
+  const appliedRef = useRef({
+    semitones: appliedSemitones,
+    guideVolume: appliedGuideVolume,
+    levelsKey: appliedLevelsKey,
+  });
   const seededProjectRef = useRef<string | undefined>(projectId);
 
   // Re-seed when the project changes, or when its applied values change from the outside
@@ -110,19 +136,25 @@ export function useMixController({
     const s = clampSemitones(initialSemitones);
     const g = clampGuide(initialGuideVolume);
     const projectChanged = seededProjectRef.current !== projectId;
-    const isEcho = appliedRef.current.semitones === s && appliedRef.current.guideVolume === g;
+    const isEcho =
+      appliedRef.current.semitones === s &&
+      appliedRef.current.guideVolume === g &&
+      appliedRef.current.levelsKey === initialLevelsKey;
     if (!projectChanged && isEcho) return;
     seededProjectRef.current = projectId;
     clearTimer();
     abortRef.current?.abort();
-    appliedRef.current = { semitones: s, guideVolume: g };
-    latestRef.current = { semitones: s, guideVolume: g };
+    const levels = cleanVocalLevels(initialLevelsRef.current);
+    appliedRef.current = { semitones: s, guideVolume: g, levelsKey: initialLevelsKey };
+    latestRef.current = { semitones: s, guideVolume: g, vocalLevels: levels };
     setSemitonesState(s);
     setGuideVolumeState(g);
     setAppliedSemitones(s);
     setAppliedGuideVolume(g);
+    setVocalLevelsState(levels);
+    setAppliedLevelsKey(initialLevelsKey);
     setIsRemixing(false);
-  }, [projectId, initialSemitones, initialGuideVolume]);
+  }, [projectId, initialSemitones, initialGuideVolume, initialLevelsKey]);
 
   useEffect(
     () => () => {
@@ -138,6 +170,8 @@ export function useMixController({
       if (!projectId || !enabled) return false;
       const targetS = clampSemitones(s ?? latestRef.current.semitones);
       const targetG = clampGuide(g ?? latestRef.current.guideVolume);
+      const targetLevels = cleanVocalLevels(latestRef.current.vocalLevels);
+      const targetLevelsKey = vocalLevelsKey(targetLevels);
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -147,7 +181,12 @@ export function useMixController({
         const res = await apiFetch(`/api/project/${projectId}/mix`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ semitones: targetS, guide_volume: targetG }),
+          // Without vocal levels the request is the one every song made before them
+          body: JSON.stringify({
+            semitones: targetS,
+            guide_volume: targetG,
+            ...(targetLevelsKey ? { vocal_levels: targetLevels } : {}),
+          }),
           signal: controller.signal,
         });
         if (seq !== seqRef.current) return false;
@@ -156,12 +195,18 @@ export function useMixController({
         }
         const data = await res.json().catch(() => ({}));
         if (seq !== seqRef.current) return false;
-        appliedRef.current = { semitones: targetS, guideVolume: targetG };
+        appliedRef.current = {
+          semitones: targetS,
+          guideVolume: targetG,
+          levelsKey: targetLevelsKey,
+        };
         setAppliedSemitones(targetS);
         setAppliedGuideVolume(targetG);
+        setAppliedLevelsKey(targetLevelsKey);
         callbacksRef.current.onApplied?.({
           semitones: targetS,
           guideVolume: targetG,
+          vocalLevels: targetLevels,
           masterAudioUrl: data?.master_audio_url,
         });
         return true;
@@ -219,6 +264,22 @@ export function useMixController({
     [schedule, setGuideVolume]
   );
 
+  const setVocalLevels = useCallback((levels: VocalLevels) => {
+    const next = cleanVocalLevels(levels);
+    latestRef.current = { ...latestRef.current, vocalLevels: next };
+    setVocalLevelsState(next);
+  }, []);
+
+  const commitVocalLevels = useCallback(
+    (levels?: VocalLevels) => {
+      if (levels !== undefined) setVocalLevels(levels);
+      schedule();
+    },
+    [schedule, setVocalLevels]
+  );
+
+  const requestedLevelsKey = vocalLevelsKey(vocalLevels);
+
   // Memoised so components receiving `mix` re-render only when it changes
   return useMemo(
     () => ({
@@ -226,13 +287,19 @@ export function useMixController({
       guideVolume,
       appliedSemitones,
       appliedGuideVolume,
+      vocalLevels,
       isRemixing,
-      isPending: semitones !== appliedSemitones || guideVolume !== appliedGuideVolume,
+      isPending:
+        semitones !== appliedSemitones ||
+        guideVolume !== appliedGuideVolume ||
+        requestedLevelsKey !== appliedLevelsKey,
       setSemitones,
       stepSemitones,
       resetSemitones,
       setGuideVolume,
       commitGuideVolume,
+      setVocalLevels,
+      commitVocalLevels,
       applyNow,
     }),
     [
@@ -240,12 +307,17 @@ export function useMixController({
       guideVolume,
       appliedSemitones,
       appliedGuideVolume,
+      vocalLevels,
+      requestedLevelsKey,
+      appliedLevelsKey,
       isRemixing,
       setSemitones,
       stepSemitones,
       resetSemitones,
       setGuideVolume,
       commitGuideVolume,
+      setVocalLevels,
+      commitVocalLevels,
       applyNow,
     ]
   );

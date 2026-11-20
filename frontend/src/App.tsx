@@ -47,6 +47,7 @@ import { isGeneratedStyle } from './theme/stageBackgrounds';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
 import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
 import { cn } from './utils/cn';
+import { hasVocalLevels } from './utils/vocalLevels';
 import { focusQuietly } from './utils/focusIntent';
 import { pageTitle } from './utils/pageTitle';
 import { SHARE_PARAMS, sharedIntakeQuery, urlWithoutShareParams } from './utils/sharedLink';
@@ -328,7 +329,8 @@ export const AppContent: React.FC = () => {
     projectId: isStudioReady ? project?.id : undefined,
     initialSemitones: project?.semitones ?? 0,
     initialGuideVolume: project?.guide_volume ?? 0,
-    onApplied: ({ semitones, guideVolume, masterAudioUrl }) =>
+    initialVocalLevels: project?.vocal_levels,
+    onApplied: ({ semitones, guideVolume, vocalLevels, masterAudioUrl }) =>
       setProject((prev) =>
         prev
           ? {
@@ -336,11 +338,23 @@ export const AppContent: React.FC = () => {
               master_audio_url: masterAudioUrl ?? prev.master_audio_url,
               semitones,
               guide_volume: guideVolume,
+              vocal_levels: hasVocalLevels(vocalLevels) ? vocalLevels : null,
+              // The mix just made is the one the lines and levels ask for
+              master_stale: false,
             }
           : prev
       ),
     onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to apply audio mix'),
   });
+
+  // Lines saved or re-timed under a mix that follows them (a singer kept by their lines), or
+  // vocal parts that came back: the server marks the master stale and the mix is asked for
+  // again, once per mark, so a mix that fails is not retried in a loop.
+  const masterStale = Boolean(isStudioReady && project?.master_stale);
+  const remixNow = mix.applyNow;
+  useEffect(() => {
+    if (masterStale) void remixNow();
+  }, [masterStale, project?.id, remixNow]);
 
   const handleOpenMixSettings = useCallback(() => {
     setActiveWorkspaceTab('mix');
@@ -401,7 +415,12 @@ export const AppContent: React.FC = () => {
         body: JSON.stringify({ lines: updatedLines }),
       });
       if (res.ok) {
-        setProject((prev) => (prev ? { ...prev, lines: updatedLines } : null));
+        // A mix whose vocals follow the lines was made for the lines as they were
+        const saved = await res.json().catch(() => ({}));
+        const masterStale = saved?.master_stale === true;
+        setProject((prev) =>
+          prev ? { ...prev, lines: updatedLines, master_stale: masterStale } : null
+        );
       } else {
         throw new Error(await readApiError(res, 'Server returned non-200 while saving lyrics'));
       }
@@ -431,6 +450,7 @@ export const AppContent: React.FC = () => {
         body: JSON.stringify({
           semitones: mix.semitones,
           guide_volume: mix.guideVolume,
+          ...(hasVocalLevels(mix.vocalLevels) ? { vocal_levels: mix.vocalLevels } : {}),
           aspect_ratio: theme.aspectRatio,
           // The upload only when it is the chosen background (it outranks every style)
           custom_bg_id: style === 'custom' ? theme.customBgId || undefined : undefined,

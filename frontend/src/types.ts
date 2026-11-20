@@ -133,6 +133,19 @@ export interface AlignmentCapabilities {
   license_note?: string;
 }
 
+/** Which of a song's vocals stay in the mix; a level that is not set follows the guide
+ * vocal. See utils/vocalLevels. */
+export interface VocalLevels {
+  /** The backing vocals, once the vocals are split into lead and backing parts. */
+  backing?: number;
+  /** 'lines': the lead takes each singer's level during that singer's lyric lines. */
+  by?: 'lines';
+  singer1?: number;
+  singer2?: number;
+  /** Lines sung together, and lines of two singers that overlap. */
+  both?: number;
+}
+
 /** A split of the vocal stem into parts: lead and backing vocals. */
 export type VocalSplitKind = 'lead_backing';
 
@@ -314,6 +327,10 @@ export interface ProjectState {
   is_synced?: boolean;
   semitones: number;
   guide_volume: number;
+  /** Which vocal parts and singers stay in the mix, beyond the guide level. */
+  vocal_levels?: VocalLevels | null;
+  /** The lines moved under a mix that follows them: the mix must be asked for again. */
+  master_stale?: boolean;
   vocal_range?: VocalRangeData;
   chords?: ChordSegment[];
   created_by?: string;

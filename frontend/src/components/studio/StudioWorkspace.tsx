@@ -25,6 +25,7 @@ import { FirstSongCard } from './FirstSongCard';
 import { useWorkspaceTabs, workspacePanelProps } from './workspacePanels';
 import { cn } from '../../utils/cn';
 import { isJobActive, vocalSplitBusyReason } from '../../utils/jobs';
+import { singerPartsInLines } from '../../utils/vocalLevels';
 
 export interface StudioWorkspaceProps {
   project: ProjectState;
@@ -96,9 +97,16 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
     (split) => split.id === 'lead_backing'
   );
   const splitBusyReason = vocalSplitBusyReason(project);
-  const vocalSplit = useMemo(
-    () =>
-      quality
+  const singerParts = useMemo(() => singerPartsInLines(project.lines), [project.lines]);
+  const vocalParts = useMemo(
+    () => ({
+      levels: mix.vocalLevels,
+      guideVolume: mix.guideVolume,
+      onLevelsChange: mix.setVocalLevels,
+      onLevelsCommit: mix.commitVocalLevels,
+      singerParts,
+      partNames: project.part_names,
+      split: quality
         ? {
             split: project.vocal_splits?.lead_backing,
             job: project.vocal_split_job,
@@ -108,7 +116,20 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
             busyReason: splitBusyReason,
           }
         : undefined,
-    [quality, project.vocal_splits, project.vocal_split_job, splitCapability, splitBusyReason]
+    }),
+    [
+      mix.vocalLevels,
+      mix.guideVolume,
+      mix.setVocalLevels,
+      mix.commitVocalLevels,
+      singerParts,
+      project.part_names,
+      quality,
+      project.vocal_splits,
+      project.vocal_split_job,
+      splitCapability,
+      splitBusyReason,
+    ]
   );
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
   // The cover art exactly as exports draw it (the larger, panned still for the drift)
@@ -244,7 +265,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
                   ? 'Wait for the vocal split to finish first'
                   : null
             }
-            vocalSplit={vocalSplit}
+            vocalParts={vocalParts}
           />
         </div>
 
