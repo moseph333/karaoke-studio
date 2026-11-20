@@ -23,7 +23,7 @@ from backend.project_store import (
     save_projects,
     save_projects_throttled,
 )
-from backend.services import remote_separation
+from backend.services import remote_separation, vocal_parts
 from backend.services.album_audio import file_chapters
 from backend.services.album_tracks import ALBUM_MIN_SECONDS
 from backend.services.downloader import AlbumDetected, DownloadCancelled
@@ -96,6 +96,12 @@ def separate_project_stems(
         )
         if provenance:
             proj["separation"] = provenance
+        # Parts split for a song that shares these stems, or before this intake was retried
+        splits = vocal_parts.splits_summary(Path(stems["vocals_path"]).parent)
+        if splits:
+            proj["vocal_splits"] = splits
+        else:
+            proj.pop("vocal_splits", None)
         save_projects()
     return stems
 

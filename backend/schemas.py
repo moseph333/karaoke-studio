@@ -561,6 +561,14 @@ class ReseparateRequest(BaseModel):
         return parse_separation_quality(v)
 
 
+class VocalSplitRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    kind: Literal["lead_backing"] = Field(
+        default="lead_backing",
+        description="Which split of the vocal stem to make: 'lead_backing'",
+    )
+
+
 # ==============================================================================
 # Vocal Range & Smart Key Recommendation Schemas
 # ==============================================================================

@@ -61,4 +61,4 @@ def test_every_long_job_site_uses_run_job():
                 first_args.append(ast.unparse(node.args[0]))
 
     # Everything but the render warm-up (one quick request) is a long job
-    assert sorted(first_args) == ["remote_render.warm_up"] + ["run_job"] * 5
+    assert sorted(first_args) == ["remote_render.warm_up"] + ["run_job"] * 6
