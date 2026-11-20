@@ -2,8 +2,9 @@
  * Audio Controls Component (Mix inspector)
  *
  * Key transposition with the Smart Key Recommender, guide vocal blend, the instrumental
- * source and, when the app wires it, which model made the stems (with a way to re-make
- * them). Playback itself lives in the TransportDock.
+ * source and, when the app wires them, splitting the vocals into lead and backing parts and
+ * which model made the stems (with a way to re-make them). Playback itself lives in the
+ * TransportDock.
  *
  * Works controlled (App passes `semitones` / `guideVolume` from useMixController) or
  * standalone, where it keeps its own state and applies changes through `onMixChange`
@@ -19,6 +20,7 @@ import { parseMediaError, type AudioPlaybackError } from '../utils/audioErrors';
 import { PitchTranspositionControl } from './audio/PitchTranspositionControl';
 import { GuideVocalControl } from './audio/GuideVocalControl';
 import { AudioMixActionsBar } from './audio/AudioMixActionsBar';
+import { VocalSplitControl, type VocalSplitControlProps } from './audio/VocalSplitControl';
 import { VocalRangeRecommenderModal } from './audio/VocalRangeRecommenderModal';
 import { StemQualityControl } from './quality/StemQualityControl';
 import { Panel } from './ui/Panel';
@@ -71,6 +73,8 @@ export interface AudioControlsProps {
   onCancelReseparation?: () => void;
   /** Why the stems cannot be re-made right now, if another job is busy. */
   stemsBusyReason?: string | null;
+  /** Splitting the vocals into lead and backing parts (shown when set). */
+  vocalSplit?: VocalSplitControlProps;
   className?: string;
 }
 
@@ -98,6 +102,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   onImproveStems,
   onCancelReseparation,
   stemsBusyReason,
+  vocalSplit,
   className,
 }) => {
   const { toast } = useToast();
@@ -296,6 +301,8 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           onGuideVolumeChange={updateGuide}
           onGuideVolumeCommit={commitGuide}
         />
+
+        {vocalSplit && <VocalSplitControl {...vocalSplit} />}
 
         <AudioMixActionsBar
           uploadingInst={uploadingInst}

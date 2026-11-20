@@ -17,13 +17,14 @@ import type { UseStudioAudioReturn } from '../../hooks/useStudioAudio';
 import type { UseMixControllerReturn } from '../../hooks/useMixController';
 import type { UseVisualThemeReturn } from '../../hooks/useVisualTheme';
 import type { UseQualityJobsReturn } from '../../hooks/useQualityJobs';
+import { useCapabilities } from '../../hooks/useCapabilities';
 import type { GuideAction } from '../../utils/guideActions';
 import { checkupFixCount } from '../../utils/songCheckup';
 import { normalizeSingerRole } from '../stage/singers';
 import { FirstSongCard } from './FirstSongCard';
 import { useWorkspaceTabs, workspacePanelProps } from './workspacePanels';
 import { cn } from '../../utils/cn';
-import { isJobActive } from '../../utils/jobs';
+import { isJobActive, vocalSplitBusyReason } from '../../utils/jobs';
 
 export interface StudioWorkspaceProps {
   project: ProjectState;
@@ -45,7 +46,7 @@ export interface StudioWorkspaceProps {
   onToggleVisualizer: () => void;
   showChordBar: boolean;
   onToggleChordBar: () => void;
-  /** Stem re-separation and lyric re-alignment jobs. */
+  /** Stem re-separation, lyric re-alignment and vocal split jobs. */
   quality?: UseQualityJobsReturn;
   /** The getting-started card for a first-time user, and where its steps go. */
   showFirstSongCard?: boolean;
@@ -88,6 +89,27 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
     [firstSongCard, project]
   );
   const syncJobActive = isJobActive(project.sync_job);
+  const vocalSplitActive = isJobActive(project.vocal_split_job);
+  // Whether this server can split vocals, asked only where a split can be started
+  const capabilities = useCapabilities(Boolean(quality));
+  const splitCapability = capabilities?.separation.vocal_parts?.find(
+    (split) => split.id === 'lead_backing'
+  );
+  const splitBusyReason = vocalSplitBusyReason(project);
+  const vocalSplit = useMemo(
+    () =>
+      quality
+        ? {
+            split: project.vocal_splits?.lead_backing,
+            job: project.vocal_split_job,
+            capability: splitCapability,
+            onSplit: () => void quality.startVocalSplit('lead_backing'),
+            onCancel: () => void quality.cancelVocalSplit(),
+            busyReason: splitBusyReason,
+          }
+        : undefined,
+    [quality, project.vocal_splits, project.vocal_split_job, splitCapability, splitBusyReason]
+  );
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
   // The cover art exactly as exports draw it (the larger, panned still for the drift)
   const artworkUrl = project.thumbnail_url
@@ -216,8 +238,13 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
             onImproveStems={quality?.openReseparate}
             onCancelReseparation={quality ? () => void quality.cancelReseparation() : undefined}
             stemsBusyReason={
-              syncJobActive ? 'Wait for the lyric re-alignment to finish first' : null
+              syncJobActive
+                ? 'Wait for the lyric re-alignment to finish first'
+                : vocalSplitActive
+                  ? 'Wait for the vocal split to finish first'
+                  : null
             }
+            vocalSplit={vocalSplit}
           />
         </div>
 
