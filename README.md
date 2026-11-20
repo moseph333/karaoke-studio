@@ -36,8 +36,8 @@ A first song, start to finish. The studio shows the same steps on a card the fir
 2. **Wait a few minutes.** The screen shows the stage it is on and a time estimate. You can leave: the song keeps processing and waits in your library. Best quality on a CPU, and a server's first Balanced or Best song (it downloads its model once), take longer.
 3. **Play and sing.** Press <kbd>Space</kbd>. The words light up as they are sung.
 4. **Check the lyrics.** Everything is automatic, so now and then a lyric is wrong or a line is out of time. The **check-up** button next to the song's title counts what looks off and takes you to each fix; **Needs review** above the timeline shows the lines the aligner was unsure about.
-5. **Set your key.** In **Audio mix**, shift the key to your range (the tempo stays the same) and turn the guide vocal up to sing along with the original singer.
-6. **Make a video.** **Export** renders a 1080p karaoke video of the song as it is now: its lyrics and timing, the key and guide vocal from Audio mix, and the look and format (16:9 or 9:16 Shorts) from Stage look. Most songs take a few minutes, and you can close the dialog while it renders. The same dialog has subtitle files, the stems and a chord sheet.
+5. **Set your key.** In **Audio mix**, shift the key to your range (the tempo stays the same) and turn the guide vocal up to sing along with the original singer. The same panel can leave the backing vocals or your duet partner in while the voice you sing is removed.
+6. **Make a video.** **Export** renders a 1080p karaoke video of the song as it is now: its lyrics and timing, the key and the vocals kept in Audio mix, and the look and format (16:9 or 9:16 Shorts) from Stage look. Most songs take a few minutes, and you can close the dialog while it renders. The same dialog has subtitle files, the stems and a chord sheet.
 
 ### Putting the video on YouTube
 
@@ -95,7 +95,14 @@ Spotify, Apple Music, TIDAL and Deezer can't be downloaded from, so a link to on
 
 When a preset cannot run (extras not installed, weights unavailable, out of memory), separation falls back Best → Balanced → Fast and the studio says why. The Mix panel shows which model made a song's stems, and **Improve** re-makes them at another quality while the song stays playable. You can also re-time the lyrics against the new vocals or detect the chords again.
 
-**Cloud GPU (optional).** On a slow CPU, Balanced and Best can run on a [Modal](https://modal.com) GPU instead: deploy `gpu/modal_app.py` with `modal deploy gpu/modal_app.py` (again after updates that change it, the RoFormer or aligner workers, `backend/requirements-ml.txt` or the fonts, as 2.8 did by adding Japanese fonts to the cloud renders), then set `SEPARATION_REMOTE=modal` and a Modal token in `.env`. The GPU runs the same RoFormer worker, progress streams back to the studio, and a 4-minute song takes about a minute on Balanced and two on Best, billed per second. The same GPU job also runs the neural lyric aligner's listening pass over the new vocals, so lyric sync on your server skips its slowest step (a few seconds of GPU time instead of minutes of CPU). If the GPU service is unreachable or no GPU is free within `SEPARATION_REMOTE_QUEUE_SEC`, the song falls back to Fast on your server.
+**Vocal parts: choose which voices stay in.** Removing the vocals removes every voice at once. Two things in the **Audio mix** panel decide voice by voice, for a song that is already made:
+
+- **Backing vocals.** **Split** next to Backing vocals separates the harmonies from the lead with one more model (a Mel-Band RoFormer "karaoke" model, `SEPARATION_LEAD_MODEL`). It runs in the background like **Improve**, where Balanced and Best run (your server with the ML extras, or the cloud GPU), and takes about as long as a Balanced separation; there is no Fast equivalent, so a server that cannot run RoFormer says so on the button. Afterwards Backing vocals has its own level, from removed to fully in, next to the guide vocal, which then sets the lead alone.
+- **Lead by singer.** For a song whose lines are assigned to more than one singer (**Duet parts** in the timeline), **By singer** gives each singer a level, and one for lines sung together: turn your own part down and your partner's up. It needs no model, because it follows the lyric lines: each singer's level starts just before their line and holds a second past its last word, with short fades. That also means it cannot tell two people apart while they sing at the same time; those lines follow the Sung together level. For a man and a woman who do, **Male / female** splits the lead into a stem for each voice with another model (`SEPARATION_DUET_MODEL`) and gives each its own level. How well that works depends on the song.
+
+The levels are part of the song like its key: videos are rendered with them, a mix that follows the lyric lines is made again when you save lines that moved, and the Export dialog adds the lead, backing, male and female stems of a song that has them. Re-making a song's stems with **Improve** deletes the parts that were split from the old vocals (the job says so); split them again and the levels you had set apply again. Each split adds two WAV files the size of the vocal stem.
+
+**Cloud GPU (optional).** On a slow CPU, Balanced and Best can run on a [Modal](https://modal.com) GPU instead: deploy `gpu/modal_app.py` with `modal deploy gpu/modal_app.py` (again after updates that change it, the RoFormer or aligner workers, `backend/requirements-ml.txt` or the fonts, as 2.8 did by adding Japanese fonts to the cloud renders, and as the male/female vocal split needs: until the app is deployed again that split fails on the cloud GPU, while the lead/backing split and every separation keep working), then set `SEPARATION_REMOTE=modal` and a Modal token in `.env`. The GPU runs the same RoFormer worker, progress streams back to the studio, and a 4-minute song takes about a minute on Balanced and two on Best, billed per second. The same GPU job also runs the neural lyric aligner's listening pass over the new vocals, so lyric sync on your server skips its slowest step (a few seconds of GPU time instead of minutes of CPU). If the GPU service is unreachable or no GPU is free within `SEPARATION_REMOTE_QUEUE_SEC`, the song falls back to Fast on your server.
 
 ### Lyrics and sync
 
@@ -118,8 +125,8 @@ When a preset cannot run (extras not installed, weights unavailable, out of memo
 - Word-sweep or line-by-line highlighting, backing vocals and ad-libs (words in parentheses) drawn smaller and in italics, Japanese and other CJK lyrics swept per character with their romaji underneath, instrumental countdowns, an end card with the song's title after the last line, a beat visualizer (<kbd>V</kbd>), a transposing chord bar (<kbd>C</kbd>) and a fullscreen TV stage (<kbd>F</kbd>).
 - Five app themes (**Afterglow**, **Basement Flyer**, **Reel-to-Reel '74**, **Midnight KTV Booth**, **Monolith Press**) and nine stage presets, with custom colours and font scale. Stage settings are remembered.
 - Backgrounds: the song's **cover art**, still or **drifting** in a slow pan, **aurora** (soft orbs in the preset's colours), a **spectrum** that rises with the music, a **plain** colour, or your own image or looping video. The stage draws each one the way the video does: cover art is the export's own image, and moving backgrounds follow the song, so a paused stage shows the video's frame at that moment.
-- Key shift (−12 to +12 semitones) and speed (0.5× to 1.5×), a 0–50% guide vocal, and the **Smart Key Recommender** that fits a song's vocal range to your voice. Final renders shift pitch with Rubber Band at high quality, keeping the guide vocal's formants.
-- Exports: 1080p60 MP4 (16:9 or 9:16 Shorts) with the lyric sweep drawn for every frame, an **♪ Instrumental ♪** label through long gaps and the song's title through the outro (both with the countdown), lines too long for two rows drawn smaller, `.lrc` and `.ass` subtitles, WAV stems, chord and lyric sheets, and a YouTube metadata kit. **Render Again** makes a new video after you change the lyrics, key or look, and **Try Again** retries a failed render. A failed or cancelled render keeps the previous video, and the 16:9 and 9:16 videos are kept side by side, so rendering one format never replaces the other.
+- Key shift (−12 to +12 semitones) and speed (0.5× to 1.5×), a 0–50% guide vocal, levels for the backing vocals and for each singer of a duet (see **Vocal parts** under [Stem separation](#stem-separation)), and the **Smart Key Recommender** that fits a song's vocal range to your voice. Final renders shift pitch with Rubber Band at high quality, keeping the guide vocal's formants.
+- Exports: 1080p60 MP4 (16:9 or 9:16 Shorts) with the lyric sweep drawn for every frame, an **♪ Instrumental ♪** label through long gaps and the song's title through the outro (both with the countdown), lines too long for two rows drawn smaller, `.lrc` and `.ass` subtitles, WAV stems (with the vocal parts of a song that has been split), chord and lyric sheets, and a YouTube metadata kit. **Render Again** makes a new video after you change the lyrics, key or look, and **Try Again** retries a failed render. A failed or cancelled render keeps the previous video, and the 16:9 and 9:16 videos are kept side by side, so rendering one format never replaces the other.
 - **Cloud export (optional).** With `RENDER_REMOTE=modal` (same Modal deployment and token as the cloud GPU), MP4s render on a 16-core Modal CPU: about 1¼ minutes for a 3-minute song, around a cent each. Opening the Export dialog starts a cloud CPU in the background, so Modal finds one while you choose the options, and it stays ready for 2 minutes after each export. While the export waits for a CPU, the studio counts the seconds. If it is unavailable or fails, the export renders on your server.
 
 ### On your phone
@@ -185,17 +192,19 @@ Nothing is downloaded until it is first needed. Downloads go to persistent model
 | Demucs `htdemucs` | Fast | about 80 MB | MIT | `TORCH_HOME` |
 | Mel-Band RoFormer | Balanced, Best | about 0.9 GB | third-party, see the model card | `AUDIO_SEPARATOR_MODEL_DIR` |
 | BS-RoFormer | Best | about 0.6 GB | third-party, see the model card | `AUDIO_SEPARATOR_MODEL_DIR` |
+| Mel-Band RoFormer Karaoke | splitting lead and backing vocals, on request | see the model card | third-party, see the model card | `AUDIO_SEPARATOR_MODEL_DIR` |
+| BS-RoFormer Male-Female | splitting a male and a female voice, on request | see the model card | third-party, see the model card | `AUDIO_SEPARATOR_MODEL_DIR` |
 | MMS forced aligner | neural lyric alignment | about 1.2 GB | **CC-BY-NC 4.0 (non-commercial)** | `ALIGNMENT_MODEL_DIR` |
 
 - Review the model licences before any commercial use. The MMS aligner is for non-commercial use only. Set `ALIGNMENT_ENGINE=dsp` to never use it.
 - To prefetch everything (for example while building an image, or for an offline server), run:
 
   ```bash
-  python -m backend.tools.fetch_models --separation all --alignment
+  python -m backend.tools.fetch_models --separation all --vocal-parts all --alignment
   ```
 
   Then set `SEPARATION_ALLOW_DOWNLOAD=0` and `ALIGNMENT_ALLOW_DOWNLOAD=0` so the server never downloads at run time.
-- `GET /api/capabilities` reports what the server can run right now and why not; the intake picker and the re-align dialogs use it.
+- `GET /api/capabilities` reports what the server can run right now and why not; the intake picker, the vocal split buttons and the re-align dialogs use it.
 
 ## Keyboard shortcuts
 
@@ -263,6 +272,7 @@ cp .env.example .env
 | `SEPARATION_ALLOW_DOWNLOAD` | `1` | Download RoFormer weights on first use |
 | `AUDIO_SEPARATOR_MODEL_DIR` | `<data dir>/models/audio-separator` | Where RoFormer weights live |
 | `SEPARATION_BALANCED_MODEL` / `SEPARATION_BEST_MODELS` | built-in | Override the RoFormer checkpoints |
+| `SEPARATION_LEAD_MODEL` / `SEPARATION_DUET_MODEL` | built-in | The models that split a song's vocals into lead and backing, and the lead into a male and a female voice (audio-separator model file names) |
 | `SEPARATION_TIMEOUT_SEC` / `SEPARATION_STALL_SEC` | `7200` / `900` | Stop a separation that runs too long or prints nothing |
 | `INSTALL_ML_EXTRAS` | Docker `1`, `run.sh` `0` | Install the RoFormer extras |
 | `SEPARATION_REMOTE` | *(empty)* | `modal` runs Balanced and Best on a Modal GPU (deploy `gpu/modal_app.py` first) |
