@@ -6,7 +6,9 @@ run that a server restart cut off are deleted at startup). Afterwards the
 vocal range is refreshed, chords are re-detected when asked (or when there are none), the
 words are re-timed when asked (lines timed by hand keep their timing when the job has
 ``keep_manual``, and lyrics saved in the meantime are kept instead), the current master mix
-is rendered again, and the mixes of the old stems are deleted (prune_mix_cache).
+is rendered again, and the mixes of the old stems are deleted (prune_mix_cache). Vocal parts
+split from the old vocals (see backend.vocal_split) are deleted with them, and the job says
+so in a warning: they are not split again here.
 
 The job's state lives on the project as ``separation_job`` so the studio can poll it. The
 song can be deleted, or replaced by a new intake of the same link, while the job runs, so
@@ -36,6 +38,7 @@ from backend.project_store import (
     save_projects_throttled,
 )
 from backend.realignment import lines_fingerprint
+from backend.services import vocal_parts
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.separation_presets import PRESET_LABELS
 from backend.services.separator import write_provenance
@@ -215,8 +218,15 @@ def run_reseparation(project_id: str, job_id: str) -> None:
             cancel_event=cancel_event,
         )
         update(progress=_SEPARATION_SHARE, detail="Swapping in the new stems…", eta_seconds=None)
-        _swap_in(project_id, job_id, result, stems_dir / audio_id, audio_id)
+        dropped = _swap_in(project_id, job_id, result, stems_dir / audio_id, audio_id)
         swapped = True
+        if dropped:
+            _add_warning(
+                project_id,
+                job_id,
+                update,
+                "The vocal parts were split from the old vocals, so split them again",
+            )
         _refresh_song(main_mod, project_id, job_id, update)
 
         with PROJECTS_LOCK:
@@ -282,13 +292,21 @@ def _record_failure(
         save_projects()
 
 
-def _swap_in(project_id: str, job_id: str, result: dict, target_dir: Path, audio_id: str) -> None:
+def _add_warning(project_id: str, job_id: str, update, text: str) -> None:
+    """Adds a sentence to the ones the finished job shows after its result."""
+    known = list(_live(project_id, job_id)[1].get("warnings") or [])
+    update(warnings=[*known, text])
+
+
+def _swap_in(project_id: str, job_id: str, result: dict, target_dir: Path, audio_id: str) -> bool:
     """Moves the staged stems, and their separation.json record, over the song's stems and
-    points the project at them."""
+    points the project at them. True when vocal parts split from the old vocals went with
+    them."""
     target_dir.mkdir(parents=True, exist_ok=True)
     vocals, instrumental = target_dir / "vocals.wav", target_dir / "instrumental.wav"
     # The old record goes first, so it never describes the new stems (even after a crash)
     write_provenance(target_dir, None)
+    dropped = bool(vocal_parts.drop_parts(target_dir))
     os.replace(result["vocals_path"], vocals)
     os.replace(result["instrumental_path"], instrumental)
     # Dated now, not when the engine wrote them, so mixes made from the old stems are stale
@@ -308,7 +326,9 @@ def _swap_in(project_id: str, job_id: str, result: dict, target_dir: Path, audio
             proj["instrumental_url"] = _versioned(
                 f"/static/stems/{audio_id}/instrumental.wav", version
             )
+        dropped = proj.pop("vocal_splits", None) is not None or dropped
         save_projects()
+    return dropped
 
 
 def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
@@ -358,12 +378,17 @@ def _refresh_song(main_mod, project_id: str, job_id: str, update) -> None:
                     current.update(lines=result.lines, sync_report=result.report)
                     save_projects()
             if edited:
-                update(warnings=["The lyrics were edited while re-timing, so your edits were kept"])
+                _add_warning(
+                    project_id,
+                    job_id,
+                    update,
+                    "The lyrics were edited while re-timing, so your edits were kept",
+                )
         except ReseparationCancelled:
             raise
         except Exception as exc:
             logger.warning(f"Re-timing lyrics after re-separation failed: {exc}")
-            update(warnings=["Word timing was kept: re-timing failed"])
+            _add_warning(project_id, job_id, update, "Word timing was kept: re-timing failed")
 
     update(progress=96, detail="Mixing the master track…")
     proj = _live(project_id, job_id)[0]

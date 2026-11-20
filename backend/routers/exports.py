@@ -13,6 +13,7 @@ from backend.background_jobs import BUSY_PIPELINE_STATES
 from backend.export_utils import build_content_disposition
 from backend.project_analysis import StemMissing, chords_for_export, ensure_chords, estimated_key
 from backend.project_store import get_project_or_404
+from backend.services import vocal_parts
 from backend.services.ass_generator import VISUAL_THEMES, export_title
 from backend.services.chord_detector import (
     NO_CHORD_VALUES,
@@ -509,12 +510,20 @@ def _get_audio_media_type(ext: str) -> str:
     return f"audio/{ext_lower}"
 
 
+# Stem types of the vocal parts a song can be split into: the part and its file name suffix
+_PART_STEMS = {
+    "lead_vocals": ("lead", " (Lead Vocals)"),
+    "backing_vocals": ("backing", " (Backing Vocals)"),
+}
+
+
 @router.get("/api/project/{project_id}/export/audio/{stem_type}")
 def export_project_audio_stem(
     project_id: str,
     stem_type: str,
 ):
-    """Export audio stem (instrumental, vocals, or master mix) with RFC 6266 attachment header."""
+    """Export an audio stem (instrumental, vocals, master mix, or a vocal part the song has
+    been split into) with RFC 6266 attachment header."""
     proj = get_project_or_404(project_id)
 
     if proj.get("status") not in ("ready",):
@@ -529,10 +538,18 @@ def export_project_audio_stem(
     elif stem_type == "master":
         file_path = proj.get("master_audio_path")
         suffix = " (Master Mix)"
+    elif stem_type in _PART_STEMS:
+        part, suffix = _PART_STEMS[stem_type]
+        vocals_path = proj.get("vocals_path")
+        parts = vocal_parts.current_parts(Path(vocals_path).parent) if vocals_path else {}
+        file_path = str(parts[part]) if part in parts else None
     else:
+        allowed = ", ".join(
+            f"'{name}'" for name in ("instrumental", "vocals", "master", *_PART_STEMS)
+        )
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid stem type '{stem_type}'. Allowed: 'instrumental', 'vocals', 'master'",
+            detail=f"Invalid stem type '{stem_type}'. Allowed: {allowed}",
         )
 
     if not file_path or not os.path.isfile(file_path) or os.path.getsize(file_path) == 0:

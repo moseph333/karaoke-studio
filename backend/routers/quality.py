@@ -1,5 +1,6 @@
-"""Quality API: re-making a finished song's stems at another preset, re-timing one lyric
-line, and cancelling a background lyric re-alignment (queued by POST .../realign-lyrics)."""
+"""Quality API: re-making a finished song's stems at another preset, splitting its vocals
+into parts, re-timing one lyric line, and cancelling a background lyric re-alignment (queued
+by POST .../realign-lyrics)."""
 
 import logging
 import os
@@ -8,7 +9,7 @@ import threading
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import ValidationError
 
-from backend import realignment
+from backend import realignment, vocal_split
 from backend.background_jobs import run_job
 from backend.project_store import PROJECTS_LOCK, ensure_free_space, find_project, save_projects
 from backend.reseparation import (
@@ -19,7 +20,13 @@ from backend.reseparation import (
     run_reseparation,
     settle_stale_job,
 )
-from backend.schemas import LyricLineSchema, RealignLineRequest, ReseparateRequest
+from backend.schemas import (
+    LyricLineSchema,
+    RealignLineRequest,
+    ReseparateRequest,
+    VocalSplitRequest,
+)
+from backend.services import vocal_parts
 from backend.services.line_realign import LineRealignError, realign_line
 from backend.update_drain import ensure_not_draining
 
@@ -45,6 +52,7 @@ def reseparate(project_id: str, req: ReseparateRequest, bg_tasks: BackgroundTask
         pid = proj.get("id", project_id)
         settle_stale_job(proj, main_mod.active_cancellations)
         realignment.settle_stale_job(proj, main_mod.active_cancellations)
+        vocal_split.settle_stale_job(proj, main_mod.active_cancellations)
         reason = conflict_reason(proj)
         if reason:
             raise HTTPException(status_code=409, detail=reason)
@@ -85,6 +93,59 @@ def cancel_reseparation(project_id: str):
             cancel_key(proj.get("id", project_id)), threading.Event()
         ).set()
         return {"status": "cancelling", "job": proj["separation_job"]}
+
+
+@router.post("/api/project/{project_id}/vocal-split", status_code=202)
+def split_vocals(project_id: str, req: VocalSplitRequest, bg_tasks: BackgroundTasks):
+    """Queues a split of the song's vocal stem into parts; the song is unchanged until both
+    parts are ready."""
+    import backend.main as main_mod
+
+    with PROJECTS_LOCK:
+        proj = _project_or_404(project_id)
+        pid = proj.get("id", project_id)
+        settle_stale_job(proj, main_mod.active_cancellations)
+        realignment.settle_stale_job(proj, main_mod.active_cancellations)
+        vocal_split.settle_stale_job(proj, main_mod.active_cancellations)
+        reason = vocal_split.conflict_reason(proj)
+        if reason:
+            raise HTTPException(status_code=409, detail=reason)
+        vocals_path = proj.get("vocals_path")
+        if not vocals_path or not os.path.isfile(vocals_path) or os.path.getsize(vocals_path) == 0:
+            raise HTTPException(
+                status_code=400, detail="The vocal stem is missing, so it cannot be split"
+            )
+        ready, why = vocal_parts.split_status(req.kind)
+        if not ready:
+            raise HTTPException(
+                status_code=400,
+                detail=f"This server cannot split the vocals: {why or 'RoFormer is unavailable'}",
+            )
+        # After the 404, 409 and 400 checks, which still answer first on a low disk
+        ensure_free_space()
+        ensure_not_draining()
+        job = vocal_split.create_job(proj, req.kind)
+        main_mod.active_cancellations[vocal_split.cancel_key(pid)] = threading.Event()
+        save_projects()
+
+    bg_tasks.add_task(run_job, vocal_split.run_vocal_split, pid, job["id"])
+    return {"status": "queued", "job": job}
+
+
+@router.post("/api/project/{project_id}/vocal-split/cancel")
+def cancel_vocal_split(project_id: str):
+    import backend.main as main_mod
+
+    with PROJECTS_LOCK:
+        proj = _project_or_404(project_id)
+        if vocal_split.settle_stale_job(proj, main_mod.active_cancellations):
+            save_projects()
+        if not vocal_split.job_is_active(proj):
+            return {"status": "idle", "job": proj.get("vocal_split_job")}
+        main_mod.active_cancellations.setdefault(
+            vocal_split.cancel_key(proj.get("id", project_id)), threading.Event()
+        ).set()
+        return {"status": "cancelling", "job": proj["vocal_split_job"]}
 
 
 @router.post("/api/project/{project_id}/realign-lyrics/cancel")

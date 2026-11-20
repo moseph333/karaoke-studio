@@ -14,7 +14,7 @@ from typing import Literal
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 
-from backend import realignment
+from backend import realignment, vocal_split
 from backend.album_pipeline import ALBUM_STATUS
 from backend.background_jobs import (
     BUSY_PIPELINE_STATES,
@@ -115,12 +115,15 @@ STATUS_FIELDS = (
     "video_url",
     "separation_job",
     "sync_job",
+    "vocal_split_job",
+    "vocal_splits",
 )
 
 
 def _settle_stale_fields(proj: dict, active_cancellations: dict) -> bool:
     """Ends every job on the song that a previous server process left running (the intake, a
-    render, a re-separation, a background re-alignment), which would otherwise poll forever.
+    render, a re-separation, a background re-alignment, a vocal split), which would otherwise
+    poll forever.
     True if any changed. Call with PROJECTS_LOCK held."""
     # Every settler runs, none short-circuits the others
     settled = [
@@ -128,6 +131,7 @@ def _settle_stale_fields(proj: dict, active_cancellations: dict) -> bool:
         settle_orphaned_render(proj, active_cancellations),
         settle_stale_job(proj, active_cancellations),
         realignment.settle_stale_job(proj, active_cancellations),
+        vocal_split.settle_stale_job(proj, active_cancellations),
     ]
     return any(settled)
 
@@ -681,7 +685,11 @@ def realign_lyrics(
         )
 
     with PROJECTS_LOCK:
-        if realignment.settle_stale_job(proj, main_mod.active_cancellations):
+        settled = [
+            realignment.settle_stale_job(proj, main_mod.active_cancellations),
+            vocal_split.settle_stale_job(proj, main_mod.active_cancellations),
+        ]
+        if any(settled):
             save_projects()
         if req.background:
             reason = realignment.conflict_reason(proj)
@@ -1074,6 +1082,7 @@ def delete_project(project_id: str):
         f"{pid}_render",
         reseparation_cancel_key(pid),
         realignment.cancel_key(pid),
+        vocal_split.cancel_key(pid),
     }
     if tid:
         cancel_keys.add(tid)

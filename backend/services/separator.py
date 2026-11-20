@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from backend.config import STEMS_DIR
-from backend.services import remote_separation
+from backend.services import remote_separation, vocal_parts
 from backend.services.process_watchdog import (
     ProcessWatchdog,
     duration_text,
@@ -368,6 +368,8 @@ class AudioSeparator:
         # Move the stems to their standard paths directly under track_id. The old record goes
         # first, so a crash part-way leaves stems that count as Fast rather than over-claimed
         write_provenance(target_dir, None)
+        # Parts split from the vocals being replaced describe a stem that is gone
+        vocal_parts.drop_parts(target_dir)
         os.replace(found_vocals, vocals_target)
         os.replace(found_instrumental, instrumental_target)
         self._purge_work_dirs(target_dir)
