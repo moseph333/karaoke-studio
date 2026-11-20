@@ -1,12 +1,21 @@
 /**
- * Background quality jobs on the open song: re-making its stems at another preset and
- * re-aligning its lyrics. Starting a job puts it on the project right away, so polling picks
- * it up; when a job finishes the user gets a toast with the outcome.
+ * Background quality jobs on the open song: re-making its stems at another preset,
+ * re-aligning its lyrics and splitting its vocals into parts. Starting a job puts it on the
+ * project right away, so polling picks it up; when a job finishes the user gets a toast with
+ * the outcome.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { apiFetch, readApiError } from '../api';
-import type { LyricLine, ProjectState, SeparationJob, SeparationPreset, SyncJob } from '../types';
+import type {
+  LyricLine,
+  ProjectState,
+  SeparationJob,
+  SeparationPreset,
+  SyncJob,
+  VocalSplitJob,
+  VocalSplitKind,
+} from '../types';
 import { PRESET_NAMES } from '../utils/quality';
 import { useToast } from './useToast';
 import { isActiveJobStatus } from '../utils/jobs';
@@ -41,9 +50,14 @@ export interface UseQualityJobsReturn {
   cancelReseparation: () => Promise<void>;
   startBackgroundRealign: (request: BackgroundRealignRequest) => Promise<SyncJob>;
   cancelRealign: () => Promise<void>;
+  /** Starts a split of the vocal stem; a refusal (busy song, a server that cannot run the
+   * model) is shown as a toast with the server's reason. */
+  startVocalSplit: (kind?: VocalSplitKind) => Promise<void>;
+  cancelVocalSplit: () => Promise<void>;
 }
 
-type JobField = 'separation_job' | 'sync_job';
+type JobField = 'separation_job' | 'sync_job' | 'vocal_split_job';
+type AnyJob = SeparationJob | SyncJob | VocalSplitJob;
 
 async function postJson(url: string, body?: unknown) {
   const res = await apiFetch(url, {
@@ -59,7 +73,7 @@ async function postJson(url: string, body?: unknown) {
 }
 
 /** Toasts once when a job seen running finishes (not for jobs already finished on load). */
-function useJobOutcomeToast(job: SeparationJob | SyncJob | null | undefined, fallback: string) {
+function useJobOutcomeToast(job: AnyJob | null | undefined, fallback: string) {
   const { toast } = useToast();
   const seen = useRef<{ id: string; status: string } | null>(null);
 
@@ -92,9 +106,10 @@ export function useQualityJobs({
 
   useJobOutcomeToast(project?.separation_job, 'Stem re-separation finished');
   useJobOutcomeToast(project?.sync_job, 'Lyric re-alignment finished');
+  useJobOutcomeToast(project?.vocal_split_job, 'Vocal split finished');
 
   const putJob = useCallback(
-    (field: JobField, job: SeparationJob | SyncJob | null | undefined) => {
+    (field: JobField, job: AnyJob | null | undefined) => {
       if (!job) return;
       setProject((current) =>
         current && current.id === projectId ? { ...current, [field]: job } : current
@@ -152,6 +167,30 @@ export function useQualityJobs({
     }
   }, [projectId, putJob, toast]);
 
+  const startVocalSplit = useCallback(
+    async (kind: VocalSplitKind = 'lead_backing') => {
+      if (!projectId) return;
+      try {
+        const data = await postJson(`/api/project/${projectId}/vocal-split`, { kind });
+        putJob('vocal_split_job', data.job);
+        toast.info('Splitting the lead and backing vocals. The song stays playable.');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not split the vocals', 8000);
+      }
+    },
+    [projectId, putJob, toast]
+  );
+
+  const cancelVocalSplit = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const data = await postJson(`/api/project/${projectId}/vocal-split/cancel`);
+      putJob('vocal_split_job', data.job);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not cancel the vocal split');
+    }
+  }, [projectId, putJob, toast]);
+
   const openReseparate = useCallback(() => setReseparateOpen(true), []);
   const closeReseparate = useCallback(() => setReseparateOpen(false), []);
 
@@ -165,6 +204,8 @@ export function useQualityJobs({
       cancelReseparation,
       startBackgroundRealign,
       cancelRealign,
+      startVocalSplit,
+      cancelVocalSplit,
     }),
     [
       isReseparateOpen,
@@ -174,6 +215,8 @@ export function useQualityJobs({
       cancelReseparation,
       startBackgroundRealign,
       cancelRealign,
+      startVocalSplit,
+      cancelVocalSplit,
     ]
   );
 }

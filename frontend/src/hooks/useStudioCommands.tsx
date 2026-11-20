@@ -33,6 +33,7 @@ import {
   Trash2,
   Undo,
   Upload,
+  Users,
   Volume2,
   VolumeX,
   X,
@@ -61,7 +62,7 @@ import type { UseQualityJobsReturn } from './useQualityJobs';
 import { stemsLabel } from '../utils/quality';
 import { checkupFixCount } from '../utils/songCheckup';
 import { focusWorkspacePanel } from '../components/studio/workspacePanels';
-import { isActiveJobStatus } from '../utils/jobs';
+import { isActiveJobStatus, vocalSplitBusyReason } from '../utils/jobs';
 
 export interface UseStudioCommandsOptions {
   project: ProjectState | null;
@@ -350,6 +351,29 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
           'demucs',
         ],
         run: quality.openReseparate,
+      });
+    }
+
+    // Vocal parts: split the backing vocals from the lead, or stop a split
+    if (quality && isActiveJobStatus(project.vocal_split_job?.status)) {
+      add({
+        id: 'vocals-split-cancel',
+        title: 'Cancel vocal split',
+        subtitle: project.vocal_split_job?.detail,
+        group: 'Mix',
+        icon: <X />,
+        keywords: ['stop', 'backing', 'lead', 'vocals'],
+        run: () => quality.cancelVocalSplit(),
+      });
+    } else if (quality && !project.vocal_splits?.lead_backing && !vocalSplitBusyReason(project)) {
+      add({
+        id: 'vocals-split',
+        title: 'Split lead and backing vocals',
+        subtitle: 'To keep the backing vocals in the mix',
+        group: 'Mix',
+        icon: <Users />,
+        keywords: ['backing', 'lead', 'vocals', 'harmony', 'harmonies', 'choir', 'stems'],
+        run: () => quality.startVocalSplit('lead_backing'),
       });
     }
 

@@ -133,13 +133,30 @@ export interface AlignmentCapabilities {
   license_note?: string;
 }
 
-/** What this server can run: separation presets and the lyric aligner. */
+/** A split of the vocal stem into parts: lead and backing vocals. */
+export type VocalSplitKind = 'lead_backing';
+
+/** One vocal split as this server reports it (GET /api/capabilities). */
+export interface VocalSplitCapability {
+  id: VocalSplitKind;
+  label: string;
+  model: string;
+  model_label?: string;
+  available: boolean;
+  reason?: string | null;
+  weights_cached?: boolean | null;
+  runs_on?: 'cloud-gpu' | null;
+}
+
+/** What this server can run: separation presets, vocal splits and the lyric aligner. */
 export interface StudioCapabilities {
   separation: {
     default: SeparationPreset;
     effective_default: SeparationPreset;
     downloads_allowed: boolean;
     presets: SeparationPresetInfo[];
+    /** Missing on servers from before vocal splits. */
+    vocal_parts?: VocalSplitCapability[];
   };
   alignment: AlignmentCapabilities;
 }
@@ -161,6 +178,34 @@ export interface SeparationJob {
   eta_seconds?: number | null;
   error?: string | null;
   warnings?: string[];
+  created_at?: number;
+  finished_at?: number | null;
+  elapsed_seconds?: number;
+}
+
+/** How a song's vocal parts were made (recorded by the server when the split ran). */
+export interface VocalSplitInfo {
+  kind?: VocalSplitKind;
+  label?: string;
+  model?: string;
+  model_label?: string;
+  elapsed_seconds?: number;
+  split_at?: number;
+}
+
+/** The splits a song's vocals have: the parts of each can be mixed and downloaded. */
+export type VocalSplits = Partial<Record<VocalSplitKind, VocalSplitInfo>>;
+
+/** A vocal split running in the background while the song stays usable. */
+export interface VocalSplitJob {
+  id: string;
+  status: BackgroundJobStatus;
+  kind: VocalSplitKind;
+  label?: string;
+  progress: number;
+  detail?: string;
+  eta_seconds?: number | null;
+  error?: string | null;
   created_at?: number;
   finished_at?: number | null;
   elapsed_seconds?: number;
@@ -291,6 +336,9 @@ export interface ProjectState {
   lyric_timing?: LyricTiming;
   separation_job?: SeparationJob | null;
   sync_job?: SyncJob | null;
+  vocal_split_job?: VocalSplitJob | null;
+  /** The parts the song's vocals have been split into, if any. */
+  vocal_splits?: VocalSplits | null;
   youtube_package?: {
     title: string;
     description: string;
