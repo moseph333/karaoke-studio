@@ -23,6 +23,7 @@ from typing import Any
 from backend.background_jobs import SYNC_JOB, job_active, release_cancel_event
 from backend.background_jobs import conflict_reason as job_conflict
 from backend.errors import public_error
+from backend.master_audio import mark_master_stale
 from backend.project_analysis import refresh_youtube_package
 from backend.project_store import (
     PROJECTS_LOCK,
@@ -99,6 +100,8 @@ def store_aligned_lines(proj: dict, lines: list[dict]) -> None:
     """Puts newly timed lines on a song, stretching its duration to fit them and refreshing
     its YouTube chapters. Call with PROJECTS_LOCK held."""
     proj["lines"] = lines
+    # A mix whose vocals follow the lines was made for the lines as they were
+    mark_master_stale(proj)
     if lines:
         max_end = max((float(line.get("end_time", 0.0)) for line in lines), default=0.0)
         # A stored duration can be None: yt-dlp does not know every video's length

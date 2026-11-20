@@ -29,6 +29,8 @@ from backend.config import OUTPUT_DIR, STEMS_DIR
 from backend.master_audio import (  # noqa: F401 (the cache helpers are imported from here too)
     MIX_CACHE_MARKER,
     MIX_CACHE_VERSION,
+    make_master_mix,
+    mark_master_stale,
     master_fields,
     mix_cache_epoch,
     mix_filename,
@@ -571,8 +573,10 @@ def update_lyrics(project_id: str, req: LyricsUpdateRequest):
         proj = get_project_or_404(project_id)
         # A failed save answers an error and puts the old lines back in memory, so a reload
         # shows what projects.json holds instead of an edit the next restart would lose
-        with restore_on_failed_save(proj, ("lines", "duration", "youtube_package")):
+        with restore_on_failed_save(proj, ("lines", "duration", "youtube_package", "master_stale")):
             proj["lines"] = [line.model_dump() for line in req.lines]
+            # A mix whose vocals follow the lines was made for the lines as they were
+            mark_master_stale(proj)
 
             # Recalculate duration if lines expand beyond existing duration
             if req.lines:
@@ -584,7 +588,8 @@ def update_lyrics(project_id: str, req: LyricsUpdateRequest):
             # The YouTube kit's chapters follow the lyrics
             refresh_youtube_package(proj)
             save_projects(strict=True)
-    return {"status": "ok", "lines_count": len(req.lines)}
+        stale = bool(proj.get("master_stale"))
+    return {"status": "ok", "lines_count": len(req.lines), "master_stale": stale}
 
 
 @router.get("/api/project/{project_id}/lyrics/candidates")
@@ -808,25 +813,12 @@ def mix_audio(project_id: str, req: MixRequest):
         raise HTTPException(status_code=400, detail="Instrumental stem not ready yet")
 
     track_id = proj.get("track_id") or proj.get("id") or "track"
-    output_filename = mix_filename(track_id, req.semitones, req.guide_volume)
+    vocal_levels = req.vocal_levels.stored() if req.vocal_levels else {}
 
-    # Key / guide changes revisit the same few combinations: reuse renders that are
-    # still newer than their stems instead of re-running FFmpeg.
-    sources = [inst_path]
-    if req.guide_volume > 0.001 and proj.get("vocals_path"):
-        sources.append(proj["vocals_path"])
+    # Key / guide changes revisit the same few combinations: a render that is still newer
+    # than its stems is reused instead of re-running FFmpeg
     output_dir = getattr(main_mod, "OUTPUT_DIR", OUTPUT_DIR)
-    master_path = reusable_mix_path(output_dir, output_filename, sources)
-    if master_path:
-        logger.info(f"Reusing cached mix {output_filename} for project {project_id}")
-    else:
-        master_path = main_mod.audio_mixer.mix_and_shift(
-            instrumental_path=proj["instrumental_path"],
-            vocals_path=proj.get("vocals_path"),
-            semitones=req.semitones,
-            guide_volume=req.guide_volume,
-            output_filename=output_filename,
-        )
+    master_path = make_master_mix(proj, req.semitones, req.guide_volume, vocal_levels)
 
     # Outside the lock: making the streamed copy can run an AAC encode
     fields = master_fields(master_path)
@@ -835,11 +827,25 @@ def mix_audio(project_id: str, req: MixRequest):
         # that is no longer stored
         proj = get_project_or_404(project_id)
         with restore_on_failed_save(
-            proj, ("master_audio_path", "master_audio_url", "semitones", "guide_volume")
+            proj,
+            (
+                "master_audio_path",
+                "master_audio_url",
+                "semitones",
+                "guide_volume",
+                "vocal_levels",
+                "master_stale",
+            ),
         ):
             proj.update(fields)
             proj["semitones"] = req.semitones
             proj["guide_volume"] = req.guide_volume
+            if vocal_levels:
+                proj["vocal_levels"] = vocal_levels
+            else:
+                proj.pop("vocal_levels", None)
+            # Lines saved while this mix was being made may have moved under it
+            mark_master_stale(proj)
             save_projects(strict=True)
 
     # Only once the new master is saved, and outside the lock: keeps the song's most recently

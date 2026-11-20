@@ -15,6 +15,7 @@ from pydantic import (
 
 from backend.services.media_links import UnusableLink, parse_media_link, supported_sites_sentence
 from backend.services.separation_presets import PRESET_IDS, normalize_preset
+from backend.services.vocal_mix import normalize_levels
 from backend.shared_assets import load
 
 
@@ -380,6 +381,31 @@ class ProjectChordsResponse(BaseModel):
     )
 
 
+def _part_level(description: str) -> Any:
+    return Field(default=None, ge=0.0, le=1.0, allow_inf_nan=False, description=description)
+
+
+class VocalLevels(BaseModel):
+    """Which of a song's vocals stay in the mix (see backend.services.vocal_mix). A level
+    that is not set takes the guide vocal's."""
+
+    model_config = ConfigDict(extra="ignore")
+    backing: float | None = _part_level(
+        "Level of the backing vocals, once the vocals are split into lead and backing"
+    )
+    by: Literal["lines"] | None = Field(
+        default=None,
+        description="'lines': the lead takes each singer's level during that singer's lines",
+    )
+    singer1: float | None = _part_level("Level of the lead during Singer 1's lines")
+    singer2: float | None = _part_level("Level of the lead during Singer 2's lines")
+    both: float | None = _part_level("Level of the lead during lines sung together")
+
+    def stored(self) -> dict[str, Any]:
+        """What a song keeps: only what was set, rounded as the mix names it."""
+        return normalize_levels(self.model_dump(exclude_none=True))
+
+
 class MixRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     semitones: int = Field(
@@ -394,6 +420,10 @@ class MixRequest(BaseModel):
         le=1.0,
         allow_inf_nan=False,
         description="Guide vocal blend level (0.0 to 1.0)",
+    )
+    vocal_levels: VocalLevels | None = Field(
+        default=None,
+        description="Which vocal parts stay in the mix, and each singer's level",
     )
 
 
@@ -411,6 +441,10 @@ class RenderRequest(BaseModel):
         le=1.0,
         allow_inf_nan=False,
         description="Guide vocal blend level (0.0 to 1.0)",
+    )
+    vocal_levels: VocalLevels | None = Field(
+        default=None,
+        description="Which vocal parts stay in the mix, and each singer's level",
     )
     aspect_ratio: Literal["16:9", "9:16"] = Field(
         default="16:9",
