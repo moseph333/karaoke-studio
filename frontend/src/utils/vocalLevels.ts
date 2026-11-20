@@ -4,13 +4,21 @@
  *
  * `backing` is the level of the backing vocals once the vocals are split into lead and
  * backing parts. With `by: 'lines'` the lead takes a level per singer during that singer's
- * lyric lines. A level that is not set follows the guide vocal.
+ * lyric lines; with `by: 'voices'` it is the male and the female voice it was split into,
+ * each at its level. A level that is not set follows the guide vocal.
  */
 
 import type { LyricLine, SingerRole, VocalLevels } from '../types';
 import { normalizeSingerRole } from '../components/stage/singers';
 
-export const VOCAL_LEVEL_KEYS = ['backing', 'singer1', 'singer2', 'both'] as const;
+export const VOCAL_LEVEL_KEYS = [
+  'backing',
+  'singer1',
+  'singer2',
+  'both',
+  'male',
+  'female',
+] as const;
 export type VocalLevelKey = (typeof VOCAL_LEVEL_KEYS)[number];
 export const SINGER_ROLES: readonly SingerRole[] = ['singer1', 'singer2', 'both'];
 
@@ -27,7 +35,7 @@ export function cleanVocalLevels(levels?: VocalLevels | null): VocalLevels {
     const level = clampLevel(levels[key]);
     if (level !== undefined) clean[key] = level;
   }
-  if (levels.by === 'lines') clean.by = 'lines';
+  if (levels.by === 'lines' || levels.by === 'voices') clean.by = levels.by;
   return clean;
 }
 
@@ -77,6 +85,18 @@ export function divideBySinger(
   const next: VocalLevels = { ...levels, by: 'lines' };
   for (const part of parts) next[part] = levels[part] ?? clampLevel(guideVolume) ?? 0;
   return cleanVocalLevels(next);
+}
+
+/** Levels that divide the lead into its male and female voice, each starting at the guide
+ * vocal's level unless it already has one. */
+export function divideByVoice(levels: VocalLevels, guideVolume: number): VocalLevels {
+  const start = clampLevel(guideVolume) ?? 0;
+  return cleanVocalLevels({
+    ...levels,
+    by: 'voices',
+    male: levels.male ?? start,
+    female: levels.female ?? start,
+  });
 }
 
 /** Levels with the lead as one voice again; the singers' levels are kept for next time. */

@@ -68,6 +68,33 @@ const STATES = {
       split={{ job, onSplit: vi.fn(), onCancel: vi.fn() }}
     />
   ),
+  'male and female voices, not split yet': (
+    <VocalPartsControl
+      {...base}
+      levels={{ by: 'voices' }}
+      singerParts={['singer1', 'singer2']}
+      split={{ onSplit: vi.fn() }}
+      voiceSplit={{
+        onSplit: vi.fn(),
+        capability: {
+          id: 'male_female',
+          label: 'Male and female voices',
+          model: 'duet.ckpt',
+          available: false,
+          reason: 'Modal credentials are missing (MODAL_TOKEN_ID and MODAL_TOKEN_SECRET)',
+        },
+      }}
+    />
+  ),
+  'male and female voices, split': (
+    <VocalPartsControl
+      {...base}
+      levels={{ by: 'voices', male: 0, female: 1, backing: 0.5 }}
+      singerParts={['singer1', 'singer2', 'both']}
+      split={{ split: { model: 'm' }, onSplit: vi.fn() }}
+      voiceSplit={{ split: { model: 'duet' }, onSplit: vi.fn() }}
+    />
+  ),
   'split, with the backing level': (
     <VocalPartsControl
       {...base}

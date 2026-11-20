@@ -3,6 +3,7 @@ import type { LyricLine, SingerRole } from '../../types';
 import {
   cleanVocalLevels,
   divideBySinger,
+  divideByVoice,
   hasVocalLevels,
   singerPartsInLines,
   undivide,
@@ -23,7 +24,12 @@ describe('vocal levels', () => {
     expect(
       cleanVocalLevels({ backing: 1.7, singer1: -1, both: 0.333, by: 'lines', extra: 1 } as never)
     ).toEqual({ backing: 1, singer1: 0, both: 0.33, by: 'lines' });
-    expect(cleanVocalLevels({ backing: Number.NaN, by: 'voices' } as never)).toEqual({});
+    expect(cleanVocalLevels({ backing: Number.NaN, by: 'choir' } as never)).toEqual({});
+    expect(cleanVocalLevels({ by: 'voices', male: 0, female: 2 })).toEqual({
+      by: 'voices',
+      male: 0,
+      female: 1,
+    });
     expect(cleanVocalLevels(null)).toEqual({});
     expect(cleanVocalLevels(undefined)).toEqual({});
   });
@@ -93,6 +99,20 @@ describe('dividing the lead by singer', () => {
     expect(divideBySinger({ backing: 1, singer2: 0.8 }, ['singer1', 'singer2', 'both'], 0)).toEqual(
       { backing: 1, by: 'lines', singer1: 0, singer2: 0.8, both: 0 }
     );
+  });
+
+  it('divides by voice the same way, and switches between the two ways', () => {
+    expect(divideByVoice({ backing: 1 }, 0.25)).toEqual({
+      backing: 1,
+      by: 'voices',
+      male: 0.25,
+      female: 0.25,
+    });
+    const bySinger = { by: 'lines' as const, singer1: 0, singer2: 1 };
+    const byVoice = divideByVoice({ ...bySinger, female: 0.9 }, 0.1);
+    expect(byVoice).toEqual({ by: 'voices', singer1: 0, singer2: 1, male: 0.1, female: 0.9 });
+    expect(vocalLevelsKey(byVoice)).not.toBe(vocalLevelsKey(bySinger));
+    expect(undivide(byVoice)).toEqual({ singer1: 0, singer2: 1, male: 0.1, female: 0.9 });
   });
 
   it('goes back to one level without forgetting the singers', () => {

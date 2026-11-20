@@ -386,16 +386,29 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
         keywords: ['stop', 'backing', 'lead', 'vocals'],
         run: () => quality.cancelVocalSplit(),
       });
-    } else if (quality && !project.vocal_splits?.lead_backing && !vocalSplitBusyReason(project)) {
-      add({
-        id: 'vocals-split',
-        title: 'Split lead and backing vocals',
-        subtitle: 'To keep the backing vocals in the mix',
-        group: 'Mix',
-        icon: <Users />,
-        keywords: ['backing', 'lead', 'vocals', 'harmony', 'harmonies', 'choir', 'stems'],
-        run: () => quality.startVocalSplit('lead_backing'),
-      });
+    } else if (quality && !vocalSplitBusyReason(project)) {
+      if (!project.vocal_splits?.lead_backing) {
+        add({
+          id: 'vocals-split',
+          title: 'Split lead and backing vocals',
+          subtitle: 'To keep the backing vocals in the mix',
+          group: 'Mix',
+          icon: <Users />,
+          keywords: ['backing', 'lead', 'vocals', 'harmony', 'harmonies', 'choir', 'stems'],
+          run: () => quality.startVocalSplit('lead_backing'),
+        });
+      }
+      if (!project.vocal_splits?.male_female) {
+        add({
+          id: 'vocals-split-voices',
+          title: 'Split male and female voices',
+          subtitle: 'To keep one voice of a duet in the mix',
+          group: 'Mix',
+          icon: <Users />,
+          keywords: ['duet', 'man', 'woman', 'partner', 'vocals', 'singer', 'stems'],
+          run: () => quality.startVocalSplit('male_female'),
+        });
+      }
     }
 
     // Song

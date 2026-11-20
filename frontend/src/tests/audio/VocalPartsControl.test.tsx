@@ -138,6 +138,78 @@ describe('Lead by singer', () => {
   });
 });
 
+describe('Lead by male and female voice', () => {
+  const voiceSplit = { onSplit: vi.fn() };
+
+  it('is a third choice when the app can split the voices, even for one singer', () => {
+    setup({ singerParts: ['singer1'], voiceSplit });
+    expect(screen.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'One level',
+      'Male / female',
+    ]);
+  });
+
+  it('sits next to By singer for a song with two singers', () => {
+    setup({ singerParts: DUET, voiceSplit });
+    expect(screen.getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'One level',
+      'By singer',
+      'Male / female',
+    ]);
+  });
+
+  it('offers the split first, and keeps the levels for when the voices are there', () => {
+    const onSplit = vi.fn();
+    const { onCommit } = setup({ singerParts: DUET, voiceSplit: { onSplit } });
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Male / female' }));
+
+    expect(onCommit).toHaveBeenLastCalledWith({ by: 'voices', male: 0.2, female: 0.2 });
+    expect(screen.queryByRole('slider', { name: 'Male voice level' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 4, name: 'Male and female voices' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Split male and female voices' }));
+    expect(onSplit).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the split running in its own row', () => {
+    setup(
+      {
+        singerParts: DUET,
+        voiceSplit: {
+          onSplit: vi.fn(),
+          onCancel: vi.fn(),
+          job: { id: 'j', status: 'running', kind: 'male_female', progress: 30 },
+        },
+      },
+      { by: 'voices' }
+    );
+    expect(screen.getByRole('progressbar', { name: 'Voice split progress' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel voice split' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Split male and female voices' })).toBeNull();
+  });
+
+  it('has a level for each voice once they are split', () => {
+    const { onCommit } = setup(
+      { singerParts: DUET, voiceSplit: { split: { model: 'duet', source: 'lead' } } },
+      { by: 'voices', male: 0, female: 0.2 }
+    );
+    expect(screen.getByRole('slider', { name: 'Male voice level' })).toHaveAttribute(
+      'aria-valuetext',
+      'Male voice removed'
+    );
+
+    slide('Female voice level', 1);
+
+    expect(onCommit).toHaveBeenLastCalledWith({ by: 'voices', male: 0, female: 1 });
+    expect(screen.queryByRole('slider', { name: 'Singer 1 level' })).toBeNull();
+  });
+
+  it('is not offered when the app does not wire the split', () => {
+    setup({ singerParts: ['singer1'] }, { by: 'voices', male: 0 });
+    expect(screen.queryByTestId('vocal-singers')).toBeNull();
+  });
+});
+
 describe('The guide vocal next to the vocal parts', () => {
   const controls = (levels: VocalLevels, singerParts: SingerRole[]) =>
     render(
@@ -157,6 +229,29 @@ describe('The guide vocal next to the vocal parts', () => {
 
   it('is switched off while the lead is set per singer', () => {
     controls({ by: 'lines', singer1: 0, singer2: 1 }, DUET);
+    expect(screen.getByRole('slider', { name: 'Guide vocal volume level' })).toBeDisabled();
+  });
+
+  it('is switched off while the two voices have their own levels, once they are split', () => {
+    const parts = (split?: { model: string }) => (
+      <AudioControls
+        projectId="p1"
+        semitones={0}
+        guideVolume={0.2}
+        vocalParts={{
+          levels: { by: 'voices', male: 0, female: 1 },
+          guideVolume: 0.2,
+          onLevelsChange: vi.fn(),
+          onLevelsCommit: vi.fn(),
+          singerParts: ['singer1'],
+          voiceSplit: { split, onSplit: vi.fn() },
+        }}
+      />
+    );
+    const { rerender } = render(parts());
+    // Not split yet: the levels wait, and the guide still sets the lead
+    expect(screen.getByRole('slider', { name: 'Guide vocal volume level' })).toBeEnabled();
+    rerender(parts({ model: 'duet' }));
     expect(screen.getByRole('slider', { name: 'Guide vocal volume level' })).toBeDisabled();
   });
 

@@ -3,15 +3,16 @@
  *
  * Which vocals stay in the backing track beyond the guide vocal: the backing vocals, once
  * the vocals are split into lead and backing (with the split's own button and progress, see
- * VocalSplitControl), and, for a song whose lines hold more than one singer, a level for the
- * lead during each singer's lines. Levels update live while dragging and are committed
- * (re-mixed) on release.
+ * VocalSplitControl), and the lead divided by singer: for a song whose lines hold more than
+ * one singer, a level for the lead during each singer's lines; or a level for its male and
+ * its female voice, once those are split. Levels update live while dragging and are
+ * committed (re-mixed) on release.
  */
 
 import React from 'react';
 import { Mic2 } from 'lucide-react';
 import type { PartNames, SingerRole, VocalLevels } from '../../types';
-import { divideBySinger, undivide } from '../../utils/vocalLevels';
+import { divideBySinger, divideByVoice, undivide } from '../../utils/vocalLevels';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { Slider } from '../ui/Slider';
 import { VocalSplitControl, type VocalSplitControlProps } from './VocalSplitControl';
@@ -30,7 +31,11 @@ export interface VocalPartsControlProps {
   partNames?: PartNames | null;
   /** The lead/backing split: its state, button and progress. */
   split?: VocalSplitControlProps;
+  /** The male/female split of the lead; the "Male / female" choice is offered when set. */
+  voiceSplit?: VocalSplitControlProps;
 }
+
+type LevelKey = 'backing' | 'male' | 'female' | SingerRole;
 
 const PART_DEFAULT_NAMES: Record<SingerRole, string> = {
   singer1: 'Singer 1',
@@ -38,11 +43,12 @@ const PART_DEFAULT_NAMES: Record<SingerRole, string> = {
   both: 'Sung together',
 };
 
-const SINGER_MODES = [
-  { value: 'whole', label: 'One level' },
-  { value: 'lines', label: 'By singer' },
-] as const;
-type SingerMode = (typeof SINGER_MODES)[number]['value'];
+type SingerMode = 'whole' | 'lines' | 'voices';
+const MODE_LABELS: Record<SingerMode, string> = {
+  whole: 'One level',
+  lines: 'By singer',
+  voices: 'Male / female',
+};
 
 interface PartLevelProps {
   name: string;
@@ -82,37 +88,49 @@ export const VocalPartsControl: React.FC<VocalPartsControlProps> = ({
   singerParts,
   partNames,
   split,
+  voiceSplit,
 }) => {
   const hasSingers = singerParts.length > 1;
-  const mode: SingerMode = hasSingers && levels.by === 'lines' ? 'lines' : 'whole';
-  const levelOf = (key: 'backing' | SingerRole) => levels[key] ?? guideVolume;
-  const withLevel = (key: 'backing' | SingerRole, value: number): VocalLevels => ({
-    ...levels,
-    [key]: value,
-  });
+  const modes: SingerMode[] = [
+    'whole',
+    ...(hasSingers ? (['lines'] as const) : []),
+    ...(voiceSplit ? (['voices'] as const) : []),
+  ];
+  const mode: SingerMode =
+    levels.by === 'voices' && voiceSplit
+      ? 'voices'
+      : levels.by === 'lines' && hasSingers
+        ? 'lines'
+        : 'whole';
+  const levelOf = (key: LevelKey) => levels[key] ?? guideVolume;
+  const withLevel = (key: LevelKey, value: number): VocalLevels => ({ ...levels, [key]: value });
+  const level = (key: LevelKey, name: string) => (
+    <PartLevel
+      key={key}
+      name={name}
+      testId={`vocal-level-${key}`}
+      value={levelOf(key)}
+      onChange={(value) => onLevelsChange(withLevel(key, value))}
+      onCommit={(value) => onLevelsCommit(withLevel(key, value))}
+    />
+  );
 
   const chooseMode = (next: SingerMode) => {
     if (next === mode) return;
-    onLevelsCommit(
-      next === 'lines' ? divideBySinger(levels, singerParts, guideVolume) : undivide(levels)
-    );
+    if (next === 'lines') onLevelsCommit(divideBySinger(levels, singerParts, guideVolume));
+    else if (next === 'voices') onLevelsCommit(divideByVoice(levels, guideVolume));
+    else onLevelsCommit(undivide(levels));
   };
 
   return (
     <div className="flex flex-col gap-5" data-testid="vocal-parts">
       {split && (
-        <VocalSplitControl {...split}>
-          <PartLevel
-            name="Backing vocals"
-            testId="vocal-level-backing"
-            value={levelOf('backing')}
-            onChange={(value) => onLevelsChange(withLevel('backing', value))}
-            onCommit={(value) => onLevelsCommit(withLevel('backing', value))}
-          />
+        <VocalSplitControl {...split} kind="lead_backing">
+          {level('backing', 'Backing vocals')}
         </VocalSplitControl>
       )}
 
-      {hasSingers && (
+      {modes.length > 1 && (
         <section
           aria-labelledby="vocal-singers-heading"
           className="space-y-2.5"
@@ -129,33 +147,36 @@ export const VocalPartsControl: React.FC<VocalPartsControlProps> = ({
             <SegmentedControl
               value={mode}
               onChange={chooseMode}
-              options={SINGER_MODES}
+              options={modes.map((value) => ({ value, label: MODE_LABELS[value] }))}
               semantics="radio"
               ariaLabel="Lead vocal level"
               size="sm"
               testId="vocal-singers-mode"
             />
           </div>
-          {mode === 'lines' ? (
+          {mode === 'lines' && (
             <>
-              {singerParts.map((part) => (
-                <PartLevel
-                  key={part}
-                  name={partNames?.[part]?.trim() || PART_DEFAULT_NAMES[part]}
-                  testId={`vocal-level-${part}`}
-                  value={levelOf(part)}
-                  onChange={(value) => onLevelsChange(withLevel(part, value))}
-                  onCommit={(value) => onLevelsCommit(withLevel(part, value))}
-                />
-              ))}
+              {singerParts.map((part) =>
+                level(part, partNames?.[part]?.trim() || PART_DEFAULT_NAMES[part])
+              )}
               <p className="text-[11px] text-theme-text-muted">
                 Each level applies during that singer&apos;s lyric lines, in place of the guide
                 vocal.
               </p>
             </>
-          ) : (
+          )}
+          {mode === 'voices' && voiceSplit && (
+            <VocalSplitControl {...voiceSplit} kind="male_female" nested>
+              {level('male', 'Male voice')}
+              {level('female', 'Female voice')}
+              <p className="text-[11px] text-theme-text-muted">
+                Each voice has its own level, in place of the guide vocal.
+              </p>
+            </VocalSplitControl>
+          )}
+          {mode === 'whole' && (
             <p className="text-[11px] text-theme-text-muted">
-              Choose By singer to keep one singer&apos;s voice in and sing the other part.
+              Divide the lead to keep one singer&apos;s voice in and sing the other part.
             </p>
           )}
         </section>
