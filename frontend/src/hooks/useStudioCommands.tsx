@@ -101,6 +101,11 @@ const GUIDE_LEVELS = [
   { id: 'loud', label: 'loud', value: MIX_GUIDE_MAX },
 ] as const;
 
+const BACKING_LEVELS = [
+  { id: 'off', label: 'removed', value: 0 },
+  { id: 'full', label: 'kept in', value: 1 },
+] as const;
+
 const current = (isCurrent: boolean) => (isCurrent ? 'Current' : undefined);
 
 function songStatus(project: ProjectState): string | undefined {
@@ -352,6 +357,22 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
         ],
         run: quality.openReseparate,
       });
+    }
+
+    // Vocal parts: the backing vocals' level once they are split from the lead
+    if (project.vocal_splits?.lead_backing) {
+      const backing = mix.vocalLevels.backing ?? mix.guideVolume;
+      BACKING_LEVELS.forEach((level) =>
+        add({
+          id: `backing:${level.id}`,
+          title: `Backing vocals ${level.label}`,
+          subtitle: current(Math.abs(backing - level.value) < 0.01),
+          group: 'Mix',
+          icon: <Users />,
+          keywords: ['vocals', 'harmony', 'harmonies', 'choir', 'keep', 'remove'],
+          run: () => mix.commitVocalLevels({ ...mix.vocalLevels, backing: level.value }),
+        })
+      );
     }
 
     // Vocal parts: split the backing vocals from the lead, or stop a split

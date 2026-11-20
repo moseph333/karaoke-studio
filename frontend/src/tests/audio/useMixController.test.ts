@@ -67,6 +67,7 @@ describe('useMixController', () => {
     expect(onApplied).toHaveBeenCalledWith({
       semitones: 3,
       guideVolume: 0,
+      vocalLevels: {},
       masterAudioUrl: '/static/output/p_mix.wav',
     });
     expect(result.current.appliedSemitones).toBe(3);

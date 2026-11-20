@@ -2,9 +2,9 @@
  * Audio Controls Component (Mix inspector)
  *
  * Key transposition with the Smart Key Recommender, guide vocal blend, the instrumental
- * source and, when the app wires them, splitting the vocals into lead and backing parts and
- * which model made the stems (with a way to re-make them). Playback itself lives in the
- * TransportDock.
+ * source and, when the app wires them, which vocal parts and singers stay in the mix (with
+ * splitting the vocals into lead and backing) and which model made the stems (with a way to
+ * re-make them). Playback itself lives in the TransportDock.
  *
  * Works controlled (App passes `semitones` / `guideVolume` from useMixController) or
  * standalone, where it keeps its own state and applies changes through `onMixChange`
@@ -20,7 +20,7 @@ import { parseMediaError, type AudioPlaybackError } from '../utils/audioErrors';
 import { PitchTranspositionControl } from './audio/PitchTranspositionControl';
 import { GuideVocalControl } from './audio/GuideVocalControl';
 import { AudioMixActionsBar } from './audio/AudioMixActionsBar';
-import { VocalSplitControl, type VocalSplitControlProps } from './audio/VocalSplitControl';
+import { VocalPartsControl, type VocalPartsControlProps } from './audio/VocalPartsControl';
 import { VocalRangeRecommenderModal } from './audio/VocalRangeRecommenderModal';
 import { StemQualityControl } from './quality/StemQualityControl';
 import { Panel } from './ui/Panel';
@@ -73,8 +73,9 @@ export interface AudioControlsProps {
   onCancelReseparation?: () => void;
   /** Why the stems cannot be re-made right now, if another job is busy. */
   stemsBusyReason?: string | null;
-  /** Splitting the vocals into lead and backing parts (shown when set). */
-  vocalSplit?: VocalSplitControlProps;
+  /** Which vocal parts and singers stay in the mix, and splitting the vocals into lead and
+   * backing (shown when set). */
+  vocalParts?: VocalPartsControlProps;
   className?: string;
 }
 
@@ -102,7 +103,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
   onImproveStems,
   onCancelReseparation,
   stemsBusyReason,
-  vocalSplit,
+  vocalParts,
   className,
 }) => {
   const { toast } = useToast();
@@ -226,6 +227,10 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
     toast.success(`Key set to ${formatSemitones(clamped, 'the original key')}`);
   };
 
+  const leadIsBySinger = Boolean(
+    vocalParts && vocalParts.levels.by === 'lines' && vocalParts.singerParts.length > 1
+  );
+
   const requestRemix = () => {
     if (onRequestRemix) {
       onRequestRemix();
@@ -300,9 +305,11 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
           guideVolume={guideVolume}
           onGuideVolumeChange={updateGuide}
           onGuideVolumeCommit={commitGuide}
+          // The lead is set per singer below: the one guide level has nothing left to set
+          disabled={leadIsBySinger}
         />
 
-        {vocalSplit && <VocalSplitControl {...vocalSplit} />}
+        {vocalParts && <VocalPartsControl {...vocalParts} />}
 
         <AudioMixActionsBar
           uploadingInst={uploadingInst}
