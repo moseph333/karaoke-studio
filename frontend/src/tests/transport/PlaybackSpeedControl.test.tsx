@@ -29,8 +29,9 @@ describe('PlaybackSpeedControl', () => {
     const slowBtn = screen.getByRole('radio', { name: 'Playback speed 0.5x' });
 
     expect(normalBtn).toHaveAttribute('aria-checked', 'true');
-    expect(normalBtn.className).toContain('bg-theme-accent');
-    expect(fastBtn.className).not.toContain('bg-theme-accent ');
+    // The chosen speed is underlined in the text colour
+    expect(normalBtn.className).toContain('border-theme-text ');
+    expect(fastBtn.className).not.toContain('border-theme-text ');
 
     expect(fastBtn).toHaveAttribute('aria-checked', 'false');
     expect(slowBtn).toHaveAttribute('aria-checked', 'false');

@@ -112,7 +112,7 @@ const TransportProgress: React.FC<TransportProgressProps> = ({
     <div className={cn('flex min-w-0 items-center gap-2.5', className)}>
       <span
         data-testid="transport-time"
-        className="w-10 shrink-0 text-right font-mono text-[11px] tabular-nums text-theme-text"
+        className="ks-display w-12 shrink-0 text-right text-[26px] tabular-nums text-theme-text sm:w-14 sm:text-[32px]"
       >
         {formatTime(shownTime)}
       </span>
@@ -130,7 +130,7 @@ const TransportProgress: React.FC<TransportProgressProps> = ({
       />
       <span
         data-testid="transport-duration"
-        className="w-10 shrink-0 font-mono text-[11px] tabular-nums text-theme-text-muted"
+        className="ks-display w-10 shrink-0 text-[22px] tabular-nums text-theme-text-muted sm:w-12"
       >
         {formatTime(duration)}
       </span>
@@ -460,7 +460,8 @@ const TransportDockView: React.FC<TransportDockProps> = ({
               onClick={onTogglePlay}
               aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
               className={cn(
-                'inline-flex h-12 w-12 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center bg-theme-accent text-theme-accent-text transition-transform hover:brightness-110 active:scale-95',
+                // The one lit control of the band: a square yellow block
+                'inline-flex h-12 w-12 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center bg-theme-accent text-theme-accent-text transition-colors hover:bg-theme-accent-hover sm:h-14 sm:w-14',
                 focusRing
               )}
             >
@@ -480,7 +481,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
             onClick={onOpenMixSettings}
             aria-label={`Open mix settings. Active key: ${keyText}, speed: ${speedText}`}
             className={cn(
-              'inline-flex min-h-[44px] md:min-h-[36px] items-center gap-1.5 border border-theme-border-subtle bg-theme-surface-subtle px-2.5 text-xs font-semibold text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-raised',
+              'inline-flex min-h-[44px] md:min-h-[36px] items-center gap-1.5 px-1.5 text-sm font-semibold text-theme-text transition-colors hover:text-theme-accent',
               focusRing
             )}
           >
@@ -489,11 +490,11 @@ const TransportDockView: React.FC<TransportDockProps> = ({
             ) : (
               <SlidersHorizontal className="h-3.5 w-3.5 text-theme-text" aria-hidden="true" />
             )}
-            <span className="font-mono tabular-nums">{isRemixing ? 'Re-pitching…' : keyText}</span>
+            <span className="tabular-nums">{isRemixing ? 'Re-pitching…' : keyText}</span>
             <span className="text-theme-text-muted" aria-hidden="true">
               ·
             </span>
-            <span className="font-mono tabular-nums text-theme-text-muted">{speedText}</span>
+            <span className="tabular-nums text-theme-text-muted">{speedText}</span>
           </button>
           <button
             type="button"
@@ -503,7 +504,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
             aria-controls="transport-extras"
             aria-label={extrasOpen ? 'Hide speed and volume' : 'Show speed and volume'}
             className={cn(
-              'inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text xl:hidden',
+              'inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-theme-text-muted transition-colors hover:text-theme-text xl:hidden',
               focusRing
             )}
           >
