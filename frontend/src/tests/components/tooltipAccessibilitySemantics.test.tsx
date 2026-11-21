@@ -708,7 +708,9 @@ describe('Tooltip Accessibility Semantics & Control Coverage', () => {
         act(() => {
           vi.advanceTimersByTime(200);
         });
-        expect(screen.getByRole('tooltip')).toHaveTextContent(/synchroniz/i);
+        expect(screen.getByRole('tooltip')).toHaveTextContent(
+          /Timed word by word|Timed line by line/
+        );
         fireEvent.mouseLeave(badge);
       });
 

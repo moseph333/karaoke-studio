@@ -227,7 +227,7 @@ describe('Challenger 2 UI Stress Suite: Pitch & Vocal Range', () => {
 
     const dialog = screen.getByRole('dialog');
     // Click inner modal content
-    const title = screen.getByText('Smart Key Recommender');
+    const title = screen.getByText('Suggest a key for my voice');
     fireEvent.click(title);
     expect(onClose).not.toHaveBeenCalled();
 
@@ -251,9 +251,7 @@ describe('Challenger 2 UI Stress Suite: Pitch & Vocal Range', () => {
       />
     );
 
-    expect(
-      screen.getByText(/No singing voice detected on vocal track \(silent or unvoiced stem\)/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No singing was found in the vocals/i)).toBeInTheDocument();
 
     const applyBtn = screen.getByRole('button', { name: /apply transposition/i });
     expect(applyBtn).toBeDisabled();
@@ -291,8 +289,8 @@ describe('Challenger 2 UI Stress Suite: Pitch & Vocal Range', () => {
     // Switch to Custom
     await user.click(screen.getByRole('radio', { name: /^custom$/i }));
 
-    const lowSelect = screen.getByLabelText(/Lowest Comfortable Note/i) as HTMLSelectElement;
-    const highSelect = screen.getByLabelText(/Highest Comfortable Note/i) as HTMLSelectElement;
+    const lowSelect = screen.getByLabelText(/Lowest comfortable note/i) as HTMLSelectElement;
+    const highSelect = screen.getByLabelText(/Highest comfortable note/i) as HTMLSelectElement;
 
     // Change low note to E2 and high note to E4 (Bass range)
     fireEvent.change(lowSelect, { target: { value: 'E2' } });
@@ -317,15 +315,15 @@ describe('Challenger 2 UI Stress Suite: Pitch & Vocal Range', () => {
 
     await user.click(screen.getByRole('radio', { name: /^custom$/i }));
 
-    const lowSelect = screen.getByLabelText(/Lowest Comfortable Note/i) as HTMLSelectElement;
-    const highSelect = screen.getByLabelText(/Highest Comfortable Note/i) as HTMLSelectElement;
+    const lowSelect = screen.getByLabelText(/Lowest comfortable note/i) as HTMLSelectElement;
+    const highSelect = screen.getByLabelText(/Highest comfortable note/i) as HTMLSelectElement;
 
     // Inverted: set lowest to C5 and highest to C3
     fireEvent.change(lowSelect, { target: { value: 'C5' } });
     fireEvent.change(highSelect, { target: { value: 'C3' } });
 
     // Recommendation should gracefully compute without NaN or error
-    expect(screen.getByText(/Recommended Transposition/i)).toBeInTheDocument();
+    expect(screen.getByText(/Suggested key/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /apply transposition/i })).toBeEnabled();
   });
 

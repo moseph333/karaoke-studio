@@ -245,7 +245,7 @@ describe('Sync badge and stems badge', () => {
     expect(badge).toHaveTextContent('86%');
     expect(badge).toHaveTextContent('auto-aligned');
     expect(getLyricSyncFidelity(project).tooltipText).toBe(
-      'High-fidelity word-level karaoke synchronization active · auto-aligned from plain lyrics by the neural aligner · 86% average confidence · 1 line needs review'
+      'Timed word by word · auto-aligned from plain lyrics by the neural aligner · 86% average confidence · 1 line needs review'
     );
     expect(screen.getByTestId('stems-badge')).toHaveTextContent('Fast stems');
   });

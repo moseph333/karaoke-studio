@@ -126,12 +126,12 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
       dataModal="vocal-range-recommender"
     >
       <DialogHeader
-        title="Smart Key Recommender"
+        title="Suggest a key for my voice"
         titleId="vocal-recommender-title"
-        description="Fit this song's vocal peaks into your comfortable singing range"
+        description="Moves the song into the range you sing comfortably"
         descriptionId="vocal-recommender-desc"
         onClose={onClose}
-        closeLabel="Close Smart Key Recommender"
+        closeLabel="Close key suggestion"
       />
 
       <div className="space-y-5">
@@ -139,7 +139,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="flex items-center gap-1.5 font-medium text-theme-text-muted">
               <Mic className="h-4 w-4 text-theme-text" aria-hidden="true" />
-              Detected Song Vocal Range
+              The song's vocal range
             </span>
             {vocalRange?.is_voiced && (
               <span className="tabular-nums text-sm text-theme-text">
@@ -151,7 +151,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
           {vocalRange && vocalRange.is_voiced && vocalRange.lowest_note ? (
             <div className="grid grid-cols-2 gap-2 pt-2 text-xs sm:grid-cols-4">
               <div>
-                <span className={statLabel}>Sung Range</span>
+                <span className={statLabel}>Sung range</span>
                 <span className={cn(statValue, 'text-theme-text')}>
                   {vocalRange.lowest_note} – {vocalRange.highest_note}
                 </span>
@@ -160,35 +160,35 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
                 </span>
               </div>
               <div>
-                <span className={statLabel}>Tessitura</span>
+                <span className={statLabel}>Most notes</span>
                 <span className={statValue}>
                   {vocalRange.tessitura_low_note || vocalRange.lowest_note} –{' '}
                   {vocalRange.tessitura_high_note || vocalRange.highest_note}
                 </span>
-                <span className="block text-xs text-theme-text-muted">Core 70% bounds</span>
+                <span className="block text-xs text-theme-text-muted">The middle 70%</span>
               </div>
               <div>
-                <span className={statLabel}>Median Pitch</span>
+                <span className={statLabel}>Middle pitch</span>
                 <span className={statValue}>{vocalRange.median_note || '-'}</span>
                 <span className="block text-xs text-theme-text-muted">
                   {vocalRange.median_hz ? `~${vocalRange.median_hz.toFixed(0)} Hz` : '-'}
                 </span>
               </div>
               <div>
-                <span className={statLabel}>Current Shift</span>
+                <span className={statLabel}>Key now</span>
                 <span className={statValue}>{formatShift(currentSemitones, '0 (Original)')}</span>
-                <span className="block text-xs text-theme-text-muted">Studio Mix</span>
+                <span className="block text-xs text-theme-text-muted">In the mix</span>
               </div>
             </div>
           ) : vocalRange && !vocalRange.is_voiced ? (
             <div className="flex items-center gap-2 border border-theme-warning p-3 text-xs text-theme-warning">
               <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>No singing voice detected on vocal track (silent or unvoiced stem).</span>
+              <span>No singing was found in the vocals.</span>
             </div>
           ) : (
             <div className="flex flex-col justify-between gap-3 pt-2 sm:flex-row sm:items-center">
               <span className="text-xs text-theme-text-muted">
-                Vocal range analysis has not been performed for this project yet.
+                This song's vocal range has not been measured yet.
               </span>
               {onAnalyzeVocalRange && (
                 <Button
@@ -196,7 +196,6 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
                   size="sm"
                   onClick={onAnalyzeVocalRange}
                   disabled={isAnalyzing}
-                  aria-label="Analyze vocal track"
                   className="min-h-[44px]"
                   leftIcon={
                     <RefreshCw
@@ -205,7 +204,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
                     />
                   }
                 >
-                  {isAnalyzing ? 'Analyzing Stem...' : 'Analyze Vocal Track'}
+                  {isAnalyzing ? 'Measuring…' : 'Measure the vocal range'}
                 </Button>
               )}
             </div>
@@ -213,9 +212,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
         </section>
 
         <section className="space-y-3">
-          <span className="block text-xs font-semibold text-theme-text">
-            Select Your Target Voice Range
-          </span>
+          <span className="block text-xs font-semibold text-theme-text">Your voice</span>
           <SegmentedControl<VoicePreset | 'Custom'>
             semantics="radio"
             ariaLabel="Voice range presets"
@@ -239,7 +236,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
                   htmlFor="custom-low-note"
                   className="mb-1 block text-xs font-medium text-theme-text-muted"
                 >
-                  Lowest Comfortable Note
+                  Lowest comfortable note
                 </label>
                 <select
                   id="custom-low-note"
@@ -259,7 +256,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
                   htmlFor="custom-high-note"
                   className="mb-1 block text-xs font-medium text-theme-text-muted"
                 >
-                  Highest Comfortable Note
+                  Highest comfortable note
                 </label>
                 <select
                   id="custom-high-note"
@@ -281,8 +278,8 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
         {songBounds && (
           <section className="space-y-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-theme-text">Pitch Range Comparison</span>
-              <span className="tabular-nums text-xs text-theme-text-muted">C2 to C6 Compass</span>
+              <span className="font-semibold text-theme-text">Your range and the song's</span>
+              <span className="tabular-nums text-xs text-theme-text-muted">C2 to C6</span>
             </div>
             <div className="space-y-3">
               <div className="relative flex h-12 w-full items-center overflow-hidden bg-theme-surface-raised">
@@ -336,9 +333,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
 
         <section className="flex flex-col justify-between gap-4 border border-theme-accent p-4 sm:flex-row sm:items-center">
           <div className="space-y-1">
-            <span className="block text-xs font-semibold text-theme-text">
-              Recommended Transposition
-            </span>
+            <span className="block text-xs font-semibold text-theme-text">Suggested key</span>
             <div className="flex flex-wrap items-baseline gap-2">
               <span className="tabular-nums text-2xl font-black text-theme-text sm:text-3xl">
                 {recommendedLabel}
@@ -351,7 +346,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
               ) : (
                 <span className="flex items-center gap-1 text-xs font-medium text-theme-warning">
                   <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                  Best fit (song wider than voice)
+                  Closest fit: the song spans more than your range
                 </span>
               )}
             </div>

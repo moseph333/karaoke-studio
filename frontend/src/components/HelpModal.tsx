@@ -37,8 +37,8 @@ interface ShortcutItem {
   /** Keys in order; "+" and "/" render as separators and "Mod" as ⌘ or Ctrl. */
   keys: string[];
   label: string;
-  description: string;
-  scope: string;
+  /** Left out when the label says it all. */
+  description?: string;
 }
 
 interface ShortcutGroup {
@@ -50,95 +50,42 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   {
     title: 'Playback',
     items: [
-      {
-        keys: ['Space'],
-        label: 'Play / Pause',
-        description: 'Play / pause master playback in the studio',
-        scope: 'Studio Workspace',
-      },
-      {
-        keys: ['← / →'],
-        label: 'Seek ±5 Seconds',
-        description: 'Seek backward / forward 5s along playback timeline',
-        scope: 'Studio Workspace',
-      },
-      {
-        keys: ['Shift', '+', '←', '/', '→'],
-        label: 'Fine Seek ±1 Second',
-        description: 'Step backward / forward 1s for precise timing work',
-        scope: 'Studio Workspace',
-      },
-      {
-        keys: ['Alt', '+', '←', '/', '→'],
-        label: 'Jump ±15 Seconds',
-        description: 'Skip backward / forward 15s through long intros and solos',
-        scope: 'Studio Workspace',
-      },
+      { keys: ['Space'], label: 'Play or pause' },
+      { keys: ['← / →'], label: 'Back or forward 5 seconds' },
+      { keys: ['Shift', '+', '←', '/', '→'], label: 'Back or forward 1 second' },
+      { keys: ['Alt', '+', '←', '/', '→'], label: 'Back or forward 15 seconds' },
       {
         keys: ['⏮', '⏯', '⏭'],
-        label: 'Media Keys',
+        label: 'Media keys',
         description:
-          'Play / pause and step through lyric lines from keyboard media keys, headsets or the lock screen',
-        scope: 'System',
+          'Play, pause and move between lines from a keyboard, a headset or the lock screen',
       },
-      {
-        keys: ['M'],
-        label: 'Mute / Unmute',
-        description: 'Toggle master mute / unmute audio playback',
-        scope: 'Studio Workspace',
-      },
+      { keys: ['M'], label: 'Mute or unmute' },
     ],
   },
   {
     title: 'Lyrics',
     items: [
-      {
-        keys: ['[', '/', ']'],
-        label: 'Previous / Next Line',
-        description: 'Jump playback to the start of the previous or next lyric line',
-        scope: 'Studio Workspace',
-      },
-      {
-        keys: ['R'],
-        label: 'Replay Line',
-        description: 'Restart the current lyric line from its first word',
-        scope: 'Studio Workspace',
-      },
+      { keys: ['[', '/', ']'], label: 'Previous or next line' },
+      { keys: ['R'], label: 'Replay the current line' },
       {
         keys: ['T'],
-        label: 'Tap-to-Sync Stamp',
-        description: 'Stamp active line or word timestamp in real time when Tap-to-Sync is enabled',
-        scope: 'Tap-to-Sync Mode',
+        label: 'Stamp the time',
+        description: 'While Tap sync is on: sets the current line or word to this moment',
       },
       {
         keys: ['Mod', '+', 'Z', '/', 'Mod', '+', 'Y'],
-        label: 'Undo / Redo Edits',
-        description: 'Step backward or forward through up to 50 lyric or chord edits',
-        scope: 'Timeline Editor',
+        label: 'Undo or redo',
+        description: 'Up to 50 lyric or chord edits',
       },
     ],
   },
   {
     title: 'Stage',
     items: [
-      {
-        keys: ['F'],
-        label: 'Fullscreen Stage',
-        description: 'Toggle Fullscreen TV Stage Mode with auto-hiding floating controls',
-        scope: 'Studio Workspace',
-      },
-      {
-        keys: ['V'],
-        label: 'Beat Visualizer',
-        description: 'Toggle beat-reactive audio visualizer on / off in Studio and TV Stage Mode',
-        scope: 'Studio Workspace',
-      },
-      {
-        keys: ['C'],
-        label: 'Toggle Chord Bar',
-        description: 'Toggle real-time harmonic chord progression bar in Studio and TV Stage Mode',
-        scope: 'Studio Workspace',
-      },
+      { keys: ['F'], label: 'Full screen stage' },
+      { keys: ['V'], label: 'Visualizer on or off' },
+      { keys: ['C'], label: 'Chords on or off' },
     ],
   },
   {
@@ -146,28 +93,12 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     items: [
       {
         keys: ['Mod', '+', 'K'],
-        label: 'Command Palette',
-        description: 'Search every command, song and lyric line from anywhere',
-        scope: 'Global',
+        label: 'Command palette',
+        description: 'Search every command, song and lyric line',
       },
-      {
-        keys: ['?'],
-        label: 'Toggle Help Modal',
-        description: 'Toggle this Help & Usage Guide modal from anywhere',
-        scope: 'Global',
-      },
-      {
-        keys: ['Tab', '/', 'Shift', '+', 'Tab'],
-        label: 'Focus Navigation',
-        description: 'Navigate interactive controls and cycle focus inside active dialogs',
-        scope: 'Global & Modals',
-      },
-      {
-        keys: ['Escape'],
-        label: 'Dismiss / Close',
-        description: 'Close modal dialogs, tooltips, or discard dropdowns',
-        scope: 'Modals & Tooltips',
-      },
+      { keys: ['?'], label: 'Open or close Help' },
+      { keys: ['Tab', '/', 'Shift', '+', 'Tab'], label: 'Move between controls' },
+      { keys: ['Escape'], label: 'Close a dialog, menu or tooltip' },
     ],
   },
 ];
@@ -192,7 +123,6 @@ const ShortcutKeys: React.FC<{ keys: string[] }> = ({ keys }) => (
 );
 
 interface GuideStage {
-  step: string;
   title: string;
   summary: string;
   features: string[];
@@ -200,70 +130,63 @@ interface GuideStage {
 
 const STAGES: GuideStage[] = [
   {
-    step: 'Stage 1',
-    title: '1. Audio Intake & Library',
-    summary: 'Import songs via YouTube URL or local audio files (.mp3, .wav, .flac).',
+    title: '1. Add a song',
+    summary: 'Search for it by name, paste a link, or upload an audio file.',
     features: [
-      'Enter custom metadata (Title, Artist, Creator Name) for clear tracking',
-      'Optionally supply custom lyrics as plain text or pre-timed LRC format ([mm:ss.xx])',
-      'Search, filter by status, and sort saved library projects across My Songs and Community tabs',
+      'Links work from YouTube, SoundCloud, Bandcamp, Vimeo and the Internet Archive. A Spotify, Apple Music, TIDAL or Deezer link is matched to the same recording on YouTube.',
+      'A link or file that holds a whole album lists its songs, so you can pick the ones you want.',
+      'Under Advanced options you can paste your own lyrics, plain or with LRC timestamps, and choose how carefully the vocals are removed.',
+      'Your songs are in the setlist under the search box. Community lists what others on this server have made.',
     ],
   },
   {
-    step: 'Stage 2',
-    title: '2. Stem Separation & Lyric Sync',
-    summary: 'Automated vocal isolation, vocal range/key detection, and acoustic word alignment.',
+    title: '2. Wait while it is made',
+    summary: 'The studio removes the vocals, finds the lyrics and times every word.',
     features: [
-      'Vocals are separated from the backing track at the quality you pick (Fast, Balanced or Best), and the vocal range & key are detected',
-      'Synchronized lyrics are fetched automatically from LRCLIB or parsed from your LRC tags',
-      'Hot-swap or re-import custom/LRCLIB lyrics anytime inside the studio without re-separating stems',
-      'Re-make the stems at a better quality later with Improve in Audio mix; the song stays playable meanwhile',
+      'Most songs take a few minutes. You can leave the page; the song will be in your setlist.',
+      'Choose Fast, Balanced or Best: the slower settings remove the vocals more cleanly. You can re-make the stems later with Improve in Audio mix.',
+      'It is automatic, so a lyric or a line can come out wrong. The song check-up lists what to look at.',
     ],
   },
   {
-    step: 'Stage 3',
-    title: '3. Timeline Editing',
-    summary: 'Fine-tune line and word timings, assign duet parts, and use power tools.',
+    title: '3. Fix lyrics and timing',
+    summary: 'The timeline lists every line. The one being sung is lit.',
     features: [
-      'Scrub interactive audio waveform and observe live word-by-word progressive karaoke sweeps',
-      'Filter to the lines that need review, and re-align one line from its menu or every line in the background',
-      'Assign Duet / Multi-Singer roles (Singer 1, Singer 2, Both) per line or via bulk/auto-split',
-      'Use Undo/Redo (Ctrl+Z / Ctrl+Y), Batch Timestamp Offset, and live Tap-to-Sync [T] beat stamping',
-      'Edit line text inline, insert new lines above/below, or delete unwanted lyric lines',
-      'Edit chord cues inline with 50-step Undo/Redo (Ctrl+Z / Ctrl+Y) and persistence',
+      'Click a line to jump to it. Double-click its words to edit them.',
+      'Nudge a line earlier or later, or open it to set each word.',
+      'Needs review shows only the lines the studio is unsure of. A line’s menu can re-time it; Re-import can re-time them all.',
+      'Offset moves every line at once. Tap sync lets you set the times by tapping along.',
+      'Duet parts gives lines to Singer 1, Singer 2 or Both.',
+      'Undo and redo cover the last 50 edits.',
     ],
   },
   {
-    step: 'Stage 4',
-    title: '4. Studio Mixing & Themes',
-    summary: 'Customize playback mix, Smart Key shift, visualizer, TV Stage, and aspect ratio.',
+    title: '4. Set the key and the look',
+    summary: 'Audio mix changes what you hear. Stage look changes what you see and export.',
     features: [
-      'Pitch shift (-12 to +12 semitones), Smart Key Recommender, guide vocal (0%–50%), and speed (0.5x–1.5x)',
-      'Toggle Live Chord Bar [C], Fullscreen TV Stage Mode [F], Beat-Reactive Visualizer [V], and >=4.0s gap countdowns',
-      'Select preset visual themes or customize sung/unsung colors and lyric font scaling (0.75x–1.5x)',
-      'Pick a background (cover art, drifting art, aurora, spectrum, plain) or upload an image/video, and switch between 16:9 Widescreen and 9:16 Shorts',
+      'Move the key up or down 12 semitones, or let the studio suggest a key for your voice. The tempo stays the same.',
+      'Turn the guide vocal up to sing along with the original, and slow the song down to practise.',
+      'Pick a stage preset, its colours, the lyric size and a background, in 16:9 or 9:16.',
+      'The stage can show chords and a visualizer, and goes full screen for a TV.',
     ],
   },
   {
-    step: 'Stage 5',
-    title: '5. Export & Subtitles',
-    summary: 'Instant audio stem & subtitle downloads and full 1080p60 video rendering.',
+    title: '5. Export',
+    summary: 'A 1080p60 video, subtitle files and the separated audio.',
     features: [
-      'Direct 1-click downloads for isolated instrumental WAV, vocals WAV, and mixed master audio',
-      'Instant downloads: export standalone .lrc and .ass (with multi-singer duet styles & gap countdowns)',
-      'Render 1080p60 MP4 videos (with optional beat visualizer) and generate YouTube metadata packages',
-      'After a render, “Upload to YouTube” walks through the upload: the title, description (with chapters and lyrics) and tags to paste, and what to check before publishing',
+      'Render makes an MP4 of the song as it is now. You can keep working while it renders.',
+      'After a render, Upload to YouTube gives you the title, description and tags to paste.',
+      'Subtitles (.lrc and .ass), the stems and a chord sheet download straight away.',
     ],
   },
   {
-    step: 'Stage 6',
-    title: '6. Install on Your Phone',
+    title: '6. Install on your phone',
     summary: 'Add the studio to your home screen so it opens full screen, like an app.',
     features: [
-      'Android & Chrome: tap Install in the header on the library screen, or pick Install app from the browser menu (or the command palette)',
-      'iPhone & iPad: in Safari, tap Share, then Add to Home Screen, then Add',
-      'Android: share a YouTube video to Karaoke Studio from the YouTube app to open it with the link filled in',
-      'The installed app shows a reconnect screen while your server is down or restarting, and Back returns from a song to the library',
+      'Android and Chrome: tap Install in the top bar on the home screen, or pick Install app from the browser menu or the command palette.',
+      'iPhone and iPad: in Safari, tap Share, then Add to Home Screen, then Add.',
+      'Android: share a YouTube video to Karaoke Studio from the YouTube app to open it with the link filled in.',
+      'The installed app shows a reconnect screen while your server is down or restarting, and Back returns from a song to the home screen.',
     ],
   },
 ];
@@ -312,12 +235,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({
       showDragHandle
     >
       <DialogHeader
-        title="Karaoke Studio Help & Usage Guide"
+        title="Help"
         titleId="help-modal-title"
-        description="Keyboard shortcuts, the studio workflow and fixes for common problems"
+        description="Keyboard shortcuts, how the studio works and fixes for common problems"
         descriptionId="help-modal-desc"
         onClose={onClose}
-        closeLabel="Close help and usage guide"
+        closeLabel="Close help"
       />
 
       <Tabs<HelpTab>
@@ -330,12 +253,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         items={[
           {
             id: 'shortcuts',
-            label: 'Keyboard Shortcuts',
+            label: 'Keyboard shortcuts',
             controls: 'tabpanel-shortcuts',
           },
           {
             id: 'guide',
-            label: 'Studio Usage Guide',
+            label: 'Studio usage guide',
             controls: 'tabpanel-guide',
           },
           {
@@ -372,24 +295,18 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 className="divide-y divide-theme-border-subtle"
               >
                 {group.items.map((item) => (
-                  <li
-                    key={item.label}
-                    className="flex flex-col justify-between gap-x-4 gap-y-1 py-2.5 sm:flex-row sm:items-center"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
+                  <li key={item.label} className="py-2">
+                    <div className="flex min-w-0 items-center gap-4">
                       <ShortcutKeys keys={item.keys} />
                       <div className="min-w-0">
-                        <span className="block text-sm font-semibold text-theme-text sm:truncate">
-                          {item.label}
-                        </span>
-                        <span className="block text-sm text-theme-text-muted sm:truncate">
-                          {item.description}
-                        </span>
+                        <span className="block text-base text-theme-text">{item.label}</span>
+                        {item.description && (
+                          <span className="block text-sm text-theme-text-muted">
+                            {item.description}
+                          </span>
+                        )}
                       </div>
                     </div>
-                    <span className="shrink-0 self-start text-sm text-theme-text-muted sm:self-center">
-                      {item.scope}
-                    </span>
                   </li>
                 ))}
               </ul>
@@ -399,15 +316,14 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <div>
             <div className="space-y-1">
               <span className="block text-sm font-semibold text-theme-text">
-                Keyboard Shortcut Isolation
+                When shortcuts are off
               </span>
               <p className="text-sm leading-relaxed text-theme-text-muted">
                 Single-key shortcuts (<kbd className={kbdCls}>Space</kbd>,{' '}
-                <kbd className={kbdCls}>←</kbd>/<kbd className={kbdCls}>→</kbd>,{' '}
+                <kbd className={kbdCls}>←</kbd> <kbd className={kbdCls}>→</kbd>,{' '}
                 <kbd className={kbdCls}>M</kbd>, <kbd className={kbdCls}>C</kbd>,{' '}
-                <kbd className={kbdCls}>?</kbd>) are automatically disabled while typing in text
-                inputs, textareas, search boxes, or dropdowns, and when any modal dialog is active.
-                They never interfere with typing lyrics or editing track details.
+                <kbd className={kbdCls}>?</kbd>) do nothing while you type in a field or while a
+                dialog is open, so they never get in the way of typing lyrics.
               </p>
             </div>
           </div>
@@ -465,7 +381,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           </section>
           {STAGES.map((stg) => {
             return (
-              <div key={stg.step} className="space-y-2">
+              <div key={stg.title} className="space-y-2">
                 <h3 className="ks-display border-b-2 border-theme-border pb-1 text-[24px] text-theme-text">
                   {stg.title}
                 </h3>
@@ -566,7 +482,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           </p>
         )}
         <Button variant="secondary" fullWidth="mobile" onClick={onClose} className="min-w-[44px]">
-          Got it, close
+          Close
         </Button>
       </DialogFooter>
     </Dialog>

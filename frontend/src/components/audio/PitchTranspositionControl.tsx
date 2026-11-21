@@ -2,7 +2,7 @@
  * Pitch Transposition Control Component
  *
  * Semitone key steppers (-12 to +12), a key position meter, instant reset, the detected
- * vocal range summary and the Smart Key Recommender launcher. Key changes apply
+ * vocal range summary and the button that suggests a key. Key changes apply
  * automatically; the status pill reports a queued or in-flight re-pitch.
  */
 
@@ -160,9 +160,6 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
           type="button"
           onClick={onOpenRecommender || onAnalyzeVocalRange}
           disabled={isAnalyzingRange}
-          aria-label={
-            vocalRange ? 'Open Smart Key Recommender' : 'Analyze vocal range or open recommender'
-          }
           className={cn(
             'ks-display inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 border border-theme-border px-3 text-[20px] text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse disabled:opacity-50',
             focusRing
@@ -173,7 +170,7 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
           ) : (
             <Mic2 className="h-3.5 w-3.5" aria-hidden="true" />
           )}
-          <span>{isAnalyzingRange ? 'Analyzing...' : 'Smart Recommender'}</span>
+          <span>{isAnalyzingRange ? 'Measuring…' : 'Suggest a key for my voice'}</span>
         </button>
       </div>
 

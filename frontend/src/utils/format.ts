@@ -24,13 +24,6 @@ export function formatTimer(seconds?: number | null): string {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
-/** How long ago a background job last reported: "Pulse just now", "Pulse 12s ago". */
-export function formatHeartbeat(lastHeartbeat: number | undefined, now: number): string {
-  if (!lastHeartbeat) return 'Active';
-  const diffSec = Math.max(0, Math.round((now - lastHeartbeat) / 1000));
-  return diffSec < 2 ? 'Pulse just now' : `Pulse ${diffSec}s ago`;
-}
-
 /** Formats a semitone offset: 0 → "Original key", +2 → "+2 st", -3 → "−3 st". */
 export function formatSemitones(semitones: number, originalLabel = 'Original key'): string {
   if (!Number.isFinite(semitones) || semitones === 0) return originalLabel;

@@ -166,7 +166,7 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
               type="button"
               onClick={onOpenHelp}
               className={cn(headerButton, 'min-w-[44px] justify-center')}
-              aria-label="Help and Studio Usage Guide (?)"
+              aria-label="Help and studio usage guide (?)"
             >
               <HelpCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
               <span className="hidden lg:inline">Help</span>

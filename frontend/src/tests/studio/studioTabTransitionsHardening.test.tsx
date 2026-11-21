@@ -467,14 +467,12 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       // 5. Open Help Modal
       const helpTrigger = screen.getByRole('button', { name: /help and studio usage guide/i });
       await user.click(helpTrigger);
-      expect(screen.getByRole('heading', { name: /help & usage guide/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
 
-      // 6. Close Help Modal via "Got it, close" footer button
-      const gotItBtn = screen.getByRole('button', { name: /got it, close/i });
+      // 6. Close Help Modal via "Close" footer button
+      const gotItBtn = screen.getByRole('button', { name: 'Close' });
       await user.click(gotItBtn);
-      expect(
-        screen.queryByRole('heading', { name: /help & usage guide/i })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Help' })).not.toBeInTheDocument();
     });
   });
 
@@ -725,7 +723,7 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       modalComponents.forEach((modal) => {
         const { unmount } = render(modal);
         const closeBtn = screen.getByRole('button', {
-          name: /close.*(modal|dialog|guide)/i,
+          name: /close.*(modal|dialog|guide|help)/i,
         });
         expect(closeBtn.className).toMatch(/min-h-\[44px\]/);
         expect(closeBtn.className).toMatch(/min-w-\[44px\]/);

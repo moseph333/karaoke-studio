@@ -387,7 +387,7 @@ describe('Milestone 2 Challenger 2: Duet State, Undo/Redo & Responsive Stress', 
 
       fireEvent.click(screen.getByTestId('duet-assign-btn'));
       // Switch to Auto Tab
-      fireEvent.click(screen.getByRole('tab', { name: /Auto-Suggest/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /By pauses/i }));
 
       // Line timing review:
       // Line 1: 1.0 - 4.0 (S1)
