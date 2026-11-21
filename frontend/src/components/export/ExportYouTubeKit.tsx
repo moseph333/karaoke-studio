@@ -43,7 +43,7 @@ const stepHintCls = 'text-pretty text-xs leading-relaxed text-theme-text-muted';
 type CopyField = 'title' | 'description' | 'tags';
 
 const copyBtnCls = cn(
-  'inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-theme-md px-2 py-1 text-xs font-medium text-theme-text transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:min-h-[32px]',
+  'inline-flex min-h-[36px] shrink-0 items-center gap-1 px-2 py-1 text-xs font-medium text-theme-text transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:min-h-[32px]',
   focusRing
 );
 
@@ -97,7 +97,7 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
     text: string,
     body: React.ReactNode
   ) => (
-    <div className="rounded-theme-md border border-theme-border-subtle bg-theme-surface p-3.5">
+    <div className="border border-theme-border-subtle bg-theme-surface p-3.5">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="min-w-0 truncate text-xs font-semibold text-theme-text-muted">
           {heading}
@@ -171,7 +171,7 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
               role="region"
               aria-label={descriptionLabel}
               className={cn(
-                'max-h-36 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words rounded-theme-sm border border-theme-border-subtle bg-theme-bg/60 p-2.5 font-mono text-xs text-theme-text-muted',
+                'max-h-36 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words border border-theme-border-subtle bg-theme-bg/60 p-2.5 font-mono text-xs text-theme-text-muted',
                 focusRing
               )}
             >

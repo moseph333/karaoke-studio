@@ -56,7 +56,7 @@ export const InlineConfirm: React.FC<InlineConfirmProps> = ({
       role="alertdialog"
       aria-labelledby={titleId}
       className={cn(
-        'mx-auto max-w-sm space-y-3 rounded-theme-lg border border-theme-border bg-theme-surface-raised p-4 shadow-theme-md',
+        'mx-auto max-w-sm space-y-3 border border-theme-border bg-theme-surface-raised p-4',
         className
       )}
     >
@@ -69,7 +69,7 @@ export const InlineConfirm: React.FC<InlineConfirmProps> = ({
           type="button"
           onClick={onConfirm}
           className={cn(
-            'min-h-[36px] rounded-theme-md bg-theme-danger px-3.5 py-1.5 font-theme-heading text-xs font-bold text-theme-text-inverse transition-[filter] hover:brightness-110',
+            'min-h-[36px] bg-theme-danger px-3.5 py-1.5 font-theme-heading text-xs font-bold text-theme-text-inverse transition-[filter] hover:brightness-110',
             focusRing
           )}
         >
@@ -80,7 +80,7 @@ export const InlineConfirm: React.FC<InlineConfirmProps> = ({
           type="button"
           onClick={() => setAsking(false)}
           className={cn(
-            'min-h-[36px] rounded-theme-md border border-theme-border-subtle bg-theme-surface px-3.5 py-1.5 text-xs font-medium text-theme-text transition-colors hover:border-theme-border',
+            'min-h-[36px] border border-theme-border-subtle bg-theme-surface px-3.5 py-1.5 text-xs font-medium text-theme-text transition-colors hover:border-theme-border',
             focusRing
           )}
         >

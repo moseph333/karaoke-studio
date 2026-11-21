@@ -61,7 +61,7 @@ export interface StageLyricsProps {
 }
 
 const wordButton = cn(
-  'relative inline-block cursor-pointer rounded-theme-sm border-0 bg-transparent p-0.5 font-inherit text-inherit transition-transform hover:scale-[1.04]',
+  'relative inline-block cursor-pointer border-0 bg-transparent p-0.5 font-inherit text-inherit transition-transform hover:scale-[1.04]',
   focusRing
 );
 /** The space after a word that the line writes with one (none between CJK characters). */
@@ -82,7 +82,7 @@ const CountdownRing: React.FC<{ seconds: number; remaining: number; color: strin
     <div
       data-testid="countdown-cue"
       aria-label={`Starting in ${seconds} seconds`}
-      className="inline-flex items-center gap-2 rounded-theme-pill border border-white/15 bg-black/50 py-1 pl-1 pr-3 text-white shadow-theme-md backdrop-blur-md"
+      className="inline-flex items-center gap-2 border border-white/15 bg-black/50 py-1 pl-1 pr-3 text-white backdrop-blur-md"
     >
       <span className="relative grid h-8 w-8 place-items-center">
         <svg viewBox="0 0 36 36" className="absolute inset-0 -rotate-90" aria-hidden="true">

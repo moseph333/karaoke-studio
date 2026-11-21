@@ -53,7 +53,7 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
       visible ? 'opacity-100' : 'pointer-events-none opacity-0'
     )}
   >
-    <span className="inline-flex min-w-0 items-center gap-1.5 rounded-theme-pill border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white/90 shadow-theme-sm backdrop-blur-md">
+    <span className="inline-flex min-w-0 items-center gap-1.5 border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-md">
       <span
         aria-hidden="true"
         className="h-1.5 w-1.5 shrink-0 rounded-full bg-theme-danger motion-safe:animate-pulse"
@@ -66,7 +66,7 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
         role="group"
         aria-label="Lyric highlight mode"
         data-testid="sync-mode-selector"
-        className="flex items-center rounded-theme-md border border-white/15 bg-black/45 p-0.5 backdrop-blur-md"
+        className="flex items-center border border-white/15 bg-black/45 p-0.5 backdrop-blur-md"
       >
         {SYNC_OPTIONS.map((opt) => {
           const active = syncMode === opt.mode;
@@ -82,7 +82,7 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
               className={cn(
                 'min-h-[44px] min-w-[44px] rounded-[calc(var(--theme-radius-md)-2px)] px-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors md:min-h-[32px]',
                 focusRing,
-                active ? 'bg-white text-black shadow-theme-sm' : 'text-white/70 hover:text-white'
+                active ? 'bg-white text-black' : 'text-white/70 hover:text-white'
               )}
             >
               {opt.text}

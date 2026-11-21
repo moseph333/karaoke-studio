@@ -26,7 +26,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
 }) => (
   <label
     className={cn(
-      'flex min-h-[44px] cursor-pointer items-start gap-3 rounded-theme-md py-2',
+      'flex min-h-[44px] cursor-pointer items-start gap-3 py-2',
       disabled && 'cursor-not-allowed opacity-60',
       wrapperClassName
     )}

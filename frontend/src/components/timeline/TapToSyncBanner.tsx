@@ -30,12 +30,12 @@ const modeButton = (active: boolean) =>
   cn(
     'flex min-h-[44px] min-w-[44px] items-center justify-center px-3 py-2 text-xs font-semibold transition-colors sm:min-h-[28px] sm:min-w-0 sm:px-2.5 sm:py-0.5 sm:text-[11px]',
     active
-      ? 'bg-theme-warning font-bold text-theme-text-inverse shadow-theme-sm'
+      ? 'bg-theme-warning font-bold text-theme-text-inverse'
       : 'text-theme-text-muted hover:text-theme-text',
     focusRing
   );
 
-const pill = 'rounded-theme-pill border px-2 py-0.5 font-mono text-[11px] tabular-nums';
+const pill = 'border px-2 py-0.5 font-mono text-[11px] tabular-nums';
 
 export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
   isActive,
@@ -59,11 +59,11 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
   return (
     <div
       data-testid="tap-to-sync-banner"
-      className="sticky top-0 z-20 space-y-2 rounded-theme-lg border border-theme-warning bg-theme-surface-raised/95 p-3 shadow-theme-lg motion-safe:animate-fade-in sm:p-3.5"
+      className="sticky top-0 z-20 space-y-2 border border-theme-warning bg-theme-surface-raised/95 p-3 motion-safe:animate-fade-in sm:p-3.5"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="shrink-0 rounded-theme-md border border-theme-warning p-2 text-theme-warning">
+          <div className="shrink-0 border border-theme-warning p-2 text-theme-warning">
             <Radio className="h-5 w-5 motion-safe:animate-pulse" aria-hidden="true" />
           </div>
           <div className="min-w-0">
@@ -75,7 +75,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
               <div
                 role="group"
                 aria-label="Tap-to-sync mode selection"
-                className="inline-flex items-center rounded-theme-md border border-theme-border-subtle bg-theme-bg p-0.5"
+                className="inline-flex items-center border border-theme-border-subtle bg-theme-bg p-0.5"
               >
                 <button
                   type="button"
@@ -130,7 +130,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
                           data-testid={isTarget ? 'tap-target-word-active' : undefined}
                           data-active-target-word={isTarget ? 'true' : undefined}
                           className={cn(
-                            'rounded-theme-sm px-1.5 py-0.5 text-xs transition-colors sm:text-sm',
+                            'px-1.5 py-0.5 text-xs transition-colors sm:text-sm',
                             isTarget
                               ? 'bg-theme-warning font-black text-theme-text-inverse ring-2 ring-theme-warning/50'
                               : isPast
@@ -172,13 +172,13 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
             onClick={onTap}
             disabled={!targetLine}
             className={cn(
-              'flex min-h-[48px] flex-1 touch-manipulation select-none items-center justify-center gap-2 rounded-theme-lg bg-theme-accent px-6 py-3.5 text-sm font-black uppercase tracking-wide text-theme-accent-text transition-transform active:scale-95 disabled:opacity-50 sm:min-h-[52px] sm:flex-initial sm:py-3',
+              'flex min-h-[48px] flex-1 touch-manipulation select-none items-center justify-center gap-2 bg-theme-accent px-6 py-3.5 text-sm font-black uppercase tracking-wide text-theme-accent-text transition-transform active:scale-95 disabled:opacity-50 sm:min-h-[52px] sm:flex-initial sm:py-3',
               focusRing
             )}
           >
             <span>{syncMode === 'word' ? 'TAP WORD' : 'TAP NOW'}</span>
             <span className="sr-only">TAP NOW</span>
-            <kbd className="hidden rounded-theme-sm border border-white/30 bg-black/20 px-1.5 py-0.5 font-mono text-[10px] sm:inline-block">
+            <kbd className="hidden border border-white/30 bg-black/20 px-1.5 py-0.5 font-mono text-[10px] sm:inline-block">
               T
             </kbd>
           </button>
@@ -188,7 +188,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
             onClick={onExit}
             aria-label="Exit tap to sync mode"
             className={cn(
-              'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-theme-lg bg-theme-surface-subtle px-3 py-2 text-xs font-semibold text-theme-text-muted transition-colors hover:bg-theme-surface hover:text-theme-text',
+              'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 bg-theme-surface-subtle px-3 py-2 text-xs font-semibold text-theme-text-muted transition-colors hover:bg-theme-surface hover:text-theme-text',
               focusRing
             )}
           >

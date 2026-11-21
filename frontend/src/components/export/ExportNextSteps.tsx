@@ -36,7 +36,7 @@ export const ExportNextSteps: React.FC = () => (
     {STEPS.map(({ Icon, title, text }, index) => (
       <li
         key={title}
-        className="flex min-w-0 items-start gap-2.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface p-3"
+        className="flex min-w-0 items-start gap-2.5 border border-theme-border-subtle bg-theme-surface p-3"
       >
         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
         <span className="min-w-0">

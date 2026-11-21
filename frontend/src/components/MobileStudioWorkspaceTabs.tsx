@@ -105,7 +105,7 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
       <div
         role="tablist"
         aria-label="Studio workspace navigation sections"
-        className="grid grid-cols-3 gap-1 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-1"
+        className="grid grid-cols-3 gap-1 border border-theme-border-subtle bg-theme-surface-subtle p-1"
       >
         {WORKSPACE_TABS.map((tab, index) => {
           const isActive = activeTab === tab.id;
@@ -130,10 +130,10 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
               onClick={() => handleSelect(tab.id)}
               onKeyDown={(e) => handleKeyDown(e, index)}
               className={cn(
-                'relative flex min-h-[44px] select-none items-center justify-center gap-1.5 rounded-theme-md border px-2 py-2 text-xs font-semibold transition-[background-color,color,box-shadow] duration-150 sm:text-sm',
+                'relative flex min-h-[44px] select-none items-center justify-center gap-1.5 border px-2 py-2 text-xs font-semibold transition-[background-color,color,box-shadow] duration-150 sm:text-sm',
                 focusRing,
                 isActive
-                  ? 'border-theme-border-subtle bg-theme-surface-raised text-theme-text shadow-theme-sm'
+                  ? 'border-theme-border-subtle bg-theme-surface-raised text-theme-text'
                   : 'border-transparent text-theme-text-muted hover:text-theme-text'
               )}
             >

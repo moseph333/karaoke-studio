@@ -59,7 +59,7 @@ export function Tabs<T extends string>({
       aria-label={ariaLabel}
       className={cn(
         variant === 'segmented'
-          ? 'flex gap-1 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-1'
+          ? 'flex gap-1 border border-theme-border-subtle bg-theme-surface-subtle p-1'
           : // The baseline is an inset shadow so the active underline can cover it without
             // overflowing (a scrollable tablist would otherwise grow a 1px vertical scrollbar).
             'flex gap-1 shadow-[inset_0_-1px_0_rgb(var(--theme-border-subtle-rgb))]',
@@ -90,9 +90,9 @@ export function Tabs<T extends string>({
               fullWidth && 'flex-1',
               variant === 'segmented'
                 ? cn(
-                    'rounded-theme-md md:min-h-[36px]',
+                    'md:min-h-[36px]',
                     active
-                      ? 'bg-theme-accent text-theme-accent-text shadow-theme-sm'
+                      ? 'bg-theme-accent text-theme-accent-text'
                       : 'text-theme-text-muted hover:bg-theme-surface-raised/60 hover:text-theme-text'
                   )
                 : cn(

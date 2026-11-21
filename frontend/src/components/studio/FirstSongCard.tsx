@@ -52,7 +52,7 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
   <section
     aria-labelledby="first-song-heading"
     data-testid="first-song-card"
-    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-theme-lg border border-theme-accent p-2.5 sm:p-3"
+    className="flex flex-wrap items-center gap-x-3 gap-y-2 border border-theme-accent p-2.5 sm:p-3"
   >
     <div className="order-1 min-w-0 flex-1 xl:flex-none">
       <h2
@@ -66,7 +66,7 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
         onClick={() => onAction('help-fix')}
         className={cn(
           // A 44px target on phones that does not make the card taller
-          '-my-3 inline-flex min-h-[44px] items-center rounded-theme-sm text-left text-xs text-theme-text-muted underline decoration-theme-border underline-offset-2 hover:text-theme-text md:-my-1 md:min-h-[24px]',
+          '-my-3 inline-flex min-h-[44px] items-center text-left text-xs text-theme-text-muted underline decoration-theme-border underline-offset-2 hover:text-theme-text md:-my-1 md:min-h-[24px]',
           focusRing
         )}
       >
@@ -81,7 +81,7 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
             onClick={() => onAction(action)}
             data-step={index + 1}
             className={cn(
-              'flex min-h-[44px] w-full min-w-0 items-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface px-2 py-1.5 text-left transition-colors hover:border-theme-accent',
+              'flex min-h-[44px] w-full min-w-0 items-center gap-1.5 border border-theme-border-subtle bg-theme-surface px-2 py-1.5 text-left transition-colors hover:border-theme-accent',
               focusRing
             )}
           >

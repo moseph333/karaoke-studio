@@ -24,7 +24,7 @@ export const AudioPlaybackErrorBanner: React.FC<AudioPlaybackErrorBannerProps> =
       data-testid="audio-error-banner"
       role="alert"
       aria-live="assertive"
-      className="flex flex-wrap items-center justify-between gap-3 rounded-theme-lg border border-theme-danger p-3 text-xs text-theme-text"
+      className="flex flex-wrap items-center justify-between gap-3 border border-theme-danger p-3 text-xs text-theme-text"
     >
       <div className="flex min-w-0 items-center gap-2.5">
         <AlertCircle className="h-4 w-4 shrink-0 text-theme-danger" aria-hidden="true" />

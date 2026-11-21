@@ -47,12 +47,12 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
         <img
           src={project.thumbnail_url}
           alt={project.title}
-          className="h-11 w-11 shrink-0 rounded-theme-lg border border-theme-border-subtle object-cover shadow-theme-sm sm:h-12 sm:w-12"
+          className="h-11 w-11 shrink-0 border border-theme-border-subtle object-cover sm:h-12 sm:w-12"
         />
       ) : (
         <span
           aria-hidden="true"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-theme-lg bg-theme-accent text-theme-accent-text shadow-theme-sm sm:h-12 sm:w-12"
+          className="flex h-11 w-11 shrink-0 items-center justify-center bg-theme-accent text-theme-accent-text sm:h-12 sm:w-12"
         >
           <Music className="h-5 w-5" />
         </span>
@@ -112,13 +112,13 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
                 className={cn(
                   // The chip is badge-sized; the button around it is the 44px touch target and
                   // its negative margin keeps the header's height
-                  'group -my-2.5 inline-flex min-h-[44px] items-center rounded-theme-pill md:-my-1 md:min-h-[26px]',
+                  'group -my-2.5 inline-flex min-h-[44px] items-center md:-my-1 md:min-h-[26px]',
                   focusRing
                 )}
               >
                 <span
                   className={cn(
-                    'inline-flex items-center gap-1.5 whitespace-nowrap rounded-theme-pill border px-2 py-0.5 text-[11px] font-semibold transition-colors',
+                    'inline-flex items-center gap-1.5 whitespace-nowrap border px-2 py-0.5 text-[11px] font-semibold transition-colors',
                     toFix > 0
                       ? 'border-theme-warning text-theme-warning'
                       : 'border-theme-border-subtle text-theme-text-muted group-hover:border-theme-border group-hover:text-theme-text'

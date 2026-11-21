@@ -45,7 +45,7 @@ const QUALITY_FLAG_LABELS: Record<LyricQualityFlag, string> = {
 };
 
 const fieldCls =
-  'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm md:min-h-[38px]';
+  'w-full min-h-[44px] border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm md:min-h-[38px]';
 
 export interface LyricReplacementModalProps {
   isOpen: boolean;
@@ -353,7 +353,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
         />
 
         {(canUseNeural || neural || (currentLines?.length ?? 0) > 0) && (
-          <div className="divide-y divide-theme-border-subtle rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle/60 px-3">
+          <div className="divide-y divide-theme-border-subtle border border-theme-border-subtle bg-theme-surface-subtle/60 px-3">
             {canUseNeural ? (
               <Checkbox
                 checked={useNeural}
@@ -391,7 +391,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
         {errorMsg && (
           <div
             role="alert"
-            className="flex items-start gap-2 rounded-theme-md border border-theme-danger p-3 text-xs text-theme-danger"
+            className="flex items-start gap-2 border border-theme-danger p-3 text-xs text-theme-danger"
           >
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{errorMsg}</span>
@@ -414,7 +414,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                   value={lyricsText}
                   onChange={(e) => setLyricsText(e.target.value)}
                   placeholder="[00:12.34] First lyric line&#10;[00:16.78] Second line&#10;Or paste plain untimed lyrics..."
-                  className="min-h-[160px] w-full resize-y rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 font-mono text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-xs"
+                  className="min-h-[160px] w-full resize-y border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 font-mono text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-xs"
                 />
               </div>
 
@@ -422,7 +422,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                 <div
                   data-testid="paste-syntax-inspector"
                   className={cn(
-                    'flex flex-wrap items-center justify-between gap-2 rounded-theme-md border p-2.5 text-xs',
+                    'flex flex-wrap items-center justify-between gap-2 border p-2.5 text-xs',
                     pasteInspector.className
                   )}
                 >
@@ -472,7 +472,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
           <div className="space-y-4">
             <form
               onSubmit={handleSearchCandidates}
-              className="space-y-3 rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60 p-3.5"
+              className="space-y-3 border border-theme-border-subtle bg-theme-bg/60 p-3.5"
             >
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <div className="space-y-1">
@@ -562,7 +562,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                   <div
                     key={candId}
                     data-testid={`lyric-candidate-${cIdx}`}
-                    className="space-y-2 rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60 p-3 transition-colors hover:border-theme-border"
+                    className="space-y-2 border border-theme-border-subtle bg-theme-bg/60 p-3 transition-colors hover:border-theme-border"
                   >
                     <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                       <div className="min-w-0 flex-1">
@@ -573,14 +573,14 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                           {hasSynced ? (
                             <span
                               data-testid="badge-synced-lrc"
-                              className="rounded-theme-sm border border-theme-success px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-success"
+                              className="border border-theme-success px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-success"
                             >
                               [Synced LRC]
                             </span>
                           ) : (
                             <span
                               data-testid="badge-plain-lyrics"
-                              className="rounded-theme-sm border border-theme-warning px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-warning"
+                              className="border border-theme-warning px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-warning"
                             >
                               [Plain Lyrics]
                             </span>
@@ -588,7 +588,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                           {cand.in_use && (
                             <span
                               data-testid="badge-in-use"
-                              className="rounded-theme-sm border border-theme-accent px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-text"
+                              className="border border-theme-accent px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-text"
                             >
                               In use
                             </span>
@@ -597,13 +597,13 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                             <span
                               key={flag}
                               data-testid={`quality-flag-${flag}`}
-                              className="rounded-theme-sm border border-theme-warning px-1.5 py-0.5 text-[10px] text-theme-warning"
+                              className="border border-theme-warning px-1.5 py-0.5 text-[10px] text-theme-warning"
                             >
                               {QUALITY_FLAG_LABELS[flag] ?? flag}
                             </span>
                           ))}
                           {cand.instrumental && (
-                            <span className="rounded-theme-sm border border-theme-accent px-1.5 py-0.5 font-mono text-[10px] text-theme-text">
+                            <span className="border border-theme-accent px-1.5 py-0.5 font-mono text-[10px] text-theme-text">
                               Instrumental
                             </span>
                           )}
@@ -654,7 +654,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                     {isExpanded && (
                       <div
                         data-testid={`candidate-preview-${cIdx}`}
-                        className="mt-2 max-h-40 space-y-1 overflow-y-auto whitespace-pre-wrap rounded-theme-md border border-theme-border-subtle bg-theme-surface p-3 font-mono text-xs leading-relaxed text-theme-text"
+                        className="mt-2 max-h-40 space-y-1 overflow-y-auto whitespace-pre-wrap border border-theme-border-subtle bg-theme-surface p-3 font-mono text-xs leading-relaxed text-theme-text"
                       >
                         <div className="flex justify-between border-b border-theme-border-subtle pb-1 text-[10px] font-bold uppercase tracking-wider text-theme-text">
                           <span>Lyric Content Preview</span>

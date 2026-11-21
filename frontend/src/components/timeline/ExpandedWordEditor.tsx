@@ -42,14 +42,14 @@ export interface ExpandedWordEditorProps {
 }
 
 const shiftButton = cn(
-  'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-sm bg-theme-surface-raised p-2 text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text md:min-h-[30px] md:min-w-[30px] md:p-1',
+  'flex min-h-[44px] min-w-[44px] items-center justify-center bg-theme-surface-raised p-2 text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text md:min-h-[30px] md:min-w-[30px] md:p-1',
   focusRing
 );
 
 const stepButton = (edge: 'l' | 'r') =>
   cn(
     'flex h-8 w-8 min-h-[44px] min-w-[44px] items-center justify-center bg-theme-surface-raised text-sm font-bold text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:h-6 sm:w-6 sm:min-h-0 sm:min-w-0',
-    edge === 'l' ? 'rounded-l-theme-sm' : 'rounded-r-theme-sm',
+    edge === 'l' ? '' : '',
     focusRing
   );
 
@@ -108,7 +108,7 @@ const WordTimeInput: React.FC<{
 };
 
 const snapButton = cn(
-  'flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center gap-1 rounded-theme-sm border border-theme-accent px-2 py-1.5 text-[11px] font-semibold text-theme-text transition-colors sm:min-h-0 sm:min-w-0',
+  'flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center gap-1 border border-theme-accent px-2 py-1.5 text-[11px] font-semibold text-theme-text transition-colors sm:min-h-0 sm:min-w-0',
   focusRing
 );
 
@@ -147,7 +147,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
             data-testid="word-timing-card"
             data-active-word={isWordActive ? 'true' : undefined}
             className={cn(
-              'flex flex-col gap-1.5 rounded-theme-md border p-2.5 text-xs transition-colors',
+              'flex flex-col gap-1.5 border p-2.5 text-xs transition-colors',
               isWordActive
                 ? 'border-theme-accent ring-1 ring-theme-accent/30'
                 : 'border-theme-border-subtle bg-theme-surface'

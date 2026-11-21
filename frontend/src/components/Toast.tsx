@@ -82,7 +82,7 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
         onClick={() => onDismiss(toast.id)}
         aria-label="Dismiss notification"
         className={cn(
-          '-m-1 inline-flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-theme-md text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text',
+          '-m-1 inline-flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text',
           focusRing
         )}
       >

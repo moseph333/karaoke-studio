@@ -269,7 +269,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => run(item)}
                     className={cn(
-                      'flex min-h-[44px] cursor-pointer select-none items-center gap-3 rounded-theme-md px-2.5 py-2 text-sm',
+                      'flex min-h-[44px] cursor-pointer select-none items-center gap-3 px-2.5 py-2 text-sm',
                       isActive
                         ? 'text-theme-text ring-1 ring-inset ring-theme-accent/40'
                         : 'text-theme-text'

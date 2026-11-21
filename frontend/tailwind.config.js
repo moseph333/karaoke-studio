@@ -18,14 +18,11 @@ const THEME_COLOR_TOKENS = [
   'accent',
   'accent-hover',
   'accent-text',
-  'secondary',
-  'highlight',
   'sung',
   'unsung',
   'success',
   'warning',
   'danger',
-  'info',
   'focus',
   'overlay',
 ];
@@ -40,23 +37,6 @@ export default {
       },
       colors: {
         theme: Object.fromEntries(THEME_COLOR_TOKENS.map((token) => [token, channel(token)])),
-      },
-      backgroundImage: {
-        'gradient-accent': 'var(--theme-gradient-accent)',
-        'gradient-stage': 'var(--theme-gradient-stage)',
-      },
-      borderRadius: {
-        'theme-sm': 'var(--theme-radius-sm)',
-        'theme-md': 'var(--theme-radius-md)',
-        'theme-lg': 'var(--theme-radius-lg)',
-        'theme-xl': 'var(--theme-radius-xl)',
-        'theme-pill': 'var(--theme-radius-pill)',
-      },
-      boxShadow: {
-        'theme-sm': 'var(--theme-shadow-sm)',
-        'theme-md': 'var(--theme-shadow-md)',
-        'theme-lg': 'var(--theme-shadow-lg)',
-        'theme-glow': 'var(--theme-shadow-glow)',
       },
       borderWidth: {
         // Plain `border` / `border-t` / `divide-y` follow the active theme's stroke weight.

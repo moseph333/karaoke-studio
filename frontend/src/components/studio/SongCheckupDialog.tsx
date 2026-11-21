@@ -80,14 +80,11 @@ const SongCheckupContent: React.FC<SongCheckupDialogProps> = ({ onClose, project
             <li
               key={row.id}
               data-level={row.level}
-              className="flex items-start gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60 p-3.5"
+              className="flex items-start gap-3 border border-theme-border-subtle bg-theme-bg/60 p-3.5"
             >
               <span
                 aria-hidden="true"
-                className={cn(
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-theme-md',
-                  tone
-                )}
+                className={cn('flex h-9 w-9 shrink-0 items-center justify-center', tone)}
               >
                 <Icon className="h-4 w-4" />
               </span>
