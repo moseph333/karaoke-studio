@@ -6,7 +6,7 @@
  */
 
 import React, { useId, useState } from 'react';
-import { CheckCircle2, Clock, Pencil } from 'lucide-react';
+import { Check, Clock, Pencil } from 'lucide-react';
 import type { AlbumTrack } from '../../types';
 import { Button } from '../ui/Button';
 import { IconButton } from '../ui/IconButton';
@@ -45,21 +45,18 @@ export const AlbumTrackRow: React.FC<AlbumTrackRowProps> = ({
   return (
     <li
       data-testid={`album-track-${track.number}`}
-      className={cn(
-        'border px-3 py-2 transition-colors',
-        selected ? 'border-theme-accent' : 'border-theme-border-subtle bg-theme-surface/60'
-      )}
+      className="border-b border-theme-border-subtle py-1"
     >
       <div className="flex min-h-[44px] items-center gap-3">
         {made ? (
           <span
             aria-hidden="true"
-            className="flex h-5 w-5 shrink-0 items-center justify-center text-theme-success"
+            className="flex h-5 w-5 shrink-0 items-center justify-center text-theme-text-muted"
           >
             {track.project_status === 'ready' ? (
-              <CheckCircle2 className="h-5 w-5" />
+              <Check className="h-5 w-5 text-theme-text" />
             ) : (
-              <Clock className="h-5 w-5 text-theme-warning" />
+              <Clock className="h-5 w-5" />
             )}
           </span>
         ) : (
@@ -69,27 +66,27 @@ export const AlbumTrackRow: React.FC<AlbumTrackRowProps> = ({
             checked={selected}
             disabled={disabled}
             onChange={(e) => onToggle(track.number, e.target.checked)}
-            className="h-5 w-5 min-h-[20px] shrink-0 cursor-pointer border-theme-border accent-[rgb(var(--theme-accent-rgb))]"
+            className="ks-check min-h-[20px]"
           />
         )}
         <label
           htmlFor={made ? undefined : checkboxId}
           className={cn('min-w-0 flex-1', !made && 'cursor-pointer')}
         >
-          <span className="flex items-baseline gap-2">
-            <span className="w-6 shrink-0 text-right tabular-nums text-xs text-theme-text-muted">
-              {track.number}
+          <span className="ks-display flex items-baseline gap-3 text-[24px]">
+            <span className="w-7 shrink-0 tabular-nums text-theme-text-muted">
+              {String(track.number).padStart(2, '0')}
             </span>
             <span
               className={cn(
-                'truncate text-sm font-medium',
-                track.named || title?.trim() ? 'text-theme-text' : 'italic text-theme-text-muted'
+                'truncate',
+                track.named || title?.trim() ? 'text-theme-text' : 'text-theme-text-muted'
               )}
             >
               {shownTitle}
             </span>
           </span>
-          <span className="ml-8 block truncate text-xs text-theme-text-muted">
+          <span className="ml-10 block truncate text-sm tabular-nums text-theme-text-muted">
             {track.artist ? `${track.artist} · ` : ''}
             {trackRangeLabel(track)}
             {failed ? ' · Failed last time: pick it to try again' : ''}
@@ -97,12 +94,12 @@ export const AlbumTrackRow: React.FC<AlbumTrackRowProps> = ({
         </label>
         {made && track.project_id ? (
           <>
-            <span className="hidden text-xs font-semibold text-theme-text-muted sm:inline">
+            <span className="hidden text-sm text-theme-text-muted sm:inline">
               {madeTrackLabel(track.project_status)}
             </span>
             <Button
               size="sm"
-              variant={track.project_status === 'ready' ? 'primary' : 'secondary'}
+              variant="secondary"
               onClick={() => onOpen(track.project_id!, track.project_status || 'queued')}
               aria-label={`Open song ${track.number}, ${shownTitle} (${madeTrackLabel(
                 track.project_status
@@ -129,7 +126,7 @@ export const AlbumTrackRow: React.FC<AlbumTrackRowProps> = ({
         )}
       </div>
       {asksName && (
-        <div className="ml-8 pb-1 pt-1">
+        <div className="ml-8 max-w-xl pb-2 pt-1 sm:ml-[4.5rem]">
           <label htmlFor={nameId} className="sr-only">
             {`Name of song ${track.number}`}
           </label>
