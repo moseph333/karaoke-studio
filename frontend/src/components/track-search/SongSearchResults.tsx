@@ -22,13 +22,13 @@ import { formatTime } from '../../utils/format';
 export const INITIAL_SONGS = 5;
 
 const VERSION_LABELS: Record<string, { label: string; tone: BadgeTone }> = {
-  live: { label: 'Live', tone: 'info' },
-  remix: { label: 'Remix', tone: 'info' },
-  acoustic: { label: 'Acoustic', tone: 'info' },
-  cover: { label: 'Cover', tone: 'info' },
-  demo: { label: 'Demo', tone: 'info' },
-  altered: { label: 'Altered', tone: 'info' },
-  extended: { label: 'Extended', tone: 'info' },
+  live: { label: 'Live', tone: 'neutral' },
+  remix: { label: 'Remix', tone: 'neutral' },
+  acoustic: { label: 'Acoustic', tone: 'neutral' },
+  cover: { label: 'Cover', tone: 'neutral' },
+  demo: { label: 'Demo', tone: 'neutral' },
+  altered: { label: 'Altered', tone: 'neutral' },
+  extended: { label: 'Extended', tone: 'neutral' },
   // Nothing sung to time the lyrics to
   karaoke: { label: 'Karaoke track', tone: 'warning' },
   instrumental: { label: 'Instrumental', tone: 'warning' },

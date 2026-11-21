@@ -223,7 +223,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
           </Button>
           <Button
             type="submit"
-            variant="gradient"
+            variant="primary"
             fullWidth="mobile"
             disabled={!title.trim() || !artist.trim()}
             loading={loading}

@@ -196,7 +196,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <Button
             type="submit"
-            variant="gradient"
+            variant="primary"
             size="lg"
             fullWidth
             disabled={(requirePassword && !password.trim()) || !username.trim()}

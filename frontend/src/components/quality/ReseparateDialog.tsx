@@ -154,7 +154,7 @@ const ReseparateDialogContent: React.FC<ReseparateDialogProps> = ({
           </Button>
           <Button
             type="submit"
-            variant="gradient"
+            variant="primary"
             loading={submitting}
             loadingLabel="Starting…"
             leftIcon={<Sparkles className="h-4 w-4" aria-hidden="true" />}

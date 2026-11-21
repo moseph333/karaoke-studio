@@ -383,7 +383,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
           Cancel
         </Button>
         <Button
-          variant="gradient"
+          variant="primary"
           fullWidth="mobile"
           onClick={handleApply}
           disabled={!vocalRange?.is_voiced}

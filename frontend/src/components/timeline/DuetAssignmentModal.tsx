@@ -573,7 +573,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
           </Button>
           <Button
             type="submit"
-            variant="gradient"
+            variant="primary"
             fullWidth="mobile"
             disabled={lines.length === 0 || (mode === 'voice' && !voice?.detected)}
             data-testid="apply-duet-btn"

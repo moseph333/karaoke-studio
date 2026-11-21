@@ -436,7 +436,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   className="w-full sm:w-auto"
                 >
                   <Button
-                    variant="gradient"
+                    variant="primary"
                     fullWidth="mobile"
                     onClick={handleStartRenderClick}
                     aria-label="Start video render"
@@ -476,7 +476,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 <ProgressBar
                   value={Math.max(5, project.render_progress || 5)}
                   label="Video render progress"
-                  tone="gradient"
                 />
                 <div className="flex flex-col justify-between gap-2 px-1 font-mono text-xs text-theme-text-muted sm:flex-row sm:items-center">
                   <span className="flex items-center gap-1.5 text-theme-highlight">

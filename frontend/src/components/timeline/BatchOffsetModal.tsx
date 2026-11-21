@@ -140,7 +140,7 @@ export const BatchOffsetModal: React.FC<BatchOffsetModalProps> = ({
           <Button variant="secondary" fullWidth="mobile" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" variant="gradient" fullWidth="mobile" disabled={!isValidDelta}>
+          <Button type="submit" variant="primary" fullWidth="mobile" disabled={!isValidDelta}>
             Apply Offset
           </Button>
         </DialogFooter>
