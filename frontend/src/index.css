@@ -7,56 +7,57 @@
    tokenParity.test.ts keeps tailwind.config.js, index.html and manifest.json in step.
    ========================================================================== */
 :root {
-  --theme-bg: #0b0b12;
-  --theme-surface: #14141f;
-  --theme-surface-subtle: #1b1b29;
-  --theme-surface-raised: #232335;
-  --theme-border: #34344f;
-  --theme-border-subtle: #26263a;
-  --theme-text: #f5f3ff;
-  --theme-text-muted: #a8a5c7;
-  --theme-text-inverse: #0b0b12;
-  --theme-accent: #7c3aed;
-  --theme-accent-hover: #6d28d9;
-  --theme-accent-text: #ffffff;
-  --theme-secondary: #db2777;
-  --theme-highlight: #a78bfa;
-  --theme-sung: #fbbf24;
-  --theme-unsung: #edebff;
-  --theme-success: #34d399;
-  --theme-warning: #fbbf24;
-  --theme-danger: #fb7185;
-  --theme-info: #60a5fa;
-  --theme-focus: #a78bfa;
-  --theme-overlay: #05050a;
-  --theme-bg-rgb: 11 11 18;
-  --theme-surface-rgb: 20 20 31;
-  --theme-surface-subtle-rgb: 27 27 41;
-  --theme-surface-raised-rgb: 35 35 53;
-  --theme-border-rgb: 52 52 79;
-  --theme-border-subtle-rgb: 38 38 58;
-  --theme-text-rgb: 245 243 255;
-  --theme-text-muted-rgb: 168 165 199;
-  --theme-text-inverse-rgb: 11 11 18;
-  --theme-accent-rgb: 124 58 237;
-  --theme-accent-hover-rgb: 109 40 217;
-  --theme-accent-text-rgb: 255 255 255;
-  --theme-secondary-rgb: 219 39 119;
-  --theme-highlight-rgb: 167 139 250;
-  --theme-sung-rgb: 251 191 36;
-  --theme-unsung-rgb: 237 235 255;
-  --theme-success-rgb: 52 211 153;
-  --theme-warning-rgb: 251 191 36;
-  --theme-danger-rgb: 251 113 133;
-  --theme-info-rgb: 96 165 250;
-  --theme-focus-rgb: 167 139 250;
-  --theme-overlay-rgb: 5 5 10;
-  --theme-gradient-accent: linear-gradient(135deg, #7c3aed 0%, #c026d3 52%, #db2777 100%);
-  --theme-gradient-stage:
-    radial-gradient(120% 90% at 50% 0%, rgba(124, 58, 237, 0.22) 0%, rgba(11, 11, 18, 0) 60%),
-    radial-gradient(90% 70% at 100% 100%, rgba(219, 39, 119, 0.14) 0%, rgba(11, 11, 18, 0) 55%),
-    #0b0b12;
-  --theme-glass-alpha: 0.78;
+  /* Black, bone and one bulb yellow. Yellow means lit: what is playing now, and the one
+     action that moves the song forward on a screen. */
+  --theme-bg: #000000;
+  --theme-surface: #000000;
+  --theme-surface-subtle: #141413;
+  --theme-surface-raised: #1c1c1a;
+  --theme-border: #f2eee3;
+  --theme-border-subtle: #2e2d2a;
+  --theme-text: #f2eee3;
+  --theme-text-muted: #a09b8f;
+  --theme-text-inverse: #000000;
+  --theme-accent: #ffd21f;
+  --theme-accent-hover: #ffe066;
+  --theme-accent-text: #000000;
+  --theme-secondary: #ffd21f;
+  --theme-highlight: #ffd21f;
+  --theme-sung: #ffd21f;
+  --theme-unsung: #f2eee3;
+  --theme-success: #9adf8f;
+  --theme-warning: #ff9d4d;
+  --theme-danger: #ff5a45;
+  --theme-info: #f2eee3;
+  --theme-focus: #ffd21f;
+  --theme-overlay: #000000;
+  --theme-bg-rgb: 0 0 0;
+  --theme-surface-rgb: 0 0 0;
+  --theme-surface-subtle-rgb: 20 20 19;
+  --theme-surface-raised-rgb: 28 28 26;
+  --theme-border-rgb: 242 238 227;
+  --theme-border-subtle-rgb: 46 45 42;
+  --theme-text-rgb: 242 238 227;
+  --theme-text-muted-rgb: 160 155 143;
+  --theme-text-inverse-rgb: 0 0 0;
+  --theme-accent-rgb: 255 210 31;
+  --theme-accent-hover-rgb: 255 224 102;
+  --theme-accent-text-rgb: 0 0 0;
+  --theme-secondary-rgb: 255 210 31;
+  --theme-highlight-rgb: 255 210 31;
+  --theme-sung-rgb: 255 210 31;
+  --theme-unsung-rgb: 242 238 227;
+  --theme-success-rgb: 154 223 143;
+  --theme-warning-rgb: 255 157 77;
+  --theme-danger-rgb: 255 90 69;
+  --theme-info-rgb: 242 238 227;
+  --theme-focus-rgb: 255 210 31;
+  --theme-overlay-rgb: 0 0 0;
+  /* Flat stand-ins for the gradients, glow and glass of the old look, kept until the last
+     component that names them is converted */
+  --theme-gradient-accent: linear-gradient(#ffd21f, #ffd21f);
+  --theme-gradient-stage: linear-gradient(#141413, #141413);
+  --theme-glass-alpha: 1;
   --theme-font-display:
     'Sofia Sans Extra Condensed', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif;
   --theme-font-heading: 'Sofia Sans', 'Helvetica Neue', Arial, sans-serif;
@@ -64,18 +65,18 @@
   --theme-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   --theme-font-karaoke: Sora, Inter, system-ui, sans-serif;
   --karaoke-font-family: Sora, Inter, system-ui, sans-serif;
-  --theme-radius-sm: 8px;
-  --theme-radius-md: 12px;
-  --theme-radius-lg: 16px;
-  --theme-radius-xl: 24px;
-  --theme-radius-pill: 9999px;
+  /* Square and flat: no radius and no shadow anywhere in the app's own chrome */
+  --theme-radius-sm: 0px;
+  --theme-radius-md: 0px;
+  --theme-radius-lg: 0px;
+  --theme-radius-xl: 0px;
+  --theme-radius-pill: 0px;
   --theme-border-width: 1px;
   --theme-border-width-thick: 2px;
-  --theme-shadow-sm: 0 1px 2px rgba(5, 5, 12, 0.55);
-  --theme-shadow-md: 0 1px 2px rgba(5, 5, 12, 0.5), 0 8px 24px -10px rgba(5, 5, 12, 0.75);
-  --theme-shadow-lg: 0 2px 6px rgba(5, 5, 12, 0.45), 0 24px 56px -18px rgba(5, 5, 12, 0.85);
-  --theme-shadow-glow:
-    0 0 0 1px rgba(167, 139, 250, 0.35), 0 10px 36px -8px rgba(219, 39, 119, 0.45);
+  --theme-shadow-sm: none;
+  --theme-shadow-md: none;
+  --theme-shadow-lg: none;
+  --theme-shadow-glow: none;
 }
 
 /* ==========================================================================
@@ -92,9 +93,9 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    font-family: var(--theme-font-body, 'Sofia Sans', sans-serif);
-    color: var(--theme-text, #f5f3ff);
-    background-color: var(--theme-bg, #0b0b12);
+    font-family: var(--theme-font-body);
+    color: var(--theme-text);
+    background-color: var(--theme-bg);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -106,7 +107,11 @@
   h5,
   h6 {
     font-family: var(--theme-font-heading, inherit);
-    letter-spacing: -0.01em;
+  }
+  /* Icons are drawn square-ended to match the square corners */
+  .lucide {
+    stroke-linecap: square;
+    stroke-linejoin: miter;
   }
   :where(
     a,
@@ -119,7 +124,7 @@
     textarea,
     [tabindex]
   ):focus-visible {
-    outline: 2px solid rgb(var(--theme-focus-rgb, 167 139 250));
+    outline: 2px solid var(--theme-focus);
     outline-offset: 2px;
   }
   /* Installed app (home-screen launch): no pull-to-refresh reload mid-edit and no grey
@@ -148,8 +153,8 @@
     }
   }
   ::selection {
-    background-color: rgb(var(--theme-accent-rgb, 124 58 237) / 0.4);
-    color: var(--theme-text, #f5f3ff);
+    background-color: var(--theme-accent);
+    color: var(--theme-accent-text);
   }
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -163,10 +168,10 @@
   }
 }
 
-/* Custom scrollbars driven by theme tokens */
+/* Scrollbars: a quiet square thumb */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgb(var(--theme-border-rgb, 52 52 79)) transparent;
+  scrollbar-color: rgb(var(--theme-text-muted-rgb) / 0.5) transparent;
 }
 ::-webkit-scrollbar {
   width: 10px;
@@ -176,13 +181,12 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgb(var(--theme-border-rgb, 52 52 79));
+  background: rgb(var(--theme-text-muted-rgb) / 0.5);
   border: 3px solid transparent;
-  border-radius: 9999px;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgb(var(--theme-text-muted-rgb, 168 165 199) / 0.6);
+  background-color: rgb(var(--theme-text-muted-rgb) / 0.85);
 }
 
 /* ==========================================================================
@@ -284,23 +288,20 @@
   }
   .ks-range::-webkit-slider-runnable-track {
     height: 6px;
-    border-radius: 9999px;
     background: linear-gradient(
       to right,
       var(--ks-range-color) 0%,
       var(--ks-range-color) var(--ks-range-fill),
-      rgb(var(--theme-border-rgb)) var(--ks-range-fill),
-      rgb(var(--theme-border-rgb)) 100%
+      rgb(var(--theme-text-muted-rgb) / 0.6) var(--ks-range-fill),
+      rgb(var(--theme-text-muted-rgb) / 0.6) 100%
     );
   }
   .ks-range::-moz-range-track {
     height: 6px;
-    border-radius: 9999px;
-    background: rgb(var(--theme-border-rgb));
+    background: rgb(var(--theme-text-muted-rgb) / 0.6);
   }
   .ks-range::-moz-range-progress {
     height: 6px;
-    border-radius: 9999px;
     background: var(--ks-range-color);
   }
   .ks-range::-webkit-slider-thumb {
