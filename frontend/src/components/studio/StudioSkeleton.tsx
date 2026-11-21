@@ -24,14 +24,14 @@ export const StudioSkeleton: React.FC = () => (
         </div>
       </div>
       <Skeleton className="mx-auto aspect-video w-full max-w-2xl" />
-      <div className="space-y-2 border border-theme-border-subtle bg-theme-surface p-4">
+      <div className="space-y-2 border-t-2 border-theme-border pt-4">
         <Skeleton className="h-5 w-32" />
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-11 w-full" />
         ))}
       </div>
     </div>
-    <div className="hidden space-y-3 border border-theme-border-subtle bg-theme-surface p-4 md:block">
+    <div className="hidden space-y-3 border-t-2 border-theme-border pt-4 md:block">
       <Skeleton className="h-5 w-28" />
       <Skeleton className="h-20 w-full" />
       <Skeleton className="h-10 w-full" />

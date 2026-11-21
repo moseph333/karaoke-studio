@@ -116,7 +116,7 @@ const ReseparateDialogContent: React.FC<ReseparateDialogProps> = ({
             durationSeconds={project.duration}
             currentPreset={preset === 'custom' ? 'custom' : current}
           />
-          <div className="space-y-1 border border-theme-border-subtle bg-theme-surface-subtle/60 px-3 py-1">
+          <div className="space-y-1 border-y border-theme-border-subtle py-1">
             <Checkbox
               checked={realignLyrics && hasLyrics && !hasUnsavedLyricEdits}
               onChange={setRealignLyrics}

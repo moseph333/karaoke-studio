@@ -6,7 +6,7 @@
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RotateCcw, RefreshCw, ChevronDown, ChevronUp, Bug } from 'lucide-react';
+import { AlertTriangle, RotateCcw, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from './ui/Button';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
@@ -145,47 +145,42 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       <div
         role="alert"
         aria-live="assertive"
-        className="flex min-h-[100dvh] flex-col items-center justify-center bg-theme-bg p-4 font-theme-body text-theme-text sm:p-6"
+        className="flex min-h-[100dvh] flex-col justify-center bg-theme-bg p-4 font-theme-body text-theme-text sm:p-8"
       >
-        <div className="w-full max-w-xl space-y-6 border border-theme-border-subtle bg-theme-surface p-6 text-center sm:p-8">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center text-theme-warning">
-            <AlertTriangle className="h-8 w-8" aria-hidden="true" />
-          </div>
-
+        <div className="w-full max-w-2xl space-y-6">
           <div className="space-y-2">
-            <h1 className="font-theme-heading text-2xl font-extrabold tracking-tight text-theme-text">
+            <h1 className="ks-display text-[44px] font-black leading-[0.9] text-theme-danger sm:text-[72px]">
               Karaoke Studio Error
             </h1>
-            <p className="mx-auto max-w-md text-sm leading-relaxed text-theme-text-muted">
+            <p className="max-w-xl border-t-2 border-theme-border pt-4 text-[19px] text-theme-text">
               An unexpected runtime error occurred while rendering the studio interface. You can
               attempt state recovery or reload the studio.
             </p>
           </div>
 
           {/* Error Message Card */}
-          <div className="space-y-1 border border-theme-danger p-3.5 text-left">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-theme-danger">
-              <Bug className="h-3.5 w-3.5" aria-hidden="true" />
+          <div className="space-y-1 border-l-2 border-theme-danger pl-3">
+            <div className="text-sm font-semibold text-theme-text">
               <span>Runtime Exception</span>
             </div>
-            <p className="select-all break-all tabular-nums text-xs text-theme-text">
+            <p className="select-all break-all font-mono text-xs text-theme-text-muted">
               {error?.message || 'An unknown error occurred.'}
             </p>
           </div>
 
           {/* Collapsible Stack Trace Accordion */}
-          <div className="overflow-hidden border border-theme-border-subtle bg-theme-bg/60 text-left">
+          <div className="overflow-hidden">
             <button
               type="button"
               onClick={this.toggleDetails}
               aria-expanded={showDetails}
               aria-controls="error-stack-details"
               className={cn(
-                'flex min-h-[44px] w-full items-center justify-between px-4 py-2.5 text-xs text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text',
+                'flex min-h-[44px] items-center gap-2 text-sm font-semibold text-theme-text-muted transition-colors hover:text-theme-text',
                 focusRing
               )}
             >
-              <span className="font-medium">Technical Details & Stack Trace</span>
+              <span>Technical Details & Stack Trace</span>
               {showDetails ? (
                 <ChevronUp className="h-4 w-4" aria-hidden="true" />
               ) : (
@@ -195,7 +190,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             {showDetails && (
               <div
                 id="error-stack-details"
-                className="max-h-56 select-all space-y-3 overflow-y-auto whitespace-pre-wrap border-t border-theme-border-subtle bg-theme-bg p-4 tabular-nums text-xs text-theme-text-muted"
+                className="max-h-56 select-all space-y-3 overflow-y-auto whitespace-pre-wrap border-l-2 border-theme-border-subtle pl-3 font-mono text-xs text-theme-text-muted"
               >
                 {error?.stack && (
                   <div>
@@ -212,28 +207,18 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   </div>
                 )}
                 {!error?.stack && !errorInfo?.componentStack && (
-                  <span className="italic">No stack information captured.</span>
+                  <span>No stack information captured.</span>
                 )}
               </div>
             )}
           </div>
 
           {/* Action Recovery Buttons */}
-          <div className="flex flex-col items-stretch justify-center gap-3 pt-2 sm:flex-row sm:items-center">
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={this.resetErrorBoundary}
-              leftIcon={<RotateCcw className="h-4 w-4" aria-hidden="true" />}
-            >
+          <div className="flex flex-col items-stretch gap-3 pt-2 sm:flex-row sm:items-center">
+            <Button variant="primary" size="lg" onClick={this.resetErrorBoundary}>
               Try Again
             </Button>
-            <Button
-              variant="secondary"
-              size="lg"
-              onClick={this.handleReload}
-              leftIcon={<RefreshCw className="h-4 w-4" aria-hidden="true" />}
-            >
+            <Button variant="secondary" size="lg" onClick={this.handleReload}>
               Reload Studio
             </Button>
           </div>

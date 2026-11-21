@@ -79,7 +79,7 @@ const SongCheckupContent: React.FC<SongCheckupDialogProps> = ({ onClose, project
             <li
               key={row.id}
               data-level={row.level}
-              className="flex items-start gap-3 border border-theme-border-subtle bg-theme-bg/60 p-3.5"
+              className="flex items-start gap-3 border-b border-theme-border-subtle py-3"
             >
               <span
                 aria-hidden="true"

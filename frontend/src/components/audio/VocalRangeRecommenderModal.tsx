@@ -33,11 +33,10 @@ export interface VocalRangeRecommenderModalProps {
 // "−3 st" with a real minus sign, which screen readers say as "minus"
 const formatShift = (semitones: number, zero: string) => formatSemitones(semitones, zero);
 
-const statCard = 'border border-theme-border-subtle bg-theme-surface p-2';
-const statLabel = 'block text-xs text-theme-text-muted';
-const statValue = 'tabular-nums text-sm font-bold text-theme-text';
+const statLabel = 'block text-sm text-theme-text-muted';
+const statValue = 'ks-display text-[28px] tabular-nums text-theme-text';
 const selectCls =
-  'w-full min-h-[44px] border border-theme-border-subtle bg-theme-bg px-3 py-2 tabular-nums text-base text-theme-text focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-xs';
+  'w-full min-h-[44px] border border-theme-border bg-transparent px-3 py-2 tabular-nums text-base text-theme-text focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-focus sm:text-xs';
 
 const PRESET_LIST: Array<VoicePreset | 'Custom'> = [
   'Bass',
@@ -136,14 +135,14 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
       />
 
       <div className="space-y-5">
-        <section className="space-y-2 border border-theme-border-subtle bg-theme-bg/60 p-4">
+        <section className="space-y-2">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="flex items-center gap-1.5 font-medium text-theme-text-muted">
               <Mic className="h-4 w-4 text-theme-text" aria-hidden="true" />
               Detected Song Vocal Range
             </span>
             {vocalRange?.is_voiced && (
-              <span className="border border-theme-accent px-2 py-0.5 tabular-nums text-xs text-theme-text">
+              <span className="tabular-nums text-sm text-theme-text">
                 Estimated Key: {vocalRange.estimated_key}
               </span>
             )}
@@ -151,7 +150,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
 
           {vocalRange && vocalRange.is_voiced && vocalRange.lowest_note ? (
             <div className="grid grid-cols-2 gap-2 pt-2 text-xs sm:grid-cols-4">
-              <div className={statCard}>
+              <div>
                 <span className={statLabel}>Sung Range</span>
                 <span className={cn(statValue, 'text-theme-text')}>
                   {vocalRange.lowest_note} – {vocalRange.highest_note}
@@ -160,7 +159,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
                   {vocalRange.lowest_hz?.toFixed(0)}Hz – {vocalRange.highest_hz?.toFixed(0)}Hz
                 </span>
               </div>
-              <div className={statCard}>
+              <div>
                 <span className={statLabel}>Tessitura</span>
                 <span className={statValue}>
                   {vocalRange.tessitura_low_note || vocalRange.lowest_note} –{' '}
@@ -168,14 +167,14 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
                 </span>
                 <span className="block text-xs text-theme-text-muted">Core 70% bounds</span>
               </div>
-              <div className={statCard}>
+              <div>
                 <span className={statLabel}>Median Pitch</span>
                 <span className={statValue}>{vocalRange.median_note || '-'}</span>
                 <span className="block text-xs text-theme-text-muted">
                   {vocalRange.median_hz ? `~${vocalRange.median_hz.toFixed(0)} Hz` : '-'}
                 </span>
               </div>
-              <div className={statCard}>
+              <div>
                 <span className={statLabel}>Current Shift</span>
                 <span className={statValue}>{formatShift(currentSemitones, '0 (Original)')}</span>
                 <span className="block text-xs text-theme-text-muted">Studio Mix</span>
@@ -234,7 +233,7 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
               {VOICE_PRESETS[selectedPreset].lowNote} to {VOICE_PRESETS[selectedPreset].highNote})
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-3 border border-theme-border-subtle bg-theme-bg/60 p-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label
                   htmlFor="custom-low-note"
@@ -285,8 +284,8 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
               <span className="font-semibold text-theme-text">Pitch Range Comparison</span>
               <span className="tabular-nums text-xs text-theme-text-muted">C2 to C6 Compass</span>
             </div>
-            <div className="space-y-3 border border-theme-border-subtle bg-theme-bg/60 p-3">
-              <div className="relative flex h-12 w-full items-center overflow-hidden border border-theme-border-subtle bg-theme-surface">
+            <div className="space-y-3">
+              <div className="relative flex h-12 w-full items-center overflow-hidden bg-theme-surface-raised">
                 <div
                   className="absolute flex h-9 items-center justify-between border border-theme-accent px-1.5 transition-all"
                   style={{
@@ -366,9 +365,9 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
               )}
             </p>
           </div>
-          <div className="min-w-[140px] shrink-0 border border-theme-border-subtle bg-theme-surface p-3 text-center text-xs sm:text-right">
-            <span className="block text-xs uppercase text-theme-text-muted">Projected Range</span>
-            <span className="block tabular-nums text-sm font-bold text-theme-text">
+          <div className="min-w-[140px] shrink-0 sm:text-right">
+            <span className="block text-sm text-theme-text-muted">Projected range</span>
+            <span className="ks-display block text-[28px] tabular-nums text-theme-text">
               {recommendation.projected_low_note} – {recommendation.projected_high_note}
             </span>
           </div>
