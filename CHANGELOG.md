@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.13.0](https://github.com/moseph333/karaoke-studio/compare/v2.12.0...v2.13.0) (2026-11-21)
+
+
+### Features
+
+* **help:** say how to keep backing vocals or a duet partner in ([7f2fd3b](https://github.com/moseph333/karaoke-studio/commit/7f2fd3b6dc3b0adb6ca73f80aff1dd1e66dd123e))
+* **mix:** set a level for each vocal part and each singer's lines ([b397086](https://github.com/moseph333/karaoke-studio/commit/b39708620967bcf6376d3249d6b719c59cde2d19))
+* **separation:** let the worker pick its two stems by tag ([3e560d7](https://github.com/moseph333/karaoke-studio/commit/3e560d7a449d0d7096e822dea47f3215f4332034))
+* **stems:** split a song's vocals into lead and backing parts ([36a5de8](https://github.com/moseph333/karaoke-studio/commit/36a5de88d20244a4636889f200211399b80476b6))
+* **stems:** split the lead into a male and a female voice ([2e05c29](https://github.com/moseph333/karaoke-studio/commit/2e05c2945f1f53026328650c4a99ff5a7deb6a9b))
+* **stems:** split the vocals of a finished song as a background job ([aaded5d](https://github.com/moseph333/karaoke-studio/commit/aaded5d180859d990f5492ab3cd4e81a5b2fdd8b))
+* **studio:** keep backing vocals or a duet partner in the mix ([294ffc7](https://github.com/moseph333/karaoke-studio/commit/294ffc78f9d6b72903e434eb77ae1fe0cbe99ce6))
+* **studio:** keep the male or the female voice of a duet in the mix ([7d21241](https://github.com/moseph333/karaoke-studio/commit/7d21241d6c24687e0fcf0eae6d8cbd6a27c7a3ad))
+* **studio:** split lead and backing vocals from the audio mix panel ([de46376](https://github.com/moseph333/karaoke-studio/commit/de463762b492b278806123a7977847c2dc2f2e61))
+
 ## [2.12.0](https://github.com/moseph333/karaoke-studio/compare/v2.11.0...v2.12.0) (2026-11-19)
 
 
