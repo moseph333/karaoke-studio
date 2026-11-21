@@ -1,7 +1,7 @@
 import React, { useCallback, useId, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '../../utils/cn';
-import { SurfaceVariant, focusRing, surfaceVariants } from './variants';
+import { focusRing } from './variants';
 
 const PANEL_STORAGE_PREFIX = 'karaoke_panel_collapsed_';
 
@@ -21,10 +21,8 @@ export interface PanelProps extends Omit<React.HTMLAttributes<HTMLElement>, 'tit
   title?: React.ReactNode;
   titleId?: string;
   description?: React.ReactNode;
-  icon?: React.ReactNode;
   actions?: React.ReactNode;
   headingLevel?: 2 | 3 | 4;
-  variant?: SurfaceVariant;
   padding?: 'none' | 'sm' | 'md';
   collapsible?: boolean;
   defaultCollapsed?: boolean;
@@ -38,10 +36,8 @@ export const Panel: React.FC<PanelProps> = ({
   title,
   titleId,
   description,
-  icon,
   actions,
   headingLevel = 3,
-  variant = 'surface',
   padding = 'md',
   collapsible = false,
   defaultCollapsed = false,
@@ -75,56 +71,33 @@ export const Panel: React.FC<PanelProps> = ({
 
   const Heading = `h${headingLevel}` as 'h2' | 'h3' | 'h4';
   const Tag = as;
-  const bodyPadding = title
-    ? padding === 'none'
-      ? ''
-      : padding === 'sm'
-        ? 'px-3 pb-3'
-        : 'px-4 pb-4 sm:px-5 sm:pb-5'
-    : padding === 'none'
-      ? ''
-      : padding === 'sm'
-        ? 'p-3'
-        : 'p-4 sm:p-5';
+  // A section sits under a rule and shares the page's margins: it has no box of its own,
+  // so only vertical room is added
+  const bodyPadding =
+    padding === 'none' ? '' : title ? (padding === 'sm' ? 'pb-3' : 'pb-5') : 'py-4';
 
   const headingContent = (
-    <span className="flex min-w-0 items-center gap-2.5">
-      {icon && (
-        <span
-          aria-hidden="true"
-          className="flex h-8 w-8 shrink-0 items-center justify-center text-theme-text"
-        >
-          {icon}
-        </span>
+    <span className="min-w-0">
+      <Heading
+        id={headingId}
+        className="ks-display truncate text-[28px] font-black text-theme-text"
+      >
+        {title}
+      </Heading>
+      {description && (
+        <span className="mt-0.5 block text-sm text-theme-text-muted">{description}</span>
       )}
-      <span className="min-w-0">
-        <Heading
-          id={headingId}
-          className="truncate text-sm font-semibold tracking-tight text-theme-text font-theme-heading"
-        >
-          {title}
-        </Heading>
-        {description && (
-          <span className="mt-0.5 block text-xs text-theme-text-muted">{description}</span>
-        )}
-      </span>
     </span>
   );
 
   return (
     <Tag
       aria-labelledby={title ? headingId : undefined}
-      className={cn('', surfaceVariants[variant], className)}
+      className={cn('border-t-2 border-theme-border', className)}
       {...rest}
     >
       {title && (
-        <div
-          className={cn(
-            'flex items-start justify-between gap-3',
-            padding === 'none' ? 'px-4 pt-4' : padding === 'sm' ? 'px-3 pt-3' : 'px-4 pt-4 sm:px-5',
-            !collapsed && 'pb-3'
-          )}
-        >
+        <div className={cn('flex items-center justify-between gap-3 pt-3', !collapsed && 'pb-3')}>
           {collapsible ? (
             <button
               type="button"

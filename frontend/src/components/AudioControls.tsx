@@ -12,7 +12,6 @@
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
 import { apiFetch, readApiError } from '../api';
 import { useToast } from '../hooks/useToast';
 import { MASTER_VOLUME_STORAGE_KEY, MASTER_MUTED_STORAGE_KEY } from '../utils/volumeStorage';
@@ -286,7 +285,6 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       headingLevel={2}
       title="Audio mix"
       description="Changes apply automatically"
-      icon={<SlidersHorizontal className="h-4 w-4" />}
       className={className}
       data-testid="audio-mix-panel"
     >

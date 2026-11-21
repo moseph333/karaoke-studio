@@ -13,7 +13,6 @@ import {
   ImageIcon,
   Monitor,
   Move,
-  Palette,
   RotateCcw,
   Smartphone,
   Square,
@@ -81,7 +80,7 @@ const STAGE_SIZE_OPTIONS: ReadonlyArray<{ value: StageSize; label: string; hint:
   { value: 'large', label: 'Large', hint: 'Bigger live preview' },
 ];
 
-const sectionLabel = 'text-xs font-semibold uppercase tracking-[0.08em] text-theme-text-muted';
+const sectionLabel = 'text-sm font-semibold text-theme-text';
 
 const BACKGROUND_ICONS: Record<
   StageBackgroundStyle,
@@ -214,7 +213,6 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
       headingLevel={2}
       title="Stage look"
       description="Preview styling and video format"
-      icon={<Palette className="h-4 w-4" />}
       className={className}
       data-testid="stage-look-panel"
       actions={
@@ -382,7 +380,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   <span className="block truncate text-xs font-semibold text-theme-text">
                     {c.label}
                   </span>
-                  <span className="block font-mono text-[10px] uppercase text-theme-text-muted">
+                  <span className="block tabular-nums text-xs uppercase text-theme-text-muted">
                     {c.value}
                   </span>
                 </span>
@@ -394,7 +392,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className={sectionLabel}>Lyric size</span>
-            <span className="font-mono text-xs font-semibold tabular-nums text-theme-text">
+            <span className="tabular-nums text-xs font-semibold text-theme-text">
               {activeScale}x
             </span>
           </div>
@@ -451,12 +449,12 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                 options={backgroundOptions}
               />
               {activeBackgroundOption?.needsArtwork && !hasArtwork && (
-                <p className="text-[11px] leading-snug text-theme-text-muted">
+                <p className="text-xs leading-snug text-theme-text-muted">
                   This song has no cover art, so the stage colour shows instead.
                 </p>
               )}
               {activeBackgroundOption?.moves && (
-                <p className="text-[11px] leading-snug text-theme-text-muted">
+                <p className="text-xs leading-snug text-theme-text-muted">
                   Moves with the song: press play to see it. While paused, the stage shows the
                   video&apos;s frame at that moment.
                 </p>
@@ -514,7 +512,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
               )}
             </span>
           </div>
-          <p className="text-[11px] leading-snug text-theme-text-muted">
+          <p className="text-xs leading-snug text-theme-text-muted">
             Image or looping video (MP4/WebM) shown behind the lyrics in the preview and export.
           </p>
         </div>

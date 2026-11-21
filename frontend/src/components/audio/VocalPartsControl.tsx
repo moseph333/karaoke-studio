@@ -10,7 +10,6 @@
  */
 
 import React from 'react';
-import { Mic2 } from 'lucide-react';
 import type { PartNames, SingerRole, VocalLevels } from '../../types';
 import { divideBySinger, divideByVoice, undivide } from '../../utils/vocalLevels';
 import { SegmentedControl } from '../ui/SegmentedControl';
@@ -61,8 +60,8 @@ interface PartLevelProps {
 const PartLevel: React.FC<PartLevelProps> = ({ name, value, testId, onChange, onCommit }) => (
   <div className="flex flex-col gap-1.5" data-testid={testId}>
     <div className="flex items-center justify-between gap-2">
-      <span className="min-w-0 truncate text-xs font-medium text-theme-text">{name}</span>
-      <span className="shrink-0 font-mono text-xs font-semibold tabular-nums text-theme-text">
+      <span className="min-w-0 truncate text-sm text-theme-text">{name}</span>
+      <span className="shrink-0 tabular-nums text-sm font-semibold text-theme-text">
         {Math.round(value * 100)}%
       </span>
     </div>
@@ -137,11 +136,7 @@ export const VocalPartsControl: React.FC<VocalPartsControlProps> = ({
           data-testid="vocal-singers"
         >
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-            <h3
-              id="vocal-singers-heading"
-              className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-theme-text-muted"
-            >
-              <Mic2 className="h-3.5 w-3.5" aria-hidden="true" />
+            <h3 id="vocal-singers-heading" className="text-sm font-semibold text-theme-text">
               Lead by singer
             </h3>
             <SegmentedControl
@@ -159,7 +154,7 @@ export const VocalPartsControl: React.FC<VocalPartsControlProps> = ({
               {singerParts.map((part) =>
                 level(part, partNames?.[part]?.trim() || PART_DEFAULT_NAMES[part])
               )}
-              <p className="text-[11px] text-theme-text-muted">
+              <p className="text-xs text-theme-text-muted">
                 Each level applies during that singer&apos;s lyric lines, in place of the guide
                 vocal.
               </p>
@@ -169,13 +164,13 @@ export const VocalPartsControl: React.FC<VocalPartsControlProps> = ({
             <VocalSplitControl {...voiceSplit} kind="male_female" nested>
               {level('male', 'Male voice')}
               {level('female', 'Female voice')}
-              <p className="text-[11px] text-theme-text-muted">
+              <p className="text-xs text-theme-text-muted">
                 Each voice has its own level, in place of the guide vocal.
               </p>
             </VocalSplitControl>
           )}
           {mode === 'whole' && (
-            <p className="text-[11px] text-theme-text-muted">
+            <p className="text-xs text-theme-text-muted">
               Divide the lead to keep one singer&apos;s voice in and sing the other part.
             </p>
           )}
