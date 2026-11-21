@@ -247,7 +247,8 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
 
       <aside
         aria-label="Inspector"
-        className="flex min-w-0 flex-col gap-3 studio:-mr-1 studio:min-h-0 studio:overflow-y-auto studio:pr-1"
+        // Beside the stage and timeline on desktop, divided from them by a rule
+        className="flex min-w-0 flex-col gap-1 studio:-mr-1 studio:min-h-0 studio:overflow-y-auto studio:border-l-2 studio:border-theme-border studio:pl-5 studio:pr-1"
       >
         <div
           id="workspace-panel-mix-audio"
