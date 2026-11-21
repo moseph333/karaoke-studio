@@ -103,7 +103,6 @@ const ReseparateDialogContent: React.FC<ReseparateDialogProps> = ({
           titleId="reseparate-title"
           description="Re-make this song's vocal and backing stems with another model. The song stays playable, and the new stems replace the current ones when they are ready."
           descriptionId="reseparate-desc"
-          icon={<Layers className="h-5 w-5" />}
           onClose={onClose}
           closeDisabled={submitting}
         />

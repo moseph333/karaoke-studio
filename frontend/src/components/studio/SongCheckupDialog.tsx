@@ -7,7 +7,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { AlertTriangle, CheckCircle2, Lightbulb, Stethoscope } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Lightbulb } from 'lucide-react';
 import type { ProjectState } from '../../types';
 import { useCapabilities } from '../../hooks/useCapabilities';
 import { GUIDE_ACTION_LABELS, type GuideAction } from '../../utils/guideActions';
@@ -69,7 +69,6 @@ const SongCheckupContent: React.FC<SongCheckupDialogProps> = ({ onClose, project
             : `${toFix} ${toFix === 1 ? 'thing' : 'things'} to look at. Each has a button to the tool that fixes it.`
         }
         descriptionId="song-checkup-desc"
-        icon={<Stethoscope className="h-5 w-5" />}
         onClose={onClose}
         closeLabel="Close the song check-up"
       />

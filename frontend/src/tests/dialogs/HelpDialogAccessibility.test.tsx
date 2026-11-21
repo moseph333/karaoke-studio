@@ -544,9 +544,8 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       expect(shortcutsTab.className).toContain('min-h-[44px]');
       expect(guideTab.className).toContain('min-h-[44px]');
 
-      // Check horizontal padding for touch ergonomics (px-3 sm:px-4)
-      expect(shortcutsTab.className).toContain('px-3');
-      expect(guideTab.className).toContain('px-3');
+      // Text tabs: wide enough by their words, and spaced apart by the list
+      expect(shortcutsTab.closest('[role="tablist"]')?.className).toContain('gap-x-6');
     });
 
     it('verifies footer dismissal button provides >=44px touch target', () => {

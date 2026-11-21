@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Shuffle, Sliders, Check, AudioLines, ListChecks } from 'lucide-react';
+import { Shuffle, Sliders, Check, AudioLines, ListChecks } from 'lucide-react';
 import { LyricLine, SingerRole, BulkAssignOptions, VoicePartsReport } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
@@ -289,7 +289,6 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
         titleId="duet-assign-title"
         description="Assign lines to Singer 1, Singer 2, or Both"
         descriptionId="duet-assign-desc"
-        icon={<Users className="h-5 w-5" />}
         onClose={onClose}
       />
 

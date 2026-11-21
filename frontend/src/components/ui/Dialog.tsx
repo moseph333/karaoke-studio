@@ -145,8 +145,6 @@ export interface DialogHeaderProps {
   titleId: string;
   description?: React.ReactNode;
   descriptionId?: string;
-  icon?: React.ReactNode;
-  iconTone?: 'accent' | 'danger' | 'warning' | 'success';
   /** Renders a close button before the title (first in focus order). */
   onClose?: () => void;
   closeLabel?: string;
@@ -158,20 +156,11 @@ export interface DialogHeaderProps {
   sticky?: boolean;
 }
 
-const ICON_TONES = {
-  accent: 'text-theme-text',
-  danger: 'text-theme-danger',
-  warning: 'text-theme-warning',
-  success: 'text-theme-success',
-} as const;
-
 export const DialogHeader: React.FC<DialogHeaderProps> = ({
   title,
   titleId,
   description,
   descriptionId,
-  icon,
-  iconTone = 'accent',
   onClose,
   closeLabel = 'Close dialog',
   closeTestId,
@@ -198,17 +187,6 @@ export const DialogHeader: React.FC<DialogHeaderProps> = ({
         disabled={closeDisabled}
         className="order-last -mr-1 -mt-1"
       />
-    )}
-    {icon && (
-      <span
-        aria-hidden="true"
-        className={cn(
-          'flex h-9 shrink-0 items-center justify-center sm:h-10',
-          ICON_TONES[iconTone]
-        )}
-      >
-        {icon}
-      </span>
     )}
     <div className="min-w-0 flex-1">
       <h2
