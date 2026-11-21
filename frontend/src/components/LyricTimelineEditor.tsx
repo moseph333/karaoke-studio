@@ -259,7 +259,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
         data-testid="studio-panel-timeline"
         className={`${panelCls(activeWorkspaceTab, 'timeline')} studio:min-h-0 studio:flex-1`}
       >
-        <div className="@container relative flex flex-col gap-2.5 border border-theme-border-subtle bg-theme-surface p-3 sm:p-4 studio:h-full studio:min-h-0">
+        <div className="@container relative flex flex-col gap-2 border-t-2 border-theme-border pt-2.5 studio:h-full studio:min-h-0">
           <TimelineToolbar
             lineCount={ed.editableLines.length}
             hasUnsavedChanges={ed.hasUnsavedChanges}
