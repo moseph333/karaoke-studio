@@ -246,7 +246,7 @@ describe('TransportDock stress', () => {
       });
     };
 
-    it('S3.1: switches from the Stage tab to Mix & Theme', async () => {
+    it('S3.1: switches from the Stage tab to Mix & Look', async () => {
       const user = userEvent.setup();
       await renderStudio();
 
@@ -264,7 +264,7 @@ describe('TransportDock stress', () => {
       expect(stagePanel.className).toMatch(/\bhidden\b/);
     });
 
-    it('S3.2: switches from the Timeline tab to Mix & Theme', async () => {
+    it('S3.2: switches from the Timeline tab to Mix & Look', async () => {
       const user = userEvent.setup();
       await renderStudio();
 
@@ -281,7 +281,7 @@ describe('TransportDock stress', () => {
       expect(timelinePanel.className).toContain('md:block');
     });
 
-    it('S3.3: stays on Mix & Theme when already there and scrolls the mix panel into view', async () => {
+    it('S3.3: stays on Mix & Look when already there and scrolls the mix panel into view', async () => {
       const user = userEvent.setup();
       await renderStudio();
       await user.click(screen.getByRole('tab', { name: /mix/i }));

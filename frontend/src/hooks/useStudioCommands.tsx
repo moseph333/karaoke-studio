@@ -452,7 +452,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       [
         ['stage', 'Go to stage'],
         ['timeline', 'Go to timeline'],
-        ['mix', 'Go to mix & theme'],
+        ['mix', 'Go to mix & look'],
       ] as const
     ).forEach(([tab, title]) =>
       add({
