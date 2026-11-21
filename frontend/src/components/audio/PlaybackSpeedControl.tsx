@@ -40,12 +40,7 @@ export const PlaybackSpeedControl: React.FC<PlaybackSpeedControlProps> = ({
   };
 
   return (
-    <div
-      className={cn(
-        'flex items-center gap-1 border border-theme-border-subtle bg-theme-surface-subtle p-0.5',
-        className
-      )}
-    >
+    <div className={cn('flex items-center gap-1', className)}>
       <span className="flex items-center pl-1.5 pr-0.5 text-theme-text-muted" aria-hidden="true">
         <Gauge className="h-3.5 w-3.5" />
       </span>
@@ -67,10 +62,12 @@ export const PlaybackSpeedControl: React.FC<PlaybackSpeedControlProps> = ({
                 onClick={() => onPlaybackRateChange(rate)}
                 onKeyDown={(e) => onKeyDown(e, index)}
                 className={cn(
-                  'min-h-[36px] min-w-[36px] md:min-h-[30px] px-2 font-mono text-[11px] font-semibold tabular-nums transition-colors',
+                  // The chosen speed is underlined in the text colour: yellow in this band
+                  // belongs to Play and the played part of the waveform
+                  'min-h-[36px] min-w-[36px] md:min-h-[30px] border-b-[3px] px-1.5 text-sm font-semibold tabular-nums transition-colors',
                   isSelected
-                    ? 'bg-theme-accent text-theme-accent-text'
-                    : 'text-theme-text-muted hover:bg-theme-surface-raised hover:text-theme-text',
+                    ? 'border-theme-text text-theme-text'
+                    : 'border-transparent text-theme-text-muted hover:text-theme-text',
                   focusRing
                 )}
               >
