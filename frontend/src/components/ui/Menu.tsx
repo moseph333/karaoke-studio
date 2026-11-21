@@ -238,7 +238,7 @@ export const Menu: React.FC<MenuProps> = ({
       {title && (
         <div
           role="presentation"
-          className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-theme-text-muted"
+          className="px-2.5 pb-1 pt-1.5 text-xs font-semibold text-theme-text-muted"
         >
           {title}
         </div>
@@ -252,7 +252,7 @@ export const Menu: React.FC<MenuProps> = ({
               <div
                 role="presentation"
                 className={cn(
-                  'px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-theme-text-muted',
+                  'px-2.5 pb-1 pt-1.5 text-xs font-semibold text-theme-text-muted',
                   index > 0 && 'mt-1 border-t border-theme-border-subtle pt-2'
                 )}
               >
@@ -291,7 +291,7 @@ export const Menu: React.FC<MenuProps> = ({
               )}
               <span className="flex-1 truncate">{item.label}</span>
               {item.shortcut && (
-                <span className="text-[11px] font-mono text-theme-text-muted">{item.shortcut}</span>
+                <span className="text-xs tabular-nums text-theme-text-muted">{item.shortcut}</span>
               )}
               {isRadio && (
                 <Check

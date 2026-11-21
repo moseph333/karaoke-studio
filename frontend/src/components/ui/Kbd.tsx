@@ -18,9 +18,7 @@ export const Kbd: React.FC<KbdProps> = ({ keys, className, size = 'sm' }) => {
           key={`${k}-${i}`}
           className={cn(
             'inline-flex items-center justify-center border border-theme-text-muted/60 font-mono font-semibold normal-case tracking-normal text-theme-text-muted',
-            size === 'sm'
-              ? 'min-w-[18px] px-1 py-px text-[10px]'
-              : 'min-w-[22px] px-1.5 py-0.5 text-xs'
+            size === 'sm' ? 'min-w-[18px] px-1 py-px text-xs' : 'min-w-[22px] px-1.5 py-0.5 text-xs'
           )}
         >
           {k === 'Mod' ? modKeyLabel() : k}

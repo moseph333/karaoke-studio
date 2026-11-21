@@ -163,7 +163,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 placeholder="Enter studio password..."
                 autoComplete="current-password"
                 required
-                className={`${inputCls} font-mono`}
+                className={`${inputCls} tabular-nums`}
               />
             </div>
           )}
@@ -189,7 +189,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               required
               className={inputCls}
             />
-            <p className="text-[11px] text-theme-text-muted">
+            <p className="text-xs text-theme-text-muted">
               Tracks you create will be tagged under this name in your personal workspace.
             </p>
           </div>

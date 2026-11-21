@@ -360,7 +360,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             <span
               className={cn(
                 EXPORT_PILL,
-                'border-theme-border-subtle font-mono font-normal text-theme-text-muted'
+                'border-theme-border-subtle tabular-nums font-normal text-theme-text-muted'
               )}
             >
               {shownFormat === '9:16' ? '9:16 Shorts' : '16:9'} · 1080p60
@@ -462,7 +462,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <p className="text-sm text-theme-text-muted">
                 FFmpeg Encoder Active • {formatHeartbeat(project.render_heartbeat, now)}
               </p>
-              <p className="break-words border border-theme-border-subtle bg-theme-surface px-3 py-2 font-mono text-xs text-theme-text-muted">
+              <p className="break-words border border-theme-border-subtle bg-theme-surface px-3 py-2 tabular-nums text-xs text-theme-text-muted">
                 {project.render_detail ||
                   'Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.'}
               </p>
@@ -471,7 +471,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   value={Math.max(5, project.render_progress || 5)}
                   label="Video render progress"
                 />
-                <div className="flex flex-col justify-between gap-2 px-1 font-mono text-xs text-theme-text-muted sm:flex-row sm:items-center">
+                <div className="flex flex-col justify-between gap-2 px-1 tabular-nums text-xs text-theme-text-muted sm:flex-row sm:items-center">
                   <span className="flex items-center gap-1.5 text-theme-text">
                     <Activity className="h-3.5 w-3.5" aria-hidden="true" />
                     {project.render_progress || 5}% Complete
@@ -527,7 +527,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   className="mt-0.5 h-4 w-4 shrink-0 text-theme-danger"
                   aria-hidden="true"
                 />
-                <p className="break-words font-mono text-xs text-theme-danger">
+                <p className="break-words tabular-nums text-xs text-theme-danger">
                   {project.render_error || 'Unknown rendering error'}
                 </p>
               </div>
@@ -702,7 +702,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   <span className="block text-xs font-bold text-theme-text sm:text-sm">
                     Download Chord & Lyric Sheet
                   </span>
-                  <span className="block truncate text-[10px] text-theme-text-muted">
+                  <span className="block truncate text-xs text-theme-text-muted">
                     Aligned Chords • {keyLabel} st • UTF-8
                   </span>
                 </div>

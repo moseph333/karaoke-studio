@@ -31,7 +31,7 @@ export const UncoveredVocalsNotice: React.FC<UncoveredVocalsNoticeProps> = ({ sp
           type="button"
           onClick={() => onSeek(span.start)}
           aria-label={`Play the vocals without lyrics from ${formatTime(span.start)} to ${formatTime(span.end)}`}
-          className="inline-flex min-h-[44px] items-center px-1.5 font-mono tabular-nums text-theme-text underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-focus/60"
+          className="inline-flex min-h-[44px] items-center px-1.5 tabular-nums text-theme-text underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-focus/60"
         >
           {formatTime(span.start)}–{formatTime(span.end)}
         </button>

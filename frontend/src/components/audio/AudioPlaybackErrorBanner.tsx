@@ -32,7 +32,7 @@ export const AudioPlaybackErrorBanner: React.FC<AudioPlaybackErrorBannerProps> =
           <p className="font-semibold text-theme-danger">
             Playback Error: {playbackError.codeName}
           </p>
-          <p className="mt-0.5 break-words font-mono text-[11px] text-theme-text-muted">
+          <p className="mt-0.5 break-words tabular-nums text-xs text-theme-text-muted">
             {playbackError.message}
           </p>
         </div>

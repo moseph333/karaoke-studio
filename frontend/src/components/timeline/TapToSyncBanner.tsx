@@ -28,14 +28,14 @@ export interface TapToSyncBannerProps {
 
 const modeButton = (active: boolean) =>
   cn(
-    'flex min-h-[44px] min-w-[44px] items-center justify-center px-3 py-2 text-xs font-semibold transition-colors sm:min-h-[28px] sm:min-w-0 sm:px-2.5 sm:py-0.5 sm:text-[11px]',
+    'flex min-h-[44px] min-w-[44px] items-center justify-center px-3 py-2 text-xs font-semibold transition-colors sm:min-h-[28px] sm:min-w-0 sm:px-2.5 sm:py-0.5 sm:text-xs',
     active
       ? 'bg-theme-warning font-bold text-theme-text-inverse'
       : 'text-theme-text-muted hover:text-theme-text',
     focusRing
   );
 
-const pill = 'border px-2 py-0.5 font-mono text-[11px] tabular-nums';
+const pill = 'border px-2 py-0.5 tabular-nums text-xs';
 
 export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
   isActive,
@@ -68,9 +68,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-theme-warning">
-                Live Tap-to-Sync Mode
-              </span>
+              <span className="text-xs font-bold text-theme-warning">Live Tap-to-Sync Mode</span>
 
               <div
                 role="group"
@@ -144,7 +142,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
                     })}
                   </div>
                   {targetWords[targetWordIndex] && (
-                    <p className="font-mono text-[11px] text-theme-warning">
+                    <p className="tabular-nums text-xs text-theme-warning">
                       Active word:{' '}
                       <span className="font-bold underline" data-testid="active-word-label">
                         "{targetWords[targetWordIndex].word}"
@@ -172,13 +170,13 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
             onClick={onTap}
             disabled={!targetLine}
             className={cn(
-              'flex min-h-[48px] flex-1 touch-manipulation select-none items-center justify-center gap-2 bg-theme-accent px-6 py-3.5 text-sm font-black uppercase tracking-wide text-theme-accent-text transition-transform active:scale-95 disabled:opacity-50 sm:min-h-[52px] sm:flex-initial sm:py-3',
+              'flex min-h-[48px] flex-1 touch-manipulation select-none items-center justify-center gap-2 bg-theme-accent px-6 py-3.5 text-sm font-black text-theme-accent-text transition-transform active:scale-95 disabled:opacity-50 sm:min-h-[52px] sm:flex-initial sm:py-3',
               focusRing
             )}
           >
             <span>{syncMode === 'word' ? 'TAP WORD' : 'TAP NOW'}</span>
             <span className="sr-only">TAP NOW</span>
-            <kbd className="hidden border border-white/30 bg-black/20 px-1.5 py-0.5 font-mono text-[10px] sm:inline-block">
+            <kbd className="hidden border border-white/30 bg-black/20 px-1.5 py-0.5 tabular-nums text-xs sm:inline-block">
               T
             </kbd>
           </button>
@@ -197,7 +195,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
           </button>
         </div>
       </div>
-      <p className="text-[11px] text-theme-text-muted">
+      <p className="text-xs text-theme-text-muted">
         {syncMode === 'word'
           ? 'Play song and tap [T] when vocalist sings each word. Timings stay monotonic and non-overlapping.'
           : 'Play song and tap when vocalist starts each line. Word timings are recalculated automatically.'}

@@ -194,16 +194,14 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
               className="flex flex-col justify-between gap-3 border border-theme-border-subtle bg-theme-surface p-3.5 transition-colors hover:border-theme-border"
             >
               <div className="space-y-1">
-                <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-theme-text-muted">
+                <span className="block tabular-nums text-xs text-theme-text-muted">
                   {stem.badge}
                 </span>
                 <span className="flex items-center gap-1.5 text-sm font-bold text-theme-text">
                   <Icon className="h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
                   {stem.label}
                 </span>
-                <p className="text-[11px] leading-tight text-theme-text-muted">
-                  {stem.description}
-                </p>
+                <p className="text-xs leading-tight text-theme-text-muted">{stem.description}</p>
               </div>
 
               <Tooltip content={`Download ${stem.label}`} position="top" className="w-full">

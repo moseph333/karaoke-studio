@@ -243,7 +243,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
                 <span className="block text-xs font-bold text-theme-text sm:text-sm">
                   Download .LRC
                 </span>
-                <span className="block truncate text-[10px] text-theme-text-muted">
+                <span className="block truncate text-xs text-theme-text-muted">
                   [mm:ss.xx] Timestamps
                 </span>
               </span>
@@ -276,7 +276,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
                 <span className="block text-xs font-bold text-theme-text sm:text-sm">
                   Download .ASS
                 </span>
-                <span className="block truncate text-[10px] text-theme-text-muted">
+                <span className="block truncate text-xs text-theme-text-muted">
                   {activeSyncMode === 'line' ? 'Line-by-Line' : 'Karaoke \\kf'} • {aspectRatio} •{' '}
                   {includeChords ? `Chords (${keyLabel}st)` : selectedTheme?.name || 'Theme'}
                 </span>

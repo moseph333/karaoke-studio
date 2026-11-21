@@ -250,7 +250,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <div
                 id={headerId}
                 role="presentation"
-                className="px-2.5 pb-1 pt-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-text-muted"
+                className="px-2.5 pb-1 pt-2.5 text-xs font-semibold text-theme-text-muted"
               >
                 {section.group}
               </div>

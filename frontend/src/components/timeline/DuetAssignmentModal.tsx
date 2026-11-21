@@ -460,7 +460,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                   <label htmlFor="pause-threshold-input" className={groupLabel}>
                     Inter-Line Pause Threshold
                   </label>
-                  <span className="font-mono text-xs font-bold tabular-nums text-theme-text">
+                  <span className="tabular-nums text-xs font-bold text-theme-text">
                     {pauseThreshold.toFixed(1)}s
                   </span>
                 </div>
@@ -475,7 +475,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                   className="ks-range min-h-[44px]"
                   style={{ '--ks-range-fill': `${thresholdPct}%` } as React.CSSProperties}
                 />
-                <div className="flex justify-between font-mono text-[10px] text-theme-text-muted">
+                <div className="flex justify-between tabular-nums text-xs text-theme-text-muted">
                   <span>1.5s (frequent turns)</span>
                   <span>2.5s (standard)</span>
                   <span>5.0s (stanza breaks only)</span>
@@ -533,7 +533,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
         >
           <div className="flex items-center justify-between font-semibold text-theme-text">
             <span>Assignment Preview:</span>
-            <span className="font-mono text-[11px] text-theme-text-muted">
+            <span className="tabular-nums text-xs text-theme-text-muted">
               {lines.length} lines total
             </span>
           </div>
@@ -548,13 +548,13 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
               const Icon = SINGER_CONFIG[role].Icon;
               return (
                 <div key={role} className={cn('border p-2 text-center', PREVIEW_TONES[role])}>
-                  <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-theme-text-muted">
+                  <div className="flex items-center justify-center gap-1 text-xs font-semibold text-theme-text-muted">
                     <Icon className="h-3 w-3" aria-hidden="true" />
                     {label}
                   </div>
                   <div className="text-sm font-bold tabular-nums text-theme-text">
                     {count}{' '}
-                    <span className="text-[10px] font-medium text-theme-text-muted">({pct}%)</span>
+                    <span className="text-xs font-medium text-theme-text-muted">({pct}%)</span>
                   </div>
                 </div>
               );
