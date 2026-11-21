@@ -95,7 +95,7 @@ const BACKGROUND_ICONS: Record<
 };
 
 const smallButton = cn(
-  'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 px-2.5 text-xs font-semibold transition-colors disabled:opacity-50',
+  'ks-display inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 px-3 text-[20px] transition-colors disabled:opacity-50',
   focusRing
 );
 
@@ -461,12 +461,8 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
               )}
             </>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-2 border border-theme-border-subtle px-2.5 py-2">
-            <span className="flex min-w-0 items-center gap-2 text-xs text-theme-text">
-              <ImageIcon
-                className="h-3.5 w-3.5 shrink-0 text-theme-text-muted"
-                aria-hidden="true"
-              />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-2 text-sm text-theme-text-muted">
               <span className="truncate" title={customBgId || undefined}>
                 {customBgId ? displayBackgroundName(customBgId) : 'No image or video uploaded'}
               </span>
@@ -486,7 +482,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                 disabled={uploadingBg}
                 className={cn(
                   smallButton,
-                  'border border-theme-border-subtle bg-theme-surface-raised text-theme-text hover:border-theme-border'
+                  'border border-theme-border text-theme-text hover:bg-theme-text hover:text-theme-text-inverse'
                 )}
               >
                 {uploadingBg ? (

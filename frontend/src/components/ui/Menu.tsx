@@ -227,7 +227,7 @@ export const Menu: React.FC<MenuProps> = ({
       onKeyDown={onMenuKeyDown}
       style={portal ? fixedStyle : undefined}
       className={cn(
-        'z-50 min-w-[200px] overflow-hidden border border-theme-border-subtle bg-theme-surface-raised p-1 motion-safe:animate-slide-down',
+        'z-50 min-w-[200px] overflow-hidden border-2 border-theme-border bg-theme-bg p-1 motion-safe:animate-slide-down',
         !portal && 'absolute',
         !portal && (align === 'end' ? 'right-0' : 'left-0'),
         !portal && (resolvedSide === 'bottom' ? 'top-full mt-1.5' : 'bottom-full mb-1.5'),

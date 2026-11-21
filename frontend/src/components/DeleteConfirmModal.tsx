@@ -70,7 +70,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
       />
 
       <div className="space-y-4">
-        <div className="space-y-0.5 border border-theme-border-subtle bg-theme-bg p-3">
+        <div className="space-y-0.5 border-l-2 border-theme-danger pl-3">
           <p className="truncate font-theme-heading text-sm font-semibold text-theme-text">
             {projectTitle}
           </p>
