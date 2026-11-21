@@ -4,6 +4,9 @@ year, and a song can only render one video at a time."""
 import threading
 
 import pytest
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.testclient import TestClient
 
 from backend import config
 from backend.http_delivery import IMMUTABLE_ASSET_CACHE, cache_control_for, compressible_path
@@ -43,6 +46,20 @@ def test_only_text_responses_are_compressed(path, expected):
 )
 def test_cache_policy_for_frontend_files(path, status, expected):
     assert cache_control_for(path, status) == expected
+
+
+def test_a_recoloured_manifest_request_gets_the_built_file(tmp_path):
+    """Copies installed while the app had several themes still ask for ``?bg=<hex>``."""
+    built = '{"name": "Karaoke Studio", "theme_color": "#000000"}'
+    (tmp_path / "manifest.json").write_text(built, encoding="utf-8")
+    app = FastAPI()
+    # Mounted as backend.main mounts the built frontend
+    app.mount("/", StaticFiles(directory=str(tmp_path), html=True), name="frontend")
+
+    res = TestClient(app).get("/manifest.json?bg=f4f4f0")
+
+    assert res.status_code == 200
+    assert res.text == built
 
 
 def test_large_api_responses_are_gzipped(client):
