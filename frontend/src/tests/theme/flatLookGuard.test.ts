@@ -54,6 +54,8 @@ const isStage = (file: string): boolean =>
 const ALLOWED_EFFECTS: Record<string, string[]> = {
   // The `overlay` icon button is only used on top of the stage video
   'components/ui/variants.ts': ['backdrop-blur-md'],
+  // A spinner is the one round thing
+  'components/track-search/LocalAudioUploader.tsx': ['rounded-full'],
 };
 
 /** Files whose screens are not converted yet. Remove a file when it is clean. */
@@ -73,11 +75,9 @@ const NOT_YET: string[] = [
   'components/ProcessingExpectations.tsx',
   'components/ProcessingTips.tsx',
   'components/ProcessingView.tsx',
-  'components/StudioHeader.tsx',
   'components/StudioMetaHeader.tsx',
   'components/Toast.tsx',
   'components/Tooltip.tsx',
-  'components/TrackSearch.tsx',
   'components/VisualThemePicker.tsx',
   'components/album/AlbumTrackPicker.tsx',
   'components/album/AlbumTrackRow.tsx',
@@ -93,7 +93,6 @@ const NOT_YET: string[] = [
   'components/export/ExportYouTubeKit.tsx',
   'components/export/exportStyles.ts',
   'components/quality/ReseparateDialog.tsx',
-  'components/quality/SeparationQualityPicker.tsx',
   'components/quality/StemQualityControl.tsx',
   'components/stage/StageFloatingControls.tsx',
   'components/studio/FirstSongCard.tsx',
@@ -108,15 +107,10 @@ const NOT_YET: string[] = [
   'components/timeline/TimelineToolbar.tsx',
   'components/timeline/UncoveredVocalsNotice.tsx',
   'components/timeline/timelineStyles.ts',
-  'components/track-search/HeroStageDemo.tsx',
-  'components/track-search/LocalAudioUploader.tsx',
-  'components/track-search/ProjectLibrary.tsx',
-  'components/track-search/SongSearchResults.tsx',
   'components/transport/TransportDock.tsx',
   'components/ui/Badge.tsx',
   'components/ui/Checkbox.tsx',
   'components/ui/Dialog.tsx',
-  'components/ui/EmptyState.tsx',
   'components/ui/Menu.tsx',
   'components/ui/Panel.tsx',
   'hooks/useStudioCommands.tsx',

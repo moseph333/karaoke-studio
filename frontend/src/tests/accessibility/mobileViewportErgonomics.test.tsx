@@ -323,14 +323,14 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       const input = screen.getByPlaceholderText(/Song, artist or link/i);
       const submitButton = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
 
-      // Verify input padding right
-      expect(input.className).toMatch(/pr-28/); // pr-28 is 7rem = 112px
-      expect(input.className).toMatch(/sm:pr-32/); // sm:pr-32 is 8rem = 128px
-
-      // Verify submit button positioning
-      expect(submitButton.className).toMatch(/absolute/);
-      expect(submitButton.className).toMatch(/right-1\.5/); // right-1.5 is 6px offset
-      expect(submitButton.className).toMatch(/min-h-\[36px\]/);
+      // The field and its button share one row: the field takes the room that is left
+      // and the button never shrinks, so typed text cannot run under it
+      expect(input.parentElement?.className).toMatch(/\bflex\b/);
+      expect(input.className).toMatch(/min-w-0/);
+      expect(input.className).toMatch(/flex-1/);
+      expect(submitButton.parentElement).toBe(input.parentElement);
+      expect(submitButton.className).toMatch(/shrink-0/);
+      expect(submitButton.className).toMatch(/min-h-\[48px\]/);
 
       // One short label at every width: "Search" for words, "Go" for a link
       expect(submitButton.textContent).toBe('Search');
@@ -416,11 +416,11 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       const tablist = myTab.closest('[role="tablist"]');
       expect(tablist).toBeInTheDocument();
       expect(tablist?.className).toMatch(/flex-wrap/);
-      expect(tablist?.className).toMatch(/gap-1\.5/);
+      expect(tablist?.className).toMatch(/gap-x-5/);
 
-      // Verify tab buttons have min-h-[36px] for touch usability
-      expect(myTab.className).toMatch(/min-h-\[36px\]/);
-      expect(commTab.className).toMatch(/min-h-\[36px\]/);
+      // Verify tab buttons have min-h-[44px] for touch usability
+      expect(myTab.className).toMatch(/min-h-\[44px\]/);
+      expect(commTab.className).toMatch(/min-h-\[44px\]/);
 
       // Verify tab switching works under large counts
       const user = userEvent.setup();
@@ -455,14 +455,13 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       const input = screen.getByPlaceholderText(/Song, artist or link/i);
       expect(input.className).toMatch(/min-h-\[48px\]/);
 
-      // 2. Submit button meets >= 36px on mobile, >= 44px on sm+
+      // 2. Submit button meets >= 48px
       const submitButton = screen.getByRole('button', { name: /Search.*(YouTube|Go)/i });
-      expect(submitButton.className).toMatch(/min-h-\[36px\]/);
-      expect(submitButton.className).toMatch(/sm:min-h-\[44px\]/);
+      expect(submitButton.className).toMatch(/min-h-\[48px\]/);
 
-      // 3. Tab buttons meet >= 36px
+      // 3. Tab buttons meet >= 44px
       const myTab = screen.getByRole('tab', { name: /My Songs/i });
-      expect(myTab.className).toMatch(/min-h-\[36px\]/);
+      expect(myTab.className).toMatch(/min-h-\[44px\]/);
 
       // 4. Refresh button meets >= 36px
       const refreshBtn = screen.getByRole('button', { name: /Refresh/i });

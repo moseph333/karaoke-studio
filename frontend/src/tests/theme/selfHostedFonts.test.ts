@@ -120,12 +120,12 @@ describe('boot shell', () => {
     expect(root).not.toContain('<script');
   });
 
-  it('sets the brand in the heading face, which starts that font downloading early', () => {
+  it('sets the wordmark in the display face, which starts that font downloading early', () => {
     const bar = indexHtml.slice(
       indexHtml.indexOf('.boot-bar {'),
-      indexHtml.indexOf('.boot-mark {')
+      indexHtml.indexOf('.boot-page {')
     );
-    expect(bar).toContain('var(--theme-font-heading');
+    expect(bar).toContain('var(--theme-font-display');
   });
 
   it('stands still for viewers who ask for reduced motion', () => {

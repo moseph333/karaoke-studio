@@ -1,25 +1,21 @@
 /**
  * Project Library Component
  *
- * The song library below the intake card: "My Songs" / "Community Library" tabs,
- * search, status filter and sort, and a grid of album-art cards with edit and delete
- * actions. Shows skeleton cards while the library loads.
+ * The song library below the intake band, laid out as a setlist: "My Songs" / "Community
+ * Library" tabs, search, status filter and sort, and one row per song with its number, cover,
+ * title, artist and length. A song that is still being made, or failed, says so in place of
+ * its length; a finished song says nothing. Shows skeleton rows while the library loads.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
-  CheckCircle2,
   Clock,
   XCircle,
   Disc3,
   type LucideIcon,
-  FolderHeart,
-  Globe,
-  Library,
   Music,
   Pencil,
-  Play,
   RefreshCw,
   Search,
   SearchX,
@@ -37,6 +33,7 @@ import { Skeleton } from '../ui/Skeleton';
 import { Spinner } from '../ui/Spinner';
 import { focusRing } from '../ui/variants';
 import { cn } from '../../utils/cn';
+import { formatTime } from '../../utils/format';
 
 /** How many songs the library holds, reported after each successful load. */
 export interface LibraryCounts {
@@ -66,18 +63,38 @@ const TAB_IDS: Record<LibraryTab, string> = {
 };
 
 const controlCls =
-  'min-h-[36px] rounded-theme-md border border-theme-border-subtle bg-theme-surface text-xs text-theme-text shadow-theme-sm focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/50';
+  'min-h-[36px] border border-theme-border bg-theme-bg text-sm text-theme-text focus:border-theme-accent focus:outline-none';
 
 const statusLabel = (status: string) => status.replace(/_/g, ' ');
 
-/** Badge shown over a library card's artwork for its processing status. */
-const statusBadge = (status: string): { label: string; Icon: LucideIcon; tone: string } => {
-  if (status === 'ready')
-    return { label: 'Ready', Icon: CheckCircle2, tone: 'bg-theme-success/30' };
-  if (status === 'error') return { label: 'Error', Icon: AlertCircle, tone: 'bg-theme-danger/50' };
-  if (status === 'cancelled') return { label: 'Cancelled', Icon: XCircle, tone: 'bg-black/50' };
-  if (status === 'album') return { label: 'Album', Icon: Disc3, tone: 'bg-theme-accent/50' };
-  return { label: statusLabel(status), Icon: Clock, tone: 'bg-theme-warning/35' };
+interface SongState {
+  label: string;
+  Icon: LucideIcon;
+  tone: string;
+  /** Percent done while the song is being made, else null. */
+  progress: number | null;
+}
+
+/**
+ * What a row says in place of the song's length. A finished song says nothing (null): only
+ * a song that is still being made, failed, was cancelled or is a whole album is labelled.
+ */
+const songState = (project: ProjectState): SongState | null => {
+  const { status } = project;
+  if (status === 'ready') return null;
+  if (status === 'error')
+    return { label: 'Failed', Icon: AlertCircle, tone: 'text-theme-danger', progress: null };
+  if (status === 'cancelled')
+    return { label: 'Cancelled', Icon: XCircle, tone: 'text-theme-text-muted', progress: null };
+  if (status === 'album')
+    return { label: 'Album', Icon: Disc3, tone: 'text-theme-text', progress: null };
+  const progress = Math.max(0, Math.min(100, Math.round(project.progress || 0)));
+  return {
+    label: `${statusLabel(status)} ${progress}%`,
+    Icon: Clock,
+    tone: 'text-theme-accent',
+    progress,
+  };
 };
 
 export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
@@ -235,41 +252,37 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
     tabRefs.current[next]?.focus();
   };
 
-  const tabs: Array<{
-    id: LibraryTab;
-    label: string;
-    text: React.ReactNode;
-    count: number;
-    Icon: typeof Globe;
-  }> = [
-    { id: 'my', label: 'My Songs', text: 'My Songs', count: myProjects.length, Icon: FolderHeart },
+  const tabs: Array<{ id: LibraryTab; label: string; text: string; count: number }> = [
+    { id: 'my', label: 'My Songs', text: 'My Songs', count: myProjects.length },
     {
       id: 'community',
       label: 'Community Library',
-      text: (
-        <>
-          <span className="hidden sm:inline">Community </span>Library
-        </>
-      ),
+      text: 'Community',
       count: libraryProjects.length,
-      Icon: Globe,
     },
   ];
 
+  // A song's number is the order it was made in within this tab (the oldest is 01)
+  const songNumbers = useMemo(() => {
+    const oldestFirst = [...baseProjects].sort(
+      (a, b) => (a.created_at ?? 0) - (b.created_at ?? 0) || a.id.localeCompare(b.id)
+    );
+    return new Map(oldestFirst.map((project, index) => [project.id, index + 1]));
+  }, [baseProjects]);
+
   return (
-    <div className="space-y-4 font-theme-body sm:px-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-2">
-          <h2 className="flex items-center gap-2 font-theme-heading text-lg font-bold text-theme-text">
-            <Library className="h-5 w-5 text-theme-highlight" aria-hidden="true" />
-            Song library
-          </h2>
+    <div className="mt-10 space-y-4 border-t-2 border-theme-border pt-5 font-theme-body sm:mt-14 sm:pt-6">
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <h2 className="ks-display text-[36px] font-black text-theme-text sm:text-[64px] sm:leading-[0.9]">
+          Setlist
+        </h2>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
           <div
-            className="flex flex-wrap items-center gap-1.5"
+            className="flex flex-wrap items-center gap-x-5"
             role="tablist"
             aria-label="Song library filters"
           >
-            {tabs.map(({ id, label, text, count, Icon }) => {
+            {tabs.map(({ id, label, text, count }) => {
               const selected = activeTab === id;
               return (
                 <button
@@ -287,37 +300,34 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                   onClick={() => selectTab(id)}
                   onKeyDown={onTabKeyDown}
                   className={cn(
-                    'flex min-h-[36px] items-center gap-1.5 rounded-theme-pill border px-3 font-theme-heading text-xs font-semibold transition-colors',
+                    'ks-display flex min-h-[44px] items-center gap-2 border-b-[3px] text-[22px] transition-colors md:min-h-[38px]',
                     selected
-                      ? 'border-theme-accent/50 bg-theme-accent/15 text-theme-highlight'
-                      : 'border-theme-border-subtle bg-theme-surface text-theme-text-muted hover:border-theme-border hover:text-theme-text',
+                      ? 'border-theme-accent text-theme-text'
+                      : 'border-transparent text-theme-text-muted hover:text-theme-text',
                     focusRing
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{text}</span>
-                  <span className="rounded-theme-pill bg-theme-surface-raised px-1.5 text-[10px] tabular-nums text-theme-text-muted">
-                    {count}
-                  </span>
+                  <span className="tabular-nums text-theme-text-muted">{count}</span>
                 </button>
               );
             })}
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchLibrary}
+            leftIcon={
+              <RefreshCw
+                className={cn('h-4 w-4', loadingLibrary && 'animate-spin')}
+                aria-hidden="true"
+              />
+            }
+            className="min-h-[36px]"
+          >
+            Refresh
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={fetchLibrary}
-          leftIcon={
-            <RefreshCw
-              className={cn('h-3.5 w-3.5', loadingLibrary && 'animate-spin')}
-              aria-hidden="true"
-            />
-          }
-          className="min-h-[36px]"
-        >
-          Refresh
-        </Button>
       </div>
 
       <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
@@ -340,7 +350,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
               onClick={() => setSearchQuery('')}
               aria-label="Clear search query"
               className={cn(
-                'absolute right-1.5 top-1/2 flex min-h-[28px] min-w-[28px] -translate-y-1/2 items-center justify-center rounded-theme-sm p-1 text-theme-text-muted transition-colors hover:text-theme-text',
+                'absolute right-1.5 top-1/2 flex min-h-[28px] min-w-[28px] -translate-y-1/2 items-center justify-center p-1 text-theme-text-muted transition-colors hover:text-theme-text',
                 focusRing
               )}
             >
@@ -378,7 +388,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
               size="sm"
               onClick={clearFilters}
               aria-label="Reset filters"
-              className="min-h-[36px] text-theme-highlight"
+              className="min-h-[36px]"
             >
               Clear Filters
             </Button>
@@ -390,19 +400,16 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
         {loadingLibrary ? (
           <>
             <p className="sr-only">Loading library tracks...</p>
-            <div
-              className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
-              aria-hidden="true"
-            >
+            <div className="border-t border-theme-border-subtle" aria-hidden="true">
               {Array.from({ length: 8 }, (_, i) => (
                 <div
                   key={i}
-                  className="overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-theme-surface"
+                  className="flex items-center gap-3 border-b border-theme-border-subtle py-2 sm:gap-5"
                 >
-                  <Skeleton className="aspect-square rounded-none" />
-                  <div className="space-y-2 p-3">
-                    <Skeleton className="h-3.5 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
+                  <Skeleton className="aspect-square h-12 w-12 shrink-0 rounded-none" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-5 w-2/5" />
+                    <Skeleton className="h-3 w-1/4" />
                   </div>
                 </div>
               ))}
@@ -419,7 +426,7 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                 variant="secondary"
                 size="sm"
                 onClick={() => void fetchLibrary()}
-                leftIcon={<RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />}
+                leftIcon={<RefreshCw className="h-4 w-4" aria-hidden="true" />}
                 className="min-h-[44px]"
               >
                 Retry loading library
@@ -454,11 +461,11 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
             }
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-            {/* Keeps heading levels in order: Song library (h2) › this tab › song cards (h4) */}
+          <div className="border-t border-theme-border-subtle">
+            {/* Keeps heading levels in order: Setlist (h2) › this tab › songs (h4) */}
             <h3 className="sr-only">{activeTab === 'my' ? 'My Songs' : 'Community Library'}</h3>
-            {filteredProjects.map((p, index) => {
-              const badge = statusBadge(p.status);
+            {filteredProjects.map((p) => {
+              const state = songState(p);
               const title = p.title || `Track ${p.id}`;
               const opening = openingProjectId === p.id;
               return (
@@ -466,101 +473,113 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
                   key={p.id}
                   aria-busy={opening || undefined}
                   onClick={() => onOpenProject && onOpenProject(p)}
-                  // The first rows rise in one after another; later cards appear at once
-                  style={index < 12 ? { animationDelay: `${index * 35}ms` } : undefined}
-                  className={cn(
-                    'group relative flex cursor-pointer flex-col overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-theme-surface shadow-theme-sm transition-[border-color,box-shadow,transform] duration-200 hover:border-theme-border hover:shadow-theme-md motion-safe:hover:-translate-y-0.5',
-                    index < 12 && 'motion-safe:animate-rise-in'
-                  )}
+                  // On a phone a song's state drops to a line of its own under the title
+                  className="group flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 border-b border-theme-border-subtle py-2 transition-colors hover:bg-theme-surface-subtle sm:flex-nowrap sm:gap-x-5"
                 >
-                  <div className="relative aspect-square overflow-hidden bg-theme-surface-raised">
+                  {/* The order the song was made in, so sorting and filtering never renumber */}
+                  <span
+                    aria-hidden="true"
+                    className="ks-display hidden w-10 shrink-0 text-[30px] tabular-nums text-theme-text-muted sm:block"
+                  >
+                    {opening ? (
+                      <Spinner className="h-5 w-5" />
+                    ) : (
+                      String(songNumbers.get(p.id) ?? 0).padStart(2, '0')
+                    )}
+                  </span>
+                  <span className="relative block aspect-square h-12 w-12 shrink-0 overflow-hidden bg-theme-surface-raised">
                     {p.thumbnail_url ? (
                       <img
                         src={p.thumbnail_url}
                         alt=""
                         loading="lazy"
                         decoding="async"
-                        className="h-full w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-105"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-stage">
-                        <Music className="h-8 w-8 text-theme-text-muted" aria-hidden="true" />
-                      </div>
+                      <span className="flex h-full w-full items-center justify-center">
+                        <Music className="h-5 w-5 text-theme-text-muted" aria-hidden="true" />
+                      </span>
                     )}
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent"
-                    />
-                    <span
-                      data-status={p.status}
-                      className={cn(
-                        'absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-theme-pill px-2 py-0.5 text-[10px] font-semibold capitalize text-white backdrop-blur-md',
-                        badge.tone
-                      )}
-                    >
-                      <badge.Icon className="h-3 w-3" aria-hidden="true" />
-                      {badge.label}
-                    </span>
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        'absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-opacity group-hover:opacity-100',
-                        !opening && 'opacity-0'
-                      )}
-                    >
-                      {opening ? (
-                        <Spinner className="h-4 w-4" />
-                      ) : (
-                        <Play className="ml-0.5 h-4 w-4 fill-current" />
-                      )}
-                    </span>
-                    <div className="absolute right-1.5 top-1.5 flex gap-1 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
-                      <IconButton
-                        variant="overlay"
-                        size="sm"
-                        label={`Edit metadata for ${p.title || p.id}`}
-                        tooltip="Edit song title and artist"
-                        icon={<Pencil className="h-3.5 w-3.5" />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingProject(p);
-                        }}
-                      />
-                      <IconButton
-                        variant="overlay"
-                        size="sm"
-                        label={`Delete project ${p.title || p.id}`}
-                        tooltip="Delete project and media files"
-                        icon={<Trash2 className="h-3.5 w-3.5" />}
-                        className="hover:bg-theme-danger/80"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeletingProject(p);
-                        }}
-                      />
-                    </div>
-                  </div>
+                  </span>
 
-                  <div className="min-w-0 space-y-0.5 p-2.5 sm:p-3">
-                    <h4 className="truncate font-theme-heading text-sm font-semibold text-theme-text">
+                  <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-5">
+                    <h4 className="ks-display min-w-0 truncate text-[26px] text-theme-text sm:flex-[1.2] sm:text-[36px]">
                       <button
                         type="button"
-                        className={cn(
-                          'max-w-full truncate rounded-theme-sm text-left transition-colors group-hover:text-theme-highlight',
-                          focusRing
-                        )}
+                        className={cn('max-w-full truncate text-left uppercase', focusRing)}
                       >
                         {title}
                       </button>
                     </h4>
-                    <p className="truncate text-xs text-theme-text-muted">
+                    <p className="min-w-0 truncate text-sm text-theme-text-muted sm:flex-1 sm:text-base">
                       {p.artist || 'Karaoke'}
+                      {activeTab === 'community' && p.created_by && <span> by {p.created_by}</span>}
                     </p>
-                    {p.created_by && (
-                      <p className="truncate text-[11px] text-theme-text-muted/80">
-                        by {p.created_by}
-                      </p>
+                  </div>
+
+                  <span
+                    data-status={p.status}
+                    className={cn(
+                      'shrink-0 flex-col gap-1 text-sm tabular-nums sm:w-44 sm:items-end sm:text-right',
+                      state
+                        ? cn(
+                            'order-last flex w-full items-start pl-[3.75rem] sm:order-none sm:pl-0',
+                            state.tone
+                          )
+                        : 'hidden text-theme-text sm:flex'
                     )}
+                  >
+                    {state ? (
+                      <>
+                        <span className="ks-display flex items-center gap-1.5 text-[20px]">
+                          <state.Icon className="h-4 w-4" aria-hidden="true" />
+                          {state.label}
+                        </span>
+                        {state.progress !== null && (
+                          <span
+                            aria-hidden="true"
+                            className="block h-1 w-24 bg-theme-surface-raised"
+                          >
+                            <span
+                              className="block h-1 bg-theme-accent"
+                              style={{ width: `${state.progress}%` }}
+                            />
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span className="sr-only">Ready</span>
+                        {p.duration ? formatTime(p.duration) : null}
+                      </>
+                    )}
+                  </span>
+
+                  <div className="flex shrink-0 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      label={`Edit metadata for ${p.title || p.id}`}
+                      tooltip="Edit song title and artist"
+                      icon={<Pencil className="h-4 w-4" />}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingProject(p);
+                      }}
+                    />
+                    <IconButton
+                      variant="ghost"
+                      size="sm"
+                      label={`Delete project ${p.title || p.id}`}
+                      tooltip="Delete project and media files"
+                      icon={<Trash2 className="h-4 w-4" />}
+                      className="hover:text-theme-danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeletingProject(p);
+                      }}
+                    />
                   </div>
                 </div>
               );

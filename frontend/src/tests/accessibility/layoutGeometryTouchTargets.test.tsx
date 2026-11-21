@@ -538,14 +538,13 @@ describe('Milestone 3 Challenger 2: Adversarial Evaluation of Layout Geometry & 
       const input = screen.getByLabelText(/paste a song link/i);
       expect(input.className).toContain('min-h-[48px]');
 
-      // Verify search button meets >= 36px / sm:44px
+      // Verify search button meets >= 48px
       const searchBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
-      expect(searchBtn.className).toContain('min-h-[36px]');
-      expect(searchBtn.className).toContain('sm:min-h-[44px]');
+      expect(searchBtn.className).toContain('min-h-[48px]');
 
-      // Verify tabs have min-h-[36px]
+      // Verify tabs have min-h-[44px]
       const tab = screen.getByRole('tab', { name: /my songs/i });
-      expect(tab.className).toContain('min-h-[36px]');
+      expect(tab.className).toContain('min-h-[44px]');
 
       assertZeroHorizontalOverflow(container, 320);
     });

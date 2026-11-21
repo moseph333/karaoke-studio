@@ -68,7 +68,7 @@ export function SegmentedControl<T extends string>({
       aria-label={ariaLabel}
       data-testid={testId}
       className={cn(
-        'inline-flex flex-wrap items-center gap-1 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-1',
+        'inline-flex flex-wrap items-center gap-x-5 gap-y-1',
         fullWidth && 'flex w-full',
         className
       )}
@@ -95,16 +95,18 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className={cn(
-              'inline-flex items-center justify-center gap-1.5 rounded-theme-md font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40',
+              'ks-display inline-flex items-center justify-center gap-1.5 border-b-[3px] transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40',
               size === 'sm'
-                ? 'min-h-[44px] md:min-h-[30px] px-2.5 text-xs'
-                : 'min-h-[44px] md:min-h-[36px] px-3 text-sm',
+                ? 'min-h-[44px] md:min-h-[32px] text-[20px]'
+                : 'min-h-[44px] md:min-h-[38px] text-[22px]',
               fullWidth && 'flex-1',
+              // The chosen option is underlined: in yellow, or in the text colour where yellow
+              // is already taken by something playing
               active
                 ? tone === 'accent'
-                  ? 'bg-theme-accent text-theme-accent-text shadow-theme-sm'
-                  : 'bg-theme-surface-raised text-theme-text shadow-theme-sm'
-                : 'text-theme-text-muted hover:bg-theme-surface-raised/60 hover:text-theme-text',
+                  ? 'border-theme-accent text-theme-text'
+                  : 'border-theme-text text-theme-text'
+                : 'border-transparent text-theme-text-muted hover:text-theme-text',
               focusRing,
               optionClassName
             )}

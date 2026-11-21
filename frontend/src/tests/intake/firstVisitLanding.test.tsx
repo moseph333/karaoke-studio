@@ -99,8 +99,10 @@ describe('first visit to the home screen', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(() => new Promise(() => {}));
     renderHome();
     expect(screen.queryByRole('region', { name: 'How it works' })).not.toBeInTheDocument();
-    // The lyric preview stays beside the form on wide screens only
-    expect(screen.getByTestId('hero-stage-demo').className).toContain('hidden lg:block');
+    // The headline is still the page's heading, in its compact size
+    expect(screen.getByRole('heading', { level: 1 })).toHaveAccessibleName(
+      'Turn any song into karaoke'
+    );
   });
 
   it('brings the steps back on the visit after every song was deleted', async () => {
