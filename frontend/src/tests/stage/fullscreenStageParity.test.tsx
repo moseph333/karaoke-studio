@@ -795,7 +795,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
         />
       );
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(apiFetchSpy).toHaveBeenCalledTimes(1);
@@ -822,7 +822,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
         />
       );
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(onStartRender).toHaveBeenCalledWith({
@@ -910,7 +910,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       const openExportBtn = screen.getByTestId('open-export-btn');
       await user.click(openExportBtn);
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       // Assert API fetch sent line sync mode

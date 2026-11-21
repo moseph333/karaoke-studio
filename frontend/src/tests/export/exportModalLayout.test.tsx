@@ -56,10 +56,10 @@ describe('ExportModal layout', () => {
     render(<ExportModal project={baseProject} isOpen onClose={vi.fn()} />);
     const order = headingOrder();
     const index = (re: RegExp) => order.findIndex((t) => re.test(t));
-    expect(index(/full video render/i)).toBe(0);
-    expect(index(/synchronized subtitles/i)).toBeGreaterThan(index(/full video render/i));
-    expect(index(/audio stem downloads/i)).toBeGreaterThan(index(/synchronized subtitles/i));
-    expect(index(/chord & lyric sheet/i)).toBeGreaterThan(index(/audio stem downloads/i));
+    expect(index(/karaoke video/i)).toBe(0);
+    expect(index(/subtitles \(\.lrc and \.ass\)/i)).toBeGreaterThan(index(/karaoke video/i));
+    expect(index(/^audio$/i)).toBeGreaterThan(index(/subtitles \(\.lrc and \.ass\)/i));
+    expect(index(/chord and lyric sheet/i)).toBeGreaterThan(index(/^audio$/i));
     // The YouTube steps only appear once a video has been rendered.
     expect(index(/upload to youtube/i)).toBe(-1);
   });
@@ -69,16 +69,16 @@ describe('ExportModal layout', () => {
     const order = headingOrder();
     expect(order[0]).toMatch(/your video is ready/i);
     expect(order[1]).toMatch(/^upload to youtube$/i);
-    expect(order[2]).toMatch(/synchronized subtitles/i);
+    expect(order[2]).toMatch(/subtitles \(\.lrc and \.ass\)/i);
   });
 
   it('labels each section region by its heading', () => {
     render(<ExportModal project={completedProject} isOpen onClose={vi.fn()} />);
     for (const name of [
       /your video is ready/i,
-      /synchronized subtitles/i,
-      /audio stem downloads/i,
-      /chord & lyric sheet/i,
+      /subtitles \(\.lrc and \.ass\)/i,
+      /^audio$/i,
+      /chord and lyric sheet/i,
       /upload to youtube/i,
     ]) {
       expect(screen.getByRole('region', { name })).toBeInTheDocument();
@@ -88,7 +88,7 @@ describe('ExportModal layout', () => {
   it('lets keyboard users scroll the long YouTube description', () => {
     render(<ExportModal project={completedProject} isOpen onClose={vi.fn()} />);
     const description = screen.getByRole('region', {
-      name: 'Description (with Chapters & Lyrics)',
+      name: 'Description, with chapters and lyrics',
     });
     expect(description.tagName).toBe('PRE');
     expect(description).toHaveAttribute('tabindex', '0');
@@ -162,21 +162,21 @@ describe('copyText', () => {
     expect(copyText('nothing')).toBe(false);
 
     render(<ExportYouTubeKit youtubePackage={youtubePackage} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Tags' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy tags' }));
     expect(screen.getByRole('button', { name: 'Copy blocked' })).toBeInTheDocument();
     act(() => {
       vi.advanceTimersByTime(2000);
     });
-    expect(screen.getByRole('button', { name: 'Copy Tags' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy tags' })).toBeInTheDocument();
   });
 
   it('shows Copied! feedback for the field that was copied', () => {
     vi.useFakeTimers();
     setClipboard({ writeText: vi.fn().mockResolvedValue(undefined) });
     render(<ExportYouTubeKit youtubePackage={youtubePackage} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Title' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy title' }));
     expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Copy Description' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy description' })).toBeInTheDocument();
     act(() => {
       vi.advanceTimersByTime(2000);
     });

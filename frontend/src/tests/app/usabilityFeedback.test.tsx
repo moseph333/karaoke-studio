@@ -85,7 +85,7 @@ describe('render feedback', () => {
 
     await screen.findByRole('heading', { name: 'Render Song' });
     await user.click(screen.getByRole('button', { name: 'Open export dialog' }));
-    await user.click(await screen.findByRole('button', { name: 'Start video render' }));
+    await user.click(await screen.findByRole('button', { name: 'Render 1080p Video' }));
 
     expect(
       await screen.findByText('A video is already rendering for this song')

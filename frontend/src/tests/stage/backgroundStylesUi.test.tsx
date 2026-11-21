@@ -156,7 +156,7 @@ describe('render requests and palette commands', () => {
     render(<App />);
     await waitFor(() => expect(screen.getByText('Backdrop Song')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('studio-export-btn'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Start video render' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Render 1080p Video' }));
     await waitFor(() =>
       expect(fetchSpy.mock.calls.some(([u]) => String(u).endsWith('/render'))).toBe(true)
     );

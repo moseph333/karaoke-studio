@@ -7,21 +7,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  Download,
-  ExternalLink,
-  Film,
-  Youtube,
-  Clock,
-  Activity,
-  XCircle,
-  Music,
-  Loader2,
-  AlignLeft,
-  AlertCircle,
-  RotateCcw,
-  Highlighter,
-} from 'lucide-react';
+import { AlertCircle, AlertTriangle, Download, ExternalLink, Loader2 } from 'lucide-react';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 import { ExportSubtitleSection } from './export/ExportSubtitleSection';
 import { ExportAudioSection } from './export/ExportAudioSection';
@@ -32,14 +18,14 @@ import {
   EXPORT_DOWNLOAD_BTN,
   EXPORT_ERROR,
   EXPORT_HEADING,
-  EXPORT_PILL,
+  EXPORT_NOTE,
   EXPORT_SECTION,
 } from './export/exportStyles';
 import { Tooltip } from './Tooltip';
 import { apiFetch, readApiError } from '../api';
 import { useToast } from '../hooks/useToast';
 import { useNow } from '../hooks/useNow';
-import { formatHeartbeat, formatTimer, formatSemitonesShort } from '../utils/format';
+import { formatTimer, formatSemitonesShort } from '../utils/format';
 import { Dialog, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { InlineConfirm } from './ui/InlineConfirm';
@@ -54,7 +40,9 @@ const VIDEO_FORMATS = ['16:9', '9:16'] as const;
 type VideoFormat = (typeof VIDEO_FORMATS)[number];
 // The secondary links next to the main download (YouTube Studio, other formats, kept videos)
 const SECONDARY_LINK =
-  'flex min-h-[44px] w-full items-center justify-center gap-1.5 border border-theme-border-subtle bg-theme-surface-raised px-4 py-2.5 text-sm font-medium text-theme-text transition-colors hover:border-theme-border sm:w-auto';
+  'ks-display flex min-h-[44px] w-full items-center justify-center gap-2 border border-theme-border px-4 text-[22px] text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse sm:w-auto';
+// No word from the renderer for this long counts as quiet
+const RENDER_QUIET_AFTER_MS = 15000;
 
 export interface ExportModalProps {
   project: ProjectState;
@@ -266,6 +254,11 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const isRendering = project.render_status === 'queued' || project.render_status === 'rendering';
   // Advances the "Pulse Ns ago" label between polls while a render shows
   const now = useNow(1000, isOpen && isRendering);
+  const isRenderQuiet = Boolean(
+    isRendering &&
+    project.render_heartbeat &&
+    now - project.render_heartbeat > RENDER_QUIET_AFTER_MS
+  );
 
   // Show the finished video (or the error) again once a render starts or the dialog reopens
   useEffect(() => {
@@ -334,11 +327,10 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       showDragHandle
     >
       <DialogHeader
-        title="Export & YouTube Package"
+        title="Export"
         titleId="export-modal-title"
         description={`${project.title} • ${project.artist}`}
         descriptionId="export-modal-desc"
-        icon={<Film className="h-5 w-5" />}
         onClose={onClose}
         closeLabel="Close export dialog"
       />
@@ -346,30 +338,24 @@ export const ExportModal: React.FC<ExportModalProps> = ({
       <div className="space-y-5">
         {/* 1. Karaoke video */}
         <section aria-labelledby="export-video-heading" className={EXPORT_SECTION}>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4">
             <h3 id="export-video-heading" className={EXPORT_HEADING}>
-              <Film className="h-5 w-5 text-theme-text" aria-hidden="true" />
               {isRendering
-                ? 'Rendering High-Definition Karaoke Video...'
+                ? 'Rendering the video'
                 : isCompleted
-                  ? 'Your Video Is Ready!'
+                  ? 'Your video is ready'
                   : isError
-                    ? 'Rendering Encountered an Error'
-                    : 'Full Video Render'}
+                    ? 'The video did not render'
+                    : 'Karaoke video'}
             </h3>
-            <span
-              className={cn(
-                EXPORT_PILL,
-                'border-theme-border-subtle tabular-nums font-normal text-theme-text-muted'
-              )}
-            >
-              {shownFormat === '9:16' ? '9:16 Shorts' : '16:9'} · 1080p60
+            <span className={EXPORT_NOTE}>
+              {shownFormat === '9:16' ? '9:16 Shorts' : '16:9'}, 1080p60
             </span>
           </div>
 
           {isIdle && (
             <div className="space-y-4">
-              <p className="text-pretty text-xs text-theme-text-muted">
+              <p className="text-pretty text-sm text-theme-text-muted">
                 Makes a 1080p karaoke video of the song as it is now: its lyrics and timing, the key
                 and guide vocal from Audio mix, and the look and format (16:9 or 9:16 Shorts) from
                 Stage look.
@@ -377,22 +363,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               {/* A song's first export: what the button starts, and what comes after */}
               {!project.video_url && <ExportNextSteps />}
               {replacingVideo && (
-                <p className="text-xs text-theme-text">
+                <p className="text-sm text-theme-text">
                   Your current video stays available until a new render in the same format replaces
                   it.
                 </p>
               )}
 
-              <div className="flex flex-col items-center gap-3 sm:flex-row">
+              <div className="flex flex-col gap-x-6 sm:flex-row sm:items-center">
                 <ExportCheckOption
-                  label="Include Audio Visualizer"
+                  label="Show the audio visualizer"
                   checked={includeVisualizer}
                   onChange={setIncludeVisualizer}
                   testId="toggle-export-visualizer"
                   containerTestId="toggle-export-visualizer-container"
                 />
                 <ExportCheckOption
-                  label="Burn Chords into Video"
+                  label="Show the chords"
                   checked={includeChords}
                   onChange={setIncludeChords}
                   testId="include-chords-video-checkbox"
@@ -400,8 +386,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-theme-text-muted">Sync Display:</span>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+                <span className="text-sm font-semibold text-theme-text">Lyrics light up</span>
                 <SegmentedControl<SyncDisplayMode>
                   ariaLabel="Video render synchronization mode"
                   testId="export-sync-mode-selector"
@@ -412,17 +398,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   options={[
                     {
                       value: 'word',
-                      label: 'Word Sweep (\\kf)',
-                      ariaLabel: 'Word Sweep video render',
+                      label: 'Word by word',
                       testId: 'export-sync-mode-word',
-                      icon: <Highlighter className="h-3.5 w-3.5" aria-hidden="true" />,
                     },
                     {
                       value: 'line',
-                      label: 'Line-by-Line (Solid)',
-                      ariaLabel: 'Line-by-Line video render',
+                      label: 'Line by line',
                       testId: 'export-sync-mode-line',
-                      icon: <AlignLeft className="h-3.5 w-3.5" aria-hidden="true" />,
                     },
                   ]}
                   optionClassName="min-w-[44px]"
@@ -435,13 +417,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   position="top"
                   className="w-full sm:w-auto"
                 >
-                  <Button
-                    variant="primary"
-                    fullWidth="mobile"
-                    onClick={handleStartRenderClick}
-                    aria-label="Start video render"
-                    leftIcon={<Film className="h-4 w-4" aria-hidden="true" />}
-                  >
+                  <Button variant="primary" fullWidth="mobile" onClick={handleStartRenderClick}>
                     Render 1080p Video
                   </Button>
                 </Tooltip>
@@ -459,40 +435,47 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               the start and each quarter instead. */}
           {isRendering && (
             <div className="space-y-4">
-              <p className="text-sm text-theme-text-muted">
-                FFmpeg Encoder Active • {formatHeartbeat(project.render_heartbeat, now)}
-              </p>
-              <p className="break-words border border-theme-border-subtle bg-theme-surface px-3 py-2 tabular-nums text-xs text-theme-text-muted">
-                {project.render_detail ||
-                  'Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.'}
-              </p>
-              <div className="space-y-2">
-                <ProgressBar
-                  value={Math.max(5, project.render_progress || 5)}
-                  label="Video render progress"
-                />
-                <div className="flex flex-col justify-between gap-2 px-1 tabular-nums text-xs text-theme-text-muted sm:flex-row sm:items-center">
-                  <span className="flex items-center gap-1.5 text-theme-text">
-                    <Activity className="h-3.5 w-3.5" aria-hidden="true" />
-                    {project.render_progress || 5}% Complete
-                  </span>
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" aria-hidden="true" />
-                      Elapsed: {formatTimer(project.render_elapsed_seconds)}
-                    </span>
-                    <span className="text-theme-text">
-                      Est. remaining:{' '}
+              <div className="flex flex-col gap-x-6 gap-y-1 sm:flex-row sm:items-end">
+                {/* The bar below carries the value for screen readers */}
+                <p
+                  aria-hidden="true"
+                  data-testid="render-percent"
+                  className="ks-display shrink-0 text-[72px] font-black leading-[0.85] tabular-nums text-theme-text"
+                >
+                  {project.render_progress || 5}%
+                </p>
+                <div className="min-w-0 space-y-1 sm:pb-0.5">
+                  <p className="break-words text-sm text-theme-text-muted">
+                    {project.render_detail ||
+                      'Drawing the lyrics over the background and joining the audio.'}
+                  </p>
+                  <p className="flex flex-wrap gap-x-6 text-sm tabular-nums text-theme-text">
+                    <span>{formatTimer(project.render_elapsed_seconds)} so far</span>
+                    <span>
                       {project.render_eta_seconds !== undefined &&
                       project.render_eta_seconds !== null
-                        ? `~${formatTimer(project.render_eta_seconds)}`
-                        : 'Calculating...'}
+                        ? `About ${formatTimer(project.render_eta_seconds)} left`
+                        : 'Working out the time left'}
                     </span>
-                  </div>
+                  </p>
                 </div>
               </div>
+              <ProgressBar
+                value={Math.max(5, project.render_progress || 5)}
+                label="Video render progress"
+                className="h-3"
+              />
+              {isRenderQuiet && (
+                <p
+                  data-testid="render-quiet"
+                  className="flex items-start gap-2 text-sm font-semibold text-theme-warning"
+                >
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span>No update from the renderer for a while. It may still be working.</span>
+                </p>
+              )}
               <p
-                className="text-pretty text-xs text-theme-text-muted"
+                className="text-pretty text-sm text-theme-text-muted"
                 data-testid="render-leave-note"
               >
                 You can close this dialog and keep working. The header shows the progress, and a
@@ -505,14 +488,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 keepLabel="Keep Rendering"
                 onConfirm={() => onCancelRender?.()}
                 renderTrigger={(trigger) => (
-                  <Button
-                    ref={trigger.ref}
-                    variant="secondary"
-                    onClick={trigger.onClick}
-                    leftIcon={
-                      <XCircle className="h-3.5 w-3.5 text-theme-danger" aria-hidden="true" />
-                    }
-                  >
+                  <Button ref={trigger.ref} variant="secondary" onClick={trigger.onClick}>
                     Cancel Render
                   </Button>
                 )}
@@ -522,22 +498,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
           {isError && (
             <div className="space-y-4">
-              <div className="flex items-start gap-2.5 border border-theme-danger p-3.5 text-left">
+              <div className="flex items-start gap-2.5">
                 <AlertCircle
                   className="mt-0.5 h-4 w-4 shrink-0 text-theme-danger"
                   aria-hidden="true"
                 />
-                <p className="break-words tabular-nums text-xs text-theme-danger">
+                <p className="break-words text-sm font-semibold text-theme-danger">
                   {project.render_error || 'Unknown rendering error'}
                 </p>
               </div>
               <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
-                <Button
-                  variant="secondary"
-                  fullWidth="mobile"
-                  onClick={() => setRenderAgain(true)}
-                  leftIcon={<RotateCcw className="h-4 w-4" aria-hidden="true" />}
-                >
+                <Button variant="secondary" fullWidth="mobile" onClick={() => setRenderAgain(true)}>
                   Try Again
                 </Button>
                 {keptVideoLinks}
@@ -550,7 +521,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               {project.video_url && (
                 <div
                   className={cn(
-                    'w-full overflow-hidden border border-theme-border-subtle bg-black',
+                    'w-full overflow-hidden bg-black',
                     isPortraitPreview && 'mx-auto max-w-xs'
                   )}
                   style={{ aspectRatio: previewAspect }}
@@ -569,8 +540,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                 </div>
               )}
               <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-                <p className="text-xs text-theme-text-muted">
-                  High-bitrate 1080p60 MP4 with AAC 320kbps stereo audio.
+                <p className="text-sm text-theme-text-muted">
+                  1080p60 MP4 with 320 kbps stereo audio.
                 </p>
                 <div className="flex w-full flex-col items-stretch gap-2.5 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                   <a
@@ -578,12 +549,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     download={videoFileName(latestVideoFormat)}
                     onClick={() => toast.success('Download started!')}
                     className={cn(
-                      'flex min-h-[44px] w-full items-center justify-center gap-2 bg-theme-accent px-5 py-2.5 text-sm font-bold text-theme-accent-text transition-[filter] hover:brightness-110 sm:w-auto',
+                      'ks-display flex min-h-[44px] w-full items-center justify-center gap-2 bg-theme-accent px-5 text-[22px] text-theme-accent-text transition-colors hover:bg-theme-accent-hover sm:w-auto',
                       focusRing
                     )}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
-                    Download Video (.mp4)
+                    Download video (.mp4)
                   </a>
                   {otherVideos.map(({ aspect, url }) => (
                     <a
@@ -603,14 +574,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     rel="noreferrer"
                     className={cn(SECONDARY_LINK, focusRing)}
                   >
-                    <Youtube className="h-4 w-4 text-theme-danger" aria-hidden="true" />
                     Open YouTube Studio
                     <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                   </a>
                 </div>
               </div>
-              <div className="flex flex-col items-stretch justify-between gap-2.5 border-t border-theme-border-subtle pt-3 sm:flex-row sm:items-center">
-                <p className="text-xs text-theme-text-muted">
+              <div className="flex flex-col items-stretch justify-between gap-2.5 sm:flex-row sm:items-center">
+                <p className="text-sm text-theme-text-muted">
                   Changed the lyrics, key or look? Render the video again.
                 </p>
                 <Button
@@ -618,7 +588,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   size="sm"
                   fullWidth="mobile"
                   onClick={() => setRenderAgain(true)}
-                  leftIcon={<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
                 >
                   Render Again
                 </Button>
@@ -658,20 +627,17 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
         {/* 5. Chord & lyric sheet */}
         <section aria-labelledby="export-chord-sheet-heading" className={EXPORT_SECTION}>
-          <div className="flex items-center justify-between gap-2">
-            <h3 id="export-chord-sheet-heading" className={cn(EXPORT_HEADING, 'truncate')}>
-              <Music className="h-5 w-5 shrink-0 text-theme-warning" aria-hidden="true" />
-              Musician Chord & Lyric Sheet
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+            <h3 id="export-chord-sheet-heading" className={EXPORT_HEADING}>
+              Chord and lyric sheet
             </h3>
             {project?.chords && project.chords.length > 0 && (
-              <span className={cn(EXPORT_PILL, 'border-theme-warning text-theme-warning')}>
-                {project.chords.length} chords
-              </span>
+              <span className={EXPORT_NOTE}>{project.chords.length} chords</span>
             )}
           </div>
-          <p className="text-xs text-theme-text-muted">
-            Export an aligned, plain-text/Markdown chord and lyric lead sheet transposed to your
-            active key ({keyLabel} st) for guitar, piano, and live performance.
+          <p className="text-sm text-theme-text-muted">
+            A text sheet of the lyrics with the chords above them, in the key you have set (
+            {keyLabel} st), for guitar, piano and playing live.
           </p>
           <Tooltip
             content="Download transposed chord & lyric sheet"
@@ -684,30 +650,23 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               onClick={handleDownloadChordSheet}
               disabled={downloadingChordSheet}
               aria-label="Download Chord & Lyric Sheet"
-              className={cn(
-                EXPORT_DOWNLOAD_BTN,
-                'hover:border-theme-warning sm:w-auto sm:justify-start'
-              )}
+              className={cn(EXPORT_DOWNLOAD_BTN, 'sm:w-auto sm:justify-start')}
             >
               <div className="flex min-w-0 items-center gap-2.5 text-left">
-                {downloadingChordSheet ? (
-                  <Loader2
-                    className="h-4 w-4 shrink-0 text-theme-warning animate-spin"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <Music className="h-4 w-4 shrink-0 text-theme-warning" aria-hidden="true" />
-                )}
                 <div className="min-w-0">
-                  <span className="block text-xs font-bold text-theme-text sm:text-sm">
+                  <span className="block text-sm font-semibold text-theme-text">
                     Download Chord & Lyric Sheet
                   </span>
-                  <span className="block truncate text-xs text-theme-text-muted">
-                    Aligned Chords • {keyLabel} st • UTF-8
+                  <span className="block truncate text-xs font-normal text-theme-text-muted">
+                    Text file in the current key
                   </span>
                 </div>
               </div>
-              <Download className="h-4 w-4 shrink-0 text-theme-warning" aria-hidden="true" />
+              {downloadingChordSheet ? (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+              ) : (
+                <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
+              )}
             </button>
           </Tooltip>
           {chordSheetError && (

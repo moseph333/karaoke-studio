@@ -282,7 +282,7 @@ describe('M3 Challenger 1: Adversarial Stress Testing (useVisualTheme & VisualTh
           />
         );
 
-        const renderBtn = screen.getByRole('button', { name: /start video render/i });
+        const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
         await user.click(renderBtn);
 
         expect(apiFetchSpy).toHaveBeenCalledWith(
