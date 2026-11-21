@@ -221,7 +221,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           {/* Action Recovery Buttons */}
           <div className="flex flex-col items-stretch justify-center gap-3 pt-2 sm:flex-row sm:items-center">
             <Button
-              variant="gradient"
+              variant="primary"
               size="lg"
               onClick={this.resetErrorBoundary}
               leftIcon={<RotateCcw className="h-4 w-4" aria-hidden="true" />}

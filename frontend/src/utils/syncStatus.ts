@@ -66,7 +66,7 @@ export function getLyricSyncFidelity(project: ProjectState): {
 
   return {
     label: hasWordTimings ? 'Synced Words' : 'Line Synced',
-    tone: quality !== null && quality < 60 ? 'warning' : hasWordTimings ? 'success' : 'info',
+    tone: quality !== null && quality < 60 ? 'warning' : hasWordTimings ? 'success' : 'neutral',
     tooltipText: details.join(' · '),
     quality,
     autoAligned,

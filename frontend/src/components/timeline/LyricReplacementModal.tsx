@@ -456,7 +456,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
               </Button>
               <Button
                 type="submit"
-                variant="gradient"
+                variant="primary"
                 fullWidth="mobile"
                 disabled={!lyricsText.trim()}
                 loading={isLoading}
@@ -528,7 +528,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                   </Button>
                   <Button
                     type="submit"
-                    variant="gradient"
+                    variant="primary"
                     size="sm"
                     disabled={!searchTitle.trim() && !searchArtist.trim()}
                     loading={isSearching}

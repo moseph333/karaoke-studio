@@ -257,7 +257,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
             )}
             {tracks.length > 0 && (
               <Button
-                variant="gradient"
+                variant="primary"
                 onClick={() => void makeSongs()}
                 disabled={selected.size === 0}
                 loading={isStarting}
