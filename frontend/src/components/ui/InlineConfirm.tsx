@@ -55,21 +55,18 @@ export const InlineConfirm: React.FC<InlineConfirmProps> = ({
     <div
       role="alertdialog"
       aria-labelledby={titleId}
-      className={cn(
-        'mx-auto max-w-sm space-y-3 border border-theme-border bg-theme-surface-raised p-4',
-        className
-      )}
+      className={cn('max-w-sm space-y-3 border-2 border-theme-border p-4', className)}
     >
       <p id={titleId} className="text-sm font-semibold text-theme-text">
         {message}
       </p>
       {/* Wraps on narrow phones, where both choices side by side would overflow */}
-      <div className="flex flex-wrap items-center justify-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onConfirm}
           className={cn(
-            'min-h-[36px] bg-theme-danger px-3.5 py-1.5 font-theme-heading text-xs font-bold text-theme-text-inverse transition-[filter] hover:brightness-110',
+            'ks-display min-h-[44px] border border-theme-danger bg-theme-danger px-3.5 text-[20px] text-theme-text-inverse transition-[filter] hover:brightness-110 md:min-h-[36px]',
             focusRing
           )}
         >
@@ -80,7 +77,7 @@ export const InlineConfirm: React.FC<InlineConfirmProps> = ({
           type="button"
           onClick={() => setAsking(false)}
           className={cn(
-            'min-h-[36px] border border-theme-border-subtle bg-theme-surface px-3.5 py-1.5 text-xs font-medium text-theme-text transition-colors hover:border-theme-border',
+            'ks-display min-h-[44px] border border-theme-border px-3.5 text-[20px] text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse md:min-h-[36px]',
             focusRing
           )}
         >

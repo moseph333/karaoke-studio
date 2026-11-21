@@ -503,7 +503,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
         const { container } = render(<App />);
 
         await waitFor(() => {
-          expect(screen.getByText(/Separating\.\.\./i)).toBeInTheDocument();
+          expect(screen.getByRole('heading', { name: 'Removing the vocals' })).toBeInTheDocument();
         });
 
         assertZeroHorizontalOverflow(container, bp.width);

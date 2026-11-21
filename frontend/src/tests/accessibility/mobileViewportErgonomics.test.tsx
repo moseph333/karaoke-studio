@@ -251,14 +251,14 @@ describe('Milestone 1 Empirical Challenger Suite (Responsive Layout & Mobile Usa
       expect(statusDetail?.className).toMatch(/break-words/);
 
       // Verify timers row has responsive wrap classes (outside the live region)
-      const timersRow = screen.getByText(/% Complete/i).closest('.justify-between');
+      const timersRow = screen.getByText(/so far$/).closest('.justify-between');
       expect(timersRow).toBeInTheDocument();
       expect(timersRow?.className).toMatch(/flex-col/);
       expect(timersRow?.className).toMatch(/sm:flex-row/);
 
-      // Verify cancel button has min-h-[40px] touch target
+      // Verify cancel button has a 44px touch target
       const cancelBtn = screen.getByRole('button', { name: /Cancel & Return to Search/i });
-      expect(cancelBtn.className).toMatch(/min-h-\[40px\]/);
+      expect(cancelBtn.className).toMatch(/min-h-\[44px\]/);
     });
 
     it('hides the redundant 186px Navbar Render Video button on mobile screens (<768px)', async () => {
