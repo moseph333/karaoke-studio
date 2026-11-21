@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { apiFetch, getAuthUser, setAuthToken, setAuthUser, readApiError } from '../api';
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
@@ -26,7 +26,7 @@ interface AuthModalProps {
 
 const inputCls =
   'w-full min-h-[44px] border border-theme-border bg-transparent px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-focus sm:text-sm';
-const labelCls = 'flex items-center gap-1.5 text-xs font-semibold text-theme-text';
+const labelCls = 'block text-sm font-semibold text-theme-text';
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
@@ -118,17 +118,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       overlayClassName="bg-theme-overlay/90"
     >
       <div className="space-y-5 sm:space-y-6">
-        <div className="space-y-2 text-center">
-          <div className="inline-flex bg-theme-accent p-3 text-theme-accent-text">
-            <Lock className="h-6 w-6" aria-hidden="true" />
-          </div>
+        <div className="space-y-3 border-b-2 border-theme-border pb-4">
           <h2
             id="auth-modal-title"
-            className="font-theme-heading text-2xl font-extrabold tracking-tight text-theme-text"
+            className="ks-display text-[36px] font-black leading-[0.9] text-theme-text sm:text-[44px]"
           >
             {canDismiss ? 'Switch Profile' : 'Welcome to Karaoke Studio'}
           </h2>
-          <p id="auth-modal-desc" className="text-sm text-theme-text-muted">
+          <p id="auth-modal-desc" className="text-base text-theme-text-muted">
             {requirePassword
               ? 'Enter the passphrase you were given and pick a name for your songs.'
               : 'Choose the nickname your new tracks are tagged with.'}
@@ -137,11 +134,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {error && (
           <div
-            className="flex items-center gap-2.5 border border-theme-danger p-3 text-xs text-theme-danger"
+            className="flex items-start gap-2 text-sm font-semibold text-theme-danger"
             role="alert"
             aria-live="assertive"
           >
-            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{error}</span>
           </div>
         )}
@@ -150,8 +147,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {requirePassword && (
             <div className="space-y-1.5">
               <label htmlFor="auth-password" className={labelCls}>
-                <Lock className="h-3.5 w-3.5 text-theme-text" aria-hidden="true" />
-                Studio Passphrase
+                Studio passphrase
               </label>
               <input
                 ref={passwordInputRef}
@@ -160,18 +156,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter studio password..."
                 autoComplete="current-password"
                 required
-                className={`${inputCls} tabular-nums`}
+                className={inputCls}
               />
             </div>
           )}
 
           <div className="space-y-1.5">
             <label htmlFor="auth-username" className={labelCls}>
-              <User className="h-3.5 w-3.5 text-theme-text" aria-hidden="true" />
-              Your Nickname / Handle
+              Your nickname
             </label>
             <input
               ref={usernameInputRef}
@@ -180,7 +174,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="e.g. Alex"
               autoComplete="username"
               autoCorrect="off"
               autoCapitalize="off"
@@ -189,25 +182,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               required
               className={inputCls}
             />
-            <p className="text-xs text-theme-text-muted">
-              Tracks you create will be tagged under this name in your personal workspace.
+            <p className="text-sm text-theme-text-muted">
+              Songs you make are listed under this name.
             </p>
           </div>
 
           <Button
             type="submit"
             variant="primary"
-            size="lg"
             fullWidth
             disabled={(requirePassword && !password.trim()) || !username.trim()}
             loading={loading}
-            rightIcon={<ArrowRight className="h-4 w-4" aria-hidden="true" />}
-            className="min-h-[44px] text-sm"
           >
             {canDismiss ? 'Switch Profile' : 'Enter Studio'}
           </Button>
           {canDismiss && (
-            <Button variant="ghost" fullWidth onClick={onClose} className="min-h-[44px] text-sm">
+            <Button variant="ghost" fullWidth onClick={onClose}>
               Cancel
             </Button>
           )}
