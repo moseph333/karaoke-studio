@@ -38,7 +38,7 @@ export const Field: React.FC<FieldProps> = ({
   children,
 }) => (
   <div className={cn('space-y-1.5', className)}>
-    <label htmlFor={htmlFor} className="block text-xs font-semibold text-theme-text-muted">
+    <label htmlFor={htmlFor} className="block text-sm font-semibold text-theme-text">
       {label}
     </label>
     {children}

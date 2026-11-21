@@ -45,14 +45,10 @@ export const StemQualityControl: React.FC<StemQualityControlProps> = ({
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h3
-            id="stem-quality-heading"
-            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-theme-text-muted"
-          >
-            <Layers className="h-3.5 w-3.5" aria-hidden="true" />
+          <h3 id="stem-quality-heading" className="text-sm font-semibold text-theme-text">
             Stems
           </h3>
-          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm font-medium text-theme-text">
+          <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-theme-text-muted">
             <span className="truncate" data-testid="stem-quality-label">
               {stemsLabel(separation)}
             </span>
@@ -86,7 +82,7 @@ export const StemQualityControl: React.FC<StemQualityControlProps> = ({
       </div>
 
       {active && job && (
-        <div className="space-y-1.5 border border-theme-border-subtle bg-theme-surface-subtle p-2.5">
+        <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="min-w-0 truncate font-medium text-theme-text">
               {job.label ? `Re-making with ${job.label}` : 'Re-making the stems'}
@@ -97,7 +93,7 @@ export const StemQualityControl: React.FC<StemQualityControlProps> = ({
           </div>
           <ProgressBar value={job.progress} label="Stem re-separation progress" size="sm" />
           <div className="flex items-center justify-between gap-2">
-            <p className="min-w-0 truncate text-[11px] text-theme-text-muted" title={job.detail}>
+            <p className="min-w-0 truncate text-xs text-theme-text-muted" title={job.detail}>
               {job.detail}
             </p>
             {onCancel && (

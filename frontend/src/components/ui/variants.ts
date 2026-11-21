@@ -84,12 +84,3 @@ export const badgeTones: Record<BadgeTone, string> = {
   warning: 'text-theme-warning',
   danger: 'text-theme-danger',
 };
-
-/** Surface recipes shared by panels and cards. */
-export const surfaceVariants = {
-  surface: 'bg-theme-surface border border-theme-border-subtle',
-  raised: 'bg-theme-surface-raised border border-theme-border-subtle',
-  inset: 'bg-theme-surface-subtle border border-theme-border-subtle',
-} as const;
-
-export type SurfaceVariant = keyof typeof surfaceVariants;
