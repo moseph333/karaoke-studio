@@ -169,7 +169,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
             </>
           }
           size="sm"
-          className={cn('gap-1.5 px-2', isTapToSyncActive && 'text-theme-accent')}
+          className="gap-1.5 px-2"
           onClick={onToggleTapToSync}
         />
         <IconButton
