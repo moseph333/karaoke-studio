@@ -119,18 +119,6 @@
       -webkit-tap-highlight-color: transparent;
     }
   }
-  /* Installed app on a phone: Android paints the strip under the gesture pill in the
-     manifest's theme colour, which is the theme background. The transport dock sits right
-     above that strip, so it fades into the same colour and the two read as one surface. */
-  @media (display-mode: standalone) and (max-width: 767.98px) {
-    .ks-dock-edge {
-      background-image: linear-gradient(
-        to bottom,
-        rgb(var(--theme-bg-rgb) / 0) 35%,
-        rgb(var(--theme-bg-rgb)) 100%
-      );
-    }
-  }
   ::selection {
     background-color: var(--theme-accent);
     color: var(--theme-accent-text);
