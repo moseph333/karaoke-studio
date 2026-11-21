@@ -314,10 +314,12 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
             >
               <span
                 className={cn(
-                  'inline-flex w-[5.75rem] shrink-0 items-center gap-1.5 text-xs tabular-nums text-theme-text-muted',
+                  // The time comes first so the column lines up; a mark for a doubtful line follows
+                  'inline-flex w-[6.75rem] shrink-0 items-center gap-1.5 whitespace-nowrap text-xs tabular-nums text-theme-text-muted',
                   onLit
                 )}
               >
+                {timeRange}
                 {confidence && (
                   <>
                     <span
@@ -335,7 +337,6 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                     )}
                   </>
                 )}
-                {timeRange}
               </span>
               <span
                 className={cn(
