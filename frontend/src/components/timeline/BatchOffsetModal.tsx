@@ -6,7 +6,7 @@
  */
 
 import React, { useState } from 'react';
-import { Clock, ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { SegmentedControl } from '../ui/SegmentedControl';
@@ -60,7 +60,6 @@ export const BatchOffsetModal: React.FC<BatchOffsetModalProps> = ({
         titleId="batch-offset-title"
         description="Shift line and word timings forward or backward"
         descriptionId="batch-offset-desc"
-        icon={<Clock className="h-5 w-5" />}
         onClose={onClose}
       />
 

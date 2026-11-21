@@ -322,7 +322,6 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
         titleId="lyric-replacement-title"
         description="Update lyrics without re-running stem separation"
         descriptionId="lyric-replacement-desc"
-        icon={<FileText className="h-5 w-5" />}
         onClose={handleClose}
         closeDisabled={isBusy}
       />

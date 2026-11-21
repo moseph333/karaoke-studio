@@ -250,7 +250,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
               <div
                 id={headerId}
                 role="presentation"
-                className="px-2.5 pb-1 pt-2.5 text-xs font-semibold text-theme-text-muted"
+                className="px-2.5 pb-1 pt-3 text-sm text-theme-text-muted"
               >
                 {section.group}
               </div>
@@ -269,30 +269,43 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => run(item)}
                     className={cn(
-                      'flex min-h-[44px] cursor-pointer select-none items-center gap-3 px-2.5 py-2 text-sm',
-                      isActive
-                        ? 'text-theme-text ring-1 ring-inset ring-theme-accent/40'
-                        : 'text-theme-text'
+                      // The row the arrow keys are on is lit: a yellow block with black text
+                      'flex min-h-[44px] cursor-pointer select-none items-center gap-3 px-2.5 py-2 text-base',
+                      isActive ? 'bg-theme-accent text-theme-accent-text' : 'text-theme-text'
                     )}
                   >
                     <span
                       aria-hidden="true"
                       className={cn(
                         'flex h-5 w-5 shrink-0 items-center justify-center [&_svg]:h-4 [&_svg]:w-4',
-                        isActive ? 'text-theme-text' : 'text-theme-text-muted'
+                        isActive ? 'text-theme-accent-text' : 'text-theme-text-muted'
                       )}
                     >
                       {item.icon}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">{item.title}</span>
+                      <span className="block truncate font-semibold">{item.title}</span>
                       {item.subtitle && (
-                        <span className="block truncate text-xs text-theme-text-muted">
+                        <span
+                          className={cn(
+                            'block truncate text-sm',
+                            isActive ? 'text-theme-accent-text' : 'text-theme-text-muted'
+                          )}
+                        >
                           {item.subtitle}
                         </span>
                       )}
                     </span>
-                    {item.shortcut && <Kbd keys={item.shortcut} className="shrink-0" />}
+                    {item.shortcut && (
+                      <Kbd
+                        keys={item.shortcut}
+                        className={cn(
+                          'shrink-0',
+                          isActive &&
+                            '[&_kbd]:border-theme-accent-text [&_kbd]:text-theme-accent-text'
+                        )}
+                      />
+                    )}
                   </div>
                 );
               })}

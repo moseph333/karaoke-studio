@@ -8,22 +8,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import {
-  HelpCircle,
-  Keyboard,
-  BookOpen,
-  Music,
-  Clock,
-  Sliders,
-  Download,
-  Info,
-  Check,
-  ChevronDown,
-  Smartphone,
-  Stethoscope,
-  Wrench,
-  AudioLines,
-} from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
 import { Switch } from './ui/Switch';
@@ -188,7 +173,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
 ];
 
 const kbdCls =
-  'inline-flex min-w-[24px] items-center justify-center border border-theme-border-subtle bg-theme-surface-subtle px-1.5 py-0.5 tabular-nums text-xs font-semibold text-theme-text shadow-[inset_0_-1px_0_rgb(var(--theme-border-rgb))]';
+  'inline-flex min-w-[24px] items-center justify-center border border-theme-text-muted px-1.5 py-0.5 font-mono text-xs font-semibold text-theme-text';
 
 const ShortcutKeys: React.FC<{ keys: string[] }> = ({ keys }) => (
   <span className="flex shrink-0 items-center gap-1">
@@ -209,8 +194,6 @@ const ShortcutKeys: React.FC<{ keys: string[] }> = ({ keys }) => (
 interface GuideStage {
   step: string;
   title: string;
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
-  badge: string;
   summary: string;
   features: string[];
 }
@@ -219,8 +202,6 @@ const STAGES: GuideStage[] = [
   {
     step: 'Stage 1',
     title: '1. Audio Intake & Library',
-    icon: Music,
-    badge: 'Input',
     summary: 'Import songs via YouTube URL or local audio files (.mp3, .wav, .flac).',
     features: [
       'Enter custom metadata (Title, Artist, Creator Name) for clear tracking',
@@ -231,8 +212,6 @@ const STAGES: GuideStage[] = [
   {
     step: 'Stage 2',
     title: '2. Stem Separation & Lyric Sync',
-    icon: AudioLines,
-    badge: 'AI Engine',
     summary: 'Automated vocal isolation, vocal range/key detection, and acoustic word alignment.',
     features: [
       'Vocals are separated from the backing track at the quality you pick (Fast, Balanced or Best), and the vocal range & key are detected',
@@ -244,8 +223,6 @@ const STAGES: GuideStage[] = [
   {
     step: 'Stage 3',
     title: '3. Timeline Editing',
-    icon: Clock,
-    badge: 'Editor',
     summary: 'Fine-tune line and word timings, assign duet parts, and use power tools.',
     features: [
       'Scrub interactive audio waveform and observe live word-by-word progressive karaoke sweeps',
@@ -259,8 +236,6 @@ const STAGES: GuideStage[] = [
   {
     step: 'Stage 4',
     title: '4. Studio Mixing & Themes',
-    icon: Sliders,
-    badge: 'Mixer',
     summary: 'Customize playback mix, Smart Key shift, visualizer, TV Stage, and aspect ratio.',
     features: [
       'Pitch shift (-12 to +12 semitones), Smart Key Recommender, guide vocal (0%–50%), and speed (0.5x–1.5x)',
@@ -272,8 +247,6 @@ const STAGES: GuideStage[] = [
   {
     step: 'Stage 5',
     title: '5. Export & Subtitles',
-    icon: Download,
-    badge: 'Output',
     summary: 'Instant audio stem & subtitle downloads and full 1080p60 video rendering.',
     features: [
       'Direct 1-click downloads for isolated instrumental WAV, vocals WAV, and mixed master audio',
@@ -285,8 +258,6 @@ const STAGES: GuideStage[] = [
   {
     step: 'Stage 6',
     title: '6. Install on Your Phone',
-    icon: Smartphone,
-    badge: 'App',
     summary: 'Add the studio to your home screen so it opens full screen, like an app.',
     features: [
       'Android & Chrome: tap Install in the header on the library screen, or pick Install app from the browser menu (or the command palette)',
@@ -345,7 +316,6 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         titleId="help-modal-title"
         description="Keyboard shortcuts, the studio workflow and fixes for common problems"
         descriptionId="help-modal-desc"
-        icon={<HelpCircle className="h-5 w-5" />}
         onClose={onClose}
         closeLabel="Close help and usage guide"
       />
@@ -354,7 +324,6 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         ariaLabel="Help topics"
         value={activeTab}
         onChange={setActiveTab}
-        variant="underline"
         getTabId={(id) => `tab-${id}`}
         className="mb-4 overflow-x-auto"
         tabClassName="shrink-0 whitespace-nowrap"
@@ -362,19 +331,16 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           {
             id: 'shortcuts',
             label: 'Keyboard Shortcuts',
-            icon: <Keyboard className="h-4 w-4" aria-hidden="true" />,
             controls: 'tabpanel-shortcuts',
           },
           {
             id: 'guide',
             label: 'Studio Usage Guide',
-            icon: <BookOpen className="h-4 w-4" aria-hidden="true" />,
             controls: 'tabpanel-guide',
           },
           {
             id: 'fix',
             label: 'Fix a problem',
-            icon: <Wrench className="h-4 w-4" aria-hidden="true" />,
             controls: 'tabpanel-fix',
           },
         ]}
@@ -394,33 +360,34 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             label="Letter and symbol shortcuts"
             description="M, V, C, F, T, R, [, ] and ?. Turn them off if speech input or a stray keypress sets them off; Space and the arrow keys keep working."
             testId="help-character-shortcuts-switch"
-            className="border border-theme-border-subtle bg-theme-surface-subtle p-3.5 sm:p-4"
           />
 
           {SHORTCUT_GROUPS.map((group) => (
-            <section key={group.title} className="space-y-2">
-              <h3 className="text-xs font-semibold text-theme-text-muted">{group.title}</h3>
+            <section key={group.title}>
+              <h3 className="ks-display border-b-2 border-theme-border pb-1 text-[24px] text-theme-text">
+                {group.title}
+              </h3>
               <ul
                 aria-label={`${group.title} shortcuts`}
-                className="divide-y divide-theme-border-subtle overflow-hidden border border-theme-border-subtle bg-theme-bg/60"
+                className="divide-y divide-theme-border-subtle"
               >
                 {group.items.map((item) => (
                   <li
                     key={item.label}
-                    className="flex flex-col justify-between gap-2 p-3 sm:flex-row sm:items-center"
+                    className="flex flex-col justify-between gap-x-4 gap-y-1 py-2.5 sm:flex-row sm:items-center"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <ShortcutKeys keys={item.keys} />
                       <div className="min-w-0">
-                        <span className="block font-theme-heading text-sm font-semibold text-theme-text sm:truncate">
+                        <span className="block text-sm font-semibold text-theme-text sm:truncate">
                           {item.label}
                         </span>
-                        <span className="block text-xs text-theme-text-muted sm:truncate">
+                        <span className="block text-sm text-theme-text-muted sm:truncate">
                           {item.description}
                         </span>
                       </div>
                     </div>
-                    <span className="shrink-0 self-start border border-theme-border-subtle bg-theme-surface-subtle px-2 py-0.5 text-xs font-medium text-theme-text-muted sm:self-center sm:text-xs">
+                    <span className="shrink-0 self-start text-sm text-theme-text-muted sm:self-center">
                       {item.scope}
                     </span>
                   </li>
@@ -429,13 +396,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             </section>
           ))}
 
-          <div className="flex items-start gap-3 border border-theme-border-subtle bg-theme-surface-subtle p-3.5 text-xs sm:p-4">
-            <Info className="mt-0.5 h-5 w-5 shrink-0 text-theme-text" aria-hidden="true" />
+          <div>
             <div className="space-y-1">
-              <span className="block font-theme-heading font-semibold text-theme-text">
+              <span className="block text-sm font-semibold text-theme-text">
                 Keyboard Shortcut Isolation
               </span>
-              <p className="text-xs leading-relaxed text-theme-text-muted sm:text-xs">
+              <p className="text-sm leading-relaxed text-theme-text-muted">
                 Single-key shortcuts (<kbd className={kbdCls}>Space</kbd>,{' '}
                 <kbd className={kbdCls}>←</kbd>/<kbd className={kbdCls}>→</kbd>,{' '}
                 <kbd className={kbdCls}>M</kbd>, <kbd className={kbdCls}>C</kbd>,{' '}
@@ -454,15 +420,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           id="tabpanel-guide"
           aria-labelledby="tab-guide"
           tabIndex={0}
-          className="space-y-3 focus:outline-none"
+          className="space-y-5 focus:outline-none"
         >
-          <section
-            aria-labelledby="help-first-song-heading"
-            className="space-y-2.5 border border-theme-accent p-3.5 sm:p-4"
-          >
+          <section aria-labelledby="help-first-song-heading" className="space-y-2.5">
             <h3
               id="help-first-song-heading"
-              className="font-theme-heading text-sm font-bold text-theme-text"
+              className="ks-display border-b-2 border-theme-border pb-1 text-[24px] text-theme-text"
             >
               Your first song
             </h3>
@@ -470,12 +433,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               {FIRST_SONG_STEPS.map((step, index) => (
                 <li
                   key={step.title}
-                  className="flex items-start gap-2 text-xs text-theme-text-muted"
+                  className="flex items-start gap-2 text-sm text-theme-text-muted"
                 >
-                  <span
-                    aria-hidden="true"
-                    className="mt-px tabular-nums text-xs font-semibold text-theme-text"
-                  >
+                  <span aria-hidden="true" className="tabular-nums font-semibold text-theme-text">
                     {index + 1}.
                   </span>
                   <span>
@@ -485,7 +445,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 </li>
               ))}
             </ol>
-            <p className="border-t border-theme-accent pt-2 text-xs text-theme-text-muted">
+            <p className="text-sm text-theme-text-muted">
               <strong className="font-semibold text-theme-text">What to expect.</strong> Songs are
               made automatically. Most come out ready to sing; some need a lyric or a line&apos;s
               timing fixed, and the studio marks which. See the Fix a problem tab.
@@ -504,37 +464,16 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             )}
           </section>
           {STAGES.map((stg) => {
-            const IconComponent = stg.icon;
             return (
-              <div
-                key={stg.step}
-                className="space-y-2.5 border border-theme-border-subtle bg-theme-bg/60 p-3.5 sm:p-4"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="shrink-0 p-2 text-theme-text">
-                      <IconComponent className="h-4 w-4" aria-hidden="true" />
-                    </div>
-                    <h3 className="truncate font-theme-heading text-sm font-bold text-theme-text">
-                      {stg.title}
-                    </h3>
-                  </div>
-                  <span className="shrink-0 border border-theme-accent px-2 py-0.5 text-xs font-semibold text-theme-text">
-                    {stg.badge}
-                  </span>
-                </div>
-                <p className="text-xs text-theme-text">{stg.summary}</p>
-                <ul className="space-y-1.5 border-t border-theme-border-subtle pt-2">
+              <div key={stg.step} className="space-y-2">
+                <h3 className="ks-display border-b-2 border-theme-border pb-1 text-[24px] text-theme-text">
+                  {stg.title}
+                </h3>
+                <p className="text-sm text-theme-text">{stg.summary}</p>
+                <ul className="list-disc space-y-1 pl-5 marker:text-theme-text-muted">
                   {stg.features.map((feat, idx) => (
-                    <li
-                      key={idx}
-                      className="flex items-start gap-2 text-xs text-theme-text-muted sm:text-xs"
-                    >
-                      <Check
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-theme-text"
-                        aria-hidden="true"
-                      />
-                      <span>{feat}</span>
+                    <li key={idx} className="text-sm text-theme-text-muted">
+                      {feat}
                     </li>
                   ))}
                 </ul>
@@ -552,10 +491,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           tabIndex={0}
           className="space-y-3 focus:outline-none"
         >
-          <div className="flex items-start gap-3 border border-theme-border-subtle bg-theme-surface-subtle p-3.5 text-xs sm:p-4">
-            <Stethoscope className="mt-0.5 h-5 w-5 shrink-0 text-theme-text" aria-hidden="true" />
-            <div className="min-w-0 space-y-2">
-              <p className="leading-relaxed text-theme-text-muted">
+          <div>
+            <div className="min-w-0 space-y-3">
+              <p className="text-sm leading-relaxed text-theme-text-muted">
                 Songs are made automatically, so a lyric, a line&apos;s timing or the vocal removal
                 can come out wrong. Pick what you notice below.{' '}
                 {canAct
@@ -570,16 +508,16 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             </div>
           </div>
 
-          <ul aria-label="Common problems" className="space-y-2">
+          <ul aria-label="Common problems" className="border-t-2 border-theme-border">
             {PROBLEMS.map((problem) => (
               <li key={problem.id}>
                 <details
                   data-problem={problem.id}
-                  className="group border border-theme-border-subtle bg-theme-bg/60"
+                  className="group border-b border-theme-border-subtle"
                 >
                   <summary
                     className={cn(
-                      'flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-2 font-theme-heading text-sm font-semibold text-theme-text sm:px-4 [&::-webkit-details-marker]:hidden',
+                      'flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 py-2 text-base font-semibold text-theme-text [&::-webkit-details-marker]:hidden',
                       focusRing
                     )}
                   >
@@ -589,7 +527,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                       aria-hidden="true"
                     />
                   </summary>
-                  <div className="space-y-2.5 border-t border-theme-border-subtle px-3.5 py-3 text-xs sm:px-4">
+                  <div className="space-y-2.5 pb-4 text-sm">
                     {problem.why && (
                       <p className="leading-relaxed text-theme-text-muted">{problem.why}</p>
                     )}
@@ -623,7 +561,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
       <DialogFooter>
         {serverVersion && (
-          <p className="self-center text-xs text-theme-text-muted sm:mr-auto">
+          <p className="self-center text-sm text-theme-text-muted sm:mr-auto">
             Karaoke Studio {serverVersion}
           </p>
         )}

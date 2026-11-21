@@ -260,8 +260,6 @@ describe('Dialog', () => {
           titleId="busy-title"
           onClose={onClose}
           closeLabel="Close busy dialog"
-          icon={<span>!</span>}
-          iconTone="danger"
         />
       </Dialog>
     );
@@ -269,7 +267,6 @@ describe('Dialog', () => {
     fireEvent.focus(closeBtn);
     expect(screen.getByRole('tooltip')).toHaveTextContent('Close busy dialog');
     fireEvent.blur(closeBtn);
-    expect(screen.getByText('!').parentElement?.className).toContain('text-theme-danger');
 
     rerender(
       <Dialog open onClose={onClose} titleId="busy-title">

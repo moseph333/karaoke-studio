@@ -65,8 +65,6 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         title="Delete Project?"
         titleId="delete-confirm-title"
         description="Permanent removal from studio"
-        icon={<Trash2 className="h-5 w-5" />}
-        iconTone="danger"
         onClose={onClose}
         closeLabel="Close delete confirmation dialog"
       />

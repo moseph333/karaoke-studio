@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Pencil, AlertCircle, Check } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 import { apiFetch, readApiError } from '../api';
 import type { PartNames } from '../types';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
@@ -150,7 +150,6 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         titleId="edit-metadata-title"
         description="Update title, artist, and karaoke metadata"
         descriptionId="edit-metadata-desc"
-        icon={<Pencil className="h-5 w-5" />}
         onClose={onClose}
         closeLabel="Close edit metadata dialog"
       />

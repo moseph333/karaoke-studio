@@ -5,7 +5,6 @@
  */
 
 import React from 'react';
-import { AlertTriangle, Trash2 } from 'lucide-react';
 import { LyricLine } from '../../types';
 import { formatLineTime } from '../../utils/lyrics';
 import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
@@ -40,8 +39,6 @@ export const TimelineModals: React.FC<TimelineModalsProps> = ({
       <DialogHeader
         title="Discard Unsaved Timing Changes?"
         titleId="discard-dialog-title"
-        icon={<AlertTriangle className="h-5 w-5" />}
-        iconTone="warning"
         sticky={false}
       />
       <p id="discard-dialog-desc" className="text-sm leading-relaxed text-theme-text-muted">
@@ -71,8 +68,6 @@ export const TimelineModals: React.FC<TimelineModalsProps> = ({
           <DialogHeader
             title="Delete Lyric Line?"
             titleId="delete-line-dialog-title"
-            icon={<Trash2 className="h-5 w-5" />}
-            iconTone="danger"
             sticky={false}
           />
           <p id="delete-line-dialog-desc" className="text-sm leading-relaxed text-theme-text-muted">

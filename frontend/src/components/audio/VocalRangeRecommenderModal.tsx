@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Mic, Check, AlertCircle, RefreshCw, ArrowRight, Mic2 } from 'lucide-react';
+import { Mic, Check, AlertCircle, RefreshCw, ArrowRight } from 'lucide-react';
 import { VocalRangeData, VoicePreset } from '../../types';
 import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
 import { Button } from '../ui/Button';
@@ -131,7 +131,6 @@ export const VocalRangeRecommenderModal: React.FC<VocalRangeRecommenderModalProp
         titleId="vocal-recommender-title"
         description="Fit this song's vocal peaks into your comfortable singing range"
         descriptionId="vocal-recommender-desc"
-        icon={<Mic2 className="h-5 w-5" />}
         onClose={onClose}
         closeLabel="Close Smart Key Recommender"
       />
