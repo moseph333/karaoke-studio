@@ -5,7 +5,7 @@
  * - R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness
  *   - Adapt top-level navigation and modal overlays (Export, Help, Auth, Edit Metadata,
  *     Delete Confirm, Duet Assignment, Batch Offset, Lyric Replacement) to behave as
- *     ergonomic mobile bottom sheets (items-end sm:items-center, rounded-t-2xl sm:rounded-theme-xl,
+ *     ergonomic mobile bottom sheets (items-end sm:items-center, flush to the screen edges,
  *     p-0 sm:p-4) with sticky headers/close actions (>= 44x44px) and safe-area inset padding.
  *   - StudioHeader exposes Export / Render trigger on mobile viewports (< 768px) and
  *     keeps header controls within a single compact bar at 375px width.
@@ -200,7 +200,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
 
         const card =
           dialog.querySelector('.bg-slate-900, [class*="bg-theme"]') || dialog.firstElementChild;
-        expect(card?.className).toContain('rounded-t-2xl');
+        expect(card?.className).toContain('border-x-0');
       });
 
       it('F10-2: HelpModal adapts to mobile bottom sheet layout', () => {

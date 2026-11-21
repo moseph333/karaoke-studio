@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Clock, DoorOpen, Wand2 } from 'lucide-react';
+import { Clock, DoorOpen, Info } from 'lucide-react';
 
 const EXPECTATIONS: { Icon: typeof Clock; text: string }[] = [
   {
@@ -20,7 +20,7 @@ const EXPECTATIONS: { Icon: typeof Clock; text: string }[] = [
     text: 'You do not have to wait here. The song will be in your library when it is done.',
   },
   {
-    Icon: Wand2,
+    Icon: Info,
     text: 'It is all automatic, so now and then a lyric is wrong or a line is out of time. The studio marks what to check and has a fix for each.',
   },
 ];
@@ -40,7 +40,7 @@ export const ProcessingExpectations: React.FC = () => (
     <ul className="space-y-1.5">
       {EXPECTATIONS.map(({ Icon, text }) => (
         <li key={text} className="flex items-start gap-2.5 text-xs text-theme-text-muted">
-          <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-theme-highlight" aria-hidden="true" />
+          <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-theme-text" aria-hidden="true" />
           <span className="min-w-0 text-pretty">{text}</span>
         </li>
       ))}

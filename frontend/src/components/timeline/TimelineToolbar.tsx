@@ -78,7 +78,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-theme-border-subtle pb-2.5">
       <div className="flex min-w-0 flex-auto flex-wrap items-center gap-x-2.5 gap-y-1.5">
         <h2 className="flex items-center gap-2 font-theme-heading text-base font-bold text-theme-text">
-          <ListMusic className="h-4 w-4 text-theme-highlight" aria-hidden="true" />
+          <ListMusic className="h-4 w-4 text-theme-text" aria-hidden="true" />
           Timeline
         </h2>
         <span className="whitespace-nowrap text-xs tabular-nums text-theme-text-muted">
@@ -87,13 +87,10 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         {hasUnsavedChanges && (
           <span
             data-testid="dirty-indicator"
-            className="inline-flex items-center gap-1.5 rounded-theme-pill border border-theme-warning/40 bg-theme-warning/15 px-2 py-0.5 text-[11px] font-semibold text-theme-warning"
+            className="inline-flex items-center gap-1.5 rounded-theme-pill border border-theme-warning px-2 py-0.5 text-[11px] font-semibold text-theme-warning"
             title="You have unsaved lyric or timing changes"
           >
-            <span
-              aria-hidden="true"
-              className="h-1.5 w-1.5 rounded-full bg-theme-warning motion-safe:animate-pulse"
-            />
+            <span aria-hidden="true" className="h-1.5 w-1.5 bg-theme-warning" />
             Unsaved Changes
           </span>
         )}
@@ -111,8 +108,8 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
             className={cn(
               'inline-flex min-h-[44px] items-center gap-1.5 rounded-theme-pill border px-2.5 text-[11px] font-semibold transition-colors md:min-h-[26px]',
               filter === 'review'
-                ? 'border-theme-warning bg-theme-warning/20 text-theme-warning'
-                : 'border-theme-border-subtle text-theme-text-muted hover:border-theme-warning/50 hover:text-theme-warning',
+                ? 'border-theme-warning text-theme-warning'
+                : 'border-theme-border-subtle text-theme-text-muted hover:border-theme-warning hover:text-theme-warning',
               focusRing
             )}
           >
@@ -187,7 +184,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
           size="sm"
           className={cn(
             'gap-1.5 px-2',
-            isTapToSyncActive && 'border-theme-warning/60 bg-theme-warning/15 text-theme-warning'
+            isTapToSyncActive && 'border-theme-warning text-theme-warning'
           )}
           onClick={onToggleTapToSync}
         />
@@ -241,7 +238,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
                 onClick={onSave}
                 disabled={isSaving}
                 className={cn(
-                  'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-theme-md bg-gradient-accent px-3.5 text-xs font-bold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 disabled:opacity-60 md:min-h-[32px]',
+                  'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-theme-md bg-theme-accent px-3.5 text-xs font-bold text-theme-accent-text transition-[filter] hover:brightness-110 disabled:opacity-60 md:min-h-[32px]',
                   focusRing
                 )}
               >

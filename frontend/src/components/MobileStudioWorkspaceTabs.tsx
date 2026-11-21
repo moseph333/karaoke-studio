@@ -100,10 +100,7 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
     <nav
       data-testid={testId}
       aria-label="Studio workspace navigation"
-      className={cn(
-        'sticky top-[3.5rem] z-30 w-full bg-theme-bg/85 py-2 backdrop-blur-xl md:hidden',
-        className
-      )}
+      className={cn('sticky top-[3.5rem] z-30 w-full bg-theme-bg/85 py-2 md:hidden', className)}
     >
       <div
         role="tablist"
@@ -141,7 +138,7 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
               )}
             >
               <Icon
-                className={cn('h-4 w-4 shrink-0', isActive && 'text-theme-highlight')}
+                className={cn('h-4 w-4 shrink-0', isActive && 'text-theme-text')}
                 aria-hidden="true"
               />
               <span className="truncate">{tab.label}</span>
@@ -150,7 +147,7 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
                   data-testid="tab-unsaved-badge"
                   aria-label="Unsaved changes"
                   title="Unsaved changes in timeline"
-                  className="ml-0.5 h-2 w-2 shrink-0 rounded-full bg-theme-warning motion-safe:animate-pulse"
+                  className="ml-0.5 h-2 w-2 shrink-0 bg-theme-warning"
                 />
               )}
             </button>

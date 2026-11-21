@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Minus, Plus, Sparkles, Mic, RotateCcw } from 'lucide-react';
+import { Minus, Plus, Mic, RotateCcw, Mic2 } from 'lucide-react';
 import { Tooltip } from '../Tooltip';
 import { Spinner } from '../ui/Spinner';
 import { Badge } from '../ui/Badge';
@@ -110,7 +110,7 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
             aria-hidden="true"
             className={cn(
               'font-theme-heading text-2xl font-semibold tabular-nums leading-none',
-              semitones === 0 ? 'text-theme-text' : 'text-theme-highlight'
+              semitones === 0 ? 'text-theme-text' : 'text-theme-text'
             )}
           >
             {formatSemitonesShort(semitones)}
@@ -122,13 +122,10 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
           >
             {describeSemitones(semitones)}
           </span>
-          <span
-            aria-hidden="true"
-            className="relative mt-0.5 h-1 w-full rounded-full bg-theme-border-subtle"
-          >
+          <span aria-hidden="true" className="relative mt-0.5 h-1 w-full bg-theme-border-subtle">
             <span className="absolute inset-y-0 left-1/2 w-px bg-theme-text-muted/50" />
             <span
-              className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-accent shadow-theme-glow transition-[left] duration-200"
+              className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 bg-theme-text transition-[left] duration-200"
               style={{ left: `${meterPosition}%` }}
             />
           </span>
@@ -172,14 +169,14 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
             vocalRange ? 'Open Smart Key Recommender' : 'Analyze vocal range or open recommender'
           }
           className={cn(
-            'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md border border-theme-accent/40 bg-theme-accent/10 px-2.5 text-xs font-semibold text-theme-highlight transition-colors hover:bg-theme-accent/20 disabled:opacity-50',
+            'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md border border-theme-accent px-2.5 text-xs font-semibold text-theme-text transition-colors disabled:opacity-50',
             focusRing
           )}
         >
           {isAnalyzingRange ? (
             <Spinner className="h-3.5 w-3.5" />
           ) : (
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            <Mic2 className="h-3.5 w-3.5" aria-hidden="true" />
           )}
           <span>{isAnalyzingRange ? 'Analyzing...' : 'Smart Recommender'}</span>
         </button>

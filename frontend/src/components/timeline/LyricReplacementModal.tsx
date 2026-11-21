@@ -14,14 +14,13 @@ import React, { useState } from 'react';
 import {
   FileText,
   RefreshCw,
-  Sparkles,
   AlertCircle,
   Search,
   ChevronDown,
   CheckCircle2,
   Info,
   Music,
-  Wand2,
+  Timer,
 } from 'lucide-react';
 import { LyricCandidate, LyricLine, LyricQualityFlag } from '../../types';
 import { apiFetch, readApiError } from '../../api';
@@ -130,7 +129,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
           lrcLines.length === totalLines
             ? 'All lines contain valid LRC timestamps'
             : `${lrcLines.length} of ${totalLines} lines contain LRC timestamps`,
-        className: 'border-theme-success/35 bg-theme-success/10 text-theme-success',
+        className: 'border-theme-success text-theme-success',
       };
     }
 
@@ -138,7 +137,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
       type: 'plain' as const,
       text: `ℹ Plain Text (${totalLines} lines, will require alignment)`,
       detail: 'Untimed text will be acoustically aligned to vocal stem',
-      className: 'border-theme-info/35 bg-theme-info/10 text-theme-info',
+      className: 'border-theme-border-subtle text-theme-text-muted',
     };
   };
 
@@ -380,7 +379,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                   size="sm"
                   onClick={handleRealignCurrent}
                   disabled={isBusy}
-                  leftIcon={<Wand2 className="h-3.5 w-3.5" aria-hidden="true" />}
+                  leftIcon={<Timer className="h-3.5 w-3.5" aria-hidden="true" />}
                 >
                   Re-align current lyrics
                 </Button>
@@ -392,7 +391,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
         {errorMsg && (
           <div
             role="alert"
-            className="flex items-start gap-2 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3 text-xs text-theme-danger"
+            className="flex items-start gap-2 rounded-theme-md border border-theme-danger p-3 text-xs text-theme-danger"
           >
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{errorMsg}</span>
@@ -461,7 +460,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                 disabled={!lyricsText.trim()}
                 loading={isLoading}
                 loadingLabel="Aligning Lyrics..."
-                leftIcon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
+                leftIcon={<Timer className="h-4 w-4" aria-hidden="true" />}
               >
                 Re-align Lyrics
               </Button>
@@ -574,14 +573,14 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                           {hasSynced ? (
                             <span
                               data-testid="badge-synced-lrc"
-                              className="rounded-theme-sm border border-theme-success/35 bg-theme-success/15 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-success"
+                              className="rounded-theme-sm border border-theme-success px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-success"
                             >
                               [Synced LRC]
                             </span>
                           ) : (
                             <span
                               data-testid="badge-plain-lyrics"
-                              className="rounded-theme-sm border border-theme-warning/35 bg-theme-warning/15 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-warning"
+                              className="rounded-theme-sm border border-theme-warning px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-warning"
                             >
                               [Plain Lyrics]
                             </span>
@@ -589,7 +588,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                           {cand.in_use && (
                             <span
                               data-testid="badge-in-use"
-                              className="rounded-theme-sm border border-theme-accent/35 bg-theme-accent/15 px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-highlight"
+                              className="rounded-theme-sm border border-theme-accent px-2 py-0.5 font-mono text-[10px] font-bold tracking-wider text-theme-text"
                             >
                               In use
                             </span>
@@ -598,13 +597,13 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                             <span
                               key={flag}
                               data-testid={`quality-flag-${flag}`}
-                              className="rounded-theme-sm border border-theme-warning/35 bg-theme-warning/10 px-1.5 py-0.5 text-[10px] text-theme-warning"
+                              className="rounded-theme-sm border border-theme-warning px-1.5 py-0.5 text-[10px] text-theme-warning"
                             >
                               {QUALITY_FLAG_LABELS[flag] ?? flag}
                             </span>
                           ))}
                           {cand.instrumental && (
-                            <span className="rounded-theme-sm border border-theme-accent/35 bg-theme-accent/15 px-1.5 py-0.5 font-mono text-[10px] text-theme-highlight">
+                            <span className="rounded-theme-sm border border-theme-accent px-1.5 py-0.5 font-mono text-[10px] text-theme-text">
                               Instrumental
                             </span>
                           )}
@@ -645,7 +644,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                           aria-label={`Apply candidate ${cand.track_name} by ${cand.artist_name}`}
                           loading={isApplying}
                           loadingLabel="Applying..."
-                          leftIcon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
+                          leftIcon={<Timer className="h-3.5 w-3.5" aria-hidden="true" />}
                         >
                           Apply This Candidate
                         </Button>
@@ -657,7 +656,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                         data-testid={`candidate-preview-${cIdx}`}
                         className="mt-2 max-h-40 space-y-1 overflow-y-auto whitespace-pre-wrap rounded-theme-md border border-theme-border-subtle bg-theme-surface p-3 font-mono text-xs leading-relaxed text-theme-text"
                       >
-                        <div className="flex justify-between border-b border-theme-border-subtle pb-1 text-[10px] font-bold uppercase tracking-wider text-theme-highlight">
+                        <div className="flex justify-between border-b border-theme-border-subtle pb-1 text-[10px] font-bold uppercase tracking-wider text-theme-text">
                           <span>Lyric Content Preview</span>
                           <span>{hasSynced ? 'LRC Timed' : 'Plain Text'}</span>
                         </div>

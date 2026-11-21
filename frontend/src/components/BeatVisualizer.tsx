@@ -256,7 +256,7 @@ export const BeatVisualizer: React.FC<BeatVisualizerProps> = ({
           ctx.shadowBlur = 8 + bassEnergy * 12;
           ctx.shadowColor = themeSungColor;
 
-          // Draw bar with rounded top cap
+          // Draw bar with top cap
           const radius = Math.min(barWidth / 2, 4);
           ctx.beginPath();
           if (ctx.roundRect) {

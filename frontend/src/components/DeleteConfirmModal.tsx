@@ -89,7 +89,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
 
         {error && (
           <div
-            className="flex items-center gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3 text-xs text-theme-danger"
+            className="flex items-center gap-2.5 rounded-theme-md border border-theme-danger p-3 text-xs text-theme-danger"
             role="alert"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />

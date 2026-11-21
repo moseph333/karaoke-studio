@@ -164,7 +164,7 @@ export const ChordBar: React.FC<ChordBarProps> = ({
           <div
             data-testid="active-chord-badge"
             aria-label={`Active chord: ${activeChordDisplay}`}
-            className="active-chord flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md bg-gradient-accent px-3 py-1.5 text-lg font-bold text-theme-accent-text shadow-theme-glow"
+            className="active-chord flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md bg-theme-accent px-3 py-1.5 text-lg font-bold text-theme-accent-text"
           >
             {activeChordDisplay}
           </div>

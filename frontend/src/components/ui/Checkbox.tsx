@@ -38,7 +38,7 @@ export const Checkbox: React.FC<CheckboxProps> = ({
       data-testid={testId}
       onChange={(e) => onChange(e.target.checked)}
       className={cn(
-        'mt-0.5 h-5 w-5 min-h-[20px] shrink-0 cursor-pointer rounded border-theme-border accent-[rgb(var(--theme-accent-rgb))]',
+        'mt-0.5 h-5 w-5 min-h-[20px] shrink-0 cursor-pointer border-theme-border accent-[rgb(var(--theme-accent-rgb))]',
         className
       )}
       {...rest}

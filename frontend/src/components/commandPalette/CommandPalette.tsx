@@ -271,7 +271,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                     className={cn(
                       'flex min-h-[44px] cursor-pointer select-none items-center gap-3 rounded-theme-md px-2.5 py-2 text-sm',
                       isActive
-                        ? 'bg-theme-accent/15 text-theme-text ring-1 ring-inset ring-theme-accent/40'
+                        ? 'text-theme-text ring-1 ring-inset ring-theme-accent/40'
                         : 'text-theme-text'
                     )}
                   >
@@ -279,7 +279,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                       aria-hidden="true"
                       className={cn(
                         'flex h-5 w-5 shrink-0 items-center justify-center [&_svg]:h-4 [&_svg]:w-4',
-                        isActive ? 'text-theme-highlight' : 'text-theme-text-muted'
+                        isActive ? 'text-theme-text' : 'text-theme-text-muted'
                       )}
                     >
                       {item.icon}

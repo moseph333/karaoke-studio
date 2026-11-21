@@ -383,10 +383,6 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
               title="Auto-scroll is paused. Click to resume."
               className={S_RESUME_PILL}
             >
-              <span
-                aria-hidden="true"
-                className="h-1.5 w-1.5 rounded-full bg-theme-highlight motion-safe:animate-pulse"
-              />
               Auto-scroll paused
               <span className="text-theme-text-muted">· Resume</span>
             </button>

@@ -11,7 +11,6 @@ import {
   Download,
   ExternalLink,
   Film,
-  Sparkles,
   Youtube,
   Clock,
   Activity,
@@ -21,6 +20,7 @@ import {
   AlignLeft,
   AlertCircle,
   RotateCcw,
+  Highlighter,
 } from 'lucide-react';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
 import { ExportSubtitleSection } from './export/ExportSubtitleSection';
@@ -348,7 +348,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         <section aria-labelledby="export-video-heading" className={EXPORT_SECTION}>
           <div className="flex items-center justify-between gap-2">
             <h3 id="export-video-heading" className={EXPORT_HEADING}>
-              <Film className="h-5 w-5 text-theme-highlight" aria-hidden="true" />
+              <Film className="h-5 w-5 text-theme-text" aria-hidden="true" />
               {isRendering
                 ? 'Rendering High-Definition Karaoke Video...'
                 : isCompleted
@@ -415,7 +415,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                       label: 'Word Sweep (\\kf)',
                       ariaLabel: 'Word Sweep video render',
                       testId: 'export-sync-mode-word',
-                      icon: <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />,
+                      icon: <Highlighter className="h-3.5 w-3.5" aria-hidden="true" />,
                     },
                     {
                       value: 'line',
@@ -459,15 +459,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               the start and each quarter instead. */}
           {isRendering && (
             <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-theme-pill border border-theme-success/35 bg-theme-success/10 px-3.5 py-1.5 text-xs font-medium text-theme-success">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-theme-success opacity-75 motion-safe:animate-ping" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-theme-success" />
-                </span>
-                <span>
-                  FFmpeg Encoder Active • {formatHeartbeat(project.render_heartbeat, now)}
-                </span>
-              </div>
+              <p className="text-sm text-theme-text-muted">
+                FFmpeg Encoder Active • {formatHeartbeat(project.render_heartbeat, now)}
+              </p>
               <p className="break-words rounded-theme-md border border-theme-border-subtle bg-theme-surface px-3 py-2 font-mono text-xs text-theme-text-muted">
                 {project.render_detail ||
                   'Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.'}
@@ -478,7 +472,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                   label="Video render progress"
                 />
                 <div className="flex flex-col justify-between gap-2 px-1 font-mono text-xs text-theme-text-muted sm:flex-row sm:items-center">
-                  <span className="flex items-center gap-1.5 text-theme-highlight">
+                  <span className="flex items-center gap-1.5 text-theme-text">
                     <Activity className="h-3.5 w-3.5" aria-hidden="true" />
                     {project.render_progress || 5}% Complete
                   </span>
@@ -528,7 +522,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
           {isError && (
             <div className="space-y-4">
-              <div className="flex items-start gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3.5 text-left">
+              <div className="flex items-start gap-2.5 rounded-theme-md border border-theme-danger p-3.5 text-left">
                 <AlertCircle
                   className="mt-0.5 h-4 w-4 shrink-0 text-theme-danger"
                   aria-hidden="true"
@@ -584,7 +578,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     download={videoFileName(latestVideoFormat)}
                     onClick={() => toast.success('Download started!')}
                     className={cn(
-                      'flex min-h-[44px] w-full items-center justify-center gap-2 rounded-theme-md bg-gradient-accent px-5 py-2.5 text-sm font-bold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 sm:w-auto',
+                      'flex min-h-[44px] w-full items-center justify-center gap-2 rounded-theme-md bg-theme-accent px-5 py-2.5 text-sm font-bold text-theme-accent-text transition-[filter] hover:brightness-110 sm:w-auto',
                       focusRing
                     )}
                   >
@@ -670,12 +664,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               Musician Chord & Lyric Sheet
             </h3>
             {project?.chords && project.chords.length > 0 && (
-              <span
-                className={cn(
-                  EXPORT_PILL,
-                  'border-theme-warning/30 bg-theme-warning/10 text-theme-warning'
-                )}
-              >
+              <span className={cn(EXPORT_PILL, 'border-theme-warning text-theme-warning')}>
                 {project.chords.length} chords
               </span>
             )}
@@ -697,7 +686,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               aria-label="Download Chord & Lyric Sheet"
               className={cn(
                 EXPORT_DOWNLOAD_BTN,
-                'hover:border-theme-warning/50 sm:w-auto sm:justify-start'
+                'hover:border-theme-warning sm:w-auto sm:justify-start'
               )}
             >
               <div className="flex min-w-0 items-center gap-2.5 text-left">

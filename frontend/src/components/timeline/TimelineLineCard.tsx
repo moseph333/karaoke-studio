@@ -20,8 +20,8 @@ import {
   Plus,
   Rewind,
   Trash2,
-  WandSparkles,
   X,
+  Timer,
 } from 'lucide-react';
 import { LyricLine, SingerRole, WordTiming } from '../../types';
 import { formatLineTime } from '../../utils/lyrics';
@@ -89,12 +89,12 @@ export interface TimelineLineCardProps {
   onMergeWithNext?: (lineId: number) => void;
 }
 
-// A shape per level as well as a colour, so the level reads without colour vision:
-// filled dot, diamond, hollow ring
+// A line that is fine shows no mark. The other two levels get a shape as well as a colour,
+// so the level reads without colour vision: a filled diamond, a hollow square
 const CONFIDENCE_DOT: Record<ConfidenceLevel, string> = {
-  high: 'h-1.5 w-1.5 rounded-full bg-theme-success',
-  medium: 'h-1.5 w-1.5 rotate-45 rounded-[1px] bg-theme-warning',
-  low: 'h-2 w-2 rounded-full border-2 border-theme-danger',
+  high: 'hidden',
+  medium: 'h-1.5 w-1.5 rotate-45 bg-theme-warning',
+  low: 'h-2 w-2 border-2 border-theme-danger',
 };
 
 const NEXT_SINGER: Record<SingerRole, SingerRole> = {
@@ -104,10 +104,9 @@ const NEXT_SINGER: Record<SingerRole, SingerRole> = {
 };
 
 const SINGER_TONE: Record<SingerRole, string> = {
-  singer1: 'border-theme-sung/40 bg-theme-sung/10 hover:bg-theme-sung/20 [&_svg]:text-theme-sung',
-  singer2:
-    'border-theme-secondary/45 bg-theme-secondary/10 hover:bg-theme-secondary/20 [&_svg]:text-theme-secondary',
-  both: 'border-theme-success/40 bg-theme-success/10 hover:bg-theme-success/20 [&_svg]:text-theme-success',
+  singer1: 'border-theme-border-subtle',
+  singer2: 'border-theme-border-subtle',
+  both: 'border-theme-border-subtle',
 };
 
 // Line controls keep a 44px touch target and tighten on desktop. Class strings are kept
@@ -195,7 +194,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
       className={cn(
         'group/line relative rounded-theme-lg border px-2 py-1.5 transition-colors sm:px-2.5',
         isCurrentlyActive
-          ? 'border-theme-accent/45 bg-theme-accent/[0.08] shadow-theme-sm before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-gradient-accent'
+          ? 'border-theme-accent'
           : isExpanded
             ? 'border-theme-border-subtle bg-theme-surface-subtle'
             : 'border-transparent bg-theme-surface-subtle/50 hover:border-theme-border-subtle hover:bg-theme-surface-subtle'
@@ -236,7 +235,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               aria-label={`Commit edit for line ${line.id}`}
               data-testid={`commit-edit-${line.id}`}
               className={cn(
-                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md bg-theme-success/15 text-theme-success transition-colors hover:bg-theme-success/25 md:min-h-[36px] md:min-w-[36px]',
+                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md text-theme-success transition-colors md:min-h-[36px] md:min-w-[36px]',
                 focusRing
               )}
               title="Commit edit (Enter)"
@@ -341,7 +340,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               <span
                 data-testid={`line-added-repeat-${line.id}`}
                 title="Added because this repeat is sung but the lyrics left it out"
-                className="shrink-0 rounded-theme-sm border border-theme-accent/35 bg-theme-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-theme-highlight"
+                className="shrink-0 rounded-theme-sm border border-theme-accent px-1.5 py-0.5 text-[10px] font-semibold text-theme-text"
               >
                 Added repeat
               </span>
@@ -453,7 +452,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   onClick={() => onDeleteLine(line)}
                   aria-label={`Delete line ${line.id}`}
                   data-testid={`delete-line-${line.id}`}
-                  className={cn(rowControl, 'hover:bg-theme-danger/10 hover:text-theme-danger')}
+                  className={cn(rowControl, 'hover:text-theme-danger')}
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -519,7 +518,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                         icon: isRealigning ? (
                           <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                         ) : (
-                          <WandSparkles className="h-4 w-4" />
+                          <Timer className="h-4 w-4" />
                         ),
                         disabled: isRealigning,
                         testId: `line-${line.id}-realign`,
@@ -555,7 +554,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   : `Expand word timings for line ${line.id}`
               }
               aria-expanded={isExpanded}
-              className={cn(rowControl, isExpanded && 'text-theme-highlight')}
+              className={cn(rowControl, isExpanded && 'text-theme-text')}
               title="Expand word timings"
             >
               <ChevronRight
@@ -593,7 +592,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 className={cn(
                   'inline-flex min-h-[34px] cursor-pointer items-center rounded-theme-sm px-2.5 py-1 font-theme-body text-xs transition-colors md:min-h-[28px]',
                   isWordActive
-                    ? 'bg-theme-accent/20 font-bold text-theme-highlight ring-1 ring-theme-accent/60'
+                    ? 'font-bold text-theme-text ring-1 ring-theme-accent/60'
                     : 'border border-theme-border-subtle bg-theme-surface font-medium text-theme-text-muted hover:bg-theme-surface-raised hover:text-theme-text',
                   focusRing
                 )}

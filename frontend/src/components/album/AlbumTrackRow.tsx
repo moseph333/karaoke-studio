@@ -47,9 +47,7 @@ export const AlbumTrackRow: React.FC<AlbumTrackRowProps> = ({
       data-testid={`album-track-${track.number}`}
       className={cn(
         'rounded-theme-md border px-3 py-2 transition-colors',
-        selected
-          ? 'border-theme-accent/60 bg-theme-accent/10'
-          : 'border-theme-border-subtle bg-theme-surface/60'
+        selected ? 'border-theme-accent' : 'border-theme-border-subtle bg-theme-surface/60'
       )}
     >
       <div className="flex min-h-[44px] items-center gap-3">
@@ -71,7 +69,7 @@ export const AlbumTrackRow: React.FC<AlbumTrackRowProps> = ({
             checked={selected}
             disabled={disabled}
             onChange={(e) => onToggle(track.number, e.target.checked)}
-            className="h-5 w-5 min-h-[20px] shrink-0 cursor-pointer rounded border-theme-border accent-[rgb(var(--theme-accent-rgb))]"
+            className="h-5 w-5 min-h-[20px] shrink-0 cursor-pointer border-theme-border accent-[rgb(var(--theme-accent-rgb))]"
           />
         )}
         <label

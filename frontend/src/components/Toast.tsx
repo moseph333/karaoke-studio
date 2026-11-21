@@ -15,10 +15,10 @@ import { Button } from './ui/Button';
 import { focusRing } from './ui/variants';
 
 const TOAST_VARIANTS: Record<ToastType, { Icon: typeof Info; border: string; icon: string }> = {
-  success: { Icon: CheckCircle2, border: 'border-theme-success/45', icon: 'text-theme-success' },
-  error: { Icon: AlertCircle, border: 'border-theme-danger/55', icon: 'text-theme-danger' },
-  warning: { Icon: AlertTriangle, border: 'border-theme-warning/45', icon: 'text-theme-warning' },
-  info: { Icon: Info, border: 'border-theme-info/45', icon: 'text-theme-info' },
+  success: { Icon: CheckCircle2, border: 'border-theme-success', icon: 'text-theme-success' },
+  error: { Icon: AlertCircle, border: 'border-theme-danger', icon: 'text-theme-danger' },
+  warning: { Icon: AlertTriangle, border: 'border-theme-warning', icon: 'text-theme-warning' },
+  info: { Icon: Info, border: 'border-theme-border', icon: 'text-theme-text-muted' },
 };
 
 interface ToastItemProps {
@@ -58,7 +58,7 @@ export const ToastItem: React.FC<ToastItemProps> = ({ toast, onDismiss }) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHasFocus(false);
       }}
       className={cn(
-        'pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-theme-lg border bg-theme-surface-raised/95 p-3.5 text-theme-text shadow-theme-lg backdrop-blur-md motion-safe:animate-fade-in',
+        'pointer-events-auto flex w-full max-w-sm items-start gap-3 border-2 bg-theme-bg p-3.5 text-theme-text motion-safe:animate-fade-in',
         style.border
       )}
     >

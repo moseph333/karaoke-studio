@@ -2,9 +2,6 @@
  * Keeps the look flat. The app's own chrome has no gradient, glow, blur, shadow, rounded
  * corner or tinted fill, and no sparkle icon standing for "AI". The stage is the exception:
  * it is the video, and its components may blur and shadow what they draw.
- *
- * NOT_YET lists the files still waiting for their screen to be converted. A file leaves the
- * list when it is clean, and the list is empty when the redesign is finished.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -58,65 +55,6 @@ const ALLOWED_EFFECTS: Record<string, string[]> = {
   'components/track-search/LocalAudioUploader.tsx': ['rounded-full'],
 };
 
-/** Files whose screens are not converted yet. Remove a file when it is clean. */
-const NOT_YET: string[] = [
-  'App.tsx',
-  'components/AuthModal.tsx',
-  'components/BeatVisualizer.tsx',
-  'components/ChordBar.tsx',
-  'components/DeleteConfirmModal.tsx',
-  'components/EditMetadataModal.tsx',
-  'components/ErrorBoundary.tsx',
-  'components/ExportModal.tsx',
-  'components/HelpModal.tsx',
-  'components/InstallAppDialog.tsx',
-  'components/LyricTimelineEditor.tsx',
-  'components/MobileStudioWorkspaceTabs.tsx',
-  'components/ProcessingExpectations.tsx',
-  'components/ProcessingTips.tsx',
-  'components/ProcessingView.tsx',
-  'components/StudioMetaHeader.tsx',
-  'components/Toast.tsx',
-  'components/Tooltip.tsx',
-  'components/VisualThemePicker.tsx',
-  'components/album/AlbumTrackPicker.tsx',
-  'components/album/AlbumTrackRow.tsx',
-  'components/audio/AudioPlaybackErrorBanner.tsx',
-  'components/audio/PitchTranspositionControl.tsx',
-  'components/audio/VocalRangeRecommenderModal.tsx',
-  'components/audio/WaveformScrubber.tsx',
-  'components/commandPalette/CommandPalette.tsx',
-  'components/export/ExportAudioSection.tsx',
-  'components/export/ExportCheckOption.tsx',
-  'components/export/ExportNextSteps.tsx',
-  'components/export/ExportSubtitleSection.tsx',
-  'components/export/ExportYouTubeKit.tsx',
-  'components/export/exportStyles.ts',
-  'components/quality/ReseparateDialog.tsx',
-  'components/quality/StemQualityControl.tsx',
-  'components/stage/StageFloatingControls.tsx',
-  'components/studio/FirstSongCard.tsx',
-  'components/studio/SongCheckupDialog.tsx',
-  'components/timeline/BatchOffsetModal.tsx',
-  'components/timeline/DuetAssignmentModal.tsx',
-  'components/timeline/ExpandedWordEditor.tsx',
-  'components/timeline/LyricReplacementModal.tsx',
-  'components/timeline/SyncJobBanner.tsx',
-  'components/timeline/TapToSyncBanner.tsx',
-  'components/timeline/TimelineLineCard.tsx',
-  'components/timeline/TimelineToolbar.tsx',
-  'components/timeline/UncoveredVocalsNotice.tsx',
-  'components/timeline/timelineStyles.ts',
-  'components/transport/TransportDock.tsx',
-  'components/ui/Badge.tsx',
-  'components/ui/Checkbox.tsx',
-  'components/ui/Dialog.tsx',
-  'components/ui/Menu.tsx',
-  'components/ui/Panel.tsx',
-  'hooks/useStudioCommands.tsx',
-  'hooks/useTimelineCommands.tsx',
-];
-
 function sourceFiles(dir: string): string[] {
   return fs.readdirSync(dir).flatMap((name: string) => {
     const full = path.join(dir, name);
@@ -162,15 +100,10 @@ describe('flat look guard', () => {
     expect(Object.keys(scanned).length).toBeGreaterThan(120);
   });
 
-  it('finds no gradient, glow, blur, shadow, radius, tint or sparkle in converted files', () => {
+  it('finds no gradient, glow, blur, shadow, radius, tint or sparkle', () => {
     const offenders = Object.entries(scanned)
-      .filter(([file, found]) => found.length > 0 && !NOT_YET.includes(file))
+      .filter(([, found]) => found.length > 0)
       .map(([file, found]) => `${file}: ${[...new Set(found)].join(', ')}`);
     expect(offenders).toEqual([]);
-  });
-
-  it('lists only files that still have something to convert', () => {
-    const clean = NOT_YET.filter((file) => (scanned[file] ?? []).length === 0);
-    expect(clean, 'converted files to remove from NOT_YET').toEqual([]);
   });
 });

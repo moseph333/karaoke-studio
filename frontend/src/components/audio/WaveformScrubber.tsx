@@ -62,7 +62,7 @@ const WaveformBars = React.memo(function WaveformBars({
             key={i}
             data-testid="waveform-bar"
             data-played={isPlayed ? 'true' : 'false'}
-            className={`flex-1 rounded-full transition-colors duration-100 ${
+            className={`flex-1 transition-colors duration-100 ${
               isPlayed
                 ? 'bg-theme-sung'
                 : 'bg-theme-text-muted/25 group-hover:bg-theme-text-muted/35'
@@ -324,7 +324,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
         <span
           key={`m-${i}`}
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-theme-highlight/70"
+          className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-theme-text-muted"
           style={{ left: `${pct}%` }}
         />
       ))}
@@ -350,7 +350,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       {/* Playhead Progress Needle */}
       <div
         data-testid="waveform-playhead"
-        className="pointer-events-none absolute inset-y-0 z-10 w-0.5 rounded-full bg-theme-text shadow-theme-glow"
+        className="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-theme-text"
         style={{ left: `${progressPercent}%` }}
       />
 

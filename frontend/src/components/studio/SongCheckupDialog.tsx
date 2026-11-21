@@ -26,9 +26,9 @@ export interface SongCheckupDialogProps {
 }
 
 const LEVELS: Record<CheckupLevel, { Icon: typeof AlertTriangle; tone: string; spoken: string }> = {
-  fix: { Icon: AlertTriangle, tone: 'bg-theme-warning/15 text-theme-warning', spoken: 'To fix' },
-  tip: { Icon: Lightbulb, tone: 'bg-theme-accent/15 text-theme-highlight', spoken: 'Tip' },
-  ok: { Icon: CheckCircle2, tone: 'bg-theme-success/15 text-theme-success', spoken: 'Fine' },
+  fix: { Icon: AlertTriangle, tone: 'text-theme-warning', spoken: 'To fix' },
+  tip: { Icon: Lightbulb, tone: 'text-theme-text', spoken: 'Tip' },
+  ok: { Icon: CheckCircle2, tone: 'text-theme-success', spoken: 'Fine' },
 };
 
 export const SongCheckupDialog: React.FC<SongCheckupDialogProps> = (props) =>

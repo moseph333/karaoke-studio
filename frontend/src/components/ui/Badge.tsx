@@ -41,10 +41,7 @@ export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
         <span
           aria-hidden="true"
           data-dot=""
-          className={cn(
-            'w-1.5 h-1.5 rounded-full bg-current',
-            pulse && 'motion-safe:animate-pulse'
-          )}
+          className={cn('h-1.5 w-1.5 bg-current', pulse && 'motion-safe:animate-pulse')}
         />
       )}
       {icon ??

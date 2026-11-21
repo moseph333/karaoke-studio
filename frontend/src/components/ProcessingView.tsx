@@ -82,7 +82,7 @@ const endButtonCls =
   'min-h-[40px] rounded-theme-md px-4 py-2 font-theme-heading text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60';
 const primaryEndButtonCls = cn(
   endButtonCls,
-  'bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110',
+  'bg-theme-accent text-theme-accent-text transition-[filter] hover:brightness-110',
   focusRing
 );
 const secondaryEndButtonCls = cn(
@@ -150,7 +150,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     return (
       <div className="mx-auto max-w-md py-8 font-theme-body sm:py-16">
         <div className={cn(cardCls, 'space-y-4')}>
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-theme-pill bg-theme-warning/15 text-theme-warning">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-theme-pill text-theme-warning">
             <XCircle className="h-6 w-6" aria-hidden="true" />
           </div>
           <h1
@@ -178,7 +178,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
     return (
       <div className="mx-auto max-w-md py-8 font-theme-body sm:py-16">
         <div className={cn(cardCls, 'space-y-4')}>
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-theme-pill bg-theme-danger/15 text-theme-danger">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-theme-pill text-theme-danger">
             <AlertCircle className="h-6 w-6" aria-hidden="true" />
           </div>
           <h1
@@ -207,7 +207,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
             >
               Technical details
             </summary>
-            <p className="mt-1 break-words rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-4 font-mono text-xs text-theme-danger">
+            <p className="mt-1 break-words rounded-theme-md border border-theme-danger p-4 font-mono text-xs text-theme-danger">
               {project?.error || 'An unexpected error occurred during processing.'}
             </p>
           </details>
@@ -221,7 +221,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
       <div className={cardCls}>
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-stage opacity-70"
+          className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-theme-surface-subtle opacity-70"
         />
         <div className="relative space-y-6">
           {(project.title || project.thumbnail_url) && (
@@ -253,10 +253,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
               <span className="font-theme-heading text-2xl font-bold tabular-nums text-theme-text">
                 {Math.round(progress)}%
               </span>
-              <Loader2
-                className="mt-0.5 h-4 w-4 text-theme-highlight animate-spin"
-                aria-hidden="true"
-              />
+              <Loader2 className="mt-0.5 h-4 w-4 text-theme-text animate-spin" aria-hidden="true" />
             </span>
           </ProgressRing>
 
@@ -287,7 +284,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
           {isDownloadingModel && (
             <p
               data-testid="processing-model-download"
-              className="mx-auto flex max-w-md items-start gap-2 rounded-theme-md border border-theme-info/35 bg-theme-info/10 p-3 text-left text-xs text-theme-info"
+              className="mx-auto flex max-w-md items-start gap-2 rounded-theme-md border border-theme-border-subtle p-3 text-left text-xs text-theme-text-muted"
             >
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               First run on this server: the model is being downloaded once and kept for later songs.
@@ -297,25 +294,21 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
 
           <div>
             {isHeartbeatStalled ? (
-              <div className="inline-flex items-center gap-2 rounded-theme-pill border border-theme-warning/40 bg-theme-warning/15 px-3.5 py-1.5 text-xs font-medium text-theme-warning">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              <p className="flex items-center gap-2 text-sm font-semibold text-theme-warning">
+                <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 <span>Engine slow / waiting for background worker</span>
-              </div>
+              </p>
             ) : (
-              <div className="inline-flex items-center gap-2 rounded-theme-pill border border-theme-success/35 bg-theme-success/10 px-3.5 py-1.5 text-xs font-medium text-theme-success">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-theme-success opacity-75 motion-safe:animate-ping" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-theme-success" />
-                </span>
-                <span>Engine Active • {formatHeartbeat(project?.heartbeat, now)}</span>
-              </div>
+              <p className="text-sm text-theme-text-muted">
+                Engine Active • {formatHeartbeat(project?.heartbeat, now)}
+              </p>
             )}
           </div>
 
           {isReconnecting && (
             <div
               role="alert"
-              className="mx-auto flex max-w-md items-center justify-between gap-3 rounded-theme-md border border-theme-warning/40 bg-theme-warning/15 p-3.5 text-left text-xs text-theme-warning"
+              className="mx-auto flex max-w-md items-center justify-between gap-3 rounded-theme-md border border-theme-warning p-3.5 text-left text-xs text-theme-warning"
             >
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -356,8 +349,8 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
                     <span
                       aria-hidden="true"
                       className={cn(
-                        'absolute right-1/2 top-3.5 -z-0 mr-4 h-0.5 w-[calc(100%-2rem)] rounded-full sm:top-4',
-                        idx <= currentStageIndex ? 'bg-theme-accent/70' : 'bg-theme-border-subtle'
+                        'absolute right-1/2 top-3.5 -z-0 mr-4 h-0.5 w-[calc(100%-2rem)] sm:top-4',
+                        idx <= currentStageIndex ? 'bg-theme-accent' : 'bg-theme-border-subtle'
                       )}
                     />
                   )}
@@ -365,9 +358,9 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
                     className={cn(
                       'relative flex h-7 w-7 items-center justify-center rounded-theme-pill border text-xs font-bold transition-colors sm:h-8 sm:w-8',
                       isCompleted
-                        ? 'border-theme-success/50 bg-theme-success/15 text-theme-success'
+                        ? 'border-theme-success text-theme-success'
                         : isActive
-                          ? 'border-transparent bg-gradient-accent text-theme-accent-text shadow-theme-glow'
+                          ? 'border-transparent bg-theme-accent text-theme-accent-text'
                           : 'border-theme-border-subtle bg-theme-surface-subtle text-theme-text-muted'
                     )}
                   >
@@ -400,7 +393,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
           </ol>
 
           <div className="mx-auto flex max-w-md flex-col justify-between gap-1.5 px-1 font-mono text-[11px] text-theme-text-muted sm:flex-row sm:items-center sm:gap-4 sm:text-xs">
-            <span className="flex items-center gap-1.5 font-semibold text-theme-highlight">
+            <span className="flex items-center gap-1.5 font-semibold text-theme-text">
               <Activity className="h-3.5 w-3.5" aria-hidden="true" />
               {project?.progress ?? 0}% Complete
             </span>
@@ -433,7 +426,7 @@ export const ProcessingView: React.FC<ProcessingViewProps> = ({
                   type="button"
                   onClick={trigger.onClick}
                   className={cn(
-                    'inline-flex min-h-[40px] items-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-subtle px-4 py-2.5 font-theme-heading text-xs font-semibold text-theme-text-muted transition-colors hover:border-theme-danger/50 hover:text-theme-danger',
+                    'inline-flex min-h-[40px] items-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-subtle px-4 py-2.5 font-theme-heading text-xs font-semibold text-theme-text-muted transition-colors hover:border-theme-danger hover:text-theme-danger',
                     focusRing
                   )}
                 >

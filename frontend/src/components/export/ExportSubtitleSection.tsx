@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Download, Sparkles, FileText, Loader2, AlignLeft } from 'lucide-react';
+import { Download, FileText, Loader2, AlignLeft, Highlighter } from 'lucide-react';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { Tooltip } from '../Tooltip';
@@ -170,16 +170,11 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
     <section aria-labelledby="export-subtitles-heading" className={EXPORT_SECTION}>
       <div className="flex items-start justify-between gap-2">
         <h3 id="export-subtitles-heading" className={EXPORT_HEADING}>
-          <FileText className="h-5 w-5 shrink-0 text-theme-highlight" aria-hidden="true" />
+          <FileText className="h-5 w-5 shrink-0 text-theme-text" aria-hidden="true" />
           Synchronized Subtitles (.LRC & .ASS)
         </h3>
         {project?.lines && (
-          <span
-            className={cn(
-              EXPORT_PILL,
-              'border-theme-accent/30 bg-theme-accent/10 text-theme-highlight'
-            )}
-          >
+          <span className={cn(EXPORT_PILL, 'border-theme-accent text-theme-text')}>
             {project.lines.length} lines
           </span>
         )}
@@ -213,7 +208,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
               label: 'Word Sweep (\\kf)',
               ariaLabel: 'Word Sweep progressive karaoke subtitles',
               testId: 'subtitle-sync-mode-word',
-              icon: <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />,
+              icon: <Highlighter className="h-3.5 w-3.5" aria-hidden="true" />,
             },
             {
               value: 'line',
@@ -233,16 +228,16 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
             onClick={() => handleDownloadSubtitle('lrc')}
             disabled={busy}
             aria-label="Download .lrc subtitles"
-            className={cn(EXPORT_DOWNLOAD_BTN, 'hover:border-theme-accent/50')}
+            className={cn(EXPORT_DOWNLOAD_BTN, 'hover:border-theme-accent')}
           >
             <span className="flex min-w-0 items-center gap-2.5 text-left">
               {downloadingLrc ? (
                 <Loader2
-                  className="h-4 w-4 shrink-0 text-theme-highlight animate-spin"
+                  className="h-4 w-4 shrink-0 text-theme-text animate-spin"
                   aria-hidden="true"
                 />
               ) : (
-                <FileText className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
+                <FileText className="h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
               )}
               <span className="min-w-0">
                 <span className="block text-xs font-bold text-theme-text sm:text-sm">
@@ -253,7 +248,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
                 </span>
               </span>
             </span>
-            <Download className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
+            <Download className="h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
           </button>
         </Tooltip>
 
@@ -263,16 +258,19 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
             onClick={() => handleDownloadSubtitle('ass')}
             disabled={busy}
             aria-label="Download .ass subtitles"
-            className={cn(EXPORT_DOWNLOAD_BTN, 'hover:border-theme-secondary/50')}
+            className={EXPORT_DOWNLOAD_BTN}
           >
             <span className="flex min-w-0 items-center gap-2.5 text-left">
               {downloadingAss ? (
                 <Loader2
-                  className="h-4 w-4 shrink-0 text-theme-secondary animate-spin"
+                  className="h-4 w-4 shrink-0 text-theme-text-muted animate-spin"
                   aria-hidden="true"
                 />
               ) : (
-                <Sparkles className="h-4 w-4 shrink-0 text-theme-secondary" aria-hidden="true" />
+                <Highlighter
+                  className="h-4 w-4 shrink-0 text-theme-text-muted"
+                  aria-hidden="true"
+                />
               )}
               <span className="min-w-0">
                 <span className="block text-xs font-bold text-theme-text sm:text-sm">
@@ -284,7 +282,7 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
                 </span>
               </span>
             </span>
-            <Download className="h-4 w-4 shrink-0 text-theme-secondary" aria-hidden="true" />
+            <Download className="h-4 w-4 shrink-0 text-theme-text-muted" aria-hidden="true" />
           </button>
         </Tooltip>
       </div>

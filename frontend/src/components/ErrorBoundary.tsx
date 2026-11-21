@@ -106,7 +106,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         <div
           role="alert"
           aria-live="assertive"
-          className="space-y-3 rounded-theme-lg border border-theme-danger/40 bg-theme-surface p-4 text-theme-text shadow-theme-md"
+          className="space-y-3 rounded-theme-lg border border-theme-danger bg-theme-surface p-4 text-theme-text shadow-theme-md"
         >
           <div className="flex items-center gap-2 text-sm font-semibold text-theme-danger">
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -114,7 +114,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </div>
           <p
             title={message}
-            className="truncate rounded-theme-md border border-theme-danger/25 bg-theme-danger/10 p-2.5 font-mono text-xs text-theme-text-muted"
+            className="truncate rounded-theme-md border border-theme-danger p-2.5 font-mono text-xs text-theme-text-muted"
           >
             {message}
           </p>
@@ -148,7 +148,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         className="flex min-h-[100dvh] flex-col items-center justify-center bg-theme-bg p-4 font-theme-body text-theme-text sm:p-6"
       >
         <div className="w-full max-w-xl space-y-6 rounded-theme-xl border border-theme-border-subtle bg-theme-surface p-6 text-center shadow-theme-lg sm:p-8">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-theme-lg bg-theme-warning/15 text-theme-warning shadow-theme-sm">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-theme-lg text-theme-warning shadow-theme-sm">
             <AlertTriangle className="h-8 w-8" aria-hidden="true" />
           </div>
 
@@ -163,7 +163,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </div>
 
           {/* Error Message Card */}
-          <div className="space-y-1 rounded-theme-lg border border-theme-danger/35 bg-theme-danger/10 p-3.5 text-left">
+          <div className="space-y-1 rounded-theme-lg border border-theme-danger p-3.5 text-left">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-theme-danger">
               <Bug className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Runtime Exception</span>

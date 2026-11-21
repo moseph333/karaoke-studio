@@ -92,7 +92,7 @@ export const Panel: React.FC<PanelProps> = ({
       {icon && (
         <span
           aria-hidden="true"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-theme-md bg-theme-accent/15 text-theme-highlight"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-theme-md text-theme-text"
         >
           {icon}
         </span>

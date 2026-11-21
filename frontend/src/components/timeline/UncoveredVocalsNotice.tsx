@@ -21,7 +21,7 @@ export const UncoveredVocalsNotice: React.FC<UncoveredVocalsNoticeProps> = ({ sp
   return (
     <div
       data-testid="uncovered-vocals-notice"
-      className="flex flex-wrap items-center gap-1.5 rounded-theme-lg border border-theme-warning/35 bg-theme-warning/10 px-2.5 py-1.5 text-xs text-theme-text"
+      className="flex flex-wrap items-center gap-1.5 rounded-theme-lg border border-theme-warning px-2.5 py-1.5 text-xs text-theme-text"
     >
       <AudioLines className="h-3.5 w-3.5 shrink-0 text-theme-warning" aria-hidden="true" />
       <span className="font-semibold">Vocals without lyrics:</span>
@@ -31,7 +31,7 @@ export const UncoveredVocalsNotice: React.FC<UncoveredVocalsNoticeProps> = ({ sp
           type="button"
           onClick={() => onSeek(span.start)}
           aria-label={`Play the vocals without lyrics from ${formatTime(span.start)} to ${formatTime(span.end)}`}
-          className="inline-flex min-h-[44px] items-center rounded-theme-sm px-1.5 font-mono tabular-nums text-theme-highlight underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-focus/60"
+          className="inline-flex min-h-[44px] items-center rounded-theme-sm px-1.5 font-mono tabular-nums text-theme-text underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-focus/60"
         >
           {formatTime(span.start)}–{formatTime(span.end)}
         </button>

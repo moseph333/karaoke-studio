@@ -377,8 +377,9 @@ const TransportDockView: React.FC<TransportDockProps> = ({
       data-testid="transport-dock"
       aria-label="Playback transport"
       className={cn(
-        'fixed inset-x-0 bottom-0 z-40 border-t border-theme-border-subtle ks-glass ks-dock-edge shadow-theme-lg',
-        'md:static md:z-auto md:mx-3 md:mb-3 md:rounded-theme-xl md:border lg:mx-6',
+        // A band across the bottom of the studio, over a rule
+        'fixed inset-x-0 bottom-0 z-40 border-t-2 border-theme-border bg-theme-bg ks-dock-edge',
+        'md:static md:z-auto',
         className
       )}
       style={{
@@ -406,11 +407,8 @@ const TransportDockView: React.FC<TransportDockProps> = ({
       )}
 
       {isRemixing && (
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 top-0 h-0.5 overflow-hidden md:inset-x-4 md:rounded-full"
-        >
-          <div className="h-full w-1/3 bg-gradient-accent motion-safe:animate-pulse" />
+        <div aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 overflow-hidden">
+          <div className="h-full w-1/3 bg-theme-accent motion-safe:animate-pulse" />
         </div>
       )}
 
@@ -462,7 +460,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
               onClick={onTogglePlay}
               aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
               className={cn(
-                'inline-flex h-12 w-12 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-transform hover:brightness-110 active:scale-95',
+                'inline-flex h-12 w-12 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-pill bg-theme-accent text-theme-accent-text transition-transform hover:brightness-110 active:scale-95',
                 focusRing
               )}
             >
@@ -487,9 +485,9 @@ const TransportDockView: React.FC<TransportDockProps> = ({
             )}
           >
             {isRemixing ? (
-              <Spinner className="h-3.5 w-3.5 text-theme-highlight" />
+              <Spinner className="h-3.5 w-3.5 text-theme-text" />
             ) : (
-              <SlidersHorizontal className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
+              <SlidersHorizontal className="h-3.5 w-3.5 text-theme-text" aria-hidden="true" />
             )}
             <span className="font-mono tabular-nums">{isRemixing ? 'Re-pitching…' : keyText}</span>
             <span className="text-theme-text-muted" aria-hidden="true">

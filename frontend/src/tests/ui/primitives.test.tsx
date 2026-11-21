@@ -206,7 +206,7 @@ describe('Dialog', () => {
     expect(dialog).toHaveAttribute('aria-describedby', 'demo-desc');
     expect(dialog.className).toMatch(/items-end sm:items-center p-0 sm:p-4/);
     const card = dialog.firstElementChild as HTMLElement;
-    expect(card.className).toMatch(/rounded-t-2xl rounded-b-none/);
+    expect(card.className).toMatch(/border-x-0 border-b-0 sm:border-x-2 sm:border-b-2/);
     expect(card.className).toContain('max-h-[90vh]');
     expect(card.className).toContain('overflow-y-auto');
     expect(screen.getByTestId('bottom-sheet-drag-handle').className).toMatch(/sm:hidden/);

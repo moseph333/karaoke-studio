@@ -573,7 +573,7 @@ export const AppContent: React.FC = () => {
       <div
         className={cn(
           'min-h-screen bg-theme-bg text-theme-text flex flex-col font-theme-body',
-          // Landscape phones: keep content out of the notch and rounded corners
+          // Landscape phones: keep content out of the notch and corners
           'pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]',
           isStudioReady && 'studio:h-[100dvh] studio:overflow-hidden'
         )}

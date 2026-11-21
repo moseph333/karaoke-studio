@@ -46,7 +46,7 @@ export const ProcessingTips: React.FC<{ className?: string }> = ({ className }) 
         className
       )}
     >
-      <Lightbulb className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
+      <Lightbulb className="h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
       <p className="min-w-0 flex-1 py-1.5 text-xs text-theme-text-muted">
         <span className="sr-only">Tip: </span>
         <span key={index} className="block motion-safe:animate-fade-in">

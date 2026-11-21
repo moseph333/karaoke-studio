@@ -108,7 +108,7 @@ const WordTimeInput: React.FC<{
 };
 
 const snapButton = cn(
-  'flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center gap-1 rounded-theme-sm border border-theme-accent/35 bg-theme-accent/10 px-2 py-1.5 text-[11px] font-semibold text-theme-highlight transition-colors hover:bg-theme-accent/20 sm:min-h-0 sm:min-w-0',
+  'flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center gap-1 rounded-theme-sm border border-theme-accent px-2 py-1.5 text-[11px] font-semibold text-theme-text transition-colors sm:min-h-0 sm:min-w-0',
   focusRing
 );
 
@@ -149,7 +149,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
             className={cn(
               'flex flex-col gap-1.5 rounded-theme-md border p-2.5 text-xs transition-colors',
               isWordActive
-                ? 'border-theme-accent/60 bg-theme-accent/10 ring-1 ring-theme-accent/30'
+                ? 'border-theme-accent ring-1 ring-theme-accent/30'
                 : 'border-theme-border-subtle bg-theme-surface'
             )}
           >
@@ -158,9 +158,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                 onClick={() => onWordClick(w)}
                 className={cn(
                   'mr-2 min-w-0 cursor-pointer truncate font-semibold',
-                  isWordActive
-                    ? 'text-theme-highlight'
-                    : 'text-theme-text hover:text-theme-highlight'
+                  isWordActive ? 'text-theme-text' : 'text-theme-text hover:text-theme-accent'
                 )}
                 title={`Click to seek to word: ${w.word}`}
               >
