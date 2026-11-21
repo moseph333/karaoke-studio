@@ -84,7 +84,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       });
       expect(searchInput).toBeInTheDocument();
       expect(searchInput.className).toMatch(/min-h-\[48px\]/);
-      expect(searchInput.className).toMatch(/pr-28/);
+      expect(searchInput.className).toMatch(/flex-1/);
 
       // Search button in initial state
       const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
@@ -428,13 +428,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       expect(headerContainer?.className).toMatch(/\bpx-\d/);
       expect(headerContainer?.className).toMatch(/min-h-\[3\.5rem\]/);
 
-      // Brand mark never shrinks; its icon keeps a fixed size
-      const brandLogo = headerContainer?.querySelector('.bg-gradient-accent');
-      expect(brandLogo?.className).toMatch(/shrink-0/);
-      const brandIcon = brandLogo?.querySelector('svg');
-      expect(brandIcon?.getAttribute('class')).toMatch(/h-4 w-4/);
-
-      // Brand title in header renders "Karaoke Studio" with no YouTube prefix
+      // The brand is a wordmark: "Karaoke Studio" with no YouTube prefix and no logo tile
       const brandTitle = within(header!).getByText(/Karaoke Studio/i);
       expect(brandTitle.textContent?.trim()).toBe('Karaoke Studio');
       expect(brandTitle.querySelector('span')).toBeNull();
@@ -486,17 +480,17 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
         />
       );
 
-      // Hero heading
+      // The headline scales with the window instead of stepping between sizes
       const hero = screen.getByRole('heading', { level: 1 });
-      expect(hero.className).toMatch(/text-3xl/);
-      expect(hero.className).toMatch(/sm:text-5xl/);
+      expect(hero.className).toMatch(/ks-display/);
+      expect(hero.className).toMatch(/text-\[clamp\(/);
 
-      // The hero is one column on phones (no side padding of its own) and two from lg up
-      const heroSection = hero.closest('section');
-      expect(heroSection?.className).toMatch(/\bgrid\b/);
-      expect(heroSection?.className).not.toMatch(/(^|\s)px-/);
-      expect(heroSection?.className).toMatch(/sm:px-4/);
-      expect(heroSection?.className).toMatch(/lg:grid-cols-/);
+      // The intake band under it is one column on phones (no side padding of its own) and
+      // two from lg up
+      const intakeBand = hero.closest('section')?.nextElementSibling;
+      expect(intakeBand?.className).toMatch(/\bgrid\b/);
+      expect(intakeBand?.className).not.toMatch(/(^|\s)px-/);
+      expect(intakeBand?.className).toMatch(/lg:grid-cols-/);
 
       // Submit button text labels
       const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
@@ -506,7 +500,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const tabs = screen.getAllByRole('tab');
       expect(tabs.length).toBe(2);
       tabs.forEach((tab) => {
-        expect(tab.className).toMatch(/min-h-\[36px\]/);
+        expect(tab.className).toMatch(/min-h-\[44px\]/);
       });
       const tabList = tabs[0].parentElement;
       expect(tabList).toHaveAttribute('role', 'tablist');
@@ -529,8 +523,8 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const mainEl = container.querySelector('main');
       expect(mainEl).toBeInTheDocument();
       expect(mainEl?.className).toMatch(/w-full/);
-      expect(mainEl?.className).toMatch(/px-3/);
-      expect(mainEl?.className).toMatch(/sm:px-4/);
+      expect(mainEl?.className).toMatch(/px-4/);
+      expect(mainEl?.className).toMatch(/sm:px-8/);
     });
 
     it('ensures flex children have min-w-0 to prevent min-content blowout in cards', async () => {
@@ -580,7 +574,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       const header = document.querySelector('header > div');
       expect(header?.classList.contains('flex-wrap')).toBe(true);
-      expect(header?.classList.contains('gap-x-2')).toBe(true);
+      expect(header?.classList.contains('gap-x-3')).toBe(true);
       const actions = header?.lastElementChild;
       expect(actions?.classList.contains('flex-wrap')).toBe(true);
       expect(actions?.classList.contains('min-w-0')).toBe(true);

@@ -110,7 +110,7 @@ describe('Song library', () => {
     expect(onOpenProject.mock.calls[0][0].id).toBe('a');
   });
 
-  it('labels card status badges by outcome', async () => {
+  it('says what state an unfinished song is in', async () => {
     libraryResponse({
       r: { id: 'r', title: 'Done Song', status: 'ready', created_by: 'Friend' },
       e: { id: 'e', title: 'Broken Song', status: 'error', created_by: 'Friend' },
@@ -119,10 +119,12 @@ describe('Song library', () => {
     const { container } = render(<TrackSearch onSelectTrack={vi.fn()} isLoading={false} />);
     await screen.findByText('Broken Song');
     const badge = (status: string) => container.querySelector(`[data-status="${status}"]`);
+    // A finished song is quiet: "Ready" is there for assistive tech only
     expect(badge('ready')).toHaveTextContent('Ready');
-    expect(badge('error')).toHaveTextContent('Error');
-    expect(badge('error')?.className).toContain('bg-theme-danger/50');
-    expect(badge('fetching_lyrics')).toHaveTextContent('fetching lyrics');
+    expect(badge('ready')?.querySelector('.sr-only')).toHaveTextContent('Ready');
+    expect(badge('error')).toHaveTextContent('Failed');
+    expect(badge('error')?.className).toContain('text-theme-danger');
+    expect(badge('fetching_lyrics')).toHaveTextContent('fetching lyrics 0%');
   });
 
   it('moves between library tabs with the arrow keys (roving focus)', async () => {

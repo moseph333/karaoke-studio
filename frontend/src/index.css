@@ -63,7 +63,6 @@
   --theme-font-heading: 'Sofia Sans', 'Helvetica Neue', Arial, sans-serif;
   --theme-font-body: 'Sofia Sans', 'Helvetica Neue', Arial, sans-serif;
   --theme-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --theme-font-karaoke: Sora, Inter, system-ui, sans-serif;
   --karaoke-font-family: Sora, Inter, system-ui, sans-serif;
   /* Square and flat: no radius and no shadow anywhere in the app's own chrome */
   --theme-radius-sm: 0px;
@@ -209,30 +208,6 @@
     background-color: rgb(var(--theme-surface-rgb) / var(--theme-glass-alpha, 0.82));
     -webkit-backdrop-filter: blur(18px) saturate(150%);
     backdrop-filter: blur(18px) saturate(150%);
-  }
-
-  /* Gradient text using the active theme brand gradient */
-  .ks-text-gradient {
-    background-image: var(--theme-gradient-accent);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-
-  /* Ambient stage backdrop */
-  .ks-stage-backdrop {
-    background: var(--theme-gradient-stage);
-  }
-
-  /* Soft coloured light behind the home screen hero and its lyric preview */
-  .ks-aurora {
-    background:
-      radial-gradient(42% 46% at 22% 30%, rgb(var(--theme-accent-rgb) / 0.3) 0%, transparent 70%),
-      radial-gradient(
-        38% 44% at 80% 36%,
-        rgb(var(--theme-secondary-rgb) / 0.22) 0%,
-        transparent 70%
-      );
   }
 
   /* Size the live stage from a height budget so stage + timeline fit one screen: the

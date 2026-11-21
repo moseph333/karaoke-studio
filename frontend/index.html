@@ -28,46 +28,44 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <!-- Boot shell: the header and a quiet outline of the page, painted from this file alone
-         while the app's script loads. React replaces it when it mounts. Colours come from the
-         token variables in the stylesheet, with the same values as fallback. Its brand name
-         is set in the heading face, which starts that font file downloading alongside
-         the script, so headings do not flash in a fallback face when the app appears. -->
+    <!-- Boot shell: the top bar and a quiet outline of the home screen, painted from this file
+         alone while the app's script loads. React replaces it when it mounts. Colours come
+         from the token variables in the stylesheet, with the same values as fallback. Its
+         wordmark is set in the display face, which starts that font file downloading alongside
+         the script, so the capitals do not flash in a fallback face when the app appears. -->
     <style>
       .boot-bar {
         display: flex;
         align-items: center;
-        gap: 10px;
         /* Under a see-through status bar (installed app) the bar starts below it, as the
            app's header does */
         box-sizing: content-box;
         height: 3.5rem;
         padding: env(safe-area-inset-top, 0px) 16px 0;
-        border-bottom: 1px solid var(--theme-border-subtle, #2e2d2a);
-        font: 700 1rem/1 var(--theme-font-heading, 'Sofia Sans', sans-serif);
-      }
-      .boot-mark {
-        width: 32px;
-        height: 32px;
-        background: var(--theme-accent, #ffd21f);
+        border-bottom: 2px solid var(--theme-border, #f2eee3);
+        font: 900 1.625rem/1
+          var(--theme-font-display, 'Sofia Sans Extra Condensed', 'Arial Narrow', sans-serif);
+        letter-spacing: 0.005em;
+        text-transform: uppercase;
       }
       .boot-page {
         display: grid;
-        gap: 32px;
-        max-width: 72rem;
+        gap: 20px;
+        max-width: 96rem;
         margin: 0 auto;
-        padding: 40px 16px;
+        padding: 20px 16px;
       }
+      /* The headline, then the search field */
       .boot-block {
         background: var(--theme-surface-subtle, #141413);
-        border: 1px solid var(--theme-border-subtle, #2e2d2a);
         animation: boot-pulse 1.4s ease-in-out infinite alternate;
       }
       .boot-block.a {
-        height: 20rem;
+        height: 26vw;
+        max-height: 22rem;
       }
       .boot-block.b {
-        height: 14rem;
+        height: 4.25rem;
       }
       @keyframes boot-pulse {
         from {
@@ -77,18 +75,14 @@
           opacity: 0.9;
         }
       }
-      @media (min-width: 1024px) {
+      @media (min-width: 640px) {
         .boot-bar {
-          padding: env(safe-area-inset-top, 0px) 24px 0;
+          padding: env(safe-area-inset-top, 0px) 32px 0;
+          font-size: 1.875rem;
         }
         .boot-page {
-          grid-template-columns: 1.05fr 0.95fr;
-          gap: 48px;
-          padding: 64px 32px;
-        }
-        .boot-block.a,
-        .boot-block.b {
-          height: 22rem;
+          gap: 32px;
+          padding: 32px;
         }
       }
       @media (prefers-reduced-motion: reduce) {
@@ -109,7 +103,7 @@
   >
     <div id="root">
       <div aria-hidden="true">
-        <div class="boot-bar"><span class="boot-mark"></span>Karaoke Studio</div>
+        <div class="boot-bar">Karaoke Studio</div>
         <div class="boot-page">
           <div class="boot-block a"></div>
           <div class="boot-block b"></div>

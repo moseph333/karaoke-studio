@@ -205,8 +205,8 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
   };
 
   const inputCls =
-    'min-h-[44px] w-full rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 disabled:opacity-60 sm:text-sm';
-  const labelCls = 'mb-1 block text-xs font-semibold text-theme-text-muted';
+    'min-h-[44px] w-full border-2 border-theme-border bg-transparent px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none disabled:opacity-60';
+  const labelCls = 'mb-1 block text-sm text-theme-text-muted';
 
   return (
     <div id="panel-local">
@@ -217,14 +217,12 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
           onDrop={handleDrop}
           data-dragging={isDragging ? 'true' : undefined}
           className={cn(
-            'rounded-theme-lg border-2 border-dashed p-4 text-center transition-colors sm:p-6',
+            'border-2 border-dashed p-4 transition-colors sm:p-5',
             // The file input is visually hidden, so its keyboard focus is shown here
             'has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-theme-focus has-[input:focus-visible]:ring-offset-2 has-[input:focus-visible]:ring-offset-theme-bg',
             isDragging
-              ? 'border-theme-accent bg-theme-accent/10 shadow-theme-glow'
-              : selectedFile
-                ? 'border-theme-border bg-theme-bg/60'
-                : 'border-theme-border-subtle bg-theme-bg/40 hover:border-theme-border hover:bg-theme-bg/70'
+              ? 'border-solid border-theme-accent'
+              : 'border-theme-border hover:border-solid'
           )}
         >
           <input
@@ -243,16 +241,14 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
             disabled={isLoading || uploadingTrack}
           />
           {selectedFile ? (
-            <div className="flex flex-col items-center justify-between gap-3 text-left sm:flex-row">
+            <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
               <div className="flex min-w-0 flex-1 items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-theme-md bg-theme-accent/15 text-theme-highlight">
-                  <FileAudio className="h-5 w-5" aria-hidden="true" />
-                </div>
+                <FileAudio className="h-6 w-6 shrink-0 text-theme-text-muted" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-theme-heading text-sm font-semibold text-theme-text">
+                  <p className="truncate text-base font-semibold text-theme-text">
                     {selectedFile.name}
                   </p>
-                  <p className="text-xs text-theme-text-muted">
+                  <p className="text-sm text-theme-text-muted">
                     {formatFileSize(selectedFile.size)}
                   </p>
                 </div>
@@ -260,7 +256,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
               <div className="flex items-center gap-2">
                 <label
                   htmlFor="local-audio-file-input"
-                  className="flex min-h-[44px] cursor-pointer items-center justify-center rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-3 py-2 font-theme-heading text-xs font-semibold text-theme-text transition-colors hover:border-theme-border md:min-h-[36px]"
+                  className="ks-display flex min-h-[44px] cursor-pointer items-center justify-center border border-theme-border px-3 text-[20px] text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse md:min-h-[36px]"
                 >
                   Change File
                 </label>
@@ -275,7 +271,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
                   }}
                   aria-label="Remove selected audio file"
                   className={cn(
-                    'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-md p-2 text-theme-text-muted transition-colors hover:bg-theme-danger/10 hover:text-theme-danger md:min-h-[36px] md:min-w-[36px]',
+                    'flex min-h-[44px] min-w-[44px] items-center justify-center p-2 text-theme-text-muted transition-colors hover:text-theme-danger md:min-h-[36px] md:min-w-[36px]',
                     focusRing
                   )}
                 >
@@ -284,17 +280,14 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
               </div>
             </div>
           ) : (
-            <label htmlFor="local-audio-file-input" className="block cursor-pointer space-y-2 py-3">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text shadow-theme-glow">
-                <Upload className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <div>
-                <span className="font-theme-heading text-sm font-semibold text-theme-text transition-colors hover:text-theme-highlight">
+            <label htmlFor="local-audio-file-input" className="block cursor-pointer space-y-1 py-2">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className="ks-display text-[26px] font-black text-theme-text sm:text-[32px]">
                   Click to select audio
                 </span>
-                <span className="text-xs text-theme-text-muted"> or drag and drop here</span>
+                <span className="text-sm text-theme-text-muted"> or drag and drop here</span>
               </div>
-              <p className="text-xs text-theme-text-muted">
+              <p className="text-sm text-theme-text-muted">
                 WAV, MP3, FLAC, M4A, OGG, OPUS or AAC · up to {MAX_AUDIO_MB} MB
               </p>
             </label>
@@ -343,7 +336,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
               : 'Upload & Create Karaoke Project: upload and process local audio track'
           }
           className={cn(
-            'flex min-h-[44px] w-full items-center justify-center gap-2 rounded-theme-md bg-gradient-accent px-4 py-3 font-theme-heading text-sm font-semibold text-theme-accent-text shadow-theme-glow transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50',
+            'ks-display flex min-h-[48px] w-full items-center justify-center gap-2 bg-theme-accent px-4 text-[24px] font-black text-theme-accent-text transition-colors hover:bg-theme-accent-hover disabled:cursor-not-allowed disabled:opacity-50',
             focusRing
           )}
         >

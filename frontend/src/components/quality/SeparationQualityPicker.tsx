@@ -50,8 +50,9 @@ export const SeparationQualityPicker: React.FC<SeparationQualityPickerProps> = (
 
   return (
     <fieldset className={cn('min-w-0 space-y-2', className)} disabled={disabled}>
-      <legend className="mb-2 text-xs font-semibold text-theme-text">{legend}</legend>
-      <div className="grid gap-2 sm:grid-cols-3">
+      <legend className="mb-1 text-sm font-semibold text-theme-text">{legend}</legend>
+      {/* Three choices side by side under a rule each; the chosen one's rule is lit */}
+      <div className="grid gap-x-6 gap-y-2 sm:grid-cols-3">
         {SEPARATION_PRESET_ORDER.map((preset) => {
           const info = presetInfo(preset, capabilities);
           const unavailable = info.available === false;
@@ -65,10 +66,10 @@ export const SeparationQualityPicker: React.FC<SeparationQualityPickerProps> = (
               key={preset}
               data-testid={`separation-quality-${preset}`}
               className={cn(
-                'relative flex min-h-[44px] cursor-pointer flex-col gap-1.5 rounded-theme-lg border p-3 text-left transition-colors',
+                'relative flex min-h-[44px] cursor-pointer flex-col gap-1.5 border-t-[3px] pt-2 text-left transition-colors',
                 checked
-                  ? 'border-theme-accent bg-theme-accent/10 shadow-theme-sm'
-                  : 'border-theme-border-subtle bg-theme-surface hover:border-theme-border',
+                  ? 'border-theme-accent'
+                  : 'border-theme-border-subtle hover:border-theme-border',
                 'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-theme-focus',
                 unavailable && 'cursor-not-allowed opacity-60'
               )}
@@ -85,7 +86,7 @@ export const SeparationQualityPicker: React.FC<SeparationQualityPickerProps> = (
                   aria-describedby={descId}
                   className="h-4 w-4 shrink-0 cursor-pointer accent-[rgb(var(--theme-accent-rgb))] focus:outline-none"
                 />
-                <span id={titleId} className="font-theme-heading text-sm font-semibold">
+                <span id={titleId} className="ks-display text-[22px] text-theme-text">
                   {PRESET_NAMES[preset]}
                 </span>
                 {currentPreset === preset ? (
@@ -94,9 +95,9 @@ export const SeparationQualityPicker: React.FC<SeparationQualityPickerProps> = (
                   <Badge tone="neutral">Default</Badge>
                 ) : null}
               </span>
-              <span id={descId} className="space-y-1 text-xs text-theme-text-muted">
+              <span id={descId} className="space-y-1 text-sm text-theme-text-muted">
                 <span className="block">{PRESET_BLURBS[preset]}</span>
-                <span className="block font-medium text-theme-text/80">
+                <span className="block text-theme-text">
                   {separationEstimate(info.cpu_realtime_factor, durationSeconds, info.runs_on)}
                   {info.gpu_recommended ? ' · GPU recommended' : ''}
                 </span>
