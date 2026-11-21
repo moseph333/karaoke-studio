@@ -69,7 +69,7 @@ describe('ProcessingView announcements and focus', () => {
   it('announces the stage but not the per-chunk detail', () => {
     render(<ProcessingView project={processing} onCancelProcess={noop} onResetProject={noop} />);
     const status = screen.getByRole('status');
-    expect(status).toHaveTextContent(/separating/i);
+    expect(status).toHaveTextContent('Removing the vocals');
     expect(status).not.toHaveTextContent('chunk 12/25');
     expect(screen.getByText('Mel-Band RoFormer: chunk 12/25 (48%)')).toBeInTheDocument();
   });

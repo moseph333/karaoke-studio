@@ -122,8 +122,8 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       });
 
       // Confirm processing screen is active
-      expect(screen.getByText(/separating\.\.\./i)).toBeInTheDocument();
-      expect(screen.getByText(/45% complete/i)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Removing the vocals' })).toBeInTheDocument();
+      expect(screen.getByTestId('processing-percent')).toHaveTextContent('45%');
 
       // Verify Header Help button exists in processing view
       const helpButton = screen.getByRole('button', {
@@ -147,7 +147,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       });
 
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-      expect(screen.getByText(/separating\.\.\./i)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Removing the vocals' })).toBeInTheDocument();
     });
 
     it('renders and works in Studio Workspace (project.status === "ready")', async () => {

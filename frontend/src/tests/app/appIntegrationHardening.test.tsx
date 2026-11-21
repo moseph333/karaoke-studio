@@ -277,11 +277,12 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/Separating\.\.\./i)).toBeInTheDocument();
-        expect(screen.getByText(/Pulse just now/i)).toBeInTheDocument();
-        expect(screen.getByText(/60% Complete/i)).toBeInTheDocument();
-        expect(screen.getByText(/Elapsed: 1:15/i)).toBeInTheDocument();
-        expect(screen.getByText(/Est\. remaining: ~0:45/i)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Removing the vocals' })).toBeInTheDocument();
+        expect(screen.getByTestId('processing-percent')).toHaveTextContent('60%');
+        expect(screen.getByText('1:15 so far')).toBeInTheDocument();
+        expect(screen.getByText('About 0:45 left')).toBeInTheDocument();
+        // Nothing is said about the server while it keeps reporting
+        expect(screen.queryByTestId('processing-server-quiet')).toBeNull();
       });
     });
 

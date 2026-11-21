@@ -185,15 +185,14 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const statusText = screen.getByText(ultraLongStatus);
       expect(statusText).toBeInTheDocument();
       expect(statusText.className).toMatch(/break-words/);
-      expect(statusText.className).toMatch(/font-mono/);
 
       // 2. Verify timers display correctly formatted strings
-      expect(screen.getByText(/68% Complete/i)).toBeInTheDocument();
-      expect(screen.getByText(/Elapsed:\s*2:25/i)).toBeInTheDocument();
-      expect(screen.getByText(/Est\.\s*remaining:\s*~0:42/i)).toBeInTheDocument();
+      expect(screen.getByTestId('processing-percent')).toHaveTextContent('68%');
+      expect(screen.getByText('2:25 so far')).toBeInTheDocument();
+      expect(screen.getByText('About 0:42 left')).toBeInTheDocument();
 
       // 3. Verify timer container responsive wrapping layout
-      const timerRow = screen.getByText(/68% Complete/i).closest('.justify-between');
+      const timerRow = screen.getByText('2:25 so far').closest('.justify-between');
       expect(timerRow?.className).toMatch(/flex-col/);
       expect(timerRow?.className).toMatch(/sm:flex-row/);
       expect(timerRow?.className).toMatch(/justify-between/);
@@ -201,7 +200,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       // 4. Verify Cancel button touch target
       const cancelBtn = screen.getByRole('button', { name: /Cancel & Return to Search/i });
       expect(cancelBtn).toBeInTheDocument();
-      expect(cancelBtn.className).toMatch(/min-h-\[40px\]/);
+      expect(cancelBtn.className).toMatch(/min-h-\[44px\]/);
     });
 
     it('transitions to Error view with multiline stack trace & long URL and recovers to search', async () => {
@@ -260,7 +259,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       const retryBtn = within(screen.getByRole('main')).getByRole('button', { name: /New Song/i });
       expect(retryBtn).toBeInTheDocument();
-      expect(retryBtn.className).toMatch(/min-h-\[40px\]/);
+      expect(retryBtn.className).toMatch(/min-h-\[48px\]/);
 
       await user.click(retryBtn);
 
@@ -317,7 +316,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
         name: /New Song/i,
       });
       expect(searchAnotherBtn).toBeInTheDocument();
-      expect(searchAnotherBtn.className).toMatch(/min-h-\[40px\]/);
+      expect(searchAnotherBtn.className).toMatch(/min-h-\[48px\]/);
 
       // Return to search
       await user.click(searchAnotherBtn);
@@ -624,12 +623,12 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       });
 
       // Default description for 'downloading' when status_detail is empty
-      expect(screen.getByText('Fetching high-fidelity audio and cover art...')).toBeInTheDocument();
+      expect(screen.getByText('Downloading the audio and cover art.')).toBeInTheDocument();
 
-      // Timers: 0% and Calculating...
-      expect(screen.getByText(/0% Complete/i)).toBeInTheDocument();
-      expect(screen.getByText(/Elapsed:\s*0:00/i)).toBeInTheDocument();
-      expect(screen.getByText(/Est\.\s*remaining:\s*Calculating\.\.\./i)).toBeInTheDocument();
+      // Timers: 0% and no estimate yet
+      expect(screen.getByTestId('processing-percent')).toHaveTextContent('0%');
+      expect(screen.getByText('0:00 so far')).toBeInTheDocument();
+      expect(screen.getByText('Working out the time left')).toBeInTheDocument();
     });
 
     it('handles Unicode and emoji search queries without throwing or breaking layout', async () => {
