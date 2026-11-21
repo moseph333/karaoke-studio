@@ -378,7 +378,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
       aria-label="Playback transport"
       className={cn(
         // A band across the bottom of the studio, over a rule
-        'fixed inset-x-0 bottom-0 z-40 border-t-2 border-theme-border bg-theme-bg ks-dock-edge',
+        'fixed inset-x-0 bottom-0 z-40 border-t-2 border-theme-border bg-theme-bg',
         'md:static md:z-auto',
         className
       )}
