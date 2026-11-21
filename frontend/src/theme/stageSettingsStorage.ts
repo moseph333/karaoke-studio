@@ -22,9 +22,8 @@ export type StageSize = (typeof STAGE_SIZES)[number];
 export const FONT_SCALE_RANGE = { min: 0.5, max: 2 } as const;
 
 export interface StageSettings {
+  /** The stage preset last shown; null until a stage has been opened. */
   presetId: string | null;
-  /** 'user' when picked in the Look panel; 'app' when it follows the app theme. */
-  presetSource: 'user' | 'app';
   customSungColor: string | null;
   customUnsungColor: string | null;
   singer2Color: string | null;
@@ -42,7 +41,6 @@ export interface StageSettings {
 
 export const DEFAULT_STAGE_SETTINGS: StageSettings = {
   presetId: null,
-  presetSource: 'app',
   customSungColor: null,
   customUnsungColor: null,
   singer2Color: null,
@@ -80,7 +78,6 @@ export function sanitizeStageSettings(raw: unknown): StageSettings {
       : DEFAULT_STAGE_BACKGROUND_STYLE;
   return {
     presetId,
-    presetSource: presetId && src.presetSource === 'user' ? 'user' : 'app',
     customSungColor: color(src.customSungColor),
     customUnsungColor: color(src.customUnsungColor),
     singer2Color: color(src.singer2Color),

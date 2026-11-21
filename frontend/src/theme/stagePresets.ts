@@ -133,6 +133,9 @@ export const THEMES: VisualTheme[] = (stagePresets.presets as SharedStagePreset[
   })
 );
 
+/** The look a stage starts with until someone picks another in the Look panel. */
+export const DEFAULT_STAGE_PRESET_ID = 'afterglow';
+
 /** Presentation order for preset pickers (flagship first, legacy indices untouched). */
 export const STAGE_PRESET_DISPLAY_ORDER: readonly string[] = [
   'afterglow',

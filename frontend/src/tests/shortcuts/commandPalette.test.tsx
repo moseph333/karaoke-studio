@@ -328,12 +328,12 @@ describe('studio commands', () => {
     await waitFor(() => expect(screen.getByText('Palette Anthem')).toBeInTheDocument());
   };
 
-  it('offers playback, stage and theme commands and runs them', async () => {
+  it('offers playback and stage commands and runs them', async () => {
     await openStudio();
     fireEvent.click(screen.getByRole('button', { name: /open command palette/i }));
     const input = screen.getByRole('combobox', { name: /search commands/i });
     expect(screen.getByRole('option', { name: /^Play\s?Space$/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /App theme: Afterglow/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Stage preset: Afterglow/ })).toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: 'show beat visualizer' } });
     fireEvent.click(screen.getByRole('option', { name: /Show beat visualizer/ }));

@@ -2,7 +2,7 @@
  * Frontend Application Root Entry Point
  *
  * Mounts the React application tree with StrictMode, top-level ErrorBoundary,
- * ToastProvider, and AppThemeProvider contexts into the root DOM element. Starts listening for
+ * and ToastProvider into the root DOM element. Starts listening for
  * the browser's install offer and registers the offline service worker (production builds).
  * The studio, dialogs and command palette are separate chunks, fetched once the first screen
  * is idle (deferredScreens.ts).
@@ -13,7 +13,6 @@ import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './hooks/useToast';
-import { AppThemeProvider } from './context/AppThemeContext';
 import { startInstallPromptCapture } from './utils/installPrompt';
 import { registerServiceWorker } from './utils/serviceWorker';
 import { preloadDeferredScreens } from './deferredScreens';
@@ -28,9 +27,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <ToastProvider>
-        <AppThemeProvider>
-          <App />
-        </AppThemeProvider>
+        <App />
       </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>

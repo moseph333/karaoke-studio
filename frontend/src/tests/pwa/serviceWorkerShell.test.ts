@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { readFrontendFile } from '../helpers/bootScriptUtils';
+import { readFrontendFile } from '../helpers/frontendFiles';
 import { registerServiceWorker } from '../../utils/serviceWorker';
 
 type Listener = (event: unknown) => void;

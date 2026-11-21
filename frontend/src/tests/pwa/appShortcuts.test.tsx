@@ -17,7 +17,7 @@ import {
   rememberLastProject,
   urlWithoutShortcut,
 } from '../../utils/appShortcut';
-import { readFrontendFile, resolveFrontendFile } from '../helpers/bootScriptUtils';
+import { readFrontendFile, resolveFrontendFile } from '../helpers/frontendFiles';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeRequire = eval('require') as (mod: string) => any;

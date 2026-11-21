@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="afterglow">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -9,47 +9,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Karaoke" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <!-- Above the theme script, which points it at the chosen theme's colours -->
     <link rel="manifest" href="/manifest.json" />
-    <!-- Zero-FOUC Blocking Pre-Render Theme Initialization Script -->
-    <script>
-      (function () {
-        try {
-          var validThemes = [
-            'afterglow',
-            'punk_diy',
-            'tape_studio_70s',
-            'dive_bar_crt',
-            'clean_paper',
-          ];
-          var themeColors = {
-            afterglow: '#0b0b12',
-            punk_diy: '#0d0d0f',
-            tape_studio_70s: '#1a1410',
-            dive_bar_crt: '#09080f',
-            clean_paper: '#f4f4f0',
-          };
-          var saved = localStorage.getItem('karaoke_app_theme');
-          var activeTheme = saved && validThemes.indexOf(saved) !== -1 ? saved : 'afterglow';
-          document.documentElement.setAttribute('data-theme', activeTheme);
-          var metaThemeColor = document.querySelector('meta[name="theme-color"]');
-          if (metaThemeColor) {
-            metaThemeColor.setAttribute('content', themeColors[activeTheme] || '#0b0b12');
-          }
-          // The installed app's splash screen and the strip under Android's gesture pill
-          // take their colour from the manifest, so it follows the theme too
-          var manifestLink = document.querySelector('link[rel="manifest"]');
-          if (manifestLink && activeTheme !== 'afterglow') {
-            manifestLink.setAttribute(
-              'href',
-              '/manifest.json?bg=' + themeColors[activeTheme].slice(1)
-            );
-          }
-        } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'afterglow');
-        }
-      })();
-    </script>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Karaoke Studio</title>
@@ -70,8 +30,8 @@
     <meta name="twitter:card" content="summary_large_image" />
     <!-- Boot shell: the header and a quiet outline of the page, painted from this file alone
          while the app's script loads. React replaces it when it mounts. Colours come from the
-         theme variables in the stylesheet, with the default theme as fallback. Its brand name
-         is set in the theme's heading face, which starts that font file downloading alongside
+         token variables in the stylesheet, with the same values as fallback. Its brand name
+         is set in the heading face, which starts that font file downloading alongside
          the script, so headings do not flash in a fallback face when the app appears. -->
     <style>
       .boot-bar {
