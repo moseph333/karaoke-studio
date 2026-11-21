@@ -315,7 +315,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       onLostPointerCapture={() => setIsDragging(false)}
       onPointerLeave={() => setHoverRatio(null)}
       // The real control is the invisible range input below, so the focus ring goes here
-      className={`group relative flex h-14 w-full cursor-pointer select-none items-center gap-[2px] overflow-hidden rounded-theme-md px-0.5 touch-none has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-theme-focus ${className}`}
+      className={`group relative flex h-14 w-full cursor-pointer select-none items-center gap-[2px] overflow-hidden px-0.5 touch-none has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-theme-focus ${className}`}
     >
       <WaveformBars bars={bars} playedCount={playedCount} />
 
@@ -339,7 +339,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
           />
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute -top-0.5 z-30 -translate-x-1/2 rounded-theme-sm bg-theme-surface-raised px-1.5 py-0.5 font-mono text-[10px] text-theme-text shadow-theme-sm"
+            className="pointer-events-none absolute -top-0.5 z-30 -translate-x-1/2 bg-theme-surface-raised px-1.5 py-0.5 font-mono text-[10px] text-theme-text"
             style={{ left: `${Math.min(96, Math.max(4, hoverRatio * 100))}%` }}
           >
             {formatTime(hoverRatio * duration)}

@@ -253,7 +253,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
           id="workspace-panel-mix-audio"
           {...workspacePanelProps('mix', asTabs)}
           data-testid="studio-panel-audio"
-          className={cn(panelVisibility(activeTab, 'mix'), 'rounded-theme-xl scroll-mt-3')}
+          className={cn(panelVisibility(activeTab, 'mix'), 'scroll-mt-3')}
         >
           <AudioControls
             projectId={project.id}
@@ -288,7 +288,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
           id="workspace-panel-mix-theme"
           {...workspacePanelProps('mix', asTabs)}
           data-testid="studio-panel-theme"
-          className={cn(panelVisibility(activeTab, 'mix'), 'rounded-theme-xl')}
+          className={cn(panelVisibility(activeTab, 'mix'), '')}
         >
           <VisualThemePicker
             selectedTheme={theme.selectedTheme}

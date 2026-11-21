@@ -40,8 +40,7 @@ export interface AlbumTrackPickerProps {
   isStarting?: boolean;
 }
 
-const cardCls =
-  'rounded-theme-xl border border-theme-border-subtle bg-theme-surface/85 p-4 shadow-theme-lg sm:p-6';
+const cardCls = 'border border-theme-border-subtle bg-theme-surface/85 p-4 sm:p-6';
 
 export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
   project,
@@ -100,10 +99,10 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
             <img
               src={listing?.thumbnail_url || project.thumbnail_url}
               alt=""
-              className="h-20 w-20 shrink-0 rounded-theme-md object-cover shadow-theme-md sm:h-24 sm:w-24"
+              className="h-20 w-20 shrink-0 object-cover sm:h-24 sm:w-24"
             />
           ) : (
-            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-theme-md bg-theme-surface-subtle text-theme-text-muted sm:h-24 sm:w-24">
+            <span className="flex h-20 w-20 shrink-0 items-center justify-center bg-theme-surface-subtle text-theme-text-muted sm:h-24 sm:w-24">
               <Disc3 className="h-8 w-8" aria-hidden="true" />
             </span>
           )}
@@ -139,7 +138,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
         {error && (
           <div
             role="alert"
-            className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-danger p-3 text-sm text-theme-danger"
+            className="flex flex-wrap items-center justify-between gap-2 border border-theme-danger p-3 text-sm text-theme-danger"
           >
             {error}
             <Button
@@ -217,7 +216,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
           </section>
         ) : (
           !loading && (
-            <p className="flex gap-2 rounded-theme-md border border-theme-border-subtle bg-theme-surface-subtle/60 p-3 text-sm text-theme-text-muted">
+            <p className="flex gap-2 border border-theme-border-subtle bg-theme-surface-subtle/60 p-3 text-sm text-theme-text-muted">
               <Music className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               No songs could be told apart. Make the whole recording one song, or find a video of
               the song you want on its own.

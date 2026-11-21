@@ -112,7 +112,7 @@ const SINGER_TONE: Record<SingerRole, string> = {
 // Line controls keep a 44px touch target and tighten on desktop. Class strings are kept
 // literal (not merged) so both the touch and compact sizes stay on the element.
 const rowControl = cn(
-  'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-sm text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text md:min-h-[30px] md:min-w-[30px]',
+  'flex min-h-[44px] min-w-[44px] items-center justify-center text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text md:min-h-[30px] md:min-w-[30px]',
   focusRing
 );
 const nudgeControl = cn(
@@ -192,7 +192,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
       data-needs-review={issueMessages ? 'true' : undefined}
       data-realigning={isRealigning ? 'true' : undefined}
       className={cn(
-        'group/line relative rounded-theme-lg border px-2 py-1.5 transition-colors sm:px-2.5',
+        'group/line relative border px-2 py-1.5 transition-colors sm:px-2.5',
         isCurrentlyActive
           ? 'border-theme-accent'
           : isExpanded
@@ -224,7 +224,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               onBlur={() => onCommitEditing(line.id, editingText)}
               aria-label={`Edit text for line ${line.id}`}
               data-testid={`line-text-input-${line.id}`}
-              className="min-h-[44px] min-w-0 flex-1 rounded-theme-md border border-theme-accent bg-theme-bg px-2.5 py-1.5 text-base font-semibold text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-focus sm:text-sm md:min-h-[36px]"
+              className="min-h-[44px] min-w-0 flex-1 border border-theme-accent bg-theme-bg px-2.5 py-1.5 text-base font-semibold text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-focus sm:text-sm md:min-h-[36px]"
             />
             <button
               type="button"
@@ -235,7 +235,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               aria-label={`Commit edit for line ${line.id}`}
               data-testid={`commit-edit-${line.id}`}
               className={cn(
-                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md text-theme-success transition-colors md:min-h-[36px] md:min-w-[36px]',
+                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-theme-success transition-colors md:min-h-[36px] md:min-w-[36px]',
                 focusRing
               )}
               title="Commit edit (Enter)"
@@ -256,7 +256,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               aria-label={`Cancel edit for line ${line.id}`}
               data-testid={`cancel-edit-${line.id}`}
               className={cn(
-                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text md:min-h-[36px] md:min-w-[36px]',
+                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text md:min-h-[36px] md:min-w-[36px]',
                 focusRing
               )}
               title="Cancel edit (Escape)"
@@ -281,7 +281,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 data-testid={`toggle-singer-${line.id}`}
                 data-singer={singerRole}
                 className={cn(
-                  'inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1 rounded-theme-md border px-1.5 font-mono text-[11px] font-bold text-theme-text transition-colors md:min-h-[30px] md:min-w-[44px]',
+                  'inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1 border px-1.5 font-mono text-[11px] font-bold text-theme-text transition-colors md:min-h-[30px] md:min-w-[44px]',
                   SINGER_TONE[singerRole],
                   focusRing
                 )}
@@ -303,7 +303,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               }
               className={cn(
                 // Narrow cards stack the time above the lyric so the text keeps the full width
-                'flex min-h-[44px] min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0 overflow-hidden rounded-theme-sm border-0 bg-transparent px-1 py-0.5 text-left @[480px]:flex-row @[480px]:items-center @[480px]:justify-start @[480px]:gap-2.5 md:min-h-[30px]',
+                'flex min-h-[44px] min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0 overflow-hidden border-0 bg-transparent px-1 py-0.5 text-left @[480px]:flex-row @[480px]:items-center @[480px]:justify-start @[480px]:gap-2.5 md:min-h-[30px]',
                 focusRing
               )}
             >
@@ -340,7 +340,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               <span
                 data-testid={`line-added-repeat-${line.id}`}
                 title="Added because this repeat is sung but the lyrics left it out"
-                className="shrink-0 rounded-theme-sm border border-theme-accent px-1.5 py-0.5 text-[10px] font-semibold text-theme-text"
+                className="shrink-0 border border-theme-accent px-1.5 py-0.5 text-[10px] font-semibold text-theme-text"
               >
                 Added repeat
               </span>
@@ -372,7 +372,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
         )}
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-1 @[720px]:flex-nowrap @[720px]:justify-end">
-          <div className="flex items-center gap-px rounded-theme-md border border-theme-border-subtle bg-theme-surface p-0.5">
+          <div className="flex items-center gap-px border border-theme-border-subtle bg-theme-surface p-0.5">
             <Tooltip content="Nudge line 0.2s earlier" position="top" portal>
               <button
                 type="button"
@@ -590,7 +590,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 aria-current={isWordActive ? 'true' : undefined}
                 aria-label={`Jump to word ${w.word} in timeline at ${formatLineTime(w.start_time)}s`}
                 className={cn(
-                  'inline-flex min-h-[34px] cursor-pointer items-center rounded-theme-sm px-2.5 py-1 font-theme-body text-xs transition-colors md:min-h-[28px]',
+                  'inline-flex min-h-[34px] cursor-pointer items-center px-2.5 py-1 font-theme-body text-xs transition-colors md:min-h-[28px]',
                   isWordActive
                     ? 'font-bold text-theme-text ring-1 ring-theme-accent/60'
                     : 'border border-theme-border-subtle bg-theme-surface font-medium text-theme-text-muted hover:bg-theme-surface-raised hover:text-theme-text',

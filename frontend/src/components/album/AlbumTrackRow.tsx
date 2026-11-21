@@ -46,7 +46,7 @@ export const AlbumTrackRow: React.FC<AlbumTrackRowProps> = ({
     <li
       data-testid={`album-track-${track.number}`}
       className={cn(
-        'rounded-theme-md border px-3 py-2 transition-colors',
+        'border px-3 py-2 transition-colors',
         selected ? 'border-theme-accent' : 'border-theme-border-subtle bg-theme-surface/60'
       )}
     >

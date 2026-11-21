@@ -54,7 +54,7 @@ const VIDEO_FORMATS = ['16:9', '9:16'] as const;
 type VideoFormat = (typeof VIDEO_FORMATS)[number];
 // The secondary links next to the main download (YouTube Studio, other formats, kept videos)
 const SECONDARY_LINK =
-  'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-4 py-2.5 text-sm font-medium text-theme-text transition-colors hover:border-theme-border sm:w-auto';
+  'flex min-h-[44px] w-full items-center justify-center gap-1.5 border border-theme-border-subtle bg-theme-surface-raised px-4 py-2.5 text-sm font-medium text-theme-text transition-colors hover:border-theme-border sm:w-auto';
 
 export interface ExportModalProps {
   project: ProjectState;
@@ -462,7 +462,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <p className="text-sm text-theme-text-muted">
                 FFmpeg Encoder Active • {formatHeartbeat(project.render_heartbeat, now)}
               </p>
-              <p className="break-words rounded-theme-md border border-theme-border-subtle bg-theme-surface px-3 py-2 font-mono text-xs text-theme-text-muted">
+              <p className="break-words border border-theme-border-subtle bg-theme-surface px-3 py-2 font-mono text-xs text-theme-text-muted">
                 {project.render_detail ||
                   'Synthesizing word-by-word progressive wipe subtitles, ambient visuals, and master audio with FFmpeg.'}
               </p>
@@ -522,7 +522,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
 
           {isError && (
             <div className="space-y-4">
-              <div className="flex items-start gap-2.5 rounded-theme-md border border-theme-danger p-3.5 text-left">
+              <div className="flex items-start gap-2.5 border border-theme-danger p-3.5 text-left">
                 <AlertCircle
                   className="mt-0.5 h-4 w-4 shrink-0 text-theme-danger"
                   aria-hidden="true"
@@ -550,7 +550,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               {project.video_url && (
                 <div
                   className={cn(
-                    'w-full overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-black shadow-theme-md',
+                    'w-full overflow-hidden border border-theme-border-subtle bg-black',
                     isPortraitPreview && 'mx-auto max-w-xs'
                   )}
                   style={{ aspectRatio: previewAspect }}
@@ -578,7 +578,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
                     download={videoFileName(latestVideoFormat)}
                     onClick={() => toast.success('Download started!')}
                     className={cn(
-                      'flex min-h-[44px] w-full items-center justify-center gap-2 rounded-theme-md bg-theme-accent px-5 py-2.5 text-sm font-bold text-theme-accent-text transition-[filter] hover:brightness-110 sm:w-auto',
+                      'flex min-h-[44px] w-full items-center justify-center gap-2 bg-theme-accent px-5 py-2.5 text-sm font-bold text-theme-accent-text transition-[filter] hover:brightness-110 sm:w-auto',
                       focusRing
                     )}
                   >

@@ -92,7 +92,7 @@ export const Panel: React.FC<PanelProps> = ({
       {icon && (
         <span
           aria-hidden="true"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-theme-md text-theme-text"
+          className="flex h-8 w-8 shrink-0 items-center justify-center text-theme-text"
         >
           {icon}
         </span>
@@ -114,7 +114,7 @@ export const Panel: React.FC<PanelProps> = ({
   return (
     <Tag
       aria-labelledby={title ? headingId : undefined}
-      className={cn('rounded-theme-xl', surfaceVariants[variant], className)}
+      className={cn('', surfaceVariants[variant], className)}
       {...rest}
     >
       {title && (
@@ -132,7 +132,7 @@ export const Panel: React.FC<PanelProps> = ({
               aria-expanded={!collapsed}
               aria-controls={bodyId}
               className={cn(
-                'group -m-1 flex min-h-[44px] md:min-h-[36px] min-w-0 flex-1 items-center justify-between gap-2 rounded-theme-md p-1 text-left',
+                'group -m-1 flex min-h-[44px] md:min-h-[36px] min-w-0 flex-1 items-center justify-between gap-2 p-1 text-left',
                 focusRing
               )}
             >

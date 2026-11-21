@@ -36,7 +36,7 @@ const MIN_SEMITONES = -12;
 const MAX_SEMITONES = 12;
 
 const stepperClass = cn(
-  'flex min-h-[44px] min-w-[44px] md:min-h-[40px] md:min-w-[40px] items-center justify-center rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-subtle active:scale-95 disabled:cursor-not-allowed disabled:opacity-40',
+  'flex min-h-[44px] min-w-[44px] md:min-h-[40px] md:min-w-[40px] items-center justify-center border border-theme-border-subtle bg-theme-surface-raised text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-subtle active:scale-95 disabled:cursor-not-allowed disabled:opacity-40',
   focusRing
 );
 
@@ -104,7 +104,7 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
           </button>
         </Tooltip>
 
-        <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-theme-md bg-theme-surface-subtle px-3 py-2">
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 bg-theme-surface-subtle px-3 py-2">
           <span
             data-testid="pitch-readout"
             aria-hidden="true"
@@ -152,7 +152,7 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
             disabled={semitones === 0}
             aria-label="Reset pitch to original key"
             className={cn(
-              'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md px-2.5 text-xs font-semibold text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text disabled:cursor-not-allowed disabled:opacity-40',
+              'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 px-2.5 text-xs font-semibold text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text disabled:cursor-not-allowed disabled:opacity-40',
               focusRing
             )}
           >
@@ -169,7 +169,7 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
             vocalRange ? 'Open Smart Key Recommender' : 'Analyze vocal range or open recommender'
           }
           className={cn(
-            'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md border border-theme-accent px-2.5 text-xs font-semibold text-theme-text transition-colors disabled:opacity-50',
+            'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 border border-theme-accent px-2.5 text-xs font-semibold text-theme-text transition-colors disabled:opacity-50',
             focusRing
           )}
         >
@@ -182,7 +182,7 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
         </button>
       </div>
 
-      <div className="flex min-w-0 items-center gap-2 rounded-theme-md border border-theme-border-subtle px-2.5 py-2 text-xs">
+      <div className="flex min-w-0 items-center gap-2 border border-theme-border-subtle px-2.5 py-2 text-xs">
         <Mic className="h-3.5 w-3.5 shrink-0 text-theme-text-muted" aria-hidden="true" />
         {hasRange && vocalRange ? (
           <span

@@ -38,7 +38,7 @@ const PREVIEW_TONES: Record<SingerRole, string> = {
 const groupLabel = 'text-xs font-semibold text-theme-text';
 
 const numberInput =
-  'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base tabular-nums text-theme-text focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
+  'w-full min-h-[44px] border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base tabular-nums text-theme-text focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
 
 /**
  * A line number typed as a draft. A value inside the range applies as it is typed, so the
@@ -448,7 +448,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
 
           {mode === 'auto' && (
             <>
-              <div className="rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs leading-relaxed text-theme-text-muted">
+              <div className="border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs leading-relaxed text-theme-text-muted">
                 <span className="font-semibold text-theme-text">Intelligent Pause Clustering:</span>{' '}
                 Detects non-vocal gaps between lyric lines (&ge; {pauseThreshold.toFixed(1)}s) to
                 infer natural verse/chorus conversational turns, while assigning overlapping phrases
@@ -503,7 +503,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
             <div
               data-testid="duet-voice-status"
               role="status"
-              className="rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs leading-relaxed text-theme-text-muted"
+              className="border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs leading-relaxed text-theme-text-muted"
             >
               {voiceLoading ? (
                 'Listening to the vocal stem for separate voices…'
@@ -529,7 +529,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
 
         <div
           data-testid="duet-preview-summary"
-          className="mt-4 space-y-2 rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs"
+          className="mt-4 space-y-2 border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs"
         >
           <div className="flex items-center justify-between font-semibold text-theme-text">
             <span>Assignment Preview:</span>
@@ -547,10 +547,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
             ).map(([role, label, count, pct]) => {
               const Icon = SINGER_CONFIG[role].Icon;
               return (
-                <div
-                  key={role}
-                  className={cn('rounded-theme-md border p-2 text-center', PREVIEW_TONES[role])}
-                >
+                <div key={role} className={cn('border p-2 text-center', PREVIEW_TONES[role])}>
                   <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-theme-text-muted">
                     <Icon className="h-3 w-3" aria-hidden="true" />
                     {label}

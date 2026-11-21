@@ -227,7 +227,7 @@ export const Menu: React.FC<MenuProps> = ({
       onKeyDown={onMenuKeyDown}
       style={portal ? fixedStyle : undefined}
       className={cn(
-        'z-50 min-w-[200px] overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-theme-surface-raised p-1 shadow-theme-lg motion-safe:animate-slide-down',
+        'z-50 min-w-[200px] overflow-hidden border border-theme-border-subtle bg-theme-surface-raised p-1 motion-safe:animate-slide-down',
         !portal && 'absolute',
         !portal && (align === 'end' ? 'right-0' : 'left-0'),
         !portal && (resolvedSide === 'bottom' ? 'top-full mt-1.5' : 'bottom-full mb-1.5'),
@@ -274,7 +274,7 @@ export const Menu: React.FC<MenuProps> = ({
                 item.onSelect();
               }}
               className={cn(
-                'flex w-full min-h-[44px] md:min-h-[36px] items-center gap-2.5 rounded-theme-md px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                'flex w-full min-h-[44px] md:min-h-[36px] items-center gap-2.5 px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40',
                 item.tone === 'danger'
                   ? 'text-theme-danger'
                   : 'text-theme-text hover:bg-theme-surface-subtle',

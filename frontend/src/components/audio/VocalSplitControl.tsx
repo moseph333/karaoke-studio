@@ -143,7 +143,7 @@ export const VocalSplitControl: React.FC<VocalSplitControlProps> = ({
       )}
 
       {active && job && (
-        <div className="space-y-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-subtle p-2.5">
+        <div className="space-y-1.5 border border-theme-border-subtle bg-theme-surface-subtle p-2.5">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="min-w-0 truncate font-medium text-theme-text">{words.running}</span>
             <span className="shrink-0 tabular-nums text-theme-text-muted">

@@ -20,7 +20,7 @@ export const TimelineEmptyState: React.FC<TimelineEmptyStateProps> = ({
 }) => (
   <div
     data-testid="timeline-empty-state"
-    className="rounded-theme-lg border border-dashed border-theme-border-subtle px-4 py-8 text-center"
+    className="border border-dashed border-theme-border-subtle px-4 py-8 text-center"
   >
     <p className="text-sm font-semibold text-theme-text">No lyric lines yet.</p>
     <p className="mx-auto mb-3 mt-1 max-w-sm text-pretty text-xs text-theme-text-muted">

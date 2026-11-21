@@ -75,7 +75,7 @@ export const InstallAppDialog: React.FC<InstallAppDialogProps> = ({
         <li key={index} className="flex items-start gap-3 text-sm text-theme-text-muted">
           <span
             aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-theme-md text-theme-text"
+            className="flex h-9 w-9 shrink-0 items-center justify-center text-theme-text"
           >
             {step.icon}
           </span>

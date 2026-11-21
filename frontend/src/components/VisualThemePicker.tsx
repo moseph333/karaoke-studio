@@ -96,7 +96,7 @@ const BACKGROUND_ICONS: Record<
 };
 
 const smallButton = cn(
-  'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md px-2.5 text-xs font-semibold transition-colors disabled:opacity-50',
+  'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 px-2.5 text-xs font-semibold transition-colors disabled:opacity-50',
   focusRing
 );
 
@@ -285,7 +285,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   }}
                   style={{ backgroundColor: getStageBackground(t) }}
                   className={cn(
-                    'group relative flex min-h-[44px] cursor-pointer flex-col gap-2 overflow-hidden rounded-theme-lg border p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 hover:-translate-y-px',
+                    'group relative flex min-h-[44px] cursor-pointer flex-col gap-2 overflow-hidden border p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 hover:-translate-y-px',
                     focusRing,
                     isSelected
                       ? 'border-theme-accent ring-2 ring-theme-accent/40'
@@ -313,7 +313,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'rounded-theme-sm px-2 py-1 text-center text-sm font-extrabold leading-none',
+                      'px-2 py-1 text-center text-sm font-extrabold leading-none',
                       isLight ? 'bg-black/5' : 'bg-black/35'
                     )}
                     style={{ fontFamily: t.fontFamily || 'Montserrat, sans-serif' }}
@@ -367,7 +367,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
               <label
                 key={c.id}
                 htmlFor={c.id}
-                className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-theme-md border border-theme-border-subtle px-2 py-1.5 transition-colors hover:border-theme-border"
+                className="flex min-h-[44px] cursor-pointer items-center gap-2 border border-theme-border-subtle px-2 py-1.5 transition-colors hover:border-theme-border"
               >
                 <input
                   id={c.id}
@@ -376,7 +376,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   aria-label={c.aria}
                   value={c.value}
                   onChange={(e) => c.onChange?.(e.target.value)}
-                  className="h-7 w-7 shrink-0 cursor-pointer rounded-theme-sm border border-theme-border-subtle bg-transparent p-0"
+                  className="h-7 w-7 shrink-0 cursor-pointer border border-theme-border-subtle bg-transparent p-0"
                 />
                 <span className="min-w-0">
                   <span className="block truncate text-xs font-semibold text-theme-text">
@@ -463,7 +463,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
               )}
             </>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-border-subtle px-2.5 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 border border-theme-border-subtle px-2.5 py-2">
             <span className="flex min-w-0 items-center gap-2 text-xs text-theme-text">
               <ImageIcon
                 className="h-3.5 w-3.5 shrink-0 text-theme-text-muted"

@@ -460,7 +460,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
               onClick={onTogglePlay}
               aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
               className={cn(
-                'inline-flex h-12 w-12 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-pill bg-theme-accent text-theme-accent-text transition-transform hover:brightness-110 active:scale-95',
+                'inline-flex h-12 w-12 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center bg-theme-accent text-theme-accent-text transition-transform hover:brightness-110 active:scale-95',
                 focusRing
               )}
             >
@@ -480,7 +480,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
             onClick={onOpenMixSettings}
             aria-label={`Open mix settings. Active key: ${keyText}, speed: ${speedText}`}
             className={cn(
-              'inline-flex min-h-[44px] md:min-h-[36px] items-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-subtle px-2.5 text-xs font-semibold text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-raised',
+              'inline-flex min-h-[44px] md:min-h-[36px] items-center gap-1.5 border border-theme-border-subtle bg-theme-surface-subtle px-2.5 text-xs font-semibold text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-raised',
               focusRing
             )}
           >
@@ -503,7 +503,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
             aria-controls="transport-extras"
             aria-label={extrasOpen ? 'Hide speed and volume' : 'Show speed and volume'}
             className={cn(
-              'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-md text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text xl:hidden',
+              'inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text xl:hidden',
               focusRing
             )}
           >

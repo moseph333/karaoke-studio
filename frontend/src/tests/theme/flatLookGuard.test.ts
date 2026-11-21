@@ -21,7 +21,7 @@ const REMOVED: Record<string, RegExp> = {
   cssVariable:
     /--theme-(?:secondary|highlight|info)(?:-rgb)?\b|--theme-(?:gradient-accent|gradient-stage|glass-alpha|shadow-glow)\b/g,
   utility:
-    /(?<![\w-])(?:bg-gradient-(?:accent|stage)|shadow-theme-glow|ks-(?:glass|text-gradient|aurora|stage-backdrop)|animate-aurora-drift)(?![\w-])/g,
+    /(?<![\w-])(?:bg-gradient-(?:accent|stage)|shadow-theme-[a-z]+|rounded(?:-[trbl])?-theme-[a-z]+|ks-(?:glass|text-gradient|aurora|stage-backdrop)|animate-aurora-drift)(?![\w-])/g,
   gradientVariant: /\b(?:variant|tone)\s*[=:]\s*\{?["']gradient["']/g,
 };
 

@@ -188,7 +188,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
 ];
 
 const kbdCls =
-  'inline-flex min-w-[24px] items-center justify-center rounded-theme-sm border border-theme-border-subtle bg-theme-surface-subtle px-1.5 py-0.5 font-mono text-xs font-semibold text-theme-text shadow-[inset_0_-1px_0_rgb(var(--theme-border-rgb))]';
+  'inline-flex min-w-[24px] items-center justify-center border border-theme-border-subtle bg-theme-surface-subtle px-1.5 py-0.5 font-mono text-xs font-semibold text-theme-text shadow-[inset_0_-1px_0_rgb(var(--theme-border-rgb))]';
 
 const ShortcutKeys: React.FC<{ keys: string[] }> = ({ keys }) => (
   <span className="flex shrink-0 items-center gap-1">
@@ -394,7 +394,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             label="Letter and symbol shortcuts"
             description="M, V, C, F, T, R, [, ] and ?. Turn them off if speech input or a stray keypress sets them off; Space and the arrow keys keep working."
             testId="help-character-shortcuts-switch"
-            className="rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-3.5 sm:p-4"
+            className="border border-theme-border-subtle bg-theme-surface-subtle p-3.5 sm:p-4"
           />
 
           {SHORTCUT_GROUPS.map((group) => (
@@ -404,7 +404,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               </h3>
               <ul
                 aria-label={`${group.title} shortcuts`}
-                className="divide-y divide-theme-border-subtle overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60"
+                className="divide-y divide-theme-border-subtle overflow-hidden border border-theme-border-subtle bg-theme-bg/60"
               >
                 {group.items.map((item) => (
                   <li
@@ -422,7 +422,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                         </span>
                       </div>
                     </div>
-                    <span className="shrink-0 self-start rounded-theme-pill border border-theme-border-subtle bg-theme-surface-subtle px-2 py-0.5 text-[10px] font-medium text-theme-text-muted sm:self-center sm:text-[11px]">
+                    <span className="shrink-0 self-start border border-theme-border-subtle bg-theme-surface-subtle px-2 py-0.5 text-[10px] font-medium text-theme-text-muted sm:self-center sm:text-[11px]">
                       {item.scope}
                     </span>
                   </li>
@@ -431,7 +431,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             </section>
           ))}
 
-          <div className="flex items-start gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-3.5 text-xs sm:p-4">
+          <div className="flex items-start gap-3 border border-theme-border-subtle bg-theme-surface-subtle p-3.5 text-xs sm:p-4">
             <Info className="mt-0.5 h-5 w-5 shrink-0 text-theme-text" aria-hidden="true" />
             <div className="space-y-1">
               <span className="block font-theme-heading font-semibold text-theme-text">
@@ -460,7 +460,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         >
           <section
             aria-labelledby="help-first-song-heading"
-            className="space-y-2.5 rounded-theme-lg border border-theme-accent p-3.5 sm:p-4"
+            className="space-y-2.5 border border-theme-accent p-3.5 sm:p-4"
           >
             <h3
               id="help-first-song-heading"
@@ -510,18 +510,18 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             return (
               <div
                 key={stg.step}
-                className="space-y-2.5 rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60 p-3.5 sm:p-4"
+                className="space-y-2.5 border border-theme-border-subtle bg-theme-bg/60 p-3.5 sm:p-4"
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="shrink-0 rounded-theme-md p-2 text-theme-text">
+                    <div className="shrink-0 p-2 text-theme-text">
                       <IconComponent className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <h3 className="truncate font-theme-heading text-sm font-bold text-theme-text">
                       {stg.title}
                     </h3>
                   </div>
-                  <span className="shrink-0 rounded-theme-pill border border-theme-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-theme-text">
+                  <span className="shrink-0 border border-theme-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-theme-text">
                     {stg.badge}
                   </span>
                 </div>
@@ -554,7 +554,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           tabIndex={0}
           className="space-y-3 focus:outline-none"
         >
-          <div className="flex items-start gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-3.5 text-xs sm:p-4">
+          <div className="flex items-start gap-3 border border-theme-border-subtle bg-theme-surface-subtle p-3.5 text-xs sm:p-4">
             <Stethoscope className="mt-0.5 h-5 w-5 shrink-0 text-theme-text" aria-hidden="true" />
             <div className="min-w-0 space-y-2">
               <p className="leading-relaxed text-theme-text-muted">
@@ -577,11 +577,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               <li key={problem.id}>
                 <details
                   data-problem={problem.id}
-                  className="group rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60"
+                  className="group border border-theme-border-subtle bg-theme-bg/60"
                 >
                   <summary
                     className={cn(
-                      'flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 rounded-theme-lg px-3.5 py-2 font-theme-heading text-sm font-semibold text-theme-text sm:px-4 [&::-webkit-details-marker]:hidden',
+                      'flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 px-3.5 py-2 font-theme-heading text-sm font-semibold text-theme-text sm:px-4 [&::-webkit-details-marker]:hidden',
                       focusRing
                     )}
                   >

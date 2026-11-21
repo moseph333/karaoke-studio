@@ -42,7 +42,7 @@ export const PlaybackSpeedControl: React.FC<PlaybackSpeedControlProps> = ({
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-0.5',
+        'flex items-center gap-1 border border-theme-border-subtle bg-theme-surface-subtle p-0.5',
         className
       )}
     >
@@ -67,9 +67,9 @@ export const PlaybackSpeedControl: React.FC<PlaybackSpeedControlProps> = ({
                 onClick={() => onPlaybackRateChange(rate)}
                 onKeyDown={(e) => onKeyDown(e, index)}
                 className={cn(
-                  'min-h-[36px] min-w-[36px] md:min-h-[30px] rounded-theme-md px-2 font-mono text-[11px] font-semibold tabular-nums transition-colors',
+                  'min-h-[36px] min-w-[36px] md:min-h-[30px] px-2 font-mono text-[11px] font-semibold tabular-nums transition-colors',
                   isSelected
-                    ? 'bg-theme-accent text-theme-accent-text shadow-theme-sm'
+                    ? 'bg-theme-accent text-theme-accent-text'
                     : 'text-theme-text-muted hover:bg-theme-surface-raised hover:text-theme-text',
                   focusRing
                 )}

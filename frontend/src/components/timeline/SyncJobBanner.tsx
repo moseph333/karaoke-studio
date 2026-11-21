@@ -32,10 +32,7 @@ export const SyncJobBanner: React.FC<SyncJobBannerProps> = ({
 
   if (active && job) {
     return (
-      <div
-        data-testid="sync-job-banner"
-        className="space-y-1.5 rounded-theme-lg border border-theme-accent p-2.5"
-      >
+      <div data-testid="sync-job-banner" className="space-y-1.5 border border-theme-accent p-2.5">
         <div className="flex items-center justify-between gap-2 text-xs">
           <span className="flex min-w-0 items-center gap-1.5 font-semibold text-theme-text">
             <Timer className="h-3.5 w-3.5 shrink-0 text-theme-text" aria-hidden="true" />
@@ -71,7 +68,7 @@ export const SyncJobBanner: React.FC<SyncJobBannerProps> = ({
     return (
       <div
         data-testid="sync-job-ready"
-        className="flex flex-wrap items-center justify-between gap-2 rounded-theme-lg border border-theme-success p-2.5 text-xs"
+        className="flex flex-wrap items-center justify-between gap-2 border border-theme-success p-2.5 text-xs"
       >
         <span className="flex min-w-0 items-center gap-1.5 font-semibold text-theme-text">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-theme-success" aria-hidden="true" />

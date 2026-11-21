@@ -42,7 +42,7 @@ export const ProcessingTips: React.FC<{ className?: string }> = ({ className }) 
     <div
       data-testid="processing-tips"
       className={cn(
-        'mx-auto flex max-w-md items-center gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle/60 py-1.5 pl-3.5 pr-1.5 text-left',
+        'mx-auto flex max-w-md items-center gap-3 border border-theme-border-subtle bg-theme-surface-subtle/60 py-1.5 pl-3.5 pr-1.5 text-left',
         className
       )}
     >
@@ -61,7 +61,7 @@ export const ProcessingTips: React.FC<{ className?: string }> = ({ className }) 
         }}
         aria-label="Next tip"
         className={cn(
-          'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text',
+          'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text',
           focusRing
         )}
       >

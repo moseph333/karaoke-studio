@@ -25,7 +25,7 @@ interface AuthModalProps {
 }
 
 const inputCls =
-  'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
+  'w-full min-h-[44px] border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
 const labelCls = 'flex items-center gap-1.5 text-xs font-semibold text-theme-text';
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -119,7 +119,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     >
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-2 text-center">
-          <div className="inline-flex rounded-theme-lg bg-theme-accent p-3 text-theme-accent-text">
+          <div className="inline-flex bg-theme-accent p-3 text-theme-accent-text">
             <Lock className="h-6 w-6" aria-hidden="true" />
           </div>
           <h2
@@ -137,7 +137,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {error && (
           <div
-            className="flex items-center gap-2.5 rounded-theme-md border border-theme-danger p-3 text-xs text-theme-danger"
+            className="flex items-center gap-2.5 border border-theme-danger p-3 text-xs text-theme-danger"
             role="alert"
             aria-live="assertive"
           >

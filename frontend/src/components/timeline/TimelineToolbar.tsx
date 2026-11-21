@@ -87,7 +87,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         {hasUnsavedChanges && (
           <span
             data-testid="dirty-indicator"
-            className="inline-flex items-center gap-1.5 rounded-theme-pill border border-theme-warning px-2 py-0.5 text-[11px] font-semibold text-theme-warning"
+            className="inline-flex items-center gap-1.5 border border-theme-warning px-2 py-0.5 text-[11px] font-semibold text-theme-warning"
             title="You have unsaved lyric or timing changes"
           >
             <span aria-hidden="true" className="h-1.5 w-1.5 bg-theme-warning" />
@@ -106,7 +106,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
                 : 'Show only lines with timing problems'
             }
             className={cn(
-              'inline-flex min-h-[44px] items-center gap-1.5 rounded-theme-pill border px-2.5 text-[11px] font-semibold transition-colors md:min-h-[26px]',
+              'inline-flex min-h-[44px] items-center gap-1.5 border px-2.5 text-[11px] font-semibold transition-colors md:min-h-[26px]',
               filter === 'review'
                 ? 'border-theme-warning text-theme-warning'
                 : 'border-theme-border-subtle text-theme-text-muted hover:border-theme-warning hover:text-theme-warning',
@@ -214,7 +214,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
                 onClick={onDiscard}
                 disabled={isSaving}
                 className={cn(
-                  'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-theme-md px-2.5 text-xs font-semibold text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text disabled:opacity-50 md:min-h-[32px]',
+                  'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 px-2.5 text-xs font-semibold text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text disabled:opacity-50 md:min-h-[32px]',
                   focusRing
                 )}
               >
@@ -238,7 +238,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
                 onClick={onSave}
                 disabled={isSaving}
                 className={cn(
-                  'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-theme-md bg-theme-accent px-3.5 text-xs font-bold text-theme-accent-text transition-[filter] hover:brightness-110 disabled:opacity-60 md:min-h-[32px]',
+                  'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 bg-theme-accent px-3.5 text-xs font-bold text-theme-accent-text transition-[filter] hover:brightness-110 disabled:opacity-60 md:min-h-[32px]',
                   focusRing
                 )}
               >

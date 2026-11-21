@@ -454,7 +454,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
         aspectRatio === '9:16'
           ? 'aspect-[9/16] max-w-xs mx-auto md:ks-stage-fit-portrait'
           : 'aspect-video w-full min-h-[340px] sm:min-h-0 md:mx-auto md:ks-stage-fit',
-        'ks-stage-container flex select-none flex-col justify-end overflow-hidden rounded-theme-xl border border-theme-border-subtle bg-theme-bg px-3 pb-5 pt-16 font-theme-heading text-theme-text shadow-theme-lg sm:px-6 sm:pb-6 sm:pt-16 md:px-8 md:pb-8',
+        'ks-stage-container flex select-none flex-col justify-end overflow-hidden border border-theme-border-subtle bg-theme-bg px-3 pb-5 pt-16 font-theme-heading text-theme-text sm:px-6 sm:pb-6 sm:pt-16 md:px-8 md:pb-8',
         className
       );
 

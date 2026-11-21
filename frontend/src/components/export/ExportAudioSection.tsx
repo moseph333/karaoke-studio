@@ -191,7 +191,7 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
           return (
             <li
               key={stem.id}
-              className="flex flex-col justify-between gap-3 rounded-theme-md border border-theme-border-subtle bg-theme-surface p-3.5 transition-colors hover:border-theme-border"
+              className="flex flex-col justify-between gap-3 border border-theme-border-subtle bg-theme-surface p-3.5 transition-colors hover:border-theme-border"
             >
               <div className="space-y-1">
                 <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-theme-text-muted">
@@ -213,7 +213,7 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
                   disabled={!isReady || downloadingStem !== null}
                   aria-label={`Download ${stem.label}`}
                   className={cn(
-                    'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-3 py-2 text-xs font-semibold text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-subtle disabled:cursor-not-allowed disabled:opacity-50',
+                    'flex min-h-[44px] w-full items-center justify-center gap-1.5 border border-theme-border-subtle bg-theme-surface-raised px-3 py-2 text-xs font-semibold text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-subtle disabled:cursor-not-allowed disabled:opacity-50',
                     focusRing
                   )}
                 >
