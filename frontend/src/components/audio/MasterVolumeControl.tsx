@@ -73,7 +73,7 @@ export const MasterVolumeControl: React.FC<MasterVolumeControlProps> = ({
       </Tooltip>
       <span
         className={cn(
-          'hidden w-10 shrink-0 text-right font-mono text-[11px] tabular-nums xl:inline',
+          'hidden w-10 shrink-0 text-right tabular-nums text-xs xl:inline',
           silent ? 'text-theme-danger' : 'text-theme-text-muted'
         )}
       >

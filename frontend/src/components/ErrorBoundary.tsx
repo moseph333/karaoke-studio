@@ -114,7 +114,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           </div>
           <p
             title={message}
-            className="truncate border border-theme-danger p-2.5 font-mono text-xs text-theme-text-muted"
+            className="truncate border border-theme-danger p-2.5 tabular-nums text-xs text-theme-text-muted"
           >
             {message}
           </p>
@@ -168,7 +168,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               <Bug className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Runtime Exception</span>
             </div>
-            <p className="select-all break-all font-mono text-xs text-theme-text">
+            <p className="select-all break-all tabular-nums text-xs text-theme-text">
               {error?.message || 'An unknown error occurred.'}
             </p>
           </div>
@@ -195,7 +195,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             {showDetails && (
               <div
                 id="error-stack-details"
-                className="max-h-56 select-all space-y-3 overflow-y-auto whitespace-pre-wrap border-t border-theme-border-subtle bg-theme-bg p-4 font-mono text-[11px] text-theme-text-muted"
+                className="max-h-56 select-all space-y-3 overflow-y-auto whitespace-pre-wrap border-t border-theme-border-subtle bg-theme-bg p-4 tabular-nums text-xs text-theme-text-muted"
               >
                 {error?.stack && (
                   <div>

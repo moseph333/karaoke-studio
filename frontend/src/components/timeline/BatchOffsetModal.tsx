@@ -96,7 +96,7 @@ export const BatchOffsetModal: React.FC<BatchOffsetModalProps> = ({
                 placeholder="+0.5 or -1.0"
                 className="min-h-[44px] w-full border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 pr-12 text-base tabular-nums text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm"
               />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-theme-text-muted">
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 tabular-nums text-xs text-theme-text-muted">
                 sec
               </span>
             </div>
@@ -112,7 +112,7 @@ export const BatchOffsetModal: React.FC<BatchOffsetModalProps> = ({
                     onClick={() => setDeltaInput(preset.toString())}
                     aria-pressed={active}
                     className={cn(
-                      'min-h-[36px] border px-2.5 py-1 font-mono text-xs font-medium tabular-nums transition-colors',
+                      'min-h-[36px] border px-2.5 py-1 tabular-nums text-xs font-medium transition-colors',
                       active
                         ? 'border-theme-accent text-theme-text'
                         : 'border-theme-border-subtle bg-theme-surface-raised text-theme-text-muted hover:text-theme-text',
@@ -126,7 +126,7 @@ export const BatchOffsetModal: React.FC<BatchOffsetModalProps> = ({
             </div>
           </div>
 
-          <div className="space-y-1 border border-theme-border-subtle bg-theme-bg/60 p-3 text-[11px] text-theme-text-muted">
+          <div className="space-y-1 border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs text-theme-text-muted">
             <p className="flex items-center gap-1.5 font-medium text-theme-text">
               <ShieldCheck className="h-3.5 w-3.5 text-theme-success" aria-hidden="true" />
               Automatic Safeguards:

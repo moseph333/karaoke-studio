@@ -108,7 +108,7 @@ const WordTimeInput: React.FC<{
 };
 
 const snapButton = cn(
-  'flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center gap-1 border border-theme-accent px-2 py-1.5 text-[11px] font-semibold text-theme-text transition-colors sm:min-h-0 sm:min-w-0',
+  'flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center gap-1 border border-theme-accent px-2 py-1.5 text-xs font-semibold text-theme-text transition-colors sm:min-h-0 sm:min-w-0',
   focusRing
 );
 
@@ -199,7 +199,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] sm:flex-nowrap">
+            <div className="flex flex-wrap items-center justify-between gap-2 tabular-nums text-xs sm:flex-nowrap">
               {/* Start boundary */}
               <div className="flex items-center gap-px">
                 <button

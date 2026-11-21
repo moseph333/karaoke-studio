@@ -188,13 +188,13 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
 ];
 
 const kbdCls =
-  'inline-flex min-w-[24px] items-center justify-center border border-theme-border-subtle bg-theme-surface-subtle px-1.5 py-0.5 font-mono text-xs font-semibold text-theme-text shadow-[inset_0_-1px_0_rgb(var(--theme-border-rgb))]';
+  'inline-flex min-w-[24px] items-center justify-center border border-theme-border-subtle bg-theme-surface-subtle px-1.5 py-0.5 tabular-nums text-xs font-semibold text-theme-text shadow-[inset_0_-1px_0_rgb(var(--theme-border-rgb))]';
 
 const ShortcutKeys: React.FC<{ keys: string[] }> = ({ keys }) => (
   <span className="flex shrink-0 items-center gap-1">
     {keys.map((k, i) =>
       k === '+' || k === '/' ? (
-        <span key={i} className="text-[11px] text-theme-text-muted">
+        <span key={i} className="text-xs text-theme-text-muted">
           {k}
         </span>
       ) : (
@@ -399,9 +399,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
 
           {SHORTCUT_GROUPS.map((group) => (
             <section key={group.title} className="space-y-2">
-              <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-text-muted">
-                {group.title}
-              </h3>
+              <h3 className="text-xs font-semibold text-theme-text-muted">{group.title}</h3>
               <ul
                 aria-label={`${group.title} shortcuts`}
                 className="divide-y divide-theme-border-subtle overflow-hidden border border-theme-border-subtle bg-theme-bg/60"
@@ -422,7 +420,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                         </span>
                       </div>
                     </div>
-                    <span className="shrink-0 self-start border border-theme-border-subtle bg-theme-surface-subtle px-2 py-0.5 text-[10px] font-medium text-theme-text-muted sm:self-center sm:text-[11px]">
+                    <span className="shrink-0 self-start border border-theme-border-subtle bg-theme-surface-subtle px-2 py-0.5 text-xs font-medium text-theme-text-muted sm:self-center sm:text-xs">
                       {item.scope}
                     </span>
                   </li>
@@ -437,7 +435,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               <span className="block font-theme-heading font-semibold text-theme-text">
                 Keyboard Shortcut Isolation
               </span>
-              <p className="text-[11px] leading-relaxed text-theme-text-muted sm:text-xs">
+              <p className="text-xs leading-relaxed text-theme-text-muted sm:text-xs">
                 Single-key shortcuts (<kbd className={kbdCls}>Space</kbd>,{' '}
                 <kbd className={kbdCls}>←</kbd>/<kbd className={kbdCls}>→</kbd>,{' '}
                 <kbd className={kbdCls}>M</kbd>, <kbd className={kbdCls}>C</kbd>,{' '}
@@ -476,7 +474,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 >
                   <span
                     aria-hidden="true"
-                    className="mt-px font-mono text-[11px] font-semibold text-theme-text"
+                    className="mt-px tabular-nums text-xs font-semibold text-theme-text"
                   >
                     {index + 1}.
                   </span>
@@ -521,7 +519,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                       {stg.title}
                     </h3>
                   </div>
-                  <span className="shrink-0 border border-theme-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-theme-text">
+                  <span className="shrink-0 border border-theme-accent px-2 py-0.5 text-xs font-semibold text-theme-text">
                     {stg.badge}
                   </span>
                 </div>
@@ -530,7 +528,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                   {stg.features.map((feat, idx) => (
                     <li
                       key={idx}
-                      className="flex items-start gap-2 text-[11px] text-theme-text-muted sm:text-xs"
+                      className="flex items-start gap-2 text-xs text-theme-text-muted sm:text-xs"
                     >
                       <Check
                         className="mt-0.5 h-3.5 w-3.5 shrink-0 text-theme-text"

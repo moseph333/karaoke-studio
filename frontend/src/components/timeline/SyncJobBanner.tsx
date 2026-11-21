@@ -44,7 +44,7 @@ export const SyncJobBanner: React.FC<SyncJobBannerProps> = ({
         </div>
         <ProgressBar value={job.progress} label="Lyric re-alignment progress" size="sm" />
         <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-[11px] text-theme-text-muted" title={job.detail}>
+          <p className="min-w-0 truncate text-xs text-theme-text-muted" title={job.detail}>
             {job.detail || 'Waiting for other jobs to finish…'}
           </p>
           {onCancel && (

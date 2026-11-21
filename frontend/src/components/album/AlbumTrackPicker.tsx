@@ -107,9 +107,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
             </span>
           )}
           <div className="min-w-0 space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-text">
-              Whole album
-            </p>
+            <p className="text-xs font-semibold text-theme-text">Whole album</p>
             <h1
               tabIndex={-1}
               data-view-heading

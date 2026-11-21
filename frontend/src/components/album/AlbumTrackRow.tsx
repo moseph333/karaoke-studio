@@ -77,7 +77,7 @@ export const AlbumTrackRow: React.FC<AlbumTrackRowProps> = ({
           className={cn('min-w-0 flex-1', !made && 'cursor-pointer')}
         >
           <span className="flex items-baseline gap-2">
-            <span className="w-6 shrink-0 text-right font-mono text-xs text-theme-text-muted">
+            <span className="w-6 shrink-0 text-right tabular-nums text-xs text-theme-text-muted">
               {track.number}
             </span>
             <span

@@ -171,7 +171,7 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
               role="region"
               aria-label={descriptionLabel}
               className={cn(
-                'max-h-36 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words border border-theme-border-subtle bg-theme-bg/60 p-2.5 font-mono text-xs text-theme-text-muted',
+                'max-h-36 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words border border-theme-border-subtle bg-theme-bg/60 p-2.5 tabular-nums text-xs text-theme-text-muted',
                 focusRing
               )}
             >
@@ -190,7 +190,7 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
             'SEO Tags (comma-separated)',
             'Copy Tags',
             yt.tags.join(', '),
-            <p className="break-words font-mono text-xs text-theme-text-muted">
+            <p className="break-words tabular-nums text-xs text-theme-text-muted">
               {yt.tags.join(', ')}
             </p>
           )}

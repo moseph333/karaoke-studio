@@ -44,6 +44,10 @@ export default {
         theme: 'var(--theme-border-width)',
         'theme-thick': 'var(--theme-border-width-thick)',
       },
+      // The smallest text in the app is 13px
+      fontSize: {
+        xs: ['0.8125rem', { lineHeight: '1.125rem' }],
+      },
       fontFamily: {
         display: ['var(--theme-font-display)', 'sans-serif'],
         heading: ['var(--theme-font-heading)', 'sans-serif'],

@@ -339,7 +339,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
           />
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute -top-0.5 z-30 -translate-x-1/2 bg-theme-surface-raised px-1.5 py-0.5 font-mono text-[10px] text-theme-text"
+            className="pointer-events-none absolute -top-0.5 z-30 -translate-x-1/2 bg-theme-surface-raised px-1.5 py-0.5 tabular-nums text-xs text-theme-text"
             style={{ left: `${Math.min(96, Math.max(4, hoverRatio * 100))}%` }}
           >
             {formatTime(hoverRatio * duration)}

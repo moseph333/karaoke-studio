@@ -271,7 +271,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           {hotkeys.map((k, idx) => (
             <kbd
               key={idx}
-              className="inline-flex min-w-[16px] items-center justify-center border border-theme-text-inverse px-1.5 py-0.5 font-mono text-[10px] font-bold text-theme-text-inverse"
+              className="inline-flex min-w-[16px] items-center justify-center border border-theme-text-inverse px-1.5 py-0.5 font-mono text-xs font-bold text-theme-text-inverse"
             >
               {k}
             </kbd>
