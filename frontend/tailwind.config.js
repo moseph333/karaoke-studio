@@ -65,6 +65,7 @@ export default {
         'theme-thick': 'var(--theme-border-width-thick)',
       },
       fontFamily: {
+        display: ['var(--theme-font-display)', 'sans-serif'],
         heading: ['var(--theme-font-heading)', 'sans-serif'],
         body: ['var(--theme-font-body)', 'sans-serif'],
         mono: ['var(--theme-font-mono)', 'monospace'],

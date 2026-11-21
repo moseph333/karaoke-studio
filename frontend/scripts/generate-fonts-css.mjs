@@ -15,6 +15,8 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 // family as the font stacks spell it → package and the stylesheets to take from it
 const FONTS = [
+  ['Sofia Sans', '@fontsource-variable/sofia-sans', ['index.css']],
+  ['Sofia Sans Extra Condensed', '@fontsource-variable/sofia-sans-extra-condensed', ['index.css']],
   ['Sora', '@fontsource-variable/sora', ['index.css']],
   ['Inter', '@fontsource-variable/inter', ['index.css']],
   ['JetBrains Mono', '@fontsource-variable/jetbrains-mono', ['index.css']],

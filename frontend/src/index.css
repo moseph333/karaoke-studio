@@ -57,8 +57,10 @@
     radial-gradient(90% 70% at 100% 100%, rgba(219, 39, 119, 0.14) 0%, rgba(11, 11, 18, 0) 55%),
     #0b0b12;
   --theme-glass-alpha: 0.78;
-  --theme-font-heading: Sora, Inter, 'Segoe UI', system-ui, sans-serif;
-  --theme-font-body: Inter, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
+  --theme-font-display:
+    'Sofia Sans Extra Condensed', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif;
+  --theme-font-heading: 'Sofia Sans', 'Helvetica Neue', Arial, sans-serif;
+  --theme-font-body: 'Sofia Sans', 'Helvetica Neue', Arial, sans-serif;
   --theme-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   --theme-font-karaoke: Sora, Inter, system-ui, sans-serif;
   --karaoke-font-family: Sora, Inter, system-ui, sans-serif;
@@ -90,15 +92,12 @@
     -webkit-text-size-adjust: 100%;
   }
   body {
-    font-family: var(--theme-font-body, 'Inter', system-ui, sans-serif);
+    font-family: var(--theme-font-body, 'Sofia Sans', sans-serif);
     color: var(--theme-text, #f5f3ff);
     background-color: var(--theme-bg, #0b0b12);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    font-feature-settings:
-      'cv11' 1,
-      'ss01' 1;
   }
   h1,
   h2,
@@ -190,6 +189,17 @@
    DESIGN SYSTEM COMPONENT LAYER
    ========================================================================== */
 @layer components {
+  /* Marquee capitals: the condensed face that names things and actions (titles, tabs, nav,
+     buttons). Capitals come from CSS so the text stays in sentence case for assistive tech.
+     Never under 20px; set the size and weight where it is used. */
+  .ks-display {
+    font-family: var(--theme-font-display);
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: 0.005em;
+    text-transform: uppercase;
+  }
+
   /* Translucent "glass" surface used by docks, toolbars and sticky headers */
   .ks-glass {
     background-color: rgb(var(--theme-surface-rgb) / var(--theme-glass-alpha, 0.82));
