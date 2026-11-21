@@ -345,7 +345,7 @@ describe('Adversarial Challenge: Milestone M2 Waveform Scrubbing & Touch Ergonom
       setTestViewport(320, 568);
       const { container } = render(<ExpandedWordEditor {...createWordEditorProps()} />);
 
-      const snapRow = container.querySelector('.flex.items-center.gap-1\\.5.pt-1\\.5');
+      const snapRow = container.querySelector('button[aria-label*="Snap start"]')?.parentElement;
       expect(snapRow).toBeInTheDocument();
       expect(snapRow?.className).toContain('flex-wrap');
 
@@ -405,10 +405,9 @@ describe('Adversarial Challenge: Milestone M2 Waveform Scrubbing & Touch Ergonom
           const snapEnd = card.querySelector('button[aria-label*="Snap end"]');
           if (snapStart && snapEnd) {
             expect(snapStart.parentElement).toBe(snapEnd.parentElement);
-            expect(snapStart.parentElement?.className).toContain('gap-1.5');
-            // Both buttons must be flex-1 so they divide space equally without colliding
-            expect(snapStart.className).toContain('flex-1');
-            expect(snapEnd.className).toContain('flex-1');
+            // Text buttons side by side that wrap onto two lines when the word's column is narrow
+            expect(snapStart.parentElement?.className).toContain('gap-x-5');
+            expect(snapStart.parentElement?.className).toContain('flex-wrap');
           }
 
           // 4. Verify touch target sizing tokens on all controls
