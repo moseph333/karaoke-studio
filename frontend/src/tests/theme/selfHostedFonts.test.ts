@@ -26,6 +26,7 @@ const indexHtml = read('index.html');
 const SYSTEM_FACES = new Set([
   'Impact',
   'Arial Black',
+  'Arial Narrow',
   'Trebuchet MS',
   'Courier New',
   'Courier',
@@ -68,6 +69,8 @@ describe('self-hosted fonts', () => {
       'Inter',
       'JetBrains Mono',
       'Montserrat',
+      'Sofia Sans',
+      'Sofia Sans Extra Condensed',
       'Sora',
       'Space Grotesk',
       'VT323',
