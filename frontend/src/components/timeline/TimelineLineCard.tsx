@@ -103,22 +103,16 @@ const NEXT_SINGER: Record<SingerRole, SingerRole> = {
   both: 'singer1',
 };
 
-const SINGER_TONE: Record<SingerRole, string> = {
-  singer1: 'border-theme-border-subtle',
-  singer2: 'border-theme-border-subtle',
-  both: 'border-theme-border-subtle',
-};
+/** Text inside the playing line's yellow block is black. */
+const onLit = 'group-data-[active-line=true]/line:text-theme-accent-text';
 
 // Line controls keep a 44px touch target and tighten on desktop. Class strings are kept
 // literal (not merged) so both the touch and compact sizes stay on the element.
 const rowControl = cn(
-  'flex min-h-[44px] min-w-[44px] items-center justify-center text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text md:min-h-[30px] md:min-w-[30px]',
+  'flex min-h-[44px] min-w-[44px] items-center justify-center text-theme-text-muted transition-colors hover:text-theme-text md:min-h-[30px] md:min-w-[30px]',
   focusRing
 );
-const nudgeControl = cn(
-  rowControl,
-  'px-2 font-mono text-[11px] font-semibold tabular-nums md:px-1.5'
-);
+const nudgeControl = cn(rowControl, 'px-2 text-xs font-semibold tabular-nums md:px-1.5');
 
 export const TimelineLineCard = React.memo(function TimelineLineCard({
   line,
@@ -192,20 +186,17 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
       data-needs-review={issueMessages ? 'true' : undefined}
       data-realigning={isRealigning ? 'true' : undefined}
       className={cn(
-        'group/line relative border px-2 py-1.5 transition-colors sm:px-2.5',
-        isCurrentlyActive
-          ? 'border-theme-accent'
-          : isExpanded
-            ? 'border-theme-border-subtle bg-theme-surface-subtle'
-            : 'border-transparent bg-theme-surface-subtle/50 hover:border-theme-border-subtle hover:bg-theme-surface-subtle'
+        // A row on a hairline. The line being sung is lit: its number, part, time and words
+        // sit in a yellow block (the controls beside it stay on the page)
+        'group/line relative border-b border-theme-border-subtle py-1 transition-colors',
+        isExpanded && !isCurrentlyActive && 'bg-theme-surface-subtle',
+        !isExpanded && !isCurrentlyActive && 'hover:bg-theme-surface-subtle'
       )}
     >
       <div className="flex flex-col gap-1.5 @[720px]:flex-row @[720px]:items-center @[720px]:gap-2">
         {isEditing ? (
           <div className="flex min-h-[44px] w-full items-center gap-1.5 overflow-hidden @[720px]:flex-1">
-            <span className="shrink-0 font-mono text-[11px] tabular-nums text-theme-text-muted">
-              {timeRange}
-            </span>
+            <span className="shrink-0 text-xs tabular-nums text-theme-text-muted">{timeRange}</span>
             <input
               ref={editInputRef}
               type="text"
@@ -265,7 +256,21 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
             </button>
           </div>
         ) : (
-          <div className="flex w-full min-w-0 items-center gap-1.5 @[720px]:flex-1">
+          <div
+            className={cn(
+              'flex w-full min-w-0 items-center gap-1.5 @[720px]:flex-1',
+              isCurrentlyActive && 'bg-theme-accent text-theme-accent-text'
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className={cn(
+                'ks-display hidden w-9 shrink-0 pl-1 text-[22px] tabular-nums text-theme-text-muted @[480px]:block',
+                onLit
+              )}
+            >
+              {String(idx + 1).padStart(2, '0')}
+            </span>
             <Tooltip
               content={`Current part: ${singer.label}. Click to cycle role`}
               position="top"
@@ -281,8 +286,8 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 data-testid={`toggle-singer-${line.id}`}
                 data-singer={singerRole}
                 className={cn(
-                  'inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1 border px-1.5 font-mono text-[11px] font-bold text-theme-text transition-colors md:min-h-[30px] md:min-w-[44px]',
-                  SINGER_TONE[singerRole],
+                  'inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1 px-1 text-xs font-bold text-theme-text-muted transition-colors hover:text-theme-text md:min-h-[30px] md:min-w-[44px]',
+                  onLit,
                   focusRing
                 )}
               >
@@ -307,7 +312,12 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 focusRing
               )}
             >
-              <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] tabular-nums text-theme-text-muted">
+              <span
+                className={cn(
+                  'inline-flex w-[5.75rem] shrink-0 items-center gap-1.5 text-xs tabular-nums text-theme-text-muted',
+                  onLit
+                )}
+              >
                 {confidence && (
                   <>
                     <span
@@ -329,8 +339,8 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               </span>
               <span
                 className={cn(
-                  'min-w-0 flex-1 truncate font-theme-body text-sm',
-                  isCurrentlyActive ? 'font-bold text-theme-text' : 'font-medium text-theme-text/90'
+                  'min-w-0 flex-1 truncate font-theme-body text-base',
+                  isCurrentlyActive ? 'font-bold text-theme-accent-text' : 'text-theme-text'
                 )}
               >
                 {line.text}
@@ -340,7 +350,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               <span
                 data-testid={`line-added-repeat-${line.id}`}
                 title="Added because this repeat is sung but the lyrics left it out"
-                className="shrink-0 border border-theme-accent px-1.5 py-0.5 text-[10px] font-semibold text-theme-text"
+                className={cn('shrink-0 text-xs text-theme-text-muted', onLit)}
               >
                 Added repeat
               </span>
@@ -351,7 +361,10 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 data-testid={`line-review-${line.id}`}
                 aria-label={`Needs review: ${issueMessages.join('; ')}`}
                 title={issueMessages.join('\n')}
-                className="flex h-6 w-6 shrink-0 items-center justify-center text-theme-warning"
+                className={cn(
+                  'flex h-6 w-6 shrink-0 items-center justify-center text-theme-warning',
+                  onLit
+                )}
               >
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
@@ -363,7 +376,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 onClick={() => onStartEditing(line)}
                 aria-label={`Edit text for line ${line.id}`}
                 data-testid={`edit-line-text-${line.id}`}
-                className={cn(rowControl, 'shrink-0', calm)}
+                className={cn(rowControl, 'shrink-0', calm, onLit)}
               >
                 <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
@@ -372,7 +385,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
         )}
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-1 @[720px]:flex-nowrap @[720px]:justify-end">
-          <div className="flex items-center gap-px border border-theme-border-subtle bg-theme-surface p-0.5">
+          <div className="flex items-center gap-px">
             <Tooltip content="Nudge line 0.2s earlier" position="top" portal>
               <button
                 type="button"
@@ -427,7 +440,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   className={rowControl}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span aria-hidden="true" className="-ml-0.5 font-mono text-[10px]">
+                  <span aria-hidden="true" className="-ml-0.5 text-xs">
                     ↑
                   </span>
                 </button>
@@ -441,7 +454,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   className={rowControl}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span aria-hidden="true" className="-ml-0.5 font-mono text-[10px]">
+                  <span aria-hidden="true" className="-ml-0.5 tabular-nums text-xs">
                     ↓
                   </span>
                 </button>
