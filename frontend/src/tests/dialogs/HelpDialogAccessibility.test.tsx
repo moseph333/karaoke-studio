@@ -71,9 +71,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       });
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(
-        screen.getByRole('heading', { name: /karaoke studio help & usage guide/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
 
       // Click again to toggle closed
       await act(async () => {
@@ -137,9 +135,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       });
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(
-        screen.getByRole('heading', { name: /karaoke studio help & usage guide/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
 
       // Close modal via Escape and verify processing view remains intact
       await act(async () => {
@@ -215,7 +211,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
 
       // Dismiss via close button
-      const closeBtn = screen.getByRole('button', { name: /close help and usage guide/i });
+      const closeBtn = screen.getByRole('button', { name: /close help/i });
       await act(async () => {
         fireEvent.click(closeBtn);
       });
@@ -279,7 +275,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       expect(document.activeElement).toBe(triggerBtn);
 
       fireEvent.click(triggerBtn);
-      const closeBtn = screen.getByRole('button', { name: /close help and usage guide/i });
+      const closeBtn = screen.getByRole('button', { name: /close help/i });
       expect(closeBtn).toBeInTheDocument();
 
       fireEvent.click(closeBtn);
@@ -316,7 +312,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       expect(document.activeElement).toBe(triggerBtn);
 
       fireEvent.click(triggerBtn);
-      const footerBtn = screen.getByRole('button', { name: /got it, close/i });
+      const footerBtn = screen.getByRole('button', { name: 'Close' });
       expect(footerBtn).toBeInTheDocument();
 
       fireEvent.click(footerBtn);
@@ -380,15 +376,15 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
     it('places focus on the first focusable element (Close button) on mount', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} />);
 
-      const closeBtn = screen.getByRole('button', { name: /close help and usage guide/i });
+      const closeBtn = screen.getByRole('button', { name: /close help/i });
       expect(document.activeElement).toBe(closeBtn);
     });
 
     it('wraps focus from last element (Footer button) to first element (Close button) on Tab', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} />);
 
-      const closeBtn = screen.getByRole('button', { name: /close help and usage guide/i });
-      const footerBtn = screen.getByRole('button', { name: /got it, close/i });
+      const closeBtn = screen.getByRole('button', { name: /close help/i });
+      const footerBtn = screen.getByRole('button', { name: 'Close' });
 
       // Focus last element
       footerBtn.focus();
@@ -404,8 +400,8 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
     it('wraps focus from first element (Close button) to last element (Footer button) on Shift+Tab', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} />);
 
-      const closeBtn = screen.getByRole('button', { name: /close help and usage guide/i });
-      const footerBtn = screen.getByRole('button', { name: /got it, close/i });
+      const closeBtn = screen.getByRole('button', { name: /close help/i });
+      const footerBtn = screen.getByRole('button', { name: 'Close' });
 
       // Focus first element
       closeBtn.focus();
@@ -421,8 +417,8 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
     it('brings focus into modal when Tab is pressed while focus is outside container', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} />);
 
-      const closeBtn = screen.getByRole('button', { name: /close help and usage guide/i });
-      const footerBtn = screen.getByRole('button', { name: /got it, close/i });
+      const closeBtn = screen.getByRole('button', { name: /close help/i });
+      const footerBtn = screen.getByRole('button', { name: 'Close' });
 
       // Force focus outside container (e.g. document.body)
       document.body.focus();
@@ -442,11 +438,11 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
     it('includes all primary interactive controls in tab sequence', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} initialTab="shortcuts" />);
 
-      const closeBtn = screen.getByRole('button', { name: /close help and usage guide/i });
+      const closeBtn = screen.getByRole('button', { name: /close help/i });
       const shortcutsTab = screen.getByRole('tab', { name: /keyboard shortcuts/i });
       const guideTab = screen.getByRole('tab', { name: /studio usage guide/i });
       const tabpanel = screen.getByRole('tabpanel', { name: /keyboard shortcuts/i });
-      const footerBtn = screen.getByRole('button', { name: /got it, close/i });
+      const footerBtn = screen.getByRole('button', { name: 'Close' });
 
       expect(closeBtn.tabIndex).not.toBe(-1);
       expect(shortcutsTab.tabIndex).not.toBe(-1);
@@ -507,11 +503,11 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       ).not.toBeInTheDocument();
 
       // Check all 5 stages in guide panel
-      expect(screen.getByText(/1\. audio intake & library/i)).toBeInTheDocument();
-      expect(screen.getByText(/2\. stem separation & lyric sync/i)).toBeInTheDocument();
-      expect(screen.getByText(/3\. timeline editing/i)).toBeInTheDocument();
-      expect(screen.getByText(/4\. studio mixing & themes/i)).toBeInTheDocument();
-      expect(screen.getByText(/5\. export & subtitles/i)).toBeInTheDocument();
+      expect(screen.getByText(/1\. add a song/i)).toBeInTheDocument();
+      expect(screen.getByText(/2\. wait while it is made/i)).toBeInTheDocument();
+      expect(screen.getByText(/3\. fix lyrics and timing/i)).toBeInTheDocument();
+      expect(screen.getByText(/4\. set the key and the look/i)).toBeInTheDocument();
+      expect(screen.getByText(/5\. export/i)).toBeInTheDocument();
 
       // 3. Switch back to Shortcuts tab
       await user.click(shortcutsTab);
@@ -529,7 +525,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
     it('verifies close button provides >=44px touch target via CSS classes', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} />);
 
-      const closeBtn = screen.getByRole('button', { name: /close help and usage guide/i });
+      const closeBtn = screen.getByRole('button', { name: /close help/i });
       expect(closeBtn.className).toContain('min-w-[44px]');
       expect(closeBtn.className).toContain('min-h-[44px]');
     });
@@ -551,7 +547,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
     it('verifies footer dismissal button provides >=44px touch target', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} />);
 
-      const footerBtn = screen.getByRole('button', { name: /got it, close/i });
+      const footerBtn = screen.getByRole('button', { name: 'Close' });
       expect(footerBtn.className).toContain('min-h-[44px]');
       expect(footerBtn.className).toContain('min-w-[44px]');
     });
@@ -574,9 +570,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       });
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(
-        screen.getByRole('heading', { name: /karaoke studio help & usage guide/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
     });
 
     it('does NOT open HelpModal when pressing "?" inside an input or textarea', async () => {

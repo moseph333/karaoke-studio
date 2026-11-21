@@ -376,14 +376,14 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
       expect(closeBtn).toHaveAttribute('aria-label');
     });
 
-    it('HelpModal: top close button and footer "Got it" button satisfy >=44x44px touch target', () => {
+    it('HelpModal: top close button and footer Close button satisfy >=44x44px touch target', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} />);
 
-      const topCloseBtn = screen.getByRole('button', { name: /close help and usage guide/i });
+      const topCloseBtn = screen.getByRole('button', { name: /close help/i });
       expect(topCloseBtn.className).toContain('min-w-[44px]');
       expect(topCloseBtn.className).toContain('min-h-[44px]');
 
-      const footerBtn = screen.getByRole('button', { name: /got it/i });
+      const footerBtn = screen.getByRole('button', { name: 'Close' });
       expect(footerBtn.className).toContain('min-w-[44px]');
       expect(footerBtn.className).toContain('min-h-[44px]');
     });

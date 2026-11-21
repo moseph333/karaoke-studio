@@ -278,7 +278,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
       showDragHandle
     >
       <DialogHeader
-        title="Duet & Multi-Singer Assignment"
+        title="Duet parts"
         titleId="duet-assign-title"
         description="Assign lines to Singer 1, Singer 2, or Both"
         descriptionId="duet-assign-desc"
@@ -303,7 +303,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
           },
           {
             id: 'auto',
-            label: 'Auto-Suggest',
+            label: 'By pauses',
             controls: 'duet-mode-panel',
           },
           ...(projectId
@@ -328,7 +328,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
           {mode === 'alternating' && (
             <>
               <div className="space-y-1.5">
-                <span className={groupLabel}>Alternation Pattern</span>
+                <span className={groupLabel}>Pattern</span>
                 <SegmentedControl<'1x1' | '2x2'>
                   ariaLabel="Alternation pattern"
                   value={pattern}
@@ -343,7 +343,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                 />
               </div>
               <div className="space-y-1.5">
-                <span className={groupLabel}>Starting Singer</span>
+                <span className={groupLabel}>Starts with</span>
                 <SegmentedControl<SingerRole>
                   ariaLabel="Starting singer"
                   value={startSinger}
@@ -435,16 +435,14 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
           {mode === 'auto' && (
             <>
               <div className="text-sm leading-relaxed text-theme-text-muted">
-                <span className="font-semibold text-theme-text">Intelligent Pause Clustering:</span>{' '}
-                Detects non-vocal gaps between lyric lines (&ge; {pauseThreshold.toFixed(1)}s) to
-                infer natural verse/chorus conversational turns, while assigning overlapping phrases
-                to Both.
+                The singer changes at each pause of {pauseThreshold.toFixed(1)}s or more between
+                lines. Lines that overlap go to Both.
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label htmlFor="pause-threshold-input" className={groupLabel}>
-                    Inter-Line Pause Threshold
+                    Pause between lines
                   </label>
                   <span className="tabular-nums text-xs font-bold text-theme-text">
                     {pauseThreshold.toFixed(1)}s
@@ -518,7 +516,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
           className="mt-5 space-y-1 border-t border-theme-border-subtle pt-3 text-sm"
         >
           <div className="flex items-center justify-between font-semibold text-theme-text">
-            <span>Assignment Preview:</span>
+            <span>Preview</span>
             <span className="tabular-nums text-sm font-normal text-theme-text-muted">
               {lines.length} lines total
             </span>

@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Karaoke Studio",
   "short_name": "Karaoke",
-  "description": "Local-first karaoke studio: AI stem separation, word-synced lyrics, live stage and 1080p karaoke video export.",
+  "description": "Turn any song into karaoke: the vocals removed, lyrics timed word by word, a live stage and 1080p video export.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "/",

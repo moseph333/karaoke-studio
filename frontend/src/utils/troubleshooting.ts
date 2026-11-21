@@ -139,7 +139,7 @@ export const PROBLEMS: Problem[] = [
     symptom: 'The song is too high or too low for me',
     steps: [
       'In Audio mix, shift the key up or down. The tempo stays the same.',
-      'Smart Recommender suggests a key from the song’s vocal range.',
+      '“Suggest a key for my voice” picks a key from the song’s vocal range.',
     ],
     actions: ['mix'],
   },

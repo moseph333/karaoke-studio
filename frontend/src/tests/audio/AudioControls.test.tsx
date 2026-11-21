@@ -266,7 +266,7 @@ describe('AudioControls (Mix inspector)', () => {
       expect(screen.getByText(/C#3–E4/i)).toBeInTheDocument();
       expect(screen.getByText(/C# Minor/i)).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /open smart key recommender/i })
+        screen.getByRole('button', { name: /suggest a key for my voice/i })
       ).toBeInTheDocument();
     });
 
@@ -274,10 +274,12 @@ describe('AudioControls (Mix inspector)', () => {
       const user = userEvent.setup();
       render(<AudioControls {...defaultProps} vocalRange={mockVocalRange} />);
 
-      await user.click(screen.getByRole('button', { name: /open smart key recommender/i }));
+      await user.click(screen.getByRole('button', { name: /suggest a key for my voice/i }));
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByText('Smart Key Recommender')).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'Suggest a key for my voice' })
+      ).toBeInTheDocument();
     });
 
     it('applies transposition from the modal and auto-applies the mix', async () => {
@@ -292,7 +294,7 @@ describe('AudioControls (Mix inspector)', () => {
         />
       );
 
-      await user.click(screen.getByRole('button', { name: /open smart key recommender/i }));
+      await user.click(screen.getByRole('button', { name: /suggest a key for my voice/i }));
       await user.click(screen.getByRole('radio', { name: /^soprano$/i }));
       await user.click(screen.getByRole('button', { name: /apply transposition/i }));
 
@@ -317,7 +319,7 @@ describe('AudioControls (Mix inspector)', () => {
       };
       render(<Harness />);
 
-      await user.click(screen.getByRole('button', { name: /open smart key recommender/i }));
+      await user.click(screen.getByRole('button', { name: /suggest a key for my voice/i }));
       await user.click(screen.getByRole('radio', { name: /^soprano$/i }));
       await user.click(screen.getByRole('button', { name: /apply transposition/i }));
 

@@ -362,7 +362,7 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       // Help modal visible
       const helpModal = screen.getByRole('dialog');
       expect(helpModal).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: /karaoke studio help/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
 
       // Press Escape to dismiss
       fireEvent.keyDown(helpModal, { key: 'Escape' });

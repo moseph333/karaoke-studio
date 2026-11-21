@@ -449,7 +449,7 @@ describe('Milestone 1 Empirical Stress & Adversarial Suite', () => {
       expect(isModalActive(modalDialog)).toBe(true);
       expect(isModalActive(null)).toBe(true);
 
-      const closeButton = screen.getByRole('button', { name: /close help and usage guide/i });
+      const closeButton = screen.getByRole('button', { name: /close help/i });
       const shortcutsTab = screen.getByRole('tab', { name: /keyboard shortcuts/i });
 
       const testTargets = [window, document.body, modalDialog, closeButton, shortcutsTab];
