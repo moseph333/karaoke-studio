@@ -39,7 +39,7 @@ describe('ExportModal', () => {
     render(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText(/Export & YouTube Package/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Export' })).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
@@ -83,9 +83,33 @@ describe('ExportModal', () => {
 
     render(<ExportModal project={renderingProject} isOpen={true} onClose={vi.fn()} />);
 
-    expect(screen.getByText(/Rendering High-Definition Karaoke Video/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rendering the video/i)).toBeInTheDocument();
     expect(screen.getByText(/42\s*%/)).toBeInTheDocument();
     expect(screen.getByText(/Encoding video frames at 60fps.../i)).toBeInTheDocument();
+  });
+
+  it('says nothing about the renderer while it reports, and speaks up once it goes quiet', () => {
+    const rendering = (secondsSinceWord: number): ProjectState => ({
+      ...baseProject,
+      render_status: 'rendering',
+      render_progress: 42,
+      render_elapsed_seconds: 75,
+      render_eta_seconds: 45,
+      render_heartbeat: Date.now() - secondsSinceWord * 1000,
+    });
+
+    const { rerender } = render(
+      <ExportModal project={rendering(3)} isOpen={true} onClose={vi.fn()} />
+    );
+    expect(screen.queryByTestId('render-quiet')).toBeNull();
+    expect(screen.queryByText(/Encoder Active|Pulse/)).toBeNull();
+    expect(screen.getByText('1:15 so far')).toBeInTheDocument();
+    expect(screen.getByText('About 0:45 left')).toBeInTheDocument();
+
+    rerender(<ExportModal project={rendering(20)} isOpen={true} onClose={vi.fn()} />);
+    expect(screen.getByTestId('render-quiet')).toHaveTextContent(
+      'No update from the renderer for a while'
+    );
   });
 
   // --- Feature 45: Focus Trap & A11y Tests ---
@@ -142,7 +166,7 @@ describe('ExportModal', () => {
         />
       );
 
-      expect(screen.getByText(/Synchronized Subtitles \(\.LRC & \.ASS\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Subtitles \(\.lrc and \.ass\)/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /download \.lrc subtitles/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /download \.ass subtitles/i })).toBeInTheDocument();
     });
@@ -170,7 +194,7 @@ describe('ExportModal', () => {
       expect(screen.getByRole('button', { name: /download \.lrc subtitles/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /download \.ass subtitles/i })).toBeInTheDocument();
       // And render progress must also be present
-      expect(screen.getByText(/Rendering High-Definition Karaoke Video/i)).toBeInTheDocument();
+      expect(screen.getByText(/Rendering the video/i)).toBeInTheDocument();
     });
 
     it('triggers apiFetch with /api/project/:id/export/lrc when clicking Download .LRC', async () => {
@@ -294,7 +318,7 @@ describe('ExportModal', () => {
       await user.click(toggleCheckbox);
       expect(toggleCheckbox).toBeChecked();
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(onStartRender).toHaveBeenCalledWith({
@@ -334,7 +358,7 @@ describe('ExportModal', () => {
       await user.click(toggleCheckbox);
       expect(toggleCheckbox).toBeChecked();
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(apiFetchSpy).toHaveBeenCalledWith('/api/project/test-project-export/render', {
@@ -365,15 +389,15 @@ describe('ExportModal', () => {
         />
       );
       expect(screen.getByText(/your video is ready/i)).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /start video render/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /render 1080p video/i })).toBeNull();
 
       await user.click(screen.getByRole('button', { name: /render again/i }));
 
-      expect(screen.getByText(/full video render/i)).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Karaoke video' })).toBeInTheDocument();
       expect(screen.getByText(/current video stays available/i)).toBeInTheDocument();
       expect(screen.queryByText(/download video/i)).toBeNull();
       await user.click(screen.getByTestId('toggle-export-visualizer'));
-      await user.click(screen.getByRole('button', { name: /start video render/i }));
+      await user.click(screen.getByRole('button', { name: /render 1080p video/i }));
 
       expect(onStartRender).toHaveBeenCalledWith({
         includeVisualizer: true,
@@ -415,7 +439,7 @@ describe('ExportModal', () => {
 
       expect(screen.queryByText('FFmpeg exited with code 1')).toBeNull();
       expect(screen.queryByRole('button', { name: /keep current video/i })).toBeNull();
-      await user.click(screen.getByRole('button', { name: /start video render/i }));
+      await user.click(screen.getByRole('button', { name: /render 1080p video/i }));
       expect(onStartRender).toHaveBeenCalledTimes(1);
     });
 
@@ -437,7 +461,7 @@ describe('ExportModal', () => {
 
       rerender(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
       expect(screen.getByText(/your video is ready/i)).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /start video render/i })).toBeNull();
+      expect(screen.queryByRole('button', { name: /render 1080p video/i })).toBeNull();
     });
 
     it('shows the finished video again when the dialog reopens', async () => {
@@ -529,7 +553,7 @@ describe('ExportModal', () => {
       // Before the video's metadata arrives, the preview frame follows the offered file's format
       const previewFrame = () =>
         (container.querySelector('video') as HTMLVideoElement).parentElement as HTMLElement;
-      expect(screen.getByText('9:16 Shorts · 1080p60')).toBeInTheDocument();
+      expect(screen.getByText('9:16 Shorts, 1080p60')).toBeInTheDocument();
       expect(Number(previewFrame().style.aspectRatio)).toBeCloseTo(9 / 16, 3);
       expect(previewFrame().className).toContain('max-w-xs');
 
@@ -541,7 +565,7 @@ describe('ExportModal', () => {
           aspectRatio="9:16"
         />
       );
-      expect(screen.getByText('16:9 · 1080p60')).toBeInTheDocument();
+      expect(screen.getByText('16:9, 1080p60')).toBeInTheDocument();
       expect(Number(previewFrame().style.aspectRatio)).toBeCloseTo(16 / 9, 3);
       expect(previewFrame().className).not.toContain('max-w-xs');
 
@@ -549,7 +573,7 @@ describe('ExportModal', () => {
       rerender(
         <ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} aspectRatio="9:16" />
       );
-      expect(screen.getByText('9:16 Shorts · 1080p60')).toBeInTheDocument();
+      expect(screen.getByText('9:16 Shorts, 1080p60')).toBeInTheDocument();
     });
 
     it('offers no other format when the song has one video', () => {
@@ -609,7 +633,7 @@ describe('ExportModal', () => {
         />
       );
 
-      expect(screen.getByRole('button', { name: /start video render/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /render 1080p video/i })).toBeInTheDocument();
       const kept = screen.getAllByRole('link', { name: /download previous/i });
       expect(kept.map((link) => link.getAttribute('href'))).toEqual([tallUrl, wideUrl]);
       expect(screen.getByRole('link', { name: 'Download previous 9:16 video' })).toHaveAttribute(

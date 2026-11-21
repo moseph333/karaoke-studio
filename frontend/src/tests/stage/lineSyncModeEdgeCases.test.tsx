@@ -656,7 +656,7 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
         />
       );
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       fireEvent.click(renderBtn);
 
       expect(apiFetchSpy).toHaveBeenCalledWith(

@@ -134,7 +134,7 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
         />
       );
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(apiFetchSpy).toHaveBeenCalledWith(
@@ -191,7 +191,7 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
         />
       );
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(onStartRenderMock).toHaveBeenCalledWith({
@@ -220,7 +220,7 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
         />
       );
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       const payload = JSON.parse(apiFetchSpy.mock.calls[0][1]?.body as string);

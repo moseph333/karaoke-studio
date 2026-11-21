@@ -6,20 +6,19 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Download, FileText, Loader2, AlignLeft, Highlighter } from 'lucide-react';
+import { Download, Loader2 } from 'lucide-react';
 import { ProjectState, VisualTheme, SyncDisplayMode } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { Tooltip } from '../Tooltip';
 import { useToast } from '../../hooks/useToast';
 import { parseContentDispositionFilename } from '../../utils/download';
-import { cn } from '../../utils/cn';
 import { SegmentedControl } from '../ui/SegmentedControl';
 import { ExportCheckOption } from './ExportCheckOption';
 import {
   EXPORT_DOWNLOAD_BTN,
   EXPORT_ERROR,
   EXPORT_HEADING,
-  EXPORT_PILL,
+  EXPORT_NOTE,
   EXPORT_SECTION,
 } from './exportStyles';
 import { formatSemitonesShort } from '../../utils/format';
@@ -168,25 +167,19 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
 
   return (
     <section aria-labelledby="export-subtitles-heading" className={EXPORT_SECTION}>
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
         <h3 id="export-subtitles-heading" className={EXPORT_HEADING}>
-          <FileText className="h-5 w-5 shrink-0 text-theme-text" aria-hidden="true" />
-          Synchronized Subtitles (.LRC & .ASS)
+          Subtitles (.lrc and .ass)
         </h3>
-        {project?.lines && (
-          <span className={cn(EXPORT_PILL, 'border-theme-accent text-theme-text')}>
-            {project.lines.length} lines
-          </span>
-        )}
+        {project?.lines && <span className={EXPORT_NOTE}>{project.lines.length} lines</span>}
       </div>
-      <p className="text-xs text-theme-text-muted">
-        Export standalone karaoke subtitle files for media players, video editors, or live
-        performances without waiting for video rendering.
+      <p className="text-sm text-theme-text-muted">
+        Timed lyric files for media players, video editors and karaoke software. No render needed.
       </p>
 
-      <div className="flex flex-col items-stretch justify-between gap-2 pt-1 sm:flex-row sm:items-center">
+      <div className="flex flex-col items-stretch justify-between gap-x-6 gap-y-1 sm:flex-row sm:items-center">
         <ExportCheckOption
-          label="Include Harmonic Chords in Subtitles (.ass)"
+          label="Show the chords (.ass only)"
           checked={includeChords}
           onChange={setIncludeChords}
           testId="include-chords-subtitle-checkbox"
@@ -205,17 +198,13 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
           options={[
             {
               value: 'word',
-              label: 'Word Sweep (\\kf)',
-              ariaLabel: 'Word Sweep progressive karaoke subtitles',
+              label: 'Word by word',
               testId: 'subtitle-sync-mode-word',
-              icon: <Highlighter className="h-3.5 w-3.5" aria-hidden="true" />,
             },
             {
               value: 'line',
-              label: 'Line-by-Line',
-              ariaLabel: 'Line-by-Line solid highlight subtitles',
+              label: 'Line by line',
               testId: 'subtitle-sync-mode-line',
-              icon: <AlignLeft className="h-3.5 w-3.5" aria-hidden="true" />,
             },
           ]}
         />
@@ -228,27 +217,19 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
             onClick={() => handleDownloadSubtitle('lrc')}
             disabled={busy}
             aria-label="Download .lrc subtitles"
-            className={cn(EXPORT_DOWNLOAD_BTN, 'hover:border-theme-accent')}
+            className={EXPORT_DOWNLOAD_BTN}
           >
-            <span className="flex min-w-0 items-center gap-2.5 text-left">
-              {downloadingLrc ? (
-                <Loader2
-                  className="h-4 w-4 shrink-0 text-theme-text animate-spin"
-                  aria-hidden="true"
-                />
-              ) : (
-                <FileText className="h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
-              )}
-              <span className="min-w-0">
-                <span className="block text-xs font-bold text-theme-text sm:text-sm">
-                  Download .LRC
-                </span>
-                <span className="block truncate text-xs text-theme-text-muted">
-                  [mm:ss.xx] Timestamps
-                </span>
+            <span className="min-w-0 text-left">
+              <span className="block text-sm font-semibold text-theme-text">Download .LRC</span>
+              <span className="block truncate text-xs font-normal text-theme-text-muted">
+                A time for each line
               </span>
             </span>
-            <Download className="h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
+            {downloadingLrc ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+            ) : (
+              <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
+            )}
           </button>
         </Tooltip>
 
@@ -260,29 +241,20 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
             aria-label="Download .ass subtitles"
             className={EXPORT_DOWNLOAD_BTN}
           >
-            <span className="flex min-w-0 items-center gap-2.5 text-left">
-              {downloadingAss ? (
-                <Loader2
-                  className="h-4 w-4 shrink-0 text-theme-text-muted animate-spin"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Highlighter
-                  className="h-4 w-4 shrink-0 text-theme-text-muted"
-                  aria-hidden="true"
-                />
-              )}
-              <span className="min-w-0">
-                <span className="block text-xs font-bold text-theme-text sm:text-sm">
-                  Download .ASS
-                </span>
-                <span className="block truncate text-xs text-theme-text-muted">
-                  {activeSyncMode === 'line' ? 'Line-by-Line' : 'Karaoke \\kf'} • {aspectRatio} •{' '}
-                  {includeChords ? `Chords (${keyLabel}st)` : selectedTheme?.name || 'Theme'}
-                </span>
+            <span className="min-w-0 text-left">
+              <span className="block text-sm font-semibold text-theme-text">Download .ASS</span>
+              <span className="block truncate text-xs font-normal text-theme-text-muted">
+                {activeSyncMode === 'line' ? 'Line by line' : 'Word by word'}, {aspectRatio},{' '}
+                {includeChords
+                  ? `chords at ${keyLabel} st`
+                  : `${selectedTheme?.name || 'stage'} look`}
               </span>
             </span>
-            <Download className="h-4 w-4 shrink-0 text-theme-text-muted" aria-hidden="true" />
+            {downloadingAss ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+            ) : (
+              <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
+            )}
           </button>
         </Tooltip>
       </div>

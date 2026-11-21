@@ -370,7 +370,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
         const copyBtns = screen.getAllByRole('button', { name: /copy/i });
         expect(copyBtns.length).toBeGreaterThanOrEqual(3);
         copyBtns.forEach((btn) => {
-          expect(btn.className).toContain('min-h-[36px]');
+          expect(btn.className).toContain('min-h-[44px]');
         });
       });
     });

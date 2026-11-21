@@ -7,21 +7,16 @@
  */
 
 import React from 'react';
-import { Download, Film, Youtube } from 'lucide-react';
-
-const STEPS: { Icon: typeof Film; title: string; text: string }[] = [
+const STEPS: { title: string; text: string }[] = [
   {
-    Icon: Film,
     title: 'Render',
     text: 'A few minutes for most songs. You can close this dialog meanwhile.',
   },
   {
-    Icon: Download,
     title: 'Download',
     text: 'The MP4 appears here, with a preview.',
   },
   {
-    Icon: Youtube,
     title: 'Upload to YouTube',
     text: 'The title, description and tags are written for you to paste.',
   },
@@ -31,20 +26,14 @@ export const ExportNextSteps: React.FC = () => (
   <ol
     aria-label="From here to YouTube"
     data-testid="export-next-steps"
-    className="grid gap-2 sm:grid-cols-3"
+    className="grid gap-x-8 gap-y-3 sm:grid-cols-3"
   >
-    {STEPS.map(({ Icon, title, text }, index) => (
-      <li
-        key={title}
-        className="flex min-w-0 items-start gap-2.5 border border-theme-border-subtle bg-theme-surface p-3"
-      >
-        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
-        <span className="min-w-0">
-          <span className="block text-xs font-semibold text-theme-text">
-            {index + 1}. {title}
-          </span>
-          <span className="block text-pretty text-xs text-theme-text-muted">{text}</span>
+    {STEPS.map(({ title, text }, index) => (
+      <li key={title} className="min-w-0">
+        <span className="ks-display block text-[22px] text-theme-text">
+          {index + 1}. {title}
         </span>
+        <span className="block text-pretty text-sm text-theme-text-muted">{text}</span>
       </li>
     ))}
   </ol>

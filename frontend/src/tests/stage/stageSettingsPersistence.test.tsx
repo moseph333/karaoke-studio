@@ -265,7 +265,7 @@ describe('exports carry the stage look', () => {
         backgroundColor="#0b0b12"
       />
     );
-    await user.click(screen.getByRole('button', { name: /start video render/i }));
+    await user.click(screen.getByRole('button', { name: /render 1080p video/i }));
     const body = JSON.parse(spy.mock.calls[0][1]?.body as string);
     expect(body.style_config).toMatchObject({
       theme_id: 'afterglow',

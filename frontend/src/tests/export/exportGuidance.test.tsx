@@ -45,7 +45,7 @@ describe('before a first render', () => {
 
   it('says in plain words what goes into the video', () => {
     render(<ExportModal project={song} isOpen onClose={vi.fn()} />);
-    const video = screen.getByRole('region', { name: /full video render/i });
+    const video = screen.getByRole('region', { name: /karaoke video/i });
     expect(video).toHaveTextContent(/the song as it is now/);
     expect(video).toHaveTextContent(/key and guide vocal from Audio mix/);
     expect(video).toHaveTextContent(/16:9 or 9:16 Shorts/);
@@ -111,7 +111,7 @@ describe('after a render: the upload to YouTube', () => {
       '4. Paste the tags',
       '5. Check before you publish',
     ]);
-    for (const name of ['Copy Title', 'Copy Description', 'Copy Tags']) {
+    for (const name of ['Copy title', 'Copy description', 'Copy tags']) {
       expect(within(region).getByRole('button', { name })).toBeInTheDocument();
     }
     expect(region).toHaveTextContent(/choose Create, then Upload videos/);
@@ -124,7 +124,7 @@ describe('after a render: the upload to YouTube', () => {
       screen.getByText(/chapter timestamps \(YouTube turns them into chapters\)/)
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('region', { name: 'Description (with Chapters & Lyrics)' })
+      screen.getByRole('region', { name: 'Description, with chapters and lyrics' })
     ).toBeInTheDocument();
 
     rerender(
@@ -133,7 +133,7 @@ describe('after a render: the upload to YouTube', () => {
       />
     );
     expect(screen.getByText(/too few sections for chapters/)).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Description (with Lyrics)' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Description, with lyrics' })).toBeInTheDocument();
     expect(screen.queryByText(/with Chapters/)).toBeNull();
   });
 
@@ -146,7 +146,7 @@ describe('after a render: the upload to YouTube', () => {
         }}
       />
     );
-    expect(screen.getByRole('region', { name: 'Description (with Lyrics)' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Description, with lyrics' })).toBeInTheDocument();
     expect(screen.getByText(/too few sections for chapters/)).toBeInTheDocument();
   });
 
@@ -191,7 +191,7 @@ describe('after a render: the upload to YouTube', () => {
     );
     expect(checks()[1]).toMatch(/publishes it as a Short/);
     // The steps point at the buttons of the video section above them
-    expect(screen.getByRole('link', { name: /Download Video/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Download video/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Open YouTube Studio/ })).toBeInTheDocument();
   });
 });

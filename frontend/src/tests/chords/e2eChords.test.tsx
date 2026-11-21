@@ -489,7 +489,9 @@ describe('E2E Chords & Harmonic Progression Workstation', () => {
 
     it('F15.2: ExportSubtitleSection renders SubStation Alpha (.ass) download section', () => {
       render(<ExportSubtitleSection project={mockProject} />);
-      expect(screen.getByRole('heading', { name: /synchronized subtitles/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /subtitles \(\.lrc and \.ass\)/i })
+      ).toBeInTheDocument();
     });
 
     it('F15.3: Export download triggers authenticated fetch without window redirection', () => {
