@@ -45,7 +45,7 @@ const QUALITY_FLAG_LABELS: Record<LyricQualityFlag, string> = {
 };
 
 const fieldCls =
-  'w-full min-h-[44px] border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm md:min-h-[38px]';
+  'w-full min-h-[44px] border border-theme-border bg-transparent px-3 py-2 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-focus sm:text-sm md:min-h-[38px]';
 
 export interface LyricReplacementModalProps {
   isOpen: boolean;
@@ -352,7 +352,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
         />
 
         {(canUseNeural || neural || (currentLines?.length ?? 0) > 0) && (
-          <div className="divide-y divide-theme-border-subtle border border-theme-border-subtle bg-theme-surface-subtle/60 px-3">
+          <div className="divide-y divide-theme-border-subtle border-b border-theme-border-subtle">
             {canUseNeural ? (
               <Checkbox
                 checked={useNeural}
@@ -413,7 +413,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                   value={lyricsText}
                   onChange={(e) => setLyricsText(e.target.value)}
                   placeholder="[00:12.34] First lyric line&#10;[00:16.78] Second line&#10;Or paste plain untimed lyrics..."
-                  className="min-h-[160px] w-full resize-y border-2 border-theme-border bg-theme-bg px-3.5 py-2.5 font-mono text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-xs"
+                  className="min-h-[160px] w-full resize-y border-2 border-theme-border bg-theme-bg px-3.5 py-2.5 font-mono text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-focus sm:text-xs"
                 />
               </div>
 
@@ -469,10 +469,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
 
         {activeTab === 'lrclib' && (
           <div className="space-y-4">
-            <form
-              onSubmit={handleSearchCandidates}
-              className="space-y-3 border border-theme-border-subtle bg-theme-bg/60 p-3.5"
-            >
+            <form onSubmit={handleSearchCandidates} className="space-y-3">
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 <div className="space-y-1">
                   <label
@@ -561,7 +558,7 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                   <div
                     key={candId}
                     data-testid={`lyric-candidate-${cIdx}`}
-                    className="space-y-2 border border-theme-border-subtle bg-theme-bg/60 p-3 transition-colors hover:border-theme-border"
+                    className="space-y-2 border-b border-theme-border-subtle pb-3"
                   >
                     <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
                       <div className="min-w-0 flex-1">

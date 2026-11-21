@@ -73,7 +73,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
               <div
                 role="group"
                 aria-label="Tap-to-sync mode selection"
-                className="inline-flex items-center border border-theme-border-subtle bg-theme-bg p-0.5"
+                className="inline-flex items-center gap-1"
               >
                 <button
                   type="button"

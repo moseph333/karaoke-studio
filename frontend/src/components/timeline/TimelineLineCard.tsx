@@ -286,7 +286,8 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 data-testid={`toggle-singer-${line.id}`}
                 data-singer={singerRole}
                 className={cn(
-                  'inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1 px-1 text-xs font-bold text-theme-text-muted transition-colors hover:text-theme-text md:min-h-[30px] md:min-w-[44px]',
+                  // One width for S1, S2 and Both, so the times and words line up down the list
+                  'inline-flex min-h-[44px] min-w-[44px] w-[3.75rem] shrink-0 items-center justify-start gap-1 px-1 text-xs font-bold text-theme-text-muted transition-colors hover:text-theme-text md:min-h-[30px] md:min-w-[44px]',
                   onLit,
                   focusRing
                 )}
@@ -583,7 +584,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
       {showWords && line.words && line.words.length > 0 && (
         <div
           data-testid={`timeline-words-line-${line.id}`}
-          className="mt-1.5 flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle/70 pt-1.5"
+          className="flex flex-wrap items-center gap-x-1 pl-0 @[480px]:pl-9"
         >
           {line.words.map((w, wIdx) => {
             const isWordActive =
@@ -604,10 +605,11 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 aria-current={isWordActive ? 'true' : undefined}
                 aria-label={`Jump to word ${w.word} in timeline at ${formatLineTime(w.start_time)}s`}
                 className={cn(
-                  'inline-flex min-h-[34px] cursor-pointer items-center px-2.5 py-1 font-theme-body text-xs transition-colors md:min-h-[28px]',
+                  // The word being sung is lit; the others are plain words to click
+                  'inline-flex min-h-[34px] cursor-pointer items-center px-1.5 font-theme-body text-sm transition-colors md:min-h-[28px]',
                   isWordActive
-                    ? 'font-bold text-theme-text ring-1 ring-theme-accent/60'
-                    : 'border border-theme-border-subtle bg-theme-surface font-medium text-theme-text-muted hover:bg-theme-surface-raised hover:text-theme-text',
+                    ? 'bg-theme-accent font-bold text-theme-accent-text'
+                    : 'text-theme-text-muted hover:text-theme-text',
                   focusRing
                 )}
                 title={`Seek to "${w.word}" (${formatLineTime(w.start_time)}s)`}

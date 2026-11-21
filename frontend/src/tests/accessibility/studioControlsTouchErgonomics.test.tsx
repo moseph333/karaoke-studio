@@ -185,7 +185,7 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       );
 
       const wordsContainer = screen.getByTestId('timeline-words-line-1');
-      expect(wordsContainer).toHaveClass('flex', 'flex-wrap', 'gap-1.5');
+      expect(wordsContainer).toHaveClass('flex', 'flex-wrap', 'gap-x-1');
 
       // Word chips have min-h-[34px] touch area
       const chips = within(wordsContainer).getAllByRole('button');
