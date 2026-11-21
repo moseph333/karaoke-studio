@@ -396,9 +396,8 @@ describe('Tooltip Component', () => {
     expect(tooltip).toHaveClass('right-full');
   });
 
-  it('applies high-contrast theme surface and text tokens in Brutalist Clean Paper theme (never black-on-black)', () => {
+  it('takes its surface and text colours from the tokens, so it stays readable on a light palette', () => {
     const root = document.documentElement;
-    root.setAttribute('data-theme', 'clean_paper');
     root.style.setProperty('--theme-surface', '#ffffff');
     root.style.setProperty('--theme-text', '#111111');
     root.style.setProperty('--theme-border', '#111111');

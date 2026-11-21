@@ -1,12 +1,12 @@
 /**
  * Typefaces are served by the app itself (src/fonts.css, generated from the @fontsource
  * packages) and the page paints a boot shell before its script runs. Guards that every web
- * font a theme or stage preset names is declared, that nothing is fetched from another site,
+ * font the app or a stage preset names is declared, that nothing is fetched from another site,
  * and that the shell is in place.
  */
 import { describe, it, expect } from 'vitest';
-import { APP_THEME_LIST } from '../../theme/appThemes';
 import { THEMES } from '../../theme/stagePresets';
+import { readRootTokens } from '../helpers/cssTokens';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeRequire = eval('require') as (mod: string) => any;
@@ -37,10 +37,6 @@ const SYSTEM_FACES = new Set([
   'SF Pro Text',
   'Roboto',
   'SFMono-Regular',
-  // Named as fallbacks only; no theme shows them when the first face loads
-  'Cooper Black',
-  'DM Sans',
-  'Press Start 2P',
 ]);
 
 const families = (stack: string): string[] =>
@@ -52,10 +48,12 @@ const families = (stack: string): string[] =>
         name && !/^(sans-serif|serif|monospace|system-ui|ui-monospace|-apple-system)$/.test(name)
     );
 
+// The app's own font stacks are the font tokens in the stylesheet
 const namedFaces = new Set<string>();
-for (const theme of APP_THEME_LIST) {
-  for (const stack of Object.values(theme.typography))
+for (const [token, stack] of Object.entries(readRootTokens())) {
+  if (/^--(theme-font-|karaoke-font-family$)/.test(token)) {
     families(stack).forEach((f) => namedFaces.add(f));
+  }
 }
 for (const preset of THEMES) families(preset.fontFamily ?? '').forEach((f) => namedFaces.add(f));
 const webFaces = [...namedFaces].filter((face) => !SYSTEM_FACES.has(face)).sort();
@@ -65,8 +63,15 @@ const declaredFaces = [
 ].sort();
 
 describe('self-hosted fonts', () => {
-  it('declares exactly the web fonts the themes and stage presets name', () => {
-    expect(webFaces.length).toBeGreaterThanOrEqual(8);
+  it('declares exactly the web fonts the app and the stage presets name', () => {
+    expect(webFaces).toEqual([
+      'Inter',
+      'JetBrains Mono',
+      'Montserrat',
+      'Sora',
+      'Space Grotesk',
+      'VT323',
+    ]);
     expect(declaredFaces).toEqual(webFaces);
   });
 
@@ -81,7 +86,7 @@ describe('self-hosted fonts', () => {
     for (const block of blocks) expect(block).toContain('font-display: swap');
   });
 
-  it('is loaded by the entry point before the theme stylesheet', () => {
+  it('is loaded by the entry point before the stylesheet', () => {
     const main = read('src/main.tsx');
     expect(main.indexOf("import './fonts.css'")).toBeGreaterThan(-1);
     expect(main.indexOf("import './fonts.css'")).toBeLessThan(main.indexOf("import './index.css'"));
@@ -112,7 +117,7 @@ describe('boot shell', () => {
     expect(root).not.toContain('<script');
   });
 
-  it('sets the brand in the theme heading face, which starts that font downloading early', () => {
+  it('sets the brand in the heading face, which starts that font downloading early', () => {
     const bar = indexHtml.slice(
       indexHtml.indexOf('.boot-bar {'),
       indexHtml.indexOf('.boot-mark {')

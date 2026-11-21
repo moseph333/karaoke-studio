@@ -57,13 +57,13 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
   describe('useVisualTheme hook and cssToAssColor', () => {
     it('initializes with default theme and 1.0 font size scale', () => {
       const { result } = renderHook(() => useVisualTheme());
-      expect(result.current.selectedTheme.id).toBe('modern_gold');
+      expect(result.current.selectedTheme.id).toBe('afterglow');
       expect(result.current.customSungColor).toBeNull();
       expect(result.current.customUnsungColor).toBeNull();
       expect(result.current.fontSizeScale).toBe(1.0);
       expect(result.current.aspectRatio).toBe('16:9');
       expect(result.current.activeSungColor).toBe('#fbbf24');
-      expect(result.current.activeUnsungColor).toBe('#ffffff');
+      expect(result.current.activeUnsungColor).toBe('#edebff');
     });
 
     it('updates custom sung and unsung colors, font scale, and aspect ratio', () => {

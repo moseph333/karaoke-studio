@@ -46,12 +46,10 @@ import {
   useRegisterCommands,
 } from '../components/commandPalette/context';
 import { rankItems } from '../components/commandPalette/fuzzy';
-import { APP_THEME_LIST } from '../theme/appThemes';
 import { STAGE_PRESETS_IN_DISPLAY_ORDER } from '../theme/stagePresets';
 import { STAGE_BACKGROUND_OPTIONS } from '../theme/stageBackgrounds';
 import { STAGE_SIZES, StageSize } from '../theme/stageSettingsStorage';
 import { PLAYBACK_SPEEDS } from '../components/audio/PlaybackSpeedControl';
-import { useAppTheme } from '../context/AppThemeContext';
 import { lineStartAtOffset } from '../utils/lineNavigation';
 import { MIX_GUIDE_MAX } from './useMixController';
 import { formatSemitones } from '../utils/format';
@@ -116,7 +114,6 @@ function songStatus(project: ProjectState): string | undefined {
 
 export function useStudioCommands(opts: UseStudioCommandsOptions): void {
   const { project, isStudioReady, audio, mix, theme } = opts;
-  const appTheme = useAppTheme();
 
   const confirmDiscard = (message: string) => !opts.hasUnsavedEdits || window.confirm(message);
 
@@ -483,18 +480,6 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
     );
   }
 
-  APP_THEME_LIST.forEach((t) =>
-    add({
-      id: `app-theme:${t.id}`,
-      title: `App theme: ${t.name}`,
-      subtitle: current(appTheme.themeId === t.id),
-      group: 'Themes',
-      icon: <Palette />,
-      keywords: ['appearance', 'dark', 'light', 'colors'],
-      run: () => appTheme.setThemeId(t.id),
-    })
-  );
-
   if (project) {
     add({
       id: 'new-song',
@@ -541,7 +526,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
     });
   }
 
-  // After the app themes, so the list shown before typing keeps its entries
+  // After the stage presets, so the list shown before typing keeps its entries
   if (project) {
     STAGE_BACKGROUND_OPTIONS.forEach((option) =>
       add({

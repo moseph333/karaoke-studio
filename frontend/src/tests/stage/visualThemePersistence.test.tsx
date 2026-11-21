@@ -1,11 +1,9 @@
 import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, renderHook } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { THEMES } from '../../components/VisualThemePicker';
-import { useVisualTheme, cssToAssColor } from '../../hooks/useVisualTheme';
-import { AppThemeProvider, useAppTheme } from '../../context/AppThemeContext';
 import { LyricDisplay } from '../../components/LyricDisplay';
 import { StudioModals } from '../../components/StudioModals';
 import { ExportModal } from '../../components/ExportModal';
@@ -52,7 +50,6 @@ const mockProject: ProjectState = {
 describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
   beforeEach(() => {
     localStorage.clear();
-    document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-stage-preset');
     document.documentElement.removeAttribute('data-sync-mode');
     document.documentElement.style.removeProperty('--karaoke-sung-color');
@@ -235,113 +232,6 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
     });
   });
 
-  describe('2. Multi-Cycle Theme Transition Persistence in useVisualTheme', () => {
-    it('persists custom colors across 2 full cycles (8 transitions) without resetting until resetThemeDefaults()', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="punk_diy">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(
-        () => {
-          const app = useAppTheme();
-          const visual = useVisualTheme();
-          return { app, visual };
-        },
-        { wrapper }
-      );
-
-      // Verify initial punk_diy stage preset
-      expect(result.current.visual.selectedTheme.id).toBe('punk_diy');
-      expect(result.current.visual.activeSungColor).toBe('#facc15');
-      expect(result.current.visual.activeUnsungColor).toBe('#f5f5f5');
-
-      // User sets custom colors and custom font scale
-      act(() => {
-        result.current.visual.setCustomSungColor('#ff1493'); // Deep pink
-        result.current.visual.setCustomUnsungColor('#00ffff'); // Cyan
-        result.current.visual.setFontSizeScale(1.3);
-      });
-
-      expect(result.current.visual.customSungColor).toBe('#ff1493');
-      expect(result.current.visual.customUnsungColor).toBe('#00ffff');
-      expect(result.current.visual.activeSungColor).toBe('#ff1493');
-      expect(result.current.visual.activeUnsungColor).toBe('#00ffff');
-      expect(result.current.visual.fontSizeScale).toBe(1.3);
-      expect(result.current.visual.effectiveTheme.primary_color).toBe(cssToAssColor('#ff1493'));
-      expect(result.current.visual.effectiveTheme.secondary_color).toBe(cssToAssColor('#00ffff'));
-
-      // Cycle 1: tape_studio_70s -> dive_bar_crt -> clean_paper -> punk_diy
-      const cycleSequence: Array<{
-        appTheme: 'tape_studio_70s' | 'dive_bar_crt' | 'clean_paper' | 'punk_diy';
-        expectedPreset: string;
-      }> = [
-        { appTheme: 'tape_studio_70s', expectedPreset: 'tape_70s' },
-        { appTheme: 'dive_bar_crt', expectedPreset: 'crt_ktv' },
-        { appTheme: 'clean_paper', expectedPreset: 'clean_paper' },
-        { appTheme: 'punk_diy', expectedPreset: 'punk_diy' },
-        // Cycle 2
-        { appTheme: 'tape_studio_70s', expectedPreset: 'tape_70s' },
-        { appTheme: 'dive_bar_crt', expectedPreset: 'crt_ktv' },
-        { appTheme: 'clean_paper', expectedPreset: 'clean_paper' },
-        { appTheme: 'punk_diy', expectedPreset: 'punk_diy' },
-      ];
-
-      for (const step of cycleSequence) {
-        act(() => {
-          result.current.app.setThemeId(step.appTheme);
-        });
-
-        // The stage preset must update to match the app theme
-        expect(result.current.visual.selectedTheme.id).toBe(step.expectedPreset);
-
-        // Custom colors and font scale MUST NOT reset
-        expect(result.current.visual.customSungColor).toBe('#ff1493');
-        expect(result.current.visual.customUnsungColor).toBe('#00ffff');
-        expect(result.current.visual.activeSungColor).toBe('#ff1493');
-        expect(result.current.visual.activeUnsungColor).toBe('#00ffff');
-        expect(result.current.visual.fontSizeScale).toBe(1.3);
-        expect(result.current.visual.effectiveTheme.primary_color).toBe(cssToAssColor('#ff1493'));
-        expect(result.current.visual.effectiveTheme.secondary_color).toBe(cssToAssColor('#00ffff'));
-
-        // Document CSS variables must also be in sync
-        expect(document.documentElement.style.getPropertyValue('--karaoke-sung-color')).toBe(
-          '#ff1493'
-        );
-        expect(document.documentElement.style.getPropertyValue('--karaoke-unsung-color')).toBe(
-          '#00ffff'
-        );
-        expect(document.documentElement.style.getPropertyValue('--karaoke-font-scale')).toBe('1.3');
-        expect(document.documentElement.getAttribute('data-stage-preset')).toBe(
-          step.expectedPreset
-        );
-      }
-
-      // Now explicitly invoke resetThemeDefaults()
-      act(() => {
-        result.current.visual.resetThemeDefaults();
-      });
-
-      // Verify custom colors and scale are cleared
-      expect(result.current.visual.customSungColor).toBeNull();
-      expect(result.current.visual.customUnsungColor).toBeNull();
-      expect(result.current.visual.fontSizeScale).toBe(1.0);
-
-      // Active colors immediately revert to the active theme's defaults (punk_diy)
-      expect(result.current.visual.activeSungColor).toBe('#facc15');
-      expect(result.current.visual.activeUnsungColor).toBe('#f5f5f5');
-      expect(result.current.visual.effectiveTheme.primary_color).toBe(THEMES[4].primary_color);
-      expect(result.current.visual.effectiveTheme.secondary_color).toBe(THEMES[4].secondary_color);
-
-      // Subsequent theme switch now adopts the new theme preset colors naturally
-      act(() => {
-        result.current.app.setThemeId('clean_paper');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('clean_paper');
-      expect(result.current.visual.activeSungColor).toBe('#dc2626');
-      expect(result.current.visual.activeUnsungColor).toBe('#111111');
-    });
-  });
-
   describe('3. Stage Lyrics Font Family Fallback in LyricDisplay & useVisualTheme', () => {
     it('falls back to var(--karaoke-font-family, sans-serif) when theme preset has no fontFamily and prop is undefined', () => {
       const incompleteTheme: VisualTheme = {
@@ -407,50 +297,6 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
       expect(activeLine).toHaveStyle({
         fontFamily: "'Courier New', monospace",
       });
-    });
-
-    it('syncs --karaoke-font-family document CSS variable when stage preset switches', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="punk_diy">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(
-        () => {
-          const app = useAppTheme();
-          const visual = useVisualTheme();
-          return { app, visual };
-        },
-        { wrapper }
-      );
-
-      // punk_diy should set Impact
-      expect(document.documentElement.style.getPropertyValue('--karaoke-font-family')).toContain(
-        'Impact'
-      );
-
-      // tape_studio_70s should set Georgia
-      act(() => {
-        result.current.app.setThemeId('tape_studio_70s');
-      });
-      expect(document.documentElement.style.getPropertyValue('--karaoke-font-family')).toContain(
-        'Georgia'
-      );
-
-      // dive_bar_crt should set VT323
-      act(() => {
-        result.current.app.setThemeId('dive_bar_crt');
-      });
-      expect(document.documentElement.style.getPropertyValue('--karaoke-font-family')).toContain(
-        'VT323'
-      );
-
-      // clean_paper should set Space Grotesk
-      act(() => {
-        result.current.app.setThemeId('clean_paper');
-      });
-      expect(document.documentElement.style.getPropertyValue('--karaoke-font-family')).toContain(
-        'Space Grotesk'
-      );
     });
   });
 });

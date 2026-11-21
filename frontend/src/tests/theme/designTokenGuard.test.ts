@@ -1,7 +1,7 @@
 /**
  * Guards the design-token migration: components colour themselves through theme tokens
- * (bg-theme-*, text-theme-*, ...) instead of fixed Tailwind palette classes, so every app
- * theme restyles them. Intentional exceptions are listed explicitly.
+ * (bg-theme-*, text-theme-*, ...) instead of fixed Tailwind palette classes, so the app's
+ * palette is defined in one place. Intentional exceptions are listed explicitly.
  */
 import { describe, it, expect } from 'vitest';
 
@@ -19,7 +19,7 @@ const srcRoot: string = fs.existsSync(path.resolve(nodeProcess.cwd(), 'src/compo
 const PALETTE_CLASS =
   /\b(?:bg|text|border|from|to|via|ring|ring-offset|shadow|fill|stroke|outline|divide|placeholder|accent|caret|decoration)-(?:slate|cyan|purple|emerald|indigo|fuchsia|pink|amber|rose|sky|teal|violet|zinc|gray|neutral|stone|red|green|blue|yellow|orange|lime)-\d{2,3}\b/g;
 
-/** Preset swatch labels sit on the preset's own light or dark stage colour, not the app theme. */
+/** Preset swatch labels sit on the preset's own light or dark stage colour, not the app's. */
 const ALLOWED: Record<string, string[]> = {
   'components/VisualThemePicker.tsx': ['text-neutral-900'],
 };

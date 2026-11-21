@@ -1,7 +1,7 @@
 /**
  * Studio Header Component
  *
- * Sticky top bar: brand, background render status, app theme picker, help, profile,
+ * Sticky top bar: brand, background render status, help, profile,
  * return-to-library (guarded against unsaved edits) and the single Export entry point. Its top
  * padding clears the status bar and notch when the installed app draws under them
  * (viewport-fit=cover with a translucent iOS status bar).
@@ -11,7 +11,6 @@ import React from 'react';
 import { Mic2, ArrowLeft, User, HelpCircle, Upload, Search, Download } from 'lucide-react';
 import { ProjectState } from '../types';
 import { Tooltip } from './Tooltip';
-import { AppThemePicker } from './AppThemePicker';
 import { Spinner } from './ui/Spinner';
 import { Kbd } from './ui/Kbd';
 import { focusRing } from './ui/variants';
@@ -159,8 +158,6 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
               </button>
             </Tooltip>
           )}
-
-          <AppThemePicker />
 
           <Tooltip content="Help & Studio Guide" hotkey="?" position="bottom">
             <button

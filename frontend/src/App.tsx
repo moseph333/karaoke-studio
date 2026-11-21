@@ -5,7 +5,7 @@
  * state transitions, active studio dashboard, global keyboard shortcuts, and dialog modals.
  */
 
-import React, { Suspense, useState, useEffect, useCallback, useContext, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { TrackSearch } from './components/TrackSearch';
 import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
@@ -45,7 +45,6 @@ import { useStudioCommands } from './hooks/useStudioCommands';
 import { useWaveformPeaksState } from './hooks/useWaveformPeaks';
 import { isGeneratedStyle } from './theme/stageBackgrounds';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
-import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
 import { cn } from './utils/cn';
 import { hasVocalLevels } from './utils/vocalLevels';
 import { focusQuietly } from './utils/focusIntent';
@@ -66,7 +65,6 @@ export const AppContent: React.FC = () => {
   useUpdatePrompt();
   useServerUpdatePrompt();
   useUpdateDrainNotice();
-  useAppTheme();
   const { project, setProject, isReconnecting, retryPolling } = useProjectPolling(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isLyricsDirty, setIsLyricsDirty] = useState(false);
@@ -783,14 +781,10 @@ export const AppContent: React.FC = () => {
   );
 };
 
-export const App: React.FC = () => {
-  const existingContext = useContext(AppThemeContext);
-  const content = (
-    <CommandPaletteProvider>
-      <AppContent />
-    </CommandPaletteProvider>
-  );
-  return existingContext ? content : <AppThemeProvider>{content}</AppThemeProvider>;
-};
+export const App: React.FC = () => (
+  <CommandPaletteProvider>
+    <AppContent />
+  </CommandPaletteProvider>
+);
 
 export default App;

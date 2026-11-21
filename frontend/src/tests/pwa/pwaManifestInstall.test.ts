@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFrontendFile, readIndexHtml, resolveFrontendFile } from '../helpers/bootScriptUtils';
+import { readFrontendFile, readIndexHtml, resolveFrontendFile } from '../helpers/frontendFiles';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeRequire = eval('require') as (mod: string) => any;
