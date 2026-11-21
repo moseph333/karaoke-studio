@@ -324,13 +324,19 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
     expect(screen.getByLabelText(`Completed: ${PIPELINE_STAGES[1].label}`)).toBeInTheDocument();
 
     // Stage 3 active
-    expect(screen.getByLabelText(`Active: ${PIPELINE_STAGES[2].label}`)).toBeInTheDocument();
+    expect(screen.getByText(PIPELINE_STAGES[2].label).closest('li')).toHaveAttribute(
+      'aria-current',
+      'step'
+    );
 
     // Stage 4 upcoming (numbered 4)
-    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(screen.getByText('4.')).toBeInTheDocument();
+    expect(screen.getByText(PIPELINE_STAGES[3].label).closest('li')).not.toHaveAttribute(
+      'aria-current'
+    );
   });
 
-  it('displays amber warning when heartbeat is stalled (>15s)', () => {
+  it('says the server has gone quiet when its last word is over 15 seconds old', () => {
     const stalledProject: ProjectState = {
       ...baseProject,
       heartbeat: Date.now() - 20000, // 20s old
@@ -340,11 +346,12 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
       <ProcessingView project={stalledProject} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
     );
 
-    expect(screen.getByText('Engine slow / waiting for background worker')).toBeInTheDocument();
-    expect(screen.queryByText(/Engine Active/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId('processing-server-quiet')).toHaveTextContent(
+      'No update from the server for a while'
+    );
   });
 
-  it('displays emerald active badge when heartbeat is fresh (<15s)', () => {
+  it('says nothing about the server while it keeps reporting', () => {
     const freshProject: ProjectState = {
       ...baseProject,
       heartbeat: Date.now() - 1000,
@@ -354,10 +361,8 @@ describe('Milestone 1: UX-2 5-Stage Stepper, Heartbeat Warning & Theme Consisten
       <ProcessingView project={freshProject} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
     );
 
-    expect(screen.getByText(/Engine Active/i)).toBeInTheDocument();
-    expect(
-      screen.queryByText('Engine slow / waiting for background worker')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('processing-server-quiet')).toBeNull();
+    expect(screen.queryByText(/Engine|Pulse/)).toBeNull();
   });
 
   it('enforces 2-step confirmation on cancellation to prevent accidental termination', async () => {

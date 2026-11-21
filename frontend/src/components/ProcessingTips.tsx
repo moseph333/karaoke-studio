@@ -8,7 +8,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, Lightbulb } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { focusRing } from './ui/variants';
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion';
@@ -42,14 +42,13 @@ export const ProcessingTips: React.FC<{ className?: string }> = ({ className }) 
     <div
       data-testid="processing-tips"
       className={cn(
-        'mx-auto flex max-w-md items-center gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle/60 py-1.5 pl-3.5 pr-1.5 text-left',
+        'flex max-w-xl flex-wrap items-start justify-between gap-x-6 gap-y-1 sm:flex-nowrap',
         className
       )}
     >
-      <Lightbulb className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
-      <p className="min-w-0 flex-1 py-1.5 text-xs text-theme-text-muted">
-        <span className="sr-only">Tip: </span>
-        <span key={index} className="block motion-safe:animate-fade-in">
+      <p className="min-w-0 flex-1 basis-full py-2 text-base text-theme-text sm:basis-0">
+        <span className="font-semibold">Tip: </span>
+        <span key={index} className="motion-safe:animate-fade-in">
           {PROCESSING_TIPS[index]}
         </span>
       </p>
@@ -61,10 +60,11 @@ export const ProcessingTips: React.FC<{ className?: string }> = ({ className }) 
         }}
         aria-label="Next tip"
         className={cn(
-          'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text',
+          'ks-display flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1 text-[20px] text-theme-text-muted transition-colors hover:text-theme-text',
           focusRing
         )}
       >
+        Next tip
         <ChevronRight className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>

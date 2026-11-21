@@ -1351,10 +1351,10 @@ describe('Duet / Multi-Singer Part Assignment (Requirement R2)', () => {
       );
 
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByText('Duet & Multi-Singer Assignment')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Duet parts' })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: /Alternating/i })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: /Range/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /Auto-Suggest/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /By pauses/i })).toBeInTheDocument();
       expect(screen.getByTestId('duet-preview-summary')).toBeInTheDocument();
     });
 
@@ -1447,10 +1447,10 @@ describe('Duet / Multi-Singer Part Assignment (Requirement R2)', () => {
       );
 
       // Switch to Auto-Suggest tab
-      fireEvent.click(screen.getByRole('tab', { name: /Auto-Suggest/i }));
+      fireEvent.click(screen.getByRole('tab', { name: /By pauses/i }));
 
       // Adjust threshold slider
-      const slider = screen.getByLabelText(/Inter-Line Pause Threshold/i);
+      const slider = screen.getByLabelText(/Pause between lines/i);
       fireEvent.change(slider, { target: { value: '3.0' } });
 
       // Select Singer 2 Starts
@@ -1618,7 +1618,7 @@ describe('Duet / Multi-Singer Part Assignment (Requirement R2)', () => {
 
       fireEvent.click(screen.getByTestId('duet-assign-btn'));
       expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByText('Duet & Multi-Singer Assignment')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Duet parts' })).toBeInTheDocument();
     });
 
     it('reverts singer cycle via Undo (Ctrl+Z) and restores on Redo (Ctrl+Y)', () => {

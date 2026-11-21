@@ -4,7 +4,7 @@ import { render, screen, act, fireEvent, renderHook } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { THEMES, VisualThemePicker } from '../../components/VisualThemePicker';
 import { useVisualTheme, cssToAssColor } from '../../hooks/useVisualTheme';
-import { AppThemeProvider, useAppTheme } from '../../context/AppThemeContext';
+import { getStagePreset } from '../../theme/stagePresets';
 import { ExportModal } from '../../components/ExportModal';
 import * as apiModule from '../../api';
 import { ProjectState } from '../../types';
@@ -32,7 +32,6 @@ const mockProject: ProjectState = {
 describe('M3 Challenger 1: Adversarial Stress Testing (useVisualTheme & VisualThemePicker)', () => {
   beforeEach(() => {
     localStorage.clear();
-    document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-stage-preset');
     document.documentElement.removeAttribute('data-sync-mode');
     document.documentElement.style.removeProperty('--karaoke-sung-color');
@@ -42,213 +41,9 @@ describe('M3 Challenger 1: Adversarial Stress Testing (useVisualTheme & VisualTh
     vi.restoreAllMocks();
   });
 
-  describe('Adversarial Scenario 1: Multi-Cycle App Theme Switching with Single Override', () => {
-    it('cycles punk_diy -> tape_studio_70s -> dive_bar_crt -> clean_paper -> punk_diy with customSungColor="#ff0055"', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="punk_diy">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(
-        () => {
-          const app = useAppTheme();
-          const visual = useVisualTheme();
-          return { app, visual };
-        },
-        { wrapper }
-      );
-
-      // Verify initial state
-      expect(result.current.app.theme.id).toBe('punk_diy');
-      expect(result.current.visual.selectedTheme.id).toBe('punk_diy');
-      expect(result.current.visual.activeSungColor).toBe('#facc15');
-      expect(result.current.visual.activeUnsungColor).toBe('#f5f5f5');
-
-      // Set customSungColor = '#ff0055'
-      act(() => {
-        result.current.visual.setCustomSungColor('#ff0055');
-      });
-
-      // Stage 0: punk_diy with override
-      expect(result.current.visual.customSungColor).toBe('#ff0055');
-      expect(result.current.visual.customUnsungColor).toBeNull();
-      expect(result.current.visual.activeSungColor).toBe('#ff0055');
-      expect(result.current.visual.activeUnsungColor).toBe('#f5f5f5');
-      expect(document.documentElement.style.getPropertyValue('--karaoke-sung-color')).toBe(
-        '#ff0055'
-      );
-      expect(document.documentElement.style.getPropertyValue('--karaoke-unsung-color')).toBe(
-        '#f5f5f5'
-      );
-      expect(document.documentElement.getAttribute('data-stage-preset')).toBe('punk_diy');
-
-      // Stage 1: tape_studio_70s
-      act(() => {
-        result.current.app.setThemeId('tape_studio_70s');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('tape_70s');
-      expect(result.current.visual.customSungColor).toBe('#ff0055');
-      expect(result.current.visual.customUnsungColor).toBeNull();
-      expect(result.current.visual.activeSungColor).toBe('#ff0055');
-      expect(result.current.visual.activeUnsungColor).toBe('#fef3c7'); // tape_70s default unsung
-      expect(document.documentElement.style.getPropertyValue('--karaoke-sung-color')).toBe(
-        '#ff0055'
-      );
-      expect(document.documentElement.style.getPropertyValue('--karaoke-unsung-color')).toBe(
-        '#fef3c7'
-      );
-      expect(document.documentElement.getAttribute('data-stage-preset')).toBe('tape_70s');
-
-      // Stage 2: dive_bar_crt
-      act(() => {
-        result.current.app.setThemeId('dive_bar_crt');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('crt_ktv');
-      expect(result.current.visual.customSungColor).toBe('#ff0055');
-      expect(result.current.visual.customUnsungColor).toBeNull();
-      expect(result.current.visual.activeSungColor).toBe('#ff0055');
-      expect(result.current.visual.activeUnsungColor).toBe('#86efac'); // crt_ktv default unsung
-      expect(document.documentElement.style.getPropertyValue('--karaoke-sung-color')).toBe(
-        '#ff0055'
-      );
-      expect(document.documentElement.style.getPropertyValue('--karaoke-unsung-color')).toBe(
-        '#86efac'
-      );
-      expect(document.documentElement.getAttribute('data-stage-preset')).toBe('crt_ktv');
-
-      // Stage 3: clean_paper
-      act(() => {
-        result.current.app.setThemeId('clean_paper');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('clean_paper');
-      expect(result.current.visual.customSungColor).toBe('#ff0055');
-      expect(result.current.visual.customUnsungColor).toBeNull();
-      expect(result.current.visual.activeSungColor).toBe('#ff0055');
-      expect(result.current.visual.activeUnsungColor).toBe('#111111'); // clean_paper default unsung
-      expect(document.documentElement.style.getPropertyValue('--karaoke-sung-color')).toBe(
-        '#ff0055'
-      );
-      expect(document.documentElement.style.getPropertyValue('--karaoke-unsung-color')).toBe(
-        '#111111'
-      );
-      expect(document.documentElement.getAttribute('data-stage-preset')).toBe('clean_paper');
-
-      // Stage 4: back to punk_diy
-      act(() => {
-        result.current.app.setThemeId('punk_diy');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('punk_diy');
-      expect(result.current.visual.customSungColor).toBe('#ff0055');
-      expect(result.current.visual.customUnsungColor).toBeNull();
-      expect(result.current.visual.activeSungColor).toBe('#ff0055');
-      expect(result.current.visual.activeUnsungColor).toBe('#f5f5f5'); // punk_diy default unsung
-      expect(document.documentElement.style.getPropertyValue('--karaoke-sung-color')).toBe(
-        '#ff0055'
-      );
-      expect(document.documentElement.style.getPropertyValue('--karaoke-unsung-color')).toBe(
-        '#f5f5f5'
-      );
-      expect(document.documentElement.getAttribute('data-stage-preset')).toBe('punk_diy');
-    });
-
-    it('cycles in reverse order with customUnsungColor override (#00ffcc)', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="punk_diy">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(
-        () => {
-          const app = useAppTheme();
-          const visual = useVisualTheme();
-          return { app, visual };
-        },
-        { wrapper }
-      );
-
-      // Set customUnsungColor = '#00ffcc', leave sung color as null
-      act(() => {
-        result.current.visual.setCustomUnsungColor('#00ffcc');
-      });
-
-      expect(result.current.visual.activeSungColor).toBe('#facc15'); // punk default
-      expect(result.current.visual.activeUnsungColor).toBe('#00ffcc'); // custom override
-
-      // Reverse cycle: clean_paper -> dive_bar_crt -> tape_studio_70s -> punk_diy
-      act(() => {
-        result.current.app.setThemeId('clean_paper');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('clean_paper');
-      expect(result.current.visual.activeSungColor).toBe('#dc2626'); // clean_paper default sung
-      expect(result.current.visual.activeUnsungColor).toBe('#00ffcc'); // custom preserved
-
-      act(() => {
-        result.current.app.setThemeId('dive_bar_crt');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('crt_ktv');
-      expect(result.current.visual.activeSungColor).toBe('#22c55e'); // crt default sung
-      expect(result.current.visual.activeUnsungColor).toBe('#00ffcc'); // custom preserved
-
-      act(() => {
-        result.current.app.setThemeId('tape_studio_70s');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('tape_70s');
-      expect(result.current.visual.activeSungColor).toBe('#f59e0b'); // tape default sung
-      expect(result.current.visual.activeUnsungColor).toBe('#00ffcc'); // custom preserved
-
-      act(() => {
-        result.current.app.setThemeId('punk_diy');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('punk_diy');
-      expect(result.current.visual.activeSungColor).toBe('#facc15'); // punk default sung
-      expect(result.current.visual.activeUnsungColor).toBe('#00ffcc'); // custom preserved
-    });
-
-    it('survives rapid consecutive multi-cycle switches without desync or memory leaks (50 switches)', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="punk_diy">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(
-        () => {
-          const app = useAppTheme();
-          const visual = useVisualTheme();
-          return { app, visual };
-        },
-        { wrapper }
-      );
-
-      act(() => {
-        result.current.visual.setCustomSungColor('#ff0055');
-      });
-
-      const themes: Array<'punk_diy' | 'tape_studio_70s' | 'dive_bar_crt' | 'clean_paper'> = [
-        'punk_diy',
-        'tape_studio_70s',
-        'dive_bar_crt',
-        'clean_paper',
-      ];
-
-      for (let i = 0; i < 50; i++) {
-        const themeId = themes[i % themes.length];
-        act(() => {
-          result.current.app.setThemeId(themeId);
-        });
-        expect(result.current.visual.activeSungColor).toBe('#ff0055');
-      }
-
-      // Final check at index 49 (which is tape_studio_70s: 49 % 4 = 1)
-      expect(result.current.visual.selectedTheme.id).toBe('tape_70s');
-      expect(result.current.visual.activeSungColor).toBe('#ff0055');
-      expect(result.current.visual.activeUnsungColor).toBe('#fef3c7');
-    });
-  });
-
   describe('Adversarial Scenario 2: Reset Behavior (resetThemeDefaults)', () => {
     it('clears all custom overrides, resets font scale & sync mode, and restores active theme defaults', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="dive_bar_crt">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(() => useVisualTheme(), { wrapper });
+      const { result } = renderHook(() => useVisualTheme(getStagePreset('crt_ktv')));
 
       // Apply multiple custom modifications
       act(() => {
@@ -278,7 +73,7 @@ describe('M3 Challenger 1: Adversarial Stress Testing (useVisualTheme & VisualTh
       expect(result.current.fontSizeScale).toBe(1.0);
       expect(result.current.syncMode).toBe('word');
 
-      // Active colors restore to dive_bar_crt / crt_ktv defaults
+      // Active colors restore to the crt_ktv preset's defaults
       expect(result.current.activeSungColor).toBe('#22c55e');
       expect(result.current.activeUnsungColor).toBe('#86efac');
       expect(result.current.effectiveTheme.primary_color).toBe('&H005EC522');
@@ -319,49 +114,45 @@ describe('M3 Challenger 1: Adversarial Stress Testing (useVisualTheme & VisualTh
     });
   });
 
-  describe('Adversarial Scenario 3: Fallback Isolation (Completely Outside AppThemeProvider)', () => {
-    it('defaults to modern_gold without throwing and behaves robustly', () => {
-      let renderResult: { current: ReturnType<typeof useVisualTheme> } | undefined;
-      expect(() => {
-        const { result } = renderHook(() => useVisualTheme());
-        renderResult = result;
-      }).not.toThrow();
+  describe('Adversarial Scenario 3: Starting Without a Chosen Preset', () => {
+    it('starts on Afterglow and behaves robustly', () => {
+      const { result } = renderHook(() => useVisualTheme());
 
-      expect(renderResult!.current.selectedTheme.id).toBe('modern_gold');
-      expect(renderResult!.current.selectedTheme.name).toBe('Modern Gold');
-      expect(renderResult!.current.activeSungColor).toBe('#fbbf24');
-      expect(renderResult!.current.activeUnsungColor).toBe('#ffffff');
-      expect(renderResult!.current.fontSizeScale).toBe(1.0);
-      expect(renderResult!.current.aspectRatio).toBe('16:9');
-      expect(renderResult!.current.syncMode).toBe('word');
-      expect(renderResult!.current.effectiveTheme.id).toBe('modern_gold');
+      expect(result.current.selectedTheme.id).toBe('afterglow');
+      expect(result.current.selectedTheme.name).toBe('Afterglow');
+      expect(result.current.activeSungColor).toBe('#fbbf24');
+      expect(result.current.activeUnsungColor).toBe('#edebff');
+      expect(result.current.fontSizeScale).toBe(1.0);
+      expect(result.current.aspectRatio).toBe('16:9');
+      expect(result.current.syncMode).toBe('word');
+      expect(result.current.effectiveTheme.id).toBe('afterglow');
 
       // Resetting when already at defaults should be safe and no-op
       act(() => {
-        renderResult!.current.resetThemeDefaults();
+        result.current.resetThemeDefaults();
       });
-      expect(renderResult!.current.selectedTheme.id).toBe('modern_gold');
-      expect(renderResult!.current.activeSungColor).toBe('#fbbf24');
+      expect(result.current.selectedTheme.id).toBe('afterglow');
+      expect(result.current.activeSungColor).toBe('#fbbf24');
 
-      // Setting custom colors outside provider works normally
+      // A custom colour replaces only its own channel
       act(() => {
-        renderResult!.current.setCustomSungColor('#112233');
+        result.current.setCustomSungColor('#112233');
       });
-      expect(renderResult!.current.activeSungColor).toBe('#112233');
-      expect(renderResult!.current.activeUnsungColor).toBe('#ffffff');
+      expect(result.current.activeSungColor).toBe('#112233');
+      expect(result.current.activeUnsungColor).toBe('#edebff');
 
-      // Resetting clears the override outside provider
+      // Resetting clears the override
       act(() => {
-        renderResult!.current.resetThemeDefaults();
+        result.current.resetThemeDefaults();
       });
-      expect(renderResult!.current.activeSungColor).toBe('#fbbf24');
+      expect(result.current.activeSungColor).toBe('#fbbf24');
 
-      // Manual theme selection outside provider works normally
+      // Picking another preset takes its colours
       act(() => {
-        renderResult!.current.setSelectedTheme(THEMES[6]); // crt_ktv
+        result.current.setSelectedTheme(getStagePreset('crt_ktv')!);
       });
-      expect(renderResult!.current.selectedTheme.id).toBe('crt_ktv');
-      expect(renderResult!.current.activeSungColor).toBe('#22c55e');
+      expect(result.current.selectedTheme.id).toBe('crt_ktv');
+      expect(result.current.activeSungColor).toBe('#22c55e');
     });
   });
 
@@ -491,7 +282,7 @@ describe('M3 Challenger 1: Adversarial Stress Testing (useVisualTheme & VisualTh
           />
         );
 
-        const renderBtn = screen.getByRole('button', { name: /start video render/i });
+        const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
         await user.click(renderBtn);
 
         expect(apiFetchSpy).toHaveBeenCalledWith(

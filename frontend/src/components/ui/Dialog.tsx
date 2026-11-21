@@ -108,7 +108,7 @@ export const Dialog: React.FC<DialogProps> = ({
         }
       }}
       className={cn(
-        'fixed inset-0 flex justify-center bg-theme-overlay/70 backdrop-blur-sm motion-safe:animate-fade-in',
+        'fixed inset-0 flex justify-center bg-theme-overlay/70 motion-safe:animate-fade-in',
         layer === 'gate' ? 'z-[100]' : 'z-50',
         variant === 'sheet' && 'items-end sm:items-center p-0 sm:p-4',
         variant === 'center' && 'items-center p-4',
@@ -118,10 +118,11 @@ export const Dialog: React.FC<DialogProps> = ({
     >
       <div
         className={cn(
-          'relative w-full max-h-[90vh] overflow-y-auto overscroll-contain border border-theme-border-subtle bg-theme-surface p-4 text-theme-text shadow-theme-lg sm:p-6',
+          // A black panel outlined in bone: the outline is what lifts it off the page
+          'relative w-full max-h-[90vh] overflow-y-auto overscroll-contain border-2 border-theme-border bg-theme-surface p-4 text-theme-text sm:p-6',
           isSheetLike
-            ? 'rounded-t-2xl rounded-b-none sm:rounded-theme-xl pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6 motion-safe:animate-sheet-in sm:motion-safe:animate-dialog-in'
-            : 'rounded-theme-xl motion-safe:animate-dialog-in',
+            ? 'border-x-0 border-b-0 sm:border-x-2 sm:border-b-2 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-6 motion-safe:animate-sheet-in sm:motion-safe:animate-dialog-in'
+            : 'motion-safe:animate-dialog-in',
           SIZE_CLASSES[size],
           className
         )}
@@ -130,7 +131,7 @@ export const Dialog: React.FC<DialogProps> = ({
           <div
             data-testid="bottom-sheet-drag-handle"
             aria-hidden="true"
-            className="pointer-events-none absolute left-1/2 top-1.5 z-50 h-1 w-10 -translate-x-1/2 rounded-full bg-theme-border sm:hidden"
+            className="pointer-events-none absolute left-1/2 top-1.5 z-50 h-1 w-10 -translate-x-1/2 bg-theme-border sm:hidden"
           />
         )}
         {children}
@@ -144,8 +145,6 @@ export interface DialogHeaderProps {
   titleId: string;
   description?: React.ReactNode;
   descriptionId?: string;
-  icon?: React.ReactNode;
-  iconTone?: 'accent' | 'danger' | 'warning' | 'success';
   /** Renders a close button before the title (first in focus order). */
   onClose?: () => void;
   closeLabel?: string;
@@ -157,20 +156,11 @@ export interface DialogHeaderProps {
   sticky?: boolean;
 }
 
-const ICON_TONES = {
-  accent: 'bg-theme-accent/15 text-theme-highlight',
-  danger: 'bg-theme-danger/15 text-theme-danger',
-  warning: 'bg-theme-warning/15 text-theme-warning',
-  success: 'bg-theme-success/15 text-theme-success',
-} as const;
-
 export const DialogHeader: React.FC<DialogHeaderProps> = ({
   title,
   titleId,
   description,
   descriptionId,
-  icon,
-  iconTone = 'accent',
   onClose,
   closeLabel = 'Close dialog',
   closeTestId,
@@ -181,11 +171,11 @@ export const DialogHeader: React.FC<DialogHeaderProps> = ({
 }) => (
   <div
     className={cn(
-      'flex items-start gap-3 border-b border-theme-border-subtle pb-4 mb-4',
+      'flex items-start gap-3 border-b-2 border-theme-border pb-3 mb-4',
       sticky &&
         // Negative top offsets cancel the card padding: sticky positioning measures from the
         // scroll container's content box, so top-0 would slide the header over the body.
-        'sticky -top-4 z-40 -mx-4 -mt-4 bg-theme-surface/95 px-4 pt-4 backdrop-blur sm:-top-6 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6',
+        'sticky -top-4 z-40 -mx-4 -mt-4 bg-theme-surface px-4 pt-4 sm:-top-6 sm:-mx-6 sm:-mt-6 sm:px-6 sm:pt-6',
       className
     )}
   >
@@ -198,21 +188,10 @@ export const DialogHeader: React.FC<DialogHeaderProps> = ({
         className="order-last -mr-1 -mt-1"
       />
     )}
-    {icon && (
-      <span
-        aria-hidden="true"
-        className={cn(
-          'flex h-10 w-10 shrink-0 items-center justify-center rounded-theme-lg',
-          ICON_TONES[iconTone]
-        )}
-      >
-        {icon}
-      </span>
-    )}
     <div className="min-w-0 flex-1">
       <h2
         id={titleId}
-        className="line-clamp-2 break-words text-lg font-semibold tracking-tight text-theme-text font-theme-heading sm:line-clamp-none sm:truncate"
+        className="ks-display line-clamp-2 break-words text-[28px] font-black text-theme-text sm:line-clamp-none sm:truncate sm:text-[36px]"
       >
         {title}
       </h2>
@@ -249,7 +228,7 @@ export const DialogCloseButton: React.FC<DialogCloseButtonProps> = ({
       data-testid={testId}
       disabled={disabled}
       className={cn(
-        'inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-md text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text disabled:cursor-not-allowed disabled:opacity-40',
+        'inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-theme-text-muted transition-colors hover:text-theme-text disabled:cursor-not-allowed disabled:opacity-40',
         focusRing
       )}
     >

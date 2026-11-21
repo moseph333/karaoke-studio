@@ -7,14 +7,13 @@
  */
 
 import React, { useEffect, useId, useState } from 'react';
-import { ArrowLeft, Disc3, Info, ListMusic, Music, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Disc3, RefreshCw } from 'lucide-react';
 import type { AlbumSongsStarted, AlbumTrack, ProjectState } from '../../types';
 import { useAlbumListing } from '../../hooks/useAlbumListing';
 import { Button } from '../ui/Button';
 import { Field, Input } from '../ui/Field';
 import { Skeleton } from '../ui/Skeleton';
 import { AlbumTrackRow } from './AlbumTrackRow';
-import { cn } from '../../utils/cn';
 import { formatTime } from '../../utils/format';
 import {
   albumSourceSentence,
@@ -39,9 +38,6 @@ export interface AlbumTrackPickerProps {
   onBack: () => void;
   isStarting?: boolean;
 }
-
-const cardCls =
-  'rounded-theme-xl border border-theme-border-subtle bg-theme-surface/85 p-4 shadow-theme-lg backdrop-blur-md sm:p-6';
 
 export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
   project,
@@ -93,28 +89,26 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
   };
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4 py-2 font-theme-body motion-safe:animate-rise-in sm:py-8">
-      <div className={cn(cardCls, 'space-y-5')}>
-        <div className="flex items-start gap-4">
+    <div className="w-full max-w-5xl pb-10 font-theme-body">
+      <div className="space-y-5">
+        <div className="flex items-center gap-4">
           {project.thumbnail_url || listing?.thumbnail_url ? (
             <img
               src={listing?.thumbnail_url || project.thumbnail_url}
               alt=""
-              className="h-20 w-20 shrink-0 rounded-theme-md object-cover shadow-theme-md sm:h-24 sm:w-24"
+              className="h-16 w-16 shrink-0 object-cover sm:h-24 sm:w-24"
             />
           ) : (
-            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-theme-md bg-gradient-stage text-theme-text-muted sm:h-24 sm:w-24">
+            <span className="flex h-16 w-16 shrink-0 items-center justify-center bg-theme-surface-raised text-theme-text-muted sm:h-24 sm:w-24">
               <Disc3 className="h-8 w-8" aria-hidden="true" />
             </span>
           )}
-          <div className="min-w-0 space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-highlight">
-              Whole album
-            </p>
+          <div className="min-w-0">
+            <p className="text-sm text-theme-text-muted">Whole album</p>
             <h1
               tabIndex={-1}
               data-view-heading
-              className="text-balance font-theme-heading text-xl font-bold text-theme-text focus:outline-none sm:text-2xl"
+              className="ks-display text-balance text-[36px] font-black text-theme-text focus:outline-none sm:text-[64px]"
             >
               {title}
             </h1>
@@ -127,19 +121,18 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
           </div>
         </div>
 
-        <p className="text-pretty text-sm text-theme-text">
+        <p className="max-w-3xl text-pretty border-t-2 border-theme-border pt-4 text-[19px] text-theme-text">
           This {kind === 'upload' ? 'file' : 'link'} holds a whole album. Pick the songs you want:
           each one becomes a karaoke song of its own, with its own lyrics.
         </p>
-        <p className="flex gap-2 text-pretty text-xs text-theme-text-muted">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <p className="max-w-3xl text-pretty text-sm text-theme-text-muted">
           {albumSourceSentence(source, kind, listing?.catalog?.site)}
         </p>
 
         {error && (
           <div
             role="alert"
-            className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-danger/40 bg-theme-danger/10 p-3 text-sm text-theme-danger"
+            className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold text-theme-danger"
           >
             {error}
             <Button
@@ -176,13 +169,9 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
             ))}
           </div>
         ) : tracks.length > 0 ? (
-          <section aria-labelledby={listId} className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <h2
-                id={listId}
-                className="flex items-center gap-2 font-theme-heading text-sm font-semibold text-theme-text"
-              >
-                <ListMusic className="h-4 w-4 text-theme-highlight" aria-hidden="true" />
+          <section aria-labelledby={listId}>
+            <div className="flex items-center justify-between gap-2 border-b-2 border-theme-border pb-1">
+              <h2 id={listId} className="ks-display text-[28px] font-black text-theme-text">
                 Songs
               </h2>
               {pickable.length > 1 && (
@@ -198,7 +187,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
                 </Button>
               )}
             </div>
-            <ol className="space-y-1.5" aria-label={`Songs of ${title}`}>
+            <ol aria-label={`Songs of ${title}`}>
               {tracks.map((track) => (
                 <AlbumTrackRow
                   key={track.number}
@@ -217,8 +206,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
           </section>
         ) : (
           !loading && (
-            <p className="flex gap-2 rounded-theme-md border border-theme-border-subtle bg-theme-surface-subtle/60 p-3 text-sm text-theme-text-muted">
-              <Music className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <p className="max-w-3xl text-base text-theme-text-muted">
               No songs could be told apart. Make the whole recording one song, or find a video of
               the song you want on its own.
             </p>
@@ -226,7 +214,10 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
         )}
 
         {unnamed.length > 0 && (
-          <p className="text-pretty text-xs text-theme-warning" data-testid="album-unnamed-hint">
+          <p
+            className="text-pretty text-sm font-semibold text-theme-warning"
+            data-testid="album-unnamed-hint"
+          >
             {unnamed.length === 1
               ? `Song ${unnamed[0].number} has no name yet, so its lyrics cannot be looked up.`
               : `Songs ${unnamed.map((t) => t.number).join(', ')} have no names yet, so their lyrics cannot be looked up.`}{' '}
@@ -234,7 +225,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
           </p>
         )}
 
-        <div className="flex flex-col-reverse gap-2 border-t border-theme-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
           <Button
             variant="ghost"
             onClick={onBack}
@@ -257,7 +248,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
             )}
             {tracks.length > 0 && (
               <Button
-                variant="gradient"
+                variant="primary"
                 onClick={() => void makeSongs()}
                 disabled={selected.size === 0}
                 loading={isStarting}

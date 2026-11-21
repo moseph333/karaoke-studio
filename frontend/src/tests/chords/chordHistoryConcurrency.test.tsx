@@ -552,9 +552,9 @@ describe('Empirical Challenger 2: History Bounds, Deep Immutability & Concurrenc
   });
 
   // =========================================================================
-  // Scope 4: Concurrency, Rapid Bursts & Keyboard Shortcut Isolation
+  // Scope 4: Concurrency, Rapid Bursts & When shortcuts are off
   // =========================================================================
-  describe('Scope 4: Concurrency, Rapid Bursts & Keyboard Shortcut Isolation', () => {
+  describe('Scope 4: Concurrency, Rapid Bursts & When shortcuts are off', () => {
     const mockLines: LyricLine[] = [
       {
         id: 1,

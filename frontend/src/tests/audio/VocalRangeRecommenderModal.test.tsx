@@ -53,7 +53,7 @@ describe('VocalRangeRecommenderModal Component', () => {
     render(<VocalRangeRecommenderModal {...defaultProps} />);
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('Smart Key Recommender')).toBeInTheDocument();
+    expect(screen.getByText('Suggest a key for my voice')).toBeInTheDocument();
     expect(screen.getByText(/C#3 – E4/i)).toBeInTheDocument();
     expect(screen.getByText(/Estimated Key: C# Minor/i)).toBeInTheDocument();
   });
@@ -89,8 +89,8 @@ describe('VocalRangeRecommenderModal Component', () => {
     const customBtn = screen.getByRole('radio', { name: /^custom$/i });
     await user.click(customBtn);
 
-    expect(screen.getByLabelText(/Lowest Comfortable Note/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Highest Comfortable Note/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Lowest comfortable note/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Highest comfortable note/i)).toBeInTheDocument();
   });
 
   it('calls onApplyTransposition and onClose when Apply Transposition is clicked', async () => {
@@ -129,7 +129,7 @@ describe('VocalRangeRecommenderModal Component', () => {
 
     render(<VocalRangeRecommenderModal {...unvoicedProps} />);
 
-    expect(screen.getByText(/No singing voice detected on vocal track/i)).toBeInTheDocument();
+    expect(screen.getByText(/No singing was found in the vocals/i)).toBeInTheDocument();
     const applyBtn = screen.getByRole('button', { name: /apply transposition/i });
     expect(applyBtn).toBeDisabled();
   });

@@ -28,7 +28,6 @@ import {
   SkipBack,
   SkipForward,
   Smartphone,
-  Sparkles,
   Stethoscope,
   Trash2,
   Undo,
@@ -37,6 +36,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Highlighter,
 } from 'lucide-react';
 import { ProjectState, StudioWorkspaceTab } from '../types';
 import { apiFetch } from '../api';
@@ -46,12 +46,10 @@ import {
   useRegisterCommands,
 } from '../components/commandPalette/context';
 import { rankItems } from '../components/commandPalette/fuzzy';
-import { APP_THEME_LIST } from '../theme/appThemes';
 import { STAGE_PRESETS_IN_DISPLAY_ORDER } from '../theme/stagePresets';
 import { STAGE_BACKGROUND_OPTIONS } from '../theme/stageBackgrounds';
 import { STAGE_SIZES, StageSize } from '../theme/stageSettingsStorage';
 import { PLAYBACK_SPEEDS } from '../components/audio/PlaybackSpeedControl';
-import { useAppTheme } from '../context/AppThemeContext';
 import { lineStartAtOffset } from '../utils/lineNavigation';
 import { MIX_GUIDE_MAX } from './useMixController';
 import { formatSemitones } from '../utils/format';
@@ -116,7 +114,6 @@ function songStatus(project: ProjectState): string | undefined {
 
 export function useStudioCommands(opts: UseStudioCommandsOptions): void {
   const { project, isStudioReady, audio, mix, theme } = opts;
-  const appTheme = useAppTheme();
 
   const confirmDiscard = (message: string) => !opts.hasUnsavedEdits || window.confirm(message);
 
@@ -217,7 +214,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       id: 'visualizer-toggle',
       title: theme.showVisualizer ? 'Hide beat visualizer' : 'Show beat visualizer',
       group: 'Stage',
-      icon: <Sparkles />,
+      icon: <Highlighter />,
       shortcut: ['V'],
       keywords: ['spectrum', 'bars', 'audio'],
       run: theme.toggleVisualizer,
@@ -236,7 +233,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       title: 'Highlight lyrics word by word',
       subtitle: current(theme.syncMode === 'word'),
       group: 'Stage',
-      icon: <Sparkles />,
+      icon: <Highlighter />,
       keywords: ['sweep', 'karaoke', 'kf'],
       run: () => theme.setSyncMode('word'),
     });
@@ -345,7 +342,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
         title: 'Improve stem separation…',
         subtitle: `Now: ${stemsLabel(project.separation)}`,
         group: 'Mix',
-        icon: <Sparkles />,
+        icon: <Highlighter />,
         keywords: [
           'separation',
           'stems',
@@ -455,7 +452,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       [
         ['stage', 'Go to stage'],
         ['timeline', 'Go to timeline'],
-        ['mix', 'Go to mix & theme'],
+        ['mix', 'Go to mix & look'],
       ] as const
     ).forEach(([tab, title]) =>
       add({
@@ -482,18 +479,6 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       })
     );
   }
-
-  APP_THEME_LIST.forEach((t) =>
-    add({
-      id: `app-theme:${t.id}`,
-      title: `App theme: ${t.name}`,
-      subtitle: current(appTheme.themeId === t.id),
-      group: 'Themes',
-      icon: <Palette />,
-      keywords: ['appearance', 'dark', 'light', 'colors'],
-      run: () => appTheme.setThemeId(t.id),
-    })
-  );
 
   if (project) {
     add({
@@ -541,7 +526,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
     });
   }
 
-  // After the app themes, so the list shown before typing keeps its entries
+  // After the stage presets, so the list shown before typing keeps its entries
   if (project) {
     STAGE_BACKGROUND_OPTIONS.forEach((option) =>
       add({

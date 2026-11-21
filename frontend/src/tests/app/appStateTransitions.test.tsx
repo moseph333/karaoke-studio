@@ -84,7 +84,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       });
       expect(searchInput).toBeInTheDocument();
       expect(searchInput.className).toMatch(/min-h-\[48px\]/);
-      expect(searchInput.className).toMatch(/pr-28/);
+      expect(searchInput.className).toMatch(/flex-1/);
 
       // Search button in initial state
       const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
@@ -185,15 +185,14 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const statusText = screen.getByText(ultraLongStatus);
       expect(statusText).toBeInTheDocument();
       expect(statusText.className).toMatch(/break-words/);
-      expect(statusText.className).toMatch(/font-mono/);
 
       // 2. Verify timers display correctly formatted strings
-      expect(screen.getByText(/68% Complete/i)).toBeInTheDocument();
-      expect(screen.getByText(/Elapsed:\s*2:25/i)).toBeInTheDocument();
-      expect(screen.getByText(/Est\.\s*remaining:\s*~0:42/i)).toBeInTheDocument();
+      expect(screen.getByTestId('processing-percent')).toHaveTextContent('68%');
+      expect(screen.getByText('2:25 so far')).toBeInTheDocument();
+      expect(screen.getByText('About 0:42 left')).toBeInTheDocument();
 
       // 3. Verify timer container responsive wrapping layout
-      const timerRow = screen.getByText(/68% Complete/i).closest('.justify-between');
+      const timerRow = screen.getByText('2:25 so far').closest('.justify-between');
       expect(timerRow?.className).toMatch(/flex-col/);
       expect(timerRow?.className).toMatch(/sm:flex-row/);
       expect(timerRow?.className).toMatch(/justify-between/);
@@ -201,7 +200,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       // 4. Verify Cancel button touch target
       const cancelBtn = screen.getByRole('button', { name: /Cancel & Return to Search/i });
       expect(cancelBtn).toBeInTheDocument();
-      expect(cancelBtn.className).toMatch(/min-h-\[40px\]/);
+      expect(cancelBtn.className).toMatch(/min-h-\[44px\]/);
     });
 
     it('transitions to Error view with multiline stack trace & long URL and recovers to search', async () => {
@@ -260,7 +259,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       const retryBtn = within(screen.getByRole('main')).getByRole('button', { name: /New Song/i });
       expect(retryBtn).toBeInTheDocument();
-      expect(retryBtn.className).toMatch(/min-h-\[40px\]/);
+      expect(retryBtn.className).toMatch(/min-h-\[48px\]/);
 
       await user.click(retryBtn);
 
@@ -317,7 +316,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
         name: /New Song/i,
       });
       expect(searchAnotherBtn).toBeInTheDocument();
-      expect(searchAnotherBtn.className).toMatch(/min-h-\[40px\]/);
+      expect(searchAnotherBtn.className).toMatch(/min-h-\[48px\]/);
 
       // Return to search
       await user.click(searchAnotherBtn);
@@ -428,13 +427,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       expect(headerContainer?.className).toMatch(/\bpx-\d/);
       expect(headerContainer?.className).toMatch(/min-h-\[3\.5rem\]/);
 
-      // Brand mark never shrinks; its icon keeps a fixed size
-      const brandLogo = headerContainer?.querySelector('.bg-gradient-accent');
-      expect(brandLogo?.className).toMatch(/shrink-0/);
-      const brandIcon = brandLogo?.querySelector('svg');
-      expect(brandIcon?.getAttribute('class')).toMatch(/h-4 w-4/);
-
-      // Brand title in header renders "Karaoke Studio" with no YouTube prefix
+      // The brand is a wordmark: "Karaoke Studio" with no YouTube prefix and no logo tile
       const brandTitle = within(header!).getByText(/Karaoke Studio/i);
       expect(brandTitle.textContent?.trim()).toBe('Karaoke Studio');
       expect(brandTitle.querySelector('span')).toBeNull();
@@ -486,17 +479,17 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
         />
       );
 
-      // Hero heading
+      // The headline scales with the window instead of stepping between sizes
       const hero = screen.getByRole('heading', { level: 1 });
-      expect(hero.className).toMatch(/text-3xl/);
-      expect(hero.className).toMatch(/sm:text-5xl/);
+      expect(hero.className).toMatch(/ks-display/);
+      expect(hero.className).toMatch(/text-\[clamp\(/);
 
-      // The hero is one column on phones (no side padding of its own) and two from lg up
-      const heroSection = hero.closest('section');
-      expect(heroSection?.className).toMatch(/\bgrid\b/);
-      expect(heroSection?.className).not.toMatch(/(^|\s)px-/);
-      expect(heroSection?.className).toMatch(/sm:px-4/);
-      expect(heroSection?.className).toMatch(/lg:grid-cols-/);
+      // The intake band under it is one column on phones (no side padding of its own) and
+      // two from lg up
+      const intakeBand = hero.closest('section')?.nextElementSibling;
+      expect(intakeBand?.className).toMatch(/\bgrid\b/);
+      expect(intakeBand?.className).not.toMatch(/(^|\s)px-/);
+      expect(intakeBand?.className).toMatch(/lg:grid-cols-/);
 
       // Submit button text labels
       const submitBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
@@ -506,7 +499,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const tabs = screen.getAllByRole('tab');
       expect(tabs.length).toBe(2);
       tabs.forEach((tab) => {
-        expect(tab.className).toMatch(/min-h-\[36px\]/);
+        expect(tab.className).toMatch(/min-h-\[44px\]/);
       });
       const tabList = tabs[0].parentElement;
       expect(tabList).toHaveAttribute('role', 'tablist');
@@ -529,8 +522,8 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       const mainEl = container.querySelector('main');
       expect(mainEl).toBeInTheDocument();
       expect(mainEl?.className).toMatch(/w-full/);
-      expect(mainEl?.className).toMatch(/px-3/);
-      expect(mainEl?.className).toMatch(/sm:px-4/);
+      expect(mainEl?.className).toMatch(/px-4/);
+      expect(mainEl?.className).toMatch(/sm:px-8/);
     });
 
     it('ensures flex children have min-w-0 to prevent min-content blowout in cards', async () => {
@@ -580,7 +573,7 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
 
       const header = document.querySelector('header > div');
       expect(header?.classList.contains('flex-wrap')).toBe(true);
-      expect(header?.classList.contains('gap-x-2')).toBe(true);
+      expect(header?.classList.contains('gap-x-3')).toBe(true);
       const actions = header?.lastElementChild;
       expect(actions?.classList.contains('flex-wrap')).toBe(true);
       expect(actions?.classList.contains('min-w-0')).toBe(true);
@@ -630,12 +623,12 @@ describe('M1 Challenger 2: Adversarial State Transitions & Responsive Layout Int
       });
 
       // Default description for 'downloading' when status_detail is empty
-      expect(screen.getByText('Fetching high-fidelity audio and cover art...')).toBeInTheDocument();
+      expect(screen.getByText('Downloading the audio and cover art.')).toBeInTheDocument();
 
-      // Timers: 0% and Calculating...
-      expect(screen.getByText(/0% Complete/i)).toBeInTheDocument();
-      expect(screen.getByText(/Elapsed:\s*0:00/i)).toBeInTheDocument();
-      expect(screen.getByText(/Est\.\s*remaining:\s*Calculating\.\.\./i)).toBeInTheDocument();
+      // Timers: 0% and no estimate yet
+      expect(screen.getByTestId('processing-percent')).toHaveTextContent('0%');
+      expect(screen.getByText('0:00 so far')).toBeInTheDocument();
+      expect(screen.getByText('Working out the time left')).toBeInTheDocument();
     });
 
     it('handles Unicode and emoji search queries without throwing or breaking layout', async () => {

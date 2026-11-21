@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { PlusSquare, Share, Smartphone, SquareCheck } from 'lucide-react';
+import { PlusSquare, Share, SquareCheck } from 'lucide-react';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
 
@@ -66,7 +66,6 @@ export const InstallAppDialog: React.FC<InstallAppDialogProps> = ({
       titleId="install-app-title"
       description="Add it to your Home Screen to open it full screen, like an app."
       descriptionId="install-app-desc"
-      icon={<Smartphone className="h-5 w-5" />}
       onClose={onClose}
       closeLabel="Close install instructions"
     />
@@ -75,7 +74,7 @@ export const InstallAppDialog: React.FC<InstallAppDialogProps> = ({
         <li key={index} className="flex items-start gap-3 text-sm text-theme-text-muted">
           <span
             aria-hidden="true"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-theme-md bg-theme-accent/15 text-theme-highlight"
+            className="flex h-9 w-9 shrink-0 items-center justify-center text-theme-text"
           >
             {step.icon}
           </span>

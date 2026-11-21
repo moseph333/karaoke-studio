@@ -189,7 +189,7 @@ describe('Export UI & Modal Options Integration (F15)', () => {
       await user.click(checkbox);
       expect(checkbox).toBeChecked();
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(apiFetchSpy).toHaveBeenCalledWith(
@@ -220,7 +220,7 @@ describe('Export UI & Modal Options Integration (F15)', () => {
       const checkbox = screen.getByTestId('include-chords-video-checkbox');
       await user.click(checkbox);
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(onStartRenderMock).toHaveBeenCalledWith({
@@ -243,7 +243,7 @@ describe('Export UI & Modal Options Integration (F15)', () => {
         />
       );
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(onStartRenderMock).toHaveBeenCalledWith({

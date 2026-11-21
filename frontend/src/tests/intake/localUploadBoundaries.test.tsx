@@ -315,11 +315,10 @@ describe('CHALLENGER 1: UX-2 ProcessingView Stepper, Heartbeat & Disconnect Reco
         <ProcessingView project={mockProject} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
       );
 
-      // Note: ProcessingView uses (status || 'queued').replace('_', ' ') which replaces only the first underscore!
-      // 'custom_status_xyz' becomes 'custom status_xyz...'
-      expect(screen.getByText('custom status_xyz...')).toBeInTheDocument();
+      // A status the screen has no words for is shown as sent, with spaces for underscores
+      expect(screen.getByRole('heading', { name: 'custom status xyz' })).toBeInTheDocument();
       expect(screen.getByText('Custom status detail message')).toBeInTheDocument();
-      expect(screen.getByText('42% Complete')).toBeInTheDocument();
+      expect(screen.getByTestId('processing-percent')).toHaveTextContent('42%');
     });
   });
 
@@ -347,10 +346,8 @@ describe('CHALLENGER 1: UX-2 ProcessingView Stepper, Heartbeat & Disconnect Reco
         />
       );
 
-      expect(screen.getByText(/Engine Active • Pulse 15s ago/i)).toBeInTheDocument();
-      expect(
-        screen.queryByText(/Engine slow \/ waiting for background worker/i)
-      ).not.toBeInTheDocument();
+      // Exactly 15 seconds is still normal: nothing is said
+      expect(screen.queryByTestId('processing-server-quiet')).toBeNull();
 
       vi.restoreAllMocks();
     });
@@ -378,8 +375,9 @@ describe('CHALLENGER 1: UX-2 ProcessingView Stepper, Heartbeat & Disconnect Reco
         />
       );
 
-      expect(screen.getByText(/Engine slow \/ waiting for background worker/i)).toBeInTheDocument();
-      expect(screen.queryByText(/Engine Active/i)).not.toBeInTheDocument();
+      expect(screen.getByTestId('processing-server-quiet')).toHaveTextContent(
+        'No update from the server for a while. It may be busy with another song.'
+      );
 
       vi.restoreAllMocks();
     });

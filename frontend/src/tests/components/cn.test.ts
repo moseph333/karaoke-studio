@@ -9,22 +9,6 @@ describe('cn() class composition', () => {
     );
   });
 
-  it('dedupes conflicting theme shadows (last wins)', () => {
-    expect(cn('shadow-theme-md shadow-theme-lg')).toBe('shadow-theme-lg');
-  });
-
-  it('dedupes conflicting theme radii (last wins)', () => {
-    expect(cn('rounded-theme-md rounded-theme-xl')).toBe('rounded-theme-xl');
-    expect(cn('rounded-lg rounded-theme-pill')).toBe('rounded-theme-pill');
-  });
-
-  it('keeps gradient background images alongside background colors', () => {
-    const result = cn('bg-gradient-accent bg-theme-surface');
-    expect(result.split(' ')).toEqual(
-      expect.arrayContaining(['bg-gradient-accent', 'bg-theme-surface'])
-    );
-  });
-
   it('keeps responsive touch-target variants and dedupes plain conflicts', () => {
     expect(cn('min-h-[44px] md:min-h-[36px]')).toBe('min-h-[44px] md:min-h-[36px]');
     expect(cn('px-3 px-4')).toBe('px-4');

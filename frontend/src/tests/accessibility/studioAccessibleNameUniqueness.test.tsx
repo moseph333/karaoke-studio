@@ -142,7 +142,7 @@ describe('Studio accessible-name uniqueness', () => {
       expect(lastControlCount).toBeGreaterThan(40);
 
       // Every mobile tab exposes the same single set of controls
-      for (const tab of ['Timeline', 'Mix & Theme', 'Stage']) {
+      for (const tab of ['Timeline', 'Mix & Look', 'Stage']) {
         fireEvent.click(screen.getByRole('tab', { name: new RegExp(tab, 'i') }));
         expect(collectDuplicates(), `after selecting ${tab}`).toEqual([]);
       }

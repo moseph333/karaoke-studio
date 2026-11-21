@@ -13,13 +13,12 @@ import {
   ImageIcon,
   Monitor,
   Move,
-  Palette,
   RotateCcw,
   Smartphone,
-  Sparkles,
   Square,
   Upload,
   X,
+  Waves,
 } from 'lucide-react';
 import { VisualTheme } from '../types';
 import {
@@ -81,7 +80,7 @@ const STAGE_SIZE_OPTIONS: ReadonlyArray<{ value: StageSize; label: string; hint:
   { value: 'large', label: 'Large', hint: 'Bigger live preview' },
 ];
 
-const sectionLabel = 'text-xs font-semibold uppercase tracking-[0.08em] text-theme-text-muted';
+const sectionLabel = 'text-sm font-semibold text-theme-text';
 
 const BACKGROUND_ICONS: Record<
   StageBackgroundStyle,
@@ -89,14 +88,14 @@ const BACKGROUND_ICONS: Record<
 > = {
   artwork: ImageIcon,
   drift: Move,
-  aurora: Sparkles,
+  aurora: Waves,
   spectrum: AudioLines,
   color: Square,
   custom: Upload,
 };
 
 const smallButton = cn(
-  'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md px-2.5 text-xs font-semibold transition-colors disabled:opacity-50',
+  'ks-display inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 px-3 text-[20px] transition-colors disabled:opacity-50',
   focusRing
 );
 
@@ -214,7 +213,6 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
       headingLevel={2}
       title="Stage look"
       description="Preview styling and video format"
-      icon={<Palette className="h-4 w-4" />}
       className={className}
       data-testid="stage-look-panel"
       actions={
@@ -285,7 +283,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   }}
                   style={{ backgroundColor: getStageBackground(t) }}
                   className={cn(
-                    'group relative flex min-h-[44px] cursor-pointer flex-col gap-2 overflow-hidden rounded-theme-lg border p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 hover:-translate-y-px',
+                    'group relative flex min-h-[44px] cursor-pointer flex-col gap-2 overflow-hidden border p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 hover:-translate-y-px',
                     focusRing,
                     isSelected
                       ? 'border-theme-accent ring-2 ring-theme-accent/40'
@@ -297,7 +295,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   {isSelected && (
                     <span
                       aria-hidden="true"
-                      className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-theme-accent text-theme-accent-text"
+                      className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center bg-theme-accent text-theme-accent-text"
                     >
                       <Check className="h-2.5 w-2.5 stroke-[3]" />
                     </span>
@@ -313,7 +311,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'rounded-theme-sm px-2 py-1 text-center text-sm font-extrabold leading-none',
+                      'px-2 py-1 text-center text-sm font-extrabold leading-none',
                       isLight ? 'bg-black/5' : 'bg-black/35'
                     )}
                     style={{ fontFamily: t.fontFamily || 'Montserrat, sans-serif' }}
@@ -367,7 +365,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
               <label
                 key={c.id}
                 htmlFor={c.id}
-                className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-theme-md border border-theme-border-subtle px-2 py-1.5 transition-colors hover:border-theme-border"
+                className="flex min-h-[44px] cursor-pointer items-center gap-2 border border-theme-border-subtle px-2 py-1.5 transition-colors hover:border-theme-border"
               >
                 <input
                   id={c.id}
@@ -376,13 +374,13 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   aria-label={c.aria}
                   value={c.value}
                   onChange={(e) => c.onChange?.(e.target.value)}
-                  className="h-7 w-7 shrink-0 cursor-pointer rounded-theme-sm border border-theme-border-subtle bg-transparent p-0"
+                  className="h-7 w-7 shrink-0 cursor-pointer border border-theme-border-subtle bg-transparent p-0"
                 />
                 <span className="min-w-0">
                   <span className="block truncate text-xs font-semibold text-theme-text">
                     {c.label}
                   </span>
-                  <span className="block font-mono text-[10px] uppercase text-theme-text-muted">
+                  <span className="block tabular-nums text-xs uppercase text-theme-text-muted">
                     {c.value}
                   </span>
                 </span>
@@ -394,7 +392,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <span className={sectionLabel}>Lyric size</span>
-            <span className="font-mono text-xs font-semibold tabular-nums text-theme-text">
+            <span className="tabular-nums text-xs font-semibold text-theme-text">
               {activeScale}x
             </span>
           </div>
@@ -451,24 +449,20 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                 options={backgroundOptions}
               />
               {activeBackgroundOption?.needsArtwork && !hasArtwork && (
-                <p className="text-[11px] leading-snug text-theme-text-muted">
+                <p className="text-xs leading-snug text-theme-text-muted">
                   This song has no cover art, so the stage colour shows instead.
                 </p>
               )}
               {activeBackgroundOption?.moves && (
-                <p className="text-[11px] leading-snug text-theme-text-muted">
+                <p className="text-xs leading-snug text-theme-text-muted">
                   Moves with the song: press play to see it. While paused, the stage shows the
                   video&apos;s frame at that moment.
                 </p>
               )}
             </>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-border-subtle px-2.5 py-2">
-            <span className="flex min-w-0 items-center gap-2 text-xs text-theme-text">
-              <ImageIcon
-                className="h-3.5 w-3.5 shrink-0 text-theme-text-muted"
-                aria-hidden="true"
-              />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-2 text-sm text-theme-text-muted">
               <span className="truncate" title={customBgId || undefined}>
                 {customBgId ? displayBackgroundName(customBgId) : 'No image or video uploaded'}
               </span>
@@ -488,7 +482,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                 disabled={uploadingBg}
                 className={cn(
                   smallButton,
-                  'border border-theme-border-subtle bg-theme-surface-raised text-theme-text hover:border-theme-border'
+                  'border border-theme-border text-theme-text hover:bg-theme-text hover:text-theme-text-inverse'
                 )}
               >
                 {uploadingBg ? (
@@ -506,7 +500,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   title="Remove the uploaded image or video"
                   className={cn(
                     smallButton,
-                    'min-w-[44px] justify-center text-theme-text-muted hover:bg-theme-danger/10 hover:text-theme-danger md:min-w-[32px]'
+                    'min-w-[44px] justify-center text-theme-text-muted hover:text-theme-danger md:min-w-[32px]'
                   )}
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -514,7 +508,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
               )}
             </span>
           </div>
-          <p className="text-[11px] leading-snug text-theme-text-muted">
+          <p className="text-xs leading-snug text-theme-text-muted">
             Image or looping video (MP4/WebM) shown behind the lyrics in the preview and export.
           </p>
         </div>

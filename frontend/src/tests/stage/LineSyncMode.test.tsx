@@ -648,7 +648,7 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
         />
       );
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(onStartRender).toHaveBeenCalledWith({

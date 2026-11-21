@@ -1,55 +1,15 @@
 <!doctype html>
-<html lang="en" data-theme="afterglow">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0b12" />
+    <meta name="theme-color" content="#000000" />
     <meta name="application-name" content="Karaoke Studio" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Karaoke" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <!-- Above the theme script, which points it at the chosen theme's colours -->
     <link rel="manifest" href="/manifest.json" />
-    <!-- Zero-FOUC Blocking Pre-Render Theme Initialization Script -->
-    <script>
-      (function () {
-        try {
-          var validThemes = [
-            'afterglow',
-            'punk_diy',
-            'tape_studio_70s',
-            'dive_bar_crt',
-            'clean_paper',
-          ];
-          var themeColors = {
-            afterglow: '#0b0b12',
-            punk_diy: '#0d0d0f',
-            tape_studio_70s: '#1a1410',
-            dive_bar_crt: '#09080f',
-            clean_paper: '#f4f4f0',
-          };
-          var saved = localStorage.getItem('karaoke_app_theme');
-          var activeTheme = saved && validThemes.indexOf(saved) !== -1 ? saved : 'afterglow';
-          document.documentElement.setAttribute('data-theme', activeTheme);
-          var metaThemeColor = document.querySelector('meta[name="theme-color"]');
-          if (metaThemeColor) {
-            metaThemeColor.setAttribute('content', themeColors[activeTheme] || '#0b0b12');
-          }
-          // The installed app's splash screen and the strip under Android's gesture pill
-          // take their colour from the manifest, so it follows the theme too
-          var manifestLink = document.querySelector('link[rel="manifest"]');
-          if (manifestLink && activeTheme !== 'afterglow') {
-            manifestLink.setAttribute(
-              'href',
-              '/manifest.json?bg=' + themeColors[activeTheme].slice(1)
-            );
-          }
-        } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'afterglow');
-        }
-      })();
-    </script>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Karaoke Studio</title>
@@ -68,49 +28,44 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
-    <!-- Boot shell: the header and a quiet outline of the page, painted from this file alone
-         while the app's script loads. React replaces it when it mounts. Colours come from the
-         theme variables in the stylesheet, with the default theme as fallback. Its brand name
-         is set in the theme's heading face, which starts that font file downloading alongside
-         the script, so headings do not flash in a fallback face when the app appears. -->
+    <!-- Boot shell: the top bar and a quiet outline of the home screen, painted from this file
+         alone while the app's script loads. React replaces it when it mounts. Colours come
+         from the token variables in the stylesheet, with the same values as fallback. Its
+         wordmark is set in the display face, which starts that font file downloading alongside
+         the script, so the capitals do not flash in a fallback face when the app appears. -->
     <style>
       .boot-bar {
         display: flex;
         align-items: center;
-        gap: 10px;
         /* Under a see-through status bar (installed app) the bar starts below it, as the
            app's header does */
         box-sizing: content-box;
         height: 3.5rem;
         padding: env(safe-area-inset-top, 0px) 16px 0;
-        border-bottom: 1px solid var(--theme-border-subtle, #26263a);
-        font: 700 1rem/1 var(--theme-font-heading, Sora, Inter, system-ui, sans-serif);
-        letter-spacing: -0.01em;
-      }
-      .boot-mark {
-        width: 32px;
-        height: 32px;
-        border-radius: var(--theme-radius-md, 12px);
-        background: var(--theme-gradient-accent, linear-gradient(135deg, #7c3aed, #db2777));
+        border-bottom: 2px solid var(--theme-border, #f2eee3);
+        font: 900 1.625rem/1
+          var(--theme-font-display, 'Sofia Sans Extra Condensed', 'Arial Narrow', sans-serif);
+        letter-spacing: 0.005em;
+        text-transform: uppercase;
       }
       .boot-page {
         display: grid;
-        gap: 32px;
-        max-width: 72rem;
+        gap: 20px;
+        max-width: 96rem;
         margin: 0 auto;
-        padding: 40px 16px;
+        padding: 20px 16px;
       }
+      /* The headline, then the search field */
       .boot-block {
-        border-radius: var(--theme-radius-xl, 24px);
-        background: var(--theme-surface, #14141f);
-        border: 1px solid var(--theme-border-subtle, #26263a);
+        background: var(--theme-surface-subtle, #141413);
         animation: boot-pulse 1.4s ease-in-out infinite alternate;
       }
       .boot-block.a {
-        height: 20rem;
+        height: 26vw;
+        max-height: 22rem;
       }
       .boot-block.b {
-        height: 14rem;
+        height: 4.25rem;
       }
       @keyframes boot-pulse {
         from {
@@ -120,18 +75,14 @@
           opacity: 0.9;
         }
       }
-      @media (min-width: 1024px) {
+      @media (min-width: 640px) {
         .boot-bar {
-          padding: env(safe-area-inset-top, 0px) 24px 0;
+          padding: env(safe-area-inset-top, 0px) 32px 0;
+          font-size: 1.875rem;
         }
         .boot-page {
-          grid-template-columns: 1.05fr 0.95fr;
-          gap: 48px;
-          padding: 64px 32px;
-        }
-        .boot-block.a,
-        .boot-block.b {
-          height: 22rem;
+          gap: 32px;
+          padding: 32px;
         }
       }
       @media (prefers-reduced-motion: reduce) {
@@ -152,7 +103,7 @@
   >
     <div id="root">
       <div aria-hidden="true">
-        <div class="boot-bar"><span class="boot-mark"></span>Karaoke Studio</div>
+        <div class="boot-bar">Karaoke Studio</div>
         <div class="boot-page">
           <div class="boot-block a"></div>
           <div class="boot-block b"></div>

@@ -1,11 +1,9 @@
 import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, fireEvent, renderHook } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { THEMES, VisualThemePicker } from '../../components/VisualThemePicker';
-import { useVisualTheme, cssToAssColor } from '../../hooks/useVisualTheme';
-import { AppThemeProvider, useAppTheme } from '../../context/AppThemeContext';
 import { LyricDisplay } from '../../components/LyricDisplay';
 import { ExportModal } from '../../components/ExportModal';
 import { StudioModals } from '../../components/StudioModals';
@@ -52,10 +50,9 @@ const mockProject: ProjectState = {
   guide_volume: 0,
 };
 
-describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
+describe('Milestone 3: Stage Presets', () => {
   beforeEach(() => {
     localStorage.clear();
-    document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-stage-preset');
     vi.restoreAllMocks();
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
@@ -157,163 +154,6 @@ describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
     });
   });
 
-  describe('Reactive Synchronization with useAppTheme()', () => {
-    it('initializes to punk_diy when mounted inside AppThemeProvider', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="punk_diy">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(() => useVisualTheme(), { wrapper });
-      expect(result.current.selectedTheme.id).toBe('punk_diy');
-      expect(result.current.activeSungColor).toBe('#facc15');
-      expect(result.current.activeUnsungColor).toBe('#f5f5f5');
-    });
-
-    it('reactively updates selectedTheme when app theme changes across all 4 themes', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="punk_diy">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(
-        () => {
-          const app = useAppTheme();
-          const visual = useVisualTheme();
-          return { app, visual };
-        },
-        { wrapper }
-      );
-
-      expect(result.current.visual.selectedTheme.id).toBe('punk_diy');
-
-      // Switch to Analog 70s Studio
-      act(() => {
-        result.current.app.setThemeId('tape_studio_70s');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('tape_70s');
-      expect(result.current.visual.activeSungColor).toBe('#f59e0b');
-      expect(result.current.visual.activeUnsungColor).toBe('#fef3c7');
-
-      // Switch to Dive Bar CRT KTV
-      act(() => {
-        result.current.app.setThemeId('dive_bar_crt');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('crt_ktv');
-      expect(result.current.visual.activeSungColor).toBe('#22c55e');
-      expect(result.current.visual.activeUnsungColor).toBe('#86efac');
-
-      // Switch to Clean Paper Studio
-      act(() => {
-        result.current.app.setThemeId('clean_paper');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('clean_paper');
-      expect(result.current.visual.activeSungColor).toBe('#dc2626');
-      expect(result.current.visual.activeUnsungColor).toBe('#111111');
-
-      // Switch back to Punk DIY
-      act(() => {
-        result.current.app.setThemeId('punk_diy');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('punk_diy');
-      expect(result.current.visual.activeSungColor).toBe('#facc15');
-      expect(result.current.visual.activeUnsungColor).toBe('#f5f5f5');
-    });
-
-    it('strictly preserves customSungColor and customUnsungColor across app theme switches', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="punk_diy">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(
-        () => {
-          const app = useAppTheme();
-          const visual = useVisualTheme();
-          return { app, visual };
-        },
-        { wrapper }
-      );
-
-      // User customizes colors
-      act(() => {
-        result.current.visual.setCustomSungColor('#ff0099');
-        result.current.visual.setCustomUnsungColor('#00ffff');
-      });
-
-      expect(result.current.visual.customSungColor).toBe('#ff0099');
-      expect(result.current.visual.customUnsungColor).toBe('#00ffff');
-      expect(result.current.visual.activeSungColor).toBe('#ff0099');
-      expect(result.current.visual.activeUnsungColor).toBe('#00ffff');
-
-      // Switch app theme to Analog 70s Studio
-      act(() => {
-        result.current.app.setThemeId('tape_studio_70s');
-      });
-
-      // selectedTheme updated, but custom color overrides are intact
-      expect(result.current.visual.selectedTheme.id).toBe('tape_70s');
-      expect(result.current.visual.customSungColor).toBe('#ff0099');
-      expect(result.current.visual.customUnsungColor).toBe('#00ffff');
-      expect(result.current.visual.activeSungColor).toBe('#ff0099');
-      expect(result.current.visual.activeUnsungColor).toBe('#00ffff');
-      expect(result.current.visual.effectiveTheme.primary_color).toBe(cssToAssColor('#ff0099'));
-      expect(result.current.visual.effectiveTheme.secondary_color).toBe(cssToAssColor('#00ffff'));
-
-      // Switch app theme to CRT KTV
-      act(() => {
-        result.current.app.setThemeId('dive_bar_crt');
-      });
-      expect(result.current.visual.selectedTheme.id).toBe('crt_ktv');
-      expect(result.current.visual.activeSungColor).toBe('#ff0099');
-      expect(result.current.visual.activeUnsungColor).toBe('#00ffff');
-
-      // Reset to defaults reveals CRT KTV defaults
-      act(() => {
-        result.current.visual.resetThemeDefaults();
-      });
-      expect(result.current.visual.customSungColor).toBeNull();
-      expect(result.current.visual.customUnsungColor).toBeNull();
-      expect(result.current.visual.activeSungColor).toBe('#22c55e');
-      expect(result.current.visual.activeUnsungColor).toBe('#86efac');
-    });
-
-    it('preserves single-channel override (only sung color overridden, unsung adopts preset)', () => {
-      const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-        <AppThemeProvider initialThemeId="punk_diy">{children}</AppThemeProvider>
-      );
-
-      const { result } = renderHook(
-        () => {
-          const app = useAppTheme();
-          const visual = useVisualTheme();
-          return { app, visual };
-        },
-        { wrapper }
-      );
-
-      act(() => {
-        result.current.visual.setCustomSungColor('#e11d48');
-      });
-
-      expect(result.current.visual.activeSungColor).toBe('#e11d48');
-      expect(result.current.visual.activeUnsungColor).toBe('#f5f5f5'); // Punk unsung
-
-      act(() => {
-        result.current.app.setThemeId('tape_studio_70s');
-      });
-
-      // Sung remains custom, unsung updates to tape_70s default (#fef3c7)
-      expect(result.current.visual.activeSungColor).toBe('#e11d48');
-      expect(result.current.visual.activeUnsungColor).toBe('#fef3c7');
-    });
-
-    it('maintains backwards compatibility when used without AppThemeProvider', () => {
-      // In isolated environments without provider, defaults to modern_gold
-      const { result } = renderHook(() => useVisualTheme());
-      expect(result.current.selectedTheme.id).toBe('modern_gold');
-      expect(result.current.activeSungColor).toBe('#fbbf24');
-      expect(result.current.activeUnsungColor).toBe('#ffffff');
-    });
-  });
-
   describe('VisualThemePicker UI Component Rendering', () => {
     it('renders all 8 stage preset cards with accessible names and selection states', () => {
       const onSelectTheme = vi.fn();
@@ -404,7 +244,7 @@ describe('Milestone 3: Stage Presets & Reactive App Theme Sync', () => {
         />
       );
 
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       await user.click(renderBtn);
 
       expect(apiFetchSpy).toHaveBeenCalledWith(

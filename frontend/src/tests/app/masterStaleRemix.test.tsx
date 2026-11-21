@@ -144,7 +144,7 @@ describe('a mix that follows the singers` lines', () => {
     await openStudio();
 
     fireEvent.click(screen.getByTestId('studio-export-btn'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Start video render' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Render 1080p Video' }));
 
     await waitFor(() => expect(requests.some((r) => r.url.endsWith('/render'))).toBe(true));
     const body = requests.find((r) => r.url.endsWith('/render'))!.body;
@@ -157,7 +157,7 @@ describe('a mix that follows the singers` lines', () => {
 
     await openStudio();
     fireEvent.click(screen.getByTestId('studio-export-btn'));
-    fireEvent.click(await screen.findByRole('button', { name: 'Start video render' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Render 1080p Video' }));
 
     await waitFor(() => expect(requests.some((r) => r.url.endsWith('/render'))).toBe(true));
     expect(requests.find((r) => r.url.endsWith('/render'))!.body).not.toHaveProperty(

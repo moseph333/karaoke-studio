@@ -621,7 +621,7 @@ describe('Tooltip Accessibility Semantics & Control Coverage', () => {
         fireEvent.blur(assBtn);
 
         // Render 1080p Video button
-        const renderBtn = screen.getByRole('button', { name: 'Start video render' });
+        const renderBtn = screen.getByRole('button', { name: 'Render 1080p Video' });
         fireEvent.focus(renderBtn);
         tooltip = screen.getByRole('tooltip');
         expect(tooltip).toHaveTextContent('Render 1080p60 MP4 video');
@@ -708,7 +708,9 @@ describe('Tooltip Accessibility Semantics & Control Coverage', () => {
         act(() => {
           vi.advanceTimersByTime(200);
         });
-        expect(screen.getByRole('tooltip')).toHaveTextContent(/synchroniz/i);
+        expect(screen.getByRole('tooltip')).toHaveTextContent(
+          /Timed word by word|Timed line by line/
+        );
         fireEvent.mouseLeave(badge);
       });
 

@@ -5,7 +5,7 @@
  * state transitions, active studio dashboard, global keyboard shortcuts, and dialog modals.
  */
 
-import React, { Suspense, useState, useEffect, useCallback, useContext, useRef } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { TrackSearch } from './components/TrackSearch';
 import { StudioHeader } from './components/StudioHeader';
 import { ProcessingView } from './components/ProcessingView';
@@ -45,7 +45,6 @@ import { useStudioCommands } from './hooks/useStudioCommands';
 import { useWaveformPeaksState } from './hooks/useWaveformPeaks';
 import { isGeneratedStyle } from './theme/stageBackgrounds';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
-import { AppThemeProvider, AppThemeContext, useAppTheme } from './context/AppThemeContext';
 import { cn } from './utils/cn';
 import { hasVocalLevels } from './utils/vocalLevels';
 import { focusQuietly } from './utils/focusIntent';
@@ -66,7 +65,6 @@ export const AppContent: React.FC = () => {
   useUpdatePrompt();
   useServerUpdatePrompt();
   useUpdateDrainNotice();
-  useAppTheme();
   const { project, setProject, isReconnecting, retryPolling } = useProjectPolling(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isLyricsDirty, setIsLyricsDirty] = useState(false);
@@ -575,7 +573,7 @@ export const AppContent: React.FC = () => {
       <div
         className={cn(
           'min-h-screen bg-theme-bg text-theme-text flex flex-col font-theme-body',
-          // Landscape phones: keep content out of the notch and rounded corners
+          // Landscape phones: keep content out of the notch and corners
           'pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]',
           isStudioReady && 'studio:h-[100dvh] studio:overflow-hidden'
         )}
@@ -608,7 +606,7 @@ export const AppContent: React.FC = () => {
               isStudioReady
                 ? 'max-w-screen-2xl pb-[calc(var(--dock-height,8.5rem)+1rem)] md:pb-0 studio:min-h-0'
                 : cn(
-                    'max-w-7xl px-3 sm:px-4 pt-4 sm:pt-8',
+                    'max-w-screen-2xl px-4 sm:px-8 pt-5 sm:pt-8',
                     // Where the page draws under the gesture bar or home indicator, the last
                     // card stays clear of it
                     'pb-[calc(1rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(2rem+env(safe-area-inset-bottom,0px))]'
@@ -783,14 +781,10 @@ export const AppContent: React.FC = () => {
   );
 };
 
-export const App: React.FC = () => {
-  const existingContext = useContext(AppThemeContext);
-  const content = (
-    <CommandPaletteProvider>
-      <AppContent />
-    </CommandPaletteProvider>
-  );
-  return existingContext ? content : <AppThemeProvider>{content}</AppThemeProvider>;
-};
+export const App: React.FC = () => (
+  <CommandPaletteProvider>
+    <AppContent />
+  </CommandPaletteProvider>
+);
 
 export default App;

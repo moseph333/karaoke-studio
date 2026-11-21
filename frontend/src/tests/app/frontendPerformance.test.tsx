@@ -160,7 +160,7 @@ describe('timers that only re-render what they label', () => {
     expect(result.current).toBe(1_003_000);
   });
 
-  it('the processing heartbeat counts up between polls', () => {
+  it('the processing screen notices a quiet server between polls', () => {
     vi.setSystemTime(2_000_000);
     render(
       <ProcessingView
@@ -169,13 +169,16 @@ describe('timers that only re-render what they label', () => {
         onResetProject={() => {}}
       />
     );
-    expect(screen.getByText(/Pulse 3s ago/)).toBeInTheDocument();
+    // Three seconds without word is normal, so nothing is said
+    expect(screen.queryByTestId('processing-server-quiet')).toBeNull();
 
     act(() => {
-      vi.advanceTimersByTime(4000);
+      vi.advanceTimersByTime(13000);
     });
 
-    expect(screen.getByText(/Pulse 7s ago/)).toBeInTheDocument();
+    expect(screen.getByTestId('processing-server-quiet')).toHaveTextContent(
+      'No update from the server for a while'
+    );
   });
 });
 

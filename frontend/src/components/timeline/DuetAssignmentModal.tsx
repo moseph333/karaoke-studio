@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Shuffle, Sliders, Sparkles, Check, AudioLines } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { LyricLine, SingerRole, BulkAssignOptions, VoicePartsReport } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
@@ -15,7 +15,6 @@ import { Button } from '../ui/Button';
 import { SegmentedControl, type SegmentedOption } from '../ui/SegmentedControl';
 import { Tabs } from '../ui/Tabs';
 import { SINGER_CONFIG } from '../stage/singers';
-import { cn } from '../../utils/cn';
 
 export type { BulkAssignOptions };
 
@@ -29,16 +28,10 @@ const singerOption = (role: SingerRole, label: string): SegmentedOption<SingerRo
   return { value: role, label, icon: <Icon className="h-3.5 w-3.5" aria-hidden="true" /> };
 };
 
-const PREVIEW_TONES: Record<SingerRole, string> = {
-  singer1: 'border-theme-sung/35 bg-theme-sung/10 [&_svg]:text-theme-sung',
-  singer2: 'border-theme-secondary/40 bg-theme-secondary/10 [&_svg]:text-theme-secondary',
-  both: 'border-theme-success/35 bg-theme-success/10 [&_svg]:text-theme-success',
-};
-
-const groupLabel = 'text-xs font-semibold text-theme-text';
+const groupLabel = 'text-sm font-semibold text-theme-text';
 
 const numberInput =
-  'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3 py-2 text-base tabular-nums text-theme-text focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
+  'w-full min-h-[44px] border border-theme-border bg-transparent px-3 py-2 text-base tabular-nums text-theme-text focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-focus sm:text-sm';
 
 /**
  * A line number typed as a draft. A value inside the range applies as it is typed, so the
@@ -285,11 +278,10 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
       showDragHandle
     >
       <DialogHeader
-        title="Duet & Multi-Singer Assignment"
+        title="Duet parts"
         titleId="duet-assign-title"
         description="Assign lines to Singer 1, Singer 2, or Both"
         descriptionId="duet-assign-desc"
-        icon={<Users className="h-5 w-5" />}
         onClose={onClose}
       />
 
@@ -297,25 +289,21 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
         ariaLabel="Assignment mode"
         value={mode}
         onChange={setMode}
-        fullWidth
         getTabId={(id) => `duet-mode-${id}`}
         items={[
           {
             id: 'alternating',
             label: 'Alternating',
-            icon: <Shuffle className="h-3.5 w-3.5" aria-hidden="true" />,
             controls: 'duet-mode-panel',
           },
           {
             id: 'range',
             label: 'Range',
-            icon: <Sliders className="h-3.5 w-3.5" aria-hidden="true" />,
             controls: 'duet-mode-panel',
           },
           {
             id: 'auto',
-            label: 'Auto-Suggest',
-            icon: <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />,
+            label: 'By pauses',
             controls: 'duet-mode-panel',
           },
           ...(projectId
@@ -323,13 +311,11 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                 {
                   id: 'voice' as const,
                   label: 'By Voice',
-                  icon: <AudioLines className="h-3.5 w-3.5" aria-hidden="true" />,
                   controls: 'duet-mode-panel',
                 },
               ]
             : []),
         ]}
-        tabClassName="text-xs"
       />
 
       <form onSubmit={handleSubmit} className="mt-4">
@@ -342,7 +328,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
           {mode === 'alternating' && (
             <>
               <div className="space-y-1.5">
-                <span className={groupLabel}>Alternation Pattern</span>
+                <span className={groupLabel}>Pattern</span>
                 <SegmentedControl<'1x1' | '2x2'>
                   ariaLabel="Alternation pattern"
                   value={pattern}
@@ -357,7 +343,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                 />
               </div>
               <div className="space-y-1.5">
-                <span className={groupLabel}>Starting Singer</span>
+                <span className={groupLabel}>Starts with</span>
                 <SegmentedControl<SingerRole>
                   ariaLabel="Starting singer"
                   value={startSinger}
@@ -448,21 +434,17 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
 
           {mode === 'auto' && (
             <>
-              <div className="rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs leading-relaxed text-theme-text-muted">
-                <span className="font-semibold text-theme-highlight">
-                  Intelligent Pause Clustering:
-                </span>{' '}
-                Detects non-vocal gaps between lyric lines (&ge; {pauseThreshold.toFixed(1)}s) to
-                infer natural verse/chorus conversational turns, while assigning overlapping phrases
-                to Both.
+              <div className="text-sm leading-relaxed text-theme-text-muted">
+                The singer changes at each pause of {pauseThreshold.toFixed(1)}s or more between
+                lines. Lines that overlap go to Both.
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label htmlFor="pause-threshold-input" className={groupLabel}>
-                    Inter-Line Pause Threshold
+                    Pause between lines
                   </label>
-                  <span className="font-mono text-xs font-bold tabular-nums text-theme-highlight">
+                  <span className="tabular-nums text-xs font-bold text-theme-text">
                     {pauseThreshold.toFixed(1)}s
                   </span>
                 </div>
@@ -477,7 +459,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                   className="ks-range min-h-[44px]"
                   style={{ '--ks-range-fill': `${thresholdPct}%` } as React.CSSProperties}
                 />
-                <div className="flex justify-between font-mono text-[10px] text-theme-text-muted">
+                <div className="flex justify-between tabular-nums text-xs text-theme-text-muted">
                   <span>1.5s (frequent turns)</span>
                   <span>2.5s (standard)</span>
                   <span>5.0s (stanza breaks only)</span>
@@ -505,7 +487,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
             <div
               data-testid="duet-voice-status"
               role="status"
-              className="rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs leading-relaxed text-theme-text-muted"
+              className="text-sm leading-relaxed text-theme-text-muted"
             >
               {voiceLoading ? (
                 'Listening to the vocal stem for separate voices…'
@@ -513,8 +495,8 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                 <span className="text-theme-warning">{voiceError}</span>
               ) : voice?.detected ? (
                 <>
-                  <span className="font-semibold text-theme-highlight">Two voices found.</span> The
-                  voice that sings most stays Singer 1; {voice.lines_singer2}{' '}
+                  <span className="font-semibold text-theme-text">Two voices found.</span> The voice
+                  that sings most stays Singer 1; {voice.lines_singer2}{' '}
                   {voice.lines_singer2 === 1 ? 'line goes' : 'lines go'} to Singer 2, judged by
                   pitch and tone.
                 </>
@@ -531,15 +513,15 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
 
         <div
           data-testid="duet-preview-summary"
-          className="mt-4 space-y-2 rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs"
+          className="mt-5 space-y-1 border-t border-theme-border-subtle pt-3 text-sm"
         >
           <div className="flex items-center justify-between font-semibold text-theme-text">
-            <span>Assignment Preview:</span>
-            <span className="font-mono text-[11px] text-theme-text-muted">
+            <span>Preview</span>
+            <span className="tabular-nums text-sm font-normal text-theme-text-muted">
               {lines.length} lines total
             </span>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-4">
             {(
               [
                 ['singer1', 'Singer 1', preview.s1, preview.s1Pct],
@@ -549,17 +531,16 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
             ).map(([role, label, count, pct]) => {
               const Icon = SINGER_CONFIG[role].Icon;
               return (
-                <div
-                  key={role}
-                  className={cn('rounded-theme-md border p-2 text-center', PREVIEW_TONES[role])}
-                >
-                  <div className="flex items-center justify-center gap-1 text-[10px] font-semibold text-theme-text-muted">
-                    <Icon className="h-3 w-3" aria-hidden="true" />
+                <div key={role} data-role={role}>
+                  <div className="flex items-center gap-1.5 text-sm text-theme-text-muted">
+                    <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                     {label}
                   </div>
-                  <div className="text-sm font-bold tabular-nums text-theme-text">
+                  <div className="ks-display text-[28px] tabular-nums text-theme-text">
                     {count}{' '}
-                    <span className="text-[10px] font-medium text-theme-text-muted">({pct}%)</span>
+                    <span className="font-theme-body text-sm font-normal normal-case text-theme-text-muted">
+                      ({pct}%)
+                    </span>
                   </div>
                 </div>
               );
@@ -573,7 +554,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
           </Button>
           <Button
             type="submit"
-            variant="gradient"
+            variant="primary"
             fullWidth="mobile"
             disabled={lines.length === 0 || (mode === 'voice' && !voice?.detected)}
             data-testid="apply-duet-btn"

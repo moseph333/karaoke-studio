@@ -22,13 +22,13 @@ import { formatTime } from '../../utils/format';
 export const INITIAL_SONGS = 5;
 
 const VERSION_LABELS: Record<string, { label: string; tone: BadgeTone }> = {
-  live: { label: 'Live', tone: 'info' },
-  remix: { label: 'Remix', tone: 'info' },
-  acoustic: { label: 'Acoustic', tone: 'info' },
-  cover: { label: 'Cover', tone: 'info' },
-  demo: { label: 'Demo', tone: 'info' },
-  altered: { label: 'Altered', tone: 'info' },
-  extended: { label: 'Extended', tone: 'info' },
+  live: { label: 'Live', tone: 'neutral' },
+  remix: { label: 'Remix', tone: 'neutral' },
+  acoustic: { label: 'Acoustic', tone: 'neutral' },
+  cover: { label: 'Cover', tone: 'neutral' },
+  demo: { label: 'Demo', tone: 'neutral' },
+  altered: { label: 'Altered', tone: 'neutral' },
+  extended: { label: 'Extended', tone: 'neutral' },
   // Nothing sung to time the lyrics to
   karaoke: { label: 'Karaoke track', tone: 'warning' },
   instrumental: { label: 'Instrumental', tone: 'warning' },
@@ -70,8 +70,7 @@ const ResultRow: React.FC<ResultRowProps> = ({ result, kind, disabled, preview, 
   const previewing = preview.activeId === result.id;
   const previewFailed = preview.failedIds.has(result.id);
   const details = [result.artist, result.album, result.year].filter(Boolean).join(' · ');
-  const artClass =
-    kind === 'song' ? 'h-12 w-12 rounded-theme-sm' : 'h-11 w-16 rounded-theme-sm sm:h-12 sm:w-20';
+  const artClass = kind === 'song' ? 'h-12 w-12' : 'h-11 w-16 sm:h-12 sm:w-20';
   const art = result.thumbnail ? (
     <img
       src={result.thumbnail}
@@ -95,10 +94,8 @@ const ResultRow: React.FC<ResultRowProps> = ({ result, kind, disabled, preview, 
         if (!disabled) onPick(result);
       }}
       className={cn(
-        'group flex items-center gap-2.5 rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60 p-2 transition-colors sm:gap-3 sm:p-2.5',
-        disabled
-          ? 'cursor-progress opacity-60'
-          : 'cursor-pointer hover:border-theme-border hover:bg-theme-surface-subtle'
+        'group flex items-center gap-3 border-b border-theme-border-subtle py-2 transition-colors',
+        disabled ? 'cursor-progress opacity-60' : 'cursor-pointer hover:bg-theme-surface-subtle'
       )}
     >
       {result.preview ? (
@@ -119,7 +116,7 @@ const ResultRow: React.FC<ResultRowProps> = ({ result, kind, disabled, preview, 
           title={
             previewFailed ? 'This preview would not play. Try again' : 'Play a 30-second preview'
           }
-          className={cn('relative shrink-0 overflow-hidden rounded-theme-sm', focusRing)}
+          className={cn('relative shrink-0 overflow-hidden', focusRing)}
         >
           {art}
           {/* Always shown, so the artwork reads as playable without a pointer to hover: a
@@ -135,7 +132,7 @@ const ResultRow: React.FC<ResultRowProps> = ({ result, kind, disabled, preview, 
           >
             <span
               className={cn(
-                'flex items-center justify-center rounded-theme-pill bg-theme-accent text-theme-accent-text shadow-theme-sm',
+                'flex items-center justify-center bg-theme-accent text-theme-accent-text',
                 previewing || previewFailed ? 'h-7 w-7' : 'h-5 w-5'
               )}
             >
@@ -156,11 +153,11 @@ const ResultRow: React.FC<ResultRowProps> = ({ result, kind, disabled, preview, 
       )}
 
       <div className="min-w-0 flex-1 truncate">
-        <h3 className="truncate font-theme-heading text-sm font-semibold text-theme-text transition-colors group-hover:text-theme-highlight">
+        <h3 className="ks-display truncate text-[24px] text-theme-text sm:text-[28px]">
           {result.title}
         </h3>
         {/* The length stays whole when the names are cut short: it tells versions apart */}
-        <p className="mt-0.5 flex min-w-0 text-xs text-theme-text-muted">
+        <p className="mt-0.5 flex min-w-0 text-sm text-theme-text-muted">
           <span className="truncate">{details}</span>
           {result.duration ? (
             <span className="shrink-0 whitespace-pre">
@@ -170,7 +167,7 @@ const ResultRow: React.FC<ResultRowProps> = ({ result, kind, disabled, preview, 
           ) : null}
         </p>
         {(inLibrary || result.explicit || (result.versions?.length ?? 0) > 0) && (
-          <div className="mt-1 flex flex-wrap gap-1">
+          <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
             {inLibrary && (
               <Badge tone={beingMade ? 'accent' : 'success'}>
                 {beingMade ? 'Being made' : 'In your library'}
@@ -195,10 +192,11 @@ const ResultRow: React.FC<ResultRowProps> = ({ result, kind, disabled, preview, 
         disabled={disabled}
         aria-label={`${inLibrary ? 'Open' : 'Create Karaoke'}: ${name}`}
         className={cn(
-          'flex min-h-[44px] shrink-0 items-center justify-center rounded-theme-md border px-3 font-theme-heading text-xs font-semibold transition-colors sm:px-3.5',
+          'ks-display flex min-h-[44px] shrink-0 items-center justify-center border border-theme-border px-3 text-[20px] text-theme-text transition-colors sm:px-3.5',
+          // The action of the row under the pointer lights up; opening a song inverts instead
           inLibrary
-            ? 'border-theme-border bg-theme-surface-raised text-theme-text group-hover:border-theme-accent/60'
-            : 'border-theme-accent/40 bg-theme-accent/15 text-theme-highlight group-hover:border-transparent group-hover:bg-gradient-accent group-hover:text-theme-accent-text',
+            ? 'group-hover:bg-theme-text group-hover:text-theme-text-inverse'
+            : 'group-hover:border-theme-accent group-hover:bg-theme-accent group-hover:text-theme-accent-text',
           focusRing
         )}
       >
@@ -216,12 +214,9 @@ const ResultRow: React.FC<ResultRowProps> = ({ result, kind, disabled, preview, 
 };
 
 const SkeletonRows: React.FC<{ count: number }> = ({ count }) => (
-  <ul aria-hidden="true" className="space-y-2">
+  <ul aria-hidden="true" className="border-t border-theme-border-subtle">
     {Array.from({ length: count }, (_, i) => (
-      <li
-        key={i}
-        className="flex items-center gap-3 rounded-theme-lg border border-theme-border-subtle p-2.5"
-      >
+      <li key={i} className="flex items-center gap-3 border-b border-theme-border-subtle py-2">
         <Skeleton className="h-12 w-12 shrink-0" />
         <div className="min-w-0 flex-1 space-y-2">
           <Skeleton className="h-3.5 w-2/3" />
@@ -330,7 +325,7 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
             <p
               role="status"
               className={cn(
-                'flex items-center gap-2 text-xs text-theme-text-muted',
+                'flex items-center gap-2 text-sm text-theme-text-muted',
                 quietStatus && 'sr-only'
               )}
             >
@@ -347,7 +342,7 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
             }}
             aria-label="Clear search results"
             className={cn(
-              'flex min-h-[32px] shrink-0 cursor-pointer items-center gap-1 rounded-theme-sm px-2 py-1 text-xs text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text',
+              'flex min-h-[32px] shrink-0 cursor-pointer items-center gap-1 px-2 py-1 text-sm text-theme-text-muted transition-colors hover:text-theme-text',
               focusRing
             )}
           >
@@ -357,13 +352,13 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
         </div>
 
         {phase === 'error' && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-danger/40 bg-theme-danger/10 p-3 text-sm text-theme-danger">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-2 border-theme-danger p-3 text-sm text-theme-danger">
             <span>Search failed. Check the connection and try again.</span>
             <button
               type="button"
               onClick={search.submit}
               className={cn(
-                'flex min-h-[36px] items-center gap-1.5 rounded-theme-md border border-theme-danger/40 px-3 text-xs font-semibold',
+                'ks-display flex min-h-[36px] items-center gap-1.5 border border-theme-danger px-3 text-[20px]',
                 focusRing
               )}
             >
@@ -376,7 +371,7 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
         {firstSearch && <SkeletonRows count={3} />}
 
         {shownSongs.length > 0 && (
-          <ul aria-label="Songs" className="space-y-2">
+          <ul aria-label="Songs" className="border-t border-theme-border-subtle">
             {shownSongs.map((song) => (
               <ResultRow
                 key={song.id}
@@ -395,7 +390,7 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
             type="button"
             onClick={() => setShowAll(true)}
             className={cn(
-              'flex min-h-[44px] w-full items-center justify-center rounded-theme-md border border-theme-border-subtle text-xs font-semibold text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text',
+              'ks-display flex min-h-[44px] w-full items-center justify-center text-[20px] text-theme-text-muted transition-colors hover:text-theme-text',
               focusRing
             )}
           >
@@ -405,8 +400,8 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
 
         {/* YouTube uploads: on request under the songs, or the only results without a catalog */}
         {videosPhase === 'idle' && phase === 'done' && (catalog || songs.length > 0) && (
-          <div className="flex flex-col gap-2 rounded-theme-md bg-theme-surface-subtle/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-            <p className="min-w-0 text-pretty text-xs text-theme-text-muted sm:flex-1">
+          <div className="flex flex-col gap-2 py-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <p className="min-w-0 text-pretty text-sm text-theme-text-muted sm:flex-1">
               {noSongs
                 ? 'It may still be on YouTube.'
                 : 'Looking for another recording, or a song that is not listed?'}
@@ -416,7 +411,7 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
               onClick={search.searchVideos}
               aria-label={`Search YouTube uploads for “${corrected ?? query}”`}
               className={cn(
-                'flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 rounded-theme-md border border-theme-border px-3 text-xs font-semibold text-theme-text transition-colors hover:bg-theme-surface-subtle',
+                'ks-display flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 border border-theme-border px-3 text-[20px] text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse',
                 focusRing
               )}
             >
@@ -430,7 +425,7 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
           <div className="space-y-2">
             <p
               role="status"
-              className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-theme-text-muted"
+              className="ks-display flex items-center gap-2 text-[22px] text-theme-text"
             >
               {videosPhase === 'searching' && <Spinner className="h-3.5 w-3.5" />}
               {videosPhase === 'searching'
@@ -453,7 +448,7 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
                 type="button"
                 onClick={search.searchVideos}
                 className={cn(
-                  'flex min-h-[44px] items-center gap-1.5 rounded-theme-md border border-theme-border px-3 text-xs font-semibold text-theme-text',
+                  'ks-display flex min-h-[44px] items-center gap-1.5 border border-theme-border px-3 text-[20px] text-theme-text',
                   focusRing
                 )}
               >
@@ -462,7 +457,7 @@ export const SongSearchResults = React.forwardRef<HTMLElement, SongSearchResults
               </button>
             )}
             {videos.length > 0 && (
-              <ul aria-label="YouTube uploads" className="space-y-2">
+              <ul aria-label="YouTube uploads" className="border-t border-theme-border-subtle">
                 {videos.map((video) => (
                   <ResultRow
                     key={video.id}

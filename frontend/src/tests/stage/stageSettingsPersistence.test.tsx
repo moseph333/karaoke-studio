@@ -1,6 +1,6 @@
 /**
- * Persisted stage settings: validation of stored data, restore/save in useVisualTheme, the
- * preset-source rules, duet colors, and the Look panel controls that feed them.
+ * Persisted stage settings: validation of stored data, restore/save in useVisualTheme, which
+ * preset a stage starts on, duet colors, and the Look panel controls that feed them.
  */
 
 import React from 'react';
@@ -14,7 +14,6 @@ import {
   sanitizeStageSettings,
 } from '../../theme/stageSettingsStorage';
 import { useVisualTheme } from '../../hooks/useVisualTheme';
-import { AppThemeProvider, useAppTheme } from '../../context/AppThemeContext';
 import { VisualThemePicker } from '../../components/VisualThemePicker';
 import { ExportModal } from '../../components/ExportModal';
 import { DEFAULT_SINGER2_COLOR, getStagePreset } from '../../theme/stagePresets';
@@ -24,12 +23,6 @@ import { ProjectState } from '../../types';
 const stored = () => JSON.parse(localStorage.getItem(STAGE_SETTINGS_STORAGE_KEY) || 'null');
 const seed = (value: unknown) =>
   localStorage.setItem(STAGE_SETTINGS_STORAGE_KEY, JSON.stringify(value));
-
-const withAppTheme =
-  (initialThemeId: 'afterglow' | 'punk_diy' = 'afterglow') =>
-  ({ children }: { children: React.ReactNode }) => (
-    <AppThemeProvider initialThemeId={initialThemeId}>{children}</AppThemeProvider>
-  );
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -61,7 +54,6 @@ describe('sanitizeStageSettings', () => {
     expect(result).toEqual({
       ...DEFAULT_STAGE_SETTINGS,
       presetId: 'neon_pink',
-      presetSource: 'user',
       customSungColor: '#abcdef',
       bothColor: '#0f0f0f',
       syncMode: 'line',
@@ -69,10 +61,14 @@ describe('sanitizeStageSettings', () => {
     });
   });
 
-  it('only honours a user preset that still exists', () => {
-    expect(sanitizeStageSettings({ presetId: 'gone', presetSource: 'user' })).toMatchObject({
-      presetId: null,
-      presetSource: 'app',
+  it('only honours a preset that still exists', () => {
+    expect(sanitizeStageSettings({ presetId: 'gone' }).presetId).toBeNull();
+  });
+
+  it('drops the preset source that older versions stored', () => {
+    expect(sanitizeStageSettings({ presetId: 'neon_pink', presetSource: 'app' })).toEqual({
+      ...DEFAULT_STAGE_SETTINGS,
+      presetId: 'neon_pink',
     });
   });
 
@@ -100,9 +96,7 @@ describe('useVisualTheme persistence', () => {
   });
 
   it('saves every stage setting as it changes', () => {
-    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }), {
-      wrapper: withAppTheme(),
-    });
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }));
     act(() => {
       result.current.setCustomSungColor('#112233');
       result.current.setCustomSinger2Color('#445566');
@@ -116,7 +110,6 @@ describe('useVisualTheme persistence', () => {
     expect(stored()).toMatchObject({
       v: 1,
       presetId: 'afterglow',
-      presetSource: 'app',
       customSungColor: '#112233',
       singer2Color: '#445566',
       fontSizeScale: 1.2,
@@ -138,9 +131,7 @@ describe('useVisualTheme persistence', () => {
       showVisualizer: true,
       stageSize: 'compact',
     });
-    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }), {
-      wrapper: withAppTheme(),
-    });
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }));
     expect(result.current.activeSungColor).toBe('#ff0000');
     expect(result.current.fontSizeScale).toBe(1.5);
     expect(result.current.aspectRatio).toBe('9:16');
@@ -150,33 +141,33 @@ describe('useVisualTheme persistence', () => {
     expect(result.current.stageSize).toBe('compact');
   });
 
-  it('keeps a preset the user picked across reloads', () => {
-    seed({ v: 1, presetId: 'neon_pink', presetSource: 'user' });
-    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }), {
-      wrapper: withAppTheme('afterglow'),
-    });
+  it('starts a first visit on the Afterglow preset', () => {
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }));
+    expect(result.current.selectedTheme.id).toBe('afterglow');
+    expect(result.current.selectedTheme.fontFamily).toContain('Sora');
+    expect(document.documentElement.getAttribute('data-stage-preset')).toBe('afterglow');
+  });
+
+  it('keeps the preset across reloads', () => {
+    seed({ v: 1, presetId: 'neon_pink' });
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }));
     expect(result.current.selectedTheme.id).toBe('neon_pink');
   });
 
-  it('follows the app theme when the saved preset came from it', () => {
-    seed({ v: 1, presetId: 'neon_pink', presetSource: 'app' });
-    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }), {
-      wrapper: withAppTheme('punk_diy'),
-    });
+  it('keeps a preset that a retired app theme had chosen', () => {
+    // Older versions stored presetSource 'app' when the stage followed the app theme, and
+    // dropped that preset on the next visit. The stage and its videos now keep their look.
+    seed({ v: 1, presetId: 'punk_diy', presetSource: 'app' });
+    localStorage.setItem('karaoke_app_theme', 'punk_diy');
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }));
     expect(result.current.selectedTheme.id).toBe('punk_diy');
   });
 
-  it('re-syncs the preset when the app theme changes, even after a user pick', () => {
-    const { result } = renderHook(
-      () => ({ visual: useVisualTheme(undefined, { persist: true }), app: useAppTheme() }),
-      { wrapper: withAppTheme('afterglow') }
-    );
-    act(() => result.current.visual.setSelectedTheme(getStagePreset('neon_pink')!));
-    expect(stored()).toMatchObject({ presetId: 'neon_pink', presetSource: 'user' });
-
-    act(() => result.current.app.setThemeId('punk_diy'));
-    expect(result.current.visual.selectedTheme.id).toBe('punk_diy');
-    expect(stored()).toMatchObject({ presetId: 'punk_diy', presetSource: 'app' });
+  it('saves a newly picked preset', () => {
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }));
+    act(() => result.current.setSelectedTheme(getStagePreset('neon_pink')!));
+    expect(stored()).toMatchObject({ presetId: 'neon_pink' });
+    expect(stored()).not.toHaveProperty('presetSource');
   });
 });
 
@@ -274,7 +265,7 @@ describe('exports carry the stage look', () => {
         backgroundColor="#0b0b12"
       />
     );
-    await user.click(screen.getByRole('button', { name: /start video render/i }));
+    await user.click(screen.getByRole('button', { name: /render 1080p video/i }));
     const body = JSON.parse(spy.mock.calls[0][1]?.body as string);
     expect(body.style_config).toMatchObject({
       theme_id: 'afterglow',
@@ -330,9 +321,7 @@ describe('background style', () => {
   });
 
   it('switches to an upload, keeps it while another style is shown, and saves the style', () => {
-    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }), {
-      wrapper: withAppTheme(),
-    });
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }));
     expect(result.current.backgroundStyle).toBe('artwork');
 
     act(() => result.current.setCustomBgId('ab12cd34_loop.mp4'));
@@ -358,9 +347,7 @@ describe('background style', () => {
 
   it('restores the saved style and builds the palette from the preset', () => {
     seed({ v: 1, backgroundStyle: 'drift', presetId: 'tape_70s', presetSource: 'user' });
-    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }), {
-      wrapper: withAppTheme(),
-    });
+    const { result } = renderHook(() => useVisualTheme(undefined, { persist: true }));
     expect(result.current.backgroundStyle).toBe('drift');
     expect(result.current.backgroundPalette).toEqual(['#f59e0b', '#c44a12', '#fef3c7']);
 

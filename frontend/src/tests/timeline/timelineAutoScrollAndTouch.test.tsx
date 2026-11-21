@@ -94,7 +94,7 @@ describe('Milestone 2 Challenger 2: Adversarial Studio Interaction, Timeline Sta
         name: /jump to word WordA_1 in timeline/i,
       });
       expect(wordChip).toHaveClass('min-h-[34px]');
-      expect(wordChip).toHaveClass('px-2.5');
+      expect(wordChip).toHaveClass('px-1.5');
     });
 
     it('smoothly advances container scrollTop across multiple lines as word highlights advance down long transcript', () => {

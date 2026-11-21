@@ -1,6 +1,6 @@
 /**
  * Empirical Adversarial Test Suite for Milestone 2:
- * UI Adversarial, Keyboard Shortcut Isolation, History Stress & Responsive Touch Targets
+ * UI Adversarial, When shortcuts are off, History Stress & Responsive Touch Targets
  *
  * Scope:
  * 1. Keyboard shortcut 'C' / 'c' isolation:

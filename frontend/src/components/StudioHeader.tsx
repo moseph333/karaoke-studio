@@ -1,17 +1,17 @@
 /**
  * Studio Header Component
  *
- * Sticky top bar: brand, background render status, app theme picker, help, profile,
- * return-to-library (guarded against unsaved edits) and the single Export entry point. Its top
+ * Sticky top bar, drawn as a masthead over a rule: the wordmark, the way back to the
+ * library (guarded against unsaved edits), search, help, profile, background render status
+ * and the single Export entry point, which is the only yellow block in it. Its top
  * padding clears the status bar and notch when the installed app draws under them
  * (viewport-fit=cover with a translucent iOS status bar).
  */
 
 import React from 'react';
-import { Mic2, ArrowLeft, User, HelpCircle, Upload, Search, Download } from 'lucide-react';
+import { ArrowLeft, User, HelpCircle, Upload, Search, Download } from 'lucide-react';
 import { ProjectState } from '../types';
 import { Tooltip } from './Tooltip';
-import { AppThemePicker } from './AppThemePicker';
 import { Spinner } from './ui/Spinner';
 import { Kbd } from './ui/Kbd';
 import { focusRing } from './ui/variants';
@@ -36,7 +36,7 @@ export interface StudioHeaderProps {
 }
 
 const headerButton = cn(
-  'inline-flex min-h-[44px] md:min-h-[36px] items-center gap-1.5 rounded-theme-md border text-xs font-semibold transition-colors',
+  'ks-display inline-flex min-h-[44px] md:min-h-[36px] items-center gap-2 text-[20px] text-theme-text transition-colors hover:text-theme-accent',
   focusRing
 );
 
@@ -72,34 +72,43 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b pt-[env(safe-area-inset-top,0px)] border-theme-border-subtle bg-theme-bg/80 backdrop-blur-xl transition-colors">
-      <div className="mx-auto flex min-h-[3.5rem] w-full max-w-screen-2xl min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 py-1.5 sm:flex-nowrap sm:px-4 lg:px-6">
-        <div className="flex min-w-0 shrink items-center gap-2.5">
+    <header className="sticky top-0 z-40 border-b-2 border-theme-border bg-theme-bg pt-[env(safe-area-inset-top,0px)]">
+      <div className="mx-auto flex min-h-[3.5rem] w-full max-w-screen-2xl min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-1 sm:flex-nowrap sm:px-8">
+        <div className="flex min-w-0 shrink items-center gap-x-5">
           <span
-            aria-hidden="true"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-theme-md bg-gradient-accent text-theme-accent-text shadow-theme-glow"
-          >
-            <Mic2 className="h-4 w-4 stroke-[2.5]" />
-          </span>
-          <span
+            data-testid="brand-wordmark"
             className={cn(
-              'truncate font-theme-heading text-sm font-bold tracking-tight text-theme-text sm:text-base',
+              'ks-display truncate text-[26px] font-black text-theme-text sm:text-[30px]',
               project && 'hidden sm:block'
             )}
           >
             Karaoke Studio
           </span>
+
+          {project && (
+            <Tooltip content="Return to song search" position="bottom">
+              <button
+                type="button"
+                onClick={handleNewSongClick}
+                className={cn(headerButton, 'min-w-[44px] justify-center sm:justify-start')}
+                aria-label="New Song"
+              >
+                <ArrowLeft className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span className="hidden sm:inline">New Song</span>
+              </button>
+            </Tooltip>
+          )}
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1 sm:flex-nowrap sm:gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-1 sm:flex-nowrap sm:gap-x-4">
           {/* Background render status (hidden while the export dialog shows progress) */}
           {isRendering && !isExportModalOpen && (
             <div
               data-testid="header-render-progress"
-              className="flex items-center gap-2 rounded-theme-pill border border-theme-accent/40 bg-theme-accent/10 py-1 pl-2.5 pr-1 text-xs font-medium text-theme-highlight"
+              className="flex items-center gap-2 text-sm font-semibold text-theme-accent"
             >
-              <Spinner className="h-3.5 w-3.5" />
-              <span className="font-mono text-[11px] font-semibold tabular-nums">
+              <Spinner className="h-4 w-4" />
+              <span className="tabular-nums">
                 <span className="sr-only sm:not-sr-only">Rendering Video: </span>
                 {Math.round(project?.render_progress || 0)}%
               </span>
@@ -108,7 +117,7 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
                 data-testid="header-reopen-export-modal"
                 onClick={onOpenExportModal || onStartRender}
                 className={cn(
-                  'min-h-[36px] rounded-theme-pill bg-theme-accent/20 px-2.5 text-[11px] font-bold text-theme-text transition-colors hover:bg-theme-accent/30',
+                  'min-h-[36px] px-1 text-sm font-semibold text-theme-text underline underline-offset-4',
                   focusRing
                 )}
                 aria-label="View background video rendering progress"
@@ -128,15 +137,10 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
                 type="button"
                 onClick={palette.open}
                 aria-label={`Open command palette (${paletteHotkey})`}
-                className={cn(
-                  headerButton,
-                  'min-w-[44px] justify-center border-theme-border-subtle bg-theme-surface/60 px-2 text-theme-text-muted hover:border-theme-border hover:text-theme-text md:min-w-[36px] lg:min-w-[190px] lg:justify-between lg:px-2.5'
-                )}
+                className={cn(headerButton, 'min-w-[44px] justify-center')}
               >
-                <span className="flex items-center gap-2">
-                  <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span className="hidden font-medium lg:inline">Search…</span>
-                </span>
+                <Search className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <span className="hidden lg:inline">Search</span>
                 <Kbd keys={['Mod', 'K']} className="hidden lg:inline-flex" />
               </button>
             </Tooltip>
@@ -148,31 +152,23 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
                 type="button"
                 data-testid="install-app-btn"
                 onClick={onInstallApp}
-                className={cn(
-                  headerButton,
-                  'min-w-[44px] justify-center border-theme-border-subtle bg-theme-surface/60 px-2 text-theme-text-muted hover:border-theme-border hover:text-theme-text md:min-w-[36px] sm:px-2.5'
-                )}
+                className={cn(headerButton, 'min-w-[44px] justify-center')}
                 aria-label="Install app"
               >
-                <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <Download className="h-5 w-5 shrink-0" aria-hidden="true" />
                 <span className="hidden sm:inline">Install</span>
               </button>
             </Tooltip>
           )}
 
-          <AppThemePicker />
-
           <Tooltip content="Help & Studio Guide" hotkey="?" position="bottom">
             <button
               type="button"
               onClick={onOpenHelp}
-              className={cn(
-                headerButton,
-                'min-w-[44px] justify-center border-transparent px-2 text-theme-text-muted hover:bg-theme-surface-subtle hover:text-theme-text md:min-w-[36px]'
-              )}
-              aria-label="Help and Studio Usage Guide (?)"
+              className={cn(headerButton, 'min-w-[44px] justify-center')}
+              aria-label="Help and studio usage guide (?)"
             >
-              <HelpCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <HelpCircle className="h-5 w-5 shrink-0" aria-hidden="true" />
               <span className="hidden lg:inline">Help</span>
               <Kbd keys="?" className="hidden lg:inline-flex" />
             </button>
@@ -182,40 +178,13 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
             <button
               type="button"
               onClick={onOpenAuth}
-              className={cn(
-                headerButton,
-                'min-w-[44px] justify-center border-transparent px-2 text-theme-text-muted hover:bg-theme-surface-subtle hover:text-theme-text md:min-w-[36px]'
-              )}
+              className={cn(headerButton, 'min-w-[44px] justify-center')}
               aria-label={`Logged in as ${currentUser}. Click to change profile.`}
             >
-              <span
-                aria-hidden="true"
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-theme-surface-raised text-theme-highlight"
-              >
-                <User className="h-3.5 w-3.5" />
-              </span>
-              <span className="hidden max-w-[120px] truncate text-theme-text sm:inline">
-                {currentUser}
-              </span>
+              <User className="h-5 w-5 shrink-0" aria-hidden="true" />
+              <span className="hidden max-w-[140px] truncate sm:inline">{currentUser}</span>
             </button>
           </Tooltip>
-
-          {project && (
-            <Tooltip content="Return to song search" position="bottom">
-              <button
-                type="button"
-                onClick={handleNewSongClick}
-                className={cn(
-                  headerButton,
-                  'min-w-[44px] justify-center border-theme-border-subtle bg-theme-surface-subtle px-2.5 text-theme-text hover:border-theme-border hover:bg-theme-surface-raised'
-                )}
-                aria-label="New Song"
-              >
-                <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="hidden sm:inline">New Song</span>
-              </button>
-            </Tooltip>
-          )}
 
           {project?.status === 'ready' && handleExport && (
             <Tooltip content="Video, subtitles, stems & YouTube kit" position="bottom" align="end">
@@ -224,12 +193,12 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
                 data-testid="studio-export-btn"
                 onClick={handleExport}
                 className={cn(
-                  headerButton,
-                  'min-w-[44px] justify-center border-transparent bg-gradient-accent px-3 text-theme-accent-text shadow-theme-glow hover:brightness-110'
+                  'ks-display inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 bg-theme-accent px-3 text-[22px] font-black text-theme-accent-text transition-colors hover:bg-theme-accent-hover sm:px-5',
+                  focusRing
                 )}
                 aria-label="Open export dialog"
               >
-                <Upload className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <Upload className="h-5 w-5 shrink-0" aria-hidden="true" />
                 <span className="hidden sm:inline">Export</span>
               </button>
             </Tooltip>

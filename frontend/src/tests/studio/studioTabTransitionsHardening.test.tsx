@@ -35,7 +35,6 @@ import { EditMetadataModal } from '../../components/EditMetadataModal';
 import { BatchOffsetModal } from '../../components/timeline/BatchOffsetModal';
 import { LyricReplacementModal } from '../../components/timeline/LyricReplacementModal';
 import { DuetAssignmentModal } from '../../components/timeline/DuetAssignmentModal';
-import { AppThemeProvider } from '../../context/AppThemeContext';
 import { ProjectState, LyricLine, StudioWorkspaceTab } from '../../types';
 import {
   setTestViewport,
@@ -414,33 +413,31 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
         const [showHelp, setShowHelp] = React.useState(false);
 
         return (
-          <AppThemeProvider>
-            <div>
-              <StudioHeader
-                currentUser="ChallengerUser"
-                project={readyProject}
-                isLyricsDirty={false}
-                onOpenHelp={() => setShowHelp(true)}
-                onOpenAuth={vi.fn()}
-                onNewSong={vi.fn()}
-                onStartRender={vi.fn()}
-                onExportClick={() => setShowExport(true)}
-              />
-              <TransportDock
-                currentTime={4.2}
-                duration={30.0}
-                isPlaying={isPlaying}
-                onTogglePlay={onTogglePlay}
-                onSeek={vi.fn()}
-              />
-              <ExportModal
-                project={readyProject}
-                isOpen={showExport}
-                onClose={() => setShowExport(false)}
-              />
-              <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
-            </div>
-          </AppThemeProvider>
+          <div>
+            <StudioHeader
+              currentUser="ChallengerUser"
+              project={readyProject}
+              isLyricsDirty={false}
+              onOpenHelp={() => setShowHelp(true)}
+              onOpenAuth={vi.fn()}
+              onNewSong={vi.fn()}
+              onStartRender={vi.fn()}
+              onExportClick={() => setShowExport(true)}
+            />
+            <TransportDock
+              currentTime={4.2}
+              duration={30.0}
+              isPlaying={isPlaying}
+              onTogglePlay={onTogglePlay}
+              onSeek={vi.fn()}
+            />
+            <ExportModal
+              project={readyProject}
+              isOpen={showExport}
+              onClose={() => setShowExport(false)}
+            />
+            <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+          </div>
         );
       };
 
@@ -470,14 +467,12 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       // 5. Open Help Modal
       const helpTrigger = screen.getByRole('button', { name: /help and studio usage guide/i });
       await user.click(helpTrigger);
-      expect(screen.getByRole('heading', { name: /help & usage guide/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
 
-      // 6. Close Help Modal via "Got it, close" footer button
-      const gotItBtn = screen.getByRole('button', { name: /got it, close/i });
+      // 6. Close Help Modal via "Close" footer button
+      const gotItBtn = screen.getByRole('button', { name: 'Close' });
       await user.click(gotItBtn);
-      expect(
-        screen.queryByRole('heading', { name: /help & usage guide/i })
-      ).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Help' })).not.toBeInTheDocument();
     });
   });
 
@@ -515,17 +510,15 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
 
         // 3. StudioHeader with ultra-long title and badge
         const { container: headerContainer, unmount: unmountHeader } = render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="SuperLongUsernameTester12345"
-              project={readyProject}
-              isLyricsDirty={true}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={vi.fn()}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="SuperLongUsernameTester12345"
+            project={readyProject}
+            isLyricsDirty={true}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onStartRender={vi.fn()}
+          />
         );
         assertZeroHorizontalOverflow(headerContainer, vpWidth);
         unmountHeader();
@@ -561,37 +554,31 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
 
         // ExportModal
         const { container: expContainer, unmount: unmountExp } = render(
-          <AppThemeProvider>
-            <ExportModal project={readyProject} isOpen={true} onClose={vi.fn()} />
-          </AppThemeProvider>
+          <ExportModal project={readyProject} isOpen={true} onClose={vi.fn()} />
         );
         assertZeroHorizontalOverflow(expContainer, vpWidth);
         unmountExp();
 
         // BatchOffsetModal
         const { container: batchContainer, unmount: unmountBatch } = render(
-          <AppThemeProvider>
-            <BatchOffsetModal
-              isOpen={true}
-              onClose={vi.fn()}
-              onApplyOffset={vi.fn()}
-              totalLines={mockProjectLines.length}
-            />
-          </AppThemeProvider>
+          <BatchOffsetModal
+            isOpen={true}
+            onClose={vi.fn()}
+            onApplyOffset={vi.fn()}
+            totalLines={mockProjectLines.length}
+          />
         );
         assertZeroHorizontalOverflow(batchContainer, vpWidth);
         unmountBatch();
 
         // LyricReplacementModal
         const { container: replContainer, unmount: unmountRepl } = render(
-          <AppThemeProvider>
-            <LyricReplacementModal
-              isOpen={true}
-              onClose={vi.fn()}
-              projectId="m4-challenger-proj"
-              onSuccess={vi.fn()}
-            />
-          </AppThemeProvider>
+          <LyricReplacementModal
+            isOpen={true}
+            onClose={vi.fn()}
+            projectId="m4-challenger-proj"
+            onSuccess={vi.fn()}
+          />
         );
         assertZeroHorizontalOverflow(replContainer, vpWidth);
         unmountRepl();
@@ -734,9 +721,9 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       ];
 
       modalComponents.forEach((modal) => {
-        const { unmount } = render(<AppThemeProvider>{modal}</AppThemeProvider>);
+        const { unmount } = render(modal);
         const closeBtn = screen.getByRole('button', {
-          name: /close.*(modal|dialog|guide)/i,
+          name: /close.*(modal|dialog|guide|help)/i,
         });
         expect(closeBtn.className).toMatch(/min-h-\[44px\]/);
         expect(closeBtn.className).toMatch(/min-w-\[44px\]/);
@@ -752,7 +739,7 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
     it('handles project with 0 lines and 0 duration without crashing', () => {
       setTestViewport(375, 667);
       const { container } = render(
-        <AppThemeProvider>
+        <>
           <TransportDock
             currentTime={0}
             duration={0}
@@ -770,7 +757,7 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
             onSaveLines={vi.fn()}
             activeWorkspaceTab="timeline"
           />
-        </AppThemeProvider>
+        </>
       );
 
       expect(screen.getByTestId('transport-time')).toHaveTextContent('0:00');
@@ -822,27 +809,15 @@ describe('Milestone M4 Challenger 1: Tier 5 White-Box Adversarial Hardening', ()
       setTestViewport(375, 667);
       const onClose = vi.fn();
 
-      const { rerender } = render(
-        <AppThemeProvider>
-          <HelpModal isOpen={true} onClose={onClose} />
-        </AppThemeProvider>
-      );
+      const { rerender } = render(<HelpModal isOpen={true} onClose={onClose} />);
 
       for (let i = 0; i < 25; i++) {
         fireEvent.keyDown(window, { key: 'Escape' });
         expect(onClose).toHaveBeenCalledTimes(i + 1);
 
-        rerender(
-          <AppThemeProvider>
-            <HelpModal isOpen={false} onClose={onClose} />
-          </AppThemeProvider>
-        );
+        rerender(<HelpModal isOpen={false} onClose={onClose} />);
 
-        rerender(
-          <AppThemeProvider>
-            <HelpModal isOpen={true} onClose={onClose} />
-          </AppThemeProvider>
-        );
+        rerender(<HelpModal isOpen={true} onClose={onClose} />);
       }
     });
 

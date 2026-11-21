@@ -7,7 +7,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { AlertTriangle, CheckCircle2, Lightbulb, Stethoscope } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Lightbulb } from 'lucide-react';
 import type { ProjectState } from '../../types';
 import { useCapabilities } from '../../hooks/useCapabilities';
 import { GUIDE_ACTION_LABELS, type GuideAction } from '../../utils/guideActions';
@@ -26,9 +26,9 @@ export interface SongCheckupDialogProps {
 }
 
 const LEVELS: Record<CheckupLevel, { Icon: typeof AlertTriangle; tone: string; spoken: string }> = {
-  fix: { Icon: AlertTriangle, tone: 'bg-theme-warning/15 text-theme-warning', spoken: 'To fix' },
-  tip: { Icon: Lightbulb, tone: 'bg-theme-accent/15 text-theme-highlight', spoken: 'Tip' },
-  ok: { Icon: CheckCircle2, tone: 'bg-theme-success/15 text-theme-success', spoken: 'Fine' },
+  fix: { Icon: AlertTriangle, tone: 'text-theme-warning', spoken: 'To fix' },
+  tip: { Icon: Lightbulb, tone: 'text-theme-text', spoken: 'Tip' },
+  ok: { Icon: CheckCircle2, tone: 'text-theme-success', spoken: 'Fine' },
 };
 
 export const SongCheckupDialog: React.FC<SongCheckupDialogProps> = (props) =>
@@ -69,7 +69,6 @@ const SongCheckupContent: React.FC<SongCheckupDialogProps> = ({ onClose, project
             : `${toFix} ${toFix === 1 ? 'thing' : 'things'} to look at. Each has a button to the tool that fixes it.`
         }
         descriptionId="song-checkup-desc"
-        icon={<Stethoscope className="h-5 w-5" />}
         onClose={onClose}
         closeLabel="Close the song check-up"
       />
@@ -80,14 +79,11 @@ const SongCheckupContent: React.FC<SongCheckupDialogProps> = ({ onClose, project
             <li
               key={row.id}
               data-level={row.level}
-              className="flex items-start gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-bg/60 p-3.5"
+              className="flex items-start gap-3 border-b border-theme-border-subtle py-3"
             >
               <span
                 aria-hidden="true"
-                className={cn(
-                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-theme-md',
-                  tone
-                )}
+                className={cn('flex h-9 w-9 shrink-0 items-center justify-center', tone)}
               >
                 <Icon className="h-4 w-4" />
               </span>

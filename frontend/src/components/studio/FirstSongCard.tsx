@@ -52,13 +52,10 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
   <section
     aria-labelledby="first-song-heading"
     data-testid="first-song-card"
-    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-theme-lg border border-theme-accent/30 bg-theme-accent/10 p-2.5 sm:p-3"
+    className="flex flex-wrap items-center gap-x-5 gap-y-1 border-y border-theme-border-subtle py-1.5"
   >
     <div className="order-1 min-w-0 flex-1 xl:flex-none">
-      <h2
-        id="first-song-heading"
-        className="font-theme-heading text-sm font-semibold text-theme-text"
-      >
+      <h2 id="first-song-heading" className="ks-display text-[22px] text-theme-text">
         Your first song
       </h2>
       <button
@@ -66,7 +63,7 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
         onClick={() => onAction('help-fix')}
         className={cn(
           // A 44px target on phones that does not make the card taller
-          '-my-3 inline-flex min-h-[44px] items-center rounded-theme-sm text-left text-xs text-theme-text-muted underline decoration-theme-border underline-offset-2 hover:text-theme-text md:-my-1 md:min-h-[24px]',
+          '-my-3 inline-flex min-h-[44px] items-center text-left text-xs text-theme-text-muted underline decoration-theme-border underline-offset-2 hover:text-theme-text md:-my-1 md:min-h-[24px]',
           focusRing
         )}
       >
@@ -81,19 +78,19 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
             onClick={() => onAction(action)}
             data-step={index + 1}
             className={cn(
-              'flex min-h-[44px] w-full min-w-0 items-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface px-2 py-1.5 text-left transition-colors hover:border-theme-accent',
+              'group flex min-h-[44px] w-full min-w-0 items-center gap-2 text-left',
               focusRing
             )}
           >
-            <Icon className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
+            <Icon className="h-4 w-4 shrink-0 text-theme-text-muted" aria-hidden="true" />
             <span className="min-w-0">
-              <span className="block truncate text-xs font-semibold text-theme-text">
+              <span className="block truncate text-sm font-semibold text-theme-text underline-offset-4 group-hover:underline">
                 <span className="sr-only">Step </span>
                 {index + 1}. {title}
               </span>
               <span
                 className={cn(
-                  'block truncate text-[11px]',
+                  'block truncate text-xs',
                   action === 'checkup'
                     ? 'font-semibold text-theme-warning'
                     : 'text-theme-text-muted'

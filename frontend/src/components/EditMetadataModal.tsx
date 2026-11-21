@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Pencil, AlertCircle, Check } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 import { apiFetch, readApiError } from '../api';
 import type { PartNames } from '../types';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
@@ -47,7 +47,7 @@ const PART_FIELDS = [
 ] as const;
 
 const inputCls =
-  'w-full min-h-[44px] rounded-theme-md border border-theme-border-subtle bg-theme-bg px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-2 focus:ring-theme-focus/60 sm:text-sm';
+  'w-full min-h-[44px] border border-theme-border bg-transparent px-3.5 py-2.5 text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-focus sm:text-sm';
 const labelCls = 'flex items-center gap-1.5 text-xs font-semibold text-theme-text';
 
 export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
@@ -150,14 +150,13 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         titleId="edit-metadata-title"
         description="Update title, artist, and karaoke metadata"
         descriptionId="edit-metadata-desc"
-        icon={<Pencil className="h-5 w-5" />}
         onClose={onClose}
         closeLabel="Close edit metadata dialog"
       />
 
       {error && (
         <div
-          className="mb-4 flex items-center gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3 text-xs text-theme-danger"
+          className="mb-4 flex items-center gap-2.5 border border-theme-danger p-3 text-xs text-theme-danger"
           role="alert"
         >
           <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -223,7 +222,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
           </Button>
           <Button
             type="submit"
-            variant="gradient"
+            variant="primary"
             fullWidth="mobile"
             disabled={!title.trim() || !artist.trim()}
             loading={loading}

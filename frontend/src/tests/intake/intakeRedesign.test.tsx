@@ -110,7 +110,7 @@ describe('Song library', () => {
     expect(onOpenProject.mock.calls[0][0].id).toBe('a');
   });
 
-  it('labels card status badges by outcome', async () => {
+  it('says what state an unfinished song is in', async () => {
     libraryResponse({
       r: { id: 'r', title: 'Done Song', status: 'ready', created_by: 'Friend' },
       e: { id: 'e', title: 'Broken Song', status: 'error', created_by: 'Friend' },
@@ -119,10 +119,12 @@ describe('Song library', () => {
     const { container } = render(<TrackSearch onSelectTrack={vi.fn()} isLoading={false} />);
     await screen.findByText('Broken Song');
     const badge = (status: string) => container.querySelector(`[data-status="${status}"]`);
+    // A finished song is quiet: "Ready" is there for assistive tech only
     expect(badge('ready')).toHaveTextContent('Ready');
-    expect(badge('error')).toHaveTextContent('Error');
-    expect(badge('error')?.className).toContain('bg-theme-danger/50');
-    expect(badge('fetching_lyrics')).toHaveTextContent('fetching lyrics');
+    expect(badge('ready')?.querySelector('.sr-only')).toHaveTextContent('Ready');
+    expect(badge('error')).toHaveTextContent('Failed');
+    expect(badge('error')?.className).toContain('text-theme-danger');
+    expect(badge('fetching_lyrics')).toHaveTextContent('fetching lyrics 0%');
   });
 
   it('moves between library tabs with the arrow keys (roving focus)', async () => {
@@ -156,10 +158,10 @@ describe('Processing view', () => {
         onResetProject={vi.fn()}
       />
     );
-    expect(screen.getByRole('status')).toHaveTextContent('processing...');
+    expect(screen.getByRole('status')).toHaveTextContent('Getting ready');
     // The detail is shown but not announced: it changes with every separation chunk
-    expect(screen.getByText('Preparing audio track...')).toBeInTheDocument();
-    expect(screen.getByRole('status')).not.toHaveTextContent('Preparing audio track...');
+    expect(screen.getByText('Preparing the audio.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).not.toHaveTextContent('Preparing the audio.');
   });
 
   it('keeps the live region to the stage heading', () => {
@@ -167,8 +169,12 @@ describe('Processing view', () => {
       <ProcessingView project={baseProcessing} onCancelProcess={vi.fn()} onResetProject={vi.fn()} />
     );
     const status = screen.getByRole('status');
-    expect(within(status).getByRole('heading', { level: 1 })).toHaveTextContent('separating...');
-    expect(within(status).queryByText(/% Complete/)).toBeNull();
+    expect(within(status).getByRole('heading', { level: 1 })).toHaveTextContent(
+      'Removing the vocals'
+    );
+    // The percent is the bar's to announce, not the live region's
+    expect(status).not.toContainElement(screen.getByTestId('processing-percent'));
+    expect(screen.getByTestId('processing-percent')).toHaveAttribute('aria-hidden', 'true');
     expect(screen.getByRole('progressbar', { name: 'Processing progress' })).toHaveAttribute(
       'aria-valuenow',
       '42'
@@ -206,9 +212,8 @@ describe('Processing view', () => {
     );
     expect(steps).toHaveLength(4);
     expect(steps[2]).toHaveAttribute('aria-current', 'step');
-    expect(
-      within(steps[0]).getByLabelText('Completed: Audio Intake & Download')
-    ).toBeInTheDocument();
-    expect(within(steps[2]).getByLabelText('Active: Lyric Fetch & Alignment')).toBeInTheDocument();
+    expect(within(steps[0]).getByLabelText('Completed: Get the audio')).toBeInTheDocument();
+    expect(steps[2]).toHaveTextContent('3.Find and time the lyrics');
+    expect(steps.filter((step) => step.hasAttribute('aria-current'))).toHaveLength(1);
   });
 });

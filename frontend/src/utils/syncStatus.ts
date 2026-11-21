@@ -52,9 +52,7 @@ export function getLyricSyncFidelity(project: ProjectState): {
   const review = report?.low_confidence_lines ?? 0;
 
   const details = [
-    hasWordTimings
-      ? 'High-fidelity word-level karaoke synchronization active'
-      : 'Line-level timestamp synchronization active',
+    hasWordTimings ? 'Timed word by word' : 'Timed line by line',
     autoAligned
       ? `auto-aligned from plain lyrics${report ? ` by the ${report.engine === 'ctc' ? 'neural' : 'DSP'} aligner` : ''}`
       : project.lyric_timing === 'source_word'
@@ -66,7 +64,7 @@ export function getLyricSyncFidelity(project: ProjectState): {
 
   return {
     label: hasWordTimings ? 'Synced Words' : 'Line Synced',
-    tone: quality !== null && quality < 60 ? 'warning' : hasWordTimings ? 'success' : 'info',
+    tone: quality !== null && quality < 60 ? 'warning' : hasWordTimings ? 'success' : 'neutral',
     tooltipText: details.join(' · '),
     quality,
     autoAligned,

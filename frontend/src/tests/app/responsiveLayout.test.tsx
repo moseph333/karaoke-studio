@@ -370,7 +370,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
         const copyBtns = screen.getAllByRole('button', { name: /copy/i });
         expect(copyBtns.length).toBeGreaterThanOrEqual(3);
         copyBtns.forEach((btn) => {
-          expect(btn.className).toContain('min-h-[36px]');
+          expect(btn.className).toContain('min-h-[44px]');
         });
       });
     });
@@ -446,8 +446,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
       expect(searchInput.className).toContain('min-h-[48px]');
 
       const searchBtn = screen.getByRole('button', { name: /search for a song or load a link/i });
-      expect(searchBtn.className).toContain('min-h-[36px]');
-      expect(searchBtn.className).toContain('sm:min-h-[44px]');
+      expect(searchBtn.className).toContain('min-h-[48px]');
     });
 
     it('ensures library tabs have adequate touch dimensions', () => {
@@ -462,7 +461,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
       );
 
       const mySongsTab = screen.getByRole('tab', { name: /my songs/i });
-      expect(mySongsTab.className).toContain('min-h-[36px]');
+      expect(mySongsTab.className).toContain('min-h-[44px]');
     });
 
     it('renders local audio upload panel with zero overflow and >=44px touch targets at 320px', () => {
@@ -484,7 +483,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
       const uploadBtn = screen.getByRole('button', {
         name: /Upload and process local audio track/i,
       });
-      expect(uploadBtn.className).toContain('min-h-[44px]');
+      expect(uploadBtn.className).toContain('min-h-[48px]');
 
       const titleInput = screen.getByLabelText(/Track Title/i);
       expect(titleInput.className).toContain('min-h-[44px]');
@@ -504,7 +503,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
         const { container } = render(<App />);
 
         await waitFor(() => {
-          expect(screen.getByText(/Separating\.\.\./i)).toBeInTheDocument();
+          expect(screen.getByRole('heading', { name: 'Removing the vocals' })).toBeInTheDocument();
         });
 
         assertZeroHorizontalOverflow(container, bp.width);

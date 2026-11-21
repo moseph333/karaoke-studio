@@ -29,8 +29,7 @@ export interface StageFloatingControlsProps {
   onVolumeChange: (volume: number) => void;
 }
 
-const chip =
-  'flex shrink-0 items-center gap-1 rounded-theme-md border border-white/10 bg-white/5 px-1 py-1';
+const chip = 'flex shrink-0 items-center gap-1 border border-white/10 bg-white/5 px-1 py-1';
 const stepper = cn(
   'flex min-h-[36px] min-w-[36px] items-center justify-center rounded-[calc(var(--theme-radius-md)-2px)] text-white/80 transition-colors hover:bg-white/10 hover:text-white',
   focusRing
@@ -54,7 +53,7 @@ export const StageFloatingControls: React.FC<StageFloatingControlsProps> = ({
   <div
     data-testid="stage-floating-controls"
     className={cn(
-      'relative z-30 mx-auto flex w-full max-w-4xl flex-wrap items-center gap-x-3 gap-y-2 rounded-theme-xl border border-white/15 bg-black/55 px-3 py-2.5 text-white shadow-theme-lg backdrop-blur-xl transition-opacity duration-300 sm:flex-nowrap sm:px-4',
+      'relative z-30 mx-auto flex w-full max-w-4xl flex-wrap items-center gap-x-3 gap-y-2 border border-white/15 bg-black/55 px-3 py-2.5 text-white backdrop-blur-xl transition-opacity duration-300 sm:flex-nowrap sm:px-4',
       visible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
     )}
   >
@@ -64,7 +63,7 @@ export const StageFloatingControls: React.FC<StageFloatingControlsProps> = ({
       aria-label={isPlaying ? 'Pause audio' : 'Play audio'}
       onClick={() => onTogglePlay?.()}
       className={cn(
-        'flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-pill bg-gradient-accent text-theme-accent-text shadow-theme-glow transition-transform active:scale-95',
+        'flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center bg-theme-accent text-theme-accent-text transition-transform active:scale-95',
         focusRing
       )}
     >

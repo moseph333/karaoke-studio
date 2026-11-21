@@ -3,12 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0b12" />
+    <meta name="theme-color" content="#000000" />
     <title>Karaoke Studio · Offline</title>
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <!-- Shown by the service worker when the server cannot be reached. It stands alone: no
+         script, style or font from the app, so the capitals use a condensed face the device
+         already has. Colours match the app's tokens. -->
     <style>
       :root {
         color-scheme: dark;
+        --display: 'Sofia Sans Extra Condensed', 'Arial Narrow', 'Helvetica Neue', sans-serif;
       }
       * {
         box-sizing: border-box;
@@ -17,65 +21,83 @@
       body {
         margin: 0;
         min-height: 100%;
-        background: #0b0b12;
-        color: #f5f3ff;
+        background: #000000;
+        color: #f2eee3;
         font-family:
+          'Sofia Sans',
           system-ui,
           -apple-system,
           'Segoe UI',
           Roboto,
           sans-serif;
       }
-      main {
-        min-height: 100vh;
-        min-height: 100dvh;
+      header {
         display: flex;
-        flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 16px;
-        padding: calc(24px + env(safe-area-inset-top, 0px)) 24px
-          calc(24px + env(safe-area-inset-bottom, 0px));
-        text-align: center;
+        box-sizing: content-box;
+        height: 3.5rem;
+        padding: env(safe-area-inset-top, 0px) 16px 0;
+        border-bottom: 2px solid #f2eee3;
+        font: 900 1.625rem/1 var(--display);
+        font-stretch: condensed;
+        text-transform: uppercase;
       }
-      img {
-        width: 72px;
-        height: 72px;
+      main {
+        display: grid;
+        gap: 20px;
+        justify-items: start;
+        max-width: 44rem;
+        padding: 32px 16px calc(32px + env(safe-area-inset-bottom, 0px));
       }
       h1 {
         margin: 0;
-        font-size: 1.375rem;
-        font-weight: 700;
-        letter-spacing: -0.01em;
+        font: 900 clamp(2.75rem, 12vw, 4.5rem) / 0.9 var(--display);
+        font-stretch: condensed;
+        text-transform: uppercase;
       }
       p {
         margin: 0;
-        max-width: 26rem;
-        color: #a8a5c7;
-        line-height: 1.5;
+        padding-top: 16px;
+        border-top: 2px solid #f2eee3;
+        color: #a09b8f;
+        font-size: 1.1875rem;
+        line-height: 1.45;
       }
       button {
         min-height: 44px;
         min-width: 44px;
-        margin-top: 8px;
         padding: 0 24px;
         border: 0;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #7c3aed, #c026d3 52%, #db2777);
-        color: #fff;
-        font: inherit;
-        font-weight: 600;
+        border-radius: 0;
+        background: #ffd21f;
+        color: #000000;
+        font: 800 1.625rem/1 var(--display);
+        font-stretch: condensed;
+        text-transform: uppercase;
         cursor: pointer;
       }
+      button:hover {
+        background: #ffe066;
+      }
       button:focus-visible {
-        outline: 2px solid #a78bfa;
-        outline-offset: 3px;
+        outline: 2px solid #ffd21f;
+        outline-offset: 2px;
+      }
+      @media (min-width: 640px) {
+        header {
+          padding-left: 32px;
+          padding-right: 32px;
+        }
+        main {
+          padding-left: 32px;
+          padding-right: 32px;
+        }
       }
     </style>
   </head>
   <body>
+    <header>Karaoke Studio</header>
     <main>
-      <img src="/icon.svg" alt="" />
       <h1>Can't reach your studio</h1>
       <p>
         Karaoke Studio runs on your own server, and it isn't answering right now. Check your

@@ -7,7 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import { Download, Music, Mic, Mic2, Users, Volume2, Loader2, AlertCircle } from 'lucide-react';
+import { Download, Loader2, AlertCircle } from 'lucide-react';
 import { ProjectState } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { Tooltip } from '../Tooltip';
@@ -33,32 +33,24 @@ type StemType =
 interface StemOption {
   id: StemType;
   label: string;
-  badge: string;
   description: string;
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
 }
 
 const STEM_OPTIONS: StemOption[] = [
   {
     id: 'instrumental',
     label: 'Instrumental Stem',
-    badge: 'Backing',
     description: 'Clean backing track without vocal stems',
-    icon: Music,
   },
   {
     id: 'vocals',
     label: 'Vocal Stem',
-    badge: 'Acapella',
     description: 'Isolated vocal performance stem',
-    icon: Mic,
   },
   {
     id: 'master',
     label: 'Master Mix',
-    badge: 'Active Key',
     description: 'Active mix with pitch shift and the vocals kept in',
-    icon: Volume2,
   },
 ];
 
@@ -67,16 +59,12 @@ const PART_STEM_OPTIONS: StemOption[] = [
   {
     id: 'lead_vocals',
     label: 'Lead Vocal Stem',
-    badge: 'Lead',
     description: 'The lead voice without the backing vocals',
-    icon: Mic2,
   },
   {
     id: 'backing_vocals',
     label: 'Backing Vocal Stem',
-    badge: 'Harmonies',
     description: 'Backing vocals and harmonies without the lead',
-    icon: Users,
   },
 ];
 
@@ -85,16 +73,12 @@ const VOICE_STEM_OPTIONS: StemOption[] = [
   {
     id: 'male_vocals',
     label: 'Male Voice Stem',
-    badge: 'Duet',
     description: 'The male voice on its own',
-    icon: Mic,
   },
   {
     id: 'female_vocals',
     label: 'Female Voice Stem',
-    badge: 'Duet',
     description: 'The female voice on its own',
-    icon: Mic2,
   },
 ];
 
@@ -168,11 +152,10 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
     <section aria-labelledby="export-stems-heading" className={EXPORT_SECTION}>
       <div className="space-y-1">
         <h3 id="export-stems-heading" className={EXPORT_HEADING}>
-          <Volume2 className="h-5 w-5 shrink-0 text-theme-success" aria-hidden="true" />
-          Direct Audio Stem Downloads
+          Audio
         </h3>
-        <p className="text-xs text-theme-text-muted">
-          Download isolated high-fidelity stems or active master audio
+        <p className="text-sm text-theme-text-muted">
+          The separated stems and the mix you hear now, as WAV files.
         </p>
       </div>
 
@@ -183,51 +166,43 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
         </div>
       )}
 
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <ul>
         {stems.map((stem) => {
-          const Icon = stem.icon;
           const isDownloading = downloadingStem === stem.id;
 
           return (
             <li
               key={stem.id}
-              className="flex flex-col justify-between gap-3 rounded-theme-md border border-theme-border-subtle bg-theme-surface p-3.5 transition-colors hover:border-theme-border"
+              className="flex flex-col gap-x-4 gap-y-1 border-b border-theme-border-subtle py-2 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div className="space-y-1">
-                <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-theme-text-muted">
-                  {stem.badge}
-                </span>
-                <span className="flex items-center gap-1.5 text-sm font-bold text-theme-text">
-                  <Icon className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
-                  {stem.label}
-                </span>
-                <p className="text-[11px] leading-tight text-theme-text-muted">
-                  {stem.description}
-                </p>
+              <div className="min-w-0">
+                <span className="block text-sm font-semibold text-theme-text">{stem.label}</span>
+                <p className="text-sm text-theme-text-muted">{stem.description}</p>
               </div>
 
-              <Tooltip content={`Download ${stem.label}`} position="top" className="w-full">
+              <Tooltip
+                content={`Download ${stem.label}`}
+                position="top"
+                className="w-full shrink-0 sm:w-auto"
+              >
                 <button
                   type="button"
                   onClick={() => handleDownloadStem(stem.id)}
                   disabled={!isReady || downloadingStem !== null}
                   aria-label={`Download ${stem.label}`}
                   className={cn(
-                    'flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-3 py-2 text-xs font-semibold text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-subtle disabled:cursor-not-allowed disabled:opacity-50',
+                    'ks-display flex min-h-[44px] w-full items-center justify-center gap-2 border border-theme-border px-3 text-[20px] text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto md:min-h-[36px]',
                     focusRing
                   )}
                 >
                   {isDownloading ? (
                     <>
-                      <Loader2
-                        className="h-3.5 w-3.5 text-theme-highlight animate-spin"
-                        aria-hidden="true"
-                      />
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                       Downloading...
                     </>
                   ) : (
                     <>
-                      <Download className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
+                      <Download className="h-4 w-4" aria-hidden="true" />
                       Download .wav
                     </>
                   )}

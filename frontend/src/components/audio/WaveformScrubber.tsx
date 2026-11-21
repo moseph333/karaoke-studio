@@ -62,7 +62,7 @@ const WaveformBars = React.memo(function WaveformBars({
             key={i}
             data-testid="waveform-bar"
             data-played={isPlayed ? 'true' : 'false'}
-            className={`flex-1 rounded-full transition-colors duration-100 ${
+            className={`flex-1 transition-colors duration-100 ${
               isPlayed
                 ? 'bg-theme-sung'
                 : 'bg-theme-text-muted/25 group-hover:bg-theme-text-muted/35'
@@ -315,7 +315,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       onLostPointerCapture={() => setIsDragging(false)}
       onPointerLeave={() => setHoverRatio(null)}
       // The real control is the invisible range input below, so the focus ring goes here
-      className={`group relative flex h-14 w-full cursor-pointer select-none items-center gap-[2px] overflow-hidden rounded-theme-md px-0.5 touch-none has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-theme-focus ${className}`}
+      className={`group relative flex h-14 w-full cursor-pointer select-none items-center gap-[2px] overflow-hidden px-0.5 touch-none has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-theme-focus ${className}`}
     >
       <WaveformBars bars={bars} playedCount={playedCount} />
 
@@ -324,7 +324,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
         <span
           key={`m-${i}`}
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-theme-highlight/70"
+          className="pointer-events-none absolute bottom-0 h-1.5 w-px bg-theme-text-muted"
           style={{ left: `${pct}%` }}
         />
       ))}
@@ -339,7 +339,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
           />
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute -top-0.5 z-30 -translate-x-1/2 rounded-theme-sm bg-theme-surface-raised px-1.5 py-0.5 font-mono text-[10px] text-theme-text shadow-theme-sm"
+            className="pointer-events-none absolute -top-0.5 z-30 -translate-x-1/2 bg-theme-surface-raised px-1.5 py-0.5 tabular-nums text-xs text-theme-text"
             style={{ left: `${Math.min(96, Math.max(4, hoverRatio * 100))}%` }}
           >
             {formatTime(hoverRatio * duration)}
@@ -350,7 +350,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       {/* Playhead Progress Needle */}
       <div
         data-testid="waveform-playhead"
-        className="pointer-events-none absolute inset-y-0 z-10 w-0.5 rounded-full bg-theme-text shadow-theme-glow"
+        className="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-theme-text"
         style={{ left: `${progressPercent}%` }}
       />
 

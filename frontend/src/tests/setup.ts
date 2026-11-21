@@ -41,7 +41,6 @@ afterEach(() => {
     // Safely ignore if storage is restricted or inaccessible
   }
   if (typeof document !== 'undefined' && document.documentElement) {
-    document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('data-stage-preset');
   }
   // A keydown in one test must not make the next one's focus look keyboard-driven

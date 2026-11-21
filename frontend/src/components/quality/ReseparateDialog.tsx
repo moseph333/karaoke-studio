@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Sparkles } from 'lucide-react';
+import { AlertCircle, Layers } from 'lucide-react';
 import type { ProjectState, SeparationPreset, StudioCapabilities } from '../../types';
 import type { ReseparateOptions } from '../../hooks/useQualityJobs';
 import { useCapabilities } from '../../hooks/useCapabilities';
@@ -103,7 +103,6 @@ const ReseparateDialogContent: React.FC<ReseparateDialogProps> = ({
           titleId="reseparate-title"
           description="Re-make this song's vocal and backing stems with another model. The song stays playable, and the new stems replace the current ones when they are ready."
           descriptionId="reseparate-desc"
-          icon={<Sparkles className="h-5 w-5" />}
           onClose={onClose}
           closeDisabled={submitting}
         />
@@ -117,7 +116,7 @@ const ReseparateDialogContent: React.FC<ReseparateDialogProps> = ({
             durationSeconds={project.duration}
             currentPreset={preset === 'custom' ? 'custom' : current}
           />
-          <div className="space-y-1 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle/60 px-3 py-1">
+          <div className="space-y-1 border-y border-theme-border-subtle py-1">
             <Checkbox
               checked={realignLyrics && hasLyrics && !hasUnsavedLyricEdits}
               onChange={setRealignLyrics}
@@ -141,7 +140,7 @@ const ReseparateDialogContent: React.FC<ReseparateDialogProps> = ({
           {error && (
             <p
               role="alert"
-              className="flex items-start gap-2 rounded-theme-md border border-theme-danger/40 bg-theme-danger/10 p-3 text-sm text-theme-danger"
+              className="flex items-start gap-2 border border-theme-danger p-3 text-sm text-theme-danger"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               {error}
@@ -154,10 +153,10 @@ const ReseparateDialogContent: React.FC<ReseparateDialogProps> = ({
           </Button>
           <Button
             type="submit"
-            variant="gradient"
+            variant="primary"
             loading={submitting}
             loadingLabel="Starting…"
-            leftIcon={<Sparkles className="h-4 w-4" aria-hidden="true" />}
+            leftIcon={<Layers className="h-4 w-4" aria-hidden="true" />}
           >
             Re-make stems with {PRESET_NAMES[quality]}
           </Button>

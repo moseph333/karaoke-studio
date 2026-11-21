@@ -30,12 +30,8 @@ export const GuideVocalControl: React.FC<GuideVocalControlProps> = ({
   return (
     <div className="flex flex-col gap-2" data-testid="guide-vocal-control">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-[0.08em] text-theme-text-muted">
-          Guide vocal
-        </span>
-        <span className="font-mono text-xs font-semibold tabular-nums text-theme-text">
-          {percent}%
-        </span>
+        <span className="text-sm font-semibold text-theme-text">Guide vocal</span>
+        <span className="tabular-nums text-sm font-semibold text-theme-text">{percent}%</span>
       </div>
       <Tooltip content="Adjust guide vocal blend (0%–50%)" position="top" className="w-full">
         <Slider
@@ -52,7 +48,7 @@ export const GuideVocalControl: React.FC<GuideVocalControlProps> = ({
         />
       </Tooltip>
       <div
-        className="flex items-center justify-between text-[10px] text-theme-text-muted"
+        className="flex items-center justify-between text-xs text-theme-text-muted"
         aria-hidden="true"
       >
         <span>Off</span>

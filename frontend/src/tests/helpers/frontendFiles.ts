@@ -1,6 +1,6 @@
 /**
- * Helpers that execute the real zero-FOUC boot script embedded in index.html,
- * so theme boot tests exercise the shipped script instead of a hand-copied clone.
+ * Reads files of the frontend package (index.html, the stylesheet, public/) as text, for
+ * tests that check what ships rather than what a component renders.
  *
  * Node built-ins are loaded through a runtime require shim (as in other suites) because
  * the app tsconfig intentionally ships without Node type declarations.
@@ -31,16 +31,4 @@ export function readFrontendFile(relativePath: string): string {
 
 export function readIndexHtml(): string {
   return readFrontendFile('index.html');
-}
-
-/** Returns the body of the first inline (src-less) <script> in index.html. */
-export function extractBootScript(html: string = readIndexHtml()): string {
-  const match = html.match(/<script>([\s\S]*?)<\/script>/);
-  if (!match) throw new Error('Inline boot script not found in index.html');
-  return match[1];
-}
-
-/** Executes the shipped boot script against the current jsdom document. */
-export function runIndexHtmlBootScript(): void {
-  new Function(extractBootScript())();
 }

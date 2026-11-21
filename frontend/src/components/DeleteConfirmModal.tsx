@@ -65,14 +65,12 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
         title="Delete Project?"
         titleId="delete-confirm-title"
         description="Permanent removal from studio"
-        icon={<Trash2 className="h-5 w-5" />}
-        iconTone="danger"
         onClose={onClose}
         closeLabel="Close delete confirmation dialog"
       />
 
       <div className="space-y-4">
-        <div className="space-y-0.5 rounded-theme-md border border-theme-border-subtle bg-theme-bg p-3">
+        <div className="space-y-0.5 border-l-2 border-theme-danger pl-3">
           <p className="truncate font-theme-heading text-sm font-semibold text-theme-text">
             {projectTitle}
           </p>
@@ -89,7 +87,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
 
         {error && (
           <div
-            className="flex items-center gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3 text-xs text-theme-danger"
+            className="flex items-center gap-2.5 border border-theme-danger p-3 text-xs text-theme-danger"
             role="alert"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />

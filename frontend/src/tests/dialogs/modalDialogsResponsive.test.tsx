@@ -226,7 +226,7 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
         <ExportModal project={completedProjectWithLongMeta} isOpen={true} onClose={vi.fn()} />
       );
 
-      const title = screen.getByRole('heading', { level: 2, name: /export & youtube package/i });
+      const title = screen.getByRole('heading', { level: 2, name: 'Export' });
       expect(title).toBeInTheDocument();
       // Long titles wrap to at most two lines on phones and truncate from the sm breakpoint up.
       expect(title.className).toContain('line-clamp-2');
@@ -282,7 +282,7 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
       expect(copyButtons.length).toBe(3); // Title, Description, Tags
 
       copyButtons.forEach((btn) => {
-        expect(btn.className).toContain('min-h-[36px]');
+        expect(btn.className).toContain('min-h-[44px]');
       });
 
       // Test clicking copy title button
@@ -467,7 +467,7 @@ describe('Milestone 3 Empirical Challenger Suite (Modal Dialogs & Responsive Qua
         <ExportModal project={errorProject} isOpen={true} onClose={vi.fn()} />
       );
 
-      expect(screen.getByText(/rendering encountered an error/i)).toBeInTheDocument();
+      expect(screen.getByText(/the video did not render/i)).toBeInTheDocument();
       expect(screen.getByText(/FFmpeg process aborted/i)).toBeInTheDocument();
 
       assertZeroHorizontalOverflow(container, 320);

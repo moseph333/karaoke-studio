@@ -5,18 +5,17 @@
  * - R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness
  *   - Adapt top-level navigation and modal overlays (Export, Help, Auth, Edit Metadata,
  *     Delete Confirm, Duet Assignment, Batch Offset, Lyric Replacement) to behave as
- *     ergonomic mobile bottom sheets (items-end sm:items-center, rounded-t-2xl sm:rounded-theme-xl,
+ *     ergonomic mobile bottom sheets (items-end sm:items-center, flush to the screen edges,
  *     p-0 sm:p-4) with sticky headers/close actions (>= 44x44px) and safe-area inset padding.
  *   - StudioHeader exposes Export / Render trigger on mobile viewports (< 768px) and
  *     keeps header controls within a single compact bar at 375px width.
- *   - Web app manifest (manifest.json) and mobile metadata (theme-color, apple-mobile-web-app-capable)
- *     with dynamic theme-color synchronization matching all 4 built-in themes.
+ *   - Web app manifest (manifest.json) and mobile metadata (theme-color, apple-mobile-web-app-capable).
  *
  * 4-Tier Test Structure:
- * - Tier 1: Feature Coverage (F9: Header & Export, F10: Bottom Sheets, F11: Close Touch Targets, F12: PWA Manifest, F13: Theme-Color Sync)
+ * - Tier 1: Feature Coverage (F9: Header & Export, F10: Bottom Sheets, F11: Close Touch Targets, F12: PWA Manifest)
  * - Tier 2: Boundary & Corner Cases (Long names, short screens, drag handle, fallbacks)
- * - Tier 3: Cross-Feature Combinations (Header export + modal sheet, theme picker + modal sync)
- * - Tier 4: Real-World Scenarios (Mobile Export & Theme Switch Journey, PWA Audit)
+ * - Tier 3: Cross-Feature Combinations (Header export + modal sheet)
+ * - Tier 4: Real-World Scenarios (Mobile Export Journey, PWA Audit)
  */
 
 import React from 'react';
@@ -37,8 +36,6 @@ import { DeleteConfirmModal } from '../../components/DeleteConfirmModal';
 import { BatchOffsetModal } from '../../components/timeline/BatchOffsetModal';
 import { LyricReplacementModal } from '../../components/timeline/LyricReplacementModal';
 import { DuetAssignmentModal } from '../../components/timeline/DuetAssignmentModal';
-import { AppThemeProvider } from '../../context/AppThemeContext';
-import { applyThemeToDom, APP_THEMES } from '../../theme/appThemes';
 import { ProjectState } from '../../types';
 import {
   setTestViewport,
@@ -98,18 +95,16 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
       it('F9-1: StudioHeader exposes Export / Render trigger on mobile viewports (< 768px)', () => {
         setTestViewport(375, 667);
         render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="Friend"
-              project={readyProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={vi.fn()}
-              onOpenExportModal={vi.fn()}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="Friend"
+            project={readyProject}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onStartRender={vi.fn()}
+            onOpenExportModal={vi.fn()}
+          />
         );
 
         const exportBtn =
@@ -130,18 +125,16 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
         const onOpenExportModalMock = vi.fn();
 
         render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="Friend"
-              project={readyProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={onStartRenderMock}
-              onOpenExportModal={onOpenExportModalMock}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="Friend"
+            project={readyProject}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onStartRender={onStartRenderMock}
+            onOpenExportModal={onOpenExportModalMock}
+          />
         );
 
         const exportBtn =
@@ -159,56 +152,32 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
       it('F9-3: StudioHeader renders within a single compact bar at 375px width with zero overflow', () => {
         setTestViewport(375, 667);
         const { container } = render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="Friend"
-              project={readyProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={vi.fn()}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="Friend"
+            project={readyProject}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onStartRender={vi.fn()}
+          />
         );
 
         assertZeroHorizontalOverflow(container, 375);
       });
 
-      it('F9-4: AppThemePicker is accessible from mobile header navigation', () => {
-        setTestViewport(375, 667);
-        render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="Friend"
-              project={readyProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={vi.fn()}
-            />
-          </AppThemeProvider>
-        );
-
-        const themeTrigger = screen.getByTestId('app-theme-picker-trigger');
-        expect(themeTrigger).toBeInTheDocument();
-      });
-
       it('F9-5: Help and user profile triggers are accessible from mobile header navigation', () => {
         setTestViewport(375, 667);
         render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="Friend"
-              project={readyProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={vi.fn()}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="Friend"
+            project={readyProject}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onStartRender={vi.fn()}
+          />
         );
 
         const helpBtn = screen.getByRole('button', { name: /help/i });
@@ -231,7 +200,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
 
         const card =
           dialog.querySelector('.bg-slate-900, [class*="bg-theme"]') || dialog.firstElementChild;
-        expect(card?.className).toContain('rounded-t-2xl');
+        expect(card?.className).toContain('border-x-0');
       });
 
       it('F10-2: HelpModal adapts to mobile bottom sheet layout', () => {
@@ -459,46 +428,6 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
         expect(html).toMatch(/<link\s+[^>]*rel=["']apple-touch-icon["']/i);
       });
     });
-
-    describe('Feature 13: Dynamic theme-color Synchronization (ORIGINAL_REQUEST §R3)', () => {
-      it('F13-1: applying punk_diy theme updates document meta[name="theme-color"] to #0d0d0f', () => {
-        let meta = document.querySelector('meta[name="theme-color"]') as HTMLMetaElement | null;
-        if (!meta) {
-          meta = document.createElement('meta');
-          meta.name = 'theme-color';
-          document.head.appendChild(meta);
-        }
-
-        applyThemeToDom(APP_THEMES.punk_diy);
-        meta = document.querySelector('meta[name="theme-color"]');
-        expect(meta?.getAttribute('content')).toBe('#0d0d0f');
-      });
-
-      it('F13-2: applying tape_studio_70s theme updates meta[name="theme-color"] to #1a1410', () => {
-        applyThemeToDom(APP_THEMES.tape_studio_70s);
-        const meta = document.querySelector('meta[name="theme-color"]');
-        expect(meta?.getAttribute('content')).toBe('#1a1410');
-      });
-
-      it('F13-3: applying dive_bar_crt theme updates meta[name="theme-color"] to #09080f', () => {
-        applyThemeToDom(APP_THEMES.dive_bar_crt);
-        const meta = document.querySelector('meta[name="theme-color"]');
-        expect(meta?.getAttribute('content')).toBe('#09080f');
-      });
-
-      it('F13-4: applying clean_paper theme updates meta[name="theme-color"] to #f4f4f0', () => {
-        applyThemeToDom(APP_THEMES.clean_paper);
-        const meta = document.querySelector('meta[name="theme-color"]');
-        expect(meta?.getAttribute('content')).toBe('#f4f4f0');
-      });
-
-      it('F13-5: dynamic theme-color matches data-theme attribute on documentElement', () => {
-        applyThemeToDom(APP_THEMES.dive_bar_crt);
-        expect(document.documentElement.getAttribute('data-theme')).toBe('dive_bar_crt');
-        const meta = document.querySelector('meta[name="theme-color"]');
-        expect(meta?.getAttribute('content')).toBe(APP_THEMES.dive_bar_crt.colors.bg);
-      });
-    });
   });
 
   // =========================================================================
@@ -510,17 +439,15 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
       it('F9-B1: very long username nickname in header truncates without pushing export button off-screen', () => {
         setTestViewport(375, 667);
         const { container } = render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="ExtremelyLongKaraokeSingerPseudonym12345"
-              project={readyProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={vi.fn()}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="ExtremelyLongKaraokeSingerPseudonym12345"
+            project={readyProject}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onStartRender={vi.fn()}
+          />
         );
 
         assertZeroHorizontalOverflow(container, 375);
@@ -535,17 +462,15 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
         };
 
         const { container } = render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="Friend"
-              project={renderingProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={vi.fn()}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="Friend"
+            project={renderingProject}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onStartRender={vi.fn()}
+          />
         );
 
         assertZeroHorizontalOverflow(container, 375);
@@ -554,17 +479,15 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
       it('F9-B3: header at narrow 320px viewport renders cleanly with zero horizontal overflow', () => {
         setTestViewport(320, 568);
         const { container } = render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="Friend"
-              project={readyProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={vi.fn()}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="Friend"
+            project={readyProject}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onStartRender={vi.fn()}
+          />
         );
 
         assertZeroHorizontalOverflow(container, 320);
@@ -573,17 +496,15 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
       it('F9-B4: return to song search "New Song" button operates cleanly on mobile', () => {
         const onNewSongMock = vi.fn();
         render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="Friend"
-              project={readyProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={onNewSongMock}
-              onStartRender={vi.fn()}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="Friend"
+            project={readyProject}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={onNewSongMock}
+            onStartRender={vi.fn()}
+          />
         );
 
         const newSongBtn = screen.getByRole('button', { name: /new song/i });
@@ -593,17 +514,15 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
 
       it('F9-B5: header uses sticky top-0 z-40 positioning on mobile scroll', () => {
         const { container } = render(
-          <AppThemeProvider>
-            <StudioHeader
-              currentUser="Friend"
-              project={readyProject}
-              isLyricsDirty={false}
-              onOpenHelp={vi.fn()}
-              onOpenAuth={vi.fn()}
-              onNewSong={vi.fn()}
-              onStartRender={vi.fn()}
-            />
-          </AppThemeProvider>
+          <StudioHeader
+            currentUser="Friend"
+            project={readyProject}
+            isLyricsDirty={false}
+            onOpenHelp={vi.fn()}
+            onOpenAuth={vi.fn()}
+            onNewSong={vi.fn()}
+            onStartRender={vi.fn()}
+          />
         );
 
         const header = container.querySelector('header');
@@ -782,52 +701,6 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
         expect(html).toMatch(/<link\s+[^>]*rel=["']apple-touch-icon["'][^>]*href=["'][^"']+["']/i);
       });
     });
-
-    describe('F13 Boundary Cases: Theme-Color Synchronization', () => {
-      it('F13-B1: applyThemeToDom creates meta[name="theme-color"] if missing from DOM', () => {
-        const existing = document.querySelector('meta[name="theme-color"]');
-        if (existing) existing.remove();
-
-        applyThemeToDom(APP_THEMES.punk_diy);
-        const meta = document.querySelector('meta[name="theme-color"]');
-        expect(meta).toBeInTheDocument();
-        expect(meta?.getAttribute('content')).toBe('#0d0d0f');
-      });
-
-      it('F13-B3: rapid theme cycling across all 4 themes maintains synchronous meta tag updates', () => {
-        applyThemeToDom(APP_THEMES.punk_diy);
-        expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(
-          '#0d0d0f'
-        );
-
-        applyThemeToDom(APP_THEMES.tape_studio_70s);
-        expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(
-          '#1a1410'
-        );
-
-        applyThemeToDom(APP_THEMES.clean_paper);
-        expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(
-          '#f4f4f0'
-        );
-
-        applyThemeToDom(APP_THEMES.dive_bar_crt);
-        expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(
-          '#09080f'
-        );
-      });
-
-      it('F13-B4: unrecognized theme ID safely falls back to default theme-color (#0d0d0f)', () => {
-        applyThemeToDom(APP_THEMES.punk_diy);
-        const meta = document.querySelector('meta[name="theme-color"]');
-        expect(meta?.getAttribute('content')).toBe('#0d0d0f');
-      });
-
-      it('F13-B5: theme color values strictly conform to standard 7-character hex codes (#rrggbb)', () => {
-        Object.values(APP_THEMES).forEach((theme) => {
-          expect(theme.colors.bg).toMatch(/^#[0-9a-fA-F]{6}$/);
-        });
-      });
-    });
   });
 
   // =========================================================================
@@ -840,7 +713,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
       let isExportOpen = false;
 
       const { rerender } = render(
-        <AppThemeProvider>
+        <>
           <StudioHeader
             currentUser="Friend"
             project={readyProject}
@@ -862,7 +735,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
               isExportOpen = false;
             }}
           />
-        </AppThemeProvider>
+        </>
       );
 
       const exportBtn =
@@ -872,7 +745,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
       if (exportBtn) {
         fireEvent.click(exportBtn);
         rerender(
-          <AppThemeProvider>
+          <>
             <StudioHeader
               currentUser="Friend"
               project={readyProject}
@@ -889,39 +762,13 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
                 isExportOpen = false;
               }}
             />
-          </AppThemeProvider>
+          </>
         );
 
         const dialog = screen.queryByRole('dialog');
         expect(dialog).toBeInTheDocument();
         expect(dialog?.className).toContain('items-end');
       }
-    });
-
-    it('F9+F13: Switching theme via AppThemePicker in mobile header updates meta[name="theme-color"]', () => {
-      setTestViewport(375, 667);
-      render(
-        <AppThemeProvider>
-          <StudioHeader
-            currentUser="Friend"
-            project={readyProject}
-            isLyricsDirty={false}
-            onOpenHelp={vi.fn()}
-            onOpenAuth={vi.fn()}
-            onNewSong={vi.fn()}
-            onStartRender={vi.fn()}
-          />
-        </AppThemeProvider>
-      );
-
-      const trigger = screen.getByTestId('app-theme-picker-trigger');
-      fireEvent.click(trigger);
-
-      const crtOption = screen.getByRole('option', { name: /midnight ktv booth|crt/i });
-      fireEvent.click(crtOption);
-
-      const meta = document.querySelector('meta[name="theme-color"]');
-      expect(meta?.getAttribute('content')).toBe('#09080f');
     });
 
     it('F10+F11: BatchOffsetModal renders as bottom sheet with >=44px close button and applies offset', () => {
@@ -984,12 +831,12 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
   // =========================================================================
 
   describe('Tier 4: Real-World Scenarios', () => {
-    it('Scenario 3: Mobile Export & Theme Switch Session (F9, F10, F11, F12, F13)', () => {
+    it('Scenario 3: Mobile Export Session (F9, F10, F11, F12)', () => {
       setTestViewport(375, 667);
       let isExportOpen = false;
 
       const { rerender } = render(
-        <AppThemeProvider>
+        <>
           <StudioHeader
             currentUser="Friend"
             project={readyProject}
@@ -1011,7 +858,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
               isExportOpen = false;
             }}
           />
-        </AppThemeProvider>
+        </>
       );
 
       // 1. Mobile user taps header export trigger on 375px phone
@@ -1022,7 +869,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
       if (exportBtn) {
         fireEvent.click(exportBtn);
         rerender(
-          <AppThemeProvider>
+          <>
             <StudioHeader
               currentUser="Friend"
               project={readyProject}
@@ -1039,7 +886,7 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
                 isExportOpen = false;
               }}
             />
-          </AppThemeProvider>
+          </>
         );
 
         // 2. Export dialog slides up as mobile bottom sheet
@@ -1051,24 +898,9 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
         expect(closeBtn.className).toContain('min-w-[44px]');
         fireEvent.click(closeBtn);
       }
-
-      // 4. User opens theme picker in mobile header
-      const themeTrigger = screen.getByTestId('app-theme-picker-trigger');
-      fireEvent.click(themeTrigger);
-
-      // 5. Selects "Midnight KTV Booth" (dive_bar_crt)
-      const crtOption = screen.getByRole('option', { name: /midnight ktv booth|crt/i });
-      fireEvent.click(crtOption);
-
-      // 6. Confirms document theme-color meta tag updated to #09080f
-      const meta = document.querySelector('meta[name="theme-color"]');
-      expect(meta?.getAttribute('content')).toBe('#09080f');
-
-      // 7. Confirms persistent theme saved in localStorage
-      expect(localStorage.getItem('karaoke_app_theme')).toBe('dive_bar_crt');
     });
 
-    it('Scenario: PWA Mobile Home-Screen Installation Audit (F12, F13)', () => {
+    it('Scenario: PWA Mobile Home-Screen Installation Audit (F12)', () => {
       // 1. Verify manifest existence and core PWA manifest properties
       expect(fs.existsSync(manifestPath), 'manifest.json exists').toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -1084,11 +916,6 @@ describe('R3: Mobile Header, Bottom-Sheet Dialogs & PWA Readiness', () => {
       expect(html).toContain('manifest.json');
       expect(html).toContain('name="theme-color"');
       expect(html).toContain('apple-mobile-web-app-capable');
-
-      // 4. Verify initial theme-color synchronization
-      applyThemeToDom(APP_THEMES.punk_diy);
-      const meta = document.querySelector('meta[name="theme-color"]');
-      expect(meta?.getAttribute('content')).toBe('#0d0d0f');
     });
   });
 });

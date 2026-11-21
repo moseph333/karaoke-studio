@@ -9,7 +9,8 @@
  * so a new build shows up as soon as the server has it.
  */
 
-const SHELL_CACHE = 'karaoke-shell-v1';
+// v2: the offline page and the icons it shows were redrawn
+const SHELL_CACHE = 'karaoke-shell-v2';
 const ASSET_CACHE = 'karaoke-assets-v1';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE = [OFFLINE_URL, '/icon.svg', '/icon-192.png'];

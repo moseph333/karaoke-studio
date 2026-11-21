@@ -227,7 +227,7 @@ export const Menu: React.FC<MenuProps> = ({
       onKeyDown={onMenuKeyDown}
       style={portal ? fixedStyle : undefined}
       className={cn(
-        'z-50 min-w-[200px] overflow-hidden rounded-theme-lg border border-theme-border-subtle bg-theme-surface-raised p-1 shadow-theme-lg motion-safe:animate-slide-down',
+        'z-50 min-w-[200px] overflow-hidden border-2 border-theme-border bg-theme-bg p-1 motion-safe:animate-slide-down',
         !portal && 'absolute',
         !portal && (align === 'end' ? 'right-0' : 'left-0'),
         !portal && (resolvedSide === 'bottom' ? 'top-full mt-1.5' : 'bottom-full mb-1.5'),
@@ -238,7 +238,7 @@ export const Menu: React.FC<MenuProps> = ({
       {title && (
         <div
           role="presentation"
-          className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-theme-text-muted"
+          className="px-2.5 pb-1 pt-1.5 text-xs font-semibold text-theme-text-muted"
         >
           {title}
         </div>
@@ -252,7 +252,7 @@ export const Menu: React.FC<MenuProps> = ({
               <div
                 role="presentation"
                 className={cn(
-                  'px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-theme-text-muted',
+                  'px-2.5 pb-1 pt-1.5 text-xs font-semibold text-theme-text-muted',
                   index > 0 && 'mt-1 border-t border-theme-border-subtle pt-2'
                 )}
               >
@@ -274,9 +274,9 @@ export const Menu: React.FC<MenuProps> = ({
                 item.onSelect();
               }}
               className={cn(
-                'flex w-full min-h-[44px] md:min-h-[36px] items-center gap-2.5 rounded-theme-md px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                'flex w-full min-h-[44px] md:min-h-[36px] items-center gap-2.5 px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40',
                 item.tone === 'danger'
-                  ? 'text-theme-danger hover:bg-theme-danger/10'
+                  ? 'text-theme-danger'
                   : 'text-theme-text hover:bg-theme-surface-subtle',
                 focusRing
               )}
@@ -291,13 +291,13 @@ export const Menu: React.FC<MenuProps> = ({
               )}
               <span className="flex-1 truncate">{item.label}</span>
               {item.shortcut && (
-                <span className="text-[11px] font-mono text-theme-text-muted">{item.shortcut}</span>
+                <span className="text-xs tabular-nums text-theme-text-muted">{item.shortcut}</span>
               )}
               {isRadio && (
                 <Check
                   aria-hidden="true"
                   className={cn(
-                    'h-4 w-4 shrink-0 text-theme-highlight',
+                    'h-4 w-4 shrink-0 text-theme-text',
                     item.checked ? 'opacity-100' : 'opacity-0'
                   )}
                 />

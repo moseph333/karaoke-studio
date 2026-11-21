@@ -28,7 +28,7 @@ describe('ExportAudioSection', () => {
   it('renders section title and all 3 audio stem options', () => {
     render(<ExportAudioSection project={mockProject} />);
 
-    expect(screen.getByText('Direct Audio Stem Downloads')).toBeInTheDocument();
+    expect(screen.getByText('Audio')).toBeInTheDocument();
     expect(screen.getByText('Instrumental Stem')).toBeInTheDocument();
     expect(screen.getByText('Vocal Stem')).toBeInTheDocument();
     expect(screen.getByText('Master Mix')).toBeInTheDocument();

@@ -4,7 +4,7 @@
  * Segmented 3-tab workspace switcher for mobile viewports (< 768px):
  * 1. Stage: Live Karaoke Stage Preview
  * 2. Timeline: Word-by-Word Timeline Editor (with unsaved changes indicator)
- * 3. Mix & Theme: Audio Stems Mixer & Visual Theme Settings
+ * 3. Mix & Look: the audio mix and the stage look
  *
  * Conforms to WAI-ARIA Tabs pattern with roving tabindex and keyboard navigation.
  * Uses theme semantic tokens and satisfies >= 44x44px touch target standards.
@@ -12,7 +12,6 @@
  */
 
 import React, { useRef } from 'react';
-import { Tv, Edit3, Sliders } from 'lucide-react';
 import { StudioWorkspaceTab } from '../types';
 import { cn } from '../utils/cn';
 import { focusRing } from './ui/variants';
@@ -29,7 +28,6 @@ export interface MobileStudioWorkspaceTabsProps {
 interface WorkspaceTabItem {
   id: StudioWorkspaceTab;
   label: string;
-  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
   ariaLabel: string;
   panelId: string;
 }
@@ -38,22 +36,19 @@ const WORKSPACE_TABS: readonly WorkspaceTabItem[] = [
   {
     id: 'stage',
     label: 'Stage',
-    icon: Tv,
     ariaLabel: 'Stage preview workspace',
     panelId: 'workspace-panel-stage',
   },
   {
     id: 'timeline',
     label: 'Timeline',
-    icon: Edit3,
     ariaLabel: 'Timeline editor workspace',
     panelId: 'workspace-panel-timeline',
   },
   {
     id: 'mix',
-    label: 'Mix & Theme',
-    icon: Sliders,
-    ariaLabel: 'Audio mix and visual theme settings workspace',
+    label: 'Mix & Look',
+    ariaLabel: 'Audio mix and stage look workspace',
     panelId: 'workspace-panel-mix',
   },
 ] as const;
@@ -100,19 +95,15 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
     <nav
       data-testid={testId}
       aria-label="Studio workspace navigation"
-      className={cn(
-        'sticky top-[3.5rem] z-30 w-full bg-theme-bg/85 py-2 backdrop-blur-xl md:hidden',
-        className
-      )}
+      className={cn('sticky top-[3.5rem] z-30 w-full bg-theme-bg md:hidden', className)}
     >
       <div
         role="tablist"
         aria-label="Studio workspace navigation sections"
-        className="grid grid-cols-3 gap-1 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-1"
+        className="flex gap-x-6 border-b border-theme-border-subtle"
       >
         {WORKSPACE_TABS.map((tab, index) => {
           const isActive = activeTab === tab.id;
-          const Icon = tab.icon;
 
           return (
             <button
@@ -133,24 +124,21 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
               onClick={() => handleSelect(tab.id)}
               onKeyDown={(e) => handleKeyDown(e, index)}
               className={cn(
-                'relative flex min-h-[44px] select-none items-center justify-center gap-1.5 rounded-theme-md border px-2 py-2 text-xs font-semibold transition-[background-color,color,box-shadow] duration-150 sm:text-sm',
+                // Text tabs: the open one is underlined in yellow
+                'ks-display relative -mb-px flex min-h-[44px] select-none items-center gap-1.5 border-b-[3px] text-[24px] transition-colors duration-150',
                 focusRing,
                 isActive
-                  ? 'border-theme-border-subtle bg-theme-surface-raised text-theme-text shadow-theme-sm'
+                  ? 'border-theme-accent text-theme-text'
                   : 'border-transparent text-theme-text-muted hover:text-theme-text'
               )}
             >
-              <Icon
-                className={cn('h-4 w-4 shrink-0', isActive && 'text-theme-highlight')}
-                aria-hidden="true"
-              />
               <span className="truncate">{tab.label}</span>
               {tab.id === 'timeline' && hasUnsavedChanges && (
                 <span
                   data-testid="tab-unsaved-badge"
                   aria-label="Unsaved changes"
                   title="Unsaved changes in timeline"
-                  className="ml-0.5 h-2 w-2 shrink-0 rounded-full bg-theme-warning motion-safe:animate-pulse"
+                  className="ml-0.5 h-2 w-2 shrink-0 bg-theme-warning"
                 />
               )}
             </button>

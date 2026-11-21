@@ -16,22 +16,14 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   action,
   className,
 }) => (
-  <div
-    className={cn(
-      'flex flex-col items-center justify-center gap-3 rounded-theme-xl border border-dashed border-theme-border-subtle bg-theme-surface-subtle/40 px-6 py-10 text-center',
-      className
-    )}
-  >
+  <div className={cn('flex flex-col items-start gap-2 py-8', className)}>
     {icon && (
-      <span
-        aria-hidden="true"
-        className="flex h-12 w-12 items-center justify-center rounded-theme-lg bg-theme-accent/15 text-theme-highlight"
-      >
+      <span aria-hidden="true" className="text-theme-text-muted">
         {icon}
       </span>
     )}
-    <p className="text-sm font-semibold text-theme-text">{title}</p>
-    {description && <p className="max-w-sm text-sm text-theme-text-muted">{description}</p>}
+    <p className="ks-display text-[26px] text-theme-text">{title}</p>
+    {description && <p className="max-w-prose text-base text-theme-text-muted">{description}</p>}
     {action}
   </div>
 );

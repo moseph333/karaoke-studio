@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Split, Users, X } from 'lucide-react';
+import { Split, X } from 'lucide-react';
 import type {
   VocalSplitCapability,
   VocalSplitInfo,
@@ -103,18 +103,11 @@ export const VocalSplitControl: React.FC<VocalSplitControlProps> = ({
     <section aria-labelledby={headingId} className="space-y-2" data-testid={words.testId}>
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
-          <Heading
-            id={headingId}
-            className={cn(
-              'flex items-center gap-1.5 text-xs font-semibold text-theme-text-muted',
-              !nested && 'uppercase tracking-wider'
-            )}
-          >
-            {!nested && <Users className="h-3.5 w-3.5" aria-hidden="true" />}
+          <Heading id={headingId} className="text-sm font-semibold text-theme-text">
             {words.heading}
           </Heading>
           <p
-            className={cn('mt-0.5 text-theme-text', nested ? 'text-xs' : 'text-sm font-medium')}
+            className={cn('mt-0.5 text-theme-text-muted', nested ? 'text-xs' : 'text-sm')}
             data-testid={`${words.testId}-label`}
           >
             {split ? words.split : words.unsplit}
@@ -143,7 +136,7 @@ export const VocalSplitControl: React.FC<VocalSplitControlProps> = ({
       )}
 
       {active && job && (
-        <div className="space-y-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-subtle p-2.5">
+        <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="min-w-0 truncate font-medium text-theme-text">{words.running}</span>
             <span className="shrink-0 tabular-nums text-theme-text-muted">
@@ -152,7 +145,7 @@ export const VocalSplitControl: React.FC<VocalSplitControlProps> = ({
           </div>
           <ProgressBar value={job.progress} label={words.progress} size="sm" />
           <div className="flex items-center justify-between gap-2">
-            <p className="min-w-0 truncate text-[11px] text-theme-text-muted" title={job.detail}>
+            <p className="min-w-0 truncate text-xs text-theme-text-muted" title={job.detail}>
               {job.detail}
             </p>
             {onCancel && (

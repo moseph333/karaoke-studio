@@ -38,8 +38,8 @@ describe('the Fix a problem tab', () => {
     render(<HelpModal isOpen onClose={vi.fn()} initialTab="fix" />);
 
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
-      'Keyboard Shortcuts',
-      'Studio Usage Guide',
+      'Keyboard shortcuts',
+      'Studio usage guide',
       'Fix a problem',
     ]);
     const tab = screen.getByRole('tab', { name: 'Fix a problem' });
@@ -182,7 +182,7 @@ describe('the usage guide', () => {
 
   it('no longer says every song is separated with Demucs', () => {
     render(<HelpModal isOpen onClose={vi.fn()} initialTab="guide" />);
-    const guide = screen.getByRole('tabpanel', { name: 'Studio Usage Guide' });
+    const guide = screen.getByRole('tabpanel', { name: 'Studio usage guide' });
     expect(guide).not.toHaveTextContent(/Demucs AI/);
     expect(guide).toHaveTextContent(/Fast, Balanced or Best/);
   });
@@ -281,7 +281,7 @@ describe('in the studio', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(await screen.findByRole('button', { name: 'Something off? Fix a problem' }));
-    await user.click(await screen.findByRole('button', { name: /got it, close/i }));
+    await user.click(await screen.findByRole('button', { name: 'Close' }));
 
     fireEvent.keyDown(window, { key: '?' });
 

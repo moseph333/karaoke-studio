@@ -289,9 +289,9 @@ describe('ProjectLibrary Search, Filter, and Sort (R5)', () => {
       expect(screen.getByText('Hotel California')).toBeInTheDocument();
     });
 
-    // Toolbar controls >= 36px
+    // Toolbar controls >= 36px (tabs 44px on a phone)
     const myTab = screen.getByRole('tab', { name: /My Songs/i });
-    expect(myTab.className).toMatch(/min-h-\[36px\]/);
+    expect(myTab.className).toMatch(/min-h-\[44px\]/);
 
     const searchInput = screen.getByLabelText('Search project library');
     expect(searchInput.className).toMatch(/min-h-\[36px\]/);

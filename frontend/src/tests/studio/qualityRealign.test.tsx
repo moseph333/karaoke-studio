@@ -396,9 +396,7 @@ describe('Processing view', () => {
     );
     expect(screen.getByTestId('processing-model-download')).toHaveTextContent('downloaded once');
     expect(
-      within(screen.getByRole('list', { name: 'Processing Stages' })).getByText(
-        'AI Vocal Separation'
-      )
+      within(screen.getByRole('list', { name: 'Processing Stages' })).getByText('Remove the vocals')
     ).toBeInTheDocument();
   });
 

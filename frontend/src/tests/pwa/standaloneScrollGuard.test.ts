@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFrontendFile } from '../helpers/bootScriptUtils';
+import { readFrontendFile } from '../helpers/frontendFiles';
 
 const css = readFrontendFile('src/index.css').replace(/\/\*[\s\S]*?\*\//g, '');
 

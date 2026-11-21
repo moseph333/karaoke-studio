@@ -407,13 +407,13 @@ describe('E2E Chords & Harmonic Progression Workstation', () => {
 
     it('F10.3: HelpModal documents input and modal isolation rules banner', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} />);
-      expect(screen.getByText(/Keyboard Shortcut Isolation/i)).toBeInTheDocument();
+      expect(screen.getByText(/When shortcuts are off/i)).toBeInTheDocument();
     });
 
     it('F10.4: HelpModal close button satisfies touch target >=44px', () => {
       render(<HelpModal isOpen={true} onClose={vi.fn()} />);
       const closeBtn = screen.getByRole('button', {
-        name: /close help and usage guide/i,
+        name: /close help/i,
       });
       expect(closeBtn).toBeInTheDocument();
       assertTouchTargets(closeBtn);
@@ -489,7 +489,9 @@ describe('E2E Chords & Harmonic Progression Workstation', () => {
 
     it('F15.2: ExportSubtitleSection renders SubStation Alpha (.ass) download section', () => {
       render(<ExportSubtitleSection project={mockProject} />);
-      expect(screen.getByRole('heading', { name: /synchronized subtitles/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: /subtitles \(\.lrc and \.ass\)/i })
+      ).toBeInTheDocument();
     });
 
     it('F15.3: Export download triggers authenticated fetch without window redirection', () => {

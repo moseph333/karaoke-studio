@@ -362,7 +362,7 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       // Help modal visible
       const helpModal = screen.getByRole('dialog');
       expect(helpModal).toBeInTheDocument();
-      expect(screen.getByRole('heading', { name: /karaoke studio help/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
 
       // Press Escape to dismiss
       fireEvent.keyDown(helpModal, { key: 'Escape' });
@@ -370,41 +370,6 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       // Verify help modal closed and mix tab still active
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       expect(mixTab).toHaveAttribute('aria-selected', 'true');
-    });
-
-    it('2.3 dynamically syncs meta[name="theme-color"] and preserves workspace tab', async () => {
-      render(<App />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Cross-Milestone Integration Anthem')).toBeInTheDocument();
-      });
-      // Allow initial project effect to settle
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
-      // Switch to Timeline tab
-      const timelineTab = screen.getByRole('tab', { name: /timeline/i });
-      fireEvent.click(timelineTab);
-
-      // Check initial theme-color tag exists
-      let themeColorMeta = document.querySelector('meta[name="theme-color"]');
-      expect(themeColorMeta).toBeInTheDocument();
-
-      // Open theme picker trigger
-      const themePickerTrigger = screen.getByTestId('app-theme-picker-trigger');
-      fireEvent.click(themePickerTrigger);
-
-      // Select an alternative theme
-      const punkTheme = screen.getByRole('option', {
-        name: /reel-to-reel|tape_studio|punk/i,
-      });
-      fireEvent.click(punkTheme);
-
-      // Verify theme-color is updated
-      themeColorMeta = document.querySelector('meta[name="theme-color"]');
-      expect(themeColorMeta?.getAttribute('content')).toMatch(/^#[0-9a-fA-F]{6}$/);
-
-      // Timeline tab remains active
-      expect(timelineTab).toHaveAttribute('aria-selected', 'true');
     });
   });
 
@@ -575,7 +540,7 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       setTestViewport(375, 667);
       assertZeroHorizontalOverflow(container, 375);
 
-      // Switch to Mix & Theme
+      // Switch to Mix & Look
       fireEvent.click(screen.getByRole('tab', { name: /mix/i }));
       setTestViewport(320, 568);
       assertZeroHorizontalOverflow(container, 320);
@@ -693,7 +658,7 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       // Allow initial project effect to settle
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      // Switch to Mix & Theme tab
+      // Switch to Mix & Look tab
       const mixTab = screen.getByRole('tab', { name: /mix/i });
       fireEvent.click(mixTab);
 

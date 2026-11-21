@@ -122,7 +122,7 @@ describe('Milestone 2 Challenger 2: Frontend & Accessibility Adversarial Suite (
         );
 
         // Section header and count badge must be present
-        expect(screen.getByText(/Synchronized Subtitles \(\.LRC & \.ASS\)/i)).toBeInTheDocument();
+        expect(screen.getByText(/Subtitles \(\.lrc and \.ass\)/i)).toBeInTheDocument();
         expect(screen.getByText('2 lines')).toBeInTheDocument();
 
         // Download .LRC button must be present, enabled, and clickable
@@ -149,7 +149,7 @@ describe('Milestone 2 Challenger 2: Frontend & Accessibility Adversarial Suite (
 
       render(<ExportModal project={projectWithoutLines} isOpen={true} onClose={vi.fn()} />);
 
-      expect(screen.getByText(/Synchronized Subtitles \(\.LRC & \.ASS\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/Subtitles \(\.lrc and \.ass\)/i)).toBeInTheDocument();
       expect(screen.queryByText(/lines/)).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: /download \.lrc subtitles/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /download \.ass subtitles/i })).toBeInTheDocument();
@@ -418,7 +418,7 @@ describe('Milestone 2 Challenger 2: Frontend & Accessibility Adversarial Suite (
       expect(assBtn.className).toContain('min-h-[44px]');
 
       // 4. Render 1080p Video button (idle state)
-      const renderBtn = screen.getByRole('button', { name: /start video render/i });
+      const renderBtn = screen.getByRole('button', { name: /render 1080p video/i });
       expect(renderBtn.className).toContain('min-h-[44px]');
     });
 

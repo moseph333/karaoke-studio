@@ -42,19 +42,20 @@ export interface ExpandedWordEditorProps {
 }
 
 const shiftButton = cn(
-  'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-sm bg-theme-surface-raised p-2 text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text md:min-h-[30px] md:min-w-[30px] md:p-1',
+  'flex min-h-[44px] min-w-[44px] items-center justify-center p-2 text-theme-text-muted transition-colors hover:text-theme-text md:min-h-[30px] md:min-w-[30px] md:p-1',
   focusRing
 );
 
 const stepButton = (edge: 'l' | 'r') =>
   cn(
-    'flex h-8 w-8 min-h-[44px] min-w-[44px] items-center justify-center bg-theme-surface-raised text-sm font-bold text-theme-text-muted transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:h-6 sm:w-6 sm:min-h-0 sm:min-w-0',
-    edge === 'l' ? 'rounded-l-theme-sm' : 'rounded-r-theme-sm',
+    // With the time between them, the two steps read as one outlined control
+    'flex h-8 w-8 min-h-[44px] min-w-[44px] items-center justify-center border border-theme-border text-sm font-bold text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse sm:h-7 sm:w-7 sm:min-h-0 sm:min-w-0',
+    edge === 'l' ? 'border-r-0' : 'border-l-0',
     focusRing
   );
 
 const timeInput =
-  'h-8 w-16 min-h-[44px] border-y border-theme-border-subtle bg-theme-bg p-0.5 text-center text-xs tabular-nums text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-focus sm:h-6 sm:w-14 sm:min-h-0';
+  'h-8 w-16 min-h-[44px] border border-theme-border bg-transparent p-0.5 text-center text-sm tabular-nums text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-focus sm:h-7 sm:w-14 sm:min-h-0';
 
 /**
  * A word boundary typed in seconds. What is typed stays a draft and is committed, clamped to
@@ -108,7 +109,7 @@ const WordTimeInput: React.FC<{
 };
 
 const snapButton = cn(
-  'flex min-h-[44px] min-w-[44px] flex-1 items-center justify-center gap-1 rounded-theme-sm border border-theme-accent/35 bg-theme-accent/10 px-2 py-1.5 text-[11px] font-semibold text-theme-highlight transition-colors hover:bg-theme-accent/20 sm:min-h-0 sm:min-w-0',
+  'flex min-h-[44px] min-w-[44px] items-center gap-1.5 text-sm text-theme-text-muted underline decoration-theme-border-subtle underline-offset-4 transition-colors hover:text-theme-text sm:min-h-[28px] sm:min-w-0',
   focusRing
 );
 
@@ -137,7 +138,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
   const shownPlayhead = hasTimeProp ? ` (${currentTime.toFixed(2)}s)` : '';
 
   return (
-    <div className="mt-2 grid grid-cols-1 gap-2 border-t border-theme-border-subtle/70 pt-2.5 @md:grid-cols-2 @3xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-x-8 pb-2 pl-0 @md:grid-cols-2 @[480px]:pl-9 @3xl:grid-cols-3">
       {line.words.map((w, wIdx) => {
         const isWordActive = activeWordLoc?.lineId === line.id && activeWordLoc?.wordIndex === wIdx;
 
@@ -147,20 +148,18 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
             data-testid="word-timing-card"
             data-active-word={isWordActive ? 'true' : undefined}
             className={cn(
-              'flex flex-col gap-1.5 rounded-theme-md border p-2.5 text-xs transition-colors',
-              isWordActive
-                ? 'border-theme-accent/60 bg-theme-accent/10 ring-1 ring-theme-accent/30'
-                : 'border-theme-border-subtle bg-theme-surface'
+              // A word and its two times on a hairline; the word being sung is lit
+              'flex flex-col gap-1 border-t border-theme-border-subtle py-2 text-sm'
             )}
           >
             <div className="flex items-center justify-between">
               <span
                 onClick={() => onWordClick(w)}
                 className={cn(
-                  'mr-2 min-w-0 cursor-pointer truncate font-semibold',
+                  'ks-display mr-2 min-w-0 cursor-pointer truncate px-1 text-[22px]',
                   isWordActive
-                    ? 'text-theme-highlight'
-                    : 'text-theme-text hover:text-theme-highlight'
+                    ? 'bg-theme-accent text-theme-accent-text'
+                    : 'text-theme-text hover:text-theme-accent'
                 )}
                 title={`Click to seek to word: ${w.word}`}
               >
@@ -201,9 +200,9 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] sm:flex-nowrap">
+            <div className="flex flex-wrap items-center gap-2 tabular-nums text-sm sm:flex-nowrap">
               {/* Start boundary */}
-              <div className="flex items-center gap-px">
+              <div className="flex items-center">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -241,10 +240,10 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                 </button>
               </div>
 
-              <span className="font-sans text-theme-text-muted">to</span>
+              <span className="text-theme-text-muted">to</span>
 
               {/* End boundary */}
-              <div className="flex items-center gap-px">
+              <div className="flex items-center">
                 <button
                   type="button"
                   onClick={(e) => {
@@ -282,7 +281,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
 
             {/* Snap boundaries to the playhead (shown when the playback clock is known) */}
             {canSnap && (
-              <div className="flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle/70 pt-1.5 sm:flex-nowrap">
+              <div className="flex flex-wrap items-center gap-x-5 sm:flex-nowrap">
                 <button
                   type="button"
                   onClick={() => {
@@ -305,7 +304,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                   title={`Snap start to playhead${shownPlayhead}`}
                   className={snapButton}
                 >
-                  <Crosshair className="h-3 w-3" aria-hidden="true" />
+                  <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
                   Start to Playhead
                 </button>
                 <button
@@ -323,7 +322,7 @@ export const ExpandedWordEditor: React.FC<ExpandedWordEditorProps> = ({
                   title={`Snap end to playhead${shownPlayhead}`}
                   className={snapButton}
                 >
-                  <Crosshair className="h-3 w-3" aria-hidden="true" />
+                  <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
                   End to Playhead
                 </button>
               </div>

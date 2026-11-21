@@ -9,7 +9,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Copy, Check, Youtube } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import { ProjectState } from '../../types';
 import { copyText } from '../../utils/clipboard';
 import { cn } from '../../utils/cn';
@@ -37,13 +37,13 @@ function shortsNote(format?: '16:9' | '9:16', durationSeconds?: number): string 
     : 'This 9:16 video is longer than three minutes, so YouTube publishes it as a regular video, not a Short.';
 }
 
-const stepTitleCls = 'font-theme-heading text-sm font-semibold text-theme-text';
-const stepHintCls = 'text-pretty text-xs leading-relaxed text-theme-text-muted';
+const stepTitleCls = 'ks-display text-[22px] text-theme-text';
+const stepHintCls = 'text-pretty text-sm text-theme-text-muted';
 
 type CopyField = 'title' | 'description' | 'tags';
 
 const copyBtnCls = cn(
-  'inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-theme-md px-2 py-1 text-xs font-medium text-theme-highlight transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:min-h-[32px]',
+  'ks-display inline-flex min-h-[44px] shrink-0 items-center gap-1.5 border border-theme-border px-3 text-[20px] text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse md:min-h-[32px]',
   focusRing
 );
 
@@ -55,7 +55,7 @@ const CopyButton: React.FC<{
 }> = ({ label, copied, failed, onCopy }) => (
   <button type="button" onClick={onCopy} className={copyBtnCls}>
     {copied ? (
-      <Check className="h-3.5 w-3.5 text-theme-success" aria-hidden="true" />
+      <Check className="h-3.5 w-3.5" aria-hidden="true" />
     ) : (
       <Copy className="h-3.5 w-3.5" aria-hidden="true" />
     )}
@@ -97,11 +97,9 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
     text: string,
     body: React.ReactNode
   ) => (
-    <div className="rounded-theme-md border border-theme-border-subtle bg-theme-surface p-3.5">
+    <div className="border-l-2 border-theme-border-subtle pl-3">
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-xs font-semibold text-theme-text-muted">
-          {heading}
-        </span>
+        <span className="min-w-0 truncate text-sm text-theme-text-muted">{heading}</span>
         <CopyButton
           label={copyLabel}
           copied={copiedField === field}
@@ -118,14 +116,13 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
   // morning") is not one.
   const hasChapters = /Timestamps:\n\d{1,2}:\d{2}(:\d{2})? - /.test(yt.description);
   const descriptionLabel = hasChapters
-    ? 'Description (with Chapters & Lyrics)'
-    : 'Description (with Lyrics)';
+    ? 'Description, with chapters and lyrics'
+    : 'Description, with lyrics';
   const shorts = shortsNote(format, durationSeconds);
 
   return (
     <section aria-labelledby="export-youtube-kit-heading" className={EXPORT_SECTION}>
       <h3 id="export-youtube-kit-heading" className={EXPORT_HEADING}>
-        <Youtube className="h-5 w-5 shrink-0 text-theme-danger" aria-hidden="true" />
         Upload to YouTube
       </h3>
       <p className={stepHintCls}>
@@ -146,10 +143,10 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
           <h4 className={stepTitleCls}>2. Paste the title</h4>
           {block(
             'title',
-            'Video Title',
-            'Copy Title',
+            'Video title',
+            'Copy title',
             yt.title,
-            <p className="break-words text-sm font-medium text-theme-text">{yt.title}</p>
+            <p className="break-words text-base text-theme-text">{yt.title}</p>
           )}
         </li>
 
@@ -163,7 +160,7 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
           {block(
             'description',
             descriptionLabel,
-            'Copy Description',
+            'Copy description',
             yt.description,
             // Scrolls when long: focusable, so keyboard users can scroll it too
             <pre
@@ -171,7 +168,7 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
               role="region"
               aria-label={descriptionLabel}
               className={cn(
-                'max-h-36 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words rounded-theme-sm border border-theme-border-subtle bg-theme-bg/60 p-2.5 font-mono text-xs text-theme-text-muted',
+                'max-h-36 overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words font-theme-body text-sm text-theme-text-muted',
                 focusRing
               )}
             >
@@ -187,12 +184,10 @@ export const ExportYouTubeKit: React.FC<ExportYouTubeKitProps> = ({
           </p>
           {block(
             'tags',
-            'SEO Tags (comma-separated)',
-            'Copy Tags',
+            'Tags, separated by commas',
+            'Copy tags',
             yt.tags.join(', '),
-            <p className="break-words font-mono text-xs text-theme-text-muted">
-              {yt.tags.join(', ')}
-            </p>
+            <p className="break-words text-sm text-theme-text-muted">{yt.tags.join(', ')}</p>
           )}
         </li>
 

@@ -185,7 +185,7 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       );
 
       const wordsContainer = screen.getByTestId('timeline-words-line-1');
-      expect(wordsContainer).toHaveClass('flex', 'flex-wrap', 'gap-1.5');
+      expect(wordsContainer).toHaveClass('flex', 'flex-wrap', 'gap-x-1');
 
       // Word chips have min-h-[34px] touch area
       const chips = within(wordsContainer).getAllByRole('button');
@@ -407,12 +407,13 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       expect(stage9_16).not.toHaveClass('aspect-video');
     });
 
-    it('wraps active lyric text without clipping or colliding with the Live Preview badge', () => {
+    it('wraps active lyric text without clipping or colliding with the stage toolbar', () => {
       render(<LyricDisplay lines={sampleLines} currentTime={2.5} aspectRatio="9:16" />);
 
-      // The live badge sits in the overlay toolbar pinned to the top edge of the stage
+      // The toolbar is pinned to the top edge of the stage and holds controls only:
+      // no badge says the preview is live
       const toolbar = screen.getByTestId('stage-toolbar');
-      expect(within(toolbar).getByText(/live preview/i)).toBeInTheDocument();
+      expect(within(toolbar).queryByText(/live preview/i)).toBeNull();
       expect(toolbar).toHaveClass('absolute', 'inset-x-0', 'top-0');
       // ...and the stage reserves top padding so lyrics never slide under it
       expect(screen.getByTestId('lyric-display-stage')).toHaveClass('pt-16');

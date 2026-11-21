@@ -20,8 +20,8 @@ import {
   Plus,
   Rewind,
   Trash2,
-  WandSparkles,
   X,
+  Timer,
 } from 'lucide-react';
 import { LyricLine, SingerRole, WordTiming } from '../../types';
 import { formatLineTime } from '../../utils/lyrics';
@@ -89,12 +89,12 @@ export interface TimelineLineCardProps {
   onMergeWithNext?: (lineId: number) => void;
 }
 
-// A shape per level as well as a colour, so the level reads without colour vision:
-// filled dot, diamond, hollow ring
+// A line that is fine shows no mark. The other two levels get a shape as well as a colour,
+// so the level reads without colour vision: a filled diamond, a hollow square
 const CONFIDENCE_DOT: Record<ConfidenceLevel, string> = {
-  high: 'h-1.5 w-1.5 rounded-full bg-theme-success',
-  medium: 'h-1.5 w-1.5 rotate-45 rounded-[1px] bg-theme-warning',
-  low: 'h-2 w-2 rounded-full border-2 border-theme-danger',
+  high: 'hidden',
+  medium: 'h-1.5 w-1.5 rotate-45 bg-theme-warning',
+  low: 'h-2 w-2 border-2 border-theme-danger',
 };
 
 const NEXT_SINGER: Record<SingerRole, SingerRole> = {
@@ -103,23 +103,16 @@ const NEXT_SINGER: Record<SingerRole, SingerRole> = {
   both: 'singer1',
 };
 
-const SINGER_TONE: Record<SingerRole, string> = {
-  singer1: 'border-theme-sung/40 bg-theme-sung/10 hover:bg-theme-sung/20 [&_svg]:text-theme-sung',
-  singer2:
-    'border-theme-secondary/45 bg-theme-secondary/10 hover:bg-theme-secondary/20 [&_svg]:text-theme-secondary',
-  both: 'border-theme-success/40 bg-theme-success/10 hover:bg-theme-success/20 [&_svg]:text-theme-success',
-};
+/** Text inside the playing line's yellow block is black. */
+const onLit = 'group-data-[active-line=true]/line:text-theme-accent-text';
 
 // Line controls keep a 44px touch target and tighten on desktop. Class strings are kept
 // literal (not merged) so both the touch and compact sizes stay on the element.
 const rowControl = cn(
-  'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-theme-sm text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text md:min-h-[30px] md:min-w-[30px]',
+  'flex min-h-[44px] min-w-[44px] items-center justify-center text-theme-text-muted transition-colors hover:text-theme-text md:min-h-[30px] md:min-w-[30px]',
   focusRing
 );
-const nudgeControl = cn(
-  rowControl,
-  'px-2 font-mono text-[11px] font-semibold tabular-nums md:px-1.5'
-);
+const nudgeControl = cn(rowControl, 'px-2 text-xs font-semibold tabular-nums md:px-1.5');
 
 export const TimelineLineCard = React.memo(function TimelineLineCard({
   line,
@@ -193,20 +186,17 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
       data-needs-review={issueMessages ? 'true' : undefined}
       data-realigning={isRealigning ? 'true' : undefined}
       className={cn(
-        'group/line relative rounded-theme-lg border px-2 py-1.5 transition-colors sm:px-2.5',
-        isCurrentlyActive
-          ? 'border-theme-accent/45 bg-theme-accent/[0.08] shadow-theme-sm before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-gradient-accent'
-          : isExpanded
-            ? 'border-theme-border-subtle bg-theme-surface-subtle'
-            : 'border-transparent bg-theme-surface-subtle/50 hover:border-theme-border-subtle hover:bg-theme-surface-subtle'
+        // A row on a hairline. The line being sung is lit: its number, part, time and words
+        // sit in a yellow block (the controls beside it stay on the page)
+        'group/line relative border-b border-theme-border-subtle py-1 transition-colors',
+        isExpanded && !isCurrentlyActive && 'bg-theme-surface-subtle',
+        !isExpanded && !isCurrentlyActive && 'hover:bg-theme-surface-subtle'
       )}
     >
       <div className="flex flex-col gap-1.5 @[720px]:flex-row @[720px]:items-center @[720px]:gap-2">
         {isEditing ? (
           <div className="flex min-h-[44px] w-full items-center gap-1.5 overflow-hidden @[720px]:flex-1">
-            <span className="shrink-0 font-mono text-[11px] tabular-nums text-theme-text-muted">
-              {timeRange}
-            </span>
+            <span className="shrink-0 text-xs tabular-nums text-theme-text-muted">{timeRange}</span>
             <input
               ref={editInputRef}
               type="text"
@@ -225,7 +215,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               onBlur={() => onCommitEditing(line.id, editingText)}
               aria-label={`Edit text for line ${line.id}`}
               data-testid={`line-text-input-${line.id}`}
-              className="min-h-[44px] min-w-0 flex-1 rounded-theme-md border border-theme-accent bg-theme-bg px-2.5 py-1.5 text-base font-semibold text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-focus sm:text-sm md:min-h-[36px]"
+              className="min-h-[44px] min-w-0 flex-1 border border-theme-accent bg-theme-bg px-2.5 py-1.5 text-base font-semibold text-theme-text focus:outline-none focus:ring-2 focus:ring-theme-focus sm:text-sm md:min-h-[36px]"
             />
             <button
               type="button"
@@ -236,7 +226,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               aria-label={`Commit edit for line ${line.id}`}
               data-testid={`commit-edit-${line.id}`}
               className={cn(
-                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md bg-theme-success/15 text-theme-success transition-colors hover:bg-theme-success/25 md:min-h-[36px] md:min-w-[36px]',
+                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-theme-success transition-colors md:min-h-[36px] md:min-w-[36px]',
                 focusRing
               )}
               title="Commit edit (Enter)"
@@ -257,7 +247,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               aria-label={`Cancel edit for line ${line.id}`}
               data-testid={`cancel-edit-${line.id}`}
               className={cn(
-                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-theme-md text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text md:min-h-[36px] md:min-w-[36px]',
+                'flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-theme-text-muted transition-colors hover:bg-theme-surface-raised hover:text-theme-text md:min-h-[36px] md:min-w-[36px]',
                 focusRing
               )}
               title="Cancel edit (Escape)"
@@ -266,7 +256,21 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
             </button>
           </div>
         ) : (
-          <div className="flex w-full min-w-0 items-center gap-1.5 @[720px]:flex-1">
+          <div
+            className={cn(
+              'flex w-full min-w-0 items-center gap-1.5 @[720px]:flex-1',
+              isCurrentlyActive && 'bg-theme-accent text-theme-accent-text'
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className={cn(
+                'ks-display hidden w-9 shrink-0 pl-1 text-[22px] tabular-nums text-theme-text-muted @[480px]:block',
+                onLit
+              )}
+            >
+              {String(idx + 1).padStart(2, '0')}
+            </span>
             <Tooltip
               content={`Current part: ${singer.label}. Click to cycle role`}
               position="top"
@@ -282,8 +286,9 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 data-testid={`toggle-singer-${line.id}`}
                 data-singer={singerRole}
                 className={cn(
-                  'inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1 rounded-theme-md border px-1.5 font-mono text-[11px] font-bold text-theme-text transition-colors md:min-h-[30px] md:min-w-[44px]',
-                  SINGER_TONE[singerRole],
+                  // One width for S1, S2 and Both, so the times and words line up down the list
+                  'inline-flex min-h-[44px] min-w-[44px] w-[3.75rem] shrink-0 items-center justify-start gap-1 px-1 text-xs font-bold text-theme-text-muted transition-colors hover:text-theme-text md:min-h-[30px] md:min-w-[44px]',
+                  onLit,
                   focusRing
                 )}
               >
@@ -304,11 +309,18 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               }
               className={cn(
                 // Narrow cards stack the time above the lyric so the text keeps the full width
-                'flex min-h-[44px] min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0 overflow-hidden rounded-theme-sm border-0 bg-transparent px-1 py-0.5 text-left @[480px]:flex-row @[480px]:items-center @[480px]:justify-start @[480px]:gap-2.5 md:min-h-[30px]',
+                'flex min-h-[44px] min-w-0 flex-1 cursor-pointer flex-col justify-center gap-0 overflow-hidden border-0 bg-transparent px-1 py-0.5 text-left @[480px]:flex-row @[480px]:items-center @[480px]:justify-start @[480px]:gap-2.5 md:min-h-[30px]',
                 focusRing
               )}
             >
-              <span className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[11px] tabular-nums text-theme-text-muted">
+              <span
+                className={cn(
+                  // The time comes first so the column lines up; a mark for a doubtful line follows
+                  'inline-flex w-[6.75rem] shrink-0 items-center gap-1.5 whitespace-nowrap text-xs tabular-nums text-theme-text-muted',
+                  onLit
+                )}
+              >
+                {timeRange}
                 {confidence && (
                   <>
                     <span
@@ -326,12 +338,11 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                     )}
                   </>
                 )}
-                {timeRange}
               </span>
               <span
                 className={cn(
-                  'min-w-0 flex-1 truncate font-theme-body text-sm',
-                  isCurrentlyActive ? 'font-bold text-theme-text' : 'font-medium text-theme-text/90'
+                  'min-w-0 flex-1 truncate font-theme-body text-base',
+                  isCurrentlyActive ? 'font-bold text-theme-accent-text' : 'text-theme-text'
                 )}
               >
                 {line.text}
@@ -341,7 +352,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
               <span
                 data-testid={`line-added-repeat-${line.id}`}
                 title="Added because this repeat is sung but the lyrics left it out"
-                className="shrink-0 rounded-theme-sm border border-theme-accent/35 bg-theme-accent/10 px-1.5 py-0.5 text-[10px] font-semibold text-theme-highlight"
+                className={cn('shrink-0 text-xs text-theme-text-muted', onLit)}
               >
                 Added repeat
               </span>
@@ -352,7 +363,10 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 data-testid={`line-review-${line.id}`}
                 aria-label={`Needs review: ${issueMessages.join('; ')}`}
                 title={issueMessages.join('\n')}
-                className="flex h-6 w-6 shrink-0 items-center justify-center text-theme-warning"
+                className={cn(
+                  'flex h-6 w-6 shrink-0 items-center justify-center text-theme-warning',
+                  onLit
+                )}
               >
                 <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
               </span>
@@ -364,7 +378,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 onClick={() => onStartEditing(line)}
                 aria-label={`Edit text for line ${line.id}`}
                 data-testid={`edit-line-text-${line.id}`}
-                className={cn(rowControl, 'shrink-0', calm)}
+                className={cn(rowControl, 'shrink-0', calm, onLit)}
               >
                 <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
@@ -373,7 +387,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
         )}
 
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-1 @[720px]:flex-nowrap @[720px]:justify-end">
-          <div className="flex items-center gap-px rounded-theme-md border border-theme-border-subtle bg-theme-surface p-0.5">
+          <div className="flex items-center gap-px">
             <Tooltip content="Nudge line 0.2s earlier" position="top" portal>
               <button
                 type="button"
@@ -428,7 +442,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   className={rowControl}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span aria-hidden="true" className="-ml-0.5 font-mono text-[10px]">
+                  <span aria-hidden="true" className="-ml-0.5 text-xs">
                     ↑
                   </span>
                 </button>
@@ -442,7 +456,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   className={rowControl}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span aria-hidden="true" className="-ml-0.5 font-mono text-[10px]">
+                  <span aria-hidden="true" className="-ml-0.5 tabular-nums text-xs">
                     ↓
                   </span>
                 </button>
@@ -453,7 +467,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   onClick={() => onDeleteLine(line)}
                   aria-label={`Delete line ${line.id}`}
                   data-testid={`delete-line-${line.id}`}
-                  className={cn(rowControl, 'hover:bg-theme-danger/10 hover:text-theme-danger')}
+                  className={cn(rowControl, 'hover:text-theme-danger')}
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -519,7 +533,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                         icon: isRealigning ? (
                           <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                         ) : (
-                          <WandSparkles className="h-4 w-4" />
+                          <Timer className="h-4 w-4" />
                         ),
                         disabled: isRealigning,
                         testId: `line-${line.id}-realign`,
@@ -555,7 +569,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   : `Expand word timings for line ${line.id}`
               }
               aria-expanded={isExpanded}
-              className={cn(rowControl, isExpanded && 'text-theme-highlight')}
+              className={cn(rowControl, isExpanded && 'text-theme-text')}
               title="Expand word timings"
             >
               <ChevronRight
@@ -570,7 +584,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
       {showWords && line.words && line.words.length > 0 && (
         <div
           data-testid={`timeline-words-line-${line.id}`}
-          className="mt-1.5 flex flex-wrap items-center gap-1.5 border-t border-theme-border-subtle/70 pt-1.5"
+          className="flex flex-wrap items-center gap-x-1 pl-0 @[480px]:pl-9"
         >
           {line.words.map((w, wIdx) => {
             const isWordActive =
@@ -591,10 +605,11 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                 aria-current={isWordActive ? 'true' : undefined}
                 aria-label={`Jump to word ${w.word} in timeline at ${formatLineTime(w.start_time)}s`}
                 className={cn(
-                  'inline-flex min-h-[34px] cursor-pointer items-center rounded-theme-sm px-2.5 py-1 font-theme-body text-xs transition-colors md:min-h-[28px]',
+                  // The word being sung is lit; the others are plain words to click
+                  'inline-flex min-h-[34px] cursor-pointer items-center px-1.5 font-theme-body text-sm transition-colors md:min-h-[28px]',
                   isWordActive
-                    ? 'bg-theme-accent/20 font-bold text-theme-highlight ring-1 ring-theme-accent/60'
-                    : 'border border-theme-border-subtle bg-theme-surface font-medium text-theme-text-muted hover:bg-theme-surface-raised hover:text-theme-text',
+                    ? 'bg-theme-accent font-bold text-theme-accent-text'
+                    : 'text-theme-text-muted hover:text-theme-text',
                   focusRing
                 )}
                 title={`Seek to "${w.word}" (${formatLineTime(w.start_time)}s)`}

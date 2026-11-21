@@ -42,17 +42,20 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
   const toFix = useMemo(() => checkupFixCount(project), [project]);
 
   return (
-    <div className="flex min-w-0 items-center gap-3" data-testid="song-header">
+    <div
+      className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4"
+      data-testid="song-header"
+    >
       {project.thumbnail_url ? (
         <img
           src={project.thumbnail_url}
           alt={project.title}
-          className="h-11 w-11 shrink-0 rounded-theme-lg border border-theme-border-subtle object-cover shadow-theme-sm sm:h-12 sm:w-12"
+          className="h-12 w-12 shrink-0 object-cover sm:h-16 sm:w-16"
         />
       ) : (
         <span
           aria-hidden="true"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-theme-lg bg-gradient-accent text-theme-accent-text shadow-theme-sm sm:h-12 sm:w-12"
+          className="flex h-12 w-12 shrink-0 items-center justify-center bg-theme-surface-raised text-theme-text-muted sm:h-16 sm:w-16"
         >
           <Music className="h-5 w-5" />
         </span>
@@ -62,20 +65,20 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
         <h1
           tabIndex={-1}
           data-view-heading
-          className="break-words font-theme-heading text-base font-semibold leading-tight tracking-tight text-theme-text focus:outline-none line-clamp-2 sm:text-lg sm:line-clamp-1"
+          className="ks-display break-words text-[34px] font-black leading-[0.92] text-theme-text focus:outline-none line-clamp-2 sm:text-[56px] sm:line-clamp-1"
         >
           {project.title}
         </h1>
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-theme-text-muted">
-          <p className="min-w-0 truncate font-medium">
+        {/* What the song is, as plain text. Only what needs a look is coloured. */}
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-sm text-theme-text-muted">
+          <p className="min-w-0 truncate">
             {project.artist} · {lineCount} {lineCount === 1 ? 'line' : 'lines'}
           </p>
           <Tooltip content={syncFidelity.tooltipText} position="bottom">
             <Badge
               data-testid="sync-status-badge"
-              tone={syncFidelity.tone}
-              dot
-              pulse={syncFidelity.label === 'Re-aligning'}
+              tone={syncFidelity.tone === 'success' ? 'neutral' : syncFidelity.tone}
+              size="md"
             >
               {syncFidelity.label}
               {syncFidelity.quality !== null && (
@@ -92,8 +95,7 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
             <Badge
               data-testid="stems-badge"
               tone={stems.active ? 'accent' : 'neutral'}
-              dot={stems.active}
-              pulse={stems.active}
+              size="md"
               className="hidden sm:inline-flex"
             >
               {stems.text}
@@ -112,19 +114,19 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
                 className={cn(
                   // The chip is badge-sized; the button around it is the 44px touch target and
                   // its negative margin keeps the header's height
-                  'group -my-2.5 inline-flex min-h-[44px] items-center rounded-theme-pill md:-my-1 md:min-h-[26px]',
+                  'group -my-2.5 inline-flex min-h-[44px] items-center md:-my-1 md:min-h-[26px]',
                   focusRing
                 )}
               >
                 <span
                   className={cn(
-                    'inline-flex items-center gap-1.5 whitespace-nowrap rounded-theme-pill border px-2 py-0.5 text-[11px] font-semibold transition-colors',
+                    'inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold underline underline-offset-4 transition-colors',
                     toFix > 0
-                      ? 'border-theme-warning/50 bg-theme-warning/10 text-theme-warning group-hover:bg-theme-warning/20'
-                      : 'border-theme-border-subtle text-theme-text-muted group-hover:border-theme-border group-hover:text-theme-text'
+                      ? 'text-theme-warning'
+                      : 'text-theme-text-muted group-hover:text-theme-text'
                   )}
                 >
-                  <Stethoscope className="h-3 w-3" aria-hidden="true" />
+                  <Stethoscope className="h-4 w-4" aria-hidden="true" />
                   {toFix > 0 ? `${toFix} to fix` : 'Check-up'}
                 </span>
               </button>
@@ -146,7 +148,7 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
           tooltip="Delete project and media files"
           tooltipAlign="end"
           onClick={onOpenDeleteModal}
-          className="hover:bg-theme-danger/10 hover:text-theme-danger"
+          className="hover:text-theme-danger"
         />
       </div>
     </div>

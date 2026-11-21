@@ -258,7 +258,8 @@ describe('Tooltip Component', () => {
     fireEvent.focus(button);
     const tooltip = screen.getByRole('tooltip');
     expect(tooltip).toHaveClass('pointer-events-none');
-    expect(tooltip).toHaveClass('backdrop-blur-md');
+    // An opaque label: nothing behind it shows through, so it needs no blur
+    expect(tooltip).toHaveClass('bg-theme-text');
   });
 
   it('renders single hotkey badge in <kbd>', () => {
@@ -396,9 +397,8 @@ describe('Tooltip Component', () => {
     expect(tooltip).toHaveClass('right-full');
   });
 
-  it('applies high-contrast theme surface and text tokens in Brutalist Clean Paper theme (never black-on-black)', () => {
+  it('takes its surface and text colours from the tokens, so it stays readable on a light palette', () => {
     const root = document.documentElement;
-    root.setAttribute('data-theme', 'clean_paper');
     root.style.setProperty('--theme-surface', '#ffffff');
     root.style.setProperty('--theme-text', '#111111');
     root.style.setProperty('--theme-border', '#111111');
@@ -413,17 +413,13 @@ describe('Tooltip Component', () => {
 
     fireEvent.focus(screen.getByRole('button', { name: 'Paper Button' }));
     const tooltip = screen.getByRole('tooltip');
-    // Surface, text and border come from the active theme's tokens, so every theme pairs
-    // its own readable text with its own surface.
-    expect(tooltip).toHaveClass(
-      'bg-theme-surface-raised/95',
-      'text-theme-text',
-      'border-theme-border'
-    );
+    // The label is the text colour with inverse text on it, both from the tokens, so the
+    // pair stays readable whatever the palette.
+    expect(tooltip).toHaveClass('bg-theme-text', 'text-theme-text-inverse');
     expect(tooltip.className).not.toMatch(/\b(bg|text|border)-(slate|cyan)-/);
 
     const kbd = tooltip.querySelector('kbd') as HTMLElement;
-    expect(kbd).toHaveClass('bg-theme-surface-subtle', 'text-theme-highlight');
+    expect(kbd).toHaveClass('border-theme-text-inverse', 'text-theme-text-inverse');
     expect(kbd.className).not.toMatch(/\b(bg|text|border)-(slate|cyan)-/);
   });
 

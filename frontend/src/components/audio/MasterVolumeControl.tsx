@@ -39,7 +39,7 @@ export const MasterVolumeControl: React.FC<MasterVolumeControlProps> = ({
           aria-label={silent ? 'Unmute audio' : 'Mute audio'}
           aria-pressed={silent}
           className={cn(
-            'inline-flex min-h-[44px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] items-center justify-center rounded-theme-md transition-colors hover:bg-theme-surface-subtle',
+            'inline-flex min-h-[44px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] items-center justify-center transition-colors hover:bg-theme-surface-subtle',
             silent ? 'text-theme-danger' : 'text-theme-text-muted hover:text-theme-text',
             focusRing
           )}
@@ -73,7 +73,7 @@ export const MasterVolumeControl: React.FC<MasterVolumeControlProps> = ({
       </Tooltip>
       <span
         className={cn(
-          'hidden w-10 shrink-0 text-right font-mono text-[11px] tabular-nums xl:inline',
+          'hidden w-10 shrink-0 text-right tabular-nums text-xs xl:inline',
           silent ? 'text-theme-danger' : 'text-theme-text-muted'
         )}
       >

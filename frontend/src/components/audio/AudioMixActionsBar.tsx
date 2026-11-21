@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { AudioLines, Upload } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { Spinner } from '../ui/Spinner';
 import { focusRing } from '../ui/variants';
 import { cn } from '../../utils/cn';
@@ -27,13 +27,10 @@ export const AudioMixActionsBar: React.FC<AudioMixActionsBarProps> = ({
 }) => {
   return (
     <div className="flex flex-col gap-2" data-testid="instrumental-source">
-      <span className="text-xs font-semibold uppercase tracking-[0.08em] text-theme-text-muted">
-        Instrumental
-      </span>
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-border-subtle px-2.5 py-2">
-        <span className="flex min-w-0 items-center gap-2 text-xs text-theme-text">
-          <AudioLines className="h-3.5 w-3.5 shrink-0 text-theme-text-muted" aria-hidden="true" />
-          <span className="truncate">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-theme-text">Instrumental</span>
+          <span className="block truncate text-sm text-theme-text-muted">
             {isCustomInstrumental ? 'Custom backing track' : 'Separated stem'}
           </span>
         </span>
@@ -51,7 +48,7 @@ export const AudioMixActionsBar: React.FC<AudioMixActionsBarProps> = ({
           disabled={uploadingInst}
           aria-label="Replace instrumental file"
           className={cn(
-            'inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 rounded-theme-md border border-theme-border-subtle bg-theme-surface-raised px-2.5 text-xs font-semibold text-theme-text transition-colors hover:border-theme-border hover:bg-theme-surface-subtle disabled:opacity-50',
+            'ks-display inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 border border-theme-border px-3 text-[20px] text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse disabled:opacity-50',
             focusRing
           )}
         >

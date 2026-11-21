@@ -37,9 +37,7 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
       expect(dialog).toHaveAttribute('aria-labelledby', 'help-modal-title');
       expect(dialog).toHaveAttribute('aria-describedby', 'help-modal-desc');
       expect(dialog).toHaveAttribute('data-modal', 'help');
-      expect(
-        screen.getByRole('heading', { name: /karaoke studio help & usage guide/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
     });
   });
 
@@ -57,7 +55,7 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
       const guideTab = screen.getByRole('tab', { name: /studio usage guide/i });
       expect(guideTab).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByRole('tabpanel', { name: /studio usage guide/i })).toBeInTheDocument();
-      expect(screen.getByText(/1\. audio intake & library/i)).toBeInTheDocument();
+      expect(screen.getByText(/1\. add a song/i)).toBeInTheDocument();
     });
 
     it('switches tabs on user click and updates aria-selected', async () => {
@@ -69,7 +67,7 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
 
       expect(guideTab).toHaveAttribute('aria-selected', 'true');
       expect(screen.getByRole('tabpanel', { name: /studio usage guide/i })).toBeInTheDocument();
-      expect(screen.getByText(/5\. export & subtitles/i)).toBeInTheDocument();
+      expect(screen.getByText(/5\. export/i)).toBeInTheDocument();
 
       const shortcutsTab = screen.getByRole('tab', { name: /keyboard shortcuts/i });
       await user.click(shortcutsTab);
@@ -85,31 +83,30 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
 
       // Space
       expect(screen.getAllByText('Space').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText(/play \/ pause master playback/i)).toBeInTheDocument();
+      expect(screen.getByText('Play or pause')).toBeInTheDocument();
 
       // Seek arrows
       expect(screen.getByText(/← \/ →/i)).toBeInTheDocument();
-      expect(screen.getByText(/seek backward \/ forward 5s/i)).toBeInTheDocument();
+      expect(screen.getByText('Back or forward 5 seconds')).toBeInTheDocument();
 
       // Mute
       expect(screen.getAllByText('M').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText(/master mute \/ unmute/i)).toBeInTheDocument();
+      expect(screen.getByText('Mute or unmute')).toBeInTheDocument();
 
       // Help
       expect(screen.getAllByText('?').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText(/toggle this help & usage guide/i)).toBeInTheDocument();
+      expect(screen.getByText('Open or close Help')).toBeInTheDocument();
 
       // Escape
       expect(screen.getByText('Escape')).toBeInTheDocument();
-      expect(screen.getByText(/close modal dialogs/i)).toBeInTheDocument();
+      expect(screen.getByText('Close a dialog, menu or tooltip')).toBeInTheDocument();
 
       // Tab cycling: keys render as separate badges ("Tab" / "Shift" + "Tab")
-      const focusRow = screen.getByText('Focus Navigation').closest('li') as HTMLElement;
+      const focusRow = screen.getByText('Move between controls').closest('li') as HTMLElement;
       expect(focusRow).not.toBeNull();
       const focusKeys = Array.from(focusRow.querySelectorAll('kbd')).map((k) => k.textContent);
       expect(focusKeys).toEqual(['Tab', 'Shift', 'Tab']);
       expect(focusRow.textContent).toMatch(/Tab\s*\/\s*Shift\s*\+\s*Tab/);
-      expect(screen.getByText(/navigate interactive controls/i)).toBeInTheDocument();
     });
 
     it('groups shortcuts into labelled lists including the power-user rows', () => {
@@ -123,11 +120,11 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
         const row = screen.getByText(label).closest('li') as HTMLElement;
         return Array.from(row.querySelectorAll('kbd')).map((k) => k.textContent);
       };
-      expect(keysFor('Fine Seek ±1 Second')).toEqual(['Shift', '←', '→']);
-      expect(keysFor('Jump ±15 Seconds')).toEqual(['Alt', '←', '→']);
-      expect(keysFor('Previous / Next Line')).toEqual(['[', ']']);
-      expect(keysFor('Replay Line')).toEqual(['R']);
-      const undoKeys = keysFor('Undo / Redo Edits');
+      expect(keysFor('Back or forward 1 second')).toEqual(['Shift', '←', '→']);
+      expect(keysFor('Back or forward 15 seconds')).toEqual(['Alt', '←', '→']);
+      expect(keysFor('Previous or next line')).toEqual(['[', ']']);
+      expect(keysFor('Replay the current line')).toEqual(['R']);
+      const undoKeys = keysFor('Undo or redo');
       expect(undoKeys).toHaveLength(4);
       expect(undoKeys[1]).toBe('Z');
       expect(undoKeys[3]).toBe('Y');
@@ -137,7 +134,7 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
     it('renders single-key shortcut isolation callout note', () => {
       render(<HelpModal isOpen={true} onClose={onClose} initialTab="shortcuts" />);
       expect(screen.getByText(/single-key shortcuts/i)).toBeInTheDocument();
-      expect(screen.getByText(/automatically disabled while typing/i)).toBeInTheDocument();
+      expect(screen.getByText(/do nothing while you type/i)).toBeInTheDocument();
     });
   });
 
@@ -145,11 +142,11 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
     it('renders all 5 core studio workflow stages with clear descriptions', () => {
       render(<HelpModal isOpen={true} onClose={onClose} initialTab="guide" />);
 
-      expect(screen.getByText(/1\. audio intake & library/i)).toBeInTheDocument();
-      expect(screen.getByText(/2\. stem separation & lyric sync/i)).toBeInTheDocument();
-      expect(screen.getByText(/3\. timeline editing/i)).toBeInTheDocument();
-      expect(screen.getByText(/4\. studio mixing & themes/i)).toBeInTheDocument();
-      expect(screen.getByText(/5\. export & subtitles/i)).toBeInTheDocument();
+      expect(screen.getByText(/1\. add a song/i)).toBeInTheDocument();
+      expect(screen.getByText(/2\. wait while it is made/i)).toBeInTheDocument();
+      expect(screen.getByText(/3\. fix lyrics and timing/i)).toBeInTheDocument();
+      expect(screen.getByText(/4\. set the key and the look/i)).toBeInTheDocument();
+      expect(screen.getByText(/5\. export/i)).toBeInTheDocument();
     });
   });
 
@@ -158,7 +155,7 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
       const user = userEvent.setup();
       render(<HelpModal isOpen={true} onClose={onClose} />);
 
-      const closeBtn = screen.getByRole('button', { name: /close help and usage guide/i });
+      const closeBtn = screen.getByRole('button', { name: /close help/i });
       expect(closeBtn).toBeInTheDocument();
       await user.click(closeBtn);
 
@@ -186,7 +183,7 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
     it('does NOT call onClose when clicking inside the modal dialog content container', () => {
       render(<HelpModal isOpen={true} onClose={onClose} />);
 
-      const title = screen.getByRole('heading', { name: /karaoke studio help & usage guide/i });
+      const title = screen.getByRole('heading', { name: 'Help' });
       fireEvent.click(title);
 
       expect(onClose).not.toHaveBeenCalled();
@@ -266,9 +263,7 @@ describe('HelpModal Component (Milestone 1 — R1 & R2)', () => {
       await act(async () => {
         fireEvent.click(helpBtn);
       });
-      expect(
-        screen.getByRole('heading', { name: /karaoke studio help & usage guide/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
 
       // Escape dismisses HelpModal
       await act(async () => {

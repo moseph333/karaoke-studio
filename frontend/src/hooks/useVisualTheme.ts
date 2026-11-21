@@ -3,15 +3,15 @@
  *
  * Encapsulates visual themes, custom sung/unsung colors, font size scaling,
  * aspect ratio switching, and the stage background (style, palette and upload).
- * Reactively synchronizes with application theme when mounted within AppThemeProvider,
- * while maintaining resilient fallback for isolated unit tests.
+ * A stage starts on the default preset, or on the one it showed last when settings are kept.
  */
 
-import { useState, useCallback, useMemo, useEffect, useContext, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { VisualTheme, SyncDisplayMode } from '../types';
 import {
   DEFAULT_BOTH_COLOR,
   DEFAULT_SINGER2_COLOR,
+  DEFAULT_STAGE_PRESET_ID,
   THEMES,
   getStageBackground,
   getStagePreset,
@@ -24,8 +24,6 @@ import {
   saveStageSettings,
 } from '../theme/stageSettingsStorage';
 import { StageBackgroundStyle, stageBackgroundPalette } from '../theme/stageBackgrounds';
-import { DEFAULT_APP_THEME_ID, getAppTheme } from '../theme/appThemes';
-import { AppThemeContext } from '../context/AppThemeContext';
 
 /**
  * Converts CSS hex color (#RRGGBB or RRGGBB) to ASS color format (&H00BBGGRR).
@@ -126,29 +124,17 @@ export function useVisualTheme(
   options: UseVisualThemeOptions = {}
 ): UseVisualThemeReturn {
   const { persist = false } = options;
-  const appThemeContext = useContext(AppThemeContext);
-  const activePresetId = appThemeContext?.theme?.stagePresetId;
 
   // Saved settings are read once, when the studio mounts
   const [stored] = useState<StageSettings | null>(() => (persist ? loadStageSettings() : null));
-  const restoredPreset =
-    !initialTheme && stored?.presetSource === 'user' ? getStagePreset(stored.presetId) : undefined;
 
-  const [selectedTheme, setSelectedThemeState] = useState<VisualTheme>(() => {
-    if (initialTheme) return initialTheme;
-    if (restoredPreset) return restoredPreset;
-    if (appThemeContext && activePresetId) {
-      const match = THEMES.find((t) => t.id === activePresetId);
-      if (match) return match;
-    }
-    if (appThemeContext) {
-      const fallbackPresetId = getAppTheme(DEFAULT_APP_THEME_ID).stagePresetId;
-      const fallback = THEMES.find((t) => t.id === fallbackPresetId);
-      if (fallback) return fallback;
-    }
-    return THEMES[0];
-  });
-  const [presetSource, setPresetSource] = useState<'user' | 'app'>(restoredPreset ? 'user' : 'app');
+  const [selectedTheme, setSelectedTheme] = useState<VisualTheme>(
+    () =>
+      initialTheme ??
+      getStagePreset(stored?.presetId) ??
+      getStagePreset(DEFAULT_STAGE_PRESET_ID) ??
+      THEMES[0]
+  );
 
   const seed = stored ?? DEFAULT_STAGE_SETTINGS;
   const [customSungColor, setCustomSungColor] = useState<string | null>(seed.customSungColor);
@@ -166,10 +152,6 @@ export function useVisualTheme(
   const [showChordBar, setShowChordBar] = useState<boolean>(seed.showChordBar);
   const [stageSize, setStageSize] = useState<StageSize>(seed.stageSize);
 
-  const setSelectedTheme = useCallback((theme: VisualTheme) => {
-    setSelectedThemeState(theme);
-    setPresetSource('user');
-  }, []);
   const setCustomBgId = useCallback((id: string) => {
     setCustomBgIdState(id);
     setBackgroundStyle((prev) => (id ? 'custom' : prev === 'custom' ? 'artwork' : prev));
@@ -177,27 +159,10 @@ export function useVisualTheme(
   const toggleVisualizer = useCallback(() => setShowVisualizer((prev) => !prev), []);
   const toggleChordBar = useCallback(() => setShowChordBar((prev) => !prev), []);
 
-  const prevPresetIdRef = useRef<string | undefined>(activePresetId);
-
-  // Reactively synchronize stage preset when application theme changes
-  // STRICTLY PRESERVES customSungColor and customUnsungColor
-  useEffect(() => {
-    if (!appThemeContext || !activePresetId) return;
-    if (activePresetId !== prevPresetIdRef.current) {
-      prevPresetIdRef.current = activePresetId;
-      const match = THEMES.find((t) => t.id === activePresetId);
-      if (match && match.id !== selectedTheme.id) {
-        setSelectedThemeState(match);
-      }
-      setPresetSource('app');
-    }
-  }, [appThemeContext, activePresetId, selectedTheme.id]);
-
   useEffect(() => {
     if (!persist) return;
     saveStageSettings({
       presetId: selectedTheme.id,
-      presetSource,
       customSungColor,
       customUnsungColor,
       singer2Color: customSinger2Color,
@@ -214,7 +179,6 @@ export function useVisualTheme(
   }, [
     persist,
     selectedTheme.id,
-    presetSource,
     customSungColor,
     customUnsungColor,
     customSinger2Color,
