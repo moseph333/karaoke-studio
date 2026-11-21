@@ -934,7 +934,7 @@ describe('M5 Challenger 1: Features 41 & 45 Empirical Adversarial Suite', () => 
       render(<Harness />);
 
       // Passphrase input must receive initial focus
-      const passwordInput = screen.getByPlaceholderText(/enter studio password/i);
+      const passwordInput = screen.getByLabelText(/studio passphrase/i);
       expect(passwordInput).toHaveFocus();
 
       // Pressing Space inside passphrase input must NOT trigger play/pause
