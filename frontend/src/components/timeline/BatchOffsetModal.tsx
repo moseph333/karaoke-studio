@@ -114,7 +114,7 @@ export const BatchOffsetModal: React.FC<BatchOffsetModalProps> = ({
                     className={cn(
                       'min-h-[36px] rounded-theme-md border px-2.5 py-1 font-mono text-xs font-medium tabular-nums transition-colors',
                       active
-                        ? 'border-theme-accent/60 bg-theme-accent/15 text-theme-highlight'
+                        ? 'border-theme-accent text-theme-text'
                         : 'border-theme-border-subtle bg-theme-surface-raised text-theme-text-muted hover:text-theme-text',
                       focusRing
                     )}

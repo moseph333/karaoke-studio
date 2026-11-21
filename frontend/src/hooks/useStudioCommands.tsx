@@ -28,7 +28,6 @@ import {
   SkipBack,
   SkipForward,
   Smartphone,
-  Sparkles,
   Stethoscope,
   Trash2,
   Undo,
@@ -37,6 +36,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Highlighter,
 } from 'lucide-react';
 import { ProjectState, StudioWorkspaceTab } from '../types';
 import { apiFetch } from '../api';
@@ -214,7 +214,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       id: 'visualizer-toggle',
       title: theme.showVisualizer ? 'Hide beat visualizer' : 'Show beat visualizer',
       group: 'Stage',
-      icon: <Sparkles />,
+      icon: <Highlighter />,
       shortcut: ['V'],
       keywords: ['spectrum', 'bars', 'audio'],
       run: theme.toggleVisualizer,
@@ -233,7 +233,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       title: 'Highlight lyrics word by word',
       subtitle: current(theme.syncMode === 'word'),
       group: 'Stage',
-      icon: <Sparkles />,
+      icon: <Highlighter />,
       keywords: ['sweep', 'karaoke', 'kf'],
       run: () => theme.setSyncMode('word'),
     });
@@ -342,7 +342,7 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
         title: 'Improve stem separation…',
         subtitle: `Now: ${stemsLabel(project.separation)}`,
         group: 'Mix',
-        icon: <Sparkles />,
+        icon: <Highlighter />,
         keywords: [
           'separation',
           'stems',

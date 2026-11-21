@@ -115,11 +115,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       dismissOnEscape={canDismiss}
       showDragHandle
       initialFocusRef={requirePassword ? passwordInputRef : usernameInputRef}
-      overlayClassName="bg-theme-overlay/90 backdrop-blur-md"
+      overlayClassName="bg-theme-overlay/90"
     >
       <div className="space-y-5 sm:space-y-6">
         <div className="space-y-2 text-center">
-          <div className="inline-flex rounded-theme-lg bg-gradient-accent p-3 text-theme-accent-text shadow-theme-glow">
+          <div className="inline-flex rounded-theme-lg bg-theme-accent p-3 text-theme-accent-text">
             <Lock className="h-6 w-6" aria-hidden="true" />
           </div>
           <h2
@@ -137,7 +137,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {error && (
           <div
-            className="flex items-center gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3 text-xs text-theme-danger"
+            className="flex items-center gap-2.5 rounded-theme-md border border-theme-danger p-3 text-xs text-theme-danger"
             role="alert"
             aria-live="assertive"
           >
@@ -150,7 +150,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {requirePassword && (
             <div className="space-y-1.5">
               <label htmlFor="auth-password" className={labelCls}>
-                <Lock className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
+                <Lock className="h-3.5 w-3.5 text-theme-text" aria-hidden="true" />
                 Studio Passphrase
               </label>
               <input
@@ -170,7 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           <div className="space-y-1.5">
             <label htmlFor="auth-username" className={labelCls}>
-              <User className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
+              <User className="h-3.5 w-3.5 text-theme-text" aria-hidden="true" />
               Your Nickname / Handle
             </label>
             <input

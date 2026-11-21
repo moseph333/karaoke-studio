@@ -184,10 +184,12 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
         expect(dialog.className).toContain('sm:items-center');
         expect(dialog.className).toContain('sm:p-4');
 
-        // Modal card rounded geometry: top rounded on mobile, all rounded on desktop
-        const card = dialog.querySelector('[class*="rounded-t-2xl"]');
-        expect(card, `${name} must have rounded-t-2xl card`).toBeInTheDocument();
-        expect(card?.className).toMatch(/rounded-b-none/);
+        // The sheet meets the screen edges on a phone (no side or bottom outline) and is
+        // outlined all round on desktop
+        const card = dialog.firstElementChild;
+        expect(card, `${name} must have a card`).toBeInTheDocument();
+        expect(card?.className).toMatch(/border-x-0 border-b-0/);
+        expect(card?.className).toMatch(/sm:border-x-2 sm:border-b-2/);
         unmount();
 
         // Mobile 320px (iPhone SE)
@@ -223,7 +225,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
           `${name} must render data-testid="bottom-sheet-drag-handle"`
         ).toBeInTheDocument();
         expect(dragHandle?.className).toContain('sm:hidden');
-        expect(dragHandle?.className).toContain('rounded-full');
+        expect(dragHandle?.className).toContain('bg-theme-border');
         unmount();
       });
 
@@ -325,7 +327,7 @@ describe('M3 Challenger 2: Bottom-Sheet Modals & Touch Targets Adversarial Suite
         const { unmount } = renderModal(onCloseMock);
 
         const dialog = screen.getByRole('dialog');
-        const card = dialog.querySelector('[class*="rounded-t-2xl"]') as HTMLElement;
+        const card = dialog.firstElementChild as HTMLElement;
         expect(card, `${name} card must be found`).toBeInTheDocument();
 
         // 1. Click inside card content -> must NOT trigger onClose

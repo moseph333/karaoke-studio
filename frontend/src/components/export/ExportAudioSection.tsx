@@ -198,7 +198,7 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
                   {stem.badge}
                 </span>
                 <span className="flex items-center gap-1.5 text-sm font-bold text-theme-text">
-                  <Icon className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
+                  <Icon className="h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
                   {stem.label}
                 </span>
                 <p className="text-[11px] leading-tight text-theme-text-muted">
@@ -220,14 +220,14 @@ export const ExportAudioSection: React.FC<ExportAudioSectionProps> = ({ project 
                   {isDownloading ? (
                     <>
                       <Loader2
-                        className="h-3.5 w-3.5 text-theme-highlight animate-spin"
+                        className="h-3.5 w-3.5 text-theme-text animate-spin"
                         aria-hidden="true"
                       />
                       Downloading...
                     </>
                   ) : (
                     <>
-                      <Download className="h-3.5 w-3.5 text-theme-highlight" aria-hidden="true" />
+                      <Download className="h-3.5 w-3.5 text-theme-text" aria-hidden="true" />
                       Download .wav
                     </>
                   )}

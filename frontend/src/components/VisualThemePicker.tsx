@@ -16,10 +16,10 @@ import {
   Palette,
   RotateCcw,
   Smartphone,
-  Sparkles,
   Square,
   Upload,
   X,
+  Waves,
 } from 'lucide-react';
 import { VisualTheme } from '../types';
 import {
@@ -89,7 +89,7 @@ const BACKGROUND_ICONS: Record<
 > = {
   artwork: ImageIcon,
   drift: Move,
-  aurora: Sparkles,
+  aurora: Waves,
   spectrum: AudioLines,
   color: Square,
   custom: Upload,
@@ -297,7 +297,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   {isSelected && (
                     <span
                       aria-hidden="true"
-                      className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-theme-accent text-theme-accent-text"
+                      className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center bg-theme-accent text-theme-accent-text"
                     >
                       <Check className="h-2.5 w-2.5 stroke-[3]" />
                     </span>
@@ -506,7 +506,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   title="Remove the uploaded image or video"
                   className={cn(
                     smallButton,
-                    'min-w-[44px] justify-center text-theme-text-muted hover:bg-theme-danger/10 hover:text-theme-danger md:min-w-[32px]'
+                    'min-w-[44px] justify-center text-theme-text-muted hover:text-theme-danger md:min-w-[32px]'
                   )}
                 >
                   <X className="h-3.5 w-3.5" aria-hidden="true" />

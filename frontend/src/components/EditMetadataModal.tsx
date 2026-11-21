@@ -157,7 +157,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
 
       {error && (
         <div
-          className="mb-4 flex items-center gap-2.5 rounded-theme-md border border-theme-danger/35 bg-theme-danger/10 p-3 text-xs text-theme-danger"
+          className="mb-4 flex items-center gap-2.5 rounded-theme-md border border-theme-danger p-3 text-xs text-theme-danger"
           role="alert"
         >
           <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />

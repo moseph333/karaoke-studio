@@ -52,7 +52,7 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
   <section
     aria-labelledby="first-song-heading"
     data-testid="first-song-card"
-    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-theme-lg border border-theme-accent/30 bg-theme-accent/10 p-2.5 sm:p-3"
+    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-theme-lg border border-theme-accent p-2.5 sm:p-3"
   >
     <div className="order-1 min-w-0 flex-1 xl:flex-none">
       <h2
@@ -85,7 +85,7 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
               focusRing
             )}
           >
-            <Icon className="h-4 w-4 shrink-0 text-theme-highlight" aria-hidden="true" />
+            <Icon className="h-4 w-4 shrink-0 text-theme-text" aria-hidden="true" />
             <span className="min-w-0">
               <span className="block truncate text-xs font-semibold text-theme-text">
                 <span className="sr-only">Step </span>

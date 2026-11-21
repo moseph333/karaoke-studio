@@ -276,7 +276,7 @@ export const Menu: React.FC<MenuProps> = ({
               className={cn(
                 'flex w-full min-h-[44px] md:min-h-[36px] items-center gap-2.5 rounded-theme-md px-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-40',
                 item.tone === 'danger'
-                  ? 'text-theme-danger hover:bg-theme-danger/10'
+                  ? 'text-theme-danger'
                   : 'text-theme-text hover:bg-theme-surface-subtle',
                 focusRing
               )}
@@ -297,7 +297,7 @@ export const Menu: React.FC<MenuProps> = ({
                 <Check
                   aria-hidden="true"
                   className={cn(
-                    'h-4 w-4 shrink-0 text-theme-highlight',
+                    'h-4 w-4 shrink-0 text-theme-text',
                     item.checked ? 'opacity-100' : 'opacity-0'
                   )}
                 />

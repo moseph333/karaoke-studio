@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Users, Shuffle, Sliders, Sparkles, Check, AudioLines } from 'lucide-react';
+import { Users, Shuffle, Sliders, Check, AudioLines, ListChecks } from 'lucide-react';
 import { LyricLine, SingerRole, BulkAssignOptions, VoicePartsReport } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { Dialog, DialogFooter, DialogHeader } from '../ui/Dialog';
@@ -30,9 +30,9 @@ const singerOption = (role: SingerRole, label: string): SegmentedOption<SingerRo
 };
 
 const PREVIEW_TONES: Record<SingerRole, string> = {
-  singer1: 'border-theme-sung/35 bg-theme-sung/10 [&_svg]:text-theme-sung',
-  singer2: 'border-theme-secondary/40 bg-theme-secondary/10 [&_svg]:text-theme-secondary',
-  both: 'border-theme-success/35 bg-theme-success/10 [&_svg]:text-theme-success',
+  singer1: 'border-theme-border-subtle',
+  singer2: 'border-theme-border-subtle',
+  both: 'border-theme-border-subtle',
 };
 
 const groupLabel = 'text-xs font-semibold text-theme-text';
@@ -315,7 +315,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
           {
             id: 'auto',
             label: 'Auto-Suggest',
-            icon: <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />,
+            icon: <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />,
             controls: 'duet-mode-panel',
           },
           ...(projectId
@@ -449,9 +449,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
           {mode === 'auto' && (
             <>
               <div className="rounded-theme-md border border-theme-border-subtle bg-theme-bg/60 p-3 text-xs leading-relaxed text-theme-text-muted">
-                <span className="font-semibold text-theme-highlight">
-                  Intelligent Pause Clustering:
-                </span>{' '}
+                <span className="font-semibold text-theme-text">Intelligent Pause Clustering:</span>{' '}
                 Detects non-vocal gaps between lyric lines (&ge; {pauseThreshold.toFixed(1)}s) to
                 infer natural verse/chorus conversational turns, while assigning overlapping phrases
                 to Both.
@@ -462,7 +460,7 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                   <label htmlFor="pause-threshold-input" className={groupLabel}>
                     Inter-Line Pause Threshold
                   </label>
-                  <span className="font-mono text-xs font-bold tabular-nums text-theme-highlight">
+                  <span className="font-mono text-xs font-bold tabular-nums text-theme-text">
                     {pauseThreshold.toFixed(1)}s
                   </span>
                 </div>
@@ -513,8 +511,8 @@ export const DuetAssignmentModal: React.FC<DuetAssignmentModalProps> = ({
                 <span className="text-theme-warning">{voiceError}</span>
               ) : voice?.detected ? (
                 <>
-                  <span className="font-semibold text-theme-highlight">Two voices found.</span> The
-                  voice that sings most stays Singer 1; {voice.lines_singer2}{' '}
+                  <span className="font-semibold text-theme-text">Two voices found.</span> The voice
+                  that sings most stays Singer 1; {voice.lines_singer2}{' '}
                   {voice.lines_singer2 === 1 ? 'line goes' : 'lines go'} to Singer 2, judged by
                   pitch and tone.
                 </>

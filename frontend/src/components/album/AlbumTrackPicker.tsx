@@ -41,7 +41,7 @@ export interface AlbumTrackPickerProps {
 }
 
 const cardCls =
-  'rounded-theme-xl border border-theme-border-subtle bg-theme-surface/85 p-4 shadow-theme-lg backdrop-blur-md sm:p-6';
+  'rounded-theme-xl border border-theme-border-subtle bg-theme-surface/85 p-4 shadow-theme-lg sm:p-6';
 
 export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
   project,
@@ -103,12 +103,12 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
               className="h-20 w-20 shrink-0 rounded-theme-md object-cover shadow-theme-md sm:h-24 sm:w-24"
             />
           ) : (
-            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-theme-md bg-gradient-stage text-theme-text-muted sm:h-24 sm:w-24">
+            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-theme-md bg-theme-surface-subtle text-theme-text-muted sm:h-24 sm:w-24">
               <Disc3 className="h-8 w-8" aria-hidden="true" />
             </span>
           )}
           <div className="min-w-0 space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-highlight">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-theme-text">
               Whole album
             </p>
             <h1
@@ -139,7 +139,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
         {error && (
           <div
             role="alert"
-            className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-danger/40 bg-theme-danger/10 p-3 text-sm text-theme-danger"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-theme-md border border-theme-danger p-3 text-sm text-theme-danger"
           >
             {error}
             <Button
@@ -182,7 +182,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
                 id={listId}
                 className="flex items-center gap-2 font-theme-heading text-sm font-semibold text-theme-text"
               >
-                <ListMusic className="h-4 w-4 text-theme-highlight" aria-hidden="true" />
+                <ListMusic className="h-4 w-4 text-theme-text" aria-hidden="true" />
                 Songs
               </h2>
               {pickable.length > 1 && (

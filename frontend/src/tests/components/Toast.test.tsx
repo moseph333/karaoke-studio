@@ -46,7 +46,7 @@ describe('Toast Component & ToastProvider', () => {
       'bottom-[calc(var(--dock-height,env(safe-area-inset-bottom,0px))+1rem)]'
     );
     const toast = screen.getByText('Saved').closest('[data-toast-type]') as HTMLElement;
-    expect(toast.className).toContain('border-theme-success/45');
+    expect(toast.className).toContain('border-theme-success');
     expect(toast.className).not.toMatch(/slate|emerald/);
     expectTouchTarget(screen.getByRole('button', { name: /dismiss notification/i }), 36);
   });

@@ -28,7 +28,7 @@ export interface TapToSyncBannerProps {
 
 const modeButton = (active: boolean) =>
   cn(
-    'flex min-h-[44px] min-w-[44px] items-center justify-center rounded-[calc(var(--theme-radius-md)-2px)] px-3 py-2 text-xs font-semibold transition-colors sm:min-h-[28px] sm:min-w-0 sm:px-2.5 sm:py-0.5 sm:text-[11px]',
+    'flex min-h-[44px] min-w-[44px] items-center justify-center px-3 py-2 text-xs font-semibold transition-colors sm:min-h-[28px] sm:min-w-0 sm:px-2.5 sm:py-0.5 sm:text-[11px]',
     active
       ? 'bg-theme-warning font-bold text-theme-text-inverse shadow-theme-sm'
       : 'text-theme-text-muted hover:text-theme-text',
@@ -59,11 +59,11 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
   return (
     <div
       data-testid="tap-to-sync-banner"
-      className="sticky top-0 z-20 space-y-2 rounded-theme-lg border border-theme-warning/40 bg-theme-surface-raised/95 p-3 shadow-theme-lg backdrop-blur-md motion-safe:animate-fade-in sm:p-3.5"
+      className="sticky top-0 z-20 space-y-2 rounded-theme-lg border border-theme-warning bg-theme-surface-raised/95 p-3 shadow-theme-lg motion-safe:animate-fade-in sm:p-3.5"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="shrink-0 rounded-theme-md border border-theme-warning/40 bg-theme-warning/15 p-2 text-theme-warning">
+          <div className="shrink-0 rounded-theme-md border border-theme-warning p-2 text-theme-warning">
             <Radio className="h-5 w-5 motion-safe:animate-pulse" aria-hidden="true" />
           </div>
           <div className="min-w-0">
@@ -107,10 +107,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
               {syncMode === 'word' && targetLine && (
                 <span
                   data-testid="word-progress-badge"
-                  className={cn(
-                    pill,
-                    'border-theme-warning/40 bg-theme-warning/15 text-theme-warning'
-                  )}
+                  className={cn(pill, 'border-theme-warning text-theme-warning')}
                 >
                   Word {Math.min(targetWordIndex + 1, targetWords.length)} of {targetWords.length}
                 </span>
@@ -175,7 +172,7 @@ export const TapToSyncBanner: React.FC<TapToSyncBannerProps> = ({
             onClick={onTap}
             disabled={!targetLine}
             className={cn(
-              'flex min-h-[48px] flex-1 touch-manipulation select-none items-center justify-center gap-2 rounded-theme-lg bg-gradient-accent px-6 py-3.5 text-sm font-black uppercase tracking-wide text-theme-accent-text shadow-theme-glow transition-transform active:scale-95 disabled:opacity-50 sm:min-h-[52px] sm:flex-initial sm:py-3',
+              'flex min-h-[48px] flex-1 touch-manipulation select-none items-center justify-center gap-2 rounded-theme-lg bg-theme-accent px-6 py-3.5 text-sm font-black uppercase tracking-wide text-theme-accent-text transition-transform active:scale-95 disabled:opacity-50 sm:min-h-[52px] sm:flex-initial sm:py-3',
               focusRing
             )}
           >

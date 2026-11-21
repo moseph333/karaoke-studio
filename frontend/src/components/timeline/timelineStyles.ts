@@ -10,8 +10,8 @@ export const S_ADD_LINE_BTN = cn(
 );
 
 export const S_RESUME_PILL = cn(
-  'absolute bottom-3 left-1/2 z-10 inline-flex min-h-[44px] -translate-x-1/2 items-center gap-2 rounded-theme-pill border border-theme-accent/50 px-3.5',
-  'bg-theme-surface-raised/95 text-xs font-semibold text-theme-highlight shadow-theme-lg backdrop-blur-md transition-colors hover:bg-theme-surface-raised',
+  'absolute bottom-3 left-1/2 z-10 inline-flex min-h-[44px] -translate-x-1/2 items-center gap-2 rounded-theme-pill border border-theme-accent px-3.5',
+  'bg-theme-surface-raised/95 text-xs font-semibold text-theme-text shadow-theme-lg transition-colors hover:bg-theme-surface-raised',
   'motion-safe:animate-fade-in md:min-h-[32px]',
   focusRing
 );

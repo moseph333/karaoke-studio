@@ -12,7 +12,6 @@ import {
   HelpCircle,
   Keyboard,
   BookOpen,
-  Sparkles,
   Music,
   Clock,
   Sliders,
@@ -23,6 +22,7 @@ import {
   Smartphone,
   Stethoscope,
   Wrench,
+  AudioLines,
 } from 'lucide-react';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
@@ -188,7 +188,7 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
 ];
 
 const kbdCls =
-  'inline-flex min-w-[24px] items-center justify-center rounded-theme-sm border border-theme-border-subtle bg-theme-surface-subtle px-1.5 py-0.5 font-mono text-xs font-semibold text-theme-highlight shadow-[inset_0_-1px_0_rgb(var(--theme-border-rgb))]';
+  'inline-flex min-w-[24px] items-center justify-center rounded-theme-sm border border-theme-border-subtle bg-theme-surface-subtle px-1.5 py-0.5 font-mono text-xs font-semibold text-theme-text shadow-[inset_0_-1px_0_rgb(var(--theme-border-rgb))]';
 
 const ShortcutKeys: React.FC<{ keys: string[] }> = ({ keys }) => (
   <span className="flex shrink-0 items-center gap-1">
@@ -231,7 +231,7 @@ const STAGES: GuideStage[] = [
   {
     step: 'Stage 2',
     title: '2. Stem Separation & Lyric Sync',
-    icon: Sparkles,
+    icon: AudioLines,
     badge: 'AI Engine',
     summary: 'Automated vocal isolation, vocal range/key detection, and acoustic word alignment.',
     features: [
@@ -432,7 +432,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           ))}
 
           <div className="flex items-start gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-3.5 text-xs sm:p-4">
-            <Info className="mt-0.5 h-5 w-5 shrink-0 text-theme-highlight" aria-hidden="true" />
+            <Info className="mt-0.5 h-5 w-5 shrink-0 text-theme-text" aria-hidden="true" />
             <div className="space-y-1">
               <span className="block font-theme-heading font-semibold text-theme-text">
                 Keyboard Shortcut Isolation
@@ -460,7 +460,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
         >
           <section
             aria-labelledby="help-first-song-heading"
-            className="space-y-2.5 rounded-theme-lg border border-theme-accent/30 bg-theme-accent/10 p-3.5 sm:p-4"
+            className="space-y-2.5 rounded-theme-lg border border-theme-accent p-3.5 sm:p-4"
           >
             <h3
               id="help-first-song-heading"
@@ -476,7 +476,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 >
                   <span
                     aria-hidden="true"
-                    className="mt-px font-mono text-[11px] font-semibold text-theme-highlight"
+                    className="mt-px font-mono text-[11px] font-semibold text-theme-text"
                   >
                     {index + 1}.
                   </span>
@@ -487,7 +487,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                 </li>
               ))}
             </ol>
-            <p className="border-t border-theme-accent/20 pt-2 text-xs text-theme-text-muted">
+            <p className="border-t border-theme-accent pt-2 text-xs text-theme-text-muted">
               <strong className="font-semibold text-theme-text">What to expect.</strong> Songs are
               made automatically. Most come out ready to sing; some need a lyric or a line&apos;s
               timing fixed, and the studio marks which. See the Fix a problem tab.
@@ -514,14 +514,14 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="shrink-0 rounded-theme-md bg-theme-accent/15 p-2 text-theme-highlight">
+                    <div className="shrink-0 rounded-theme-md p-2 text-theme-text">
                       <IconComponent className="h-4 w-4" aria-hidden="true" />
                     </div>
                     <h3 className="truncate font-theme-heading text-sm font-bold text-theme-text">
                       {stg.title}
                     </h3>
                   </div>
-                  <span className="shrink-0 rounded-theme-pill border border-theme-accent/30 bg-theme-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-theme-highlight">
+                  <span className="shrink-0 rounded-theme-pill border border-theme-accent px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-theme-text">
                     {stg.badge}
                   </span>
                 </div>
@@ -533,7 +533,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
                       className="flex items-start gap-2 text-[11px] text-theme-text-muted sm:text-xs"
                     >
                       <Check
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-theme-highlight"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-theme-text"
                         aria-hidden="true"
                       />
                       <span>{feat}</span>
@@ -555,10 +555,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           className="space-y-3 focus:outline-none"
         >
           <div className="flex items-start gap-3 rounded-theme-lg border border-theme-border-subtle bg-theme-surface-subtle p-3.5 text-xs sm:p-4">
-            <Stethoscope
-              className="mt-0.5 h-5 w-5 shrink-0 text-theme-highlight"
-              aria-hidden="true"
-            />
+            <Stethoscope className="mt-0.5 h-5 w-5 shrink-0 text-theme-text" aria-hidden="true" />
             <div className="min-w-0 space-y-2">
               <p className="leading-relaxed text-theme-text-muted">
                 Songs are made automatically, so a lyric, a line&apos;s timing or the vocal removal

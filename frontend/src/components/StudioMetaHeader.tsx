@@ -52,7 +52,7 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
       ) : (
         <span
           aria-hidden="true"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-theme-lg bg-gradient-accent text-theme-accent-text shadow-theme-sm sm:h-12 sm:w-12"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-theme-lg bg-theme-accent text-theme-accent-text shadow-theme-sm sm:h-12 sm:w-12"
         >
           <Music className="h-5 w-5" />
         </span>
@@ -120,7 +120,7 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
                   className={cn(
                     'inline-flex items-center gap-1.5 whitespace-nowrap rounded-theme-pill border px-2 py-0.5 text-[11px] font-semibold transition-colors',
                     toFix > 0
-                      ? 'border-theme-warning/50 bg-theme-warning/10 text-theme-warning group-hover:bg-theme-warning/20'
+                      ? 'border-theme-warning text-theme-warning'
                       : 'border-theme-border-subtle text-theme-text-muted group-hover:border-theme-border group-hover:text-theme-text'
                   )}
                 >
@@ -146,7 +146,7 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
           tooltip="Delete project and media files"
           tooltipAlign="end"
           onClick={onOpenDeleteModal}
-          className="hover:bg-theme-danger/10 hover:text-theme-danger"
+          className="hover:text-theme-danger"
         />
       </div>
     </div>

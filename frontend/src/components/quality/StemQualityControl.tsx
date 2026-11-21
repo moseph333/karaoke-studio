@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { AlertTriangle, Layers, Sparkles, X } from 'lucide-react';
+import { AlertTriangle, Layers, X } from 'lucide-react';
 import type { SeparationInfo, SeparationJob } from '../../types';
 import { formatTimeLeft, stemsLabel } from '../../utils/quality';
 import { Button } from '../ui/Button';
@@ -73,7 +73,7 @@ export const StemQualityControl: React.FC<StemQualityControlProps> = ({
           <Button
             variant="secondary"
             size="sm"
-            leftIcon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
+            leftIcon={<Layers className="h-3.5 w-3.5" aria-hidden="true" />}
             onClick={onImprove}
             disabled={Boolean(busyReason)}
             title={busyReason ?? 'Re-make the stems with another model'}

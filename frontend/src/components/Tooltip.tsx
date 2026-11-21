@@ -257,7 +257,8 @@ export const Tooltip: React.FC<TooltipProps> = ({
       onMouseLeave={hideSoon}
       className={clsx(
         // Hoverable where a pointer hovers; never in the way of taps on touch screens
-        'pointer-events-none [@media(hover:hover)]:pointer-events-auto z-[70] rounded-theme-md border border-theme-border bg-theme-surface-raised/95 px-2.5 py-1.5 font-theme-body text-xs font-medium text-theme-text shadow-theme-lg backdrop-blur-md',
+        // A bone label with black text: it reads as a tag on the page, not a floating card
+        'pointer-events-none [@media(hover:hover)]:pointer-events-auto z-[70] bg-theme-text px-2.5 py-1.5 font-theme-body text-xs font-semibold text-theme-text-inverse',
         'max-w-[200px] sm:max-w-[260px] whitespace-normal break-words text-center',
         'flex items-center justify-center gap-1.5',
         portal ? 'fixed w-max' : 'absolute',
@@ -270,7 +271,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           {hotkeys.map((k, idx) => (
             <kbd
               key={idx}
-              className="inline-flex min-w-[16px] items-center justify-center rounded-theme-sm border border-theme-border-subtle bg-theme-surface-subtle px-1.5 py-0.5 font-mono text-[10px] font-bold text-theme-highlight shadow-theme-sm"
+              className="inline-flex min-w-[16px] items-center justify-center border border-theme-text-inverse px-1.5 py-0.5 font-mono text-[10px] font-bold text-theme-text-inverse"
             >
               {k}
             </kbd>

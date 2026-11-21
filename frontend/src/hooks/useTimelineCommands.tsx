@@ -17,8 +17,8 @@ import {
   Trash2,
   Undo2,
   Users,
-  Wand2,
   X,
+  Timer,
 } from 'lucide-react';
 import { LyricLine } from '../types';
 import {
@@ -110,7 +110,7 @@ export function useTimelineCommands(opts: UseTimelineCommandsOptions): void {
       id: 'lyrics-realign-line',
       title: 'Re-align the selected line',
       group: GROUP,
-      icon: <Wand2 />,
+      icon: <Timer />,
       keywords: ['sync', 'timing', 'fix', 'aligner'],
       run: opts.onRealignSelected,
     });
@@ -130,7 +130,7 @@ export function useTimelineCommands(opts: UseTimelineCommandsOptions): void {
       title: 'Re-align all lines in the background',
       subtitle: 'Uses the best aligner on this server',
       group: GROUP,
-      icon: <Wand2 />,
+      icon: <Timer />,
       keywords: ['sync', 'timing', 'neural', 'words', 'auto'],
       run: opts.onRealignAll,
     });

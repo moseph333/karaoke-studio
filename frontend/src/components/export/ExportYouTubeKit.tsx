@@ -43,7 +43,7 @@ const stepHintCls = 'text-pretty text-xs leading-relaxed text-theme-text-muted';
 type CopyField = 'title' | 'description' | 'tags';
 
 const copyBtnCls = cn(
-  'inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-theme-md px-2 py-1 text-xs font-medium text-theme-highlight transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:min-h-[32px]',
+  'inline-flex min-h-[36px] shrink-0 items-center gap-1 rounded-theme-md px-2 py-1 text-xs font-medium text-theme-text transition-colors hover:bg-theme-surface-subtle hover:text-theme-text sm:min-h-[32px]',
   focusRing
 );
 
