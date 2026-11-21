@@ -3,7 +3,7 @@
  *
  * The one-screen studio: song header, stage preview and timeline editor in the main
  * column, and the Audio Mix / Stage Look inspector on the right. On phones the three
- * areas become tabs (Stage / Timeline / Mix & Theme) and the page scrolls normally.
+ * areas become tabs (Stage / Timeline / Mix & Look) and the page scrolls normally.
  */
 
 import React, { useMemo } from 'react';

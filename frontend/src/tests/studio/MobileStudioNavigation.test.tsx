@@ -104,7 +104,7 @@ describe('Milestone M1: Mobile Studio Navigation & Transport Dock', () => {
       expect(tablist.closest('nav')?.className).toContain('md:hidden');
     });
 
-    it('T1.2: renders all 3 tabs (Stage, Timeline, Mix & Theme) with role="tab"', () => {
+    it('T1.2: renders all 3 tabs (Stage, Timeline, Mix & Look) with role="tab"', () => {
       render(<MobileStudioWorkspaceTabs activeTab="stage" onSelectTab={vi.fn()} />);
 
       const stageTab = screen.getByRole('tab', { name: /stage/i });
@@ -225,7 +225,7 @@ describe('Milestone M1: Mobile Studio Navigation & Transport Dock', () => {
       expect(audioElTimeline).toBeInTheDocument();
       expect(audioElTimeline).toBe(audioElInitial); // Strict object equality proves zero unmount
 
-      // Switch to Mix & Theme tab
+      // Switch to Mix & Look tab
       const mixTab = screen.getByRole('tab', { name: /mix/i });
       await user.click(mixTab);
 

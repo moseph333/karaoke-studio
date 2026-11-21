@@ -540,7 +540,7 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       setTestViewport(375, 667);
       assertZeroHorizontalOverflow(container, 375);
 
-      // Switch to Mix & Theme
+      // Switch to Mix & Look
       fireEvent.click(screen.getByRole('tab', { name: /mix/i }));
       setTestViewport(320, 568);
       assertZeroHorizontalOverflow(container, 320);
@@ -658,7 +658,7 @@ describe('M4 Challenger 2: Cross-Milestone Integration & Viewport Continuity', (
       // Allow initial project effect to settle
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      // Switch to Mix & Theme tab
+      // Switch to Mix & Look tab
       const mixTab = screen.getByRole('tab', { name: /mix/i });
       fireEvent.click(mixTab);
 

@@ -14,7 +14,7 @@ describe('MobileStudioWorkspaceTabs Component', () => {
     expect(tabs).toHaveLength(3);
     expect(tabs[0]).toHaveTextContent(/Stage/i);
     expect(tabs[1]).toHaveTextContent(/Timeline/i);
-    expect(tabs[2]).toHaveTextContent(/Mix & Theme/i);
+    expect(tabs[2]).toHaveTextContent(/Mix & Look/i);
   });
 
   it('sets aria-selected="true" and tabIndex={0} on active tab, and false/-1 on inactive tabs', () => {
@@ -22,7 +22,7 @@ describe('MobileStudioWorkspaceTabs Component', () => {
 
     const stageTab = screen.getByRole('tab', { name: /Stage/i });
     const timelineTab = screen.getByRole('tab', { name: /Timeline/i });
-    const mixTab = screen.getByRole('tab', { name: /Mix & Theme/i });
+    const mixTab = screen.getByRole('tab', { name: /Mix & Look/i });
 
     expect(timelineTab).toHaveAttribute('aria-selected', 'true');
     expect(timelineTab).toHaveAttribute('tabindex', '0');
@@ -45,7 +45,7 @@ describe('MobileStudioWorkspaceTabs Component', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: /Mix & Theme/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /Mix & Look/i }));
     expect(handleTabChange).toHaveBeenCalledTimes(1);
     expect(handleTabChange).toHaveBeenCalledWith('mix');
     expect(handleSelectTab).toHaveBeenCalledTimes(1);

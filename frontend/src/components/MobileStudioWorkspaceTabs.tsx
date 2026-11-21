@@ -4,7 +4,7 @@
  * Segmented 3-tab workspace switcher for mobile viewports (< 768px):
  * 1. Stage: Live Karaoke Stage Preview
  * 2. Timeline: Word-by-Word Timeline Editor (with unsaved changes indicator)
- * 3. Mix & Theme: Audio Stems Mixer & Visual Theme Settings
+ * 3. Mix & Look: the audio mix and the stage look
  *
  * Conforms to WAI-ARIA Tabs pattern with roving tabindex and keyboard navigation.
  * Uses theme semantic tokens and satisfies >= 44x44px touch target standards.
@@ -47,8 +47,8 @@ const WORKSPACE_TABS: readonly WorkspaceTabItem[] = [
   },
   {
     id: 'mix',
-    label: 'Mix & Theme',
-    ariaLabel: 'Audio mix and visual theme settings workspace',
+    label: 'Mix & Look',
+    ariaLabel: 'Audio mix and stage look workspace',
     panelId: 'workspace-panel-mix',
   },
 ] as const;
