@@ -49,18 +49,10 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
   <div
     data-testid="stage-toolbar"
     className={cn(
-      'absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-2 p-2 transition-opacity duration-300 sm:p-3',
+      'absolute inset-x-0 top-0 z-20 flex items-center justify-end gap-2 p-2 transition-opacity duration-300 sm:p-3',
       visible ? 'opacity-100' : 'pointer-events-none opacity-0'
     )}
   >
-    <span className="inline-flex min-w-0 items-center gap-1.5 border border-white/15 bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-md">
-      <span
-        aria-hidden="true"
-        className="h-1.5 w-1.5 shrink-0 rounded-full bg-theme-danger motion-safe:animate-pulse"
-      />
-      <span className="truncate">{isFullscreen ? 'TV stage' : 'Live preview'}</span>
-    </span>
-
     <div className="flex shrink-0 items-center gap-1.5">
       <div
         role="group"
