@@ -291,6 +291,39 @@
     opacity: 0.5;
   }
 
+  /* Checkbox: a square outline that fills yellow, with a black tick, when checked */
+  .ks-check {
+    appearance: none;
+    display: inline-grid;
+    flex-shrink: 0;
+    place-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0;
+    border: 2px solid var(--theme-border);
+    background: transparent;
+    cursor: pointer;
+  }
+  .ks-check::after {
+    content: '';
+    width: 0.625rem;
+    height: 0.375rem;
+    border-bottom: 3px solid var(--theme-accent-text);
+    border-left: 3px solid var(--theme-accent-text);
+    transform: translateY(-1px) rotate(-45deg) scale(0);
+  }
+  .ks-check:checked {
+    border-color: var(--theme-accent);
+    background: var(--theme-accent);
+  }
+  .ks-check:checked::after {
+    transform: translateY(-1px) rotate(-45deg) scale(1);
+  }
+  .ks-check:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
   /* Hide scrollbars on horizontally scrolling chip rows while keeping them scrollable */
   .ks-no-scrollbar {
     scrollbar-width: none;
@@ -307,6 +340,14 @@
    played part, status dots) would vanish. They use the system colours instead.
    ========================================================================== */
 @media (forced-colors: active) {
+  /* The drawn checkbox is fills and borders, so the system's own box takes its place */
+  .ks-check {
+    appearance: auto;
+  }
+  .ks-check::after {
+    content: none;
+  }
+
   [role='tab'][aria-selected='true'],
   [role='option'][aria-selected='true'],
   [aria-pressed='true']:not([data-swatch]),
