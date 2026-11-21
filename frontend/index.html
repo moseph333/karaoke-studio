@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b0b12" />
+    <meta name="theme-color" content="#000000" />
     <meta name="application-name" content="Karaoke Studio" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -43,15 +43,13 @@
         box-sizing: content-box;
         height: 3.5rem;
         padding: env(safe-area-inset-top, 0px) 16px 0;
-        border-bottom: 1px solid var(--theme-border-subtle, #26263a);
+        border-bottom: 1px solid var(--theme-border-subtle, #2e2d2a);
         font: 700 1rem/1 var(--theme-font-heading, 'Sofia Sans', sans-serif);
-        letter-spacing: -0.01em;
       }
       .boot-mark {
         width: 32px;
         height: 32px;
-        border-radius: var(--theme-radius-md, 12px);
-        background: var(--theme-gradient-accent, linear-gradient(135deg, #7c3aed, #db2777));
+        background: var(--theme-accent, #ffd21f);
       }
       .boot-page {
         display: grid;
@@ -61,9 +59,8 @@
         padding: 40px 16px;
       }
       .boot-block {
-        border-radius: var(--theme-radius-xl, 24px);
-        background: var(--theme-surface, #14141f);
-        border: 1px solid var(--theme-border-subtle, #26263a);
+        background: var(--theme-surface-subtle, #141413);
+        border: 1px solid var(--theme-border-subtle, #2e2d2a);
         animation: boot-pulse 1.4s ease-in-out infinite alternate;
       }
       .boot-block.a {
