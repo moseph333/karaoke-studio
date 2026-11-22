@@ -86,15 +86,26 @@ export function lineBreaks(text: LineText): boolean[] {
   );
 }
 
+/** The timed words of a line that have something to draw: entries that are not words, and
+ * words that are empty or only spaces, are left out. */
+export function drawnWords(line: { words?: unknown }): Array<Record<string, unknown>> {
+  return (Array.isArray(line.words) ? line.words : []).filter(
+    (word): word is Record<string, unknown> =>
+      word !== null &&
+      typeof word === 'object' &&
+      !Array.isArray(word) &&
+      str((word as { word?: unknown }).word).trim() !== ''
+  );
+}
+
 /** The words of a lyric line for drawing: its timed words when it has them, else its text
  * split as the editor splits it. */
 export function lineText(line: LooseLine, caps = false): LineText {
-  const words = (Array.isArray(line.words) ? line.words : []).filter(
-    (word): word is { word?: unknown } =>
-      word !== null && typeof word === 'object' && !Array.isArray(word)
-  );
+  const words = drawnWords(line);
   const source = str(line.text);
-  let tokens = words.length ? words.map((word) => str(word.word)) : tokenizeLyricText(source);
+  let tokens = words.length
+    ? words.map((word) => str(word.word).trim())
+    : tokenizeLyricText(source);
   const spaces = spaceAfterTokens(tokens, source);
   const adlib = adlibFlags(tokens);
   if (caps) tokens = tokens.map((token) => token.toUpperCase());
