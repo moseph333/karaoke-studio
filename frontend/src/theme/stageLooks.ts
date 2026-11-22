@@ -22,6 +22,8 @@ export interface StageTiming {
   count_in: number;
   break_delay: number;
   break_min: number;
+  /** The break marker counts at most this many seconds down. */
+  break_max: number;
   title_min_intro: number;
   title_start: number;
   title_gap: number;
