@@ -1,6 +1,6 @@
 """The values the backend shares with the studio come from backend/assets/shared (the
 studio imports the same files as @shared/<name>.json): each file loads, and the backend's
-presets, singer labels, limits and thresholds are the shared ones."""
+looks, singer labels, limits and thresholds are the shared ones."""
 
 import json
 
@@ -9,12 +9,8 @@ import pytest
 from backend import upload_utils
 from backend.schemas import LyricLineSchema
 from backend.services import lyric_sync, stage_backgrounds
-from backend.services.ass_generator import (
-    DEFAULT_BOTH_COLOR,
-    DEFAULT_SINGER2_COLOR,
-    VISUAL_THEMES,
-    singer_part,
-)
+from backend.services.ass_generator import singer_part
+from backend.services.stage_looks import DEFAULT_LOOK_ID, LEGACY_IDS, LOOKS
 from backend.shared_assets import SHARED_DIR, load
 
 
@@ -23,21 +19,13 @@ def test_every_shared_file_loads(path):
     assert load(path.stem) == json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_the_export_presets_carry_the_stage_names_and_colours():
-    shared = load("stage_presets")
-    assert list(VISUAL_THEMES) == [preset["id"] for preset in shared["presets"]]
-    for preset in shared["presets"]:
-        theme = VISUAL_THEMES[preset["id"]]
-        assert (theme["name"], theme["description"]) == (preset["name"], preset["description"])
-        assert (theme["primary_color"], theme["secondary_color"]) == (
-            preset["primary_color"],
-            preset["secondary_color"],
-        )
-    assert VISUAL_THEMES["punk_diy"]["name"] == "Basement Flyer"
-    assert VISUAL_THEMES["clean_paper"]["name"] == "Monolith Press"
-    assert VISUAL_THEMES["afterglow"]["singer2_color"] == "&H00B672F4"
-    assert VISUAL_THEMES["afterglow"]["both_color"] == "&H00D4EA5E"
-    assert (DEFAULT_SINGER2_COLOR, DEFAULT_BOTH_COLOR) == ("&H00B300FF", "&H0050FA7B")
+def test_the_exports_looks_are_the_shared_ones():
+    shared = load("stage_looks")
+    assert list(LOOKS) == [look["id"] for look in shared["looks"]]
+    assert shared["default_look"] == DEFAULT_LOOK_ID
+    assert all(LOOKS[look["id"]] is look for look in shared["looks"])
+    assert LEGACY_IDS is shared["legacy_ids"]
+    assert {entry["look"] for entry in LEGACY_IDS.values()} <= set(LOOKS)
 
 
 def test_a_singer_label_means_the_same_part_when_saved_and_exported():

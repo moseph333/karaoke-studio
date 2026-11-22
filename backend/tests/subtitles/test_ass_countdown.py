@@ -5,64 +5,35 @@ from typing import Any
 
 import pytest
 
+from backend.services.ass_draw import LookStyle, ass_color
 from backend.services.ass_generator import (
     format_ass_time,
     generate_ass_content,
     generate_ass_subtitles,
     instrumental_gaps,
 )
+from backend.tests.helpers.ass_script import AssEvent, ass_events, parse_ass
 
 ASS_TIMESTAMP_REGEX = re.compile(r"^\d+:[0-5]\d:[0-5]\d\.\d{2}$")
-KF_TAG_REGEX = re.compile(r"\\kf(\d+)")
+# What a count-in is drawn with: numerals in the default look, dots in the two-row look
+COUNT_IN_LOOKS = ("marquee", "ktv")
 
 
-def parse_ass_styles_and_events(ass_text: str):
-    """Helper to extract defined styles and dialogue events from ASS document."""
-    lines = ass_text.splitlines()
-    styles = set()
-    events = []
+def count_in(ass_text: str) -> list[AssEvent]:
+    """The count-in's events (role ``countin:<line>``), first to last."""
+    events = [e for e in ass_events(ass_text) if e.kind == "countin"]
+    return sorted(events, key=lambda e: (e.start, e.end))
 
-    in_styles = False
-    in_events = False
 
-    for line in lines:
-        stripped = line.strip()
-        if stripped == "[V4+ Styles]":
-            in_styles = True
-            in_events = False
-            continue
-        elif stripped == "[Events]":
-            in_styles = False
-            in_events = True
-            continue
-        elif stripped.startswith("["):
-            in_styles = False
-            in_events = False
-            continue
+def cues(ass_text: str) -> list[AssEvent]:
+    """Everything the countdown option draws: the count-in and the break marker."""
+    return [e for e in ass_events(ass_text) if e.kind in ("countin", "break")]
 
-        if in_styles and stripped.startswith("Style:"):
-            parts = stripped[len("Style:") :].split(",")
-            if parts:
-                styles.add(parts[0].strip())
-        elif in_events and stripped.startswith("Dialogue:"):
-            parts = stripped[len("Dialogue:") :].split(",", 9)
-            if len(parts) >= 10:
-                events.append(
-                    {
-                        "layer": parts[0].strip(),
-                        "start": parts[1].strip(),
-                        "end": parts[2].strip(),
-                        "style": parts[3].strip(),
-                        "name": parts[4].strip(),
-                        "marginL": parts[5].strip(),
-                        "marginR": parts[6].strip(),
-                        "marginV": parts[7].strip(),
-                        "effect": parts[8].strip(),
-                        "text": parts[9],
-                    }
-                )
 
-    return styles, events
+def assert_timestamps_are_well_formed(ass_text: str) -> None:
+    for event in parse_ass(ass_text)["events"]:
+        assert ASS_TIMESTAMP_REGEX.match(event["Start"]), event
+        assert ASS_TIMESTAMP_REGEX.match(event["End"]), event
 
 
 class TestAdversarialAssCountdownNoGaps:
@@ -73,9 +44,7 @@ class TestAdversarialAssCountdownNoGaps:
         assert "[Script Info]" in ass
         assert "[V4+ Styles]" in ass
         assert "[Events]" in ass
-        styles, events = parse_ass_styles_and_events(ass)
-        assert len(events) == 0
-        assert "Countdown" in styles
+        assert ass_events(ass) == []
 
     def test_single_line_at_zero_no_intro_gap(self):
         lines = [
@@ -88,12 +57,9 @@ class TestAdversarialAssCountdownNoGaps:
             }
         ]
         ass = generate_ass_content(lines, include_countdown=True)
-        _, events = parse_ass_styles_and_events(ass)
         # Should contain 1 dialogue event for the line, 0 for countdown
-        countdown_events = [e for e in events if e["style"] == "Countdown"]
-        assert len(countdown_events) == 0
-        assert len(events) == 1
-        assert events[0]["style"] == "KaraokeLine1"
+        assert cues(ass) == []
+        assert [e.role for e in ass_events(ass)] == ["lyric:0"]
 
     def test_song_with_only_sub_threshold_gaps(self):
         # Intro: 3.99s, Inter-line: 3.99s
@@ -114,10 +80,8 @@ class TestAdversarialAssCountdownNoGaps:
             },
         ]
         ass = generate_ass_content(lines, include_countdown=True)
-        _, events = parse_ass_styles_and_events(ass)
-        countdown_events = [e for e in events if e["style"] == "Countdown"]
-        assert len(countdown_events) == 0
-        assert len(events) == 2
+        assert cues(ass) == []
+        assert {e.line for e in ass_events(ass) if e.kind == "lyric"} == {0, 1}
 
 
 class TestAdversarialAssCountdownPathologicalTimings:
@@ -142,14 +106,11 @@ class TestAdversarialAssCountdownPathologicalTimings:
             },
         ]
         ass = generate_ass_content(lines, include_countdown=True)
-        _, events = parse_ass_styles_and_events(ass)
-        countdown_events = [e for e in events if e["style"] == "Countdown"]
-        assert len(countdown_events) == 0
+        assert cues(ass) == []
 
         # Both dialogue lines must be well-formed with valid timestamps
-        for e in events:
-            assert ASS_TIMESTAMP_REGEX.match(e["start"])
-            assert ASS_TIMESTAMP_REGEX.match(e["end"])
+        assert {e.line for e in ass_events(ass) if e.kind == "lyric"} == {0, 1}
+        assert_timestamps_are_well_formed(ass)
 
     def test_inverted_line_timestamps(self):
         # Line end_time before start_time
@@ -164,10 +125,9 @@ class TestAdversarialAssCountdownPathologicalTimings:
         ]
         ass = generate_ass_content(lines, include_countdown=True)
         assert "[Events]" in ass
-        _, events = parse_ass_styles_and_events(ass)
-        for e in events:
-            assert ASS_TIMESTAMP_REGEX.match(e["start"])
-            assert ASS_TIMESTAMP_REGEX.match(e["end"])
+        assert [e for e in ass_events(ass) if e.kind == "lyric"]
+        assert_timestamps_are_well_formed(ass)
+        assert all(e.end >= e.start for e in ass_events(ass))
 
     def test_non_finite_and_corrupted_data_types(self):
         # NaNs, Infinities, None values, non-dicts
@@ -189,11 +149,10 @@ class TestAdversarialAssCountdownPathologicalTimings:
         ]
         ass = generate_ass_content(lines, include_countdown=True)
         assert "[Events]" in ass
-        _, events = parse_ass_styles_and_events(ass)
         # Must not raise exception, must produce valid timestamps
-        for e in events:
-            assert ASS_TIMESTAMP_REGEX.match(e["start"])
-            assert ASS_TIMESTAMP_REGEX.match(e["end"])
+        assert_timestamps_are_well_formed(ass)
+        # The entries that are not lines are skipped and keep their index
+        assert {e.line for e in ass_events(ass) if e.kind == "lyric"} == {2, 3, 4, 5}
 
 
 class TestAdversarialAssCountdownExtremeDurations:
@@ -223,27 +182,44 @@ class TestAdversarialAssCountdownExtremeDurations:
                 ],
             }
         ]
-        ass = generate_ass_content(lines, include_countdown=True)
-        _, events = parse_ass_styles_and_events(ass)
+        # The break marker before it is an event a second, so the day-long gap is tried in
+        # one look only
+        for look_id in COUNT_IN_LOOKS if gap_seconds <= 3600 else COUNT_IN_LOOKS[:1]:
+            ass = generate_ass_content(lines, theme_id=look_id, include_countdown=True)
+            cue = count_in(ass)
+            assert {e.role for e in cue} == {"countin:0"}
+            stamps = [
+                (event["Start"], event["End"])
+                for event in parse_ass(ass)["events"]
+                if event["Name"] == "countin:0"
+            ]
 
-        countdown_events = [e for e in events if e["style"] == "Countdown"]
-        assert len(countdown_events) == 1
-        cd_event = countdown_events[0]
+            # Countdown end must match the line's start_time exactly
+            assert max(e.end for e in cue) == gap_seconds
+            assert expected_h_format in [end for _, end in stamps]
 
-        # Countdown end must match the line's start_time exactly
-        assert cd_event["end"] == expected_h_format
+            # Countdown start must be exactly 3.0 seconds prior
+            assert min(e.start for e in cue) == gap_seconds - 3.0
+            assert format_ass_time(gap_seconds - 3.0) in [start for start, _ in stamps]
 
-        # Countdown start must be exactly 3.0 seconds prior
-        expected_start = format_ass_time(gap_seconds - 3.0)
-        assert cd_event["start"] == expected_start
+            # Check timestamp format
+            assert all(ASS_TIMESTAMP_REGEX.match(stamp) for pair in stamps for stamp in pair)
 
-        # Check timestamp format
-        assert ASS_TIMESTAMP_REGEX.match(cd_event["start"])
-        assert ASS_TIMESTAMP_REGEX.match(cd_event["end"])
-
-        # Check \kf tags
-        kf_matches = KF_TAG_REGEX.findall(cd_event["text"])
-        assert kf_matches == ["100", "100", "100"]
+            # One step a second: a numeral for each second, or three dots that go out in turn
+            seconds = [gap_seconds - 3.0, gap_seconds - 2.0, gap_seconds - 1.0, gap_seconds]
+            if look_id == "ktv":
+                assert [(e.start, e.end) for e in cue] == [
+                    (seconds[0], seconds[1]),
+                    (seconds[0], seconds[2]),
+                    (seconds[0], seconds[3]),
+                ]
+                assert all("\\p1" in e.text for e in cue)
+            else:
+                assert [(e.start, e.end, e.plain) for e in cue] == [
+                    (seconds[0], seconds[1], "3"),
+                    (seconds[1], seconds[2], "2"),
+                    (seconds[2], seconds[3], "1"),
+                ]
 
     def test_exact_boundary_at_four_seconds(self):
         # 4.00s gap exactly
@@ -257,11 +233,14 @@ class TestAdversarialAssCountdownExtremeDurations:
             }
         ]
         ass = generate_ass_content(lines, include_countdown=True)
-        _, events = parse_ass_styles_and_events(ass)
-        countdown_events = [e for e in events if e["style"] == "Countdown"]
-        assert len(countdown_events) == 1
-        assert countdown_events[0]["start"] == "0:00:01.00"
-        assert countdown_events[0]["end"] == "0:00:04.00"
+        cue = count_in(ass)
+        assert {e.role for e in cue} == {"countin:0"}
+        assert (cue[0].start, cue[-1].end) == (1.0, 4.0)
+        assert [e.plain for e in cue] == ["3", "2", "1"]
+
+    def test_just_under_four_seconds_gets_no_countdown(self):
+        lines = [{"id": 1, "text": "Intro at 3.99s", "start_time": 3.99, "end_time": 7.0}]
+        assert cues(generate_ass_content(lines, include_countdown=True)) == []
 
 
 class TestInstrumentalGapRule:
@@ -299,11 +278,11 @@ class TestInstrumentalGapRule:
             {"text": "Gap", "start_time": 15.0, "end_time": 16.0},
         ]
 
-        _, events = parse_ass_styles_and_events(generate_ass_content(lines, include_countdown=True))
+        cue = count_in(generate_ass_content(lines, include_countdown=True))
 
-        countdown_ends = [e["end"] for e in events if e["style"] == "Countdown"]
-        assert countdown_ends == ["0:00:04.00", "0:00:15.00"]
-        assert len(instrumental_gaps(lines)) == len(countdown_ends)
+        countdown_ends = {e.line: e.end for e in cue}
+        assert countdown_ends == {1: 4.0, 3: 15.0}
+        assert instrumental_gaps(lines) == list(countdown_ends)
 
 
 class TestAdversarialAssCountdownMultiSingerAndFlagsMatrix:
@@ -338,34 +317,33 @@ class TestAdversarialAssCountdownMultiSingerAndFlagsMatrix:
             include_countdown=include_countdown_arg,
             style_config=style_config_flag,
         )
-        _, events = parse_ass_styles_and_events(ass)
-        countdown_events = [e for e in events if e["style"] == "Countdown"]
-
         if expected_countdown:
-            assert len(countdown_events) == 1
+            assert {e.role for e in count_in(ass)} == {"countin:0"}
         else:
-            assert len(countdown_events) == 0
+            assert cues(ass) == []
+        assert [e for e in ass_events(ass) if e.kind == "lyric"]
 
     @pytest.mark.parametrize(
-        "singer_val, expected_color_tag_prefix",
+        "singer_val, expected_part",
         [
-            ("singer1", ""),
-            ("lead", ""),
-            ("SINGER 1", ""),
-            ("singer2", r"{\c&H00B300FF&}"),
-            ("partner", r"{\c&H00B300FF&}"),
-            ("singer 2", r"{\c&H00B300FF&}"),
-            ("s2", r"{\c&H00B300FF&}"),
-            ("both", r"{\c&H0050FA7B&}"),
-            ("unison", r"{\c&H0050FA7B&}"),
-            ("duet", r"{\c&H0050FA7B&}"),
-            ("all", r"{\c&H0050FA7B&}"),
-            ("unknown_singer", ""),
-            ("", ""),
-            (None, ""),
+            ("singer1", "singer1"),
+            ("lead", "singer1"),
+            ("SINGER 1", "singer1"),
+            ("singer2", "singer2"),
+            ("partner", "singer2"),
+            ("singer 2", "singer2"),
+            ("s2", "singer2"),
+            ("both", "both"),
+            ("unison", "both"),
+            ("duet", "both"),
+            ("all", "both"),
+            ("unknown_singer", "singer1"),
+            ("", "singer1"),
+            (None, "singer1"),
         ],
     )
-    def test_multi_singer_countdown_dots_styling(self, singer_val, expected_color_tag_prefix):
+    def test_multi_singer_countdown_dots_styling(self, singer_val, expected_part):
+        """The count-in is in the look's cue colour, or the colour of the part it counts in."""
         lines = [
             {
                 "id": 1,
@@ -376,16 +354,18 @@ class TestAdversarialAssCountdownMultiSingerAndFlagsMatrix:
                 "words": [{"word": "Singer", "start_time": 8.0, "end_time": 9.0}],
             }
         ]
-        ass = generate_ass_content(lines, include_countdown=True)
-        _, events = parse_ass_styles_and_events(ass)
-        countdown_events = [e for e in events if e["style"] == "Countdown"]
-        assert len(countdown_events) == 1
-        cd_text = countdown_events[0]["text"]
-
-        if expected_color_tag_prefix:
-            assert cd_text.startswith(expected_color_tag_prefix)
-        else:
-            assert cd_text.startswith(r"{\kf100}")
+        for look_id in COUNT_IN_LOOKS:
+            look = LookStyle.of(look_id)
+            expected = {
+                "singer1": look.color("cue"),
+                "singer2": look.color("singer2"),
+                "both": look.color("both"),
+            }
+            assert len(set(expected.values())) == 3
+            cue = count_in(generate_ass_content(lines, theme_id=look_id, include_countdown=True))
+            assert len(cue) == 3
+            for event in cue:
+                assert f"\\1c{ass_color(expected[expected_part])}" in event.tags, look_id
 
     def test_every_dialogue_style_reference_is_defined_in_styles_section(self):
         """Verifies zero unreferenced styles across complex multi-singer song."""
@@ -396,13 +376,14 @@ class TestAdversarialAssCountdownMultiSingerAndFlagsMatrix:
             {"id": 4, "start_time": 30.0, "end_time": 33.0, "singer": "lead", "text": "L4"},
         ]
         ass = generate_ass_content(lines, include_countdown=True)
-        defined_styles, events = parse_ass_styles_and_events(ass)
+        defined_styles = set(parse_ass(ass)["styles"])
+        events = ass_events(ass)
+        assert {e.line for e in events if e.kind == "countin"} == {0, 1, 2}
+        assert {e.line for e in events if e.kind == "part"} == {0, 1, 2, 3}
 
         # Every event's style MUST be defined in defined_styles
         for e in events:
-            assert e["style"] in defined_styles, (
-                f"Style '{e['style']}' was referenced but not defined!"
-            )
+            assert e.style in defined_styles, f"Style '{e.style}' was referenced but not defined!"
 
     def test_generate_ass_subtitles_disk_file_integrity(self, tmp_path):
         """Verifies generate_ass_subtitles writes valid UTF-8 and returns existing file path."""
@@ -421,5 +402,8 @@ class TestAdversarialAssCountdownMultiSingerAndFlagsMatrix:
         assert ret_path == str(out_file)
         assert out_file.exists()
         content = out_file.read_text(encoding="utf-8")
-        assert "Style: Countdown," in content
-        assert "Dialogue: 1,0:00:02.00,0:00:05.00,Countdown," in content
+        assert content == generate_ass_content(lines, include_countdown=True)
+        cue = count_in(content)
+        assert {(e.layer, e.role) for e in cue} == {(1, "countin:0")}
+        assert (cue[0].start, cue[-1].end) == (2.0, 5.0)
+        assert "Dialogue: 1,0:00:02.00,0:00:03.00," in content

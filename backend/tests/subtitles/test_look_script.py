@@ -347,3 +347,75 @@ def test_a_thousand_lines_are_written_quickly():
         text = write(look_id, lines=many)
         assert time.perf_counter() - started < 6.0, look_id
         assert len({e.line for e in ass_events(text) if e.kind == "lyric"}) == 1000
+
+
+def test_words_that_are_blank_or_padded_are_drawn_clean():
+    messy = [
+        {
+            "start_time": 1.0,
+            "end_time": 4.0,
+            "words": [
+                {"word": None, "start_time": 1.0, "end_time": 1.2},
+                {"word": "  Starlight  ", "start_time": 1.2, "end_time": 2.0},
+                {"word": "", "start_time": 2.0, "end_time": 2.2},
+                "not a word",
+                {"word": "   ", "start_time": 2.2, "end_time": 2.4},
+                {"word": "Serenade", "start_time": 2.4, "end_time": 4.0},
+            ],
+        }
+    ]
+    for sync_mode in ("word", "line"):
+        row = next(
+            e
+            for e in ass_events(write("ktv", lines=messy, sync_mode=sync_mode))
+            if e.kind == "lyric"
+        )
+        assert row.plain == "Starlight Serenade"
+    swept = next(e for e in ass_events(write("ktv", lines=messy)) if e.kind == "lyric")
+    assert swept.text.count("\\kf") == 2
+
+
+def test_a_line_with_nothing_to_draw_draws_nothing_not_even_its_part_name():
+    empty = [
+        {"text": None, "words": None, "singer": "both", "start_time": 1.0, "end_time": 3.0},
+        {
+            "text": "",
+            "words": [{"word": ""}],
+            "singer": "singer2",
+            "start_time": 3.5,
+            "end_time": 5.0,
+        },
+    ]
+    line_roles = ("lyric", "next", "sung", "part", "shadow:lyric", "shadow:part")
+    for look_id in LOOKS:
+        roles = [e.role for e in ass_events(write(look_id, lines=empty))]
+        assert not [role for role in roles if role.startswith(line_roles)], look_id
+
+
+def test_a_very_long_break_counts_only_its_last_ten_minutes():
+    far = [
+        {"text": "Start", "start_time": 1.0, "end_time": 2.0},
+        {"text": "A day later", "start_time": 86_400.0, "end_time": 86_402.0},
+    ]
+    marks = [e for e in ass_events(write("marquee", lines=far)) if e.kind == "break"]
+    assert len(marks) == 600 - 3
+    assert marks[0].plain == "600" and marks[-1].plain == "4"
+    assert marks[0].start == pytest.approx(86_400.0 - 600)
+
+
+def test_word_times_that_are_not_times_do_not_stop_the_file_being_written():
+    odd = [
+        {
+            "text": "a b c",
+            "start_time": 1.0,
+            "end_time": 4.0,
+            "words": [
+                {"word": "a", "start_time": float("inf"), "end_time": float("inf")},
+                {"word": "b", "start_time": 2.0, "end_time": 1e308},
+                {"word": "c", "start_time": float("nan"), "end_time": -5},
+            ],
+        }
+    ]
+    for look_id in LOOKS:
+        rows = [e for e in ass_events(write(look_id, lines=odd)) if e.kind == "lyric"]
+        assert "".join(e.plain for e in rows).replace(" ", "").casefold() == "abc"

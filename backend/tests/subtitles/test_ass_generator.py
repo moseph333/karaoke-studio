@@ -25,7 +25,9 @@ from backend.services.ass_generator import (
     safe_time,
 )
 from backend.services.chord_detector import NO_CHORD_VALUES, transpose_chord
+from backend.services.stage_looks import LOOKS
 from backend.services.video_renderer import VideoRenderer
+from backend.tests.helpers.ass_script import parse_ass
 
 REQUIRED_V4PLUS_FIELDS = [
     "Name",
@@ -54,47 +56,11 @@ REQUIRED_V4PLUS_FIELDS = [
 ]
 
 
-def parse_ass(ass_text: str) -> dict[str, Any]:
-    """Helper to parse ASS script into header sections, styles, and events."""
-    lines = ass_text.splitlines()
-    script_info = {}
-    styles = {}
-    events = []
-
-    current_section = None
-    style_format = []
-    event_format = []
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith(";"):
-            continue
-        if stripped.startswith("[") and stripped.endswith("]"):
-            current_section = stripped[1:-1]
-            continue
-
-        if current_section == "Script Info":
-            if ":" in stripped:
-                k, v = stripped.split(":", 1)
-                script_info[k.strip()] = v.strip()
-        elif current_section == "V4+ Styles":
-            if stripped.startswith("Format:"):
-                style_format = [f.strip() for f in stripped[len("Format:") :].split(",")]
-            elif stripped.startswith("Style:"):
-                vals = [v.strip() for v in stripped[len("Style:") :].split(",")]
-                style_name = vals[0]
-                styles[style_name] = dict(zip(style_format, vals, strict=False))
-        elif current_section == "Events":
-            if stripped.startswith("Format:"):
-                event_format = [f.strip() for f in stripped[len("Format:") :].split(",")]
-            elif stripped.startswith("Dialogue:"):
-                vals = stripped[len("Dialogue:") :].split(",", len(event_format) - 1)
-                event_dict = dict(
-                    zip(event_format, [v.strip() for v in vals[:-1]] + [vals[-1]], strict=False)
-                )
-                events.append(event_dict)
-
-    return {"info": script_info, "styles": styles, "events": events}
+def lyric_events(parsed: dict[str, Any]) -> list[dict[str, str]]:
+    """The events of the lyric lines: every row of a line being sung or waiting its turn, a
+    part's name, a line's romaji (the roles their Name fields carry)."""
+    kinds = ("lyric", "next", "sung", "part", "romaji", "shadow")
+    return [e for e in parsed["events"] if e["Name"].split(":")[0] in kinds]
 
 
 SAMPLE_LYRIC_LINES = [
@@ -137,10 +103,12 @@ SAMPLE_CHORDS = [
 # ==============================================================================
 
 
-def test_f12_style_chord_v4plus_format_and_fields():
+@pytest.mark.parametrize("look_id", list(LOOKS))
+def test_f12_style_chord_v4plus_format_and_fields(look_id):
     """Verify Style: Chord in [V4+ Styles] contains all 23 required fields."""
     ass_text = generate_ass_content(
         lines=SAMPLE_LYRIC_LINES,
+        theme_id=look_id,
         chords=SAMPLE_CHORDS,
         include_chords=True,
     )
@@ -156,17 +124,18 @@ def test_f12_style_chord_v4plus_format_and_fields():
         assert field in chord_style, f"Missing required V4+ field: {field}"
         assert chord_style[field] != "", f"Field {field} must not be empty"
 
-    # 3. Check specific values for Chord style
+    # 3. Check specific values for Chord style: top centre, clear of the frame's edge
     assert chord_style["Name"] == "Chord"
-    assert int(chord_style["Fontsize"]) > 0
-    assert chord_style["PrimaryColour"].startswith("&H")
-    assert chord_style["OutlineColour"].startswith("&H")
-    assert chord_style["Bold"] == "-1"
-    assert chord_style["Alignment"] in ("8", "2")
-    assert int(chord_style["MarginL"]) > 0
-    assert int(chord_style["MarginR"]) > 0
+    assert float(chord_style["Fontsize"]) > 0
+    assert re.fullmatch(r"&H00[0-9A-F]{6}", chord_style["PrimaryColour"])
+    assert re.fullmatch(r"&H00[0-9A-F]{6}", chord_style["OutlineColour"])
+    assert chord_style["Bold"] in ("-1", "0")
+    assert chord_style["Alignment"] == "8"
     assert int(chord_style["MarginV"]) > 0
     assert chord_style["Encoding"] == "1"
+    # The style line has exactly the fields the Format line names
+    style_line = next(line for line in ass_text.splitlines() if line.startswith("Style: Chord,"))
+    assert len(style_line.split(",")) == len(REQUIRED_V4PLUS_FIELDS)
 
 
 def test_f12_ass_layer_two_collision_isolation():
@@ -190,16 +159,19 @@ def test_f12_ass_layer_two_collision_isolation():
     parsed = parse_ass(ass_text)
 
     chord_events = [e for e in parsed["events"] if e["Style"] == "Chord"]
-    lyric_events = [e for e in parsed["events"] if e["Style"].startswith("KaraokeLine")]
-    countdown_events = [e for e in parsed["events"] if e["Style"] == "Countdown"]
+    lyrics = lyric_events(parsed)
+    countdown_events = [
+        e for e in parsed["events"] if e["Name"].split(":")[0] in ("countin", "break")
+    ]
 
     assert len(chord_events) > 0, "Expected chord dialogue events"
-    assert len(lyric_events) > 0, "Expected lyric dialogue events"
-    assert len(countdown_events) > 0, "Expected countdown events"
+    assert len(lyrics) > 0, "Expected lyric dialogue events"
+    assert {e["Name"] for e in countdown_events} == {"countin:0", "break"}
+    assert len(chord_events) + len(lyrics) + len(countdown_events) == len(parsed["events"])
 
     # Verify layer segregation:
     # Layer 0: Lyrics
-    for e in lyric_events:
+    for e in lyrics:
         assert e["Layer"] == "0", f"Lyric line must be on Layer 0, found: {e['Layer']}"
 
     # Layer 1: Countdown
@@ -209,7 +181,8 @@ def test_f12_ass_layer_two_collision_isolation():
     # Layer 2: Chords
     for e in chord_events:
         assert e["Layer"] == "2", f"Chord line must be on Layer 2, found: {e['Layer']}"
-        assert e["Text"].startswith("{\\an"), "Chord events must specify an alignment tag"
+        assert e["Name"] == "chord"
+        assert e["Text"].startswith("{\\an8}"), "Chord events must specify an alignment tag"
 
 
 def test_f12_progressive_kf_karaoke_sweeps_preserved():
@@ -228,20 +201,21 @@ def test_f12_progressive_kf_karaoke_sweeps_preserved():
     parsed_without = parse_ass(ass_without_chords)
     parsed_with = parse_ass(ass_with_chords)
 
-    lyrics_without = [e for e in parsed_without["events"] if e["Style"].startswith("KaraokeLine")]
-    lyrics_with = [e for e in parsed_with["events"] if e["Style"].startswith("KaraokeLine")]
+    lyrics_without = lyric_events(parsed_without)
+    lyrics_with = lyric_events(parsed_with)
 
     assert len(lyrics_without) == len(lyrics_with)
     assert len(lyrics_without) > 0
 
     for lw, lc in zip(lyrics_without, lyrics_with, strict=True):
         # Every field must be identical
-        assert lw["Layer"] == lc["Layer"]
-        assert lw["Start"] == lc["Start"]
-        assert lw["End"] == lc["End"]
-        assert lw["Style"] == lc["Style"]
-        assert lw["Text"] == lc["Text"]
-        assert "\\kf" in lc["Text"]
+        assert lw == lc
+    sung = [e for e in lyrics_with if e["Name"].startswith("lyric:")]
+    assert {e["Name"] for e in sung} == {"lyric:0", "lyric:1"}
+    assert all("\\kf" in e["Text"] for e in sung)
+    # The chords are the only difference between the two files
+    assert [e for e in parsed_with["events"] if e["Style"] != "Chord"] == parsed_without["events"]
+    assert not [e for e in parsed_without["events"] if e["Style"] == "Chord"]
 
 
 # ==============================================================================
@@ -267,8 +241,7 @@ def test_f12_empty_lyrics_with_non_empty_chords():
         assert e["Layer"] == "2"
 
     # No lyric events should exist
-    lyric_events = [e for e in parsed["events"] if e["Style"].startswith("KaraokeLine")]
-    assert len(lyric_events) == 0
+    assert chord_events == parsed["events"]
 
 
 def test_f12_none_lyrics_with_non_empty_chords():
@@ -354,16 +327,14 @@ def test_f12_transposition_bounds_full_range(semitones: int):
 
 
 @pytest.mark.parametrize(
-    "aspect_ratio,expected_res_x,expected_res_y,expected_margin_v,expected_font_size",
+    "aspect_ratio,expected_res_x,expected_res_y",
     [
-        ("16:9", "1920", "1080", "80", 36),  # round(52 * 0.70) = 36
-        ("9:16", "1080", "1920", "120", 32),  # round(46 * 0.70) = 32
+        ("16:9", "1920", "1080"),
+        ("9:16", "1080", "1920"),
     ],
 )
-def test_f12_aspect_ratios_geometry_and_margins(
-    aspect_ratio, expected_res_x, expected_res_y, expected_margin_v, expected_font_size
-):
-    """Verify geometry, PlayRes, margin, and typography adapt accurately between 16:9 and 9:16."""
+def test_f12_aspect_ratios_geometry_and_margins(aspect_ratio, expected_res_x, expected_res_y):
+    """Verify PlayRes adapts between 16:9 and 9:16 and the chords sit at the top of either."""
     ass_text = generate_ass_content(
         lines=SAMPLE_LYRIC_LINES,
         chords=SAMPLE_CHORDS,
@@ -376,27 +347,34 @@ def test_f12_aspect_ratios_geometry_and_margins(
     assert parsed["info"]["PlayResY"] == expected_res_y
 
     chord_style = parsed["styles"]["Chord"]
-    assert chord_style["MarginV"] == expected_margin_v
-    assert int(chord_style["Fontsize"]) == expected_font_size
+    assert chord_style["Alignment"] == "8"
+    # A top margin inside the frame's top tenth, the row of chords under it
+    assert 0 < int(chord_style["MarginV"]) < int(expected_res_y) / 10
+    assert 0 < float(chord_style["Fontsize"]) < int(expected_res_y) / 10
 
 
-def test_f12_chord_alignment_options():
-    """Verify chord_alignment=2 positions chords near bottom above lyrics."""
+def test_f12_retired_chord_alignment_option_is_ignored():
+    """The chords belong to the look now: an old request's chord_alignment and margin_v_chord
+    change nothing."""
+    plain = generate_ass_content(
+        lines=SAMPLE_LYRIC_LINES,
+        chords=SAMPLE_CHORDS,
+        include_chords=True,
+    )
     ass_text = generate_ass_content(
         lines=SAMPLE_LYRIC_LINES,
         chords=SAMPLE_CHORDS,
         include_chords=True,
-        style_config={"chord_alignment": 2},
+        style_config={"chord_alignment": 2, "margin_v_chord": 300},
     )
+    assert ass_text == plain
     parsed = parse_ass(ass_text)
-    chord_style = parsed["styles"]["Chord"]
-    assert chord_style["Alignment"] == "2"
-    # Bottom margin should be elevated above bottom lyrics
-    assert int(chord_style["MarginV"]) >= 270
+    assert parsed["styles"]["Chord"]["Alignment"] == "8"
 
-    for e in parsed["events"]:
-        if e["Style"] == "Chord":
-            assert e["Text"].startswith("{\\an2}")
+    chord_events = [e for e in parsed["events"] if e["Style"] == "Chord"]
+    assert len(chord_events) == len(SAMPLE_CHORDS)
+    for e in chord_events:
+        assert e["Text"].startswith("{\\an8}")
 
 
 # ==============================================================================

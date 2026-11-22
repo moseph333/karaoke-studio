@@ -2,6 +2,7 @@
 under it and is timed by it."""
 
 import json
+import re
 
 from backend.services.ass_generator import generate_ass_content
 from backend.services.line_realign import realign_line
@@ -9,6 +10,7 @@ from backend.services.lyric_cleanup import clean_fetched_lines, split_romaji
 from backend.services.lyric_sync import romaji_onto_characters, sync_lyrics
 from backend.services.lyrics import LyricsService
 from backend.services.repeat_fill import fill_repeats
+from backend.tests.helpers.ass_script import ass_events
 from backend.tests.helpers.audio_signals import write_test_wav
 from backend.tests.helpers.fake_ctc_worker import install_fake_ctc
 from backend.tests.helpers.lrclib_listings import LASER_SHARKS_CLEAN
@@ -127,8 +129,21 @@ def test_romanized_timing_is_spread_over_the_characters():
 
 def test_the_export_shows_the_romanization_under_the_line():
     line = split_romaji(parsed("我々和かつ (Wareware wa katsu)"))
-    ass = generate_ass_content([line])
-    dialogue = next(entry for entry in ass.splitlines() if entry.startswith("Dialogue: 0,"))
-    lyric, romaji = dialogue.split("\\N")
-    assert "我" in lyric and "Wareware" not in lyric
-    assert romaji.endswith("Wareware wa katsu") and "\\fscx62" in romaji
+    events = ass_events(generate_ass_content([line]))
+    (lyric,) = (event for event in events if event.role == "lyric:0")
+    (romaji,) = (event for event in events if event.role == "romaji:0")
+    assert lyric.plain == "我々和かつ" and lyric.text.count("\\kf") == 5
+    # A row of its own under the characters, smaller, for as long as they show, never filled
+    assert romaji.plain == "Wareware wa katsu" and "\\k" not in romaji.text
+    assert (romaji.start, romaji.end) == (lyric.start, lyric.end)
+
+    def top(event) -> float:
+        """Where the row's top edge ends up: \\move(x, from, x, to, ...) or \\pos(x, y)."""
+        move = event.numbers("move")
+        return move[3] if move else event.numbers("pos")[1]
+
+    def size(event) -> float:
+        return float(re.search(r"\\fs([\d.]+)", event.tags).group(1))
+
+    assert top(romaji) > top(lyric)
+    assert size(romaji) < size(lyric)

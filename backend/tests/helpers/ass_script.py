@@ -34,8 +34,9 @@ class AssEvent:
 
     @property
     def plain(self) -> str:
-        """The text as drawn, without override blocks."""
-        return re.sub(r"\{[^}]*\}", "", self.text)
+        """The text as written into the event without its override blocks (a brace a lyric
+        holds is escaped, and stays)."""
+        return re.sub(r"(?<!\\)\{[^}]*\}", "", self.text)
 
     def numbers(self, tag: str) -> list[float]:
         """The numbers of the first ``\\tag(...)`` in the event's first block."""

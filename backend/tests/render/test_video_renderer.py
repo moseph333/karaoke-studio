@@ -5,7 +5,14 @@ from pathlib import Path
 
 import pytest
 
+from backend.services.stage_looks import LEGACY_IDS, LOOKS
 from backend.services.video_renderer import VideoRenderer
+from backend.tests.helpers.ass_script import ass_events, parse_ass
+
+
+def _bgr(css: str) -> str:
+    """A CSS hex colour as an override tag writes it (&HBBGGRR&)."""
+    return f"&H{css[5:7]}{css[3:5]}{css[1:3]}&".upper()
 
 
 def test_generate_ass_subtitles(tmp_path):
@@ -29,7 +36,7 @@ def test_generate_ass_subtitles(tmp_path):
         {
             "id": 1,
             "text": "Second line starts here",
-            "start_time": 12.0,  # Gap > 3.5s => triggers countdown dots
+            "start_time": 12.0,  # 5 s after the first line ends: a gap, so a count-in
             "end_time": 15.0,
             "words": [
                 {"word": "Second", "start_time": 12.0, "end_time": 12.8},
@@ -47,14 +54,19 @@ def test_generate_ass_subtitles(tmp_path):
     assert "[Script Info]" in content
     assert "PlayResX: 1920" in content
     assert "PlayResY: 1080" in content
-    assert "Style: KaraokeLine1" in content
-    assert "Style: Countdown" in content
+    events = ass_events(content)
+    # Every event is drawn in a style the file defines
+    assert {event.style for event in events} <= set(parse_ass(content)["styles"])
 
-    # Check for progressive karaoke wipe tag \kf
-    assert "\\kf" in content
-    # Check for countdown dots
-    assert "Countdown" in content
-    assert "●" in content
+    # Both lines are filled word by word (the progressive karaoke wipe tag \kf)
+    for index, line in enumerate(sample_lines):
+        rows = [event for event in events if event.role == f"lyric:{index}"]
+        assert rows
+        assert sum(row.text.count("\\kf") for row in rows) == len(line["words"])
+    # The second line follows a gap: it is counted in over the 3 s before it starts
+    count_in = [event for event in events if event.role == "countin:1"]
+    assert [event.plain for event in count_in] == ["3", "2", "1"]
+    assert (count_in[0].start, count_in[-1].end) == (9.0, 12.0)
 
 
 def test_cancel_endpoints(client):
@@ -133,7 +145,7 @@ def test_render_video_drains_stderr_without_deadlock(tmp_path):
 
 
 def test_generate_ass_subtitles_vertical_9_16(tmp_path):
-    """9:16 vertical aspect ratio generates 1080x1920 canvas with adjusted vertical margins."""
+    """9:16 vertical aspect ratio generates 1080x1920 canvas with every row placed inside it."""
     renderer = VideoRenderer(output_dir=tmp_path)
     output_ass = tmp_path / "vertical.ass"
 
@@ -159,13 +171,13 @@ def test_generate_ass_subtitles_vertical_9_16(tmp_path):
     assert "PlayResY: 1920" in content
     assert "PlayResX: 1920" not in content
 
-    # Verify elevated vertical margins for mobile UI clearance
-    assert "Style: KaraokeLine1" in content
-    assert ",60,60,640,1" in content
-    assert "Style: KaraokeLine2" in content
-    assert ",60,60,500,1" in content
-    assert "Style: Countdown" in content
-    assert ",60,60,780,1" in content
+    # Each row is placed by its own tags, inside the portrait frame
+    rows = [event for event in ass_events(content) if event.kind == "lyric"]
+    assert rows
+    for row in rows:
+        x, y = (row.numbers("move") or row.numbers("pos"))[:2]
+        assert 0 <= x <= 1080
+        assert 0 <= y <= 1920
 
 
 def test_generate_ass_subtitles_escapes_special_characters(tmp_path):
@@ -188,7 +200,8 @@ def test_generate_ass_subtitles_escapes_special_characters(tmp_path):
         }
     ]
 
-    renderer.generate_ass_subtitles(adversarial_lines, output_ass)
+    # KTV draws the words as written (the default look draws capitals)
+    renderer.generate_ass_subtitles(adversarial_lines, output_ass, theme_id="ktv")
     content = output_ass.read_text(encoding="utf-8")
 
     # Curly braces must be escaped so libass does not treat them as override tags
@@ -229,17 +242,18 @@ def test_generate_ass_subtitles_overlapping_lines_timing(tmp_path):
         },
     ]
 
-    renderer.generate_ass_subtitles(overlapping_lines, output_ass)
+    # KTV gives each line a row of its own, so two lines can show at once
+    renderer.generate_ass_subtitles(overlapping_lines, output_ass, theme_id="ktv")
     content = output_ass.read_text(encoding="utf-8")
 
-    dialogue_events = [line for line in content.splitlines() if line.startswith("Dialogue: 0,")]
-    assert len(dialogue_events) == 2
-
-    # Second line dialogue format: Dialogue: 0,Start,End,Style,...
-    line2_parts = dialogue_events[1].split(",")
-    start_time_str = line2_parts[1]
-    # display_start must not be later than line start (4.0s = 0:00:04.00)
-    assert start_time_str <= "0:00:04.00"
+    first, second = (event for event in ass_events(content) if event.kind == "lyric")
+    assert (first.line, second.line) == (0, 1)
+    # Each line shows no later than it starts, until after it ends
+    assert first.start <= 2.0 and first.end >= 5.0
+    assert second.start <= 4.0 and second.end >= 7.0
+    # The two are on screen together, each in its own row
+    assert second.start < first.end
+    assert first.numbers("pos")[1] != second.numbers("pos")[1]
 
     # Confirm no negative delay tags exist anywhere in output
     assert "{\\k-" not in content
@@ -247,7 +261,7 @@ def test_generate_ass_subtitles_overlapping_lines_timing(tmp_path):
 
 
 def test_generate_ass_subtitles_empty_words_fallback(tmp_path):
-    """Line with text but no word breakdowns generates valid line-level sweep without crashing."""
+    """Line with text but no word breakdowns changes colour all at once when it starts."""
     renderer = VideoRenderer(output_dir=tmp_path)
     output_ass = tmp_path / "fallback.ass"
 
@@ -261,10 +275,14 @@ def test_generate_ass_subtitles_empty_words_fallback(tmp_path):
         }
     ]
 
-    renderer.generate_ass_subtitles(lines, output_ass)
+    renderer.generate_ass_subtitles(lines, output_ass, theme_id="ktv")
     content = output_ass.read_text(encoding="utf-8")
-    assert "Full line without words" in content
-    assert "{\\kf200}" in content
+    (row,) = (event for event in ass_events(content) if event.kind == "lyric")
+    assert row.plain == "Full line without words"
+    # Unsung until the line starts (1.0 s), then sung at once: no word-by-word fill
+    lead = round((1.0 - row.start) * 100)
+    assert f"{{\\k{lead}}}{{\\k0}}Full line without words" in row.text
+    assert "\\kf" not in row.text
 
 
 def test_render_video_subprocess_cleanup_on_exception(tmp_path, monkeypatch):
@@ -377,7 +395,7 @@ def test_escape_ass_text_sanitizes_literal_newlines():
 
 
 def test_generate_ass_subtitles_embedded_newlines_stay_on_single_dialogue_line(tmp_path):
-    """Verifies lyric lines with embedded newlines (\\r\\n, \\n, \\r) are sanitized and stay on a single Dialogue line."""
+    """Verifies lyric lines with embedded newlines (\\r\\n, \\n, \\r) are sanitized and never break a Dialogue line."""
     renderer = VideoRenderer(output_dir=tmp_path)
     output_ass = tmp_path / "newlines.ass"
 
@@ -403,24 +421,24 @@ def test_generate_ass_subtitles_embedded_newlines_stay_on_single_dialogue_line(t
         },
     ]
 
-    renderer.generate_ass_subtitles(multiline_lyrics, output_ass)
+    # KTV draws the words as written (the default look draws capitals)
+    renderer.generate_ass_subtitles(multiline_lyrics, output_ass, theme_id="ktv")
     content = output_ass.read_text(encoding="utf-8")
     lines = content.splitlines()
+    assert b"\r" not in output_ass.read_bytes()
 
-    dialogue_lines = [line for line in lines if line.startswith("Dialogue:")]
-    assert len(dialogue_lines) == 2
+    # A long line is one event per row it is drawn in; a newline in the lyrics never adds one
+    rows = [event for event in ass_events(content) if event.kind == "lyric"]
+    assert {row.line for row in rows} == {0, 1}
 
-    for d_line in dialogue_lines:
-        assert "\r" not in d_line
-        assert "\n" not in d_line
-
-    # Word-level: verified individual words sanitized without splitting lines
-    assert "Verse Line 1" in dialogue_lines[0]
-    assert "Verse Line 2" in dialogue_lines[0]
-    assert "Verse Line 3" in dialogue_lines[0]
+    # Word-level: each word's newline is a space, and the words stay whole and in order
+    assert " ".join(row.plain for row in rows if row.line == 0) == (
+        "Verse Line 1 Verse Line 2 Verse Line 3 Verse 4"
+    )
+    assert sum(row.text.count("\\kf") for row in rows if row.line == 0) == 4
 
     # Line-level fallback: verified entire text sanitized into single line
-    assert "Plain line with embedded newlines" in dialogue_lines[1]
+    assert [row.plain for row in rows if row.line == 1] == ["Plain line with embedded newlines"]
 
     events_section = False
     for line in lines:
@@ -797,21 +815,6 @@ def test_render_video_with_custom_webm_background_9_16(tmp_path):
     assert 1.8 <= probe_d <= 2.2
 
 
-def test_visual_themes_centralization():
-    """VISUAL_THEMES dictionary contains all 4 supported themes with correct BGR hex colors."""
-    from backend.services.video_renderer import VISUAL_THEMES
-
-    assert "modern_gold" in VISUAL_THEMES
-    assert "cyber_cyan" in VISUAL_THEMES
-    assert "neon_pink" in VISUAL_THEMES
-    assert "classic_ktv" in VISUAL_THEMES
-
-    assert VISUAL_THEMES["modern_gold"]["primary_color"] == "&H0000D7FF"
-    assert VISUAL_THEMES["cyber_cyan"]["primary_color"] == "&H00FFFF00"
-    assert VISUAL_THEMES["neon_pink"]["primary_color"] == "&H00B300FF"
-    assert VISUAL_THEMES["classic_ktv"]["primary_color"] == "&H0000FFFF"
-
-
 def test_generate_ass_content_direct_string_return():
     """generate_ass_content returns valid ASS document string in memory without writing to disk."""
     renderer = VideoRenderer()
@@ -830,74 +833,91 @@ def test_generate_ass_content_direct_string_return():
         }
     ]
 
-    content = renderer.generate_ass_content(sample_lines, title="Memory Anthem")
+    content = renderer.generate_ass_content(sample_lines, title="Memory Anthem", theme_id="ktv")
     assert isinstance(content, str)
     assert "[Script Info]" in content
     assert "Title: Memory Anthem" in content
     assert "PlayResX: 1920" in content
     assert "PlayResY: 1080" in content
-    assert "Style: KaraokeLine1" in content
-    assert "\\kf" in content
-    assert "Singing" in content
+    (row,) = (event for event in ass_events(content) if event.kind == "lyric")
+    assert row.plain == "Singing direct in memory"
+    assert row.text.count("\\kf") == 4
 
 
 @pytest.mark.parametrize(
-    "aspect_ratio,expected_res_x,expected_res_y,expected_margin_v1",
+    "aspect_ratio,expected_res_x,expected_res_y",
     [
-        ("16:9", "PlayResX: 1920", "PlayResY: 1080", ",80,80,200,1"),
-        ("9:16", "PlayResX: 1080", "PlayResY: 1920", ",60,60,640,1"),
+        ("16:9", "PlayResX: 1920", "PlayResY: 1080"),
+        ("9:16", "PlayResX: 1080", "PlayResY: 1920"),
     ],
 )
-def test_generate_ass_content_aspect_ratios(
-    aspect_ratio, expected_res_x, expected_res_y, expected_margin_v1
-):
-    """generate_ass_content applies correct canvas resolution and margins for 16:9 and 9:16."""
+def test_generate_ass_content_aspect_ratios(aspect_ratio, expected_res_x, expected_res_y):
+    """generate_ass_content applies correct canvas resolution for 16:9 and 9:16."""
     renderer = VideoRenderer()
     content = renderer.generate_ass_content([], aspect_ratio=aspect_ratio)
     assert expected_res_x in content
     assert expected_res_y in content
-    assert expected_margin_v1 in content
+
+
+_ONE_LINE = [{"id": 0, "text": "Test line", "start_time": 1.0, "end_time": 2.0, "words": []}]
+
+
+def _sweep_colors(content: str) -> str:
+    """The sung (\\1c) and unsung (\\2c) colour tags of the only lyric row."""
+    (row,) = (event for event in ass_events(content) if event.kind == "lyric")
+    return row.tags[row.tags.index("\\1c") :]
 
 
 @pytest.mark.parametrize(
     "theme_id,expected_sung_color",
     [
-        ("modern_gold", "&H0000D7FF"),
-        ("cyber_cyan", "&H00FFFF00"),
-        ("neon_pink", "&H00B300FF"),
-        ("classic_ktv", "&H0000FFFF"),
+        # A preset that was a look of its own takes the colours of the look that replaced it
+        ("modern_gold", LOOKS["ktv"]["palette"]["sung"]),
+        ("classic_ktv", LOOKS["ktv"]["palette"]["sung"]),
+        # A preset that was only a colour keeps that colour in its new look
+        ("cyber_cyan", "#00ffff"),
+        ("neon_pink", "#ff00b3"),
     ],
 )
 def test_generate_ass_content_visual_themes(theme_id, expected_sung_color):
-    """generate_ass_content propagates theme preset colors to KaraokeLine1 and KaraokeLine2 styles."""
+    """generate_ass_content draws a replaced preset's id in the look that replaced it."""
     renderer = VideoRenderer()
-    content = renderer.generate_ass_content([], theme_id=theme_id)
-    assert f",{expected_sung_color},&H00FFFFFF," in content
+    look = LOOKS[LEGACY_IDS[theme_id]["look"]]
+    content = renderer.generate_ass_content(_ONE_LINE, theme_id=theme_id)
+    assert _sweep_colors(content) == (
+        f"\\1c{_bgr(expected_sung_color)}\\2c{_bgr(look['palette']['unsung'])}"
+    )
+    # Everything but the sung colour is the look's own
+    as_look = renderer.generate_ass_content(
+        _ONE_LINE, theme_id=look["id"], primary_color=expected_sung_color
+    )
+    assert content == as_look
 
 
 def test_generate_ass_content_color_overrides():
     """Explicit primary_color and secondary_color override preset theme colors."""
     renderer = VideoRenderer()
     content = renderer.generate_ass_content(
-        [],
+        _ONE_LINE,
         theme_id="modern_gold",
         primary_color="&H00123456",
         secondary_color="&H00654321",
     )
-    assert ",&H00123456,&H00654321," in content
-    assert "&H0000D7FF" not in content
+    assert _sweep_colors(content) == "\\1c&H123456&\\2c&H654321&"
+    assert _bgr(LOOKS["ktv"]["palette"]["sung"]) not in content
 
 
 def test_generate_ass_subtitles_delegation_to_generate_ass_content(tmp_path):
     """generate_ass_subtitles delegates to generate_ass_content and writes output to file."""
     renderer = VideoRenderer(output_dir=tmp_path)
     output_ass = tmp_path / "delegated.ass"
-    sample_lines = [{"id": 0, "text": "Test line", "start_time": 1.0, "end_time": 2.0, "words": []}]
 
-    res_path = renderer.generate_ass_subtitles(sample_lines, output_ass, theme_id="cyber_cyan")
+    res_path = renderer.generate_ass_subtitles(_ONE_LINE, output_ass, theme_id="cyber_cyan")
     assert res_path == str(output_ass)
     assert output_ass.is_file()
-    assert "&H00FFFF00" in output_ass.read_text(encoding="utf-8")
+    written = output_ass.read_text(encoding="utf-8")
+    assert written == renderer.generate_ass_content(_ONE_LINE, theme_id="cyber_cyan")
+    assert _bgr("#00ffff") in written
 
 
 def test_format_ass_time_centisecond_rollover_precision():
@@ -966,15 +986,26 @@ def test_generate_ass_content_timestamp_resilience():
             "words": [],
         },
     ]
-    # Must not raise TypeError or ValueError
-    ass = vr.generate_ass_content(corrupted_lines)
+    # Must not raise TypeError or ValueError (KTV draws the words as written)
+    ass = vr.generate_ass_content(corrupted_lines, theme_id="ktv")
     assert "[Script Info]" in ass
     assert "[Events]" in ass
-    assert "Dialogue: 0," in ass
-    assert "None" in ass
-    assert "NaN" in ass
-    assert "Line with negative times" in ass
-    assert "Line with string invalid times" in ass
+    events = ass_events(ass)
+    # Every line is drawn, the timed ones by their words, and every event has a length
+    assert [event.plain for event in events if event.kind == "lyric"] == [
+        "None",
+        "NaN",
+        "Line with negative times",
+        "Line with string invalid times",
+    ]
+    assert all(event.end > event.start >= 0 for event in events)
+    # The default look survives the same lines
+    assert {event.line for event in ass_events(vr.generate_ass_content(corrupted_lines))} >= {
+        0,
+        1,
+        2,
+        3,
+    }
 
 
 def test_generate_ass_content_100_plus_minute_track():
@@ -1000,7 +1031,7 @@ def test_generate_ass_content_100_plus_minute_track():
 
 
 def test_generate_ass_subtitles_multi_singer_file_output(tmp_path):
-    """VideoRenderer.generate_ass_subtitles writes multi-singer styles and progressive kf tags."""
+    """VideoRenderer.generate_ass_subtitles writes each part in its colour, with progressive kf tags."""
     renderer = VideoRenderer(output_dir=tmp_path)
     out_ass = tmp_path / "duet.ass"
 
@@ -1035,12 +1066,19 @@ def test_generate_ass_subtitles_multi_singer_file_output(tmp_path):
     assert os.path.exists(res)
     content = out_ass.read_text(encoding="utf-8")
 
-    assert "Style: KaraokeLine1_Singer2" in content
-    assert "Style: KaraokeLine1_Both" in content
-    assert ",KaraokeLine1," in content
-    assert ",KaraokeLine2_Singer2," in content
-    assert ",KaraokeLine1_Both," in content
-    assert "{\\kf" in content
+    events = ass_events(content)
+    palette = LOOKS["marquee"]["palette"]
+    # Each line is filled in its part's colour ("lead" and "partner" are Singer 1 and 2)
+    for index, part in enumerate(("sung", "singer2", "both")):
+        (row,) = (event for event in events if event.role == f"lyric:{index}")
+        assert f"\\1c{_bgr(palette[part])}\\2c{_bgr(palette['unsung'])}" in row.tags
+        assert "{\\kf" in row.text
+    # And is named where the part changes
+    assert {event.line: event.plain.casefold() for event in events if event.kind == "part"} == {
+        0: "singer 1",
+        1: "singer 2",
+        2: "both",
+    }
 
 
 def test_render_video_with_audio_visualizer_16_9(tmp_path):
@@ -1215,13 +1253,16 @@ def test_generate_ass_subtitles_include_countdown_flag(tmp_path):
         }
     ]
 
+    def kinds(path) -> set[str]:
+        return {event.kind for event in ass_events(path.read_text(encoding="utf-8"))}
+
+    # The line starts 5 s in: a break marker until 2 s, then the count-in
     renderer.generate_ass_subtitles(sample_lines, ass_enabled, include_countdown=True)
-    content_enabled = ass_enabled.read_text(encoding="utf-8")
-    assert ",Countdown,,0,0,0,," in content_enabled
+    assert {"countin", "break", "lyric"} <= kinds(ass_enabled)
 
     renderer.generate_ass_subtitles(sample_lines, ass_disabled, include_countdown=False)
-    content_disabled = ass_disabled.read_text(encoding="utf-8")
-    assert ",Countdown,,0,0,0,," not in content_disabled
+    assert not kinds(ass_disabled) & {"countin", "break"}
+    assert "lyric" in kinds(ass_disabled)
 
 
 def test_render_request_schema_visualizer_and_countdown():

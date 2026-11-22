@@ -1,7 +1,8 @@
-"""Preview/export parity: the stage look chosen in the studio (duet colors, preset backdrop,
+"""Preview/export parity: the stage look chosen in the studio (duet colors, the look's ground,
 background style) reaches the .ass subtitle export and the rendered video, and the stage is
 served the very cover-art still the export draws."""
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -15,13 +16,16 @@ import backend.main as main_mod
 from backend.main import projects
 from backend.render_worker import run_video_render
 from backend.schemas import RenderRequest
-from backend.services.ass_generator import css_to_ass_color
+from backend.services.ass_draw import ass_color
+from backend.services.ass_generator import export_fonts
+from backend.services.stage_looks import LEGACY_IDS, LOOKS
 from backend.services.video_renderer import (
     DEFAULT_BACKGROUND_COLOR,
     VideoRenderer,
     ffmpeg_color,
     prepare_background,
 )
+from backend.tests.helpers.ass_script import ass_events
 
 DUET_LINES = [
     {
@@ -129,21 +133,41 @@ def duet_project():
     projects.pop(pid, None)
 
 
+BOTH_LINE = {
+    "id": 3,
+    "start_time": 5.5,
+    "end_time": 7.0,
+    "text": "Together now",
+    "singer": "both",
+    "words": [
+        {"word": "Together", "start": 5.5, "end": 6.2},
+        {"word": "now", "start": 6.2, "end": 7.0},
+    ],
+}
+
+
+def sung_colors(ass: str) -> dict[int, str]:
+    """Each line's sung colour (the \\1c of its event while it is sung), by line index."""
+    colors: dict[int, set[str]] = {}
+    for event in ass_events(ass):
+        if event.kind == "lyric":
+            found = re.search(r"\\1c(&H[0-9A-F]{6}&)", event.tags)
+            colors.setdefault(event.line, set()).add(found.group(1) if found else "")
+    assert all(len(found) == 1 for found in colors.values())
+    return {line: found.pop() for line, found in colors.items()}
+
+
 def test_ass_export_applies_duet_colors_from_the_look_panel(client, duet_project):
+    duet_project["lines"] = [*DUET_LINES, BOTH_LINE]
     res = client.get(
         f"/api/project/{duet_project['id']}/export/ass",
         params={"theme_id": "modern_gold", "singer2_color": "#123456", "both_color": "#abcdef"},
     )
     assert res.status_code == 200
-    body = res.text
-    singer2_style = next(
-        line for line in body.splitlines() if line.startswith("Style: KaraokeLine1_Singer2,")
-    )
-    both_style = next(
-        line for line in body.splitlines() if line.startswith("Style: KaraokeLine1_Both,")
-    )
-    assert css_to_ass_color("#123456") in singer2_style
-    assert css_to_ass_color("#abcdef") in both_style
+    sung = sung_colors(res.text)
+    assert sung[1] == ass_color("#123456")
+    assert sung[2] == ass_color("#abcdef")
+    assert sung[0] not in (sung[1], sung[2])
 
 
 def test_ass_export_ignores_duet_colors_that_are_not_colors(client, duet_project):
@@ -158,22 +182,25 @@ def test_ass_export_ignores_duet_colors_that_are_not_colors(client, duet_project
     assert res.status_code == 200
     assert "Comic Sans" not in res.text
     assert "0:09:00.00" not in res.text
-    singer2_style = next(
-        line for line in res.text.splitlines() if line.startswith("Style: KaraokeLine1_Singer2,")
-    )
-    assert css_to_ass_color("#f472b6") in singer2_style
+    # The look that replaced Afterglow keeps its own duet colour
+    look = LOOKS[LEGACY_IDS["afterglow"]["look"]]
+    assert sung_colors(res.text)[1] == ass_color(look["palette"]["singer2"])
 
 
-def test_ass_export_without_duet_colors_keeps_preset_defaults(client, duet_project):
-    res = client.get(
-        f"/api/project/{duet_project['id']}/export/ass", params={"theme_id": "afterglow"}
-    )
+def test_ass_export_without_duet_colors_keeps_the_looks_own(client, duet_project):
+    url = f"/api/project/{duet_project['id']}/export/ass"
+    res = client.get(url, params={"theme_id": "afterglow"})
     assert res.status_code == 200
-    singer2_style = next(
-        line for line in res.text.splitlines() if line.startswith("Style: KaraokeLine1_Singer2,")
-    )
-    # Afterglow's own duet color (#f472b6)
-    assert css_to_ass_color("#f472b6") in singer2_style
+    look = LOOKS[LEGACY_IDS["afterglow"]["look"]]
+    assert sung_colors(res.text)[1] == ass_color(look["palette"]["singer2"])
+
+    # A tab opened before the looks sends Afterglow's own duet colour (#f472b6) with every
+    # request: that is not a choice, so the look's colour still applies
+    old_tab = client.get(url, params={"theme_id": "afterglow", "singer2_color": "#f472b6"})
+    assert old_tab.text == res.text
+    # With the look's own id the same colour is a choice
+    chosen = client.get(url, params={"theme_id": look["id"], "singer2_color": "#f472b6"})
+    assert sung_colors(chosen.text)[1] == ass_color("#f472b6")
 
 
 def test_render_worker_forwards_the_stage_backdrop(tmp_path, duet_project, monkeypatch):
@@ -199,13 +226,17 @@ def test_render_worker_forwards_the_stage_backdrop(tmp_path, duet_project, monke
         main_mod.youtube_service, "generate_youtube_package", lambda **kwargs: {"title": "t"}
     )
 
-    run_video_render(
-        duet_project["id"],
-        RenderRequest(style_config={"theme_id": "afterglow", "background_color": "#0b0b12"}),
-    )
+    style_config = {"theme_id": "afterglow", "background_color": "#0b0b12"}
+    run_video_render(duet_project["id"], RenderRequest(style_config=style_config))
 
     assert render_calls, "render_video was not called"
-    assert render_calls[0]["background_color"] == "#0b0b12"
+    # The ground is the look's (the one that replaced Afterglow), not the request's colour
+    look = LOOKS[LEGACY_IDS["afterglow"]["look"]]
+    kwargs = render_calls[0]
+    assert kwargs["look_id"] == look["id"]
+    assert kwargs["background_color"] == look["palette"]["ground"]
+    assert kwargs["background_tone"] == look["tone"]
+    assert kwargs["fonts"] and kwargs["fonts"] == export_fonts(style_config)
     assert projects[duet_project["id"]]["render_status"] == "completed"
 
 
@@ -241,7 +272,7 @@ def test_render_worker_forwards_the_background_style(tmp_path, duet_project, mon
                 "background_color": "#f4f4f0",
                 "background_style": "aurora",
                 "background_palette": palette,
-                "background_tone": "light",
+                "background_tone": "dark",
             }
         ),
     )
@@ -250,7 +281,12 @@ def test_render_worker_forwards_the_background_style(tmp_path, duet_project, mon
     kwargs = render_calls[0]
     assert kwargs["background_style"] == "aurora"
     assert kwargs["background_palette"] == palette
+    # The tone goes with the look's ground (a light one here), whatever the request says
+    look = LOOKS[LEGACY_IDS["clean_paper"]["look"]]
+    assert look["tone"] == "light"
     assert kwargs["background_tone"] == "light"
+    assert kwargs["background_color"] == look["palette"]["ground"]
+    assert kwargs["look_id"] == look["id"]
 
 
 def _pixels(path_or_bytes, tmp_path: Path) -> np.ndarray:

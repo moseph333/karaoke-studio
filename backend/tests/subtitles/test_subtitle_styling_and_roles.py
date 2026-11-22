@@ -25,13 +25,32 @@ from backend.schemas import (
     WordTimingSchema,
 )
 from backend.services.aligner import AudioAligner
+from backend.services.ass_draw import LookStyle
 from backend.services.ass_generator import (
     escape_ass_text,
     format_ass_time,
     generate_ass_content,
     generate_ass_subtitles,
 )
+from backend.services.ass_look import look_faces
 from backend.services.video_renderer import VideoRenderer
+from backend.tests.helpers.ass_script import AssEvent, ass_events, parse_ass
+
+# The look whose lines take two rows in turn, and which writes a line as it is written
+ROWS_LOOK = "ktv"
+# Which row of the two a line takes, by the corner its event is anchored at
+ROW_OF_ALIGNMENT = {"\\an7": 0, "\\an9": 1}
+
+
+def lyric_rows(ass: str) -> list[AssEvent]:
+    """The events of the lines being sung (role ``lyric:<line>``), one per row of a line."""
+    return [e for e in ass_events(ass) if e.kind == "lyric"]
+
+
+def row_of(event: AssEvent) -> int:
+    """0 for the upper left row of the two-row look, 1 for the lower right."""
+    (row,) = [row for tag, row in ROW_OF_ALIGNMENT.items() if tag in event.tags]
+    return row
 
 
 class TestSingerSchemaAdversarial:
@@ -384,7 +403,7 @@ class TestAssSubtitleGenerationStress:
     """Stress tests ASS subtitle generation for style tagging, alternation, and \\kf progressive timing."""
 
     def test_line_alternation_and_singer_styles(self):
-        """Verify strict line alternation (Line1 vs Line2) across all singer roles."""
+        """Verify strict line alternation (row 1 vs row 2) across all singer roles."""
         lines = [
             {"id": 0, "text": "Line 0", "start_time": 1.0, "end_time": 3.0, "singer": "singer1"},
             {"id": 1, "text": "Line 1", "start_time": 4.0, "end_time": 6.0, "singer": "singer1"},
@@ -396,25 +415,37 @@ class TestAssSubtitleGenerationStress:
             {"id": 7, "text": "Line 7", "start_time": 22.0, "end_time": 24.0, "singer": "duet"},
             {"id": 8, "text": "Line 8", "start_time": 25.0, "end_time": 27.0, "singer": "lead"},
         ]
-        ass = generate_ass_content(lines)
+        ass = generate_ass_content(lines, theme_id=ROWS_LOOK)
 
-        dialogues = [line for line in ass.splitlines() if line.startswith("Dialogue: 0,")]
-        assert len(dialogues) == 9
+        dialogues = lyric_rows(ass)
+        assert [d.line for d in dialogues] == list(range(9))
+        assert [d.plain for d in dialogues] == [line["text"] for line in lines]
 
-        # Style is the 4th comma-separated field in Dialogue line
-        styles = [d.split(",")[3] for d in dialogues]
-        expected_styles = [
-            "KaraokeLine1",  # 0: even, singer1
-            "KaraokeLine2",  # 1: odd, singer1
-            "KaraokeLine1_Singer2",  # 2: even, singer2
-            "KaraokeLine2_Singer2",  # 3: odd, singer2
-            "KaraokeLine1_Both",  # 4: even, both
-            "KaraokeLine2_Both",  # 5: odd, both
-            "KaraokeLine1_Singer2",  # 6: even, partner (alias for singer2)
-            "KaraokeLine2_Both",  # 7: odd, duet (alias for both)
-            "KaraokeLine1",  # 8: even, lead (alias for singer1)
+        # Even lines take one row and odd lines the other, each at one place
+        assert [row_of(d) for d in dialogues] == [0, 1, 0, 1, 0, 1, 0, 1, 0]
+        places = {(row_of(d), tuple(d.numbers("pos"))) for d in dialogues}
+        assert len(places) == 2
+
+        # A line is filled in the colour of the part that sings it
+        look = LookStyle.of(ROWS_LOOK)
+        expected_parts = [
+            "singer1",  # 0: singer1
+            "singer1",  # 1: singer1
+            "singer2",  # 2: singer2
+            "singer2",  # 3: singer2
+            "both",  # 4: both
+            "both",  # 5: both
+            "singer2",  # 6: partner (alias for singer2)
+            "both",  # 7: duet (alias for both)
+            "singer1",  # 8: lead (alias for singer1)
         ]
-        assert styles == expected_styles
+        for d, part in zip(dialogues, expected_parts, strict=True):
+            sung, unsung = look.sweep_colors(part)
+            assert d.tags.endswith(f"\\1c{sung}\\2c{unsung}"), d.role
+        assert len({look.sweep_colors(part) for part in expected_parts}) == 3
+
+        # The part is named where the singer changes
+        assert [e.line for e in ass_events(ass) if e.kind == "part"] == [0, 2, 4, 6, 7, 8]
 
     def test_progressive_kf_timing_tags_strictly_intact_on_every_word(self):
         """Every word token across all dialogue lines must have a valid non-negative \\kf tag."""
@@ -460,20 +491,24 @@ class TestAssSubtitleGenerationStress:
             },
         ]
         ass = generate_ass_content(lines)
-        dialogues = [line for line in ass.splitlines() if line.startswith("Dialogue: 0,")]
+        dialogues = lyric_rows(ass)
+        assert {d.line for d in dialogues} == {0, 1, 2}
 
         # Ensure no negative timing tags exist anywhere
         assert "{\\k-" not in ass
         assert "{\\kf-" not in ass
 
-        # For each line, extract all \kf<digits> tags
+        # For each row of a line, extract all \kf<digits> tags
+        swept = {0: 0, 1: 0, 2: 0}
         for d in dialogues:
-            text_part = ",".join(d.split(",")[9:])
-            kf_matches = re.findall(r"\{\\kf(\d+)\}", text_part)
+            kf_matches = re.findall(r"\{\\kf(\d+)\}", d.text)
             assert len(kf_matches) > 0, f"No \\kf tags found in dialogue: {d}"
+            assert len(kf_matches) == len(d.plain.split())
+            swept[d.line] += len(kf_matches)
             for kf_val in kf_matches:
                 dur_cs = int(kf_val)
                 assert dur_cs >= 1, f"Found zero or negative \\kf tag: {dur_cs}"
+        assert swept == {index: len(line["words"]) for index, line in enumerate(lines)}
 
     def test_kf_tags_with_zero_or_inverted_word_durations(self):
         """Words with zero or inverted durations are clamped to at least \\kf1."""
@@ -492,10 +527,9 @@ class TestAssSubtitleGenerationStress:
             }
         ]
         ass = generate_ass_content(lines)
-        dialogues = [line for line in ass.splitlines() if line.startswith("Dialogue: 0,")]
-        text_part = ",".join(dialogues[0].split(",")[9:])
+        (row,) = lyric_rows(ass)
 
-        kf_matches = re.findall(r"\{\\kf(\d+)\}", text_part)
+        kf_matches = re.findall(r"\{\\kf(\d+)\}", row.text)
         assert len(kf_matches) == 3
         # All kf tags must be >= 1
         for val in kf_matches:
@@ -518,38 +552,53 @@ class TestAssSubtitleGenerationStress:
                 ],
             }
         ]
-        ass = generate_ass_content(lines)
-        dialogues = [line for line in ass.splitlines() if line.startswith("Dialogue: 0,")]
+        ass = generate_ass_content(lines, theme_id=ROWS_LOOK)
+        dialogues = lyric_rows(ass)
         assert len(dialogues) == 1
-        d_line = dialogues[0]
+        d_line = dialogues[0].text
 
         # Braces inside words must be escaped as \{ and \}
         assert "\\{tags\\}" in d_line
         # Backslash parted from the N
         assert "\\\u2060N" in d_line
         # Valid kf tags remain unescaped
-        assert "{\\kf" in d_line
+        assert d_line.count("{\\kf") == 4
+        # What each sweep fills is its word, the backslash and braces as characters
+        assert re.split(r"\{\\kf\d+\}", d_line)[1:] == [
+            "\\{tags\\} ",
+            "\\\u2060N ",
+            "AC/DC ",
+            "🎤",
+        ]
 
-    def test_custom_singer_colors_in_styles_block(self):
-        """Custom singer2 and both colors propagate cleanly into [V4+ Styles]."""
-        lines = [{"id": 0, "text": "Test", "start_time": 1.0, "end_time": 2.0}]
+    def test_custom_singer_colors_reach_their_lines(self):
+        """Custom singer2 and both colors are the sung colours of those parts' lines."""
+        lines = [
+            {"id": 0, "text": "Test", "start_time": 1.0, "end_time": 2.0},
+            {"id": 1, "text": "Reply", "start_time": 3.0, "end_time": 4.0, "singer": "singer2"},
+            {"id": 2, "text": "Chorus", "start_time": 5.0, "end_time": 6.0, "singer": "both"},
+        ]
         ass = generate_ass_content(
             lines,
-            singer2_color="#ff0080",  # Rose pink -> &H008000FF
-            both_color="#00ffff",  # Aqua/Cyan -> &H00FFFF00
+            singer2_color="#ff0080",  # Rose pink -> &H8000FF&
+            both_color="#00ffff",  # Aqua/Cyan -> &HFFFF00&
         )
-        assert "&H008000FF" in ass
-        assert "&H00FFFF00" in ass
+        sung = {
+            d.line: re.search(r"\\1c(&H[0-9A-F]{6}&)", d.tags).group(1) for d in lyric_rows(ass)
+        }
+        assert sung[1] == "&H8000FF&"
+        assert sung[2] == "&HFFFF00&"
+        assert sung[0] not in ("&H8000FF&", "&HFFFF00&")
 
     def test_empty_lines_list_handling(self):
-        """Empty lines list returns valid ASS skeleton with all 6 styles defined."""
+        """Empty lines list returns valid ASS skeleton with the look's styles defined."""
         ass = generate_ass_content([])
         assert "[Script Info]" in ass
         assert "[V4+ Styles]" in ass
-        assert "Style: KaraokeLine1," in ass
-        assert "Style: KaraokeLine1_Singer2," in ass
-        assert "Style: KaraokeLine1_Both," in ass
         assert "[Events]" in ass
+        parsed = parse_ass(ass)
+        assert set(parsed["styles"]) == {*look_faces(LookStyle.of(None)), "Shape"}
+        assert parsed["events"] == []
 
 
 class TestVideoRendererCompositeAndBurn:
@@ -755,23 +804,24 @@ class TestVideoRendererCompositeAndBurn:
         out_ass = tmp_path / "sig_test.ass"
 
         # Calling with singer2_color via style_config works cleanly:
+        lines = [
+            {"id": 0, "text": "Hi", "start_time": 0.0, "end_time": 1.0, "singer": "singer2"},
+            {"id": 1, "text": "Ho", "start_time": 2.0, "end_time": 3.0, "singer": "both"},
+        ]
         res = renderer.generate_ass_subtitles(
-            lines=[
-                {"id": 0, "text": "Hi", "start_time": 0.0, "end_time": 1.0, "singer": "singer2"}
-            ],
+            lines=lines,
             output_ass_path=out_ass,
             style_config={"singer2_color": "#ff0080", "both_color": "#00ff00"},
         )
         content = Path(res).read_text(encoding="utf-8")
-        assert "&H008000FF" in content  # Converted BGR for #ff0080
-        assert "&H0000FF00" in content  # Converted BGR for #00ff00
+        sung = {d.line: d.tags for d in lyric_rows(content)}
+        assert "\\1c&H8000FF&" in sung[0]  # Converted BGR for #ff0080
+        assert "\\1c&H00FF00&" in sung[1]  # Converted BGR for #00ff00
 
         # The duet colours are direct keyword arguments too, like on the module function
         direct = tmp_path / "sig_test_direct.ass"
         renderer.generate_ass_subtitles(
-            lines=[
-                {"id": 0, "text": "Hi", "start_time": 0.0, "end_time": 1.0, "singer": "singer2"}
-            ],
+            lines=lines,
             output_ass_path=direct,
             singer2_color="#ff0080",
             both_color="#00ff00",
@@ -934,24 +984,19 @@ class TestAssScaleStress:
             )
             cur_t += 1.5
 
-        ass = generate_ass_content(lines)
-        dialogues = [line for line in ass.splitlines() if line.startswith("Dialogue: 0,")]
-        assert len(dialogues) == 50
+        ass = generate_ass_content(lines, theme_id=ROWS_LOOK)
+        dialogues = lyric_rows(ass)
+        assert [d.line for d in dialogues] == list(range(50))
+        look = LookStyle.of(ROWS_LOOK)
 
         for i, d in enumerate(dialogues):
-            parts = d.split(",")
-            style = parts[3]
-            s_role = singers[i % 3]
-            base = "KaraokeLine1" if (i % 2 == 0) else "KaraokeLine2"
-            if s_role == "singer2":
-                assert style == f"{base}_Singer2"
-            elif s_role == "both":
-                assert style == f"{base}_Both"
-            else:
-                assert style == base
+            # Lines take the two rows in turn, each in its part's colours
+            assert row_of(d) == i % 2
+            sung, unsung = look.sweep_colors(singers[i % 3])
+            assert d.tags.endswith(f"\\1c{sung}\\2c{unsung}")
 
             # Verify 3 \kf tags on each line
-            kf_matches = re.findall(r"\{\\kf(\d+)\}", d)
+            kf_matches = re.findall(r"\{\\kf(\d+)\}", d.text)
             assert len(kf_matches) == 3
             for dur in kf_matches:
                 assert int(dur) >= 1

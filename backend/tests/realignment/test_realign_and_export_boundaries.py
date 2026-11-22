@@ -42,6 +42,7 @@ from backend.services.ass_generator import (
     generate_ass_content,
     safe_time,
 )
+from backend.tests.helpers.ass_script import ass_events
 
 
 def _create_dummy_wav(path: Path, duration: float = 0.5, sr: int = 22050) -> str:
@@ -575,21 +576,20 @@ class TestSubtitleFormattingFuzzing:
         assert css_to_ass_color(valid_css) == expected_ass
 
     @pytest.mark.parametrize(
-        "scale_in,expected_min_fontsize",
+        "scale_in,expected",
         [
-            (0.001, 12),  # extremely small positive -> clamped to minimum 12
-            (0.0, 52),  # 0.0 <= 0 -> resets to 1.0 (52)
-            (-5.0, 52),  # negative <= 0 -> resets to 1.0 (52)
-            (-0.0001, 52),  # negative -> resets to 1.0 (52)
-            (100.0, 5200),  # huge positive -> scales cleanly without crash
-            (float("nan"), 52),  # NaN -> resets to 1.0 (52)
-            (float("inf"), 52),  # Inf -> resets to 1.0 (52)
-            (float("-inf"), 52),  # -Inf -> resets to 1.0 (52)
+            (0.5, "scaled"),  # in range -> the lyrics at half their size
+            (0.001, "tiny"),  # extremely small positive -> the smallest size allowed
+            (0.0, "normal"),  # 0.0 <= 0 -> resets to 1.0
+            (-5.0, "normal"),  # negative <= 0 -> resets to 1.0
+            (-0.0001, "normal"),  # negative -> resets to 1.0
+            (100.0, "huge"),  # huge positive -> written without crash
+            (float("nan"), "normal"),  # NaN -> resets to 1.0
+            (float("inf"), "normal"),  # Inf -> resets to 1.0
+            (float("-inf"), "normal"),  # -Inf -> resets to 1.0
         ],
     )
-    def test_extreme_font_size_scale_in_generate_ass_content(
-        self, scale_in: float, expected_min_fontsize: int
-    ):
+    def test_extreme_font_size_scale_in_generate_ass_content(self, scale_in: float, expected: str):
         """Extreme font_size_scale values in generate_ass_content must not crash or produce invalid syntax."""
         sample_lines = [
             {
@@ -603,14 +603,27 @@ class TestSubtitleFormattingFuzzing:
             }
         ]
 
-        ass = generate_ass_content(
-            sample_lines,
-            aspect_ratio="16:9",
-            font_size_scale=scale_in,
-        )
-        assert "[Script Info]" in ass
-        assert "[V4+ Styles]" in ass
-        assert f",{expected_min_fontsize}," in ass
+        def lyric_sizes(scale: float) -> list[float]:
+            ass = generate_ass_content(sample_lines, aspect_ratio="16:9", font_size_scale=scale)
+            assert "[Script Info]" in ass
+            assert "[V4+ Styles]" in ass
+            rows = [event for event in ass_events(ass) if event.kind == "lyric"]
+            assert "".join(row.plain for row in rows).replace(" ", "") == "FUZZINGFONT"
+            return [float(re.search(r"\\fs([\d.]+)", row.tags).group(1)) for row in rows]
+
+        sizes = lyric_sizes(scale_in)
+        (normal,) = lyric_sizes(1.0)
+        assert all(math.isfinite(size) and size >= 0 for size in sizes)
+        if expected == "normal":
+            assert sizes == [normal]
+        elif expected == "scaled":
+            assert sizes == [pytest.approx(normal * scale_in, abs=0.01)]
+        elif expected == "tiny":
+            # Kept to a tenth of the look's size: smaller than that draws nothing readable
+            assert sizes == [pytest.approx(normal * 0.1, abs=0.01)]
+        else:
+            # Too large for one row: the words are broken over rows, each drawn larger
+            assert len(sizes) == 2 and min(sizes) > normal
 
     def test_ass_export_endpoint_font_size_scale_bounds_rejection(
         self, client: TestClient, auth_headers: dict
@@ -649,18 +662,27 @@ class TestSubtitleFormattingFuzzing:
             )
             assert r_nan.status_code == 422
 
-            # Valid boundary values
+            # Valid boundary values scale the lyrics from their normal size
+            def lyric_size(ass: str) -> float:
+                (row,) = (event for event in ass_events(ass) if event.kind == "lyric")
+                return float(re.search(r"\\fs([\d.]+)", row.tags).group(1))
+
+            r_normal = client.get(f"/api/project/{pid}/export/ass", headers=auth_headers)
+            assert r_normal.status_code == 200
+            normal = lyric_size(r_normal.text)
+
             r_bound_low = client.get(
                 f"/api/project/{pid}/export/ass?font_size_scale=0.5", headers=auth_headers
             )
             assert r_bound_low.status_code == 200
-            assert ",26," in r_bound_low.text  # 52 * 0.5 = 26
+            assert lyric_size(r_bound_low.text) == pytest.approx(normal * 0.5, abs=0.01)
 
             r_bound_high = client.get(
                 f"/api/project/{pid}/export/ass?font_size_scale=3.0", headers=auth_headers
             )
             assert r_bound_high.status_code == 200
-            assert ",156," in r_bound_high.text  # 52 * 3.0 = 156
+            # Larger, as far as the line still fits its row
+            assert normal * 1.5 < lyric_size(r_bound_high.text) <= normal * 3.0 + 0.01
         finally:
             projects.pop(pid, None)
 

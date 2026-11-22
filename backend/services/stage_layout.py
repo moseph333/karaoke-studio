@@ -90,12 +90,23 @@ class Item:
     baseline: float
 
 
+def drawn_words(line: dict[str, Any]) -> list[dict[str, Any]]:
+    """The timed words of a line that have something to draw: entries that are not words, and
+    words that are empty or only spaces, are left out."""
+    words = line.get("words")
+    return [
+        word
+        for word in (words if isinstance(words, list) else [])
+        if isinstance(word, dict) and str(word.get("word") or "").strip()
+    ]
+
+
 def line_text(line: dict[str, Any], caps: bool = False) -> LineText:
     """The words of a lyric line for drawing: its timed words when it has them, else its text
     split as the editor splits it."""
-    words = [w for w in (line.get("words") or []) if isinstance(w, dict)]
+    words = drawn_words(line)
     source = str(line.get("text") or "")
-    tokens = [str(w.get("word") or "") for w in words] if words else tokenize_lyric_text(source)
+    tokens = [str(w.get("word")).strip() for w in words] if words else tokenize_lyric_text(source)
     spaces = space_after(tokens, source)
     flags = adlib_flags(tokens)
     if caps:

@@ -8,6 +8,7 @@ import backend.main as main_mod
 from backend.main import projects
 from backend.render_worker import run_video_render
 from backend.schemas import RenderRequest
+from backend.tests.helpers.ass_script import ass_events, parse_ass
 
 CHORDS = [
     {"start": 0.0, "end": 2.0, "chord": "C", "confidence": 0.9},
@@ -225,7 +226,12 @@ def test_ass_export_with_chords_detects_and_stores_them(client, song, detector):
     res = client.get("/api/project/song1/export/ass", params={"include_chords": True})
 
     assert res.status_code == 200
-    assert "Chord,,0,0,0,,{\\an8}C" in res.text
+    drawn = [event for event in ass_events(res.text) if event.kind == "chord"]
+    assert [(event.plain, event.start, event.end) for event in drawn] == [
+        ("C", 0.0, 2.0),
+        ("G", 2.0, 4.0),
+    ]
+    assert {event.style for event in drawn} == {"Chord"}
     assert [c["chord"] for c in projects["song1"]["chords"]] == ["C", "G"]
 
 
@@ -235,7 +241,8 @@ def test_ass_export_with_a_failing_detector_exports_without_chords(client, song,
     res = client.get("/api/project/song1/export/ass", params={"include_chords": True})
 
     assert res.status_code == 200
-    assert ",Chord,," not in res.text
+    assert not [event for event in ass_events(res.text) if event.kind == "chord"]
+    assert "Chord" not in parse_ass(res.text)["styles"]
     assert projects["song1"]["chords"] is None
 
 

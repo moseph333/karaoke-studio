@@ -57,6 +57,7 @@ from backend.services.lyrics import LyricsService
 from backend.services.separator import AudioSeparator
 from backend.services.video_renderer import VideoRenderer
 from backend.services.youtube_uploader import YouTubeMetadataService
+from backend.tests.helpers.ass_script import ass_events
 from backend.tests.helpers.media import generate_sine_wave_wav, generate_test_image
 
 # ==============================================================================
@@ -868,12 +869,17 @@ def test_video_renderer_generate_ass_plain_text_lines(tmp_path):
             "words": [],
         }
     ]
-    renderer.generate_ass_subtitles(lines, ass_path)
+    # KTV draws the line as written (the default look draws capitals)
+    renderer.generate_ass_subtitles(lines, ass_path, theme_id="ktv")
     assert ass_path.exists()
-    content = ass_path.read_text(encoding="utf-8")
-    assert "Plain lyric line without tokens" in content
-    # First line starts at 4.0s (>= 3.0s), so Countdown style cue is included
-    assert "Countdown" in content
+    events = ass_events(ass_path.read_text(encoding="utf-8"))
+    (row,) = (event for event in events if event.kind == "lyric")
+    assert row.plain == "Plain lyric line without tokens"
+    # First line starts at 4.0s (a gap of 4 s or more), so it is counted in from 1.0s
+    count_in = [event for event in events if event.role == "countin:0"]
+    assert count_in
+    assert min(event.start for event in count_in) == 1.0
+    assert max(event.end for event in count_in) == 4.0
 
 
 def test_video_renderer_ambient_gradient_fallback_when_no_images(tmp_path):

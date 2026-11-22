@@ -14,7 +14,9 @@ from fastapi.testclient import TestClient
 from backend.main import app, build_content_disposition, projects, sanitize_export_filename
 from backend.services.aligner import AudioAligner
 from backend.services.lyrics import LyricsService
+from backend.services.stage_looks import LOOKS
 from backend.services.video_renderer import VideoRenderer
+from backend.tests.helpers.ass_script import ass_events
 
 
 @pytest.fixture
@@ -232,9 +234,17 @@ def test_generate_ass_content_pathological_lines_and_words():
     assert "[Script Info]" in ass_result
     assert "[Events]" in ass_result
 
-    # Check that evil tags were escaped
+    # The entries that are not lines are skipped and the empty one draws nothing; every
+    # other line is drawn, under its own index
+    events = ass_events(ass_result)
+    assert {e.line for e in events if e.kind == "lyric"} == set(range(4, 11))
+
+    # Check that evil tags were escaped: the line's rows (it takes more than one), each
+    # after the block that places it and its lead-in
+    rows = [e.text.removeprefix(f"{{{e.tags}}}") for e in events if e.role == "lyric:10"]
+    drawn = " ".join(re.sub(r"\{\\k\d+\}", "", row) for row in rows)
     guarded = "Evil \\{\\⁠b1\\} \\⁠N \\⁠h \\{\\⁠c&H0000FF&\\} tags"
-    assert guarded in ass_result
+    assert drawn == guarded
 
 
 # ============================================================================
@@ -407,6 +417,8 @@ def test_export_endpoints_invalid_parameters(client, auth_headers):
     )
     assert resp_theme.status_code == 400
     assert "Invalid theme_id" in resp_theme.json()["detail"]
+    # The error names the looks there are
+    assert all(look_id in resp_theme.json()["detail"] for look_id in LOOKS)
 
     # Active processing status without lines returns 400
     pid_queued = "proj_queued_no_lines"

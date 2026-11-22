@@ -19,7 +19,13 @@ from backend.project_store import (
     save_projects_throttled,
 )
 from backend.schemas import RenderRequest
-from backend.services.ass_generator import export_title, resolve_sync_mode
+from backend.services.ass_generator import (
+    card_names,
+    export_fonts,
+    export_title,
+    resolve_look_style,
+    resolve_sync_mode,
+)
 from backend.services.audio_mixer import mix_quality
 
 logger = logging.getLogger("karaoke_backend")
@@ -174,8 +180,11 @@ def run_video_render(project_id: str, req: RenderRequest):
         # Deleted by this name when the render ends: a mixer may return another path
         final_audio = output_dir / final_audio_name(track_id)
 
-        # 1. Generate ASS Subtitles
+        # 1. Generate ASS Subtitles, in the look the request names (a replaced preset's id
+        # gives the look nearest it)
         style_cfg = dict(req.style_config or {})
+        look = resolve_look_style(style_cfg, req.aspect_ratio).look
+        card_title, card_artist = card_names(proj)
 
         main_mod.video_renderer.generate_ass_subtitles(
             lines=proj.get("lines", []),
@@ -191,6 +200,9 @@ def run_video_render(project_id: str, req: RenderRequest):
             sync_mode=resolve_sync_mode(req.sync_mode, style_cfg),
             title=export_title(proj),
             song_duration=proj.get("duration"),
+            card_title=card_title,
+            card_artist=card_artist,
+            part_names=proj.get("part_names"),
         )
 
         update_render(15, "Mixing master audio with pitch adjustment...", 40)
@@ -237,10 +249,13 @@ def run_video_render(project_id: str, req: RenderRequest):
             include_visualizer=req.include_visualizer,
             include_chords=req.include_chords,
             semitones=req.semitones,
-            background_color=style_cfg.get("background_color"),
+            # The ground and its tone are the look's; the style and its colours the request's
+            background_color=look["palette"]["ground"],
             background_style=style_cfg.get("background_style"),
             background_palette=style_cfg.get("background_palette"),
-            background_tone=style_cfg.get("background_tone"),
+            background_tone=look["tone"],
+            look_id=look["id"],
+            fonts=export_fonts(style_cfg, req.aspect_ratio),
         )
 
         # The results first and the status last, together: the studio fetches the finished

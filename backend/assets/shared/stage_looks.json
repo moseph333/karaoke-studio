@@ -10,6 +10,7 @@
     "count_in": 3.0,
     "break_delay": 1.5,
     "break_min": 1.0,
+    "break_max": 600,
     "title_min_intro": 6.0,
     "title_start": 0.4,
     "title_gap": 0.5,
@@ -262,6 +263,7 @@
       }
     }
   ],
+  "legacy_duet_colors": { "singer2": "#ff00b3", "both": "#7bfa50" },
   "legacy_ids": {
     "afterglow": { "look": "marquee", "was": { "sung": "#fbbf24", "unsung": "#edebff", "singer2": "#f472b6", "both": "#5eead4" } },
     "punk_diy": { "look": "marquee", "was": { "sung": "#facc15", "unsung": "#f5f5f5" } },

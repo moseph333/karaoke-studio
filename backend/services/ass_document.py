@@ -36,6 +36,27 @@ def css_to_ass_color(color: str, default: str = "&H0000D7FF") -> str:
     return default
 
 
+def to_css_color(color: Any) -> str | None:
+    """A colour as lower-case CSS hex (#rrggbb), from CSS hex (#rgb, #rrggbb, with or without
+    the #) or an ASS colour (&HBBGGRR, &HAABBGGRR, with or without the closing &). None for
+    anything else, so request text never reaches the subtitle file."""
+    if not isinstance(color, str) or not color.strip():
+        return None
+    text = color.strip()
+    if text[:2].upper() == "&H":
+        digits = text[2:].removesuffix("&").upper()
+        if not _ASS_COLOR_DIGITS.fullmatch(digits):
+            return None
+        bgr = digits[-6:]
+        return f"#{bgr[4:6]}{bgr[2:4]}{bgr[0:2]}".lower()
+    text = text.removeprefix("#")
+    if len(text) == 3:
+        text = "".join(ch * 2 for ch in text)
+    if len(text) == 6 and all(ch in "0123456789abcdefABCDEF" for ch in text):
+        return f"#{text}".lower()
+    return None
+
+
 def safe_time(val: Any, default: float = 0.0) -> float:
     """Safely coerce timestamp values to non-negative finite floats.
 

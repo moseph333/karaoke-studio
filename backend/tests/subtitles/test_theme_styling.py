@@ -1,15 +1,39 @@
 """Unit and integration tests for CSS-to-ASS color conversion, font size scaling, and ASS subtitle export styling propagation."""
 
+import re
 import uuid
 
 import pytest
 
 from backend.project_store import projects, save_projects
+from backend.services.ass_draw import LookStyle
 from backend.services.ass_generator import (
     css_to_ass_color,
     generate_ass_content,
     generate_ass_subtitles,
 )
+from backend.services.stage_looks import LOOKS
+from backend.tests.helpers.ass_script import AssEvent, ass_events
+
+# The two-row look sets a short line at one size, which the lyric size scales exactly
+ROWS_LOOK = "ktv"
+
+
+def lyric_rows(ass: str, line: int = 0) -> list[AssEvent]:
+    """The events of a line while it is sung: one per row."""
+    return [e for e in ass_events(ass) if e.role == f"lyric:{line}"]
+
+
+def lyric_size(ass: str) -> float:
+    """The font size (\\fs) the first line is drawn at."""
+    sizes = {float(re.search(r"\\fs([\d.]+)", row.tags).group(1)) for row in lyric_rows(ass)}
+    (size,) = sizes
+    return size
+
+
+def cue_kinds(ass: str) -> set[str]:
+    """Which of the countdown's events a file has: the count-in, the break marker."""
+    return {e.kind for e in ass_events(ass)} & {"countin", "break"}
 
 
 class TestCssToAssColor:
@@ -79,39 +103,22 @@ class TestGenerateAssContentStyling:
             }
         ]
 
-    def test_default_font_size_16_9(self, sample_lines):
-        ass = generate_ass_content(sample_lines, aspect_ratio="16:9")
-        assert "Style: KaraokeLine1," in ass
-        assert ",52," in ass
-        assert "Style: Countdown," in ass
-        assert ",62," in ass
-
-    def test_default_font_size_9_16(self, sample_lines):
-        ass = generate_ass_content(sample_lines, aspect_ratio="9:16")
-        assert "Style: KaraokeLine1," in ass
-        assert ",46," in ass
-        assert "Style: Countdown," in ass
-        assert ",56," in ass
-
     def test_font_size_scaling_factor(self, sample_lines):
-        # 16:9 base font size is 52. 52 * 1.5 = 78
-        ass = generate_ass_content(sample_lines, aspect_ratio="16:9", font_size_scale=1.5)
-        assert ",78," in ass
-        assert ",88," in ass  # Countdown is font_size + 10
-
-        # 52 * 0.8 = 41.6 -> round(41.6) = 42
-        ass_compact = generate_ass_content(sample_lines, aspect_ratio="16:9", font_size_scale=0.8)
-        assert ",42," in ass_compact
+        plain = lyric_size(generate_ass_content(sample_lines, theme_id=ROWS_LOOK))
+        for scale in (1.5, 0.8):
+            ass = generate_ass_content(sample_lines, theme_id=ROWS_LOOK, font_size_scale=scale)
+            assert lyric_size(ass) == pytest.approx(plain * scale, rel=0.01)
 
     def test_font_size_scale_in_style_config(self, sample_lines):
-        # Via style_config dictionary
+        # Via style_config dictionary, which wins over the argument
+        plain = lyric_size(generate_ass_content(sample_lines, theme_id=ROWS_LOOK))
         ass = generate_ass_content(
             sample_lines,
-            aspect_ratio="16:9",
+            theme_id=ROWS_LOOK,
+            font_size_scale=2.0,
             style_config={"font_size_scale": 1.2},
         )
-        # 52 * 1.2 = 62.4 -> 62
-        assert ",62," in ass
+        assert lyric_size(ass) == pytest.approx(plain * 1.2, rel=0.01)
 
     def test_custom_color_overrides_conversion(self, sample_lines):
         ass = generate_ass_content(
@@ -119,20 +126,26 @@ class TestGenerateAssContentStyling:
             primary_color="#fbbf24",
             secondary_color="#ffffff",
         )
-        # BGR format: &H0024BFFB for primary, &H00FFFFFF for secondary
-        assert "&H0024BFFB,&H00FFFFFF," in ass
+        # BGR format: &H24BFFB& for primary (sung), &HFFFFFF& for secondary (still to sing)
+        rows = lyric_rows(ass)
+        assert rows and all("\\1c&H24BFFB&\\2c&HFFFFFF&" in row.tags for row in rows)
 
     def test_generate_ass_subtitles_delegation(self, sample_lines, tmp_path):
         out_file = tmp_path / "test.ass"
         generate_ass_subtitles(
             sample_lines,
             out_file,
+            theme_id=ROWS_LOOK,
             primary_color="#06b6d4",
             font_size_scale=1.5,
         )
         content = out_file.read_text(encoding="utf-8")
-        assert "&H00D4B606" in content
-        assert ",78," in content
+        assert content == generate_ass_content(
+            sample_lines, theme_id=ROWS_LOOK, primary_color="#06b6d4", font_size_scale=1.5
+        )
+        assert all("\\1c&HD4B606&" in row.tags for row in lyric_rows(content))
+        plain = lyric_size(generate_ass_content(sample_lines, theme_id=ROWS_LOOK))
+        assert lyric_size(content) == pytest.approx(plain * 1.5, rel=0.01)
 
 
 class TestExportAssEndpointStyling:
@@ -173,10 +186,12 @@ class TestExportAssEndpointStyling:
         save_projects()
 
     def test_export_ass_with_custom_colors_and_scale(self, client, project_with_lyrics):
+        url = f"/api/project/{project_with_lyrics['id']}/export/ass"
         res = client.get(
-            f"/api/project/{project_with_lyrics['id']}/export/ass",
+            url,
             params={
                 "aspect_ratio": "16:9",
+                "theme_id": ROWS_LOOK,
                 "primary_color": "#fbbf24",
                 "secondary_color": "#ffffff",
                 "font_size_scale": 1.5,
@@ -185,11 +200,12 @@ class TestExportAssEndpointStyling:
         assert res.status_code == 200
         assert res.headers["content-type"].startswith("text/x-ssa")
         body = res.text
-        # Converted BGR: &H0024BFFB
-        assert "&H0024BFFB" in body
-        assert "&H00FFFFFF" in body
-        # Scaled font size: 52 * 1.5 = 78
-        assert ",78,&H0024BFFB,&H00FFFFFF," in body
+        # Converted BGR: &H24BFFB& sung, &HFFFFFF& still to sing
+        rows = lyric_rows(body)
+        assert rows and all("\\1c&H24BFFB&\\2c&HFFFFFF&" in row.tags for row in rows)
+        # Scaled font size: one and a half times the look's own
+        plain = client.get(url, params={"aspect_ratio": "16:9", "theme_id": ROWS_LOOK})
+        assert lyric_size(body) == pytest.approx(lyric_size(plain.text) * 1.5, rel=0.01)
 
     def test_export_ass_invalid_font_scale_bounds(self, client, project_with_lyrics):
         # Scale too small (< 0.5)
@@ -207,8 +223,10 @@ class TestExportAssEndpointStyling:
         assert res_large.status_code == 422
 
 
-def test_generate_ass_content_multi_singer_styles_and_events():
-    """generate_ass_content defines multi-singer styles and assigns them matching singer roles."""
+@pytest.mark.parametrize("look_id", list(LOOKS))
+def test_generate_ass_content_multi_singer_styles_and_events(look_id):
+    """generate_ass_content draws each line in its part's colours and names a part where the
+    singer changes."""
     sample_lines = [
         {
             "id": 0,
@@ -236,43 +254,45 @@ def test_generate_ass_content_multi_singer_styles_and_events():
         },
     ]
 
-    ass = generate_ass_content(sample_lines)
+    ass = generate_ass_content(sample_lines, theme_id=look_id)
+    look = LookStyle.of(look_id)
 
-    # 1. Verify all 6 line styles are defined in [V4+ Styles]
-    assert "Style: KaraokeLine1," in ass
-    assert "Style: KaraokeLine2," in ass
-    assert "Style: KaraokeLine1_Singer2," in ass
-    assert "Style: KaraokeLine2_Singer2," in ass
-    assert "Style: KaraokeLine1_Both," in ass
-    assert "Style: KaraokeLine2_Both," in ass
+    # 1. Every part has colours of its own
+    colours = {part: look.sweep_colors(part) for part in ("singer1", "singer2", "both")}
+    assert len(set(colours.values())) == 3
 
-    # 2. Verify default colors (&H00B300FF for Singer 2, &H0050FA7B for Both)
-    assert "&H00B300FF" in ass  # Neon Pink
-    assert "&H0050FA7B" in ass  # Emerald
+    # 2. Each line is filled in the colours of the part that sings it
+    for index, part in enumerate(("singer1", "singer2", "both")):
+        sung, unsung = colours[part]
+        rows = lyric_rows(ass, index)
+        assert rows and all(f"\\1c{sung}\\2c{unsung}" in row.tags for row in rows)
+        assert all("{\\kf" in row.text for row in rows)
 
-    # 3. Verify dialogue style mapping
-    assert ",KaraokeLine1," in ass
-    assert ",KaraokeLine2_Singer2," in ass
-    assert ",KaraokeLine1_Both," in ass
-    assert "{\\kf" in ass
+    # 3. A part is named where the singer changes
+    named = {e.line: e.plain.casefold() for e in ass_events(ass) if e.kind == "part"}
+    assert named == {0: "singer 1", 1: "singer 2", 2: "both"}
 
 
 def test_generate_ass_content_multi_singer_custom_color_overrides():
-    """Custom singer colors override defaults for Singer 2 and Both styles."""
+    """Custom singer colors override defaults for Singer 2 and Both lines."""
     sample_lines = [
-        {"id": 0, "text": "Test", "start_time": 1.0, "end_time": 2.0, "singer": "singer2"}
+        {"id": 0, "text": "Test", "start_time": 1.0, "end_time": 2.0, "singer": "singer2"},
+        {"id": 1, "text": "Together", "start_time": 3.0, "end_time": 4.0, "singer": "both"},
     ]
     ass = generate_ass_content(
         sample_lines,
-        singer2_color="#ff1493",  # DeepPink -> &H009314FF
-        both_color="#00fa9a",  # MediumSpringGreen -> &H009AFA00
+        singer2_color="#ff1493",  # DeepPink -> &H9314FF&
+        both_color="#00fa9a",  # MediumSpringGreen -> &H9AFA00&
     )
-    assert "&H009314FF" in ass
-    assert "&H009AFA00" in ass
+    assert all("\\1c&H9314FF&" in row.tags for row in lyric_rows(ass, 0))
+    assert all("\\1c&H9AFA00&" in row.tags for row in lyric_rows(ass, 1))
+    assert lyric_rows(ass, 0) and lyric_rows(ass, 1)
+    named = {e.line: e.tags for e in ass_events(ass) if e.kind == "part"}
+    assert "\\1c&H9314FF&" in named[0] and "\\1c&H9AFA00&" in named[1]
 
 
 def test_generate_ass_content_with_gap_countdown_enabled():
-    """generate_ass_content generates Countdown style and dialogue events for qualifying gaps >= 4.0s."""
+    """generate_ass_content counts in every line that follows a qualifying gap >= 4.0s."""
     sample_lines = [
         {
             "id": 0,
@@ -293,12 +313,16 @@ def test_generate_ass_content_with_gap_countdown_enabled():
     ]
 
     ass = generate_ass_content(sample_lines, include_countdown=True)
-    # Countdown style definition
-    assert "Style: Countdown," in ass
-    # Dialogue events using Countdown style
-    assert ",Countdown,,0,0,0,," in ass
-    # Countdown dots with \\kf tags
-    assert "{\\kf100}● {\\kf100}● {\\kf100}●" in ass
+    for index, sung_at in ((0, 6.0), (1, 15.0)):
+        cue = [e for e in ass_events(ass) if e.role == f"countin:{index}"]
+        # A numeral a second over the last three seconds before the line
+        assert [(e.start, e.end, e.plain) for e in cue] == [
+            (sung_at - 3.0, sung_at - 2.0, "3"),
+            (sung_at - 2.0, sung_at - 1.0, "2"),
+            (sung_at - 1.0, sung_at, "1"),
+        ]
+        assert {e.layer for e in cue} == {1}
+    assert cue_kinds(ass) == {"countin", "break"}
 
 
 def test_generate_ass_content_with_gap_countdown_disabled():
@@ -314,8 +338,10 @@ def test_generate_ass_content_with_gap_countdown_disabled():
         },
     ]
 
+    assert cue_kinds(generate_ass_content(sample_lines, include_countdown=True)) == {"countin"}
     ass = generate_ass_content(sample_lines, include_countdown=False)
-    assert ",Countdown,,0,0,0,," not in ass
+    assert cue_kinds(ass) == set()
+    assert lyric_rows(ass)
 
 
 def test_export_ass_endpoint_include_countdown_query_parameter(client):
@@ -348,14 +374,16 @@ def test_export_ass_endpoint_include_countdown_query_parameter(client):
         # 1. Default (or explicitly true) includes countdown dialogue
         res_true = client.get(f"/api/project/{pid}/export/ass", params={"include_countdown": True})
         assert res_true.status_code == 200
-        assert ",Countdown,,0,0,0,," in res_true.text
+        assert cue_kinds(res_true.text) == {"countin", "break"}
+        assert client.get(f"/api/project/{pid}/export/ass").text == res_true.text
 
         # 2. Explicitly false excludes countdown dialogue
         res_false = client.get(
             f"/api/project/{pid}/export/ass", params={"include_countdown": False}
         )
         assert res_false.status_code == 200
-        assert ",Countdown,,0,0,0,," not in res_false.text
+        assert cue_kinds(res_false.text) == set()
+        assert lyric_rows(res_false.text)
     finally:
         projects.pop(pid, None)
         save_projects()
