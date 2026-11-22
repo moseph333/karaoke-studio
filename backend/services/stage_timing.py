@@ -5,6 +5,7 @@ backend/assets/shared/stage_looks.json), whose copy of plan_timeline is
 frontend/src/utils/stageTimeline.ts; both suites run stage_timeline_cases.json. The YouTube
 kit's chapters follow the gap rule too."""
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,8 +61,9 @@ def singer_part(line: dict[str, Any]) -> str:
 
 
 def _cs(seconds: float) -> float:
-    """A time rounded to the centisecond, which is as fine as a subtitle file can say."""
-    return round(max(0.0, seconds) * 100) / 100
+    """A time rounded to the centisecond, which is as fine as a subtitle file can say. Halves
+    round up, as the stage's copy rounds them (Python's own round goes to the even digit)."""
+    return math.floor(max(0.0, seconds) * 100 + 0.5) / 100
 
 
 @dataclass(frozen=True)
