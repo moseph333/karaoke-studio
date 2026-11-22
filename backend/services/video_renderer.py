@@ -113,6 +113,8 @@ class RenderJob:
     include_visualizer: bool = False
     # Where the look frames the picture (x, y, width, height), when it does
     picture: tuple[int, int, int, int] | None = None
+    # The font files the subtitles need, which a cloud render must hold
+    fonts: tuple[str, ...] = ()
 
 
 def _fill(width: int, height: int) -> str:
@@ -555,6 +557,7 @@ class VideoRenderer:
                 ),
                 duration=duration,
                 include_visualizer=include_visualizer,
+                fonts=tuple(kwargs.get("fonts") or ()),
             )
             if not (
                 remote_render.enabled()
@@ -604,6 +607,7 @@ class VideoRenderer:
                 progress.feed,
                 cancel_event,
                 on_started=lambda: report("Rendering on a cloud CPU…"),
+                fonts=list(job.fonts),
                 on_waiting=lambda waited: report(f"Waiting for a cloud CPU… {waited:.0f} s"),
             )
             return True

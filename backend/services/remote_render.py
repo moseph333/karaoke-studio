@@ -125,17 +125,25 @@ def render(
     cancel_event: Any | None,
     on_started: Callable[[], None] | None = None,
     on_waiting: Callable[[float], None] | None = None,
+    fonts: list[str] | None = None,
 ) -> None:
     """Run `ffmpeg *args` on the cloud CPU with files uploaded under their names, writing the
     result (OUTPUT_NAME there) to output_path. on_waiting gets the seconds waited for a CPU.
+    `fonts` names the font files the subtitles need: a deployment without one refuses the
+    render (and one from before it knew the argument rejects the call), which reaches the
+    caller as a failed render. They are sent only when given, so renders that name none work
+    on any deployment.
 
     Raises RenderCancelled on cancel, RemoteUnavailable when the service cannot take the job,
     and RuntimeError when the render fails or stops.
     """
     payload = {name: path.read_bytes() for name, path in files.items()}
+    kwargs: dict[str, Any] = {"files": payload, "args": args, "output": OUTPUT_NAME}
+    if fonts:
+        kwargs["fonts"] = sorted(fonts)
     outcome, result = run_modal_job(
         FUNCTION_NAME,
-        {"files": payload, "args": args, "output": OUTPUT_NAME},
+        kwargs,
         on_line,
         cancel_event,
         timeout_s=timeout_seconds(),

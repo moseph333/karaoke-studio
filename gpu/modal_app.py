@@ -241,6 +241,14 @@ def separate(
         shutil.rmtree(work, ignore_errors=True)
 
 
+def missing_fonts(names: list[str] | None, fonts_dir: str = FONTS_DIR) -> list[str]:
+    """The font files a render names that this deployment does not hold (it was deployed
+    before they were added to backend/assets/fonts)."""
+    return sorted(
+        name for name in (names or []) if not (Path(fonts_dir) / Path(name).name).is_file()
+    )
+
+
 @app.function(
     image=render_image,
     cpu=RENDER_CPUS,
@@ -254,15 +262,28 @@ def render(
     output: str = "",
     lines: modal.Queue | None = None,
     warmup: bool = False,
+    fonts: list[str] | None = None,
 ) -> dict:
     """Run `ffmpeg *args` next to the uploaded files: FFmpeg's -progress lines go to `lines`,
     the finished video (`output`) is returned. With warmup=True it returns at once: the call
-    only starts a container for the render that follows."""
+    only starts a container for the render that follows. `fonts` names the font files the
+    subtitles need: when this deployment lacks one the render is refused (a non-zero result),
+    so the server renders locally instead of getting a video drawn in a fallback font."""
     if warmup:
         return {"warmup": True, "cpus": os.cpu_count()}
     if lines is None or args is None:
         raise ValueError("render needs FFmpeg arguments and a queue for its output")
     lines.put(STARTED)
+    lacking = missing_fonts(fonts)
+    if lacking:
+        return {
+            "returncode": 1,
+            "stderr": (
+                f"This cloud renderer has no {', '.join(lacking)}: "
+                "deploy it again (modal deploy gpu/modal_app.py)"
+            ),
+            "cpus": os.cpu_count(),
+        }
     work = Path(tempfile.mkdtemp(prefix="render-"))
     try:
         for name, data in (files or {}).items():
