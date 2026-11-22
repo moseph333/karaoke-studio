@@ -10,6 +10,7 @@ compute the same placement; both suites run stage_layout_cases.json. The three l
 - ``rows``: two rows that lines take in turn, each growing up from its own baseline.
 - ``column``: a column of lines that moves up, so the line being sung is at one height."""
 
+import math
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -25,6 +26,11 @@ from backend.services.text_fit import Fit, FitBox, fit_block
 
 # A row of small text under or over a block is spaced by this much of its own size
 SMALL_ROW_PITCH = 1.3
+
+
+def _r3(value: float) -> float:
+    """A length rounded to a thousandth of a u, halves up, as the stage's copy rounds."""
+    return math.floor(value * 1000 + 0.5) / 1000
 
 
 @dataclass(frozen=True)
@@ -153,7 +159,7 @@ def place_block(
     rows = []
     for k, (first, end) in enumerate(fit.rows):
         step = k - (count - 1) if grow == "up" else k
-        rows.append(Row(first, end, round(place["baseline"] + step * pitch, 3)))
+        rows.append(Row(first, end, _r3(place["baseline"] + step * pitch)))
     first_baseline = rows[0].baseline if rows else place["baseline"]
     return Block(
         face=face,
@@ -162,7 +168,7 @@ def place_block(
         x=place["x"],
         align=place["align"],
         rows=tuple(rows),
-        top=round(first_baseline - font_metrics.face(face)["cap_height"] * fit.size, 3),
+        top=_r3(first_baseline - font_metrics.face(face)["cap_height"] * fit.size),
         bottom=rows[-1].baseline if rows else place["baseline"],
     )
 
@@ -185,7 +191,7 @@ def place_item(
     one = LineText((drawn,), (False,), (False,)) if drawn else LineText((), (), ())
     box = fit_box({"size": size, "measure": measure, "rows": 1})
     fit = fit_text(face, one, box, tracking=look["tracking"].get(role, 0.0))
-    return Item(face, drawn, fit.size, fit.condense, x, align, round(baseline, 3))
+    return Item(face, drawn, fit.size, fit.condense, x, align, _r3(baseline))
 
 
 def part_name(part: str, part_names: dict[str, str] | None) -> str:
@@ -196,7 +202,7 @@ def part_name(part: str, part_names: dict[str, str] | None) -> str:
 
 def romaji_size(look: dict[str, Any], frame: dict[str, Any], scale: float) -> float:
     box = fit_box(frame["lyric"], scale)
-    return round(box.prefer * look["romaji"]["scale"], 3)
+    return _r3(box.prefer * look["romaji"]["scale"])
 
 
 def _romaji_item(
@@ -350,8 +356,8 @@ def place_column(
                 block=block,
                 label=_label_item(look, frame, block, name, 0.0),
                 romaji=romaji,
-                offset=round(cursor + above, 3),
-                height=round(height, 3),
+                offset=_r3(cursor + above),
+                height=_r3(height),
             )
         )
         cursor += height
@@ -375,7 +381,7 @@ def column_state(
         origin = placed[min(current, len(placed) - 1)].offset
     states: list[tuple[float, float]] = []
     for i, line in enumerate(placed):
-        baseline = round(spec["baseline"] + line.offset - origin, 3)
+        baseline = _r3(spec["baseline"] + line.offset - origin)
         slot = i - current
         if slot < -column["before"] or slot > column["after"]:
             alpha = 0.0
