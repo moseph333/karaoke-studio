@@ -188,6 +188,109 @@
     --stage-h: clamp(260px, calc(100dvh - 420px), 620px);
   }
 
+  /* The stage as a frame of the video (components/stage/StageFrame): a box of the video's
+     shape centred in the space it gets, with --u (1% of its short side) the unit everything
+     inside is placed in. --u is set on a child because a container's own cq units resolve
+     against its parent. */
+  .ks-frame-fit {
+    container-type: size;
+    display: grid;
+    place-items: center;
+    position: absolute;
+    inset: 0;
+  }
+  .ks-frame {
+    position: relative;
+    overflow: hidden;
+    container-type: size;
+    width: min(100cqw, 100cqh * var(--ar));
+    height: min(100cqh, 100cqw / var(--ar));
+  }
+  .ks-picture {
+    position: absolute;
+    overflow: hidden;
+  }
+  .ks-canvas {
+    position: absolute;
+    inset: 0;
+    --u: 1cqmin;
+    font-kerning: normal;
+    font-synthesis: none;
+    font-optical-sizing: none;
+    font-variant-numeric: normal;
+    text-rendering: geometricPrecision;
+  }
+  /* A row of text: its left edge (or centre, or right edge) at --x and its baseline one strut
+     under --y, both in u */
+  .ks-row {
+    position: absolute;
+    left: calc(var(--u) * var(--x));
+    top: calc(var(--u) * var(--y));
+    display: flex;
+    align-items: baseline;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: calc(var(--u) * var(--size));
+    line-height: 1;
+    white-space: pre;
+    opacity: var(--alpha, 1);
+    text-align: left;
+  }
+  .ks-row-button {
+    cursor: pointer;
+  }
+  .ks-strut {
+    display: inline-block;
+    width: 0;
+    height: 1.5em;
+  }
+  .ks-words {
+    display: inline;
+  }
+  .ks-word {
+    position: relative;
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    cursor: pointer;
+    white-space: pre;
+  }
+  .ks-word-sung {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    overflow: hidden;
+    white-space: pre;
+    pointer-events: none;
+  }
+  .ks-row-button:focus-visible,
+  .ks-word:focus-visible {
+    outline: calc(var(--u) * 0.3) solid currentColor;
+    outline-offset: calc(var(--u) * 0.3);
+  }
+  .ks-shape {
+    position: absolute;
+    left: calc(var(--u) * var(--x));
+    top: calc(var(--u) * var(--y));
+    width: calc(var(--u) * var(--w));
+    height: calc(var(--u) * var(--h));
+    opacity: var(--alpha, 1);
+  }
+  .ks-shape[data-shape='circle'] {
+    border-radius: 50%;
+  }
+  .ks-shape[data-shape='triangle'] {
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+  }
+
   /* Stage typography follows the stage box, so short laptop stages never clip lyrics */
   .ks-stage-container {
     container-type: size;
