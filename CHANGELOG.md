@@ -1,5 +1,45 @@
 # Changelog
 
+## [2.13.0](https://github.com/moseph333/karaoke-studio/compare/v2.12.0...v2.13.0) (2026-11-22)
+
+
+### Features
+
+* **album:** list an album's songs as numbered rows with one yellow action ([9ccd4f3](https://github.com/moseph333/karaoke-studio/commit/9ccd4f38fffd849c526f6fa286c7239d9a2b11db))
+* **auth:** open the sign-in dialog on a marquee title instead of a lock tile ([af0e95b](https://github.com/moseph333/karaoke-studio/commit/af0e95b6cb4a8ef8f9b45baa8d39540a1bfd461a))
+* **copy:** name controls for what they do, in plain words ([820318f](https://github.com/moseph333/karaoke-studio/commit/820318f4b429ac1ba5195c3b218d70a5fa98c27d))
+* **dialogs:** give dialogs a bare title, text tabs and plain rows ([88438d6](https://github.com/moseph333/karaoke-studio/commit/88438d6345d3a4e39937fb179c4e9468cbcb2414))
+* **dialogs:** take the remaining filled boxes out of the small dialogs and menus ([371311f](https://github.com/moseph333/karaoke-studio/commit/371311fca46dc5266b444c282ef83894c2c5348d))
+* **export:** lay the export dialog out as sections under rules, in plain words ([cba858a](https://github.com/moseph333/karaoke-studio/commit/cba858a30a47674797eb1a753f367e7ed06ad9cd))
+* **fonts:** set the interface in sofia sans ([0284ec3](https://github.com/moseph333/karaoke-studio/commit/0284ec31b30afd8acfd22d7dfe8bf82d672a16d3))
+* **help:** say how to keep backing vocals or a duet partner in ([7f2fd3b](https://github.com/moseph333/karaoke-studio/commit/7f2fd3b6dc3b0adb6ca73f80aff1dd1e66dd123e))
+* **home:** rebuild the home screen, song list and top bar as a marquee ([2be5a66](https://github.com/moseph333/karaoke-studio/commit/2be5a6623c06f67ce2aea1ba564a25f334176af8))
+* **mix:** lay the inspector out as sections under a rule ([19d0be3](https://github.com/moseph333/karaoke-studio/commit/19d0be3a0aef7d2d7149bb7279e87355a2760731))
+* **mix:** set a level for each vocal part and each singer's lines ([b397086](https://github.com/moseph333/karaoke-studio/commit/b39708620967bcf6376d3249d6b719c59cde2d19))
+* **processing:** show progress as one large numeral and say what the song is doing ([93419c6](https://github.com/moseph333/karaoke-studio/commit/93419c6d1e5e2c5964e2cf3ae2eb115752d4a70a))
+* **pwa:** redraw the app icon, shortcut icons and offline page ([5d96993](https://github.com/moseph333/karaoke-studio/commit/5d969933ed8481788144bb787bab5a710f5fad68))
+* **pwa:** show the new look in the link preview and the install screenshots ([61048d8](https://github.com/moseph333/karaoke-studio/commit/61048d86a5c8d51e59e9fa7381f5e18e7af6ae5b))
+* **separation:** let the worker pick its two stems by tag ([3e560d7](https://github.com/moseph333/karaoke-studio/commit/3e560d7a449d0d7096e822dea47f3215f4332034))
+* **stage:** remove the live preview badge from the stage ([bd634b6](https://github.com/moseph333/karaoke-studio/commit/bd634b60c1edabcff50e16993db5540bc16c7588))
+* **stems:** split a song's vocals into lead and backing parts ([36a5de8](https://github.com/moseph333/karaoke-studio/commit/36a5de88d20244a4636889f200211399b80476b6))
+* **stems:** split the lead into a male and a female voice ([2e05c29](https://github.com/moseph333/karaoke-studio/commit/2e05c2945f1f53026328650c4a99ff5a7deb6a9b))
+* **stems:** split the vocals of a finished song as a background job ([aaded5d](https://github.com/moseph333/karaoke-studio/commit/aaded5d180859d990f5492ab3cd4e81a5b2fdd8b))
+* **studio:** call the phone's third tab "Mix & Look" ([bbc1895](https://github.com/moseph333/karaoke-studio/commit/bbc189575b167c3f95c97372ed3209d21fbdb68e))
+* **studio:** keep backing vocals or a duet partner in the mix ([294ffc7](https://github.com/moseph333/karaoke-studio/commit/294ffc78f9d6b72903e434eb77ae1fe0cbe99ce6))
+* **studio:** keep the male or the female voice of a duet in the mix ([7d21241](https://github.com/moseph333/karaoke-studio/commit/7d21241d6c24687e0fcf0eae6d8cbd6a27c7a3ad))
+* **studio:** set the song header in marquee capitals and rule off the inspector ([d0091a8](https://github.com/moseph333/karaoke-studio/commit/d0091a8171f007ce38dc6716a92c0ded6ec5f12d))
+* **studio:** split lead and backing vocals from the audio mix panel ([de46376](https://github.com/moseph333/karaoke-studio/commit/de463762b492b278806123a7977847c2dc2f2e61))
+* **theme:** marquee colours, square corners and no shadows ([8cbf824](https://github.com/moseph333/karaoke-studio/commit/8cbf8241cde199f4150b09717864c7a0cc76848e))
+* **theme:** retire the app themes and style the app from the stylesheet alone ([58608b4](https://github.com/moseph333/karaoke-studio/commit/58608b4c53abe78ea20ba2c9ac8e3990ddf67aee))
+* **timeline:** light the word being sung and take the boxes out of the timeline's dialogs ([d8802c0](https://github.com/moseph333/karaoke-studio/commit/d8802c04f3b91b007a2ae41a3278b83a869347e4))
+* **timeline:** list lyric lines as numbered rows and light the one being sung ([a787493](https://github.com/moseph333/karaoke-studio/commit/a7874932a8185e0d53bff5d232a526f0d00998cd))
+* **timeline:** show tap sync as a lit band and the word editor as words over their times ([1e690d3](https://github.com/moseph333/karaoke-studio/commit/1e690d3a82ac7ed2a07f63d6dbf456b12d2efd61))
+* **transport:** show the time in marquee numerals beside a square play block ([dc0017d](https://github.com/moseph333/karaoke-studio/commit/dc0017d4e9a16092f31e754e68f76900d68e8826))
+* **ui:** draw checkboxes as squares and outline every field in the text colour ([612857c](https://github.com/moseph333/karaoke-studio/commit/612857c921c74392350218ab5e61581e6a46b184))
+* **ui:** drop gradients, glow, blur, tints and rounded shapes from every screen ([c8a9ed2](https://github.com/moseph333/karaoke-studio/commit/c8a9ed2ada79fdeee015fae65927adc1abf9e63b))
+* **ui:** set small labels in sentence case and nothing under 13px ([16e8ea0](https://github.com/moseph333/karaoke-studio/commit/16e8ea04aa67a84e5aa35700bd2901487949794a))
+* **ui:** solid primary buttons and flat badges, without gradient variants ([5116929](https://github.com/moseph333/karaoke-studio/commit/5116929a1abfd4a14ca3e0cb6cb24a2cae281743))
+
 ## [2.12.0](https://github.com/moseph333/karaoke-studio/compare/v2.11.0...v2.12.0) (2026-11-19)
 
 
