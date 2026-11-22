@@ -17,12 +17,12 @@ import subprocess
 import tempfile
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 from backend.config import OUTPUT_DIR
-from backend.services import remote_render, stage_backgrounds
+from backend.services import look_backgrounds, remote_render, stage_backgrounds
 from backend.services.ass_generator import (
     DEFAULT_THEME_ID,
     VISUAL_THEMES,
@@ -67,7 +67,7 @@ def ffmpeg_color(value: Any, default: str = DEFAULT_BACKGROUND_COLOR) -> str:
 RENDER_FPS = 60
 VIDEO_BACKGROUND_EXTS = frozenset({".mp4", ".webm"})
 # The song's thumbnail as a background: blurred and darkened so the lyrics stand out
-THUMBNAIL_LOOK = "boxblur=45:5,eq=brightness=-0.25:contrast=1.1"
+THUMBNAIL_LOOK = look_backgrounds.BLUR_LOOK
 
 
 def encoder_preset() -> str:
@@ -111,19 +111,34 @@ class RenderJob:
     height: int
     duration: float
     include_visualizer: bool = False
+    # Where the look frames the picture (x, y, width, height), when it does
+    picture: tuple[int, int, int, int] | None = None
 
 
 def _fill(width: int, height: int) -> str:
     return f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
 
 
-def artwork_still(width: int, height: int, drift: bool = False) -> tuple[int, int, str]:
-    """Size and chain that turn the song's thumbnail into its backdrop still: filled, blurred and
-    darkened at the output size, or at the larger overscan size the drift pans across. The stage
-    preview is served this same still (the backdrop route), so the two cannot look different."""
+def artwork_still(
+    width: int, height: int, drift: bool = False, look_id: Any = None
+) -> tuple[int, int, str]:
+    """Size and chain that turn the song's thumbnail into its backdrop still: filled and treated
+    the way the look treats cover art (blurred and darkened without one) at the output size,
+    or at the larger overscan size the drift pans across. A look that frames its picture gets
+    it set into the black frame (the drift's larger still is the picture alone, framed after
+    the pan). The stage preview is served this same still (the backdrop route), so the two
+    cannot look different."""
+    look = look_backgrounds.look_for(look_id)
+    rect = look_backgrounds.picture_rect(look, width, height)
+    out_width, out_height = (rect[2], rect[3]) if rect else (width, height)
     if drift:
-        width, height = stage_backgrounds.overscan_size(width, height)
-    return width, height, f"{_fill(width, height)},{THUMBNAIL_LOOK}"
+        out_width, out_height = stage_backgrounds.overscan_size(out_width, out_height)
+    treatment = look_backgrounds.cover_chain(look) if look else THUMBNAIL_LOOK
+    chain = ",".join(part for part in (_fill(out_width, out_height), treatment) if part)
+    if rect and not drift:
+        chain += "," + look_backgrounds.pad_to_frame(rect, width, height)
+        out_width, out_height = width, height
+    return out_width, out_height, chain
 
 
 def render_still(source: Path, chain: str, target: Path) -> None:
@@ -145,28 +160,53 @@ def prepare_background(
     background_style: Any = None,
     background_palette: Any = None,
     background_tone: Any = None,
+    look_id: Any = None,
 ) -> RenderBackground:
     """A custom video loops and is resampled to RENDER_FPS; a custom image is processed once into
     work_dir. Otherwise the style decides: aurora and spectrum are generated over the stage
-    colour, the song's thumbnail (blurred and darkened, processed once) is still or drifting, and
-    a song without one, or the plain style, gets the colour."""
-    fill = _fill(width, height)
+    colour, the song's thumbnail (treated the look's way, processed once) is still or drifting,
+    and a song without one, or the plain style, gets the colour. With a look, an upload gets
+    the look's dim or wash, and a look that frames its picture (Cinema) has every kind of
+    picture set into its frame."""
+    look = look_backgrounds.look_for(look_id)
+    rect = look_backgrounds.picture_rect(look, width, height)
+    inner_width, inner_height = (rect[2], rect[3]) if rect else (width, height)
+    framed = "," + look_backgrounds.pad_to_frame(rect, width, height) if rect else ""
+    fill = _fill(inner_width, inner_height)
     if custom_bg_path and os.path.exists(custom_bg_path):
         source = Path(custom_bg_path)
+        treated = look_backgrounds.upload_chain(look) if look else ""
+        treated = f",{treated}" if treated else ""
         if source.suffix.lower() in VIDEO_BACKGROUND_EXTS:
-            return RenderBackground("video", source, f"[0:v]{fill},fps={RENDER_FPS}[bg];")
-        return _still_background(source, fill, work_dir)
+            return RenderBackground(
+                "video", source, f"[0:v]{fill},fps={RENDER_FPS}{treated}{framed}[bg];"
+            )
+        return _still_background(source, f"{fill}{treated}{framed}", work_dir)
     style = stage_backgrounds.normalize_style(background_style)
     color = ffmpeg_color(background_color)
     if style in stage_backgrounds.GENERATED_STYLES:
-        return _generated_background(
-            style, width, height, color, background_palette, background_tone
+        generated = _generated_background(
+            style, inner_width, inner_height, color, background_palette, background_tone
         )
+        return _framed_graph(generated, framed)
     if style != "color" and thumbnail_path and os.path.exists(thumbnail_path):
         if style == "drift":
-            return _drift_background(Path(thumbnail_path), width, height, work_dir)
-        return _still_background(Path(thumbnail_path), f"{fill},{THUMBNAIL_LOOK}", work_dir)
+            drifting = _drift_background(
+                Path(thumbnail_path), inner_width, inner_height, work_dir, look_id
+            )
+            return _framed_graph(drifting, framed)
+        _, _, chain = artwork_still(width, height, look_id=look_id)
+        return _still_background(Path(thumbnail_path), chain, work_dir)
     return RenderBackground("color", color=color)
+
+
+def _framed_graph(background: RenderBackground, framed: str) -> RenderBackground:
+    """The background with its picture set into the look's frame (unchanged without one)."""
+    if not framed or not background.graph.endswith("[bg];"):
+        return background
+    graph = background.graph.removesuffix("[bg];")
+    graph = graph.removesuffix("null") if graph.endswith("]null") else graph + ","
+    return replace(background, graph=f"{graph}{framed.lstrip(',')}[bg];")
 
 
 def _generated_background(
@@ -195,10 +235,16 @@ def _still_background(source: Path, chain: str, work_dir: Path) -> RenderBackgro
     return RenderBackground("image", source, f"[0:v]{chain}[bg];")
 
 
-def _drift_background(source: Path, width: int, height: int, work_dir: Path) -> RenderBackground:
+def _drift_background(
+    source: Path, width: int, height: int, work_dir: Path, look_id: Any = None
+) -> RenderBackground:
     """The thumbnail processed once at the overscan size, then panned each frame; when that step
-    fails the thumbnail is processed per frame before the pan."""
-    _, _, chain = artwork_still(width, height, drift=True)
+    fails the thumbnail is processed per frame before the pan. ``width`` and ``height`` are the
+    picture's (the whole frame unless the look frames it)."""
+    look = look_backgrounds.look_for(look_id)
+    over_width, over_height = stage_backgrounds.overscan_size(width, height)
+    treatment = look_backgrounds.cover_chain(look) if look else THUMBNAIL_LOOK
+    chain = ",".join(part for part in (_fill(over_width, over_height), treatment) if part)
     target = work_dir / "background.png"
     try:
         render_still(source, chain, target)
@@ -227,10 +273,13 @@ def ffmpeg_args(
     bg = job.background
     if job.include_visualizer:
         vis_h = 240
+        # The bars sit on the bottom edge of the picture (of the frame, unless the look
+        # frames its picture)
+        bottom = f"{job.picture[1] + job.picture[3]}" if job.picture else "H"
         graph = (
             f"{bg.graph}"
             f"[1:a]showfreqs=s={job.width}x{vis_h}:mode=bar:fscale=log:colors=cyan|magenta[vis];"
-            f"[bg][vis]overlay=0:H-{vis_h}:format=auto[bgvis];"
+            f"[bg][vis]overlay=0:{bottom}-{vis_h}:format=auto[bgvis];"
             f"[bgvis]{subtitles}[v]"
         )
     else:
@@ -494,12 +543,16 @@ class VideoRenderer:
                     kwargs.get("background_style"),
                     kwargs.get("background_palette"),
                     kwargs.get("background_tone"),
+                    kwargs.get("look_id"),
                 ),
                 audio_path=Path(audio_path),
                 ass_path=Path(ass_subtitles_path),
                 output_path=part,
                 width=width,
                 height=height,
+                picture=look_backgrounds.picture_rect(
+                    look_backgrounds.look_for(kwargs.get("look_id")), width, height
+                ),
                 duration=duration,
                 include_visualizer=include_visualizer,
             )

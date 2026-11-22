@@ -7,6 +7,10 @@ build stage copies this folder next to `frontend/` so the alias resolves there t
 
 | File | What | Used by |
 |---|---|---|
+| `stage_looks.json` | The five stage looks (Marquee, KTV, Songbook, Cinema, Prompter): layout, colours, typefaces, motion, cover-art treatment and where each part sits in a 16:9 and a 9:16 frame, in u (1% of the frame's short side; sizes are ems, positions baselines). Also the timing rules, the line-fitting rules, the default look, the default part names and the look each replaced preset maps to | `services/stage_looks`, `stage_timing`, `text_fit`, `stage_layout`, `look_backgrounds` (`looks/test_stage_looks_spec.py`) |
+| `stage_fit_cases.json` | Token widths and a text box, and the size, squeeze and row breaks the line-fitting rule must give | `text_fit.fit_block` (`looks/test_text_fit_cases.py`) |
+| `stage_timeline_cases.json` | Lyric lines and a song length, and when every line, card, count-in and break marker must show | `stage_timing.plan_timeline` (`looks/test_stage_timeline_cases.py`) |
+| `stage_layout_cases.json` | A lyric line, a look and a format, and where its words, part name, romaji and next line must go | `services/stage_layout` (`looks/test_stage_layout_cases.py`) |
 | `stage_font_metrics.json` | Each stage typeface: its file, the names libass and CSS know it by, its ascent, descent and cap height in ems, the factor from an em to libass's Fontsize, and every listed character's advance width (thousandths of an em), with the rules for characters a face lacks. Written by `python -m backend.tools.font_metrics` | `services/font_metrics` (`looks/test_font_metrics.py`) |
 | `stage_presets.json` | Each stage look's id, name, description and sung/unsung colours (ASS), in the order the presets were added | `ass_generator.VISUAL_THEMES`; `theme/stagePresets.ts`, which adds the preview-only fields |
 | `singer_aliases.json` | Every singer label a lyric line may carry, mapped to `singer1`, `singer2` or `both` | `schemas.LyricLineSchema`, `ass_generator.singer_part`; `stage/singers.ts` |
