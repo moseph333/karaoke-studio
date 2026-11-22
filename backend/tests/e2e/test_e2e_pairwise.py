@@ -27,6 +27,7 @@ from PIL import Image
 import backend.main as main_mod
 from backend import config
 from backend.services.video_renderer import VideoRenderer
+from backend.tests.helpers.ass_script import ass_events, parse_ass
 from backend.tests.helpers.media import generate_sine_wave_wav, generate_test_image
 
 
@@ -57,14 +58,33 @@ def test_pairwise_custom_lyrics_plus_pitch_shift_plus_video_render(client, tmp_p
     ass_path = main_mod.OUTPUT_DIR / f"{pid}.ass"
     if ass_path.exists():
         content = ass_path.read_text(encoding="utf-8")
-        assert "Starlight" in content
+        # Whichever way the look writes it (the default look sings in capitals)
+        assert "starlight" in content.casefold()
 
 
 def test_pairwise_custom_background_plus_vertical_aspect_ratio_plus_countdown_dots(
     client, project_factory, sample_image
 ):
     """Combines custom background image upload, 9:16 vertical format, and 3-2-1 countdown cue markers."""
-    project_factory(project_id="pair_vert_bg1")
+    # A line that follows 4 s without singing is counted in
+    project_factory(
+        project_id="pair_vert_bg1",
+        duration=5.0,
+        custom_lines=[
+            {
+                "id": 0,
+                "text": "Singing after the intro",
+                "start_time": 4.0,
+                "end_time": 4.8,
+                "words": [
+                    {"word": "Singing", "start_time": 4.0, "end_time": 4.2},
+                    {"word": "after", "start_time": 4.2, "end_time": 4.4},
+                    {"word": "the", "start_time": 4.4, "end_time": 4.6},
+                    {"word": "intro", "start_time": 4.6, "end_time": 4.8},
+                ],
+            }
+        ],
+    )
 
     # 1. Upload custom background
     with open(sample_image, "rb") as f:
@@ -90,11 +110,14 @@ def test_pairwise_custom_background_plus_vertical_aspect_ratio_plus_countdown_do
 
     # 3. Verify ASS file properties
     ass_path = main_mod.OUTPUT_DIR / "pair_vert_bg1.ass"
-    if ass_path.exists():
-        content = ass_path.read_text(encoding="utf-8")
-        assert "PlayResX: 1080" in content
-        assert "PlayResY: 1920" in content
-        assert "Countdown" in content
+    assert ass_path.exists()
+    content = ass_path.read_text(encoding="utf-8")
+    assert "PlayResX: 1080" in content
+    assert "PlayResY: 1920" in content
+    # The count-in: 3, 2, 1 over the three seconds before the line
+    count_in = [event for event in ass_events(content) if event.role == "countin:0"]
+    assert [event.plain for event in count_in] == ["3", "2", "1"]
+    assert (count_in[0].start, count_in[-1].end) == (1.0, 4.0)
 
 
 def test_pairwise_user_instrumental_upload_plus_lyric_timing_update_plus_audio_mix(
@@ -222,7 +245,8 @@ def test_pairwise_video_render_cancellation_and_rerender_different_aspect(client
 
 
 def test_pairwise_custom_style_ass_theme_and_video_synthesis(tmp_path):
-    """Generates custom visual theme with specific ASS colors, font, and shadow styling."""
+    """Generates custom visual theme with specific ASS colors; the typeface, outline and
+    shadow are the look's own, whatever the style asks for."""
     renderer = VideoRenderer(output_dir=tmp_path)
     ass_path = tmp_path / "themed.ass"
 
@@ -234,11 +258,17 @@ def test_pairwise_custom_style_ass_theme_and_video_synthesis(tmp_path):
         "outline_width": 4,
         "shadow_width": 3,
     }
-    renderer.generate_ass_subtitles([], ass_path, style_config=style_preset)
+    line = {"id": 0, "text": "Themed line", "start_time": 1.0, "end_time": 3.0, "words": []}
+    renderer.generate_ass_subtitles([line], ass_path, style_config=style_preset)
     content = ass_path.read_text(encoding="utf-8")
-    assert "Arial Black" in content
-    assert "&H0000FF00" in content
-    assert "&H00FFFF00" in content
+    (row,) = (event for event in ass_events(content) if event.kind == "lyric")
+    assert "\\1c&H00FF00&\\2c&HFFFF00&" in row.tags
+    # The same file as without the font, size, outline and shadow it asked for
+    colors_only = {key: style_preset[key] for key in ("primary_color", "secondary_color")}
+    assert content == renderer.generate_ass_content([line], style_config=colors_only)
+    assert "Arial Black" not in {
+        style["Fontname"] for style in parse_ass(content)["styles"].values()
+    }
 
 
 def test_pairwise_guide_vocal_blend_plus_pitch_shift_and_youtube_package(client, project_factory):

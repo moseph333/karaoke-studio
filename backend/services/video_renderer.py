@@ -24,8 +24,6 @@ from typing import Any
 from backend.config import OUTPUT_DIR
 from backend.services import look_backgrounds, remote_render, stage_backgrounds
 from backend.services.ass_generator import (
-    DEFAULT_THEME_ID,
-    VISUAL_THEMES,
     escape_ass_text,
     format_ass_time,
     generate_ass_content,
@@ -414,11 +412,12 @@ class VideoRenderer:
         singer2_color: str | None = None,
         both_color: str | None = None,
         song_duration: float | None = None,
+        card_title: str | None = None,
+        card_artist: str | None = None,
+        part_names: dict[str, str] | None = None,
+        frame: str = "video",
     ) -> str:
-        """Generates Advanced SubStation Alpha (.ass) subtitle file content
-
-        with smooth progressive karaoke sweep tags (\\kf) or instant line illumination.
-        """
+        """The subtitle file of a song in a stage look (ass_generator.generate_ass_content)."""
         return generate_ass_content(
             lines=lines,
             aspect_ratio=aspect_ratio,
@@ -437,6 +436,10 @@ class VideoRenderer:
             key=key,
             sync_mode=sync_mode,
             song_duration=song_duration,
+            card_title=card_title,
+            card_artist=card_artist,
+            part_names=part_names,
+            frame=frame,
         )
 
     def generate_ass_subtitles(
@@ -460,11 +463,12 @@ class VideoRenderer:
         both_color: str | None = None,
         font_size_scale: float = 1.0,
         song_duration: float | None = None,
+        card_title: str | None = None,
+        card_artist: str | None = None,
+        part_names: dict[str, str] | None = None,
+        frame: str = "video",
     ) -> str:
-        """Generates Advanced SubStation Alpha (.ass) subtitle file
-
-        with smooth progressive karaoke sweep tags (\\kf) or instant line illumination.
-        """
+        """Writes that subtitle file to ``output_ass_path``."""
         return generate_ass_subtitles(
             lines=lines,
             output_ass_path=output_ass_path,
@@ -484,6 +488,10 @@ class VideoRenderer:
             key=key,
             sync_mode=sync_mode,
             song_duration=song_duration,
+            card_title=card_title,
+            card_artist=card_artist,
+            part_names=part_names,
+            frame=frame,
         )
 
     def render_video(
@@ -701,9 +709,7 @@ class VideoRenderer:
 
 
 __all__ = [
-    "DEFAULT_THEME_ID",
     "RENDER_FPS",
-    "VISUAL_THEMES",
     "RenderBackground",
     "RenderJob",
     "RenderProgress",

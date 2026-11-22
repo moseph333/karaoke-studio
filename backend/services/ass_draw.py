@@ -6,12 +6,21 @@ Fontsize is the font's Windows cell height, not its em; with \\an7 to \\an9 a ro
 is its baseline less the font's ascent; nothing wraps under WrapStyle 2; text before the first
 \\k is drawn sung; \\move and \\fade take times from the event's start."""
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
 from backend.services import font_metrics
 from backend.services.ass_document import css_to_ass_color, escape_ass_text, format_ass_time
-from backend.services.stage_layout import Block, Item, LineText, Row, line_text, part_name
+from backend.services.stage_layout import (
+    Block,
+    Item,
+    LineText,
+    Row,
+    drawn_words,
+    line_text,
+    part_name,
+)
 from backend.services.stage_looks import Frame, frame_for, resolve_look
 
 _ALIGN_TAG = {"left": 7, "center": 8, "right": 9}
@@ -185,7 +194,7 @@ class Word:
 def line_words(line: dict[str, Any], text: LineText) -> list[Word]:
     """A line's drawn tokens with the times of its words (the editor keeps one word per
     token); a line without word timing has none."""
-    words = [w for w in (line.get("words") or []) if isinstance(w, dict)]
+    words = drawn_words(line)
     timed = len(words) == len(text.tokens) and bool(words)
     out = []
     for i, token in enumerate(text.tokens):
@@ -197,12 +206,18 @@ def line_words(line: dict[str, Any], text: LineText) -> list[Word]:
     return out
 
 
+# Later than any song: a word time beyond it is bad data, not a time
+_LATEST_SECONDS = 1e7
+
+
 def _time(value: Any) -> float | None:
+    """A word's time in seconds, or None when it is not a time (missing, negative, not
+    finite, absurdly large)."""
     try:
         number = float(value)
     except (TypeError, ValueError):
         return None
-    return number if number == number and number >= 0 else None
+    return number if math.isfinite(number) and 0 <= number < _LATEST_SECONDS else None
 
 
 def adlib_tags(style: LookStyle, condense: float) -> tuple[str, str]:
@@ -473,7 +488,10 @@ def prepare_lines(style: LookStyle, lines: list[Any], timeline: Any) -> list[Pre
                 line=line,
                 text=text,
                 words=words,
-                name=part_name(timing.part, style.part_names) if timing.label else "",
+                # A line with nothing to draw carries no part name either
+                name=part_name(timing.part, style.part_names)
+                if timing.label and text.tokens
+                else "",
                 sweep="word" if style.sync_mode == "word" and timed else "line",
                 flip_at=timing.end if dims else timing.start,
                 colors=f"\\1c{sung}\\2c{unsung}",

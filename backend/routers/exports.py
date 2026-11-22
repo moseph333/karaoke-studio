@@ -14,13 +14,14 @@ from backend.export_utils import build_content_disposition
 from backend.project_analysis import StemMissing, chords_for_export, ensure_chords, estimated_key
 from backend.project_store import get_project_or_404
 from backend.services import vocal_parts
-from backend.services.ass_generator import VISUAL_THEMES, export_title
+from backend.services.ass_generator import card_names, export_title
 from backend.services.chord_detector import (
     NO_CHORD_VALUES,
     project_key_signature,
     transpose_chord_progression,
 )
 from backend.services.lyrics import LyricsService
+from backend.services.stage_looks import LOOKS, is_known_look_id
 
 logger = logging.getLogger("karaoke_backend")
 
@@ -301,7 +302,7 @@ def export_project_lrc(project_id: str):
 def export_project_ass(
     project_id: str,
     aspect_ratio: str = Query("16:9", description="Canvas aspect ratio: strictly '16:9' or '9:16'"),
-    theme_id: str | None = Query(None, description="Visual theme preset ID"),
+    theme_id: str | None = Query(None, description="Stage look id"),
     primary_color: str | None = Query(
         None, description="Optional primary (sung) ASS or CSS hex color override"
     ),
@@ -360,12 +361,12 @@ def export_project_ass(
             detail="Invalid aspect ratio. Must be '16:9' or '9:16'",
         )
 
-    # 3. Validate theme_id if provided
-    if theme_id is not None and theme_id not in VISUAL_THEMES:
-        allowed_themes = list(VISUAL_THEMES.keys())
+    # 3. Validate theme_id if provided: a look's id, or the id of a preset a look replaced
+    # (a tab opened before the looks still sends those)
+    if theme_id is not None and not is_known_look_id(theme_id):
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid theme_id '{theme_id}'. Must be one of: {allowed_themes}",
+            detail=f"Invalid theme_id '{theme_id}'. Must be one of: {list(LOOKS)}",
         )
 
     # 4. Pre-flight check: Active processing without lyrics cannot export
@@ -384,6 +385,7 @@ def export_project_ass(
     title = proj.get("title", "").strip()
     artist = proj.get("artist", "").strip()
     track_title = export_title(proj)
+    card_title, card_artist = card_names(proj)
 
     # Empty colours count as not chosen: the stage look's (or the default) applies. The
     # duet colours come from the stage look panel.
@@ -404,6 +406,11 @@ def export_project_ass(
         key=estimated_key(proj),
         sync_mode=clean_sync_mode,
         song_duration=proj.get("duration"),
+        card_title=card_title,
+        card_artist=card_artist,
+        part_names=proj.get("part_names"),
+        # A file to use elsewhere: everything that is text, without the progress line
+        frame="subtitles",
     )
 
     headers = {

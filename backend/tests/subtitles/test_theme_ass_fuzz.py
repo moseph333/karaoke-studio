@@ -6,42 +6,83 @@ and multi-theme combinations across word and line sync modes.
 """
 
 import math
+import re
 
 import pytest
 
+from backend.services.ass_draw import ass_color
 from backend.services.ass_generator import (
-    VISUAL_THEMES,
     css_to_ass_color,
     escape_ass_text,
     format_ass_time,
     generate_ass_content,
     safe_time,
+    to_css_color,
 )
+from backend.services.stage_looks import LEGACY_IDS, LOOKS
+from backend.tests.helpers.ass_script import AssEvent, ass_events, parse_ass
+
+# Every id a request may name: the five looks, and the nine presets they replaced
+THEME_IDS = [*LOOKS, *LEGACY_IDS]
+ASS_TIMESTAMP = re.compile(r"^\d+:[0-5]\d:[0-5]\d\.\d{2}$")
+# A block libass would read as override tags: one whose brace no backslash escapes
+OVERRIDE_BLOCK = re.compile(r"(?<!\\)\{([^}]*)\}")
+# The only blocks a lyric row has after the one that places it: karaoke times, and the
+# tags that start and end an ad-lib
+KARAOKE_OR_ADLIB = re.compile(
+    r"\\kf?\d+|\\fscx[\d.]+\\fscy[\d.]+(\\[123]a&H[0-9A-F]{2}&){3}(\\i[01])?"
+)
+
+
+def lyric_rows(ass: str) -> list[AssEvent]:
+    """The events of the lines being sung (role ``lyric:<line>``), one per row of a line."""
+    return [e for e in ass_events(ass) if e.kind == "lyric"]
+
+
+def drawn_lines(ass: str) -> set[int | None]:
+    """The indexes of the lines a file draws, sung or waiting."""
+    return {e.line for e in ass_events(ass) if e.kind in ("lyric", "next", "sung")}
+
+
+def lyric_sizes(ass: str) -> set[float]:
+    """The font sizes (\\fs) the lines being sung are drawn at."""
+    return {float(re.search(r"\\fs([\d.]+)", row.tags).group(1)) for row in lyric_rows(ass)}
+
+
+def assert_times_are_well_formed(ass: str) -> None:
+    for event in parse_ass(ass)["events"]:
+        assert ASS_TIMESTAMP.match(event["Start"]), event
+        assert ASS_TIMESTAMP.match(event["End"]), event
+    assert all(event.end >= event.start for event in ass_events(ass))
 
 
 class TestAssGeneratorFuzzing:
     """Adversarial and fuzz tests for generate_ass_content."""
 
-    def test_empty_and_none_lines(self):
+    @pytest.mark.parametrize("theme_id", THEME_IDS)
+    def test_empty_and_none_lines(self, theme_id):
         """Fuzz testing with empty lists, None, and non-list lines."""
         # Empty lines list
-        res_empty = generate_ass_content(lines=[])
+        res_empty = generate_ass_content(lines=[], theme_id=theme_id)
         assert "[Script Info]" in res_empty
         assert "[V4+ Styles]" in res_empty
         assert "[Events]" in res_empty
-        assert "Style: KaraokeLine1" in res_empty
+        assert ass_events(res_empty) == []
+        assert parse_ass(res_empty)["styles"]
 
         # None lines
-        res_none = generate_ass_content(lines=None)  # type: ignore
-        assert "[Script Info]" in res_none
+        res_none = generate_ass_content(lines=None, theme_id=theme_id)  # type: ignore
+        assert res_none == res_empty
 
         # Lines with None, primitives, and empty dicts
         corrupt_lines = [None, 42, "not a dict", [], {}, {"text": ""}]
-        res_corrupt = generate_ass_content(lines=corrupt_lines)  # type: ignore
+        res_corrupt = generate_ass_content(lines=corrupt_lines, theme_id=theme_id)  # type: ignore
         assert "[Script Info]" in res_corrupt
         assert "[Events]" in res_corrupt
+        assert drawn_lines(res_corrupt) == set()
 
-    def test_missing_line_fields(self):
+    @pytest.mark.parametrize("theme_id", THEME_IDS)
+    def test_missing_line_fields(self, theme_id):
         """Fuzz testing lines with missing start_time, end_time, words, text, singer."""
         sparse_lines = [
             {},  # completely empty line
@@ -53,13 +94,16 @@ class TestAssGeneratorFuzzing:
             {"singer": "unknown_singer_role"},
             {"singer": None},
         ]
-        res = generate_ass_content(lines=sparse_lines, theme_id="punk_diy")
+        res = generate_ass_content(lines=sparse_lines, theme_id=theme_id)
         assert "[Events]" in res
-        dialogue_lines = [line for line in res.splitlines() if line.startswith("Dialogue:")]
-        # Ensure all sparse lines generated dialogue without throwing exceptions
-        assert len(dialogue_lines) >= len(sparse_lines)
+        # The two lines that have words are drawn, without throwing exceptions
+        assert drawn_lines(res) == {1, 5}
+        drawn = {row.line: row.plain.strip().casefold() for row in lyric_rows(res)}
+        assert drawn == {1: "only text", 5: "hello"}
+        assert_times_are_well_formed(res)
 
-    def test_negative_and_inverted_timestamps(self):
+    @pytest.mark.parametrize("theme_id", THEME_IDS)
+    def test_negative_and_inverted_timestamps(self, theme_id):
         """Fuzz testing negative, inverted, and zero duration timestamps."""
         weird_lines = [
             {
@@ -88,21 +132,20 @@ class TestAssGeneratorFuzzing:
                 ],
             },
         ]
-        res = generate_ass_content(
-            lines=weird_lines, theme_id="clean_paper", include_countdown=False
-        )
+        res = generate_ass_content(lines=weird_lines, theme_id=theme_id, include_countdown=False)
         assert "[Events]" in res
-        dialogue_lines = [line for line in res.splitlines() if line.startswith("Dialogue:")]
-        assert len(dialogue_lines) == 3
+        assert {row.line for row in lyric_rows(res)} == {0, 1, 2}
 
         # Verify timestamps in Dialogue events are formatted as valid non-negative H:MM:SS.cs
-        for d in dialogue_lines:
-            parts = d.split(",")
-            start_str, end_str = parts[1], parts[2]
-            assert "-" not in start_str
-            assert "-" not in end_str
+        for event in parse_ass(res)["events"]:
+            assert "-" not in event["Start"]
+            assert "-" not in event["End"]
+        assert_times_are_well_formed(res)
+        # No karaoke time is negative either
+        assert "\\k-" not in res and "\\kf-" not in res
 
-    def test_nan_and_infinite_timestamps(self):
+    @pytest.mark.parametrize("theme_id", THEME_IDS)
+    def test_nan_and_infinite_timestamps(self, theme_id):
         """Fuzz testing float('nan'), float('inf'), float('-inf') in line and word timestamps."""
         nan_lines = [
             {
@@ -120,19 +163,19 @@ class TestAssGeneratorFuzzing:
                 "end_time": float("nan"),
             },
         ]
-        res = generate_ass_content(lines=nan_lines, theme_id="crt_ktv")
+        res = generate_ass_content(lines=nan_lines, theme_id=theme_id)
         assert "[Events]" in res
-        dialogue_lines = [line for line in res.splitlines() if line.startswith("Dialogue:")]
-        assert len(dialogue_lines) == 2
-        for d in dialogue_lines:
-            parts = d.split(",")
-            start_str, end_str = parts[1], parts[2]
+        assert {row.line for row in lyric_rows(res)} == {0, 1}
+        for event in parse_ass(res)["events"]:
+            start_str, end_str = event["Start"], event["End"]
             assert "nan" not in start_str.lower()
             assert "inf" not in start_str.lower()
             assert "nan" not in end_str.lower()
             assert "inf" not in end_str.lower()
+        assert_times_are_well_formed(res)
 
-    def test_very_long_words_and_large_lyrics(self):
+    @pytest.mark.parametrize("theme_id", list(LOOKS))
+    def test_very_long_words_and_large_lyrics(self, theme_id):
         """Fuzz testing with 10,000+ character words, repeated unicode, and large line counts."""
         giant_word = "A" * 15000
         unicode_explosion = "🔥🎸🎤🤘⚡" * 1000
@@ -145,18 +188,22 @@ class TestAssGeneratorFuzzing:
                 {"word": unicode_explosion, "start_time": 18.0, "end_time": 25.0},
             ],
         }
-        res = generate_ass_content(lines=[line_with_giant_word], theme_id="punk_diy")
+        res = generate_ass_content(lines=[line_with_giant_word], theme_id=theme_id)
         assert "[Events]" in res
-        assert "Style: KaraokeLine1" in res
         # Ensure giant text was escaped and included without memory or buffer overflow
         assert len(res) > 20000
+        sung = "".join(row.plain for row in lyric_rows(res))
+        assert sung.replace(" ", "") == giant_word + unicode_explosion
+        assert sum(row.text.count("\\kf") for row in lyric_rows(res)) == 2
 
-    def test_ass_override_injection_escaping(self):
+    @pytest.mark.parametrize("theme_id", THEME_IDS)
+    @pytest.mark.parametrize("sync_mode", ["word", "line"])
+    def test_ass_override_injection_escaping(self, theme_id, sync_mode):
         """Verifies that malicious or formatting ASS tags in lyric text are safely escaped."""
         injection_text = (
             "{\\b1\\i1}Malicious{\\b0\\i0} text with \\N newline and \\h space and {\\fad(500,500)}"
         )
-        line = {
+        timed = {
             "text": injection_text,
             "start_time": 5.0,
             "end_time": 10.0,
@@ -166,27 +213,35 @@ class TestAssGeneratorFuzzing:
                 {"word": "{\\b0}", "start_time": 8.0, "end_time": 10.0},
             ],
         }
+        # The same text without word times, so the line's own text is what is drawn
+        untimed = {"text": injection_text, "start_time": 12.0, "end_time": 15.0}
 
-        # Word sync mode
-        res_word = generate_ass_content(
-            lines=[line], theme_id="punk_diy", sync_mode="word", include_countdown=False
+        res = generate_ass_content(
+            lines=[timed, untimed],
+            theme_id=theme_id,
+            sync_mode=sync_mode,
+            include_countdown=False,
         )
-        dialogue_word = next(
-            line_str for line_str in res_word.splitlines() if line_str.startswith("Dialogue:")
-        )
-        # Verify curly braces and backslashes in lyrics are escaped as \{ and \}
-        assert "\\{" in dialogue_word
-        assert "\\}" in dialogue_word
+        events = ass_events(res)
+        assert {e.line for e in events if e.kind == "lyric"} == {0, 1}
+        for event in events:
+            if event.kind == "caret":
+                continue
+            # Verify curly braces and backslashes in lyrics are escaped as \{ and \}: after
+            # the block that places an event, the only blocks left are the generator's own
+            text = event.text.removeprefix(f"{{{event.tags}}}")
+            for block in OVERRIDE_BLOCK.findall(text):
+                assert KARAOKE_OR_ADLIB.fullmatch(block), (event.role, block)
+            # No backslash of the lyrics starts a tag, a line break or a hard space
+            assert not re.search(r"\\[Nnh]", OVERRIDE_BLOCK.sub("", text)), event.role
 
-        # Line sync mode
-        res_line = generate_ass_content(
-            lines=[line], theme_id="tape_70s", sync_mode="line", include_countdown=False
-        )
-        dialogue_line = next(
-            line_str for line_str in res_line.splitlines() if line_str.startswith("Dialogue:")
-        )
-        assert "\\{" in dialogue_line
-        assert "\\}" in dialogue_line
+        def drawn(role: str) -> str:
+            """A line's rows as libass draws them, read as one line."""
+            rows = [OVERRIDE_BLOCK.sub("", e.text) for e in events if e.role == role]
+            return " ".join(rows).casefold()
+
+        assert drawn("lyric:0") == "\\{\\\u2060b1\\} injection \\{\\\u2060b0\\}"
+        assert drawn("lyric:1") == escape_ass_text(injection_text).casefold()
 
     def test_malformed_and_boundary_colors(self):
         """Fuzz testing malformed hex strings, invalid color names, and boundary color formats."""
@@ -208,44 +263,71 @@ class TestAssGeneratorFuzzing:
             "#000",
             "#ffffff",
         ]
-        for color in bad_colors:
-            # css_to_ass_color must never raise an unhandled exception
-            ass_color = css_to_ass_color(color)
-            assert isinstance(ass_color, str)
-            assert ass_color.startswith("&H")
+        lines = [{"text": "test", "start_time": 1.0, "end_time": 2.0}]
+        for theme_id in THEME_IDS:
+            untouched = generate_ass_content(lines=lines, theme_id=theme_id)
+            for color in bad_colors:
+                # css_to_ass_color must never raise an unhandled exception
+                converted = css_to_ass_color(color)
+                assert isinstance(converted, str)
+                assert converted.startswith("&H")
 
-            # generate_ass_content must handle malformed color overrides gracefully
-            res = generate_ass_content(
-                lines=[{"text": "test", "start_time": 1.0, "end_time": 2.0}],
-                theme_id="punk_diy",
-                primary_color=color,
-                secondary_color=color,
-                singer2_color=color,
-                both_color=color,
-            )
-            assert "[V4+ Styles]" in res
+                # generate_ass_content must handle malformed color overrides gracefully
+                res = generate_ass_content(
+                    lines=lines,
+                    theme_id=theme_id,
+                    primary_color=color,
+                    secondary_color=color,
+                    singer2_color=color,
+                    both_color=color,
+                )
+                assert "[V4+ Styles]" in res
+                chosen = to_css_color(color)
+                if chosen is None:
+                    # What is not a colour is ignored: the look's colours apply
+                    assert res == untouched, (theme_id, color)
+                else:
+                    tags = f"\\1c{ass_color(chosen)}\\2c{ass_color(chosen)}"
+                    assert all(tags in row.tags for row in lyric_rows(res)), (theme_id, color)
 
-    def test_extreme_font_size_scale_values(self):
+    @pytest.mark.parametrize("via", ["argument", "style_config"])
+    @pytest.mark.parametrize(
+        "scale",
+        [0.0, -1.0, -99.9, 0.001, 0.5, 1.0, 2.5, 10.0, 100.0, float("nan"), float("inf")],
+    )
+    def test_extreme_font_size_scale_values(self, via, scale):
         """Fuzz testing extreme, zero, and boundary font scale values."""
-        scales = [0.0, -1.0, -99.9, 0.001, 0.5, 1.0, 2.5, 10.0, 100.0, float("nan"), float("inf")]
-        for s in scales:
-            res = generate_ass_content(
-                lines=[{"text": "Font test", "start_time": 1.0, "end_time": 3.0}],
-                theme_id="punk_diy",
-                font_size_scale=s,
-            )
-            assert "[V4+ Styles]" in res
-            # Font size must be an integer >= 12
-            style_line = next(
-                line_str
-                for line_str in res.splitlines()
-                if line_str.startswith("Style: KaraokeLine1,")
-            )
-            parts = style_line.split(",")
-            font_size = int(parts[2])
-            assert font_size >= 12
+        lines = [{"text": "Font test", "start_time": 1.0, "end_time": 3.0}]
 
-    def test_malformed_and_edge_case_chords(self):
+        def sizes(**given) -> set[float]:
+            return lyric_sizes(generate_ass_content(lines=lines, theme_id="ktv", **given))
+
+        (smallest,) = sizes(font_size_scale=0.1)
+        (largest,) = sizes(font_size_scale=5.0)
+        (plain,) = sizes()
+        assert 0 < smallest < plain < largest
+
+        if via == "argument":
+            res = generate_ass_content(lines=lines, theme_id="ktv", font_size_scale=scale)
+        else:
+            res = generate_ass_content(
+                lines=lines, theme_id="ktv", style_config={"font_size_scale": scale}
+            )
+        assert "[V4+ Styles]" in res
+        # The lyrics are never drawn smaller than the smallest size a request can ask for (a
+        # tenth of the look's own), and a request's own value stops at five times it
+        (size,) = lyric_sizes(res)
+        assert math.isfinite(size)
+        assert size >= smallest
+        if via == "style_config":
+            assert size <= largest
+        if not math.isfinite(scale):
+            assert size == plain
+        elif 0.1 <= scale <= 5.0:
+            assert size == pytest.approx(plain * scale, rel=0.01)
+
+    @pytest.mark.parametrize("theme_id", THEME_IDS)
+    def test_malformed_and_edge_case_chords(self, theme_id):
         """Fuzz testing chords array with malformed, inverted, missing, or extreme fields."""
         fuzz_chords = [
             None,
@@ -261,7 +343,7 @@ class TestAssGeneratorFuzzing:
         ]
         res = generate_ass_content(
             lines=[{"text": "Chord test", "start_time": 1.0, "end_time": 10.0}],
-            theme_id="tape_70s",
+            theme_id=theme_id,
             include_chords=True,
             chords=fuzz_chords,  # type: ignore
             semitones=3,
@@ -269,10 +351,13 @@ class TestAssGeneratorFuzzing:
         assert "[Events]" in res
         # Ensure Chord style is present in V4+ Styles
         assert "Style: Chord" in res
+        # The four entries that name a chord are drawn, the rest left out
+        chords = [e for e in ass_events(res) if e.kind == "chord"]
+        assert len(chords) == 4
+        assert all(e.layer == 2 and e.plain and e.end > e.start for e in chords)
+        assert_times_are_well_formed(res)
 
-    @pytest.mark.parametrize(
-        "theme_id", [*list(VISUAL_THEMES.keys()), "nonexistent_theme", None, ""]
-    )
+    @pytest.mark.parametrize("theme_id", [*THEME_IDS, "nonexistent_theme", None, ""])
     @pytest.mark.parametrize("sync_mode", ["word", "line", "unknown_mode", None])
     @pytest.mark.parametrize("aspect_ratio", ["16:9", "9:16", "4:3", "unknown_ar"])
     def test_theme_and_mode_matrix_resilience(self, theme_id, sync_mode, aspect_ratio):
@@ -311,9 +396,33 @@ class TestAssGeneratorFuzzing:
         assert "[Script Info]" in res
         assert "[V4+ Styles]" in res
         assert "[Events]" in res
-        dialogues = [line_str for line_str in res.splitlines() if line_str.startswith("Dialogue:")]
-        # Countdown may add 1 dialogue line for gaps >= 4.0s
-        assert len(dialogues) >= 2
+        parsed = parse_ass(res)
+        events = ass_events(res)
+
+        # Both lines are sung, and the second is counted in after its gap of 5 s
+        rows = lyric_rows(res)
+        assert {row.line for row in rows} == {0, 1}
+        assert {e.role for e in events if e.kind == "countin"} == {"countin:1"}
+        assert {e.style for e in events} <= set(parsed["styles"])
+        assert_times_are_well_formed(res)
+
+        # Only 9:16 is the tall frame; anything else is 16:9
+        tall = aspect_ratio == "9:16"
+        assert (parsed["info"]["PlayResX"], parsed["info"]["PlayResY"]) == (
+            ("1080", "1920") if tall else ("1920", "1080")
+        )
+
+        # Only "line" fills a line all at once; anything else fills word by word
+        swept = sum(row.text.count("\\kf") for row in rows)
+        assert swept == (0 if sync_mode == "line" else 7)
+
+        # An id that names no look gives the default look
+        if theme_id not in THEME_IDS:
+            assert res == generate_ass_content(
+                lines=test_lines,
+                aspect_ratio=aspect_ratio,
+                sync_mode=sync_mode,  # type: ignore
+            )
 
 
 class TestHelperFunctionsFuzzing:

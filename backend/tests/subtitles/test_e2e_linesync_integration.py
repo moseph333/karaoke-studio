@@ -7,71 +7,32 @@ Validates the complete lifecycle across frontend contracts and backend APIs:
 4. ASS export download via GET /api/project/{id}/export/ass?sync_mode=line:
    - HTTP 200, Content-Type text/x-ssa; charset=utf-8.
    - Zero \\kf tags in line mode vs preserved \\kf tags in word mode.
-   - Duet multi-singer styles and custom color preservation.
+   - Duet parts' colours, the look's and custom ones.
 5. Video render job submission via POST /api/project/{id}/render:
    - Accepts sync_mode in RenderRequest body.
    - Sets project render_status to queued.
 6. Background worker processing:
    - Subtitle file generation with sync_mode='line'.
-   - Output validation on disk (zero \\kf tags on lyrics, preserved countdown and chords).
+   - Output validation on disk (zero \\kf tags on lyrics, preserved count-in and chords).
 7. Error boundaries and invalid parameter handling (400 for bad export params, 422 for bad schema).
 8. Non-destructive integrity: all word timestamps and project structures remain completely unmodified.
 """
 
 from pathlib import Path
-from typing import Any
 from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.config import OUTPUT_DIR
 from backend.main import app, projects
 from backend.render_worker import run_video_render
 from backend.schemas import RenderRequest
+from backend.tests.helpers.ass_script import AssEvent, ass_events, parse_ass
 
 
-def parse_ass(ass_text: str) -> dict[str, Any]:
-    """Helper to parse ASS script into header sections, styles, and events."""
-    lines = ass_text.splitlines()
-    script_info: dict[str, str] = {}
-    styles: dict[str, dict[str, str]] = {}
-    events: list[dict[str, str]] = []
-
-    current_section = None
-    style_format: list[str] = []
-    event_format: list[str] = []
-
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith(";"):
-            continue
-        if stripped.startswith("[") and stripped.endswith("]"):
-            current_section = stripped[1:-1]
-            continue
-
-        if current_section == "Script Info":
-            if ":" in stripped:
-                k, v = stripped.split(":", 1)
-                script_info[k.strip()] = v.strip()
-        elif current_section == "V4+ Styles":
-            if stripped.startswith("Format:"):
-                style_format = [f.strip() for f in stripped[len("Format:") :].split(",")]
-            elif stripped.startswith("Style:"):
-                vals = [v.strip() for v in stripped[len("Style:") :].split(",")]
-                style_name = vals[0]
-                styles[style_name] = dict(zip(style_format, vals, strict=False))
-        elif current_section == "Events":
-            if stripped.startswith("Format:"):
-                event_format = [f.strip() for f in stripped[len("Format:") :].split(",")]
-            elif stripped.startswith("Dialogue:"):
-                vals = stripped[len("Dialogue:") :].split(",", len(event_format) - 1)
-                event_dict = dict(
-                    zip(event_format, [v.strip() for v in vals[:-1]] + [vals[-1]], strict=False)
-                )
-                events.append(event_dict)
-
-    return {"info": script_info, "styles": styles, "events": events}
+def lyric_rows(ass_text: str) -> list[AssEvent]:
+    """The events that draw a line being sung: one per row of each line, in file order."""
+    return [e for e in ass_events(ass_text) if e.kind == "lyric"]
 
 
 # ============================================================================
@@ -199,39 +160,41 @@ def test_e2e_full_lifecycle_word_to_line_export_and_render(
     assert "text/x-ssa" in resp_default.headers["content-type"]
     ass_word_content = resp_default.text
 
-    parsed_word = parse_ass(ass_word_content)
-    word_lyric_events = [e for e in parsed_word["events"] if e.get("Layer") == "0"]
-    assert len(word_lyric_events) == 3
+    word_lyric_events = lyric_rows(ass_word_content)
+    assert {event.line for event in word_lyric_events} == {0, 1, 2}
 
     # In word mode, every lyric line must have \kf progressive sweep tags
     for event in word_lyric_events:
-        assert "\\kf" in event["Text"], f"Expected \\kf in word mode: {event['Text']}"
+        assert "\\kf" in event.text, f"Expected \\kf in word mode: {event.text}"
 
     # -------------------------------------------------------------------------
-    # Step 2: Line sync mode ASS export
+    # Step 2: Line sync mode ASS export (in the KTV look, which writes the words as they are
+    # in the lyrics)
     # -------------------------------------------------------------------------
-    resp_line = client.get(f"/api/project/{pid}/export/ass?sync_mode=line", headers=auth_headers)
+    resp_line = client.get(
+        f"/api/project/{pid}/export/ass?sync_mode=line&theme_id=ktv", headers=auth_headers
+    )
     assert resp_line.status_code == 200
     assert "text/x-ssa" in resp_line.headers["content-type"]
     ass_line_content = resp_line.text
 
-    parsed_line = parse_ass(ass_line_content)
-    line_lyric_events = [e for e in parsed_line["events"] if e.get("Layer") == "0"]
-    assert len(line_lyric_events) == 3
+    line_lyric_events = lyric_rows(ass_line_content)
+    assert [event.line for event in line_lyric_events] == [0, 1, 2]
 
-    # In line mode, Layer 0 lyric events must contain ZERO \kf tags
-    for event in line_lyric_events:
-        assert "\\kf" not in event["Text"], (
-            f"Layer 0 lyric event contains \\kf in line mode: {event['Text']}"
-        )
-        assert "\\k" in event["Text"] or not event["Text"].startswith("{\\k"), (
-            "Line mode must use {\\k...}{\\k0} lead-in or direct plain text"
-        )
+    # In line mode, lyric events must contain ZERO \kf tags: each line waits unsung
+    # ({\k<lead-in>}{\k0}), then changes colour at once when it starts
+    for event, line in zip(line_lyric_events, e2e_project["lines"], strict=True):
+        assert "\\kf" not in event.text, f"Lyric event contains \\kf in line mode: {event.text}"
+        lead_in = round((line["start_time"] - event.start) * 100)
+        assert lead_in > 0
+        assert event.text.endswith(f"}}{{\\k{lead_in}}}{{\\k0}}{line['text']}")
 
     # Verify song lyrics are completely preserved in line mode
-    assert "First verse line for singer one" in ass_line_content
-    assert "Second chorus line for singer two" in ass_line_content
-    assert "Both singers harmonizing together" in ass_line_content
+    assert [event.plain for event in line_lyric_events] == [
+        "First verse line for singer one",
+        "Second chorus line for singer two",
+        "Both singers harmonizing together",
+    ]
 
     # -------------------------------------------------------------------------
     # Step 3: Video render job submission with sync_mode='line'
@@ -280,25 +243,28 @@ def test_e2e_full_lifecycle_word_to_line_export_and_render(
     assert output_ass.is_file(), f"Expected ASS file at {output_ass}"
     disk_ass_content = output_ass.read_text(encoding="utf-8")
 
-    parsed_disk = parse_ass(disk_ass_content)
-    disk_lyric_events = [e for e in parsed_disk["events"] if e.get("Layer") == "0"]
-    assert len(disk_lyric_events) == 3
+    disk_events = ass_events(disk_ass_content)
+    disk_lyric_events = [e for e in disk_events if e.kind == "lyric"]
+    assert {e.line for e in disk_lyric_events} == {0, 1, 2}
 
-    # Verify zero \kf tags in Layer 0 lines
+    # Verify zero \kf tags in the lyric lines, and the request's duet colours on them
     for event in disk_lyric_events:
-        assert "\\kf" not in event["Text"]
+        assert event.layer == 0
+        assert "\\kf" not in event.text
+        if event.line == 1:
+            assert "\\1c&HB469FF&" in event.tags  # #FF69B4 in BGR
+        if event.line == 2:
+            assert "\\1c&HFFFF00&" in event.tags  # #00FFFF in BGR
 
-    # Verify countdown dots (Layer 1) are preserved in gap before line 2
-    countdown_events = [e for e in parsed_disk["events"] if e.get("Layer") == "1"]
-    assert len(countdown_events) >= 1
-    assert any("●" in e["Text"] for e in countdown_events)
+    # Verify the count-in (Layer 1) is preserved in the gap before line 2: its last 3 s
+    countdown_events = [e for e in disk_events if e.kind == "countin"]
+    assert {(e.layer, e.line) for e in countdown_events} == {(1, 1)}
+    assert min(e.start for e in countdown_events) == 7.0
+    assert max(e.end for e in countdown_events) == 10.0
 
     # Verify chords (Layer 2) are preserved
-    chord_events = [e for e in parsed_disk["events"] if e.get("Layer") == "2"]
-    assert len(chord_events) == 3
-    assert any("C" in e["Text"] for e in chord_events)
-    assert any("G" in e["Text"] for e in chord_events)
-    assert any("F" in e["Text"] for e in chord_events)
+    chord_events = [e for e in disk_events if e.kind == "chord"]
+    assert [(e.layer, e.plain) for e in chord_events] == [(2, "C"), (2, "G"), (2, "F")]
 
     # -------------------------------------------------------------------------
     # Step 5: Parity & immutability check
@@ -352,10 +318,13 @@ def test_e2e_full_lifecycle_nested_style_config_sync_mode(
 
     assert output_ass.is_file()
     disk_ass_content = output_ass.read_text(encoding="utf-8")
-    parsed_disk = parse_ass(disk_ass_content)
-    disk_lyric_events = [e for e in parsed_disk["events"] if e.get("Layer") == "0"]
+    disk_lyric_events = lyric_rows(disk_ass_content)
+    assert {event.line for event in disk_lyric_events} == {0, 1, 2}
     for event in disk_lyric_events:
-        assert "\\kf" not in event["Text"]
+        assert "\\kf" not in event.text
+        # The sung colour of the nested style_config applies to Singer 1's line
+        if event.line == 0:
+            assert "\\1c&H00AAFF&" in event.tags  # #FFAA00 in BGR
 
 
 def test_e2e_full_lifecycle_vertical_9_16_line_mode(client, auth_headers, e2e_project, tmp_path):
@@ -372,9 +341,10 @@ def test_e2e_full_lifecycle_vertical_9_16_line_mode(client, auth_headers, e2e_pr
     assert parsed["info"].get("PlayResX") == "1080"
     assert parsed["info"].get("PlayResY") == "1920"
 
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
+    lyric_events = lyric_rows(resp.text)
+    assert {event.line for event in lyric_events} == {0, 1, 2}
     for event in lyric_events:
-        assert "\\kf" not in event["Text"]
+        assert "\\kf" not in event.text
 
     # Render with 9:16 vertical in line mode
     render_payload = {
@@ -398,10 +368,10 @@ def test_e2e_full_lifecycle_vertical_9_16_line_mode(client, auth_headers, e2e_pr
     disk_ass_content = output_ass.read_text(encoding="utf-8")
     assert "PlayResX: 1080" in disk_ass_content
     assert "PlayResY: 1920" in disk_ass_content
-    parsed_disk = parse_ass(disk_ass_content)
-    disk_lyric_events = [e for e in parsed_disk["events"] if e.get("Layer") == "0"]
+    disk_lyric_events = lyric_rows(disk_ass_content)
+    assert {event.line for event in disk_lyric_events} == {0, 1, 2}
     for event in disk_lyric_events:
-        assert "\\kf" not in event["Text"]
+        assert "\\kf" not in event.text
 
 
 def test_e2e_flow_error_handling_and_recovery(client, auth_headers, e2e_project):

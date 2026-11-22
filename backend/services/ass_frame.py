@@ -134,7 +134,8 @@ def cue_events(style: LookStyle, timeline: Any) -> list[str]:
     events: list[str] = []
     cue = style.spec["cue"]
     for start, end, vocals_at in timeline.breaks:
-        first = math.ceil(vocals_at - start - 1e-6)
+        # The seconds are counted for the last ten minutes of a break, however long it is
+        first = min(math.ceil(vocals_at - start - 1e-6), int(TIMING["break_max"]))
         for seconds in range(first, 0, -1):
             shown_from = max(start, vocals_at - seconds)
             shown_to = min(end, vocals_at - seconds + 1)

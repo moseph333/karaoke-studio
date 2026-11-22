@@ -430,21 +430,5 @@ def _body_limit_mb(raw: str | None) -> float:
 MAX_JSON_BODY_MB = _body_limit_mb(os.getenv("MAX_JSON_BODY_MB"))
 
 
-# Default Video Configuration
-DEFAULT_VIDEO_CONFIG = {
-    "width": 1920,
-    "height": 1080,
-    "fps": 60,
-    "font_name": "Montserrat",
-    "font_size": 52,
-    "primary_color": "&H0000FFFF",  # Vibrant yellow fill when sung
-    "secondary_color": "&H00FFFFFF",  # Crisp white unsung
-    "outline_color": "&H00000000",  # Pure black outline
-    "shadow_color": "&H80000000",  # Soft shadow
-    "outline_width": 3,
-    "shadow_width": 2,
-    "lead_in_countdown_dots": 3,
-}
-
 # YouTube API configuration
 YOUTUBE_CLIENT_SECRETS_FILE = BASE_DIR / "client_secret.json"

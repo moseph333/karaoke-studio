@@ -6,17 +6,25 @@ import re
 import pytest
 
 from backend.services.ass_generator import generate_ass_content
+from backend.tests.helpers.ass_script import ass_events
 
 TAG = re.compile(r"\{\\(kf|k)(\d+)\}([^{]*)")
 
 
+def _rows(lines, **kwargs) -> tuple[int, list[str]]:
+    """The first line in the two-row look, which writes the words as given: when its events
+    start (cs) and each row's text after the block that places and colours it. A long line
+    is several rows, every one an event with the same start."""
+    ass = generate_ass_content(lines, theme_id="ktv", include_countdown=False, **kwargs)
+    events = [e for e in ass_events(ass) if e.role == "lyric:0"]
+    assert len({e.start for e in events}) == 1
+    return round(events[0].start * 100), [e.text.removeprefix(f"{{{e.tags}}}") for e in events]
+
+
 def _dialogue(lines, **kwargs) -> tuple[int, str]:
-    ass = generate_ass_content(lines, include_countdown=False, **kwargs)
-    event = next(line for line in ass.splitlines() if line.startswith("Dialogue: 0,"))
-    fields = event.split(",", 9)
-    h, m, s = fields[1].split(":")
-    start_cs = round((int(h) * 3600 + int(m) * 60 + float(s)) * 100)
-    return start_cs, fields[9]
+    """The same for a line that fits one row."""
+    start_cs, (text,) = _rows(lines, **kwargs)
+    return start_cs, text
 
 
 def _sweeps(start_cs: int, text: str) -> list[tuple[str, int, int]]:
@@ -50,8 +58,9 @@ def test_pauses_between_words_do_not_pull_the_highlight_ahead():
 
 def test_long_lines_do_not_drift_from_rounding():
     words = [(f"w{i}", round(20 + i * 0.333, 3), round(20 + (i + 1) * 0.333, 3)) for i in range(40)]
-    base, text = _dialogue([_line(words)])
-    for (word, start, end), (_, w_start, w_end) in zip(_sweeps(base, text), words, strict=True):
+    base, rows = _rows([_line(words)])
+    sweeps = [sweep for text in rows for sweep in _sweeps(base, text)]
+    for (word, start, end), (_, w_start, w_end) in zip(sweeps, words, strict=True):
         assert start == round(w_start * 100), word
         assert end == round(w_end * 100), word
 
@@ -73,10 +82,11 @@ def test_overlapping_or_inverted_words_stay_monotonic_and_visible():
     assert "\\k-" not in text
 
 
-def test_lines_without_words_sweep_their_whole_span():
+def test_lines_without_words_change_colour_whole_when_they_start():
     line = {"id": 0, "text": "Whole line", "start_time": 1.0, "end_time": 3.0, "words": []}
     base, text = _dialogue([line])
-    assert _sweeps(base, text) == [("Whole line", 100, 300)]
+    assert base == 0
+    assert text == "{\\k100}{\\k0}Whole line"
 
 
 @pytest.mark.parametrize("sync_mode", ["line"])

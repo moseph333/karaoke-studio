@@ -23,6 +23,7 @@ import backend.main as main_mod
 from backend import config
 from backend.services.audio_mixer import AudioMixer
 from backend.services.video_renderer import VideoRenderer
+from backend.tests.helpers.ass_script import ass_events
 from backend.tests.helpers.media import generate_sine_wave_wav, generate_test_image
 
 
@@ -378,12 +379,15 @@ def test_scenario_6_international_multilingual_production(client, sample_image):
     # Step 4: Verify ASS subtitle file preserves UTF-8 characters
     ass_path = main_mod.OUTPUT_DIR / f"{pid}.ass"
     if ass_path.exists():
-        # Each character carries its own karaoke tag: read the text without the tags
-        content = re.sub(r"\{[^}]*\}", "", ass_path.read_text(encoding="utf-8"))
-        assert "それぞれの場所へ" in content
-        assert "桜の花びらが" in content
-        assert "友達だ" in content
-        assert "🌸" in content
+        # Each character carries its own karaoke tag, and a long line is one event per row
+        # it is drawn in: read each line's rows together, without the tags
+        rows = ass_events(ass_path.read_text(encoding="utf-8"))
+        sung = [
+            "".join(row.plain for row in rows if row.role == f"lyric:{index}") for index in range(3)
+        ]
+        assert sung[0].replace(" ", "") == "それぞれの場所へ旅立っても🌸"
+        assert sung[1].replace(" ", "") == "友達だいつまでもずっと🎶"
+        assert sung[2].replace(" ", "") == "桜の花びらが舞い散る季節に✨"
 
     # Step 5: Export YouTube kit and verify UTF-8 title and description
     yt_kit = client.get(f"/api/project/{pid}/youtube-package").json()

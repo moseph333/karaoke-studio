@@ -686,12 +686,12 @@ def test_video_render_generates_ass_karaoke_subtitles(tmp_path):
             ],
         }
     ]
-    renderer.generate_ass_subtitles(lines, ass_path)
+    # KTV draws the words as written (the default look draws capitals)
+    renderer.generate_ass_subtitles(lines, ass_path, theme_id="ktv")
     assert ass_path.exists()
     content = ass_path.read_text(encoding="utf-8")
     assert "[Script Info]" in content
-    assert "\\kf" in content
-    assert "Hello" in content
+    assert "{\\kf30}Hello {\\kf30}world {\\kf40}karaoke" in content
 
 
 def test_video_render_aspect_ratio_16_9(tmp_path):

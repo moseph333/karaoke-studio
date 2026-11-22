@@ -19,6 +19,8 @@ import soundfile as sf
 import backend.main as main_mod
 from backend import config
 from backend.main import projects, save_projects
+from backend.services.stage_looks import LEGACY_IDS, LOOKS
+from backend.tests.helpers.ass_script import ass_events
 
 # ==============================================================================
 # Helper Utilities & Fixtures
@@ -1797,8 +1799,11 @@ class TestExportAssSubtitles:
         assert "[Script Info]" in body
         assert "PlayResX: 1920" in body
         assert "PlayResY: 1080" in body
-        assert "Style: KaraokeLine1" in body
-        assert "\\kf" in body
+        assert "Title: My Artist - My Song" in body
+        # The song's one line, filled word by word; the download has no progress line
+        events = ass_events(body)
+        assert sum(row.text.count("\\kf") for row in events if row.role == "lyric:0") == 5
+        assert not [event for event in events if event.kind == "progress"]
 
     def test_export_ass_success_200_9_16(self, client, test_project_factory):
         """Export ASS subtitle in 9:16 vertical shorts returns 200 with mobile dimensions."""
@@ -1810,27 +1815,37 @@ class TestExportAssSubtitles:
         body = res.text
         assert "PlayResX: 1080" in body
         assert "PlayResY: 1920" in body
-        assert ",60,60,640,1" in body
+        # The line is placed inside the portrait frame
+        rows = [event for event in ass_events(body) if event.kind == "lyric"]
+        assert rows
+        for row in rows:
+            x, y = (row.numbers("move") or row.numbers("pos"))[:2]
+            assert 0 <= x <= 1080
+            assert 0 <= y <= 1920
 
-    @pytest.mark.parametrize(
-        "theme_id,expected_bgr",
-        [
-            ("modern_gold", "&H0000D7FF"),
-            ("cyber_cyan", "&H00FFFF00"),
-            ("neon_pink", "&H00B300FF"),
-            ("classic_ktv", "&H0000FFFF"),
-        ],
-    )
-    def test_export_ass_with_visual_theme(
-        self, client, test_project_factory, theme_id, expected_bgr
-    ):
-        """Theme parameter correctly sets primary karaoke fill color."""
+    @pytest.mark.parametrize("theme_id", [*LOOKS, *LEGACY_IDS])
+    def test_export_ass_with_visual_theme(self, client, test_project_factory, theme_id):
+        """Each look's id is accepted, and so is the id of each preset the looks replaced:
+        the file is drawn in that look, and the theme sets the karaoke fill color."""
         proj = test_project_factory()
         pid = proj["id"]
+        look = LOOKS[theme_id if theme_id in LOOKS else LEGACY_IDS[theme_id]["look"]]
+        # A preset that was only a colour keeps it; any other id fills in its look's colour
+        css = {"cyber_cyan": "#00ffff", "neon_pink": "#ff00b3"}.get(
+            theme_id, look["palette"]["sung"]
+        )
+        expected_bgr = f"&H{css[5:7]}{css[3:5]}{css[1:3]}&".upper()
 
         res = client.get(f"/api/project/{pid}/export/ass?theme_id={theme_id}")
         assert res.status_code == 200
-        assert expected_bgr in res.text
+        rows = [event for event in ass_events(res.text) if event.kind == "lyric"]
+        assert rows and all(f"\\1c{expected_bgr}" in row.tags for row in rows)
+        # The typefaces and the events are the look's
+        as_look = client.get(f"/api/project/{pid}/export/ass?theme_id={look['id']}").text
+        assert res.text.split("[Events]")[0] == as_look.split("[Events]")[0]
+        assert [event.role for event in ass_events(res.text)] == [
+            event.role for event in ass_events(as_look)
+        ]
 
     def test_export_ass_with_direct_color_override(self, client, test_project_factory):
         """Custom primary_color and secondary_color query parameters override theme colors."""
@@ -1841,8 +1856,8 @@ class TestExportAssSubtitles:
             f"/api/project/{pid}/export/ass?primary_color=%26H00112233&secondary_color=%26H00445566"
         )
         assert res.status_code == 200
-        assert "&H00112233" in res.text
-        assert "&H00445566" in res.text
+        rows = [event for event in ass_events(res.text) if event.kind == "lyric"]
+        assert rows and all("\\1c&H112233&\\2c&H445566&" in row.tags for row in rows)
 
     def test_export_ass_without_video_render(self, client, test_project_factory):
         """Ready project with render_status='idle' exports ASS immediately without requiring render."""
@@ -1871,7 +1886,10 @@ class TestExportAssSubtitles:
 
         res = client.get(f"/api/project/{pid}/export/ass?theme_id=hologram_matrix")
         assert res.status_code == 400
-        assert "invalid theme_id" in res.json()["detail"].lower()
+        detail = res.json()["detail"]
+        assert "invalid theme_id" in detail.lower()
+        # The error names the looks there are
+        assert all(look_id in detail for look_id in LOOKS)
 
     def test_export_ass_project_not_found_404(self, client):
         """Exporting ASS for nonexistent project ID returns 404."""
@@ -2003,7 +2021,9 @@ class TestExportAssSubtitles:
                 {"id": 1, "text": "Negative timestamps", "start_time": -10.0, "end_time": -5.0},
             ],
         )
-        res = client.get(f"/api/project/{proj['id']}/export/ass")
+        # KTV draws the lines as written (the default look draws capitals)
+        res = client.get(f"/api/project/{proj['id']}/export/ass?theme_id=ktv")
         assert res.status_code == 200
         assert "Corrupted timestamps" in res.text
         assert "Negative timestamps" in res.text
+        assert client.get(f"/api/project/{proj['id']}/export/ass").status_code == 200

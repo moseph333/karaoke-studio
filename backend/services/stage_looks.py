@@ -26,6 +26,8 @@ def _spec() -> dict[str, Any]:
 LOOKS: dict[str, dict[str, Any]] = {look["id"]: look for look in _spec()["looks"]}
 DEFAULT_LOOK_ID: str = _spec()["default_look"]
 LEGACY_IDS: dict[str, dict[str, Any]] = _spec()["legacy_ids"]
+# The duet colours the stage sent for a replaced preset that had none of its own
+LEGACY_DUET_COLORS: dict[str, str] = _spec()["legacy_duet_colors"]
 TIMING: dict[str, float] = _spec()["timing"]
 DEFAULT_PART_NAMES: dict[str, str] = _spec()["default_part_names"]
 

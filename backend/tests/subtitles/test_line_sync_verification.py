@@ -2,8 +2,8 @@
 
 Tests:
 1. Vertical video 9:16 layout in line-by-line sync mode:
-   - Geometry, resolution (1080x1920), typography, and margins.
-   - Theme presets, multi-singer duet styles, chords, and gap countdowns.
+   - Resolution (1080x1920), with the lines inside the frame.
+   - Replaced preset ids, the duet parts' colours, chords, and count-ins.
    - Real libass burning into 1080x1920 MP4 via FFmpeg.
 2. Client style_config nesting fallback:
    - style_config.sync_mode precedence and fallback logic.
@@ -16,12 +16,13 @@ Tests:
 4. Real-world application scenarios (Tiers 3-4):
    - Cross-feature pairwise interactions in 9:16 line mode.
    - Data immutability and non-destructive project state preservation.
+
+The lyric events are found by the role in their Name field (lyric:<line index>, one event per
+row of a line), the count-in by countin:<line index> and the chords by chord.
 """
 
-import os
 import subprocess
 from pathlib import Path
-from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -30,55 +31,20 @@ from fastapi.testclient import TestClient
 from backend.main import app, projects
 from backend.render_worker import run_video_render
 from backend.schemas import RenderRequest
-from backend.services.ass_generator import (
-    VISUAL_THEMES,
-    generate_ass_content,
-    generate_ass_subtitles,
-)
+from backend.services.ass_generator import generate_ass_content
+from backend.services.stage_looks import LEGACY_IDS, LOOKS
 from backend.services.video_renderer import VideoRenderer
+from backend.tests.helpers.ass_script import AssEvent, ass_events, parse_ass
 
 
-def parse_ass_script(ass_text: str) -> dict[str, Any]:
-    """Helper to parse ASS script into header sections, styles, and events."""
-    lines = ass_text.splitlines()
-    script_info: dict[str, str] = {}
-    styles: dict[str, dict[str, str]] = {}
-    events: list[dict[str, str]] = []
+def lyric_rows(ass_text: str) -> list[AssEvent]:
+    """The events that draw a line being sung: one per row of each line, in file order."""
+    return [e for e in ass_events(ass_text) if e.kind == "lyric"]
 
-    current_section = None
-    style_format: list[str] = []
-    event_format: list[str] = []
 
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith(";"):
-            continue
-        if stripped.startswith("[") and stripped.endswith("]"):
-            current_section = stripped[1:-1]
-            continue
-
-        if current_section == "Script Info":
-            if ":" in stripped:
-                k, v = stripped.split(":", 1)
-                script_info[k.strip()] = v.strip()
-        elif current_section == "V4+ Styles":
-            if stripped.startswith("Format:"):
-                style_format = [f.strip() for f in stripped[len("Format:") :].split(",")]
-            elif stripped.startswith("Style:"):
-                vals = [v.strip() for v in stripped[len("Style:") :].split(",")]
-                style_name = vals[0]
-                styles[style_name] = dict(zip(style_format, vals, strict=False))
-        elif current_section == "Events":
-            if stripped.startswith("Format:"):
-                event_format = [f.strip() for f in stripped[len("Format:") :].split(",")]
-            elif stripped.startswith("Dialogue:"):
-                vals = stripped[len("Dialogue:") :].split(",", len(event_format) - 1)
-                event_dict = dict(
-                    zip(event_format, [v.strip() for v in vals[:-1]] + [vals[-1]], strict=False)
-                )
-                events.append(event_dict)
-
-    return {"info": script_info, "styles": styles, "events": events}
+def tag_color(css: str) -> str:
+    """A CSS colour (#rrggbb) as an override tag writes it (&HBBGGRR&)."""
+    return f"&H{css[5:7]}{css[3:5]}{css[1:3]}&".upper()
 
 
 @pytest.fixture
@@ -161,7 +127,7 @@ class TestVertical916LineMode:
 
     @pytest.mark.parametrize("theme_id", ["modern_gold", "cyber_cyan", "neon_pink", "classic_ktv"])
     def test_9_16_line_mode_geometry_and_themes(self, sample_duet_lines, theme_id):
-        """Verify 9:16 vertical script resolution, margin placement, and theme integration."""
+        """Verify 9:16 vertical script resolution, line placement, and theme integration."""
         ass_text = generate_ass_content(
             lines=sample_duet_lines,
             aspect_ratio="9:16",
@@ -169,34 +135,36 @@ class TestVertical916LineMode:
             sync_mode="line",
             include_countdown=True,
         )
-        parsed = parse_ass_script(ass_text)
+        parsed = parse_ass(ass_text)
 
         # 1. Canvas geometry
         assert parsed["info"].get("PlayResX") == "1080"
         assert parsed["info"].get("PlayResY") == "1920"
 
-        # 2. Typography and vertical margins
-        styles = parsed["styles"]
-        line1 = styles["KaraokeLine1"]
-        line2 = styles["KaraokeLine2"]
-        assert line1["Fontsize"] == "46"
-        assert line1["MarginV"] == "640"
-        assert line1["MarginL"] == "60"
-        assert line1["MarginR"] == "60"
-        assert line2["MarginV"] == "500"
+        # 2. Every row of every line is placed inside the vertical frame
+        rows = lyric_rows(ass_text)
+        assert {row.line for row in rows} == {0, 1, 2}
+        for row in rows:
+            x, y = row.numbers("pos")
+            assert 0 <= x <= 1080
+            assert 0 <= y <= 1920
 
-        # 3. Primary color matches theme preset
-        expected_primary = VISUAL_THEMES[theme_id]["primary_color"]
-        assert line1["PrimaryColour"] == expected_primary
+        # 3. These four presets were replaced by a look: Singer 1's sung colour is the one the
+        # preset carries over (a preset that was only a colour), else the look's own
+        replaced = LEGACY_IDS[theme_id]
+        look = LOOKS[replaced["look"]]
+        expected_sung = replaced.get("carry_sung") or look["palette"]["sung"]
+        singer1_rows = [row for row in rows if row.line == 0]
+        for row in singer1_rows:
+            assert f"\\1c{tag_color(expected_sung)}" in row.tags
+            assert f"\\2c{tag_color(look['palette']['unsung'])}" in row.tags
 
-        # 4. Zero progressive \kf tags in Layer 0 lyric lines
-        lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-        assert len(lyric_events) == 3
-        for event in lyric_events:
-            assert "\\kf" not in event["Text"], f"Found \\kf in 9:16 line mode: {event['Text']}"
+        # 4. Zero progressive \kf tags in lyric lines
+        for row in rows:
+            assert "\\kf" not in row.text, f"Found \\kf in 9:16 line mode: {row.text}"
 
     def test_9_16_line_mode_with_chords_and_countdowns(self, sample_duet_lines, sample_chords):
-        """Verify 9:16 line mode integrates Layer 1 countdown and Layer 2 chords properly."""
+        """Verify 9:16 line mode integrates Layer 1 count-in and Layer 2 chords properly."""
         ass_text = generate_ass_content(
             lines=sample_duet_lines,
             aspect_ratio="9:16",
@@ -205,24 +173,23 @@ class TestVertical916LineMode:
             include_chords=True,
             include_countdown=True,
         )
-        parsed = parse_ass_script(ass_text)
+        events = ass_events(ass_text)
 
-        # Verify Countdown style margin for 9:16
-        countdown_style = parsed["styles"]["Countdown"]
-        assert countdown_style["MarginV"] == "780"
-        assert countdown_style["Fontsize"] == "56"  # 46 + 10
-
-        # Verify Layer 1 countdown events exist in the 5.0s gap
-        countdown_events = [e for e in parsed["events"] if e.get("Layer") == "1"]
-        assert len(countdown_events) == 1
-        assert "●" in countdown_events[0]["Text"]
+        # Verify the Layer 1 count-in fills the last 3 s of the 5.0s gap, before the second line
+        count_in = [e for e in events if e.kind == "countin"]
+        assert {e.line for e in count_in} == {1}
+        assert all(e.layer == 1 for e in count_in)
+        assert [e.plain for e in count_in] == ["3", "2", "1"]
+        assert (count_in[0].start, count_in[-1].end) == (6.5, 9.5)
+        for e in count_in:
+            x, y = e.numbers("pos")
+            assert 0 <= x <= 1080
+            assert 0 <= y <= 1920
 
         # Verify Layer 2 chord events exist with \an8 alignment
-        chord_events = [e for e in parsed["events"] if e.get("Layer") == "2"]
-        assert len(chord_events) == 3
-        assert any("Am" in e["Text"] for e in chord_events)
-        assert any("Dm" in e["Text"] for e in chord_events)
-        assert any("E7" in e["Text"] for e in chord_events)
+        chord_events = [e for e in events if e.kind == "chord"]
+        assert all(e.layer == 2 for e in chord_events)
+        assert [e.text for e in chord_events] == ["{\\an8}Am", "{\\an8}Dm", "{\\an8}E7"]
 
     def test_real_ffmpeg_burn_9_16_line_mode(self, tmp_path, sample_duet_lines):
         """Empirically burn 9:16 line-mode ASS into a 1080x1920 MP4 video using FFmpeg and libass."""
@@ -305,11 +272,11 @@ class TestStyleConfigNestingFallback:
             sync_mode="word",  # default
             style_config={"sync_mode": "line"},
         )
-        parsed = parse_ass_script(ass_text)
-        lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-        for event in lyric_events:
-            assert "\\kf" not in event["Text"], (
-                f"Expected line mode from nested style_config: {event['Text']}"
+        rows = lyric_rows(ass_text)
+        assert {row.line for row in rows} == {0, 1, 2}
+        for row in rows:
+            assert "\\kf" not in row.text, (
+                f"Expected line mode from nested style_config: {row.text}"
             )
 
     def test_top_level_line_takes_precedence_over_nested_word(self, sample_duet_lines):
@@ -319,12 +286,10 @@ class TestStyleConfigNestingFallback:
             sync_mode="line",
             style_config={"sync_mode": "word"},
         )
-        parsed = parse_ass_script(ass_text)
-        lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-        for event in lyric_events:
-            assert "\\kf" not in event["Text"], (
-                f"Expected line mode from top-level arg: {event['Text']}"
-            )
+        rows = lyric_rows(ass_text)
+        assert {row.line for row in rows} == {0, 1, 2}
+        for row in rows:
+            assert "\\kf" not in row.text, f"Expected line mode from top-level arg: {row.text}"
 
     @pytest.mark.parametrize("val", ["LINE", " Line ", "  lInE  "])
     def test_nested_style_config_case_and_whitespace_insensitivity(self, sample_duet_lines, val):
@@ -333,10 +298,10 @@ class TestStyleConfigNestingFallback:
             lines=sample_duet_lines,
             style_config={"sync_mode": val},
         )
-        parsed = parse_ass_script(ass_text)
-        lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-        for event in lyric_events:
-            assert "\\kf" not in event["Text"]
+        rows = lyric_rows(ass_text)
+        assert {row.line for row in rows} == {0, 1, 2}
+        for row in rows:
+            assert "\\kf" not in row.text
 
     @pytest.mark.parametrize("bad_val", ["unknown_mode", "bogus", "123", "", None])
     def test_nested_style_config_invalid_fallback_safety(self, sample_duet_lines, bad_val):
@@ -345,10 +310,10 @@ class TestStyleConfigNestingFallback:
             lines=sample_duet_lines,
             style_config={"sync_mode": bad_val},
         )
-        parsed = parse_ass_script(ass_text)
-        lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-        for event in lyric_events:
-            assert "\\kf" in event["Text"], f"Expected fallback to word mode for {bad_val}"
+        rows = lyric_rows(ass_text)
+        assert {row.line for row in rows} == {0, 1, 2}
+        for row in rows:
+            assert "\\kf" in row.text, f"Expected fallback to word mode for {bad_val}"
 
     def test_worker_resolution_with_nested_style_config(self, tmp_path, sample_duet_lines):
         """Verify render_worker extracts style_config.sync_mode when req.sync_mode is word."""
@@ -383,10 +348,10 @@ class TestStyleConfigNestingFallback:
                 run_video_render(pid, req)
 
             assert output_ass.is_file()
-            parsed = parse_ass_script(output_ass.read_text(encoding="utf-8"))
-            lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-            for event in lyric_events:
-                assert "\\kf" not in event["Text"]
+            rows = lyric_rows(output_ass.read_text(encoding="utf-8"))
+            assert {row.line for row in rows} == {0, 1, 2}
+            for row in rows:
+                assert "\\kf" not in row.text
         finally:
             projects.pop(pid, None)
 
@@ -584,23 +549,26 @@ class TestRealWorldPairwiseScenarios:
             assert "text/x-ssa" in export_resp.headers["content-type"]
             ass_body = export_resp.text
 
-            parsed_ass = parse_ass_script(ass_body)
+            parsed_ass = parse_ass(ass_body)
             assert parsed_ass["info"]["PlayResX"] == "1080"
             assert parsed_ass["info"]["PlayResY"] == "1920"
+            exported = ass_events(ass_body)
 
-            # Verify lyric events on Layer 0 have NO \kf tags
-            lyric_events = [e for e in parsed_ass["events"] if e.get("Layer") == "0"]
-            assert len(lyric_events) == 3
+            # Verify lyric events of all three lines have NO \kf tags
+            lyric_events = [e for e in exported if e.kind == "lyric"]
+            assert {e.line for e in lyric_events} == {0, 1, 2}
             for event in lyric_events:
-                assert "\\kf" not in event["Text"]
+                assert event.layer == 0
+                assert "\\kf" not in event.text
 
-            # Verify Countdown on Layer 1
-            countdown_events = [e for e in parsed_ass["events"] if e.get("Layer") == "1"]
-            assert len(countdown_events) == 1
+            # Verify the count-in on Layer 1, before the second line only
+            countdown_events = [e for e in exported if e.kind == "countin"]
+            assert countdown_events
+            assert {(e.layer, e.line) for e in countdown_events} == {(1, 1)}
 
             # Verify Chords on Layer 2
-            chord_events = [e for e in parsed_ass["events"] if e.get("Layer") == "2"]
-            assert len(chord_events) == 3
+            chord_events = [e for e in exported if e.kind == "chord"]
+            assert [(e.layer, e.plain) for e in chord_events] == [(2, "Am"), (2, "Dm"), (2, "E7")]
 
             # 2. Submit render job with nested style_config
             render_payload = {
@@ -637,14 +605,20 @@ class TestRealWorldPairwiseScenarios:
                 run_video_render(pid, req)
 
             assert output_ass.is_file()
-            disk_parsed = parse_ass_script(output_ass.read_text(encoding="utf-8"))
+            disk_ass = output_ass.read_text(encoding="utf-8")
+            disk_parsed = parse_ass(disk_ass)
             assert disk_parsed["info"]["PlayResX"] == "1080"
             assert disk_parsed["info"]["PlayResY"] == "1920"
 
-            # Check custom colors in V4+ Styles
-            styles = disk_parsed["styles"]
-            assert styles["KaraokeLine1_Singer2"]["PrimaryColour"] == "&H007F00FF"  # #FF007F in BGR
-            assert styles["KaraokeLine1_Both"]["PrimaryColour"] == "&H00CCFF00"  # #00FFCC in BGR
+            # Check custom colors on the lines of Singer 2 and of both
+            disk_rows = lyric_rows(disk_ass)
+            assert {row.line for row in disk_rows} == {0, 1, 2}
+            for row in disk_rows:
+                assert "\\kf" not in row.text
+                if row.line == 1:
+                    assert "\\1c&H7F00FF&" in row.tags  # #FF007F in BGR
+                if row.line == 2:
+                    assert "\\1c&HCCFF00&" in row.tags  # #00FFCC in BGR
 
             # 4. Verify immutability of stored project data
             stored_lines = projects[pid]["lines"]

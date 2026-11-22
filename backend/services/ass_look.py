@@ -61,12 +61,14 @@ def generate_look_ass(
     *,
     title: str = "",
     artist: str = "",
+    doc_title: str | None = None,
     duration: float | None = None,
     chords: list[dict[str, Any]] | None = None,
     semitones: int = 0,
     key: str | None = None,
 ) -> str:
-    """The subtitle file of ``lines`` in a look. ``title`` and ``artist`` go on the cards;
+    """The subtitle file of ``lines`` in a look. ``title`` and ``artist`` go on the cards
+    (``doc_title`` is the file's own title, "Artist - Title" when not given);
     ``duration`` is the song's length (the end card and the progress line need it);
     ``chords`` are drawn when given. With ``style.furniture`` off (the plain download) the
     progress line is left out."""
@@ -75,7 +77,8 @@ def generate_look_ass(
     timeline = plan_timeline(valid, duration, cues=style.cues)
     prepared = prepare_lines(style, valid, timeline)
     heading = " - ".join(part for part in (artist.strip(), title.strip()) if part)
-    doc_title = " ".join((heading or "Karaoke Studio").split())
+    # A line break in a title would start a section of its own in the file
+    doc_title = " ".join((doc_title or heading or "Karaoke Studio").split()) or "Karaoke Studio"
     families = sorted({font_metrics.face(face)["ass_family"] for face in look_faces(style)})
 
     script = [

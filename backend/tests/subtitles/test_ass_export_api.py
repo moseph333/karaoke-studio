@@ -20,25 +20,26 @@ from backend.main import app, projects
 from backend.schemas import RenderRequest
 from backend.services.ass_generator import generate_ass_content, generate_ass_subtitles
 from backend.services.video_renderer import VideoRenderer
+from backend.tests.helpers.ass_script import AssEvent, ass_events, parse_ass
 
 
 def parse_ass_dialogues(ass_text: str) -> list[dict[str, str]]:
     """Parse dialogue lines into structured dictionaries."""
-    events = []
-    format_fields = []
-    for line in ass_text.splitlines():
-        line = line.strip()
-        if line.startswith("Format:") and "Layer" in line and "Start" in line:
-            format_fields = [f.strip() for f in line[len("Format:") :].split(",")]
-        elif line.startswith("Dialogue:"):
-            raw_vals = line[len("Dialogue:") :].split(",", len(format_fields) - 1)
-            ev = dict(
-                zip(
-                    format_fields, [v.strip() for v in raw_vals[:-1]] + [raw_vals[-1]], strict=False
-                )
-            )
-            events.append(ev)
-    return events
+    return parse_ass(ass_text)["events"]
+
+
+def lyric_rows(ass_text: str) -> list[AssEvent]:
+    """The events of the lines being sung: one per row of a line, its role ``lyric:<line>``."""
+    return [e for e in ass_events(ass_text) if e.kind == "lyric"]
+
+
+def row_text(row: AssEvent) -> str:
+    """A row's text after the block that places and colours it: the sweep tags and words."""
+    return row.text.removeprefix(f"{{{row.tags}}}")
+
+
+# The two-row look writes a line as it is written (the default look writes it in capitals)
+AS_WRITTEN = "ktv"
 
 
 SAMPLE_LINES = [
@@ -135,11 +136,13 @@ class TestExportAssEndpointAdversarial:
         )
         assert resp.status_code == 200, f"Failed for sync_mode={sync_mode_val}: {resp.text}"
         assert "text/x-ssa" in resp.headers["content-type"]
-        dialogues = parse_ass_dialogues(resp.text)
-        lyric_dialogues = [d for d in dialogues if d.get("Layer") == "0"]
-        assert len(lyric_dialogues) == 3
-        for d in lyric_dialogues:
-            assert "\\kf" not in d["Text"], f"Illegal \\kf found in line mode: {d['Text']}"
+        assert {row.line for row in lyric_rows(resp.text)} == {0, 1, 2}
+        for event in ass_events(resp.text):
+            assert "\\kf" not in event.text, f"Illegal \\kf found in line mode: {event.text}"
+        # Each line changes colour whole, when it starts
+        for row in lyric_rows(resp.text):
+            lead = round((SAMPLE_LINES[row.line]["start_time"] - row.start) * 100)
+            assert row_text(row).startswith(f"{{\\k{lead}}}{{\\k0}}")
 
     @pytest.mark.parametrize(
         "sync_mode_val",
@@ -153,11 +156,11 @@ class TestExportAssEndpointAdversarial:
             headers=auth_header,
         )
         assert resp.status_code == 200
-        dialogues = parse_ass_dialogues(resp.text)
-        lyric_dialogues = [d for d in dialogues if d.get("Layer") == "0"]
-        assert len(lyric_dialogues) == 3
-        for d in lyric_dialogues:
-            assert "\\kf" in d["Text"], f"Missing \\kf in word mode: {d['Text']}"
+        assert {row.line for row in lyric_rows(resp.text)} == {0, 1, 2}
+        for row in lyric_rows(resp.text):
+            assert "\\kf" in row.text, f"Missing \\kf in word mode: {row.text}"
+        swept = sum(row.text.count("\\kf") for row in lyric_rows(resp.text))
+        assert swept == sum(len(line["words"]) for line in SAMPLE_LINES)
 
     def test_export_default_sync_mode_is_word(self, client, auth_header):
         """Omitting sync_mode query parameter must default to 'word' mode."""
@@ -166,9 +169,8 @@ class TestExportAssEndpointAdversarial:
             headers=auth_header,
         )
         assert resp.status_code == 200
-        dialogues = parse_ass_dialogues(resp.text)
-        lyric_dialogues = [d for d in dialogues if d.get("Layer") == "0"]
-        assert all("\\kf" in d["Text"] for d in lyric_dialogues)
+        assert {row.line for row in lyric_rows(resp.text)} == {0, 1, 2}
+        assert all("\\kf" in row.text for row in lyric_rows(resp.text))
 
     def test_export_empty_sync_mode_defaults_to_word(self, client, auth_header):
         """Empty sync_mode string (?sync_mode=) falls back to default 'word' mode."""
@@ -177,9 +179,8 @@ class TestExportAssEndpointAdversarial:
             headers=auth_header,
         )
         assert resp.status_code == 200
-        dialogues = parse_ass_dialogues(resp.text)
-        lyric_dialogues = [d for d in dialogues if d.get("Layer") == "0"]
-        assert all("\\kf" in d["Text"] for d in lyric_dialogues)
+        assert {row.line for row in lyric_rows(resp.text)} == {0, 1, 2}
+        assert all("\\kf" in row.text for row in lyric_rows(resp.text))
 
     @pytest.mark.parametrize(
         "invalid_mode",
@@ -243,10 +244,8 @@ class TestExportAssEndpointAdversarial:
         assert resp.status_code == 200
         assert "PlayResX: 1080" in resp.text
         assert "PlayResY: 1920" in resp.text
-        dialogues = parse_ass_dialogues(resp.text)
-        lyric_dialogues = [d for d in dialogues if d.get("Layer") == "0"]
-        for d in lyric_dialogues:
-            assert "\\kf" not in d["Text"]
+        assert {row.line for row in lyric_rows(resp.text)} == {0, 1, 2}
+        assert "\\kf" not in resp.text
 
 
 # ============================================================================
@@ -429,21 +428,23 @@ class TestAssGeneratorLineModeAdversarial:
         """Lead in cs should match exact centisecond difference between display_start and l_start."""
         line = {"id": 0, "start_time": 5.25, "end_time": 8.0, "text": "Lead in test"}
         # i=0 -> display_start = max(0, 5.25 - 2.5) = 2.75s -> lead_in = 2.50s = 250cs
-        ass = generate_ass_content([line], sync_mode="line", include_countdown=False)
-        dialogues = parse_ass_dialogues(ass)
-        assert len(dialogues) == 1
-        assert dialogues[0]["Start"] == "0:00:02.75"
-        assert dialogues[0]["Text"] == "{\\k250}{\\k0}Lead in test"
+        ass = generate_ass_content(
+            [line], theme_id=AS_WRITTEN, sync_mode="line", include_countdown=False
+        )
+        (row,) = lyric_rows(ass)
+        assert row.start == 2.75
+        assert row_text(row) == "{\\k250}{\\k0}Lead in test"
 
     def test_immediate_start_has_no_k_tags(self):
         """When display_start == l_start, no lead-in tag should be generated."""
         line = {"id": 0, "start_time": 0.0, "end_time": 3.0, "text": "Immediate start"}
-        ass = generate_ass_content([line], sync_mode="line", include_countdown=False)
-        dialogues = parse_ass_dialogues(ass)
-        assert len(dialogues) == 1
-        assert dialogues[0]["Start"] == "0:00:00.00"
-        assert dialogues[0]["Text"] == "Immediate start"
-        assert "{\\k" not in dialogues[0]["Text"]
+        ass = generate_ass_content(
+            [line], theme_id=AS_WRITTEN, sync_mode="line", include_countdown=False
+        )
+        (row,) = lyric_rows(ass)
+        assert row.start == 0.0
+        assert row_text(row) == "Immediate start"
+        assert "{\\k" not in row.text
 
     def test_line_mode_escaping_special_ass_characters(self):
         """Ensure braces and backslashes in line text are escaped so they don't corrupt ASS markup."""
@@ -453,12 +454,12 @@ class TestAssGeneratorLineModeAdversarial:
             "end_time": 2.0,
             "text": r"Rock & {Roll} \N C:\Music\rock.mp3",
         }
-        ass = generate_ass_content([line], sync_mode="line", include_countdown=False)
-        dialogues = parse_ass_dialogues(ass)
-        txt = dialogues[0]["Text"]
+        ass = generate_ass_content(
+            [line], theme_id=AS_WRITTEN, sync_mode="line", include_countdown=False
+        )
+        txt = " ".join(row_text(row) for row in lyric_rows(ass))
         # The backslash is parted from the N, so \N is drawn rather than breaking the line
-        assert "\\{Roll\\}" in txt
-        assert "\\\u2060N" in txt
+        assert txt == "Rock & \\{Roll\\} \\\u2060N C:\\\u2060Music\\\u2060rock.mp3"
         assert "\\N" not in txt
         assert "\\kf" not in txt
 
@@ -470,8 +471,10 @@ class TestAssGeneratorLineModeAdversarial:
             "end_time": 3.0,
             "text": "夜に駆ける 🎶 Привет мир!",
         }
-        ass = generate_ass_content([line], sync_mode="line", include_countdown=False)
-        assert "夜に駆ける 🎶 Привет мир!" in ass
+        ass = generate_ass_content(
+            [line], theme_id=AS_WRITTEN, sync_mode="line", include_countdown=False
+        )
+        assert " ".join(row.plain for row in lyric_rows(ass)) == "夜に駆ける 🎶 Привет мир!"
 
     def test_bug_investigation_line_text_none_with_words(self):
         """BUG INVESTIGATION: When line['text'] is None but line['words'] has valid words,
@@ -488,15 +491,13 @@ class TestAssGeneratorLineModeAdversarial:
                 {"word": "Free", "start_time": 2.0, "end_time": 3.0},
             ],
         }
-        ass = generate_ass_content([line], sync_mode="line", include_countdown=False)
-        dialogues = parse_ass_dialogues(ass)
-        txt = dialogues[0]["Text"]
-        # If buggy, txt contains "None" because str(line.get("text", "")) is "None"
-        # If correct, txt contains "Sing Free"
-        print(f"DEBUG text=None output: {txt!r}")
-        assert "None" not in txt, (
-            f"BUG FOUND: Subtitle output emitted literal string 'None' instead of words! Output: {txt}"
+        ass = generate_ass_content(
+            [line], theme_id=AS_WRITTEN, sync_mode="line", include_countdown=False
         )
+        (row,) = lyric_rows(ass)
+        # If buggy, the text is "None" because str(line.get("text", "")) is "None"
+        assert "None" not in ass, "Subtitle output emitted literal string 'None' instead of words"
+        assert row.plain == "Sing Free"
 
     def test_real_video_render_with_line_mode_ass(self, tmp_path):
         """End-to-end integration: VideoRenderer.render_video produces valid MP4 with line mode ASS."""

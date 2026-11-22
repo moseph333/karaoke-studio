@@ -1,22 +1,25 @@
-r"""Comprehensive unit and integration test suite for Milestone M2:
+r"""Unit and integration test suite for Milestone M2:
 Line-by-line lyric synchronization display and export mode in ASS subtitles and video render pipeline.
 
 Validates:
 1. ass_generator.py sync_mode support ('word' progressive \kf sweeps vs 'line' instant highlight).
-2. Lead-in unsung timing {\k...}{\k0} in line mode, and direct text when display_start == line_start.
-3. Zero \kf tags in line mode lyric dialogues.
-4. Duet multi-singer styles and custom colors preservation in line mode.
-5. Instrumental gap countdowns and Layer 2 chords preservation in line mode.
-6. Aspect ratios (16:9 and 9:16) and typography scaling in line mode.
+2. Lead-in unsung timing {\k...}{\k0} in line mode, and direct text when the line shows as it starts.
+3. Zero \kf tags in line mode lyric events.
+4. Duet parts' colours, the look's and custom ones, in line mode.
+5. Count-ins (layer 1) and chords (layer 2) preservation in line mode.
+6. Aspect ratios (16:9 and 9:16) in line mode.
 7. video_renderer.py method wrappers forwarding sync_mode.
 8. RenderRequest Pydantic schema validation for sync_mode.
 9. GET /api/project/{id}/export/ass HTTP endpoint with sync_mode query parameter (200 for 'word'/'line', 400 for invalid).
 10. render_worker.py subtitle generation with sync_mode='line'.
 11. Dual-mode parity comparison across identical project fixtures.
+
+The lyric events are found by the role in their Name field (lyric:<line index>, one event per
+row of a line). Tests about the text as written or the two alternating rows ask for the KTV
+look; the default look (Marquee) writes the line being sung in capitals.
 """
 
 from pathlib import Path
-from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -26,57 +29,33 @@ from pydantic import ValidationError
 from backend.main import app, projects
 from backend.schemas import RenderRequest
 from backend.services.ass_generator import (
+    BACKSLASH_GUARD,
     generate_ass_content,
     generate_ass_subtitles,
 )
+from backend.services.stage_looks import DEFAULT_LOOK_ID, LOOKS
 from backend.services.video_renderer import VideoRenderer
+from backend.tests.helpers.ass_script import AssEvent, ass_events, parse_ass
 
 # ============================================================================
 # Helpers & Fixtures
 # ============================================================================
 
 
-def parse_ass(ass_text: str) -> dict[str, Any]:
-    """Helper to parse ASS script into header sections, styles, and events."""
-    lines = ass_text.splitlines()
-    script_info: dict[str, str] = {}
-    styles: dict[str, dict[str, str]] = {}
-    events: list[dict[str, str]] = []
+def lyric_rows(ass_text: str) -> list[AssEvent]:
+    """The events that draw a line being sung: one per row of each line, in file order."""
+    return [e for e in ass_events(ass_text) if e.kind == "lyric"]
 
-    current_section = None
-    style_format: list[str] = []
-    event_format: list[str] = []
 
-    for line in lines:
-        stripped = line.strip()
-        if not stripped or stripped.startswith(";"):
-            continue
-        if stripped.startswith("[") and stripped.endswith("]"):
-            current_section = stripped[1:-1]
-            continue
+def sweep(event: AssEvent) -> str:
+    """An event's karaoke tags and words: its text after the first override block, which
+    holds its place, size and colours."""
+    return event.text[len(event.tags) + 2 :] if event.text.startswith("{") else event.text
 
-        if current_section == "Script Info":
-            if ":" in stripped:
-                k, v = stripped.split(":", 1)
-                script_info[k.strip()] = v.strip()
-        elif current_section == "V4+ Styles":
-            if stripped.startswith("Format:"):
-                style_format = [f.strip() for f in stripped[len("Format:") :].split(",")]
-            elif stripped.startswith("Style:"):
-                vals = [v.strip() for v in stripped[len("Style:") :].split(",")]
-                style_name = vals[0]
-                styles[style_name] = dict(zip(style_format, vals, strict=False))
-        elif current_section == "Events":
-            if stripped.startswith("Format:"):
-                event_format = [f.strip() for f in stripped[len("Format:") :].split(",")]
-            elif stripped.startswith("Dialogue:"):
-                vals = stripped[len("Dialogue:") :].split(",", len(event_format) - 1)
-                event_dict = dict(
-                    zip(event_format, [v.strip() for v in vals[:-1]] + [vals[-1]], strict=False)
-                )
-                events.append(event_dict)
 
-    return {"info": script_info, "styles": styles, "events": events}
+def tag_color(css: str) -> str:
+    """A CSS colour (#rrggbb) as an override tag writes it (&HBBGGRR&)."""
+    return f"&H{css[5:7]}{css[3:5]}{css[1:3]}&".upper()
 
 
 SAMPLE_LINES_WITH_WORDS = [
@@ -147,98 +126,88 @@ def auth_headers():
 
 def test_word_mode_generates_kf_tags_by_default():
     """Verify that default sync_mode='word' emits progressive \\kf tags for words."""
-    ass_text = generate_ass_content(SAMPLE_LINES_WITH_WORDS)
-    parsed = parse_ass(ass_text)
+    rows = lyric_rows(generate_ass_content(SAMPLE_LINES_WITH_WORDS))
+    assert {row.line for row in rows} == {0, 1, 2}
 
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    assert len(lyric_events) == 3
-
-    for ev in lyric_events:
-        text = ev["Text"]
-        assert "\\kf" in text, f"Expected \\kf tag in word sweep mode, got: {text}"
+    for row in rows:
+        assert "\\kf" in row.text, f"Expected \\kf tag in word sweep mode, got: {row.text}"
 
 
 def test_line_mode_generates_zero_kf_tags():
     """Verify that sync_mode='line' produces zero \\kf tags on all lyric lines."""
-    ass_text = generate_ass_content(SAMPLE_LINES_WITH_WORDS, sync_mode="line")
-    parsed = parse_ass(ass_text)
+    rows = lyric_rows(generate_ass_content(SAMPLE_LINES_WITH_WORDS, sync_mode="line"))
+    assert {row.line for row in rows} == {0, 1, 2}
 
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    assert len(lyric_events) == 3
-
-    for ev in lyric_events:
-        text = ev["Text"]
-        assert "\\kf" not in text, f"Found illegal \\kf tag in line sync mode: {text}"
+    for row in rows:
+        assert "\\kf" not in row.text, f"Found illegal \\kf tag in line sync mode: {row.text}"
 
 
 def test_line_mode_lead_in_timing_format():
-    """Verify that lead-in timing produces {\\k<cs>}{\\k0} when display_start < l_start."""
+    """Verify that lead-in timing produces {\\k<cs>}{\\k0} when the line shows before it starts."""
     lines = [
         {
             "id": 0,
-            "start_time": 4.0,  # display_start = max(0, 4.0 - 2.5) = 1.5s -> lead_in = 2.5s = 250cs
+            "start_time": 4.0,  # shows at max(0, 4.0 - 2.5) = 1.5s -> lead_in = 2.5s = 250cs
             "end_time": 7.0,
             "text": "Hello world",
         }
     ]
-    ass_text = generate_ass_content(lines, sync_mode="line", include_countdown=False)
-    parsed = parse_ass(ass_text)
+    ass_text = generate_ass_content(
+        lines, sync_mode="line", include_countdown=False, theme_id="ktv"
+    )
 
-    ev = parsed["events"][0]
-    assert ev["Start"] == "0:00:01.50"
-    assert ev["Text"].startswith("{\\k250}{\\k0}")
-    assert "Hello world" in ev["Text"]
-    assert "\\kf" not in ev["Text"]
+    (row,) = lyric_rows(ass_text)
+    assert row.start == pytest.approx(1.5)
+    assert sweep(row) == "{\\k250}{\\k0}Hello world"
 
 
 def test_line_mode_immediate_start_without_lead_in_tag():
-    """Verify that when display_start == l_start (lead_in_cs == 0), no \\k tag is prepended."""
+    """Verify that when the line shows as it starts (no lead-in), no \\k tag is prepended."""
     lines = [
         {
             "id": 0,
-            "start_time": 0.0,  # display_start = 0.0 -> lead_in_cs = 0
+            "start_time": 0.0,  # shows at 0.0 -> no lead-in
             "end_time": 3.0,
             "text": "Immediate lyric line",
         }
     ]
-    ass_text = generate_ass_content(lines, sync_mode="line", include_countdown=False)
-    parsed = parse_ass(ass_text)
+    ass_text = generate_ass_content(
+        lines, sync_mode="line", include_countdown=False, theme_id="ktv"
+    )
 
-    ev = parsed["events"][0]
-    assert ev["Start"] == "0:00:00.00"
-    # When lead_in_cs == 0, text is clean with zero \k or \kf tags
-    assert ev["Text"] == "Immediate lyric line"
-    assert "\\k" not in ev["Text"]
+    (row,) = lyric_rows(ass_text)
+    assert row.start == 0.0
+    # Without a lead-in the text is clean, with zero \k or \kf tags
+    assert sweep(row) == "Immediate lyric line"
 
 
 def test_line_mode_style_config_sync_mode_fallback():
     """Verify that style_config={'sync_mode': 'line'} is honored when sync_mode param is omitted."""
     ass_text = generate_ass_content(SAMPLE_LINES_WITH_WORDS, style_config={"sync_mode": "line"})
-    parsed = parse_ass(ass_text)
 
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    for ev in lyric_events:
-        assert "\\kf" not in ev["Text"]
+    rows = lyric_rows(ass_text)
+    assert {row.line for row in rows} == {0, 1, 2}
+    for row in rows:
+        assert "\\kf" not in row.text
 
 
 def test_invalid_sync_mode_falls_back_to_word_mode():
     """Verify that invalid sync_mode string gracefully falls back to 'word' mode."""
     ass_text = generate_ass_content(SAMPLE_LINES_WITH_WORDS, sync_mode="invalid_mode")
-    parsed = parse_ass(ass_text)
 
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    # Should have \kf tags because it fell back to word mode
-    assert any("\\kf" in ev["Text"] for ev in lyric_events)
+    # Every row has \kf tags because it fell back to word mode
+    rows = lyric_rows(ass_text)
+    assert rows and all("\\kf" in row.text for row in rows)
 
 
 def test_case_insensitive_sync_mode():
     """Verify that 'LINE', 'Line', and whitespace are handled cleanly."""
     ass_text = generate_ass_content(SAMPLE_LINES_WITH_WORDS, sync_mode="  LINE  ")
-    parsed = parse_ass(ass_text)
 
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    for ev in lyric_events:
-        assert "\\kf" not in ev["Text"]
+    rows = lyric_rows(ass_text)
+    assert {row.line for row in rows} == {0, 1, 2}
+    for row in rows:
+        assert "\\kf" not in row.text
 
 
 # ============================================================================
@@ -247,22 +216,24 @@ def test_case_insensitive_sync_mode():
 
 
 def test_line_mode_preserves_duet_styles():
-    """Verify that singer1, singer2, and both styles are correctly assigned in line mode."""
+    """Verify that singer1, singer2, and both lines are drawn in their parts' colours in line mode."""
     ass_text = generate_ass_content(SAMPLE_LINES_WITH_WORDS, sync_mode="line")
-    parsed = parse_ass(ass_text)
+    palette = LOOKS[DEFAULT_LOOK_ID]["palette"]
 
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    assert lyric_events[0]["Style"] == "KaraokeLine1"  # singer 1, line 0
-    assert lyric_events[1]["Style"] == "KaraokeLine2_Singer2"  # singer 2, line 1
-    assert lyric_events[2]["Style"] == "KaraokeLine1_Both"  # both, line 2
+    rows = lyric_rows(ass_text)
+    sung_as = {"sung": 0, "singer2": 1, "both": 2}  # the palette colour each line is sung in
+    for color, index in sung_as.items():
+        mine = [row for row in rows if row.line == index]
+        assert mine
+        for row in mine:
+            assert f"\\1c{tag_color(palette[color])}" in row.tags
+            assert f"\\2c{tag_color(palette['unsung'])}" in row.tags
 
-    # Verify style headers exist with respective PrimaryColour values
-    styles = parsed["styles"]
-    assert "KaraokeLine1" in styles
-    assert "KaraokeLine2_Singer2" in styles
-    assert "KaraokeLine1_Both" in styles
-    assert styles["KaraokeLine2_Singer2"]["PrimaryColour"] == "&H00B300FF"
-    assert styles["KaraokeLine1_Both"]["PrimaryColour"] == "&H0050FA7B"
+    # Each line is by another part than the one before, so each carries its part's name
+    named = {e.line: e for e in ass_events(ass_text) if e.kind == "part"}
+    assert sorted(named) == [0, 1, 2]
+    assert f"\\1c{tag_color(palette['singer2'])}" in named[1].tags
+    assert f"\\1c{tag_color(palette['both'])}" in named[2].tags
 
 
 def test_line_mode_with_custom_duet_colors():
@@ -270,28 +241,35 @@ def test_line_mode_with_custom_duet_colors():
     ass_text = generate_ass_content(
         SAMPLE_LINES_WITH_WORDS,
         sync_mode="line",
-        singer2_color="#FF0088",  # ASS: &H008800FF
-        both_color="#00FFAA",  # ASS: &H00AAFF00
+        singer2_color="#FF0088",  # ASS: &H8800FF&
+        both_color="#00FFAA",  # ASS: &HAAFF00&
     )
-    parsed = parse_ass(ass_text)
-    styles = parsed["styles"]
+    rows = lyric_rows(ass_text)
 
-    assert styles["KaraokeLine2_Singer2"]["PrimaryColour"] == "&H008800FF"
-    assert styles["KaraokeLine1_Both"]["PrimaryColour"] == "&H00AAFF00"
+    assert all("\\1c&H8800FF&" in row.tags for row in rows if row.line == 1)
+    assert all("\\1c&HAAFF00&" in row.tags for row in rows if row.line == 2)
+    # Singer 1 keeps the look's own sung colour
+    sung = tag_color(LOOKS[DEFAULT_LOOK_ID]["palette"]["sung"])
+    assert all(f"\\1c{sung}" in row.tags for row in rows if row.line == 0)
 
 
 def test_line_mode_preserves_instrumental_gap_countdown():
-    """Verify that instrumental gap countdown dots are preserved on Layer 1 in line mode."""
+    """Verify that the count-in after an instrumental gap is preserved on Layer 1 in line mode."""
     ass_text = generate_ass_content(
         SAMPLE_LINES_WITH_WORDS, sync_mode="line", include_countdown=True
     )
-    parsed = parse_ass(ass_text)
 
-    countdown_events = [e for e in parsed["events"] if e.get("Layer") == "1"]
-    assert len(countdown_events) == 1
-    assert countdown_events[0]["Style"] == "Countdown"
-    assert "●" in countdown_events[0]["Text"]
-    assert countdown_events[0]["End"] == "0:00:13.00"
+    # Only line 2 follows a gap (8.0s -> 13.0s): three numerals, one a second, until it starts
+    count_in = [e for e in ass_events(ass_text) if e.kind == "countin"]
+    assert {e.line for e in count_in} == {2}
+    assert all(e.layer == 1 for e in count_in)
+    assert [e.plain for e in count_in] == ["3", "2", "1"]
+    assert [(e.start, e.end) for e in count_in] == [(10.0, 11.0), (11.0, 12.0), (12.0, 13.0)]
+
+    without = generate_ass_content(
+        SAMPLE_LINES_WITH_WORDS, sync_mode="line", include_countdown=False
+    )
+    assert not [e for e in ass_events(without) if e.kind in ("countin", "break")]
 
 
 def test_line_mode_preserves_layer_2_chords():
@@ -303,13 +281,11 @@ def test_line_mode_preserves_layer_2_chords():
         semitones=2,  # C -> D, G -> A, Am -> Bm
         sync_mode="line",
     )
-    parsed = parse_ass(ass_text)
 
-    chord_events = [e for e in parsed["events"] if e.get("Layer") == "2"]
-    assert len(chord_events) == 3
-    assert "D" in chord_events[0]["Text"]
-    assert "A" in chord_events[1]["Text"]
-    assert "Bm" in chord_events[2]["Text"]
+    chord_events = [e for e in ass_events(ass_text) if e.kind == "chord"]
+    assert [e.plain for e in chord_events] == ["D", "A", "Bm"]
+    assert all(e.layer == 2 for e in chord_events)
+    assert [(e.start, e.end) for e in chord_events] == [(2.5, 5.0), (5.5, 8.0), (13.0, 16.0)]
 
 
 def test_line_mode_untimed_lines_without_words():
@@ -318,15 +294,13 @@ def test_line_mode_untimed_lines_without_words():
         {"id": 0, "start_time": 2.0, "end_time": 5.0, "text": "Untimed line one"},
         {"id": 1, "start_time": 6.0, "end_time": 9.0, "text": "Untimed line two"},
     ]
-    ass_text = generate_ass_content(lines, sync_mode="line")
-    parsed = parse_ass(ass_text)
+    ass_text = generate_ass_content(lines, sync_mode="line", theme_id="ktv")
 
-    events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    assert len(events) == 2
-    assert "Untimed line one" in events[0]["Text"]
-    assert "\\kf" not in events[0]["Text"]
-    assert "Untimed line two" in events[1]["Text"]
-    assert "\\kf" not in events[1]["Text"]
+    first, second = lyric_rows(ass_text)
+    assert (first.line, first.plain) == (0, "Untimed line one")
+    assert "\\kf" not in first.text
+    assert (second.line, second.plain) == (1, "Untimed line two")
+    assert "\\kf" not in second.text
 
 
 def test_line_mode_words_without_line_text_fallback():
@@ -342,12 +316,11 @@ def test_line_mode_words_without_line_text_fallback():
             ],
         }
     ]
-    ass_text = generate_ass_content(lines, sync_mode="line")
-    parsed = parse_ass(ass_text)
+    ass_text = generate_ass_content(lines, sync_mode="line", theme_id="ktv")
 
-    ev = parsed["events"][0]
-    assert "Reconstructed Sentence" in ev["Text"]
-    assert "\\kf" not in ev["Text"]
+    (row,) = lyric_rows(ass_text)
+    assert row.plain == "Reconstructed Sentence"
+    assert "\\kf" not in row.text
 
 
 def test_line_mode_special_character_escaping():
@@ -360,27 +333,37 @@ def test_line_mode_special_character_escaping():
             "text": "Special {bracket} & \\backslash \n and newline",
         }
     ]
-    ass_text = generate_ass_content(lines, sync_mode="line")
-    parsed = parse_ass(ass_text)
+    ass_text = generate_ass_content(lines, sync_mode="line", theme_id="ktv")
 
-    ev = parsed["events"][0]
+    # A line this long takes two rows: one event each
+    rows = lyric_rows(ass_text)
+    written = " ".join(sweep(row) for row in rows)
     # In ASS, escaped braces are \{ and \}
-    assert "\\{bracket\\}" in ev["Text"]
-    # Newlines replaced with spaces
-    assert "\n" not in ev["Text"]
-    assert "\\kf" not in ev["Text"]
+    assert "\\{bracket\\}" in written
+    # A backslash is parted from the letter after it, so it starts no tag
+    assert f"\\{BACKSLASH_GUARD}backslash" in written
+    # The line break is gone, and the words around it are still there
+    assert "\n" not in written
+    assert written.endswith("and newline")
+    assert "\\kf" not in written
 
 
 def test_line_mode_vertical_9_16_aspect_ratio():
-    """Verify line mode correctly sets PlayRes and vertical margins for 9:16 layout."""
-    ass_text = generate_ass_content(SAMPLE_LINES_WITH_WORDS, aspect_ratio="9:16", sync_mode="line")
+    """Verify line mode correctly sets PlayRes and keeps the rows inside the frame for 9:16 layout."""
+    ass_text = generate_ass_content(
+        SAMPLE_LINES_WITH_WORDS, aspect_ratio="9:16", sync_mode="line", theme_id="ktv"
+    )
     parsed = parse_ass(ass_text)
 
     assert parsed["info"]["PlayResX"] == "1080"
     assert parsed["info"]["PlayResY"] == "1920"
-    # Vertical line margins in 9:16
-    assert parsed["styles"]["KaraokeLine1"]["MarginV"] == "640"
-    assert parsed["styles"]["KaraokeLine2"]["MarginV"] == "500"
+    rows = lyric_rows(ass_text)
+    assert {row.line for row in rows} == {0, 1, 2}
+    for row in rows:
+        x, y = row.numbers("pos")
+        assert 0 <= x <= 1080
+        assert 0 <= y <= 1920
+        assert "\\kf" not in row.text
 
 
 def test_generate_ass_subtitles_file_writing(tmp_path: Path):
@@ -394,13 +377,13 @@ def test_generate_ass_subtitles_file_writing(tmp_path: Path):
     assert Path(result_path).exists()
     content = out_file.read_text(encoding="utf-8")
     assert "[Script Info]" in content
-    parsed = parse_ass(content)
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    assert len(lyric_events) == 3
-    for ev in lyric_events:
-        assert "\\kf" not in ev["Text"]
+    rows = lyric_rows(content)
+    assert {row.line for row in rows} == {0, 1, 2}
+    for row in rows:
+        assert "\\kf" not in row.text
 
-    # When countdown is disabled, no \kf exists anywhere in the entire document
+    # No \kf exists anywhere in the entire document, with the count-in or without
+    assert "\\kf" not in content
     out_no_cd = tmp_path / "test_line_no_cd.ass"
     generate_ass_subtitles(
         lines=SAMPLE_LINES_WITH_WORDS,
@@ -420,12 +403,11 @@ def test_video_renderer_generate_ass_content_forwards_sync_mode():
     """Verify VideoRenderer.generate_ass_content forwards sync_mode='line'."""
     renderer = VideoRenderer()
     ass_text = renderer.generate_ass_content(SAMPLE_LINES_WITH_WORDS, sync_mode="line")
-    parsed = parse_ass(ass_text)
 
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    assert len(lyric_events) == 3
-    for ev in lyric_events:
-        assert "\\kf" not in ev["Text"]
+    rows = lyric_rows(ass_text)
+    assert {row.line for row in rows} == {0, 1, 2}
+    for row in rows:
+        assert "\\kf" not in row.text
 
 
 def test_video_renderer_generate_ass_subtitles_forwards_sync_mode(tmp_path: Path):
@@ -438,12 +420,10 @@ def test_video_renderer_generate_ass_subtitles_forwards_sync_mode(tmp_path: Path
         sync_mode="line",
     )
     assert out_file.exists()
-    content = out_file.read_text(encoding="utf-8")
-    parsed = parse_ass(content)
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    assert len(lyric_events) == 3
-    for ev in lyric_events:
-        assert "\\kf" not in ev["Text"]
+    rows = lyric_rows(out_file.read_text(encoding="utf-8"))
+    assert {row.line for row in rows} == {0, 1, 2}
+    for row in rows:
+        assert "\\kf" not in row.text
 
 
 # ============================================================================
@@ -494,18 +474,18 @@ def test_http_export_ass_explicit_line_mode(test_client, auth_headers):
         "lines": SAMPLE_LINES_WITH_WORDS,
     }
 
+    # The KTV look writes the words as they are in the lyrics
     resp = test_client.get(
-        f"/api/project/{pid}/export/ass?sync_mode=line",
+        f"/api/project/{pid}/export/ass?sync_mode=line&theme_id=ktv",
         headers=auth_headers,
     )
     assert resp.status_code == 200
     assert "text/x-ssa" in resp.headers["content-type"]
-    parsed = parse_ass(resp.text)
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    assert len(lyric_events) == 3
-    for ev in lyric_events:
-        assert "\\kf" not in ev["Text"]
-    assert "Never gonna give you up" in resp.text
+    rows = lyric_rows(resp.text)
+    assert {row.line for row in rows} == {0, 1, 2}
+    for row in rows:
+        assert "\\kf" not in row.text
+    assert "Never gonna give you up" in [row.plain for row in rows]
 
     # With include_countdown=false, entire response text is free of \kf
     resp_no_cd = test_client.get(
@@ -532,11 +512,10 @@ def test_http_export_ass_case_insensitive_line_mode(test_client, auth_headers):
         headers=auth_headers,
     )
     assert resp.status_code == 200
-    parsed = parse_ass(resp.text)
-    lyric_events = [e for e in parsed["events"] if e.get("Layer") == "0"]
-    assert len(lyric_events) == 3
-    for ev in lyric_events:
-        assert "\\kf" not in ev["Text"]
+    rows = lyric_rows(resp.text)
+    assert {row.line for row in rows} == {0, 1, 2}
+    for row in rows:
+        assert "\\kf" not in row.text
 
 
 def test_http_export_ass_invalid_sync_mode_returns_400(test_client, auth_headers):
@@ -646,8 +625,8 @@ def test_render_worker_extracts_nested_style_config_sync_mode(tmp_path: Path):
 def test_dual_mode_export_parity_comparison():
     """Verify dual-mode export parity: same project exported in both Word Sweep
 
-    and Line-by-Line modes yields identical event counts, timing intervals,
-    duet styles, countdowns, and chords, differing only in the presence vs
+    and Line-by-Line modes yields identical events, timing intervals, part
+    colours, count-ins, and chords, differing only in the presence vs
     absence of progressive \\kf sweep tags.
     """
     word_ass = generate_ass_content(
@@ -665,39 +644,33 @@ def test_dual_mode_export_parity_comparison():
         sync_mode="line",
     )
 
-    parsed_word = parse_ass(word_ass)
-    parsed_line = parse_ass(line_ass)
+    word_events = ass_events(word_ass)
+    line_events = ass_events(line_ass)
 
-    # 1. Total event count parity
-    assert len(parsed_word["events"]) == len(parsed_line["events"])
+    # 1. The same events, in the same order, at the same times
+    def outline(events: list[AssEvent]) -> list[tuple]:
+        return [(e.layer, e.role, e.style, e.start, e.end) for e in events]
 
-    # 2. Layer 0 (lyric) event timing and style parity
-    word_lyrics = [e for e in parsed_word["events"] if e.get("Layer") == "0"]
-    line_lyrics = [e for e in parsed_line["events"] if e.get("Layer") == "0"]
-    assert len(word_lyrics) == len(line_lyrics) == 3
+    assert outline(word_events) == outline(line_events)
+
+    # 2. Lyric rows: the same place, size, colours and words; only the sweep differs
+    word_lyrics = [e for e in word_events if e.kind == "lyric"]
+    line_lyrics = [e for e in line_events if e.kind == "lyric"]
+    assert {e.line for e in word_lyrics} == {0, 1, 2}
 
     for w_ev, l_ev in zip(word_lyrics, line_lyrics, strict=True):
-        assert w_ev["Start"] == l_ev["Start"]
-        assert w_ev["End"] == l_ev["End"]
-        assert w_ev["Style"] == l_ev["Style"]
+        assert w_ev.tags == l_ev.tags
+        assert w_ev.plain == l_ev.plain
 
         # Word mode must have \kf tags
-        assert "\\kf" in w_ev["Text"]
+        assert "\\kf" in w_ev.text
         # Line mode must have zero \kf tags
-        assert "\\kf" not in l_ev["Text"]
+        assert "\\kf" not in l_ev.text
 
-    # 3. Layer 1 (countdown) parity
-    word_countdowns = [e for e in parsed_word["events"] if e.get("Layer") == "1"]
-    line_countdowns = [e for e in parsed_line["events"] if e.get("Layer") == "1"]
-    assert len(word_countdowns) == len(line_countdowns) == 1
-    assert word_countdowns[0]["Start"] == line_countdowns[0]["Start"]
-    assert word_countdowns[0]["End"] == line_countdowns[0]["End"]
-
-    # 4. Layer 2 (chords) parity
-    word_chords = [e for e in parsed_word["events"] if e.get("Layer") == "2"]
-    line_chords = [e for e in parsed_line["events"] if e.get("Layer") == "2"]
-    assert len(word_chords) == len(line_chords) == 3
-    for wc, lc in zip(word_chords, line_chords, strict=True):
-        assert wc["Start"] == lc["Start"]
-        assert wc["End"] == lc["End"]
-        assert wc["Text"] == lc["Text"]
+    # 3. Everything else is written the same: the count-in (layer 1), the chords (layer 2),
+    # the part names and the lines waiting their turn
+    word_rest = [e for e in word_events if e.kind != "lyric"]
+    line_rest = [e for e in line_events if e.kind != "lyric"]
+    assert [e.text for e in word_rest] == [e.text for e in line_rest]
+    assert len([e for e in word_rest if e.kind == "countin" and e.layer == 1]) == 3
+    assert [e.plain for e in word_rest if e.kind == "chord" and e.layer == 2] == ["C", "G", "Am"]
