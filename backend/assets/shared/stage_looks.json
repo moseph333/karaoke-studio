@@ -1,0 +1,276 @@
+{
+  "default_look": "marquee",
+  "default_part_names": { "singer1": "Singer 1", "singer2": "Singer 2", "both": "Both" },
+  "timing": {
+    "early_show": 2.0,
+    "first_early_show": 2.5,
+    "lead_out": 1.2,
+    "min_show": 0.5,
+    "gap_threshold": 4.0,
+    "count_in": 3.0,
+    "break_delay": 1.5,
+    "break_min": 1.0,
+    "title_min_intro": 6.0,
+    "title_start": 0.4,
+    "title_gap": 0.5,
+    "title_max": 8.0,
+    "end_delay": 1.5,
+    "end_min": 3.0,
+    "card_fade": 0.4
+  },
+  "fit": { "fill": 0.98, "min_condense": 0.7, "size_step": 0.1, "shrink": 0.72 },
+  "looks": [
+    {
+      "id": "marquee",
+      "name": "Marquee",
+      "description": "A venue board: giant capitals that light up as they are sung",
+      "layout": "stack",
+      "tone": "dark",
+      "emphasis": "sung",
+      "palette": {
+        "ground": "#000000",
+        "unsung": "#f2eee3",
+        "sung": "#ffd21f",
+        "quiet": "#a09b8f",
+        "singer2": "#ff7a59",
+        "both": "#9adf8f",
+        "cue": "#ffd21f"
+      },
+      "outline": null,
+      "shadow": null,
+      "caps": { "lyric": true, "next": false, "label": true, "title": true, "artist": true },
+      "tracking": {},
+      "adlib": { "scale": 0.8, "alpha": 0.75, "face": null },
+      "romaji": { "scale": 0.4, "face": "sofia_bold" },
+      "count_in": "numerals",
+      "motion": { "enter": 0.18, "exit": 0.0, "rise": 1.5, "scroll": 0.0 },
+      "art": { "cover": { "kind": "mono", "level": 0.22 }, "upload": { "kind": "dim", "level": 0.45 } },
+      "frames": {
+        "16:9": {
+          "lyric": { "face": "sofia_xcond_black", "x": 8, "align": "left", "baseline": 74, "measure": 161.8, "min": 9, "prefer": 12, "max": 20, "rows": 2, "leading": 0.9 },
+          "next": { "face": "sofia_bold", "x": 8, "align": "left", "baseline": 84.5, "measure": 161.8, "size": 5, "rows": 1, "leading": 1.2 },
+          "label": { "face": "sofia_xcond_black", "place": "above", "size": 3.6, "gap": 1.8 },
+          "cue": { "face": "sofia_xcond_black", "x": 8, "align": "left", "baseline": 30, "size": 10 },
+          "title": { "face": "sofia_xcond_black", "x": 8, "align": "left", "baseline": 72, "measure": 161.8, "min": 10, "prefer": 16, "max": 26, "rows": 2, "leading": 0.9 },
+          "artist": { "face": "sofia_xcond_black", "place": "above", "size": 6, "gap": 2.6, "color": "quiet" },
+          "progress": { "height": 0.5 }
+        },
+        "9:16": {
+          "lyric": { "face": "sofia_xcond_black", "x": 6, "align": "left", "baseline": 112, "measure": 88, "min": 8, "prefer": 11, "max": 18, "rows": 3, "leading": 0.9 },
+          "next": { "face": "sofia_bold", "x": 6, "align": "left", "baseline": 121.5, "measure": 88, "size": 5, "rows": 2, "leading": 1.2 },
+          "label": { "face": "sofia_xcond_black", "place": "above", "size": 3.6, "gap": 1.8 },
+          "cue": { "face": "sofia_xcond_black", "x": 6, "align": "left", "baseline": 50, "size": 10 },
+          "title": { "face": "sofia_xcond_black", "x": 6, "align": "left", "baseline": 104, "measure": 88, "min": 9, "prefer": 13, "max": 22, "rows": 3, "leading": 0.9 },
+          "artist": { "face": "sofia_xcond_black", "place": "above", "size": 6, "gap": 2.6, "color": "quiet" },
+          "progress": { "height": 0.5 }
+        }
+      }
+    },
+    {
+      "id": "ktv",
+      "name": "KTV",
+      "description": "The karaoke-bar machine: two outlined rows over the song's cover art",
+      "layout": "rows",
+      "tone": "dark",
+      "emphasis": "sung",
+      "palette": {
+        "ground": "#0a1024",
+        "unsung": "#ffffff",
+        "sung": "#ffe600",
+        "quiet": "#c7d0f2",
+        "singer2": "#ff7ab8",
+        "both": "#6dff9c",
+        "cue": "#ffe600"
+      },
+      "outline": { "width": 0.5, "color": "#0b1233" },
+      "shadow": { "offset": 0.35, "blur": 0.4, "color": "#000000", "alpha": 0.5 },
+      "caps": {},
+      "tracking": {},
+      "adlib": { "scale": 0.8, "alpha": 0.75, "face": null },
+      "romaji": { "scale": 0.55, "face": null },
+      "count_in": "dots",
+      "motion": { "enter": 0.12, "exit": 0.12, "rise": 0.0, "scroll": 0.0 },
+      "art": { "cover": { "kind": "blur" }, "upload": null },
+      "frames": {
+        "16:9": {
+          "lyric": { "face": "mplus_rounded_extrabold", "x": 8, "align": "left", "baseline": 76, "measure": 152, "size": 8, "rows": 2, "leading": 1.12 },
+          "rows": [
+            { "x": 8, "align": "left", "baseline": 76 },
+            { "x": 169.8, "align": "right", "baseline": 91 }
+          ],
+          "label": { "face": "mplus_rounded_extrabold", "place": "above", "size": 3.4, "gap": 1.4 },
+          "cue": { "face": "mplus_rounded_extrabold", "x": 8, "align": "left", "baseline": 56, "size": 5 },
+          "title": { "face": "mplus_rounded_extrabold", "x": 88.9, "align": "center", "baseline": 48, "measure": 150, "size": 10, "rows": 2, "leading": 1.12 },
+          "artist": { "face": "mplus_rounded_extrabold", "place": "below", "size": 5, "gap": 3, "color": "sung" },
+          "progress": { "height": 0.5 }
+        },
+        "9:16": {
+          "lyric": { "face": "mplus_rounded_extrabold", "x": 6, "align": "left", "baseline": 106, "measure": 88, "size": 7, "rows": 2, "leading": 1.12 },
+          "rows": [
+            { "x": 6, "align": "left", "baseline": 106 },
+            { "x": 94, "align": "right", "baseline": 126 }
+          ],
+          "label": { "face": "mplus_rounded_extrabold", "place": "above", "size": 3.4, "gap": 1.4 },
+          "cue": { "face": "mplus_rounded_extrabold", "x": 6, "align": "left", "baseline": 82, "size": 5 },
+          "title": { "face": "mplus_rounded_extrabold", "x": 50, "align": "center", "baseline": 84, "measure": 88, "size": 9, "rows": 3, "leading": 1.12 },
+          "artist": { "face": "mplus_rounded_extrabold", "place": "below", "size": 5, "gap": 3, "color": "sung" },
+          "progress": { "height": 0.5 }
+        }
+      }
+    },
+    {
+      "id": "songbook",
+      "name": "Songbook",
+      "description": "A printed lyric sheet: black type on paper, sung words inked in red",
+      "layout": "column",
+      "tone": "light",
+      "emphasis": "sung",
+      "palette": {
+        "ground": "#f6f5f0",
+        "unsung": "#141414",
+        "sung": "#c41e3a",
+        "quiet": "#8b8980",
+        "singer2": "#1f4fd1",
+        "both": "#1d7a46",
+        "cue": "#c41e3a"
+      },
+      "outline": null,
+      "shadow": null,
+      "caps": {},
+      "tracking": {},
+      "adlib": { "scale": 0.8, "alpha": 0.75, "face": "newsreader_medium_italic" },
+      "romaji": { "scale": 0.55, "face": "newsreader_medium_italic" },
+      "count_in": "numerals",
+      "motion": { "enter": 0.35, "exit": 0.35, "rise": 0.0, "scroll": 0.35 },
+      "art": { "cover": { "kind": "wash", "keep": 0.1 }, "upload": { "kind": "wash", "keep": 0.14 } },
+      "frames": {
+        "16:9": {
+          "lyric": { "face": "newsreader_medium", "x": 24, "align": "left", "baseline": 46, "measure": 130, "size": 6.4, "rows": 2, "leading": 1.24 },
+          "column": { "before": 1, "after": 2, "after_alpha": [1, 0.6], "gap": 2.6, "min_baseline": 14, "max_baseline": 92 },
+          "label": { "face": "newsreader_medium_italic", "place": "margin", "x": 21, "align": "right", "measure": 14, "size": 3.2 },
+          "cue": { "face": "newsreader_medium", "x": 169.8, "align": "right", "baseline": 46, "size": 6.4 },
+          "title": { "face": "newsreader_medium", "x": 24, "align": "left", "baseline": 46, "measure": 130, "min": 8, "prefer": 11, "max": 11, "rows": 2, "leading": 1.12 },
+          "artist": { "face": "newsreader_medium_italic", "place": "below", "size": 5, "gap": 3.4, "color": "sung" },
+          "progress": { "height": 0.5 }
+        },
+        "9:16": {
+          "lyric": { "face": "newsreader_medium", "x": 8, "align": "left", "baseline": 78, "measure": 84, "size": 5.8, "rows": 3, "leading": 1.24 },
+          "column": { "before": 1, "after": 2, "after_alpha": [1, 0.6], "gap": 2.6, "min_baseline": 30, "max_baseline": 146 },
+          "label": { "face": "newsreader_medium_italic", "place": "above", "size": 3.2, "gap": 1.2 },
+          "cue": { "face": "newsreader_medium", "x": 92, "align": "right", "baseline": 24, "size": 6.4 },
+          "title": { "face": "newsreader_medium", "x": 8, "align": "left", "baseline": 78, "measure": 84, "min": 7, "prefer": 9.5, "max": 9.5, "rows": 3, "leading": 1.12 },
+          "artist": { "face": "newsreader_medium_italic", "place": "below", "size": 5, "gap": 3.4, "color": "sung" },
+          "progress": { "height": 0.5 }
+        }
+      }
+    },
+    {
+      "id": "cinema",
+      "name": "Cinema",
+      "description": "Film subtitles: the picture in widescreen, the words in the black under it",
+      "layout": "stack",
+      "tone": "dark",
+      "emphasis": "sung",
+      "palette": {
+        "ground": "#000000",
+        "unsung": "#9b9b9b",
+        "sung": "#ffffff",
+        "quiet": "#6f6f6f",
+        "singer2": "#ffd9a0",
+        "both": "#bfe3ff",
+        "cue": "#ffffff"
+      },
+      "outline": null,
+      "shadow": null,
+      "caps": { "label": true, "title": true, "artist": true },
+      "tracking": { "label": 0.08, "title": 0.14, "artist": 0.14 },
+      "adlib": { "scale": 0.8, "alpha": 0.75, "face": null },
+      "romaji": { "scale": 0.55, "face": null },
+      "count_in": "numerals",
+      "motion": { "enter": 0.25, "exit": 0.25, "rise": 0.0, "scroll": 0.0 },
+      "card_scrim": 0.62,
+      "art": { "cover": { "kind": "sharp" }, "upload": null },
+      "frames": {
+        "16:9": {
+          "picture": { "x": 0, "y": 12.8, "w": 177.78, "h": 74.4 },
+          "lyric": { "face": "jost_medium", "x": 88.9, "align": "center", "baseline": 93, "measure": 126, "size": 4.8, "rows": 1, "leading": 1.2 },
+          "next": { "face": "jost_medium", "x": 88.9, "align": "center", "baseline": 97.6, "measure": 126, "size": 2.8, "rows": 1, "leading": 1.2 },
+          "label": { "face": "jost_medium", "place": "margin", "x": 8, "align": "left", "measure": 16, "size": 2.6 },
+          "cue": { "face": "jost_medium", "x": 169.8, "align": "right", "baseline": 93, "size": 4.8 },
+          "title": { "face": "jost_medium", "color": "sung", "x": 88.9, "align": "center", "baseline": 50, "measure": 140, "min": 4.5, "prefer": 7, "max": 7, "rows": 2, "leading": 1.3 },
+          "artist": { "face": "jost_medium", "place": "below", "size": 3.2, "gap": 3, "color": "unsung" },
+          "progress": { "height": 0.4 }
+        },
+        "9:16": {
+          "picture": { "x": 0, "y": 20, "w": 100, "h": 100 },
+          "lyric": { "face": "jost_medium", "x": 50, "align": "center", "baseline": 141, "measure": 88, "size": 6.4, "rows": 3, "leading": 1.2 },
+          "next": { "face": "jost_medium", "x": 50, "align": "center", "baseline": 149, "measure": 88, "size": 3.8, "rows": 2, "leading": 1.25 },
+          "label": { "face": "jost_medium", "place": "above", "size": 2.8, "gap": 1.4 },
+          "cue": { "face": "jost_medium", "x": 50, "align": "center", "baseline": 12.5, "size": 6 },
+          "title": { "face": "jost_medium", "color": "sung", "x": 50, "align": "center", "baseline": 70, "measure": 84, "min": 4.5, "prefer": 7, "max": 7, "rows": 3, "leading": 1.3 },
+          "artist": { "face": "jost_medium", "place": "below", "size": 3.2, "gap": 3, "color": "unsung" },
+          "progress": { "height": 0.4 }
+        }
+      }
+    },
+    {
+      "id": "prompter",
+      "name": "Prompter",
+      "description": "A stage teleprompter: the words ahead stay bright, the words sung go dim",
+      "layout": "column",
+      "tone": "dark",
+      "emphasis": "unsung",
+      "palette": {
+        "ground": "#000000",
+        "unsung": "#ffffff",
+        "sung": "#6b6b6b",
+        "quiet": "#6b6b6b",
+        "singer2": "#ffe27a",
+        "both": "#9dffb8",
+        "cue": "#35d07f"
+      },
+      "outline": null,
+      "shadow": null,
+      "caps": { "label": true },
+      "tracking": { "label": 0.06 },
+      "adlib": { "scale": 0.8, "alpha": 0.75, "face": null },
+      "romaji": { "scale": 0.55, "face": null },
+      "count_in": "numerals",
+      "motion": { "enter": 0.4, "exit": 0.4, "rise": 0.0, "scroll": 0.4 },
+      "art": { "cover": { "kind": "blur", "level": 0.18 }, "upload": { "kind": "dim", "level": 0.35 } },
+      "frames": {
+        "16:9": {
+          "lyric": { "face": "atkinson_bold", "x": 16, "align": "left", "baseline": 40, "measure": 146, "size": 6.8, "rows": 2, "leading": 1.2 },
+          "column": { "before": 1, "after": 3, "after_alpha": [1, 0.8, 0.5], "gap": 2.4, "min_baseline": 12, "max_baseline": 94 },
+          "caret": { "x": 8, "width": 4, "height": 4.6 },
+          "label": { "face": "atkinson_bold", "place": "above", "size": 3, "gap": 1.2 },
+          "cue": { "face": "atkinson_bold", "x": 169.8, "align": "right", "baseline": 40, "size": 6.8 },
+          "title": { "face": "atkinson_bold", "x": 16, "align": "left", "baseline": 44, "measure": 146, "min": 6.5, "prefer": 9, "max": 9, "rows": 2, "leading": 1.15 },
+          "artist": { "face": "atkinson_bold", "place": "below", "size": 4.6, "gap": 3, "color": "quiet" },
+          "progress": { "height": 0.5 }
+        },
+        "9:16": {
+          "lyric": { "face": "atkinson_bold", "x": 12, "align": "left", "baseline": 70, "measure": 82, "size": 6.2, "rows": 3, "leading": 1.2 },
+          "column": { "before": 1, "after": 3, "after_alpha": [1, 0.8, 0.5], "gap": 2.4, "min_baseline": 30, "max_baseline": 150 },
+          "caret": { "x": 4, "width": 4, "height": 4.6 },
+          "label": { "face": "atkinson_bold", "place": "above", "size": 3, "gap": 1.2 },
+          "cue": { "face": "atkinson_bold", "x": 94, "align": "right", "baseline": 22, "size": 6.8 },
+          "title": { "face": "atkinson_bold", "x": 12, "align": "left", "baseline": 70, "measure": 82, "min": 6.5, "prefer": 9, "max": 9, "rows": 3, "leading": 1.15 },
+          "artist": { "face": "atkinson_bold", "place": "below", "size": 4.6, "gap": 3, "color": "quiet" },
+          "progress": { "height": 0.5 }
+        }
+      }
+    }
+  ],
+  "legacy_ids": {
+    "afterglow": { "look": "marquee", "was": { "sung": "#fbbf24", "unsung": "#edebff", "singer2": "#f472b6", "both": "#5eead4" } },
+    "punk_diy": { "look": "marquee", "was": { "sung": "#facc15", "unsung": "#f5f5f5" } },
+    "modern_gold": { "look": "ktv", "was": { "sung": "#ffd700", "unsung": "#ffffff" } },
+    "classic_ktv": { "look": "ktv", "was": { "sung": "#ffff00", "unsung": "#ffffff" } },
+    "cyber_cyan": { "look": "ktv", "carry_sung": "#00ffff", "was": { "sung": "#00ffff", "unsung": "#ffffff" } },
+    "neon_pink": { "look": "ktv", "carry_sung": "#ff00b3", "was": { "sung": "#ff00b3", "unsung": "#ffffff" } },
+    "tape_70s": { "look": "cinema", "was": { "sung": "#f59e0b", "unsung": "#fef3c7" } },
+    "crt_ktv": { "look": "prompter", "was": { "sung": "#22c55e", "unsung": "#86efac" } },
+    "clean_paper": { "look": "songbook", "was": { "sung": "#dc2626", "unsung": "#111111" } }
+  }
+}
