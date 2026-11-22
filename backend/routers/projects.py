@@ -75,6 +75,7 @@ from backend.services import remote_render
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.media_links import parse_media_link
 from backend.services.separator import adopt_provenance
+from backend.services.stage_looks import is_known_look_id, resolve_look
 from backend.services.video_renderer import artwork_still, render_still
 from backend.services.voice_parts import detect_voice_parts
 from backend.services.waveform import (
@@ -895,9 +896,11 @@ def get_project_backdrop(
     project_id: str,
     aspect: Literal["16:9", "9:16"] = Query("16:9", description="Video format"),
     drift: bool = Query(False, description="The larger still the drifting style pans across"),
+    look: str | None = Query(None, description="Stage look id: the art as that look treats it"),
 ):
-    """The song's cover art exactly as video exports draw it (filled, blurred and darkened), so
-    the stage preview shows the same image instead of imitating it.
+    """The song's cover art exactly as video exports draw it (filled and treated the look's
+    way; blurred and darkened without a look), so the stage preview shows the same image
+    instead of imitating it. An unknown look is answered with 400.
 
     Rendered once per thumbnail and size into the output folder, under the project's prefix so
     deleting the project removes it.
@@ -908,14 +911,19 @@ def get_project_backdrop(
     thumbnail = proj.get("thumbnail_path")
     if not thumbnail or not os.path.isfile(thumbnail):
         raise HTTPException(status_code=404, detail="This song has no cover art")
+    if look is not None and not is_known_look_id(look):
+        raise HTTPException(status_code=400, detail=f"Unknown look '{look}'")
+    look_id = resolve_look(look)[0]["id"] if look else None
     width, height = (1080, 1920) if aspect == "9:16" else (1920, 1080)
-    width, height, chain = artwork_still(width, height, drift=drift)
+    width, height, chain = artwork_still(width, height, drift=drift, look_id=look_id)
 
     source = Path(thumbnail)
     info = source.stat()
     key = f"{chain}|{source.resolve()}|{info.st_mtime_ns}|{info.st_size}"
     digest = hashlib.sha256(key.encode()).hexdigest()[:12]
-    prefix = f"{Path(str(proj.get('id') or project_id)).name}_backdrop_{width}x{height}_"
+    # Each look keeps its own still, so asking for one look's never deletes another's
+    kind = f"backdrop-{look_id}" if look_id else "backdrop"
+    prefix = f"{Path(str(proj.get('id') or project_id)).name}_{kind}_{width}x{height}_"
     output_dir = Path(getattr(main_mod, "OUTPUT_DIR", OUTPUT_DIR))
     target = output_dir / f"{prefix}{digest}.png"
     if not target.is_file():
