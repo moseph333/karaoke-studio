@@ -561,6 +561,18 @@ def make(args: argparse.Namespace) -> dict:
     return result
 
 
+def _quiet_progress_bars() -> None:
+    """Turn off the libraries' own progress bars (loading shards, denoising steps). They
+    share stderr with this worker's events, would be read as the job's progress, and a bar
+    left without a newline hides the event printed after it."""
+    for package in ("diffusers", "transformers"):
+        try:
+            logging = __import__(f"{package}.utils.logging", fromlist=["disable_progress_bar"])
+            logging.disable_progress_bar()
+        except (ImportError, AttributeError):
+            pass
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     args.model_dir.mkdir(parents=True, exist_ok=True)
@@ -578,6 +590,7 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as exc:  # ImportError, or a broken torch install raising OSError
         emit("error", code="import", detail=f"The video models could not be loaded: {exc}")
         return EXIT_IMPORT
+    _quiet_progress_bars()
 
     try:
         make(args)
