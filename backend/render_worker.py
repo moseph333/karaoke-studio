@@ -19,6 +19,7 @@ from backend.project_store import (
     save_projects_throttled,
 )
 from backend.schemas import RenderRequest
+from backend.services import song_loops
 from backend.services.ass_generator import (
     card_names,
     export_fonts,
@@ -229,6 +230,11 @@ def run_video_render(project_id: str, req: RenderRequest):
             bg_candidate = (bg_dir / safe_bg_id).resolve()
             if bg_candidate.is_relative_to(bg_dir.resolve()) and bg_candidate.is_file():
                 custom_bg_file = str(bg_candidate)
+        if custom_bg_file is None and style_cfg.get("background_style") == song_loops.STYLE:
+            # The song's own loop, drawn the way an uploaded video is. Without one the
+            # style is unknown to the renderer, which then draws the cover art
+            loop_file = song_loops.current_file(proj)
+            custom_bg_file = str(loop_file) if loop_file else None
 
         def ffmpeg_cb(pct, detail, eta_s):
             render_pct = int(22 + ((pct or 0.0) * 0.75))

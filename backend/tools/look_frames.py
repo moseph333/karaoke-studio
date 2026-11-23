@@ -7,7 +7,10 @@ export uses (the subtitle generator, the look's cover-art treatment and FFmpeg w
 Each look gets one still per moment worth looking at (the title card, the count-in, a line
 half sung, a duet change, a long line, a Japanese line with romaji, a break, the end card), in
 16:9 and 9:16, plus a contact sheet per look and format. ``--clips`` adds the song's first
-seconds as a video. The song is made up; ``--art`` uses your own cover image. Needs FFmpeg.
+seconds as a video. The song is made up; ``--art`` uses your own cover image, and
+``--background`` an image or a looping video (an upload, or a song loop) in place of the
+cover art: every look then shows its treatment of an upload, and a video's first frame
+stands in every still. Needs FFmpeg.
 """
 
 import argparse
@@ -150,13 +153,22 @@ def look_script(look_id: str, aspect: str, lines: list[dict]) -> str:
 
 
 def render_still(
-    look_id: str, aspect: str, script: Path, cover: Path, at: float, target: Path, work: Path
+    look_id: str,
+    aspect: str,
+    script: Path,
+    cover: Path,
+    at: float,
+    target: Path,
+    work: Path,
+    background_file: Path | None = None,
 ) -> None:
-    """One frame at ``at`` seconds, drawn the way an export draws it."""
+    """One frame at ``at`` seconds, drawn the way an export draws it (over
+    ``background_file`` instead of the cover art when one is given)."""
     width, height = (1080, 1920) if aspect == "9:16" else (1920, 1080)
     look = LOOKS[look_id]
+    upload = str(background_file) if background_file else None
     background = prepare_background(
-        work, width, height, str(cover), None, look["palette"]["ground"], None, look_id=look_id
+        work, width, height, str(cover), upload, look["palette"]["ground"], None, look_id=look_id
     )
     path_arg = str(background.path) if background.path else None
     graph = (
@@ -189,7 +201,11 @@ def contact_sheet(stills: list[Path], target: Path, portrait: bool) -> None:
 
 
 def render_looks(
-    out: Path, looks: list[str], clips: bool = False, art: Path | None = None
+    out: Path,
+    looks: list[str],
+    clips: bool = False,
+    art: Path | None = None,
+    background: Path | None = None,
 ) -> list[Path]:
     """Writes the stills, sheets and (with ``clips``) videos into ``out``; returns the files."""
     out.mkdir(parents=True, exist_ok=True)
@@ -211,7 +227,7 @@ def render_looks(
                 stills = []
                 for name, at in MOMENTS:
                     still = out / f"{tag}_{name}.png"
-                    render_still(look_id, aspect, script, cover, at, still, work)
+                    render_still(look_id, aspect, script, cover, at, still, work, background)
                     stills.append(still)
                 sheet = out / f"sheet_{tag}.png"
                 contact_sheet(stills, sheet, portrait=aspect == "9:16")
@@ -223,6 +239,7 @@ def render_looks(
                         str(script),
                         clip,
                         thumbnail_path=str(cover),
+                        custom_bg_path=str(background) if background else None,
                         aspect_ratio=aspect,
                         duration=CLIP_SECONDS,
                         background_color=LOOKS[look_id]["palette"]["ground"],
@@ -238,9 +255,19 @@ def main() -> None:
     parser.add_argument("--looks", default=",".join(LOOKS), help="Comma-separated look ids")
     parser.add_argument("--clips", action="store_true", help="Also render a short video per look")
     parser.add_argument("--art", type=Path, default=None, help="A cover image to use")
+    parser.add_argument(
+        "--background",
+        type=Path,
+        default=None,
+        help="An image or looping video to draw instead of the cover art",
+    )
     args = parser.parse_args()
+    if args.background is not None and not args.background.is_file():
+        parser.error(f"--background {args.background} is not a file")
     looks = [look for look in args.looks.split(",") if look in LOOKS]
-    written = render_looks(args.out, looks, clips=args.clips, art=args.art)
+    written = render_looks(
+        args.out, looks, clips=args.clips, art=args.art, background=args.background
+    )
     print(f"Wrote {len(written)} files to {args.out}")
 
 
