@@ -183,7 +183,8 @@ def run_video_render(project_id: str, req: RenderRequest):
         # 1. Generate ASS Subtitles, in the look the request names (a replaced preset's id
         # gives the look nearest it)
         style_cfg = dict(req.style_config or {})
-        look = resolve_look_style(style_cfg, req.aspect_ratio).look
+        look_style = resolve_look_style(style_cfg, req.aspect_ratio)
+        look = look_style.look
         card_title, card_artist = card_names(proj)
 
         main_mod.video_renderer.generate_ass_subtitles(
@@ -255,6 +256,8 @@ def run_video_render(project_id: str, req: RenderRequest):
             background_palette=style_cfg.get("background_palette"),
             background_tone=look["tone"],
             look_id=look["id"],
+            # The visualizer's bars take the colour that marks the look's words
+            visualizer_color=look_style.part_color("singer1"),
             fonts=export_fonts(style_cfg, req.aspect_ratio),
         )
 

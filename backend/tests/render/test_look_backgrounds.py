@@ -220,3 +220,27 @@ def test_a_looks_lyrics_are_drawn_on_frames_in_the_videos_own_colour_format(tmp_
     assert "[bgvis]format=yuv420p,subtitles='s.ass'[v]" in graph(True, visualizer=True)
     assert "[bg]subtitles='s.ass'[v]" in graph(False)
     assert "format=yuv420p" not in graph(False, visualizer=True)
+
+
+def test_the_visualizers_bars_take_the_looks_colour(tmp_path):
+    """They were cyan and magenta whatever the look, which no look's palette holds."""
+
+    def graph(color: str | None) -> str:
+        job = RenderJob(
+            background=video_renderer.RenderBackground("color"),
+            audio_path=tmp_path / "a.wav",
+            ass_path=tmp_path / "s.ass",
+            output_path=tmp_path / "o.mp4",
+            width=1920,
+            height=1080,
+            duration=10.0,
+            include_visualizer=True,
+            visualizer_color=color,
+        )
+        args = ffmpeg_args(job, None, "a.wav", "s.ass", None, "o.mp4")
+        return args[args.index("-filter_complex") + 1]
+
+    assert "colors=0xffd21f|0xffd21f[vis]" in graph("#ffd21f")
+    assert "colors=cyan|magenta[vis]" in graph(None)
+    assert video_renderer._hex_color("#FFD21F") == "#ffd21f"
+    assert video_renderer._hex_color("red; rm -rf") is None
