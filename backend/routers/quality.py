@@ -174,6 +174,11 @@ def make_song_loop(project_id: str, req: SongLoopRequest, bg_tasks: BackgroundTa
                 status_code=400,
                 detail=f"This server cannot make song loops: {why or 'no cloud GPU'}",
             )
+        if req.model and req.model not in song_loops.offered_models():
+            raise HTTPException(
+                status_code=400,
+                detail=f"This server does not make song loops with {req.model!r}",
+            )
         if not (req.prompt or song_loops.lyrics_text(proj) or str(proj.get("title") or "").strip()):
             raise HTTPException(
                 status_code=400,
@@ -182,7 +187,7 @@ def make_song_loop(project_id: str, req: SongLoopRequest, bg_tasks: BackgroundTa
         # After the 404, 409 and 400 checks, which still answer first on a low disk
         ensure_free_space()
         ensure_not_draining()
-        job = song_loop.create_job(proj, req.prompt)
+        job = song_loop.create_job(proj, req.prompt, req.model)
         main_mod.active_cancellations[song_loop.cancel_key(pid)] = threading.Event()
         save_projects()
 

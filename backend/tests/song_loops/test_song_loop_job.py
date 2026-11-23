@@ -26,7 +26,7 @@ def test_a_loop_is_made_from_the_lyrics_and_kept_beside_the_renders(client, song
     res = client.post("/api/project/sl1/song-loop", json={})
     assert res.status_code == 202
     queued = res.json()["job"]
-    assert (queued["status"], queued["prompt"]) == ("queued", None)
+    assert (queued["status"], queued["prompt"], queued["model"]) == ("queued", None, "wan22")
 
     proj = client.get("/api/project/sl1").json()
     job = proj["song_loop_job"]
@@ -76,6 +76,39 @@ def test_the_model_is_the_servers_setting(client, song, monkeypatch):
     assert song["log"][0]["model"] == "ltx"
     monkeypatch.setenv("SONG_LOOP_MODEL", "sora")
     assert song_loops.configured_model() == "wan22"
+
+
+def test_the_request_may_choose_among_the_models_the_server_offers(client, song, monkeypatch):
+    res = client.post("/api/project/sl1/song-loop", json={"model": " LTX "})
+    assert res.status_code == 202
+    assert res.json()["job"]["model"] == "ltx"
+    assert song["log"][0]["model"] == "ltx"
+    assert main_mod.projects["sl1"]["song_loop"]["model"] == "ltx"
+
+    res = client.post("/api/project/sl1/song-loop", json={"model": "sora"})
+    assert res.status_code == 400
+    assert res.json()["detail"] == "This server does not make song loops with 'sora'"
+
+    # A server may offer only some of them
+    monkeypatch.setenv("SONG_LOOP_MODELS", "wan22")
+    res = client.post("/api/project/sl1/song-loop", json={"model": "ltx"})
+    assert res.status_code == 400
+    assert len(song["log"]) == 1
+
+
+def test_the_models_offered_and_the_default_follow_the_settings(monkeypatch):
+    assert song_loops.offered_models() == ["wan22", "ltx"]
+    assert [choice["name"] for choice in song_loops.model_choices()] == ["Best", "Fast"]
+    best, fast = song_loops.model_choices()
+    assert (best["id"], best["minutes"], best["note"]) == ("wan22", 8, None)
+    assert fast["minutes"] == 2 and "double image" in fast["note"]
+
+    monkeypatch.setenv("SONG_LOOP_MODELS", " LTX , sora ")
+    assert song_loops.offered_models() == ["ltx"]
+    # The default is always one that is offered
+    assert song_loops.configured_model() == "ltx"
+    monkeypatch.setenv("SONG_LOOP_MODELS", "sora")
+    assert song_loops.offered_models() == ["wan22", "ltx"]
 
 
 def test_making_it_again_replaces_the_loop(client, song, monkeypatch):

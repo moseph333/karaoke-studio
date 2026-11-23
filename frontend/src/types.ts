@@ -166,14 +166,30 @@ export interface VocalSplitCapability {
   runs_on?: 'cloud-gpu' | null;
 }
 
+/** A video model song loops can be made with, as the server offers it. */
+export interface SongLoopModel {
+  id: string;
+  /** What the studio calls it: "Best", "Fast". */
+  name: string;
+  /** The model's own name. */
+  label: string;
+  /** About how long a loop takes. */
+  minutes: number;
+  /** What to expect that the other choices do not have. */
+  note?: string | null;
+}
+
 /** Whether this server can make song loops (GET /api/capabilities). */
 export interface SongLoopCapability {
   available: boolean;
   reason?: string | null;
   /** Set when the server has a cloud GPU configured for loops, whether or not it is usable. */
   runs_on?: 'cloud-gpu' | null;
+  /** The model a loop is made with when none is chosen. */
   model?: string;
   model_label?: string;
+  /** The models to choose between; missing on servers from before the choice. */
+  models?: SongLoopModel[];
   max_prompt_chars?: number;
 }
 
@@ -268,6 +284,7 @@ export interface SongLoopJob {
   status: BackgroundJobStatus;
   /** The scene as typed; null when it is written from the lyrics. */
   prompt?: string | null;
+  model?: string;
   progress: number;
   detail?: string;
   eta_seconds?: number | null;

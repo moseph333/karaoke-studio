@@ -118,6 +118,7 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "SONG_LOOP_TIMEOUT_SEC",
         "SONG_LOOP_STALL_SEC",
         "SONG_LOOP_MODEL",
+        "SONG_LOOP_MODELS",
         "FFMPEG_PRESET",
         "SELF_UPDATE",
         "UPDATE_DRAIN_MAX_SEC",

@@ -129,6 +129,7 @@ def test_song_loops_are_off_until_the_server_is_given_a_cloud_gpu(monkeypatch, t
     assert (said["available"], said["runs_on"]) == (False, None)
     assert said["reason"] == "it has no cloud GPU set up for them (SONG_LOOP_REMOTE)"
     assert (said["model"], said["model_label"]) == ("wan22", "Wan 2.2 (5B)")
+    assert [choice["id"] for choice in said["models"]] == ["wan22", "ltx"]
     assert said["max_prompt_chars"] == song_loops.MAX_PROMPT_CHARS
 
     monkeypatch.setenv("SONG_LOOP_REMOTE", "modal")

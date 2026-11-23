@@ -615,6 +615,12 @@ class SongLoopRequest(BaseModel):
         max_length=600,
         description="What the loop shows, in words; leave out to have it written from the lyrics",
     )
+    model: str | None = Field(
+        default=None,
+        max_length=20,
+        description="The video model, one of those GET /api/capabilities offers under "
+        "song_loop.models; leave out for the server's default",
+    )
 
     @field_validator("prompt", mode="before")
     @classmethod
@@ -622,6 +628,13 @@ class SongLoopRequest(BaseModel):
         """One line of text; an empty one means none was typed."""
         if isinstance(v, str):
             return " ".join(v.split()) or None
+        return v
+
+    @field_validator("model", mode="before")
+    @classmethod
+    def tidy_model(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            return v.strip().lower() or None
         return v
 
 
