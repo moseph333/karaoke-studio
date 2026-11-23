@@ -550,6 +550,17 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
         run: () => theme.setBackgroundStyle('custom'),
       });
     }
+    if (project.song_loop) {
+      add({
+        id: 'stage-background:loop',
+        title: 'Stage background: Song loop',
+        subtitle: current(theme.backgroundStyle === 'loop'),
+        group: 'Themes',
+        icon: <ImageIcon />,
+        keywords: ['backdrop', 'look', 'video', 'lyrics', 'moving'],
+        run: () => theme.setBackgroundStyle('loop'),
+      });
+    }
   }
 
   useRegisterCommands('studio', commands);

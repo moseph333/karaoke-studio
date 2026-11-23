@@ -137,6 +137,7 @@ The levels are part of the song like its key: videos are rendered with them, a m
 - Every look draws the same parts in its own type: an opening title card (when the first line starts six seconds in or later), a count-in over the last three seconds before a line that follows a break, the seconds left of a break, the name of a duet's part where the singer changes, a progress line along the bottom, and an end card with the title and artist.
 - Your own sung and unsung colours, Singer 2 and Both colours, and lyric size on top of a look. Colours are kept per look. Stage settings are remembered, and a preset chosen before the looks becomes the look nearest it. The app around the stage has one look: black, off-white and one yellow.
 - Backgrounds: the song's **cover art**, still or **drifting** in a slow pan, **aurora** (soft orbs in the look's colours), a **spectrum** that rises with the music, a **plain** colour, or your own image or looping video. Each look treats the cover art its own way (Marquee grey and dark, KTV blurred, Songbook a faint wash, Cinema sharp in its frame, Prompter nearly black) and dims or washes an upload so its lyrics stay readable. The stage draws each one the way the video does: cover art is the export's own image, and moving backgrounds follow the song.
+- **Song loop (optional).** With `SONG_LOOP_REMOTE=modal`, **Make a loop** in the Stage look panel draws a looping background video for the song on a cloud GPU. A small language model reads the lyrics and writes one scene (scenery only: no faces and no lettering, so nothing competes with the lyrics), a video model draws a few seconds of it, and the clip is faded into its own start so it repeats without a jump. The scene is shown as text: change the words and make it again, type your own, or clear them for a new scene from the lyrics. It runs in the background for a few minutes while the song stays playable, one loop at a time, and each one is billed as GPU seconds. A song keeps one loop; **Song loop** then joins the backgrounds, shown under each look's treatment of an upload on the stage and in exports, and songs without one show their cover art.
 - Key shift (−12 to +12 semitones) and speed (0.5× to 1.5×), a 0–50% guide vocal, levels for the backing vocals and for each singer of a duet (see **Vocal parts** under [Stem separation](#stem-separation)), and **Suggest a key for my voice**, which fits a song's vocal range to your voice. Final renders shift pitch with Rubber Band at high quality, keeping the guide vocal's formants.
 - Exports: 1080p60 MP4 (16:9 or 9:16 Shorts) in the chosen look, with the lyric sweep drawn for every frame and long lines sized and broken to fit, `.lrc` and `.ass` subtitles (the `.ass` file is laid out for the look's typeface, which it names in its first lines), WAV stems (with the vocal parts of a song that has been split), chord and lyric sheets, and a YouTube metadata kit. **Render Again** makes a new video after you change the lyrics, key or look, and **Try Again** retries a failed render. A failed or cancelled render keeps the previous video, and the 16:9 and 9:16 videos are kept side by side, so rendering one format never replaces the other.
 - **Cloud export (optional).** With `RENDER_REMOTE=modal` (same Modal deployment and token as the cloud GPU), MP4s render on a 16-core Modal CPU: about 1¼ minutes for a 3-minute song, around a cent each. Opening the Export dialog starts a cloud CPU in the background, so Modal finds one while you choose the options, and it stays ready for 2 minutes after each export. While the export waits for a CPU, the studio counts the seconds. If it is unavailable or fails, the export renders on your server.
@@ -207,8 +208,12 @@ Nothing is downloaded until it is first needed. Downloads go to persistent model
 | Mel-Band RoFormer Karaoke | splitting lead and backing vocals, on request | see the model card | third-party, see the model card | `AUDIO_SEPARATOR_MODEL_DIR` |
 | BS-RoFormer Male-Female | splitting a male and a female voice, on request | see the model card | third-party, see the model card | `AUDIO_SEPARATOR_MODEL_DIR` |
 | MMS forced aligner | neural lyric alignment | about 1.2 GB | **CC-BY-NC 4.0 (non-commercial)** | `ALIGNMENT_MODEL_DIR` |
+| Qwen3 4B | writing a song loop's scene from the lyrics, on the cloud GPU only | about 8 GB | Apache 2.0 | Modal volume `karaoke-models` |
+| Wan 2.2 TI2V 5B | drawing a song loop, on the cloud GPU only | tens of GB | Apache 2.0 | Modal volume `karaoke-models` |
+| LTX-Video 0.9.7 distilled | drawing a song loop when `SONG_LOOP_MODEL=ltx`, on the cloud GPU only | tens of GB | **LTXV Open Weights License (free under $10M yearly revenue, not open source)** | Modal volume `karaoke-models` |
 
 - Review the model licences before any commercial use. The MMS aligner is for non-commercial use only. Set `ALIGNMENT_ENGINE=dsp` to never use it.
+- The song loop models never run on your server and are never downloaded to it: they load into the Modal volume the first time a loop is made with them, which makes that first loop slow.
 - To prefetch everything (for example while building an image, or for an offline server), run:
 
   ```bash
@@ -305,6 +310,18 @@ cp .env.example .env
 | `RENDER_REMOTE_PREWARM` | `1` | Start a cloud CPU when the Export dialog opens (at most once a minute) |
 | `RENDER_REMOTE_SCALEDOWN_SEC` | `120` | How long an idle render container waits for the next export (read by `modal deploy`) |
 
+**Song loops**
+
+| Variable | Default | Purpose |
+| :--- | :--- | :--- |
+| `SONG_LOOP_REMOTE` | *(empty)* | `modal` lets the studio make song loops on a Modal cloud GPU (deploy `gpu/modal_app.py` first); empty, the studio has no song loop control |
+| `SONG_LOOP_MODEL` | `wan22` | The video model: `wan22` (Wan 2.2 TI2V 5B) or `ltx` (LTX-Video 0.9.7 distilled) |
+| `SONG_LOOP_REMOTE_QUEUE_SEC` | `300` | Longest wait for a cloud GPU before the loop fails |
+| `SONG_LOOP_TIMEOUT_SEC` / `SONG_LOOP_STALL_SEC` | `2400` / `300` | Stop a loop that runs too long or reports nothing |
+| `SONG_LOOP_REMOTE_GPUS` | `L40S,A100,A10G` | GPU types for loops, first free one wins; 24 GB of video memory or more (read by `modal deploy`) |
+| `SONG_LOOP_REMOTE_TIMEOUT_SEC` | `2400` | The cloud function's own time limit (read by `modal deploy`) |
+| `SONG_LOOP_REMOTE_SCALEDOWN_SEC` | `30` | How long an idle loop container waits for the next loop (read by `modal deploy`) |
+
 **Lyric sync**
 
 | Variable | Default | Purpose |
@@ -339,6 +356,12 @@ KARAOKE_DATA_DIR=/tmp/karaoke-demo python -m backend.tools.seed_demo
 
 # Render stills of every look in both formats through the real export path (--clips adds short videos)
 python -m backend.tools.look_frames --out /tmp/looks
+
+# The same over an image or a looping video (an upload, or a song loop) instead of the demo cover
+python -m backend.tools.look_frames --out /tmp/looks --background loop.mp4 --clips
+
+# Make a loop for a few lyrics files with each video model, to compare them (uses your Modal account)
+modal run gpu/modal_app.py::song_loop_trial --lyrics a.txt,b.txt --out /tmp/loops
 ```
 
 ## System requirements

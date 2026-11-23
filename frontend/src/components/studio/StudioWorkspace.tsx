@@ -47,7 +47,7 @@ export interface StudioWorkspaceProps {
   onToggleVisualizer: () => void;
   showChordBar: boolean;
   onToggleChordBar: () => void;
-  /** Stem re-separation, lyric re-alignment and vocal split jobs. */
+  /** Stem re-separation, lyric re-alignment, vocal split and song loop jobs. */
   quality?: UseQualityJobsReturn;
   /** The getting-started card for a first-time user, and where its steps go. */
   showFirstSongCard?: boolean;
@@ -91,7 +91,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
   );
   const syncJobActive = isJobActive(project.sync_job);
   const vocalSplitActive = isJobActive(project.vocal_split_job);
-  // Whether this server can split vocals, asked only where a split can be started
+  // What this server can run (vocal splits, song loops), asked only where one can be started
   const capabilities = useCapabilities(Boolean(quality));
   const splitCapabilities = capabilities?.separation.vocal_parts;
   const splitBusyReason = vocalSplitBusyReason(project);
@@ -146,6 +146,29 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
       splitBusyReason,
     ]
   );
+  const songLoopCapability = capabilities?.song_loop;
+  const songLoop = useMemo(
+    () =>
+      quality
+        ? {
+            loop: project.song_loop,
+            job: project.song_loop_job,
+            capability: songLoopCapability,
+            onMake: (prompt: string) => void quality.startSongLoop(prompt),
+            onCancel: () => void quality.cancelSongLoop(),
+            onRemove: () => void quality.removeSongLoop(),
+          }
+        : undefined,
+    [quality, project.song_loop, project.song_loop_job, songLoopCapability]
+  );
+  // The song's loop is drawn like an uploaded video; a song without one shows its cover art
+  const loopUrl = project.song_loop?.url;
+  const showsLoop = theme.backgroundStyle === 'loop';
+  const backgroundMedia = useMemo(
+    () => (showsLoop && loopUrl ? { url: loopUrl, kind: 'video' as const } : theme.stageBackground),
+    [showsLoop, loopUrl, theme.stageBackground]
+  );
+  const backgroundStyle = showsLoop && !loopUrl ? 'artwork' : theme.backgroundStyle;
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
   // The cover art exactly as exports draw it (the larger, panned still for the drift)
   const artworkUrl = project.thumbnail_url
@@ -209,8 +232,8 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
             onSaveLines={onSaveLines}
             albumArtUrl={project.thumbnail_url}
             artworkUrl={artworkUrl}
-            backgroundMedia={theme.stageBackground}
-            backgroundStyle={theme.backgroundStyle}
+            backgroundMedia={backgroundMedia}
+            backgroundStyle={backgroundStyle}
             backgroundPalette={theme.backgroundPalette}
             selectedTheme={theme.selectedTheme}
             themeSungColor={theme.activeSungColor}
@@ -301,6 +324,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
             backgroundStyle={theme.backgroundStyle}
             onBackgroundStyleChange={theme.setBackgroundStyle}
             hasArtwork={Boolean(project.thumbnail_url)}
+            songLoop={songLoop}
             customSungColor={theme.customSungColor}
             onCustomSungColorChange={theme.setCustomSungColor}
             customUnsungColor={theme.customUnsungColor}

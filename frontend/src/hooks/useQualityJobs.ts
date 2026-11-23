@@ -1,8 +1,8 @@
 /**
  * Background quality jobs on the open song: re-making its stems at another preset,
- * re-aligning its lyrics and splitting its vocals into parts. Starting a job puts it on the
- * project right away, so polling picks it up; when a job finishes the user gets a toast with
- * the outcome.
+ * re-aligning its lyrics, splitting its vocals into parts and making its loop (the background
+ * video drawn from its lyrics). Starting a job puts it on the project right away, so polling
+ * picks it up; when a job finishes the user gets a toast with the outcome.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -12,6 +12,7 @@ import type {
   ProjectState,
   SeparationJob,
   SeparationPreset,
+  SongLoopJob,
   SyncJob,
   VocalSplitJob,
   VocalSplitKind,
@@ -40,6 +41,8 @@ export interface BackgroundRealignRequest {
 export interface UseQualityJobsOptions {
   project: ProjectState | null;
   setProject: React.Dispatch<React.SetStateAction<ProjectState | null>>;
+  /** A loop started from this tab is ready (the stage can switch to it). */
+  onSongLoopReady?: () => void;
 }
 
 export interface UseQualityJobsReturn {
@@ -54,14 +57,19 @@ export interface UseQualityJobsReturn {
    * model) is shown as a toast with the server's reason. */
   startVocalSplit: (kind?: VocalSplitKind) => Promise<void>;
   cancelVocalSplit: () => Promise<void>;
+  /** Starts the song's loop from the scene typed, or from the lyrics when none is given;
+   * a refusal is shown as a toast with the server's reason. */
+  startSongLoop: (prompt?: string) => Promise<void>;
+  cancelSongLoop: () => Promise<void>;
+  removeSongLoop: () => Promise<void>;
 }
 
-type JobField = 'separation_job' | 'sync_job' | 'vocal_split_job';
-type AnyJob = SeparationJob | SyncJob | VocalSplitJob;
+type JobField = 'separation_job' | 'sync_job' | 'vocal_split_job' | 'song_loop_job';
+type AnyJob = SeparationJob | SyncJob | VocalSplitJob | SongLoopJob;
 
-async function postJson(url: string, body?: unknown) {
+async function postJson(url: string, body?: unknown, method = 'POST') {
   const res = await apiFetch(url, {
-    method: 'POST',
+    method,
     ...(body === undefined
       ? {}
       : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
@@ -93,6 +101,7 @@ function useJobOutcomeToast(job: AnyJob | null | undefined, fallback: string) {
 export function useQualityJobs({
   project,
   setProject,
+  onSongLoopReady,
 }: UseQualityJobsOptions): UseQualityJobsReturn {
   const { toast } = useToast();
   const [isReseparateOpen, setReseparateOpen] = useState(false);
@@ -107,6 +116,17 @@ export function useQualityJobs({
   useJobOutcomeToast(project?.separation_job, 'Stem re-separation finished');
   useJobOutcomeToast(project?.sync_job, 'Lyric re-alignment finished');
   useJobOutcomeToast(project?.vocal_split_job, 'Vocal split finished');
+  useJobOutcomeToast(project?.song_loop_job, 'Song loop finished');
+
+  // The loop this tab asked for: when it is ready, the stage is told once
+  const startedLoopId = useRef<string | null>(null);
+  const loopJob = project?.song_loop_job;
+  useEffect(() => {
+    if (!loopJob?.id || loopJob.id !== startedLoopId.current) return;
+    if (isActiveJobStatus(loopJob.status)) return;
+    startedLoopId.current = null;
+    if (loopJob.status === 'done') onSongLoopReady?.();
+  }, [loopJob?.id, loopJob?.status, onSongLoopReady]);
 
   const putJob = useCallback(
     (field: JobField, job: AnyJob | null | undefined) => {
@@ -195,6 +215,47 @@ export function useQualityJobs({
     }
   }, [projectId, putJob, toast]);
 
+  const startSongLoop = useCallback(
+    async (prompt?: string) => {
+      if (!projectId) return;
+      const typed = prompt?.trim();
+      try {
+        const data = await postJson(
+          `/api/project/${projectId}/song-loop`,
+          typed ? { prompt: typed } : {}
+        );
+        startedLoopId.current = data.job?.id ?? null;
+        putJob('song_loop_job', data.job);
+        toast.info('Making the song loop. This takes a few minutes; the song stays playable.');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not make the song loop', 8000);
+      }
+    },
+    [projectId, putJob, toast]
+  );
+
+  const cancelSongLoop = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const data = await postJson(`/api/project/${projectId}/song-loop/cancel`);
+      putJob('song_loop_job', data.job);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not cancel the song loop');
+    }
+  }, [projectId, putJob, toast]);
+
+  const removeSongLoop = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      await postJson(`/api/project/${projectId}/song-loop`, undefined, 'DELETE');
+      setProject((current) =>
+        current && current.id === projectId ? { ...current, song_loop: null } : current
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not remove the song loop');
+    }
+  }, [projectId, setProject, toast]);
+
   const openReseparate = useCallback(() => setReseparateOpen(true), []);
   const closeReseparate = useCallback(() => setReseparateOpen(false), []);
 
@@ -210,6 +271,9 @@ export function useQualityJobs({
       cancelRealign,
       startVocalSplit,
       cancelVocalSplit,
+      startSongLoop,
+      cancelSongLoop,
+      removeSongLoop,
     }),
     [
       isReseparateOpen,
@@ -221,6 +285,9 @@ export function useQualityJobs({
       cancelRealign,
       startVocalSplit,
       cancelVocalSplit,
+      startSongLoop,
+      cancelSongLoop,
+      removeSongLoop,
     ]
   );
 }

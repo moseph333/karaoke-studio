@@ -1,6 +1,7 @@
 /**
  * Background jobs on a finished song (`separation_job`, `sync_job`, `vocal_split_job`):
  * whether one is queued or running, and what a job that is keeps the others waiting for.
+ * A song loop (`song_loop_job`) runs beside them and keeps nothing waiting.
  */
 
 import type { ProjectState } from '../types';

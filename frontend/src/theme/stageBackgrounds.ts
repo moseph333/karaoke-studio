@@ -16,12 +16,14 @@ export const STAGE_BACKGROUND_STYLES = [
   'spectrum',
   'color',
   'custom',
+  // The song's own loop (a video made from its lyrics); cover art for a song without one
+  'loop',
 ] as const;
 export type StageBackgroundStyle = (typeof STAGE_BACKGROUND_STYLES)[number];
 export const DEFAULT_STAGE_BACKGROUND_STYLE: StageBackgroundStyle = 'artwork';
 
 export interface StageBackgroundOption {
-  value: Exclude<StageBackgroundStyle, 'custom'>;
+  value: Exclude<StageBackgroundStyle, 'custom' | 'loop'>;
   label: string;
   hint: string;
   /** Shows the song's cover art (songs without art get the plain stage colour). */
