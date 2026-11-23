@@ -154,6 +154,24 @@ describe('service worker', () => {
     expect(worker.fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('leaves font files to the browser, so a typeface in many files cannot push the scripts out', async () => {
+    const worker = loadWorker(() => Promise.resolve(new Response('font')));
+    for (const path of [
+      '/assets/m-plus-rounded-1c-japanese-800-normal-abc.woff2',
+      '/assets/sofia-sans-latin-wght-normal-abc.woff',
+    ]) {
+      const event = fetchEvent(path);
+      worker.listeners.fetch(event);
+      expect(event.respondWith).not.toHaveBeenCalled();
+    }
+    // A cache from before this rule may hold fonts: it is replaced, not carried over
+    await (await worker.caches.open('karaoke-assets-v1')).put('/assets/x.woff2', new Response('f'));
+    const activate = { waitUntil: vi.fn() };
+    worker.listeners.activate(activate);
+    await activate.waitUntil.mock.calls[0][0];
+    expect(await worker.caches.keys()).not.toContain('karaoke-assets-v1');
+  });
+
   it('drops caches from older worker versions on activate', async () => {
     const worker = loadWorker(() => Promise.resolve(new Response('net')));
     await (await worker.caches.open('karaoke-shell-v0')).put('/x', new Response('old'));

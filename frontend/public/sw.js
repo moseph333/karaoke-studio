@@ -3,18 +3,22 @@
  *
  * Keeps the installed app from opening onto the browser's error page when the studio server
  * is down or restarting after an update: page loads go to the network first and fall back to
- * a cached offline page. Vite's hashed /assets/ files never change, so they are kept in a
- * small cache for faster launches. Nothing else is touched: /api and /static (projects, audio,
+ * a cached offline page. Vite's hashed /assets/ files never change, so the scripts and
+ * styles among them are kept in a small cache for faster launches. Fonts are not: the browser
+ * already keeps them for a year, and one stage look's typeface comes in more files than this
+ * cache holds, which would push the app's own scripts out of it. Nothing else is touched: /api and /static (projects, audio,
  * renders) always go straight to the server, and the page itself is never served from cache,
  * so a new build shows up as soon as the server has it.
  */
 
 // v2: the offline page and the icons it shows were redrawn
 const SHELL_CACHE = 'karaoke-shell-v2';
-const ASSET_CACHE = 'karaoke-assets-v1';
+// v2: fonts are no longer kept here
+const ASSET_CACHE = 'karaoke-assets-v2';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE = [OFFLINE_URL, '/icon.svg', '/icon-192.png'];
 const MAX_ASSETS = 60;
+const FONT_FILE = /\.(woff2?|ttf|otf)$/i;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -80,8 +84,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(pageWithOfflineFallback(request));
     return;
   }
-  if (url.pathname.startsWith('/assets/')) {
+  if (url.pathname.startsWith('/assets/') && !FONT_FILE.test(url.pathname)) {
     event.respondWith(cachedAsset(request));
   }
-  // Everything else (/api, /static, icons, the manifest) goes to the network untouched
+  // Everything else (/api, /static, fonts, icons, the manifest) goes to the network untouched
 });
