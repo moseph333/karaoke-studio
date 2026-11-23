@@ -38,9 +38,10 @@ def brightness(video) -> list[float]:
 
 
 def test_the_graph_fades_the_start_over_the_end():
-    graph = worker.loop_filter(5.0, 1.0)
-    assert "trim=start=1.000000:end=5.000000" in graph
-    assert "trim=start=0:end=1.000000" in graph
+    graph = worker.loop_filter(5.0, 1.0, 24)
+    # Each half is given its frame rate again: FFmpeg 7's crossfade refuses a cut stream
+    assert "trim=start=1.000000:end=5.000000,setpts=PTS-STARTPTS,fps=24[body]" in graph
+    assert "trim=start=0:end=1.000000,setpts=PTS-STARTPTS,fps=24[head]" in graph
     assert "xfade=transition=fade:duration=1.000000:offset=3.000000" in graph
     assert graph.endswith("format=yuv420p[v]")
 
@@ -48,7 +49,7 @@ def test_the_graph_fades_the_start_over_the_end():
 @pytest.mark.parametrize("fade", [0.0, -1.0, 2.5, 3.0])
 def test_a_fade_of_half_the_clip_or_more_is_refused(fade):
     with pytest.raises(ValueError):
-        worker.loop_filter(5.0, fade)
+        worker.loop_filter(5.0, fade, 24)
 
 
 @needs_ffmpeg
@@ -60,7 +61,7 @@ def test_the_loop_runs_into_its_own_start(tmp_path):
     # As drawn, the clip jumps from white back to black when it repeats
     assert drawn[-1] - drawn[0] > 200
 
-    worker.make_loop(clip, loop, 3.0, 1.0)
+    worker.make_loop(clip, loop, 3.0, 1.0, FPS)
     looped = brightness(loop)
     assert len(looped) == 2 * FPS
     step = drawn[1 * FPS + 1] - drawn[1 * FPS]
@@ -193,3 +194,10 @@ def test_missing_packages_are_an_import_failure(tmp_path, monkeypatch, capsys):
     )
     assert code == worker.EXIT_IMPORT
     assert events(capsys.readouterr().err)[-1]["code"] == "import"
+
+
+def test_an_ffmpeg_failure_leads_with_its_cause(tmp_path):
+    if shutil.which("ffmpeg") is None:
+        pytest.skip("needs FFmpeg")
+    with pytest.raises(RuntimeError, match="No such file or directory"):
+        worker.make_loop(tmp_path / "missing.mp4", tmp_path / "loop.mp4", 3.0, 1.0, FPS)
