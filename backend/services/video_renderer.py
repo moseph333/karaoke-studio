@@ -116,6 +116,15 @@ class RenderJob:
     # A video in a look: its lyrics are drawn on frames already in the video's own colour
     # format, which costs FFmpeg less than drawing them on RGB frames and converting after
     look: bool = False
+    # The visualizer's bars in the look's own colour (#rrggbb); without one, the cyan and
+    # magenta they had before the looks
+    visualizer_color: str | None = None
+
+
+def _hex_color(value: Any) -> str | None:
+    """A #rrggbb colour, or None for anything else."""
+    text = str(value or "")
+    return text.lower() if re.fullmatch(r"#[0-9a-fA-F]{6}", text) else None
 
 
 def _fill(width: int, height: int) -> str:
@@ -277,12 +286,14 @@ def ffmpeg_args(
     convert = "format=yuv420p," if job.look else ""
     if job.include_visualizer:
         vis_h = 240
+        bar = job.visualizer_color
+        colors = f"0x{bar[1:]}|0x{bar[1:]}" if bar else "cyan|magenta"
         # The bars sit on the bottom edge of the picture (of the frame, unless the look
         # frames its picture)
         bottom = f"{job.picture[1] + job.picture[3]}" if job.picture else "H"
         graph = (
             f"{bg.graph}"
-            f"[1:a]showfreqs=s={job.width}x{vis_h}:mode=bar:fscale=log:colors=cyan|magenta[vis];"
+            f"[1:a]showfreqs=s={job.width}x{vis_h}:mode=bar:fscale=log:colors={colors}[vis];"
             f"[bg][vis]overlay=0:{bottom}-{vis_h}:format=auto[bgvis];"
             f"[bgvis]{convert}{subtitles}[v]"
         )
@@ -571,6 +582,7 @@ class VideoRenderer:
                 include_visualizer=include_visualizer,
                 fonts=tuple(kwargs.get("fonts") or ()),
                 look=bool(kwargs.get("look_id")),
+                visualizer_color=_hex_color(kwargs.get("visualizer_color")),
             )
             if not (
                 remote_render.enabled()
