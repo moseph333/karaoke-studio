@@ -250,7 +250,7 @@
   }
   .ks-word {
     position: relative;
-    display: inline;
+    display: inline-block;
     margin: 0;
     padding: 0;
     border: 0;
@@ -261,12 +261,16 @@
     cursor: pointer;
     white-space: pre;
   }
+  /* The sung copy of a word, lying on the unsung one. Its clip-path cuts it at the share
+     sung. Its inline width states the same share for whoever reads the element, and must not
+     narrow the box as well, or the clip would be a share of a share: min-width keeps the box
+     the word's own width. */
   .ks-word-sung {
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
-    overflow: hidden;
+    min-width: 100%;
     white-space: pre;
     pointer-events: none;
   }

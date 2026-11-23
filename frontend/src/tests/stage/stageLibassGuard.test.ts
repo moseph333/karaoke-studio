@@ -76,6 +76,14 @@ describe('the stage frame draws only what the video can', () => {
     expect(frameCss()).toMatch(/\.ks-row\s*\{[^}]*white-space:\s*pre;/);
   });
 
+  it('a word is lit by its share sung, not by a share of that share', () => {
+    // The sung copy is cut by its clip-path. If its box were narrowed to the same share as
+    // well, half a word sung would light a quarter of it, and the stage would trail the video.
+    const sung = frameCss().match(/\.ks-word-sung\s*\{([^}]*)\}/)?.[1] ?? '';
+    expect(sung).toMatch(/min-width:\s*100%/);
+    expect(sung).not.toMatch(/overflow:\s*hidden/);
+  });
+
   it('the guard notices each effect when it is there', () => {
     const samples: Record<string, string> = {
       gradient: 'background: linear-gradient(red, blue)',
