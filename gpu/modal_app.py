@@ -1,13 +1,14 @@
-"""Karaoke Studio's cloud workers on Modal: Balanced and Best stem separation on a GPU, and
-video export on a CPU.
+"""Karaoke Studio's cloud workers on Modal: Balanced and Best stem separation on a GPU,
+video export on a CPU, and song loops (a background video made from a song's lyrics) on a GPU.
 
 Deploy once from the repository root (needs `pip install modal` and `modal setup`):
 
     modal deploy gpu/modal_app.py
 
-then let the server use them with SEPARATION_REMOTE=modal and/or RENDER_REMOTE=modal and a
-Modal token in .env (MODAL_TOKEN_ID and MODAL_TOKEN_SECRET; see .env.example). Deploy again
-after changing the RoFormer or CTC worker, backend/requirements-ml.txt or backend/assets/fonts.
+then let the server use them with SEPARATION_REMOTE=modal, RENDER_REMOTE=modal and/or
+SONG_LOOP_REMOTE=modal and a Modal token in .env (MODAL_TOKEN_ID and MODAL_TOKEN_SECRET; see
+.env.example). Deploy again after changing the RoFormer, CTC or song loop worker,
+backend/requirements-ml.txt or backend/assets/fonts.
 
 `separate` runs backend.workers.roformer_worker unchanged on the first free GPU from
 SEPARATION_REMOTE_GPUS and sends the worker's stderr back through the queue it is handed, for
@@ -22,8 +23,17 @@ only starts a container: `separate` when a song's intake begins (while the audio
 `render` when the Export dialog opens. Billing is per second while a container runs; an
 idle GPU container stops after SEPARATION_REMOTE_SCALEDOWN_SEC and an idle render container
 after RENDER_REMOTE_SCALEDOWN_SEC, long enough for the job that follows a warm-up.
+
+`song_loop` runs backend.workers.song_loop_worker on the first free GPU from
+SONG_LOOP_REMOTE_GPUS (it wants 24 GB of video memory or more) in an image of its own, with
+the video and language model weights in the same volume (/models/loops, tens of gigabytes on
+the first run), and returns the loop with the scene text it was drawn from. To compare the
+video models on a few songs before choosing one, without touching the deployed app:
+
+    modal run gpu/modal_app.py::song_loop_trial --lyrics a.txt,b.txt --out /tmp/loops
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -52,6 +62,17 @@ SEPARATE_TIMEOUT_SECONDS = int(os.environ.get("SEPARATION_REMOTE_TIMEOUT_SEC", "
 # Physical cores for an export; libx264 at 1080p60 keeps about 16 busy
 RENDER_CPUS = float(os.environ.get("RENDER_REMOTE_CPUS", "16"))
 RENDER_SCALEDOWN_SECONDS = int(os.environ.get("RENDER_REMOTE_SCALEDOWN_SEC", "120"))
+# A song loop's video model needs 24 GB of video memory; with more, it runs without swapping
+# its parts in and out
+LOOP_GPUS = [
+    gpu.strip()
+    for gpu in os.environ.get("SONG_LOOP_REMOTE_GPUS", "L40S,A100,A10G").split(",")
+    if gpu.strip()
+]
+LOOP_SCALEDOWN_SECONDS = int(os.environ.get("SONG_LOOP_REMOTE_SCALEDOWN_SEC", "30"))
+# Fixed at deploy time like SEPARATE_TIMEOUT_SECONDS; the first run also downloads the weights
+LOOP_TIMEOUT_SECONDS = int(os.environ.get("SONG_LOOP_REMOTE_TIMEOUT_SEC", "2400"))
+LOOP_MODEL_DIR = "/models/loops"
 MODEL_DIR = "/models/audio-separator"
 ALIGN_MODEL_DIR = "/models/mms_fa"
 # The emission takes seconds on a GPU (plus a one-time 1.2 GB download); never let it hold
@@ -146,6 +167,31 @@ render_image = modal.Image.debian_slim(python_version="3.12").apt_install(
 )
 if modal.is_local():  # the fonts are uploaded at deploy time
     render_image = render_image.add_local_dir(ROOT / "backend" / "assets" / "fonts", FONTS_DIR)
+
+# The song loop worker's own image: the video and language models' packages, kept apart from
+# the separation image so neither set of pins constrains the other
+loop_image = (
+    modal.Image.debian_slim(python_version="3.12")
+    .apt_install("ffmpeg")
+    .pip_install(
+        "torch>=2.4",
+        "diffusers>=0.35",
+        "transformers>=4.51",
+        "accelerate",
+        "safetensors",
+        "sentencepiece",
+        "protobuf",
+        "ftfy",
+        "numpy",
+        "pillow",
+    )
+    .env({"PYTHONPATH": "/app"})
+)
+if modal.is_local():  # the worker is uploaded at deploy time
+    loop_image = loop_image.add_local_file(
+        ROOT / "backend" / "workers" / "song_loop_worker.py",
+        "/app/backend/workers/song_loop_worker.py",
+    )
 
 weights = modal.Volume.from_name("karaoke-models", create_if_missing=True)
 app = modal.App(APP_NAME, image=image)
@@ -328,3 +374,154 @@ def render(
         return result
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+@app.function(
+    image=loop_image,
+    gpu=LOOP_GPUS,
+    volumes={"/models": weights},
+    timeout=LOOP_TIMEOUT_SECONDS,
+    scaledown_window=LOOP_SCALEDOWN_SECONDS,
+)
+def song_loop(
+    lyrics: str = "",
+    title: str = "",
+    artist: str = "",
+    prompt: str = "",
+    model: str = "",
+    seed: int | None = None,
+    lines: modal.Queue | None = None,
+    warmup: bool = False,
+    fade: float = 0.0,
+    keep_clip: bool = False,
+) -> dict:
+    """Make one song's loop: the worker's stderr goes to `lines` (to this container's own
+    output without one), and the loop comes back as `video` with what result.json says about
+    it (`prompt`, `written_from`, `model`, `seed`, ...). `prompt` is the scene as typed;
+    without it the worker writes one from `lyrics`. `model` and `fade` left empty take the
+    worker's defaults. keep_clip also returns the clip as drawn, before it was made to loop
+    (`clip`). With warmup=True it returns at once."""
+    if warmup:
+        return {"warmup": True}
+    if not (prompt.strip() or lyrics.strip() or title.strip()):
+        raise ValueError("song_loop needs a prompt, lyrics or a title")
+    if lines is not None:
+        lines.put(STARTED)
+
+    def send(batch: list[str]) -> None:
+        if lines is not None:
+            lines.put_many(batch)
+        else:
+            sys.stderr.write("".join(batch))
+
+    started = time.monotonic()
+    work = Path(tempfile.mkdtemp(prefix="loop-"))
+    try:
+        out = work / "out"
+        cmd = [
+            sys.executable,
+            "-u",
+            "-m",
+            "backend.workers.song_loop_worker",
+            "--out",
+            str(out),
+            "--model-dir",
+            LOOP_MODEL_DIR,
+            "--title",
+            title,
+            "--artist",
+            artist,
+        ]
+        if lyrics.strip():
+            words = work / "lyrics.txt"
+            words.write_text(lyrics, encoding="utf-8")
+            cmd += ["--lyrics-file", str(words)]
+        if prompt.strip():
+            cmd += ["--prompt", prompt]
+        if model:
+            cmd += ["--model", model]
+        if seed is not None:
+            cmd += ["--seed", str(seed)]
+        if fade > 0:
+            cmd += ["--fade", str(fade)]
+        if keep_clip:
+            cmd.append("--keep-clip")
+        process = subprocess.Popen(
+            cmd,
+            cwd="/app",
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+        try:
+            batch: list[str] = []
+            sent = time.monotonic()
+            for line in process.stderr:
+                batch.append(line)
+                # Worker events straight away; anything else at most twice a second
+                if line.lstrip().startswith("{") or time.monotonic() - sent >= 0.5:
+                    send(batch)
+                    batch, sent = [], time.monotonic()
+            returncode = process.wait()
+            if batch:
+                send(batch)
+        finally:
+            if process.poll() is None:  # cancelled or failed while the worker ran
+                process.kill()
+        result: dict = {"returncode": returncode, "gpu": _gpu_name()}
+        if returncode == 0:
+            result.update(json.loads((out / "result.json").read_text(encoding="utf-8")))
+            result["video"] = (out / "loop.mp4").read_bytes()
+            if keep_clip and (out / "clip.mp4").is_file():
+                result["clip"] = (out / "clip.mp4").read_bytes()
+        result["total_seconds"] = round(time.monotonic() - started, 1)
+        weights.commit()  # keep any weights this run downloaded
+        return result
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+@app.local_entrypoint()
+def song_loop_trial(
+    lyrics: str, out: str = "song-loop-trial", models: str = "wan22,ltx", seed: int = 7
+):
+    """Make a loop for each lyrics file with each model, to compare them by eye.
+
+    `lyrics` is a comma-separated list of text files; a file's name (without its extension)
+    is taken as the song's title. Each run leaves <title>.<model>.loop.mp4, the clip before
+    looping (.clip.mp4) and the scene text (.txt) in `out`, and a line with the GPU and the
+    seconds each step took. One run at a time, so each model's weights download once.
+    """
+    target = Path(out).expanduser()
+    target.mkdir(parents=True, exist_ok=True)
+    report: list[str] = []
+    for model in [name.strip() for name in models.split(",") if name.strip()]:
+        for name in [item.strip() for item in lyrics.split(",") if item.strip()]:
+            source = Path(name).expanduser()
+            title = source.stem
+            print(f"--- {title}: {model}")
+            result = song_loop.remote(
+                lyrics=source.read_text(encoding="utf-8"),
+                title=title,
+                model=model,
+                seed=seed,
+                keep_clip=True,
+            )
+            if result.get("returncode") != 0 or "video" not in result:
+                report.append(f"{title:<28} {model:<6} FAILED (exit {result.get('returncode')})")
+                continue
+            stem = f"{title}.{model}"
+            (target / f"{stem}.loop.mp4").write_bytes(result["video"])
+            if "clip" in result:
+                (target / f"{stem}.clip.mp4").write_bytes(result["clip"])
+            (target / f"{stem}.txt").write_text(result.get("prompt", "") + "\n", encoding="utf-8")
+            took = result.get("seconds", {})
+            report.append(
+                f"{title:<28} {model:<6} {result.get('gpu', '?'):<22} "
+                f"text {took.get('text', 0):>6.1f} s  video {took.get('video', 0):>7.1f} s  "
+                f"loop {took.get('loop', 0):>5.1f} s  total {result.get('total_seconds', 0):>7.1f} s"
+            )
+    print("\n".join(["", *report, "", f"Loops are in {target}"]))
