@@ -14,7 +14,7 @@ from typing import Literal
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 
-from backend import realignment, vocal_split
+from backend import realignment, song_loop, vocal_split
 from backend.album_pipeline import ALBUM_STATUS
 from backend.background_jobs import (
     BUSY_PIPELINE_STATES,
@@ -120,13 +120,15 @@ STATUS_FIELDS = (
     "sync_job",
     "vocal_split_job",
     "vocal_splits",
+    "song_loop_job",
+    "song_loop",
 )
 
 
 def _settle_stale_fields(proj: dict, active_cancellations: dict) -> bool:
     """Ends every job on the song that a previous server process left running (the intake, a
-    render, a re-separation, a background re-alignment, a vocal split), which would otherwise
-    poll forever.
+    render, a re-separation, a background re-alignment, a vocal split, a song loop), which
+    would otherwise poll forever.
     True if any changed. Call with PROJECTS_LOCK held."""
     # Every settler runs, none short-circuits the others
     settled = [
@@ -135,6 +137,7 @@ def _settle_stale_fields(proj: dict, active_cancellations: dict) -> bool:
         settle_stale_job(proj, active_cancellations),
         realignment.settle_stale_job(proj, active_cancellations),
         vocal_split.settle_stale_job(proj, active_cancellations),
+        song_loop.settle_stale_job(proj, active_cancellations),
     ]
     return any(settled)
 
@@ -1097,6 +1100,7 @@ def delete_project(project_id: str):
         reseparation_cancel_key(pid),
         realignment.cancel_key(pid),
         vocal_split.cancel_key(pid),
+        song_loop.cancel_key(pid),
     }
     if tid:
         cancel_keys.add(tid)
