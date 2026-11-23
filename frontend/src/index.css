@@ -172,12 +172,26 @@
 
   /* Size the live stage from a height budget so stage + timeline fit one screen: the
      default keeps ~500px of the viewport for chrome and the timeline. --stage-h can be
-     overridden by the studio workspace (stage size setting). */
+     overridden by the studio workspace (stage size setting). The budget covers the stage's
+     toolbar row (--stage-bar) as well as the frame under it. */
   .ks-stage-fit {
-    width: min(100%, calc(var(--stage-h, clamp(220px, calc(100dvh - 500px), 440px)) * 16 / 9));
+    --stage-bar: 48px;
+    width: min(
+      100%,
+      calc((var(--stage-h, clamp(220px, calc(100dvh - 500px), 440px)) - var(--stage-bar)) * 16 / 9)
+    );
   }
   .ks-stage-fit-portrait {
-    width: min(100%, calc(var(--stage-h, clamp(220px, calc(100dvh - 500px), 440px)) * 9 / 16));
+    --stage-bar: 48px;
+    width: min(
+      100%,
+      calc((var(--stage-h, clamp(220px, calc(100dvh - 500px), 440px)) - var(--stage-bar)) * 9 / 16)
+    );
+  }
+  /* A 9:16 frame on a phone: as wide as lets the whole frame sit between the stage's toolbar
+     and the transport dock (about 450px of the screen is taken by what is above and below) */
+  .ks-stage-fit-phone-portrait {
+    width: clamp(180px, calc((100dvh - 450px) * 9 / 16), 20rem);
   }
   /* Studio preview size setting (Standard keeps the default budget above) */
   [data-stage-size='compact'] {

@@ -417,7 +417,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
     : cn(
         'relative flex select-none flex-col font-theme-heading text-theme-text',
         aspect === '9:16'
-          ? 'mx-auto max-w-xs md:ks-stage-fit-portrait'
+          ? 'ks-stage-fit-phone-portrait mx-auto max-w-xs md:ks-stage-fit-portrait'
           : 'w-full md:mx-auto md:ks-stage-fit',
         className
       );
