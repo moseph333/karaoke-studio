@@ -269,7 +269,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                   data-testid={`look-option-${look.id}`}
                   onClick={() => onSelectTheme(look)}
                   className={cn(
-                    'flex min-h-[44px] w-full items-center gap-3 border-b border-theme-border-subtle py-2 text-left transition-colors hover:bg-theme-surface-subtle',
+                    'flex min-h-[44px] w-full flex-col gap-2 border-b border-theme-border-subtle py-3 text-left transition-colors hover:bg-theme-surface-subtle',
                     focusRing
                   )}
                 >
@@ -278,25 +278,26 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
                     aspect={aspectRatio === '9:16' ? '9:16' : '16:9'}
                     sung={isSelected ? activeSungColor : undefined}
                     unsung={isSelected ? activeUnsungColor : undefined}
-                    className={aspectRatio === '9:16' ? 'w-12 shrink-0' : 'w-28 shrink-0'}
                   />
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span
-                      className={cn(
-                        'ks-display text-[20px]',
-                        isSelected ? 'text-theme-accent' : 'text-theme-text'
-                      )}
-                    >
-                      {look.name}
+                  <span className="flex w-full items-start gap-3">
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span
+                        className={cn(
+                          'ks-display text-[20px]',
+                          isSelected ? 'text-theme-accent' : 'text-theme-text'
+                        )}
+                      >
+                        {look.name}
+                      </span>
+                      <span className="text-[13px] text-theme-text-muted">{look.description}</span>
                     </span>
-                    <span className="text-[13px] text-theme-text-muted">{look.description}</span>
+                    {isSelected && (
+                      <Check
+                        className="mt-1 h-4 w-4 shrink-0 stroke-[3] text-theme-accent"
+                        aria-hidden="true"
+                      />
+                    )}
                   </span>
-                  {isSelected && (
-                    <Check
-                      className="h-4 w-4 shrink-0 stroke-[3] text-theme-accent"
-                      aria-hidden="true"
-                    />
-                  )}
                 </button>
               );
             })}

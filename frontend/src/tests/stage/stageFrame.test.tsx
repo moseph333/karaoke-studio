@@ -235,4 +235,38 @@ describe('what the stage keeps to the video’s measure', () => {
     const picture = getStageLook('cinema').frames['16:9'].picture!;
     expect(band('cinema', '16:9')).toBeCloseTo((240 / (picture.h * 10.8)) * 100, 1);
   });
+
+  it('shows a look’s sample as a strip of the frame with the words in view', async () => {
+    const { LookSample } = await import('../../components/stage/LookSample');
+    for (const look of STAGE_LOOKS) {
+      for (const aspect of ['16:9', '9:16'] as Aspect[]) {
+        const view = render(<LookSample look={look} aspect={aspect} />);
+        const sample = view.container.querySelector<HTMLElement>(
+          `[data-look-sample="${look.id}"]`
+        )!;
+        expect(sample.style.aspectRatio).toBe('3.2');
+        const frame = sample.firstElementChild as HTMLElement;
+        const frameHeight = aspect === '9:16' ? (100 * 16) / 9 : 100;
+        const bandHeight = (aspect === '9:16' ? 100 : (100 * 16) / 9) / 3.2;
+        // The strip never shows anything outside the frame
+        const top = (-parseFloat(frame.style.top) / 100) * bandHeight;
+        expect(top).toBeGreaterThanOrEqual(0);
+        expect(top + bandHeight).toBeLessThanOrEqual(frameHeight + 0.01);
+        // ... and the line being sung is inside it
+        const row = sample.querySelector<HTMLElement>('.ks-row[data-role="lyric"]');
+        if (row) {
+          // A row hangs from a strut of one and a half ems: its baseline is that far under --y
+          const baseline =
+            parseFloat(row.style.getPropertyValue('--y')) +
+            1.5 * parseFloat(row.style.getPropertyValue('--size'));
+          expect(baseline).toBeGreaterThan(top);
+          expect(baseline).toBeLessThan(top + bandHeight);
+        }
+        // Nothing in a sample can be pressed or found as the stage
+        expect(sample.querySelector('button')).toBeNull();
+        expect(sample.querySelector('[data-testid]')).toBeNull();
+        view.unmount();
+      }
+    }
+  });
 });
