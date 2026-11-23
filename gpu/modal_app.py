@@ -25,7 +25,7 @@ idle GPU container stops after SEPARATION_REMOTE_SCALEDOWN_SEC and an idle rende
 after RENDER_REMOTE_SCALEDOWN_SEC, long enough for the job that follows a warm-up.
 
 `song_loop` runs backend.workers.song_loop_worker on the first free GPU from
-SONG_LOOP_REMOTE_GPUS (it wants 24 GB of video memory or more) in an image of its own, with
+SONG_LOOP_REMOTE_GPUS (48 GB cards by default) in an image of its own, with
 the video and language model weights in the same volume (/models/loops, tens of gigabytes on
 the first run), and returns the loop with the scene text it was drawn from. To compare the
 video models on a few songs before choosing one, without touching the deployed app:
@@ -62,11 +62,12 @@ SEPARATE_TIMEOUT_SECONDS = int(os.environ.get("SEPARATION_REMOTE_TIMEOUT_SEC", "
 # Physical cores for an export; libx264 at 1080p60 keeps about 16 busy
 RENDER_CPUS = float(os.environ.get("RENDER_REMOTE_CPUS", "16"))
 RENDER_SCALEDOWN_SECONDS = int(os.environ.get("RENDER_REMOTE_SCALEDOWN_SEC", "120"))
-# A song loop's video model needs 24 GB of video memory; with more, it runs without swapping
-# its parts in and out
+# Cards a song loop is known to fit on. LTX-Video keeps all its parts on the GPU and needs
+# about 44 GB (it ran out of memory on a 40 GB A100); Wan 2.2 moves its parts on and off and
+# also ran on that A100, so SONG_LOOP_REMOTE_GPUS can add "A100" when only Wan is used
 LOOP_GPUS = [
     gpu.strip()
-    for gpu in os.environ.get("SONG_LOOP_REMOTE_GPUS", "L40S,A100,A10G").split(",")
+    for gpu in os.environ.get("SONG_LOOP_REMOTE_GPUS", "L40S,A100-80GB").split(",")
     if gpu.strip()
 ]
 LOOP_SCALEDOWN_SECONDS = int(os.environ.get("SONG_LOOP_REMOTE_SCALEDOWN_SEC", "30"))
