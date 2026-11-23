@@ -1,6 +1,6 @@
 """Quality API: re-making a finished song's stems at another preset, splitting its vocals
-into parts, re-timing one lyric line, and cancelling a background lyric re-alignment (queued
-by POST .../realign-lyrics)."""
+into parts, making its loop (the background video drawn from its lyrics), re-timing one lyric
+line, and cancelling a background lyric re-alignment (queued by POST .../realign-lyrics)."""
 
 import logging
 import os
@@ -9,9 +9,15 @@ import threading
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import ValidationError
 
-from backend import realignment, vocal_split
+from backend import realignment, song_loop, vocal_split
 from backend.background_jobs import run_job
-from backend.project_store import PROJECTS_LOCK, ensure_free_space, find_project, save_projects
+from backend.project_store import (
+    PROJECTS_LOCK,
+    ensure_free_space,
+    find_project,
+    restore_on_failed_save,
+    save_projects,
+)
 from backend.reseparation import (
     cancel_key,
     conflict_reason,
@@ -24,9 +30,10 @@ from backend.schemas import (
     LyricLineSchema,
     RealignLineRequest,
     ReseparateRequest,
+    SongLoopRequest,
     VocalSplitRequest,
 )
-from backend.services import vocal_parts
+from backend.services import remote_song_loop, song_loops, vocal_parts
 from backend.services.line_realign import LineRealignError, realign_line
 from backend.update_drain import ensure_not_draining
 
@@ -146,6 +153,81 @@ def cancel_vocal_split(project_id: str):
             vocal_split.cancel_key(proj.get("id", project_id)), threading.Event()
         ).set()
         return {"status": "cancelling", "job": proj["vocal_split_job"]}
+
+
+@router.post("/api/project/{project_id}/song-loop", status_code=202)
+def make_song_loop(project_id: str, req: SongLoopRequest, bg_tasks: BackgroundTasks):
+    """Queues the song's loop: a looping background video of the scene in ``prompt``, or of
+    one written from the lyrics. The loop the song has stays until the new one is ready."""
+    import backend.main as main_mod
+
+    with PROJECTS_LOCK:
+        proj = _project_or_404(project_id)
+        pid = proj.get("id", project_id)
+        song_loop.settle_stale_job(proj, main_mod.active_cancellations)
+        reason = song_loop.conflict_reason(proj)
+        if reason:
+            raise HTTPException(status_code=409, detail=reason)
+        ready, why = remote_song_loop.status()
+        if not ready:
+            raise HTTPException(
+                status_code=400,
+                detail=f"This server cannot make song loops: {why or 'no cloud GPU'}",
+            )
+        if not (req.prompt or song_loops.lyrics_text(proj) or str(proj.get("title") or "").strip()):
+            raise HTTPException(
+                status_code=400,
+                detail="This song has no lyrics or title to go by: describe the loop yourself",
+            )
+        # After the 404, 409 and 400 checks, which still answer first on a low disk
+        ensure_free_space()
+        ensure_not_draining()
+        job = song_loop.create_job(proj, req.prompt)
+        main_mod.active_cancellations[song_loop.cancel_key(pid)] = threading.Event()
+        save_projects()
+
+    bg_tasks.add_task(run_job, song_loop.run_song_loop, pid, job["id"])
+    return {"status": "queued", "job": job}
+
+
+@router.post("/api/project/{project_id}/song-loop/cancel")
+def cancel_song_loop(project_id: str):
+    import backend.main as main_mod
+
+    with PROJECTS_LOCK:
+        proj = _project_or_404(project_id)
+        if song_loop.settle_stale_job(proj, main_mod.active_cancellations):
+            save_projects()
+        if not song_loop.job_is_active(proj):
+            return {"status": "idle", "job": proj.get("song_loop_job")}
+        main_mod.active_cancellations.setdefault(
+            song_loop.cancel_key(proj.get("id", project_id)), threading.Event()
+        ).set()
+        return {"status": "cancelling", "job": proj["song_loop_job"]}
+
+
+@router.delete("/api/project/{project_id}/song-loop")
+def remove_song_loop(project_id: str):
+    """Removes the song's loop; a stage or an export set to it shows the cover art again."""
+    import backend.main as main_mod
+
+    with PROJECTS_LOCK:
+        proj = _project_or_404(project_id)
+        pid = proj.get("id", project_id)
+        if song_loop.settle_stale_job(proj, main_mod.active_cancellations):
+            save_projects()
+        if song_loop.job_is_active(proj):
+            raise HTTPException(
+                status_code=409, detail="A loop is being made for this song: cancel it first"
+            )
+        had_loop = proj.get(song_loops.SONG_LOOP) is not None
+        with restore_on_failed_save(proj, (song_loops.SONG_LOOP,)):
+            proj.pop(song_loops.SONG_LOOP, None)
+            if had_loop:
+                save_projects(strict=True)
+        # Only once the song no longer names it
+        song_loops.remove_file(pid)
+    return {"status": "removed" if had_loop else "none"}
 
 
 @router.post("/api/project/{project_id}/realign-lyrics/cancel")

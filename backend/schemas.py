@@ -608,6 +608,23 @@ class VocalSplitRequest(BaseModel):
     )
 
 
+class SongLoopRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    prompt: str | None = Field(
+        default=None,
+        max_length=600,
+        description="What the loop shows, in words; leave out to have it written from the lyrics",
+    )
+
+    @field_validator("prompt", mode="before")
+    @classmethod
+    def tidy_prompt(cls, v: Any) -> Any:
+        """One line of text; an empty one means none was typed."""
+        if isinstance(v, str):
+            return " ".join(v.split()) or None
+        return v
+
+
 # ==============================================================================
 # Vocal Range & Smart Key Recommendation Schemas
 # ==============================================================================

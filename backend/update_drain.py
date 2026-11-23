@@ -97,7 +97,13 @@ def clear_drain_file() -> bool:
 
 
 def _job_kind(key: str) -> str:
-    for suffix, kind in (("_render", "render"), ("_reseparate", "stems"), ("_sync", "lyrics")):
+    kinds = (
+        ("_render", "render"),
+        ("_reseparate", "stems"),
+        ("_sync", "lyrics"),
+        ("_song_loop", "song loop"),
+    )
+    for suffix, kind in kinds:
         if key.endswith(suffix):
             return kind
     return "intake"

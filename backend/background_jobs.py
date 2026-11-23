@@ -4,7 +4,9 @@ Three jobs can run while a song stays open in the studio: re-making its stems
 (``separation_job``, see backend.reseparation), re-timing its lyrics (``sync_job``, see
 backend.realignment) and splitting its vocals into parts (``vocal_split_job``, see
 backend.vocal_split). Each keeps its state on the project so the studio can poll it, and
-none may start while another runs or while the song is still being processed.
+none may start while another runs or while the song is still being processed. A fourth,
+making the song's loop (``song_loop_job``, see backend.song_loop), changes nothing the others
+read, so it runs beside them: it only refuses a second loop for the same song.
 
 Every long job (intake pipelines, renders, re-separations, background re-alignments) is
 started with ``BackgroundTasks.add_task(run_job, func, *args)``, on worker threads of its own.
@@ -32,6 +34,7 @@ logger = logging.getLogger("karaoke_backend")
 SEPARATION_JOB = "separation_job"
 SYNC_JOB = "sync_job"
 VOCAL_SPLIT_JOB = "vocal_split_job"
+SONG_LOOP_JOB = "song_loop_job"
 ACTIVE_JOB_STATES = ("queued", "running")
 BUSY_PIPELINE_STATES = frozenset(
     {"queued", "processing", "downloading", "separating", "fetching_lyrics", "aligning", "mixing"}

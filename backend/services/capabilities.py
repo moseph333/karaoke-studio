@@ -1,5 +1,5 @@
 """What this server can do right now, for the UI's quality pickers: separation presets, the
-splits of the vocal stem into parts, and the lyric alignment engine.
+splits of the vocal stem into parts, the lyric alignment engine, and song loops.
 
 Detection only inspects installed package metadata and files on disk; it never imports
 PyTorch, so the endpoint stays fast and safe to call on every page load. Presets that run on
@@ -21,6 +21,7 @@ from backend.services.separation_presets import (
     remote_backend,
     weights_cached,
 )
+from backend.services.song_loops import capability as song_loop_capability
 from backend.services.vocal_parts import split_capabilities
 
 
@@ -68,4 +69,8 @@ def separation_capabilities() -> dict[str, Any]:
 
 
 def get_capabilities() -> dict[str, Any]:
-    return {"separation": separation_capabilities(), "alignment": alignment_capabilities()}
+    return {
+        "separation": separation_capabilities(),
+        "alignment": alignment_capabilities(),
+        "song_loop": song_loop_capability(),
+    }

@@ -1,14 +1,14 @@
-"""A re-separation or re-alignment whose song is deleted before the job starts releases the
-cancel event its route registered, so the update drain does not wait on a job that never
-runs."""
+"""A re-separation, re-alignment or song loop whose song is deleted before the job starts
+releases the cancel event its route registered, so the update drain does not wait on a job
+that never runs."""
 
 import threading
 
 import pytest
 
 import backend.main as main_mod
-from backend import realignment, reseparation
-from backend.background_jobs import SEPARATION_JOB, SYNC_JOB
+from backend import realignment, reseparation, song_loop
+from backend.background_jobs import SEPARATION_JOB, SONG_LOOP_JOB, SYNC_JOB
 from backend.main import active_cancellations, projects
 
 
@@ -17,8 +17,9 @@ from backend.main import active_cancellations, projects
     [
         (reseparation, lambda pid: reseparation.run_reseparation(pid, "job-1")),
         (realignment, lambda pid: realignment.run_realignment(pid, "job-1", [], {}, "auto")),
+        (song_loop, lambda pid: song_loop.run_song_loop(pid, "job-1")),
     ],
-    ids=["reseparation", "realignment"],
+    ids=["reseparation", "realignment", "song loop"],
 )
 def test_a_job_for_a_deleted_song_releases_its_event(module, run):
     key = module.cancel_key("deleted01")
@@ -38,8 +39,9 @@ def test_a_job_for_a_deleted_song_releases_its_event(module, run):
             SYNC_JOB,
             lambda pid: realignment.run_realignment(pid, "old", [], {}, "auto"),
         ),
+        (song_loop, SONG_LOOP_JOB, lambda pid: song_loop.run_song_loop(pid, "old")),
     ],
-    ids=["reseparation", "realignment"],
+    ids=["reseparation", "realignment", "song loop"],
 )
 def test_an_event_owned_by_a_newer_running_job_is_kept(module, field, run):
     projects["alive01"] = {
