@@ -84,6 +84,12 @@ describe('the stage frame draws only what the video can', () => {
     expect(sung).not.toMatch(/overflow:\s*hidden/);
   });
 
+  it('what is behind the lyrics cannot be drawn over them', () => {
+    const css = frameCss();
+    expect(css).toMatch(/\.ks-picture\s*\{[^}]*z-index:\s*0/);
+    expect(css).toMatch(/\.ks-canvas\s*\{[^}]*z-index:\s*1/);
+  });
+
   it('the guard notices each effect when it is there', () => {
     const samples: Record<string, string> = {
       gradient: 'background: linear-gradient(red, blue)',

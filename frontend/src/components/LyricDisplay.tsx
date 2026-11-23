@@ -14,7 +14,12 @@ import { usePlaybackClock, usePlaybackTime } from '../hooks/usePlaybackClock';
 import { useIsVisible } from '../hooks/useIsVisible';
 import { isInputElement, isModalActive } from '../hooks/useKeyboardShortcuts';
 import { characterShortcutsEnabled } from '../utils/shortcutPrefs';
-import { DEFAULT_STAGE_LOOK_ID, getStageLook, type StageLook } from '../theme/stageLooks';
+import {
+  DEFAULT_STAGE_LOOK_ID,
+  frameSize,
+  getStageLook,
+  type StageLook,
+} from '../theme/stageLooks';
 import { planStage, sceneAt, type StageStyle } from '../utils/stageScene';
 import { BeatVisualizer } from './BeatVisualizer';
 import { StageBackground, StageBackgroundMedia } from './stage/StageBackground';
@@ -139,8 +144,14 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
 }) => {
   const look = selectedTheme ?? getStageLook(DEFAULT_STAGE_LOOK_ID);
   const aspect = aspectRatio === '9:16' ? '9:16' : '16:9';
+  // The video's visualizer is 240 px tall in a frame whose short side is 1080 px (100 u), on
+  // the bottom edge of the picture
+  const pictureHeight = look.frames[aspect].picture?.h ?? frameSize(aspect).height;
+  const visualizerShare = Math.min(1, 240 / 10.8 / pictureHeight);
   const sungColor = themeSungColor ?? look.palette.sung;
   const unsungColor = themeUnsungColor ?? look.palette.unsung;
+  // The colour that marks the look's words (the words to sing, in a look that dims the sung)
+  const leadColor = look.emphasis === 'unsung' ? unsungColor : sungColor;
   const singer2Color = singer2SungColor ?? look.palette.singer2;
   const bothColor = bothSungColor ?? look.palette.both;
 
@@ -479,13 +490,20 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
             isPlaying={isAnimating}
           />
           {isVisualizerActive && (
-            <BeatVisualizer
-              analyserNode={analyserNode ?? null}
-              isPlaying={isAnimating}
-              themeSungColor={sungColor}
-              themeUnsungColor={unsungColor}
-              className="pointer-events-none absolute inset-0 z-[1]"
-            />
+            // The band the video draws its bars in: the bottom 240 px of the picture
+            <div
+              data-testid="stage-visualizer-band"
+              className="pointer-events-none absolute inset-x-0 bottom-0"
+              style={{ height: `${(visualizerShare * 100).toFixed(2)}%` }}
+            >
+              <BeatVisualizer
+                analyserNode={analyserNode ?? null}
+                isPlaying={isAnimating}
+                themeSungColor={leadColor}
+                themeUnsungColor={unsungColor}
+                className="pointer-events-none absolute inset-0"
+              />
+            </div>
           )}
         </StageFrame>
 

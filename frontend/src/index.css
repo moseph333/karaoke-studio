@@ -205,13 +205,16 @@
     width: min(100cqw, 100cqh * var(--ar));
     height: min(100cqh, 100cqw / var(--ar));
   }
+  /* What is behind the lyrics stays behind them, whatever z-index it gives its own parts */
   .ks-picture {
     position: absolute;
     overflow: hidden;
+    z-index: 0;
   }
   .ks-canvas {
     position: absolute;
     inset: 0;
+    z-index: 1;
     --u: 1cqmin;
     font-kerning: normal;
     font-synthesis: none;

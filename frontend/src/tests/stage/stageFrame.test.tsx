@@ -206,3 +206,33 @@ describe('the stage as a frame of the video', () => {
     expect(row.style.fontWeight).toBe('500');
   });
 });
+
+describe('what the stage keeps to the video’s measure', () => {
+  it('draws the visualizer in the band the video does: the bottom 240 px of the picture', async () => {
+    const { LyricDisplay } = await import('../../components/LyricDisplay');
+    const lines = [{ id: 1, text: 'One line', start_time: 1, end_time: 3, words: [] }];
+    const band = (lookId: string, aspectRatio: string) => {
+      const view = render(
+        <LyricDisplay
+          lines={lines}
+          currentTime={1.5}
+          selectedTheme={getStageLook(lookId)}
+          aspectRatio={aspectRatio}
+          showVisualizer
+        />
+      );
+      const height = parseFloat(screen.getByTestId('stage-visualizer-band').style.height);
+      // Behind the lyrics: inside the picture, never in the canvas the words are drawn on
+      expect(screen.getByTestId('stage-picture')).toContainElement(
+        screen.getByTestId('stage-visualizer-band')
+      );
+      view.unmount();
+      return height;
+    };
+    // 240 of 1080 px, 240 of 1920 px, and 240 px of Cinema's 2.39:1 picture
+    expect(band('marquee', '16:9')).toBeCloseTo((240 / 1080) * 100, 1);
+    expect(band('marquee', '9:16')).toBeCloseTo((240 / 1920) * 100, 1);
+    const picture = getStageLook('cinema').frames['16:9'].picture!;
+    expect(band('cinema', '16:9')).toBeCloseTo((240 / (picture.h * 10.8)) * 100, 1);
+  });
+});
