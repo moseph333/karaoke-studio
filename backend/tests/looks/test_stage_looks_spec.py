@@ -16,7 +16,18 @@ from backend.services.stage_looks import (
 )
 from backend.shared_assets import load
 
-PRESETS_REPLACED = [preset["id"] for preset in load("stage_presets")["presets"]]
+# The nine presets the looks replaced, in the order they were added
+PRESETS_REPLACED = [
+    "modern_gold",
+    "cyber_cyan",
+    "neon_pink",
+    "classic_ktv",
+    "punk_diy",
+    "tape_70s",
+    "crt_ktv",
+    "clean_paper",
+    "afterglow",
+]
 
 
 def test_there_are_five_looks_and_marquee_is_the_default():
