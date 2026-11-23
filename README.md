@@ -336,6 +336,9 @@ python -m backend.tools.benchmark_separation --mix song.wav --vocals ref_vocals.
 
 # Seed a demo workspace with synthetic songs for UI work and screenshots
 KARAOKE_DATA_DIR=/tmp/karaoke-demo python -m backend.tools.seed_demo
+
+# Render stills of every look in both formats through the real export path (--clips adds short videos)
+python -m backend.tools.look_frames --out /tmp/looks
 ```
 
 ## System requirements
