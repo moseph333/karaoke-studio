@@ -19,7 +19,7 @@
     "end_min": 3.0,
     "card_fade": 0.4
   },
-  "fit": { "fill": 0.98, "min_condense": 0.7, "size_step": 0.1, "shrink": 0.72 },
+  "fit": { "fill": 0.98, "min_condense": 0.7, "size_step": 0.1, "shrink": 0.72, "most_rows": 12 },
   "looks": [
     {
       "id": "marquee",
