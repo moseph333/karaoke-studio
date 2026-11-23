@@ -75,8 +75,6 @@ SCENE_MODEL_LABEL = "Qwen3 4B"
 SCENE_WORDS = 70
 MAX_SCENE_CHARS = 600
 LYRICS_CHARS = 2400
-# Below this much video memory the models take turns on the GPU instead of all sitting on it
-ROOMY_GPU_BYTES = 42 * 1024**3
 HEARTBEAT_SECONDS = 15.0
 DEFAULT_FADE = 1.0
 
@@ -215,23 +213,25 @@ def video_prompt(scene: str) -> str:
 # --- The loop ---------------------------------------------------------------------------
 
 
-def loop_filter(duration: float, fade: float) -> str:
+def loop_filter(duration: float, fade: float, fps: int) -> str:
     """FFmpeg graph that makes a clip of `duration` seconds loop: its first `fade` seconds
     are faded in over its last, and what is left starts where that fade ends. The result is
-    `duration - fade` long and its last frame leads into its first."""
+    `duration - fade` long and its last frame leads into its first. Both halves are given
+    the clip's frame rate again after they are cut: the crossfade refuses input whose rate
+    it cannot read, which is how FFmpeg 7 leaves a trimmed stream."""
     if not 0 < fade < duration / 2:
         raise ValueError(f"a {duration:g} s clip cannot fade over {fade:g} s")
     offset = duration - 2 * fade
     return (
         "[0:v]split[whole][start];"
-        f"[whole]trim=start={fade:.6f}:end={duration:.6f},setpts=PTS-STARTPTS[body];"
-        f"[start]trim=start=0:end={fade:.6f},setpts=PTS-STARTPTS[head];"
+        f"[whole]trim=start={fade:.6f}:end={duration:.6f},setpts=PTS-STARTPTS,fps={fps}[body];"
+        f"[start]trim=start=0:end={fade:.6f},setpts=PTS-STARTPTS,fps={fps}[head];"
         f"[body][head]xfade=transition=fade:duration={fade:.6f}:offset={offset:.6f},"
         "format=yuv420p[v]"
     )
 
 
-def loop_command(clip: Path, target: Path, duration: float, fade: float) -> list[str]:
+def loop_command(clip: Path, target: Path, duration: float, fade: float, fps: int) -> list[str]:
     return [
         "ffmpeg",
         "-nostdin",
@@ -242,7 +242,7 @@ def loop_command(clip: Path, target: Path, duration: float, fade: float) -> list
         "-i",
         str(clip),
         "-filter_complex",
-        loop_filter(duration, fade),
+        loop_filter(duration, fade, fps),
         "-map",
         "[v]",
         "-an",
@@ -293,12 +293,13 @@ def clip_command(target: Path, width: int, height: int, fps: int) -> list[str]:
 def _run(cmd: list[str], data: bytes | None = None) -> None:
     done = subprocess.run(cmd, input=data, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
     if done.returncode != 0:
-        tail = done.stderr.decode("utf-8", "replace").strip().splitlines()[-3:]
+        # The first lines name the cause; the last few only say that everything stopped
+        tail = done.stderr.decode("utf-8", "replace").strip().splitlines()[:4]
         raise RuntimeError(f"FFmpeg failed ({done.returncode}): {' '.join(tail)}")
 
 
-def make_loop(clip: Path, target: Path, duration: float, fade: float) -> None:
-    _run(loop_command(clip, target, duration, fade))
+def make_loop(clip: Path, target: Path, duration: float, fade: float, fps: int) -> None:
+    _run(loop_command(clip, target, duration, fade, fps))
 
 
 def write_clip(frames, target: Path, fps: int) -> tuple[int, int]:
@@ -362,18 +363,21 @@ def _free_gpu() -> None:
         torch.cuda.empty_cache()
 
 
-def _place(pipe) -> None:
-    """Whole on the GPU when it is roomy; otherwise each part moves there for its turn."""
-    import torch
+def _take_turns(pipe) -> None:
+    """Each part of the pipeline sits on the GPU only while it works. With the text encoder,
+    the video model and the decoder all there at once, a 48 GB card ran out of memory at the
+    last step, turning the result into frames."""
+    pipe.enable_model_cpu_offload()
 
-    roomy = (
-        torch.cuda.is_available()
-        and torch.cuda.get_device_properties(0).total_memory >= ROOMY_GPU_BYTES
-    )
-    if roomy:
-        pipe.to("cuda")
-    else:
-        pipe.enable_model_cpu_offload()
+
+def _on_gpu(pipe) -> None:
+    pipe.to("cuda")
+
+
+def _decode_in_tiles(pipe) -> None:
+    """Decode the video a tile at a time, where the decoder can: far less memory at once."""
+    if hasattr(pipe.vae, "enable_tiling"):
+        pipe.vae.enable_tiling()
 
 
 def _in_half_precision(pipe, dtype) -> None:
@@ -437,7 +441,8 @@ def draw_wan(args: argparse.Namespace, spec: dict, prompt: str, seed: int):
         pipe = WanPipeline.from_pretrained(repo, vae=vae, torch_dtype=torch.bfloat16)
         _in_half_precision(pipe, torch.bfloat16)
         pipe.set_progress_bar_config(disable=True)
-        _place(pipe)
+        _take_turns(pipe)
+        _decode_in_tiles(pipe)
     steps = spec["steps"]
     return pipe(
         prompt=prompt,
@@ -467,8 +472,8 @@ def draw_ltx(args: argparse.Namespace, spec: dict, prompt: str, seed: int):
         )
         for part in (pipe, upscale):
             part.set_progress_bar_config(disable=True)
-            _place(part)
-        pipe.vae.enable_tiling()
+            _on_gpu(part)
+        _decode_in_tiles(pipe)
 
     shared = {
         "prompt": prompt,
@@ -534,7 +539,7 @@ def make(args: argparse.Namespace) -> dict:
     clip = args.out / "clip.mp4"
     width, height = write_clip(frames, clip, spec["fps"])
     clip_seconds = len(frames) / spec["fps"]
-    make_loop(clip, args.out / "loop.mp4", clip_seconds, args.fade)
+    make_loop(clip, args.out / "loop.mp4", clip_seconds, args.fade, spec["fps"])
     if not args.keep_clip:
         clip.unlink(missing_ok=True)
     timings["loop"] = round(time.monotonic() - started, 1)
@@ -563,6 +568,8 @@ def main(argv: list[str] | None = None) -> int:
     os.environ["HF_HOME"] = str(args.model_dir)
     # The hub's and the pipelines' progress bars would be read as this job's progress
     os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    # Lets PyTorch reuse the memory one model leaves behind for the next one's larger blocks
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
     try:
         import diffusers  # noqa: F401
