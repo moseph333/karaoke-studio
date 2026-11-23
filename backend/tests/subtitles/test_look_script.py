@@ -419,3 +419,36 @@ def test_word_times_that_are_not_times_do_not_stop_the_file_being_written():
     for look_id in LOOKS:
         rows = [e for e in ass_events(write(look_id, lines=odd)) if e.kind == "lyric"]
         assert "".join(e.plain for e in rows).replace(" ", "").casefold() == "abc"
+
+
+@pytest.mark.parametrize("look_id", list(LOOKS))
+def test_what_starts_with_the_song_is_there_from_the_first_frame(look_id):
+    """A video does not open on an empty frame: the title card of a song with an intro, or the
+    first lines of one without, are solid at 0:00 instead of fading in."""
+    card = [e for e in ass_events(write(look_id)) if e.kind == "title" and e.start == 0]
+    assert card
+    for event in card:
+        fade = event.numbers("fade")
+        assert not fade or fade[0] == fade[1], event.text
+    assert all(not e.numbers("move") for e in card)
+
+    shift = LINES[0]["start_time"] - 1.0
+    early = [
+        {
+            **line,
+            "singer": "singer1",
+            "start_time": line["start_time"] - shift,
+            "end_time": line["end_time"] - shift,
+            "words": [
+                {**w, "start_time": w["start_time"] - shift, "end_time": w["end_time"] - shift}
+                for w in line["words"]
+            ],
+        }
+        for line in LINES[:3]
+    ]
+    opening = [e for e in ass_events(write(look_id, lines=early)) if e.start == 0 and e.line == 0]
+    assert opening, "the first line shows from 0:00"
+    for event in opening:
+        fade = event.numbers("fade")
+        assert not fade or fade[0] == fade[1], event.text
+        assert not event.numbers("move"), event.text

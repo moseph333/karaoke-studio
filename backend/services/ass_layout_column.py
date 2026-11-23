@@ -15,6 +15,7 @@ from backend.services.ass_draw import (
     block_events,
     fade_tags,
     item_event,
+    opens_the_video,
     shape_event,
     triangle_path,
 )
@@ -120,7 +121,13 @@ def column_events(style: LookStyle, lines: list[Prepared], timeline: Any) -> lis
                 timeline.first_show,
                 ends_at + motion["exit"],
                 style.color("cue"),
-                extra=fade_tags(length, 1.0, 0.0, motion["enter"], motion["exit"]),
+                extra=fade_tags(
+                    length,
+                    1.0,
+                    None if opens_the_video(timeline.first_show) else 0.0,
+                    motion["enter"],
+                    motion["exit"],
+                ),
             )
         )
     return events

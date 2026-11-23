@@ -359,6 +359,24 @@ function fadeAt(
   return opacity;
 }
 
+/** True for something that starts with the song: it is there from the first frame, without
+ * fading or moving in, so the stage at 0:00 shows what the song starts with. */
+const opensTheVideo = (start: number): boolean => start <= 0;
+
+/** How solid something arriving is: fading in from clear, unless it starts with the song. */
+function arriveAt(
+  start: number,
+  at: number,
+  length: number,
+  enter: number,
+  exit: number,
+  opacity = 1
+): number {
+  return opensTheVideo(start)
+    ? fadeAt(at, length, opacity, null, 0, exit)
+    : fadeAt(at, length, opacity, 0, enter, exit);
+}
+
 /** Where a move is `at` seconds in: from `from` to `to` over the first `over` seconds. */
 const moveAt = (at: number, from: number, to: number, over: number): number =>
   over <= 0 || at >= over ? to : from + ((to - from) * at) / over;
@@ -504,8 +522,8 @@ function stackScene(plan: StagePlan, t: number, texts: SceneText[]): void {
     if (within(t, start, end)) {
       const at = t - start;
       pushLine(texts, plan, n, plan.placed[n], 'lyric', {
-        opacity: fadeAt(at, end - start, 1, 0, motion.enter, motion.exit),
-        dy: motion.rise ? moveAt(at, motion.rise, 0, motion.enter) : 0,
+        opacity: arriveAt(start, at, end - start, motion.enter, motion.exit),
+        dy: motion.rise && !opensTheVideo(start) ? moveAt(at, motion.rise, 0, motion.enter) : 0,
       });
     }
     // The line waits under the reading place from when the line before it took over
@@ -521,7 +539,13 @@ function stackScene(plan: StagePlan, t: number, texts: SceneText[]): void {
           waiting.block,
           waiting.words,
           {
-            opacity: fadeAt(t - waitsFrom, timing.advance - waitsFrom, 1, 0, motion.enter, 0),
+            opacity: arriveAt(
+              waitsFrom,
+              t - waitsFrom,
+              timing.advance - waitsFrom,
+              motion.enter,
+              0
+            ),
             dy: 0,
           },
           { sung: quiet, unsung: quiet },
@@ -539,7 +563,7 @@ function rowsScene(plan: StagePlan, t: number, texts: SceneText[]): void {
     const { show, hide } = entry.timing;
     if (!within(t, show, hide)) return;
     pushLine(texts, plan, n, plan.placed[n], 'lyric', {
-      opacity: fadeAt(t - show, hide - show, 1, 0, motion.enter, motion.exit),
+      opacity: arriveAt(show, t - show, hide - show, motion.enter, motion.exit),
       dy: 0,
     });
   });
@@ -570,8 +594,10 @@ function columnScene(plan: StagePlan, t: number, texts: SceneText[], shapes: Sce
       if (opacity <= 0 && wasOpacity <= 0) return;
       const role = i === current ? 'lyric' : i < current ? 'sung' : 'next';
       pushLine(texts, plan, i, line, role, {
-        opacity: fadeAt(at, end + leaving - start, opacity, wasOpacity, over, leaving),
-        dy: moveAt(at, wasBaseline, baseline, over),
+        opacity: opensTheVideo(start)
+          ? fadeAt(at, end + leaving - start, opacity, null, 0, leaving)
+          : fadeAt(at, end + leaving - start, opacity, wasOpacity, over, leaving),
+        dy: opensTheVideo(start) ? baseline : moveAt(at, wasBaseline, baseline, over),
       });
     });
   }
@@ -589,11 +615,10 @@ function columnScene(plan: StagePlan, t: number, texts: SceneText[], shapes: Sce
       width: caret.width,
       height: caret.height,
       color: look.palette.cue,
-      opacity: fadeAt(
+      opacity: arriveAt(
+        firstShow,
         t - firstShow,
         endsAt + motion.exit - firstShow,
-        1,
-        0,
         motion.enter,
         motion.exit
       ),
@@ -617,7 +642,7 @@ function cardScene(
   const fade = STAGE_TIMING.card_fade;
   const at = t - window[0];
   const length = window[1] - window[0];
-  const shown = { opacity: fadeAt(at, length, 1, 0, fade, fade), dy: 0 };
+  const shown = { opacity: arriveAt(window[0], at, length, fade, fade), dy: 0 };
   if (look.card_scrim) {
     const size = frameSize(style.aspect);
     const picture = frame.picture ?? { x: 0, y: 0, w: size.width, h: size.height };
@@ -630,7 +655,7 @@ function cardScene(
       width: picture.w,
       height: picture.h,
       color: look.palette.ground,
-      opacity: fadeAt(at, length, look.card_scrim, 0, fade, fade),
+      opacity: arriveAt(window[0], at, length, fade, fade, look.card_scrim),
       outlined: false,
     });
   }

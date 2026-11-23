@@ -159,6 +159,13 @@ def place_tags(
     return f"{tag}\\move({px},{num(from_top)},{px},{num(top)},0,{ms(over)})"
 
 
+def opens_the_video(start: float) -> bool:
+    """True for something that starts with the song. It is there from the first frame, without
+    fading or moving in: a video does not open on an empty frame, and the stage at 0:00 shows
+    what the song starts with."""
+    return start <= 0.0
+
+
 def fade_tags(
     length: float,
     opacity: float = 1.0,
@@ -313,6 +320,9 @@ def block_events(
     baseline. Opacity follows fade_tags. A look with a shadow gets it as an event of its own
     under each row, so the outline over it stays crisp."""
     events: list[str] = []
+    if opens_the_video(start):
+        from_opacity, enter, rise = None, 0.0, 0.0
+        shift = (shift[1], shift[1]) if shift else None
     fade = fade_tags(end - start, opacity, from_opacity, enter, exit_)
     for row in block.rows:
         tallest = tallest_run(style, words, row)
