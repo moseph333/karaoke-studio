@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { ExportModal } from '../../components/ExportModal';
 import { ProjectState } from '../../types';
 import * as apiModule from '../../api';
-import { THEMES } from '../../components/VisualThemePicker';
+import { STAGE_LOOKS } from '../../theme/stageLooks';
 import {
   BREAKPOINTS,
   setTestViewport,
@@ -678,7 +678,7 @@ describe('Milestone 2 Iteration 2 Challenger 2: Subtitle Exports & Accessibility
             isOpen={true}
             onClose={vi.fn()}
             aspectRatio="16:9"
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
           />
         );
 

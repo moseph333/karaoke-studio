@@ -1,15 +1,21 @@
 /**
  * Values the studio shares with the backend come from backend/assets/shared, imported as
- * @shared/<name>.json: the stage presets, the singer labels, the confidence thresholds and
+ * @shared/<name>.json: the stage looks, the singer labels, the confidence thresholds and
  * the upload limit.
  */
 
 import { describe, it, expect } from 'vitest';
-import stagePresets from '@shared/stage_presets.json';
+import stageLooks from '@shared/stage_looks.json';
 import singerAliases from '@shared/singer_aliases.json';
 import thresholds from '@shared/confidence_thresholds.json';
 import uploadLimits from '@shared/upload_limits.json';
-import { DEFAULT_BOTH_COLOR, DEFAULT_SINGER2_COLOR, THEMES } from '../../theme/stagePresets';
+import {
+  DEFAULT_PART_NAMES,
+  DEFAULT_STAGE_LOOK_ID,
+  LEGACY_LOOK_IDS,
+  STAGE_LOOKS,
+  getStageLook,
+} from '../../theme/stageLooks';
 import { normalizeSingerRole } from '../../components/stage/singers';
 import { LOW_CONFIDENCE_THRESHOLD, getLineIssues } from '../../utils/timelineReview';
 import { HIGH_CONFIDENCE_THRESHOLD } from '../../utils/lineRealign';
@@ -20,25 +26,35 @@ import {
 import { LyricLine } from '../../types';
 
 describe('values shared with the backend', () => {
-  it('stage presets: every shared preset in order, plus what only the stage shows', () => {
-    expect(THEMES.map((theme) => theme.id)).toEqual(stagePresets.presets.map((p) => p.id));
-    THEMES.forEach((theme, i) => {
-      const shared = stagePresets.presets[i];
-      expect(theme).toMatchObject({
+  it('stage looks: every shared look in order, the default, and the presets they replaced', () => {
+    expect(STAGE_LOOKS.map((look) => look.id)).toEqual(stageLooks.looks.map((look) => look.id));
+    STAGE_LOOKS.forEach((look, i) => {
+      const shared = stageLooks.looks[i];
+      expect(look).toMatchObject({
         name: shared.name,
         description: shared.description,
-        primary_color: shared.primary_color,
-        secondary_color: shared.secondary_color,
+        layout: shared.layout,
+        tone: shared.tone,
+        emphasis: shared.emphasis,
+        palette: shared.palette,
       });
-      expect(theme.fontFamily).toBeTruthy();
-      expect(theme.stageBg).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(Object.keys(look.frames).sort()).toEqual(['16:9', '9:16']);
     });
-    expect(THEMES.find((theme) => theme.id === 'afterglow')).toMatchObject({
-      singer2Color: '#f472b6',
-      bothColor: '#5eead4',
-    });
-    expect(THEMES.find((theme) => theme.id === 'modern_gold')).not.toHaveProperty('singer2Color');
-    expect([DEFAULT_SINGER2_COLOR, DEFAULT_BOTH_COLOR]).toEqual(['#ff00b3', '#7bfa50']);
+    expect(DEFAULT_STAGE_LOOK_ID).toBe(stageLooks.default_look);
+    expect(STAGE_LOOKS.map((look) => look.id)).toContain(stageLooks.default_look);
+    expect(DEFAULT_PART_NAMES).toEqual(stageLooks.default_part_names);
+
+    // A song or a setting from before the looks names one of the nine presets
+    const replaced = Object.entries(stageLooks.legacy_ids);
+    expect(replaced).toHaveLength(9);
+    expect(Object.keys(LEGACY_LOOK_IDS)).toEqual(replaced.map(([id]) => id));
+    for (const [id, entry] of replaced) {
+      expect(getStageLook(id).id, id).toBe(entry.look);
+      expect(
+        STAGE_LOOKS.map((look) => look.id),
+        id
+      ).toContain(entry.look);
+    }
   });
 
   it('singer labels: the stage reads every label the export does', () => {

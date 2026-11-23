@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricDisplay } from '../../components/LyricDisplay';
 import { EditMetadataModal } from '../../components/EditMetadataModal';
+import { getStageLook } from '../../theme/stageLooks';
 import type { LyricLine } from '../../types';
 
 const mockApiFetch = vi.fn();
@@ -17,24 +18,35 @@ const lines: LyricLine[] = [
   { id: 2, text: "It's a good day", start_time: 13.5, end_time: 16, singer: 'singer2', words: [] },
 ];
 
+const partNamesOnStage = () =>
+  screen.getAllByTestId('stage-part-name').map((name) => name.textContent);
+
 describe('named singer parts', () => {
   beforeEach(() => mockApiFetch.mockReset());
 
-  it('show on the stage badge and the next cue', () => {
+  it('show on the stage where the singer changes', () => {
+    // 13.2 s: the first part's line is still on stage and the second part's is showing
     render(
       <LyricDisplay
         lines={lines}
-        currentTime={11}
+        currentTime={13.2}
         partNames={{ singer1: 'Rapper', singer2: 'Miho' }}
+        selectedTheme={getStageLook('ktv')}
       />
     );
-    expect(screen.getByTestId('active-singer-badge')).toHaveTextContent('Rapper');
-    expect(screen.getByTestId('next-singer-tag')).toHaveTextContent('[Miho]');
+    expect(partNamesOnStage()).toEqual(['Rapper', 'Miho']);
   });
 
   it('fall back to the default labels for unnamed parts', () => {
-    render(<LyricDisplay lines={lines} currentTime={11} partNames={{ singer2: 'Miho' }} />);
-    expect(screen.getByTestId('active-singer-badge')).toHaveTextContent('Singer 1 / Lead');
+    render(
+      <LyricDisplay
+        lines={lines}
+        currentTime={13.2}
+        partNames={{ singer2: 'Miho' }}
+        selectedTheme={getStageLook('ktv')}
+      />
+    );
+    expect(partNamesOnStage()).toEqual(['Singer 1', 'Miho']);
   });
 
   it('are edited with the song details in the studio', async () => {

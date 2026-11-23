@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, renderHook, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricDisplay } from '../../components/LyricDisplay';
-import { VisualThemePicker, THEMES } from '../../components/VisualThemePicker';
+import { VisualThemePicker } from '../../components/VisualThemePicker';
+import { getStageLook } from '../../theme/stageLooks';
 import { useVisualTheme } from '../../hooks/useVisualTheme';
 import { ExportSubtitleSection } from '../../components/export/ExportSubtitleSection';
 import { ExportModal } from '../../components/ExportModal';
@@ -14,6 +15,24 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
 } from '../helpers/responsiveTestUtils';
+
+// KTV draws the words as the lyrics write them and keeps each line in a row of its own
+const KTV = getStageLook('ktv');
+
+/** The element that carries a row's colour. */
+const ink = (row: HTMLElement) => row.querySelector('.ks-words') as HTMLElement;
+
+/** A line being sung as the stage draws it, row by row (each word is drawn twice: once to
+ * sing, once sung). */
+const drawn = (line: number) =>
+  Array.from(document.querySelectorAll(`[data-role="lyric"][data-line="${line}"]`), (row) =>
+    Array.from(
+      row.querySelectorAll('.ks-word > span:first-child'),
+      (word) => word.textContent
+    ).join('')
+  ).join(' ');
+
+const sizeOf = (row: HTMLElement) => Number(row.style.getPropertyValue('--size'));
 
 describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => {
   const sampleLines: LyricLine[] = [
@@ -191,7 +210,7 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
           ],
         },
       ];
-      // Line 1 starts at 2.0s. At 1.999s, line is within 1.5s lead-in, but singing hasn't begun.
+      // Line 1 starts at 2.0s. At 1.999s the line is on stage, but singing hasn't begun.
       render(<LyricDisplay lines={leadInLines} currentTime={1.999} syncMode="line" />);
       const word0 = screen.getByTestId('word-sung-0');
       expect(parseFloat(word0.style.width)).toBe(0);
@@ -239,20 +258,25 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
       expect(parseFloat(screen.getByTestId('word-sung-3').style.width)).toBe(100);
     });
 
-    it('T2.4: Lead-out hold - Line remains 100% illuminated in line mode throughout the 1.0s lead-out interval', () => {
-      // Line 1 ends at 7.0s. At 7.5s, it is in lead-out buffer.
-      render(<LyricDisplay lines={sampleLines} currentTime={7.5} syncMode="line" />);
-      const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toBeInTheDocument();
-      sampleLines[0].words.forEach((_, idx) => {
-        expect(parseFloat(screen.getByTestId(`word-sung-${idx}`).style.width)).toBe(100);
-      });
+    it('T2.4: Lead-out hold - Line remains 100% illuminated in line mode throughout the 1.2s lead-out interval', () => {
+      // Line 1 ends at 7.0s and holds the stage until 8.2s.
+      for (const t of [7.5, 8.19]) {
+        const { unmount } = render(
+          <LyricDisplay lines={sampleLines} currentTime={t} syncMode="line" />
+        );
+        expect(screen.getByTestId('active-lyrics-line')).toHaveAttribute('data-line', '0');
+        sampleLines[0].words.forEach((_, idx) => {
+          expect(parseFloat(screen.getByTestId(`word-sung-${idx}`).style.width)).toBe(100);
+        });
+        unmount();
+      }
     });
 
-    it('T2.5: Lead-out release - Active line unmounts cleanly once effectiveTime exceeds end_time + 1.0s', () => {
-      // Line 1 ends at 7.0s. At 8.1s, it should have unmounted.
-      render(<LyricDisplay lines={sampleLines} currentTime={8.1} syncMode="line" />);
-      expect(screen.queryByText('First verse singing line')).not.toBeInTheDocument();
+    it('T2.5: Lead-out release - Active line unmounts cleanly once effectiveTime reaches end_time + 1.2s', () => {
+      // Line 1 ends at 7.0s. At 8.2s, it has unmounted; the next line is not sung until 12.0s.
+      render(<LyricDisplay lines={sampleLines} currentTime={8.2} syncMode="line" />);
+      expect(screen.queryByTestId('active-lyrics-line')).not.toBeInTheDocument();
+      expect(document.querySelector('[data-line="0"]')).toBeNull();
     });
 
     it('T2.6: Untimed plain lyrics resilience - Renders line text in solid sung color when words array is empty', () => {
@@ -266,10 +290,34 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
         },
       ];
 
-      render(<LyricDisplay lines={untimedLines} currentTime={3.0} syncMode="line" />);
-      const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toBeInTheDocument();
-      expect(activeLine).toHaveTextContent('Plain untimed lyric without word timings');
+      const { rerender } = render(
+        <LyricDisplay
+          lines={untimedLines}
+          currentTime={3.0}
+          syncMode="line"
+          themeSungColor="#fbbf24"
+          selectedTheme={KTV}
+        />
+      );
+      expect(screen.getByTestId('active-lyrics-line')).toHaveAttribute('data-line', '0');
+      expect(drawn(0)).toBe('Plain untimed lyric without word timings');
+      for (let idx = 0; idx < 6; idx++) {
+        const word = screen.getByTestId(`word-sung-${idx}`);
+        expect(parseFloat(word.style.width)).toBe(100);
+        expect(word).toHaveStyle({ color: '#fbbf24' });
+      }
+
+      // Without word timing the word sweep lights the whole line at once too
+      rerender(
+        <LyricDisplay
+          lines={untimedLines}
+          currentTime={3.0}
+          syncMode="word"
+          themeSungColor="#fbbf24"
+          selectedTheme={KTV}
+        />
+      );
+      expect(parseFloat(screen.getByTestId('word-sung-5').style.width)).toBe(100);
     });
 
     it('T2.7: Zero-duration word handling - Handled safely without NaN or infinite width', () => {
@@ -313,74 +361,84 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
   // Tier 3: Duets, Themes, Gaps & Component Integration
   // =========================================================================
   describe('Tier 3: Multi-Singer Duets, Themes & Gap Preservations', () => {
-    it('T3.1: Singer 1 Lead line illuminates in themeSungColor with Lead badge in line mode', () => {
+    it('T3.1: Singer 1 Lead line illuminates in themeSungColor under its part name in line mode', () => {
       render(
         <LyricDisplay
           lines={sampleLines}
           currentTime={4.5}
           syncMode="line"
           themeSungColor="#fbbf24"
+          selectedTheme={KTV}
         />
       );
 
-      const badge = screen.getByTestId('active-singer-badge');
-      expect(badge).toHaveAttribute('data-singer', 'singer1');
-      expect(badge).toHaveTextContent('Singer 1 / Lead');
+      const name = screen.getByTestId('stage-part-name');
+      expect(name).toHaveAttribute('data-line', '0');
+      expect(name).toHaveTextContent('Singer 1');
 
       const sungSpan = screen.getByTestId('word-sung-0');
       expect(sungSpan).toHaveStyle({ color: '#fbbf24' });
       expect(parseFloat(sungSpan.style.width)).toBe(100);
     });
 
-    it('T3.2: Singer 2 Partner line illuminates in singer2SungColor (#ec4899) with Partner badge in line mode', () => {
+    it('T3.2: Singer 2 Partner line illuminates in singer2SungColor (#ec4899) under its part name in line mode', () => {
       render(
         <LyricDisplay
           lines={sampleLines}
           currentTime={12.5}
           syncMode="line"
           singer2SungColor="#ec4899"
+          selectedTheme={KTV}
         />
       );
 
-      const badge = screen.getByTestId('active-singer-badge');
-      expect(badge).toHaveAttribute('data-singer', 'singer2');
-      expect(badge).toHaveTextContent('Singer 2 / Partner');
+      const name = screen.getByTestId('stage-part-name');
+      expect(name).toHaveAttribute('data-line', '1');
+      expect(name).toHaveTextContent('Singer 2');
+      expect(ink(name)).toHaveStyle({ color: '#ec4899' });
 
       const sungSpan = screen.getByTestId('word-sung-0');
       expect(sungSpan).toHaveStyle({ color: '#ec4899' });
       expect(parseFloat(sungSpan.style.width)).toBe(100);
     });
 
-    it('T3.3: Both / Duet line illuminates in bothSungColor (#10b981) with Duet badge in line mode', () => {
+    it('T3.3: Both / Duet line illuminates in bothSungColor (#10b981) under its part name in line mode', () => {
       render(
         <LyricDisplay
           lines={sampleLines}
           currentTime={16.5}
           syncMode="line"
           bothSungColor="#10b981"
+          selectedTheme={KTV}
         />
       );
 
-      const badge = screen.getByTestId('active-singer-badge');
-      expect(badge).toHaveAttribute('data-singer', 'both');
-      expect(badge).toHaveTextContent('Both / Duet');
+      const name = screen.getByTestId('stage-part-name');
+      expect(name).toHaveAttribute('data-line', '2');
+      expect(name).toHaveTextContent('Both');
+      expect(ink(name)).toHaveStyle({ color: '#10b981' });
 
       const sungSpan = screen.getByTestId('word-sung-0');
       expect(sungSpan).toHaveStyle({ color: '#10b981' });
       expect(parseFloat(sungSpan.style.width)).toBe(100);
     });
 
-    it('T3.4: Upcoming line rendered below active line in a muted tone at 75% font size', () => {
+    it('T3.4: Upcoming line rendered below active line in a muted tone at a smaller size', () => {
+      // The default look keeps the line to come under the one being sung
       render(<LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="line" />);
 
-      const upcomingLine = screen.getByTestId('upcoming-lyrics-line');
-      expect(upcomingLine).toBeInTheDocument();
+      const activeLine = screen.getByTestId('active-lyrics-line');
+      const upcomingLine = screen.getByTestId('stage-line');
+      expect(upcomingLine).toHaveAttribute('data-role', 'next');
       expect(upcomingLine).toHaveTextContent('Second duet partner chorus');
-      expect(upcomingLine.className).toContain('text-white/55');
-      expect(upcomingLine).toHaveStyle({ fontSize: '0.75em' });
+      expect(ink(upcomingLine)).toHaveStyle({ color: getStageLook('marquee').palette.quiet });
+      expect(sizeOf(upcomingLine)).toBeLessThan(sizeOf(activeLine));
+      expect(Number(upcomingLine.style.getPropertyValue('--y'))).toBeGreaterThan(
+        Number(activeLine.style.getPropertyValue('--y'))
+      );
     });
 
-    it('T3.5: Instrumental gap countdown (>= 4.0s) displays countdown progress bar and matching singer color in line mode', () => {
+    it('T3.5: Instrumental gap (>= 4.0s) counts in the next line in the matching singer color in line mode', () => {
       // Gap exists between Line 1 (ends at 7.0) and Line 2 (starts at 12.0) -> 5.0s gap
       render(
         <LyricDisplay
@@ -391,20 +449,34 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
         />
       );
 
-      expect(screen.getByText('♪ Instrumental Solo ♪')).toBeInTheDocument();
-      const timeReadout = screen.getByTestId('gap-countdown-time');
-      expect(timeReadout).toHaveTextContent('Next vocals in 3s');
-
-      const fillBar = screen.getByTestId('gap-countdown-progressbar-fill');
-      expect(fillBar).toHaveStyle({ backgroundColor: '#ec4899' });
+      const countIn = screen.getByTestId('stage-count-in');
+      expect(countIn).toHaveTextContent(/^3$/);
+      expect(countIn).toHaveAttribute('data-line', '1');
+      expect(ink(countIn)).toHaveStyle({ color: '#ec4899' });
     });
 
     it('T3.6: 3-2-1 countdown cue dots appear in final 3 seconds before line start in line mode', () => {
-      // Line 1 starts at 4.0s; at 2.5s, countdown cue dots are visible
-      render(<LyricDisplay lines={sampleLines} currentTime={2.5} syncMode="line" />);
-      const cue = screen.getByTestId('countdown-cue');
-      expect(cue).toBeInTheDocument();
-      expect(cue).toHaveAttribute('aria-label', expect.stringContaining('Starting in 2 seconds'));
+      // Line 1 starts at 4.0s, after a gap; KTV counts in with dots, one going out each second
+      const { rerender } = render(
+        <LyricDisplay lines={sampleLines} currentTime={0.9} syncMode="line" selectedTheme={KTV} />
+      );
+      expect(screen.queryByTestId('stage-countin')).not.toBeInTheDocument();
+
+      for (const [time, dots] of [
+        [1.5, 3],
+        [2.5, 2],
+        [3.5, 1],
+      ]) {
+        rerender(
+          <LyricDisplay
+            lines={sampleLines}
+            currentTime={time}
+            syncMode="line"
+            selectedTheme={KTV}
+          />
+        );
+        expect(screen.getAllByTestId('stage-countin')).toHaveLength(dots);
+      }
     });
 
     it('T3.7: Custom sung and unsung colors apply cleanly to line mode solid highlight', () => {
@@ -423,14 +495,22 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
       expect(parseFloat(sungSpan.style.width)).toBe(100);
     });
 
-    it('T3.8: Font size scale adjustments (data-font-scale) scale active line in line mode', () => {
-      render(
-        <LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="line" fontSizeScale={1.5} />
+    it('T3.8: Font size scale adjustments scale active line in line mode', () => {
+      const { rerender } = render(
+        <LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="line" selectedTheme={KTV} />
       );
+      const standard = sizeOf(screen.getByTestId('active-lyrics-line'));
 
-      const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toHaveAttribute('data-font-scale', '1.5');
-      expect(activeLine).toHaveStyle({ fontSize: '1.5em' });
+      rerender(
+        <LyricDisplay
+          lines={sampleLines}
+          currentTime={4.5}
+          syncMode="line"
+          selectedTheme={KTV}
+          fontSizeScale={1.5}
+        />
+      );
+      expect(sizeOf(screen.getByTestId('active-lyrics-line'))).toBeCloseTo(standard * 1.5, 5);
     });
   });
 
@@ -458,7 +538,7 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
       render(
         <div>
           <VisualThemePicker
-            selectedTheme={THEMES[0]}
+            selectedTheme={getStageLook('marquee')}
             onSelectTheme={vi.fn()}
             aspectRatio="16:9"
             onChangeAspectRatio={vi.fn()}
@@ -593,7 +673,7 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
       render(
         <ExportSubtitleSection
           project={mockProject}
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           aspectRatio="16:9"
           syncMode="line"
         />
@@ -615,7 +695,7 @@ describe('Milestone M1: Line-by-Line Lyric Synchronization Display Mode', () => 
       render(
         <ExportSubtitleSection
           project={mockProject}
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           aspectRatio="16:9"
           syncMode="word"
           onSyncModeChange={onSyncModeChange}

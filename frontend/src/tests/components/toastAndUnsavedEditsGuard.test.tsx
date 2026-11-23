@@ -547,8 +547,12 @@ describe('M4 Challenger 2: Adversarial Stress Testing', () => {
         render(<LyricTimelineEditor {...baseProps} lines={[]} />);
       }).not.toThrow();
 
-      expect(screen.getByText('♪ Instrumental Break ♪')).toBeInTheDocument();
-      expect(screen.getByText('-- End of song --')).toBeInTheDocument();
+      // The stage is an empty frame of the video (no lyric row, nothing to press in it) and
+      // the timeline says there are no lines yet
+      const frame = screen.getByTestId('stage-frame');
+      expect(frame.querySelector('.ks-row')).toBeNull();
+      expect(within(frame).queryAllByRole('button')).toHaveLength(0);
+      expect(screen.getByTestId('timeline-empty-state')).toHaveTextContent('No lyric lines yet.');
     });
 
     it('clamps negative word timings entered by user to zero', async () => {

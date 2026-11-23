@@ -425,32 +425,60 @@ describe('M5 Challenger 2 Adversarial Suite: Features 42, 43, & 44', () => {
         },
       ];
 
+      const { unmount: unmountBefore } = render(
+        <LyricDisplay lines={zeroDurationLine} currentTime={1.499} />
+      );
+      // A word with no length is unsung until its instant, cleanly without NaN or division
+      // by zero
+      const glitchWord = screen.getByTestId('word-sung-0');
+      expect(parseFloat(glitchWord.style.width)).toBe(0);
+      expect(glitchWord.style.clipPath).toBe('inset(0 100.00% 0 0)');
+      unmountBefore();
+
+      // ... and sung at it
       const { unmount: unmountA } = render(
         <LyricDisplay lines={zeroDurationLine} currentTime={1.5} />
       );
-
-      const glitchWord = screen.getByTestId('word-sung-0');
-      // When dur <= 0, word progress returns 100% cleanly without NaN or division by zero
-      expect(parseFloat(glitchWord.style.width)).toBe(100);
-      expect(glitchWord.style.clipPath).toBe('inset(0 0.00% 0 0)');
+      const sungGlitchWord = screen.getByTestId('word-sung-0');
+      expect(parseFloat(sungGlitchWord.style.width)).toBe(100);
+      expect(sungGlitchWord.style.clipPath).toBe('inset(0 0.00% 0 0)');
       unmountA();
 
-      // Edge Case B: Empty lyric lines array
+      // Edge Case B: Empty lyric lines array leaves the stage empty
       const { unmount: unmountB } = render(<LyricDisplay lines={[]} currentTime={5.0} />);
-      expect(screen.getByText('♪ Instrumental Break ♪')).toBeInTheDocument();
+      expect(screen.getByTestId('stage-frame')).toBeInTheDocument();
+      expect(screen.queryByTestId('active-lyrics-line')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stage-line')).not.toBeInTheDocument();
       unmountB();
 
-      // Edge Case C: On last lyric line, nextLine is null and displays '-- End of song --'
+      // Edge Case C: On last lyric line, there is no next line to show
       render(<LyricDisplay lines={sampleLines} currentTime={8.0} />);
-      expect(screen.getByText('-- End of song --')).toBeInTheDocument();
+      expect(screen.getByTestId('active-lyrics-line')).toHaveAttribute('data-line', '1');
+      expect(screen.queryByTestId('stage-line')).not.toBeInTheDocument();
     });
 
     it('renders 3-2-1 countdown cue cues accurately within 3.0 seconds before line start', () => {
-      // Line starts at 2.0s; at t = 0.5s, countdown should indicate 2 seconds remaining
-      render(<LyricDisplay lines={sampleLines} currentTime={0.5} />);
-      const cue = screen.getByTestId('countdown-cue');
-      expect(cue).toBeInTheDocument();
-      expect(cue).toHaveAttribute('aria-label', 'Starting in 2 seconds');
+      // A line is counted in after a gap of 4 s or more: this one starts at 6.0s, so the
+      // count-in runs from 3.0s
+      const afterGap: LyricLine[] = [{ ...sampleLines[0], start_time: 6.0, end_time: 9.0 }];
+      const { rerender } = render(<LyricDisplay lines={afterGap} currentTime={2.99} />);
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
+
+      for (const [time, numeral] of [
+        [3.0, '3'],
+        [4.5, '2'],
+        [5.99, '1'],
+      ] as const) {
+        rerender(<LyricDisplay lines={afterGap} currentTime={time} />);
+        expect(screen.getByTestId('stage-count-in')).toHaveTextContent(numeral);
+      }
+
+      rerender(<LyricDisplay lines={afterGap} currentTime={6.0} />);
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
+
+      // A line that follows closely (2.0s into the song) is not counted in
+      rerender(<LyricDisplay lines={sampleLines} currentTime={0.5} />);
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
     });
   });
 

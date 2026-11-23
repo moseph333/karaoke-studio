@@ -8,7 +8,8 @@ import { ExportModal } from '../../components/ExportModal';
 import { ExportSubtitleSection } from '../../components/export/ExportSubtitleSection';
 import { ExportAudioSection } from '../../components/export/ExportAudioSection';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { LyricLine, ProjectState, VisualTheme } from '../../types';
+import { getStageLook } from '../../theme/stageLooks';
+import { LyricLine, ProjectState } from '../../types';
 import * as apiModule from '../../api';
 
 const sampleLines: LyricLine[] = [
@@ -62,18 +63,6 @@ const mockProject: ProjectState = {
   guide_volume: 0.2,
   render_status: 'idle',
   render_progress: 0,
-};
-
-const customTheme: VisualTheme = {
-  id: 'punk_diy',
-  name: 'Punk / DIY Zine',
-  description: 'Underground zine cutouts and neon punk energy',
-  previewBg: '#121212',
-  previewSung: '#ff2a5f',
-  previewUnsung: '#f5f5f5',
-  primary_color: '#ff2a5f',
-  secondary_color: '#f5f5f5',
-  fontFamily: 'Courier New, monospace',
 };
 
 describe('Milestone 3 — UX-5: TV Stage Mode Controls, Theme Integration & Pitch Feedback', () => {
@@ -169,34 +158,43 @@ describe('Milestone 3 — UX-5: TV Stage Mode Controls, Theme Integration & Pitc
       expect(onToggleMute).toHaveBeenCalledTimes(1);
     });
 
-    it('applies semantic theme token classes and dynamic previewBg to stage container', () => {
-      render(<LyricDisplay lines={sampleLines} currentTime={5.0} selectedTheme={customTheme} />);
+    it("applies semantic theme token classes to the stage container and the look's ground to its screen", () => {
+      const songbook = getStageLook('songbook');
+      render(<LyricDisplay lines={sampleLines} currentTime={5.0} selectedTheme={songbook} />);
 
       const stage = screen.getByTestId('lyric-display-stage');
-      // Should include theme token classes
-      expect(stage.className).toContain('bg-theme-bg');
+      // The toolbar row above the frame is the app's, in theme tokens
       expect(stage.className).toContain('text-theme-text');
-      // Stage copy uses the theme heading face (lyrics may override with the preset font)
+      // Stage copy uses the theme heading face (lyrics are drawn in the look's own)
       expect(stage.className).toContain('font-theme-heading');
-      // Should apply custom background style
-      expect(stage.style.backgroundColor).toBe('rgb(18, 18, 18)');
+      expect(stage).toHaveAttribute('data-look', 'songbook');
+      expect(stage).toHaveAttribute('data-tone', 'light');
+      expect(stage).toContainElement(screen.getByTestId('stage-toolbar'));
+
+      // The screen and the frame in it are the look's ground, whatever the app theme
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(songbook.palette.ground.slice(i, i + 2), 16));
+      const ground = `rgb(${r}, ${g}, ${b})`;
+      expect(screen.getByTestId('stage-screen').style.backgroundColor).toBe(ground);
+      const frame = screen.getByTestId('stage-frame');
+      expect(frame.style.backgroundColor).toBe(ground);
+      expect(frame).toHaveAttribute('data-tone', 'light');
+
+      // Fullscreen, what the frame does not cover is the app's background
+      fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
+      expect(stage.className).toContain('bg-theme-bg');
     });
 
-    it('renders dedicated non-colliding countdown badge above active lyric line with explicit count', () => {
+    it('counts in to the first lyric line with an explicit count', () => {
       // First line starts at 4.0s, so at 2.5s, countdown is 2 seconds
       render(<LyricDisplay lines={sampleLines} currentTime={2.5} />);
 
-      const cue = screen.getByTestId('countdown-cue');
+      const cue = screen.getByTestId('stage-count-in');
       expect(cue).toBeInTheDocument();
-      // Verifies numeric count display and non-colliding badge structure
-      expect(cue).toHaveTextContent('2');
-      expect(cue).toHaveAttribute('aria-label', expect.stringContaining('Starting in 2 seconds'));
-
-      // A decorative draining ring accompanies the count
-      const ring = cue.querySelector('svg');
-      expect(ring).toHaveAttribute('aria-hidden', 'true');
-      expect(ring?.querySelectorAll('circle')).toHaveLength(2);
-      expect(cue).toHaveTextContent(/get ready/i);
+      expect(cue).toHaveTextContent(/^2$/);
+      // The count is decoration next to the line it leads into, which is already showing
+      expect(cue).toHaveAttribute('aria-hidden', 'true');
+      expect(cue).toHaveAttribute('data-line', '0');
+      expect(screen.getByTestId('active-lyrics-line')).toHaveAttribute('data-line', '0');
     });
   });
 

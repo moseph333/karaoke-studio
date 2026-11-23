@@ -6,8 +6,8 @@
  * 1. UX-5 TV Stage floating controls:
  *    - Pitch clamping bounds [-12, +12]
  *    - Volume clamping bounds [0, 1] & auto-unmute when slider moved > 0
- *    - Theme previewBg fallback & viewport container classes
- *    - Countdown cue boundary when t < 0 and during extended instrumental gap
+ *    - The look's ground behind the stage & viewport container classes
+ *    - Count-in boundary when t < 0 and during extended instrumental gap
  * 2. UX-5 Pitch transposition unapplied mix indicator:
  *    - Matrix of semitones === 0 vs !== 0
  *    - appliedSemitones matching vs differing
@@ -39,7 +39,8 @@ import { ExportModal } from '../../components/ExportModal';
 import { ExportSubtitleSection } from '../../components/export/ExportSubtitleSection';
 import { ExportAudioSection } from '../../components/export/ExportAudioSection';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
-import { LyricLine, ProjectState, VisualTheme } from '../../types';
+import { DEFAULT_STAGE_LOOK_ID, getStageLook } from '../../theme/stageLooks';
+import { LyricLine, ProjectState } from '../../types';
 import * as apiModule from '../../api';
 
 const sampleLines: LyricLine[] = [
@@ -266,45 +267,39 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
     });
   });
 
-  describe('3. TV Stage Theme previewBg Fallback & Container Styling', () => {
-    it('applies previewBg when present and falls back gracefully when undefined or empty', () => {
-      // Case 1: Custom theme with previewBg
-      const customTheme: VisualTheme = {
-        id: 'cyberpunk_acid',
-        name: 'Acid Cyber',
-        description: 'Neon green on black',
-        previewBg: '#051105',
-        previewSung: '#00ff66',
-        previewUnsung: '#888888',
-        primary_color: '#00ff66',
-        secondary_color: '#888888',
-        fontFamily: 'monospace',
-      };
-
+  describe('3. TV Stage Look Ground Fallback & Container Styling', () => {
+    it("draws the look's ground behind the stage and falls back to the default look when undefined", () => {
+      // Case 1: a look is given
+      const ktv = getStageLook('ktv');
       const { rerender } = render(
-        <LyricDisplay lines={sampleLines} currentTime={12.0} selectedTheme={customTheme} />
+        <LyricDisplay lines={sampleLines} currentTime={12.0} selectedTheme={ktv} />
       );
 
       const stage = screen.getByTestId('lyric-display-stage');
-      expect(stage).toHaveStyle({ backgroundColor: '#051105' });
-      expect(stage.className).toContain('bg-theme-bg');
+      expect(stage).toHaveAttribute('data-look', 'ktv');
       expect(stage.className).toContain('text-theme-text');
+      expect(screen.getByTestId('stage-screen')).toHaveStyle({
+        backgroundColor: ktv.palette.ground,
+      });
+      expect(screen.getByTestId('stage-frame')).toHaveStyle({
+        backgroundColor: ktv.palette.ground,
+      });
+      expect(screen.getByTestId('stage-base-bg')).toHaveStyle({
+        backgroundColor: ktv.palette.ground,
+      });
 
-      // Case 2: selectedTheme without previewBg (empty string)
-      rerender(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={12.0}
-          selectedTheme={{ ...customTheme, previewBg: '' }}
-        />
-      );
-
-      expect(stage.style.backgroundColor).toBe('');
-
-      // Case 3: selectedTheme undefined
+      // Case 2: selectedTheme undefined
+      const fallback = getStageLook(DEFAULT_STAGE_LOOK_ID);
+      expect(fallback.palette.ground).not.toBe(ktv.palette.ground);
       rerender(<LyricDisplay lines={sampleLines} currentTime={12.0} selectedTheme={undefined} />);
 
-      expect(stage.style.backgroundColor).toBe('');
+      expect(stage).toHaveAttribute('data-look', fallback.id);
+      expect(screen.getByTestId('stage-screen')).toHaveStyle({
+        backgroundColor: fallback.palette.ground,
+      });
+      expect(screen.getByTestId('stage-frame')).toHaveStyle({
+        backgroundColor: fallback.palette.ground,
+      });
     });
   });
 
@@ -318,33 +313,39 @@ describe('Adversarial Stress Suite — UX-5: TV Stage Floating Controls & Pitch 
         />
       );
 
-      // When currentTime < 0, neither countdown-cue nor gap-countdown-indicator should crash
-      expect(screen.queryByTestId('countdown-cue')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('gap-countdown-indicator')).not.toBeInTheDocument();
+      // When currentTime < 0, the stage draws its frame with no count on it and does not crash
+      expect(screen.getByTestId('stage-frame')).toBeInTheDocument();
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stage-break-marker')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('active-lyrics-line')).not.toBeInTheDocument();
     });
 
-    it('renders gap-countdown-indicator during extended gap (>3s from vocals) and transitions to countdown-cue during lead-in (<=3s)', () => {
+    it('holds the count-in through an extended gap (>3s from vocals), shows it during lead-in (<=3s), and marks a break between lines', () => {
       // Intro gap is [0, 10.0s].
-      // At t = 2.0s: 8 seconds remaining before next vocal -> gap-countdown-indicator visible, countdown-cue hidden
+      // At t = 2.0s: 8 seconds remaining before next vocal -> no count yet
       const { rerender } = render(
         <LyricDisplay lines={sampleLines} currentTime={2.0} duration={60} />
       );
 
-      expect(screen.getByTestId('gap-countdown-indicator')).toBeInTheDocument();
-      expect(screen.getByTestId('gap-countdown-time')).toHaveTextContent('Next vocals in 8s');
-      expect(screen.queryByTestId('countdown-cue')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
 
-      // At t = 8.5s: 1.5 seconds remaining before vocals at 10.0s -> countdown-cue visible with count 2
+      // At t = 8.5s: 1.5 seconds remaining before vocals at 10.0s -> count-in visible with count 2
       rerender(<LyricDisplay lines={sampleLines} currentTime={8.5} duration={60} />);
 
-      expect(screen.getByTestId('countdown-cue')).toBeInTheDocument();
-      expect(screen.getByTestId('countdown-cue')).toHaveTextContent('2');
+      expect(screen.getByTestId('stage-count-in')).toBeInTheDocument();
+      expect(screen.getByTestId('stage-count-in')).toHaveTextContent('2');
 
-      // At t = 11.0s: inside active lyric line 1 [10.0, 14.0] -> countdown-cue hidden, active line visible
+      // At t = 11.0s: inside active lyric line 1 [10.0, 14.0] -> count-in hidden, active line visible
       rerender(<LyricDisplay lines={sampleLines} currentTime={11.0} duration={60} />);
 
-      expect(screen.queryByTestId('countdown-cue')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
       expect(screen.getByTestId('active-lyrics-line')).toBeInTheDocument();
+
+      // At t = 18.0s: in the 11s gap [14.0, 25.0] -> the break marker counts the 7s to the vocals
+      rerender(<LyricDisplay lines={sampleLines} currentTime={18.0} duration={60} />);
+
+      expect(screen.getByTestId('stage-break-marker')).toHaveTextContent('7');
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
     });
   });
 

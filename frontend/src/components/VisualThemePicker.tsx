@@ -1,9 +1,10 @@
 /**
- * Visual Theme & Aspect Ratio Picker Component (Stage look)
+ * Stage look panel
  *
- * Video format (16:9 / 9:16 Shorts), stage presets, custom sung/unsung colors, lyric
- * size and the background: cover art (still or drifting), aurora, spectrum, plain, or an
- * uploaded image/video. The lyric highlight mode lives in the stage toolbar.
+ * The video format (16:9 / 9:16 Shorts), the look (five, each with its own type, layout and
+ * motion), the colours chosen for that look, the lyric size and the background: cover art
+ * (still or drifting), aurora, spectrum, plain, or an uploaded image/video. The lyric
+ * highlight mode lives in the stage toolbar.
  */
 
 import React, { useRef, useState } from 'react';
@@ -20,14 +21,8 @@ import {
   X,
   Waves,
 } from 'lucide-react';
-import { VisualTheme } from '../types';
-import {
-  THEMES,
-  STAGE_PRESETS_IN_DISPLAY_ORDER,
-  DEFAULT_BOTH_COLOR,
-  DEFAULT_SINGER2_COLOR,
-  getStageBackground,
-} from '../theme/stagePresets';
+import { STAGE_LOOKS, type StageLook } from '../theme/stageLooks';
+import { LookSample } from './stage/LookSample';
 import { StageSize } from '../theme/stageSettingsStorage';
 import { STAGE_BACKGROUND_OPTIONS, StageBackgroundStyle } from '../theme/stageBackgrounds';
 import { apiFetch, readApiError } from '../api';
@@ -39,11 +34,10 @@ import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 import { backgroundTooLarge, isVideoFile } from '../utils/uploadLimits';
 
-export { THEMES };
-
 export interface VisualThemePickerProps {
-  selectedTheme: VisualTheme;
-  onSelectTheme: (theme: VisualTheme) => void;
+  /** The look in use. */
+  selectedTheme: StageLook;
+  onSelectTheme: (look: StageLook) => void;
   aspectRatio: string;
   onChangeAspectRatio: (ratio: string) => void;
   onCustomBgUploaded: (bgId: string) => void;
@@ -134,11 +128,13 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   const [uploadingBg, setUploadingBg] = useState(false);
   const bgInputRef = useRef<HTMLInputElement>(null);
 
-  const activeSungColor = customSungColor || selectedTheme.previewSung;
-  const activeUnsungColor = customUnsungColor || selectedTheme.previewUnsung;
-  const activeSinger2Color =
-    customSinger2Color || selectedTheme.singer2Color || DEFAULT_SINGER2_COLOR;
-  const activeBothColor = customBothColor || selectedTheme.bothColor || DEFAULT_BOTH_COLOR;
+  const { palette } = selectedTheme;
+  const activeSungColor = customSungColor || palette.sung;
+  const activeUnsungColor = customUnsungColor || palette.unsung;
+  const activeSinger2Color = customSinger2Color || palette.singer2;
+  const activeBothColor = customBothColor || palette.both;
+  // In a look that dims what was sung, a part's colour is on its words still to sing
+  const dims = selectedTheme.emphasis === 'unsung';
   const activeScale = fontSizeScale || 1.0;
   const activeScaleOption =
     FONT_SCALES.find((s) => Math.abs(activeScale - s) < 0.05)?.toString() ?? '';
@@ -212,7 +208,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
     <Panel
       headingLevel={2}
       title="Stage look"
-      description="Preview styling and video format"
+      description="How the stage and the video look"
       className={className}
       data-testid="stage-look-panel"
       actions={
@@ -221,7 +217,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
             type="button"
             data-testid="reset-theme-defaults-btn"
             onClick={onResetThemeDefaults}
-            aria-label="Reset colors and font size to theme defaults"
+            aria-label="Reset colors and font size to the look's own"
             title="Reset colors and lyric size"
             className={cn(
               smallButton,
@@ -258,68 +254,50 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
           />
         </div>
 
-        <div className="flex flex-col gap-2">
-          <span className={sectionLabel}>Preset</span>
-          <div className="grid grid-cols-2 gap-2">
-            {STAGE_PRESETS_IN_DISPLAY_ORDER.map((t) => {
-              const isSelected = selectedTheme.id === t.id;
-              const cardSungColor = isSelected ? activeSungColor : t.previewSung;
-              const cardUnsungColor = isSelected ? activeUnsungColor : t.previewUnsung;
-              const isLight = t.tone === 'light';
+        <div className="flex flex-col gap-1">
+          <span className={sectionLabel} id="stage-look-list-label">
+            Look
+          </span>
+          <div role="group" aria-labelledby="stage-look-list-label" className="flex flex-col">
+            {STAGE_LOOKS.map((look) => {
+              const isSelected = selectedTheme.id === look.id;
               return (
-                <div
-                  key={t.id}
-                  role="button"
-                  tabIndex={0}
+                <button
+                  key={look.id}
+                  type="button"
                   aria-pressed={isSelected}
-                  data-swatch
-                  title={t.description}
-                  onClick={() => onSelectTheme(t)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onSelectTheme(t);
-                    }
-                  }}
-                  style={{ backgroundColor: getStageBackground(t) }}
+                  data-testid={`look-option-${look.id}`}
+                  onClick={() => onSelectTheme(look)}
                   className={cn(
-                    'group relative flex min-h-[44px] cursor-pointer flex-col gap-2 overflow-hidden border p-2.5 text-left transition-[box-shadow,border-color,transform] duration-150 hover:-translate-y-px',
-                    focusRing,
-                    isSelected
-                      ? 'border-theme-accent ring-2 ring-theme-accent/40'
-                      : isLight
-                        ? 'border-black/10 hover:border-black/25'
-                        : 'border-white/10 hover:border-white/25'
+                    'flex min-h-[44px] w-full items-center gap-3 border-b border-theme-border-subtle py-2 text-left transition-colors hover:bg-theme-surface-subtle',
+                    focusRing
                   )}
                 >
-                  {isSelected && (
+                  <LookSample
+                    look={look}
+                    aspect={aspectRatio === '9:16' ? '9:16' : '16:9'}
+                    sung={isSelected ? activeSungColor : undefined}
+                    unsung={isSelected ? activeUnsungColor : undefined}
+                    className={aspectRatio === '9:16' ? 'w-12 shrink-0' : 'w-28 shrink-0'}
+                  />
+                  <span className="flex min-w-0 flex-1 flex-col">
                     <span
-                      aria-hidden="true"
-                      className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center bg-theme-accent text-theme-accent-text"
+                      className={cn(
+                        'ks-display text-[20px]',
+                        isSelected ? 'text-theme-accent' : 'text-theme-text'
+                      )}
                     >
-                      <Check className="h-2.5 w-2.5 stroke-[3]" />
+                      {look.name}
                     </span>
+                    <span className="text-[13px] text-theme-text-muted">{look.description}</span>
+                  </span>
+                  {isSelected && (
+                    <Check
+                      className="h-4 w-4 shrink-0 stroke-[3] text-theme-accent"
+                      aria-hidden="true"
+                    />
                   )}
-                  <span
-                    className={cn(
-                      'pr-5 text-xs font-semibold leading-tight',
-                      isLight ? 'text-neutral-900' : 'text-white'
-                    )}
-                  >
-                    {t.name}
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      'px-2 py-1 text-center text-sm font-extrabold leading-none',
-                      isLight ? 'bg-black/5' : 'bg-black/35'
-                    )}
-                    style={{ fontFamily: t.fontFamily || 'Montserrat, sans-serif' }}
-                  >
-                    <span style={{ color: cardSungColor }}>Ka-ra-</span>
-                    <span style={{ color: cardUnsungColor }}>oke</span>
-                  </span>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -331,14 +309,14 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
             {[
               {
                 id: 'sung-color-picker',
-                label: 'Sung highlight',
+                label: 'Sung words',
                 aria: 'Sung highlight color',
                 value: activeSungColor,
                 onChange: onCustomSungColorChange,
               },
               {
                 id: 'unsung-color-picker',
-                label: 'Unsung text',
+                label: 'Words to sing',
                 aria: 'Unsung text color',
                 value: activeUnsungColor,
                 onChange: onCustomUnsungColorChange,
@@ -387,6 +365,11 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
               </label>
             ))}
           </div>
+          <p className="text-[13px] text-theme-text-muted" data-testid="look-colors-note">
+            {dims
+              ? `In ${selectedTheme.name} a part's colour shows on the words still to sing. Colours are kept for this look.`
+              : 'Colours are kept for this look.'}
+          </p>
         </div>
 
         <div className="flex flex-col gap-2">

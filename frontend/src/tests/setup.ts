@@ -41,7 +41,7 @@ afterEach(() => {
     // Safely ignore if storage is restricted or inaccessible
   }
   if (typeof document !== 'undefined' && document.documentElement) {
-    document.documentElement.removeAttribute('data-stage-preset');
+    document.documentElement.removeAttribute('data-stage-look');
   }
   // A keydown in one test must not make the next one's focus look keyboard-driven
   resetInputModality();

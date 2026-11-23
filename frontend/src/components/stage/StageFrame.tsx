@@ -48,6 +48,11 @@ export interface StageFrameProps {
   onSeek?: (time: number) => void;
   /** What is drawn behind the lyrics (the background, the visualizer). */
   children?: React.ReactNode;
+  /** False when what is behind the lyrics already has the look's picture frame in it (the
+   * export's own cover-art still), so it fills the frame; anything else goes in the picture. */
+  pictureOnly?: boolean;
+  /** A picture of the look, not a stage: nothing in it can be pressed or found by a test id. */
+  sample?: boolean;
 }
 
 /** Words sung in parentheses: smaller, a little see-through, italic where the look has one. */
@@ -107,6 +112,7 @@ interface TextProps {
   time: number;
   active: boolean;
   onSeek?: (time: number) => void;
+  sample?: boolean;
 }
 
 const TEST_IDS: Partial<Record<SceneText['role'], string>> = {
@@ -123,7 +129,7 @@ const TEST_IDS: Partial<Record<SceneText['role'], string>> = {
   break: 'stage-break-marker',
 };
 
-const StageTextView: React.FC<TextProps> = ({ look, text, time, active, onSeek }) => {
+const StageTextView: React.FC<TextProps> = ({ look, text, time, active, onSeek, sample }) => {
   const outline = look.outline;
   const shadow = look.shadow;
   const isLine = text.role === 'lyric' || text.role === 'next' || text.role === 'sung';
@@ -165,10 +171,46 @@ const StageTextView: React.FC<TextProps> = ({ look, text, time, active, onSeek }
           'data-role': text.role,
           'data-line': text.line ?? undefined,
           'data-row': r,
-          'data-testid':
-            r === 0 && text.role === 'lyric' && active ? 'active-lyrics-line' : TEST_IDS[text.role],
+          'data-testid': sample
+            ? undefined
+            : r === 0 && text.role === 'lyric' && active
+              ? 'active-lyrics-line'
+              : TEST_IDS[text.role],
         };
         const strut = <span className="ks-strut" aria-hidden="true" />;
+        if (sample) {
+          // The words filled as far as the sample's moment, with nothing to press
+          return (
+            <div key={`${text.key}:${r}`} {...common}>
+              {strut}
+              <span className="ks-words">
+                {row.words.map((word, i) => {
+                  const piece = word.text + (word.space && i < row.words.length - 1 ? ' ' : '');
+                  const filled = wordFill(text, word, time) * 100;
+                  return (
+                    <span
+                      key={word.index}
+                      className="ks-word"
+                      style={word.adlib ? adlibStyle(look) : undefined}
+                    >
+                      <span style={{ color: text.unsungColor }}>{piece}</span>
+                      <span
+                        className="ks-word-sung"
+                        style={{
+                          width: `${filled.toFixed(2)}%`,
+                          clipPath: `inset(0 ${(100 - filled).toFixed(2)}% 0 0)`,
+                          color: text.sungColor,
+                        }}
+                      >
+                        {piece}
+                      </span>
+                    </span>
+                  );
+                })}
+              </span>
+            </div>
+          );
+        }
         if (text.role === 'lyric') {
           return (
             <div key={`${text.key}:${r}`} {...common}>
@@ -221,10 +263,14 @@ const StageTextView: React.FC<TextProps> = ({ look, text, time, active, onSeek }
             </button>
           );
         }
+        // The part taking over is said to someone who cannot see the stage
+        const announces = text.role === 'part' && active;
         return (
           <div
             key={`${text.key}:${r}`}
             {...common}
+            role={announces ? 'status' : undefined}
+            aria-label={announces ? `Current Singer: ${text.rows[0].words[0].written}` : undefined}
             aria-hidden={text.role === 'countin' || text.role === 'break' || undefined}
             lang={text.role === 'romaji' ? 'ja-Latn' : undefined}
           >
@@ -239,7 +285,11 @@ const StageTextView: React.FC<TextProps> = ({ look, text, time, active, onSeek }
   );
 };
 
-const StageShapeView: React.FC<{ look: StageLook; shape: SceneShape }> = ({ look, shape }) => {
+const StageShapeView: React.FC<{ look: StageLook; shape: SceneShape; sample?: boolean }> = ({
+  look,
+  shape,
+  sample,
+}) => {
   const outline = shape.outlined ? look.outline : null;
   return (
     <div
@@ -247,7 +297,7 @@ const StageShapeView: React.FC<{ look: StageLook; shape: SceneShape }> = ({ look
       className="ks-shape"
       data-role={shape.role}
       data-shape={shape.shape}
-      data-testid={`stage-${shape.role}`}
+      data-testid={sample ? undefined : `stage-${shape.role}`}
       style={
         {
           '--x': shape.x,
@@ -271,14 +321,16 @@ export const StageFrame: React.FC<StageFrameProps> = ({
   time,
   onSeek,
   children,
+  pictureOnly = true,
+  sample = false,
 }) => {
   const size = frameSize(aspect);
-  const picture = look.frames[aspect].picture;
+  const picture = pictureOnly ? look.frames[aspect].picture : undefined;
   return (
     <div className="ks-frame-fit">
       <div
         className="ks-frame"
-        data-testid="stage-frame"
+        data-testid={sample ? undefined : 'stage-frame'}
         data-look={look.id}
         data-aspect={aspect}
         data-tone={look.tone}
@@ -292,7 +344,7 @@ export const StageFrame: React.FC<StageFrameProps> = ({
         {/* A look that frames its picture (Cinema) draws everything behind the lyrics in it */}
         <div
           className="ks-picture"
-          data-testid="stage-picture"
+          data-testid={sample ? undefined : 'stage-picture'}
           style={
             picture
               ? {
@@ -306,11 +358,11 @@ export const StageFrame: React.FC<StageFrameProps> = ({
         >
           {children}
         </div>
-        <div className="ks-canvas" data-testid="stage-canvas">
+        <div className="ks-canvas" data-testid={sample ? undefined : 'stage-canvas'}>
           {scene.shapes
             .filter((shape) => shape.role === 'scrim')
             .map((shape) => (
-              <StageShapeView key={shape.key} look={look} shape={shape} />
+              <StageShapeView key={shape.key} look={look} shape={shape} sample={sample} />
             ))}
           {scene.texts.map((text) => (
             <StageTextView
@@ -318,14 +370,15 @@ export const StageFrame: React.FC<StageFrameProps> = ({
               look={look}
               text={text}
               time={time}
-              active={text.role === 'lyric' && text.line === scene.active}
+              active={(text.role === 'lyric' || text.role === 'part') && text.line === scene.active}
               onSeek={onSeek}
+              sample={sample}
             />
           ))}
           {scene.shapes
             .filter((shape) => shape.role !== 'scrim')
             .map((shape) => (
-              <StageShapeView key={shape.key} look={look} shape={shape} />
+              <StageShapeView key={shape.key} look={look} shape={shape} sample={sample} />
             ))}
         </div>
       </div>

@@ -333,7 +333,7 @@ describe('studio commands', () => {
     fireEvent.click(screen.getByRole('button', { name: /open command palette/i }));
     const input = screen.getByRole('combobox', { name: /search commands/i });
     expect(screen.getByRole('option', { name: /^Play\s?Space$/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Stage preset: Afterglow/ })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Look: Marquee/ })).toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: 'show beat visualizer' } });
     fireEvent.click(screen.getByRole('option', { name: /Show beat visualizer/ }));

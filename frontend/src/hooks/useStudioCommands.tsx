@@ -46,7 +46,7 @@ import {
   useRegisterCommands,
 } from '../components/commandPalette/context';
 import { rankItems } from '../components/commandPalette/fuzzy';
-import { STAGE_PRESETS_IN_DISPLAY_ORDER } from '../theme/stagePresets';
+import { STAGE_LOOKS } from '../theme/stageLooks';
 import { STAGE_BACKGROUND_OPTIONS } from '../theme/stageBackgrounds';
 import { STAGE_SIZES, StageSize } from '../theme/stageSettingsStorage';
 import { PLAYBACK_SPEEDS } from '../components/audio/PlaybackSpeedControl';
@@ -467,15 +467,15 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       })
     );
 
-    STAGE_PRESETS_IN_DISPLAY_ORDER.forEach((preset) =>
+    STAGE_LOOKS.forEach((look) =>
       add({
-        id: `stage-preset:${preset.id}`,
-        title: `Stage preset: ${preset.name}`,
-        subtitle: current(theme.selectedTheme.id === preset.id),
+        id: `stage-look:${look.id}`,
+        title: `Look: ${look.name}`,
+        subtitle: current(theme.selectedTheme.id === look.id),
         group: 'Themes',
         icon: <Palette />,
-        keywords: ['look', 'style', 'colors', preset.description],
-        run: () => theme.setSelectedTheme(preset),
+        keywords: ['stage', 'preset', 'style', 'colors', 'video', look.description],
+        run: () => theme.setSelectedTheme(look),
       })
     );
   }

@@ -8,7 +8,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { AlertCircle, AlertTriangle, Download, ExternalLink, Loader2 } from 'lucide-react';
-import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
+import { ProjectState, SyncDisplayMode } from '../types';
+import { DEFAULT_STAGE_LOOK_ID, type StageLook } from '../theme/stageLooks';
+import { renderStyleConfig } from '../utils/renderRequest';
 import { ExportSubtitleSection } from './export/ExportSubtitleSection';
 import { ExportAudioSection } from './export/ExportAudioSection';
 import { ExportNextSteps } from './export/ExportNextSteps';
@@ -55,7 +57,7 @@ export interface ExportModalProps {
     includeChords?: boolean;
     syncMode?: SyncDisplayMode;
   }) => void;
-  selectedTheme?: VisualTheme;
+  selectedTheme?: StageLook;
   aspectRatio?: '16:9' | '9:16' | string;
   activeSemitones?: number;
   syncMode?: SyncDisplayMode;
@@ -65,8 +67,6 @@ export interface ExportModalProps {
   /** Duet sung colors from the Look panel (sent only when provided). */
   singer2Color?: string;
   bothColor?: string;
-  /** Preset backdrop the renderer uses when there is no artwork or custom background. */
-  backgroundColor?: string;
   fontSizeScale?: number;
 }
 
@@ -85,7 +85,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   secondaryColor,
   singer2Color,
   bothColor,
-  backgroundColor,
   fontSizeScale,
 }) => {
   const { toast } = useToast();
@@ -142,16 +141,15 @@ export const ExportModal: React.FC<ExportModalProps> = ({
         include_visualizer: includeVisualizer,
         include_countdown: includeCountdown,
         ...(includeChords ? { include_chords: true } : {}),
-        style_config: {
-          ...(selectedTheme ? { theme_id: selectedTheme.id } : {}),
-          ...(primaryColor ? { primary_color: primaryColor } : {}),
-          ...(secondaryColor ? { secondary_color: secondaryColor } : {}),
-          ...(fontSizeScale !== undefined ? { font_size_scale: fontSizeScale } : {}),
-          ...(syncMode || renderSyncMode !== 'word' ? { sync_mode: renderSyncMode } : {}),
-          ...(singer2Color ? { singer2_color: singer2Color } : {}),
-          ...(bothColor ? { both_color: bothColor } : {}),
-          ...(backgroundColor ? { background_color: backgroundColor } : {}),
-        },
+        style_config: renderStyleConfig({
+          lookId: selectedTheme?.id ?? DEFAULT_STAGE_LOOK_ID,
+          sung: primaryColor,
+          unsung: secondaryColor,
+          singer2: singer2Color,
+          both: bothColor,
+          fontSizeScale,
+          syncMode: syncMode || renderSyncMode !== 'word' ? renderSyncMode : undefined,
+        }),
       };
       if (syncMode || renderSyncMode !== 'word') {
         renderPayload.sync_mode = renderSyncMode;

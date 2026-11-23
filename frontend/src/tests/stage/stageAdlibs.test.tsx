@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import adlibCases from '@shared/adlib_cases.json';
 import { LyricDisplay } from '../../components/LyricDisplay';
 import { adlibFlags } from '../../utils/lyrics';
@@ -38,9 +38,10 @@ describe('words sung in parentheses', () => {
     const hmm = screen.getByRole('button', { name: /word \(hmm\?\)/ });
     const over = screen.getByRole('button', { name: /word over/ });
     expect(hmm).toHaveAttribute('data-adlib', 'true');
-    expect(hmm.className).toContain('italic');
+    expect(hmm).toHaveStyle({ fontSize: '0.8em', opacity: '0.75' });
     expect(over).not.toHaveAttribute('data-adlib');
-    expect(over.className).not.toContain('italic');
+    expect(over.style.fontSize).toBe('');
+    expect(over.style.opacity).toBe('');
   });
 
   it('style a whole backing line, even one without word timing', () => {
@@ -52,9 +53,17 @@ describe('words sung in parentheses', () => {
       words: [],
     };
     render(<LyricDisplay lines={[untimed]} currentTime={20.5} />);
-    expect(screen.getByRole('button', { name: /Jump playback to line at 20/ })).toHaveAttribute(
-      'data-adlib',
-      'true'
-    );
+    // Without word timing every word still seeks to the start of the line
+    const words = within(screen.getByTestId('active-lyrics-line')).getAllByRole('button');
+    expect(words.map((word) => word.getAttribute('aria-label'))).toEqual([
+      "Jump playback to word (It's at 20.00 seconds",
+      'Jump playback to word the at 20.00 seconds',
+      'Jump playback to word laser at 20.00 seconds',
+      'Jump playback to word sharks) at 20.00 seconds',
+    ]);
+    for (const word of words) {
+      expect(word).toHaveAttribute('data-adlib', 'true');
+      expect(word).toHaveStyle({ fontSize: '0.8em', opacity: '0.75' });
+    }
   });
 });

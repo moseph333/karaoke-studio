@@ -9,7 +9,8 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { AudioControls } from '../../components/AudioControls';
-import { THEMES, VisualThemePicker } from '../../components/VisualThemePicker';
+import { VisualThemePicker } from '../../components/VisualThemePicker';
+import { STAGE_LOOKS } from '../../theme/stageLooks';
 import { useTrackIntake } from '../../hooks/useTrackIntake';
 import { ToastProvider } from '../../hooks/useToast';
 
@@ -35,7 +36,7 @@ function renderBackgroundPicker() {
   const { container } = render(
     <ToastProvider>
       <VisualThemePicker
-        selectedTheme={THEMES[0]}
+        selectedTheme={STAGE_LOOKS[0]}
         onSelectTheme={vi.fn()}
         aspectRatio="16:9"
         onChangeAspectRatio={vi.fn()}

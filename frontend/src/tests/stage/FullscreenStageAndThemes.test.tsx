@@ -3,8 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, fireEvent, renderHook, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricDisplay } from '../../components/LyricDisplay';
-import { VisualThemePicker, THEMES } from '../../components/VisualThemePicker';
-import { useVisualTheme, cssToAssColor } from '../../hooks/useVisualTheme';
+import { VisualThemePicker } from '../../components/VisualThemePicker';
+import { useVisualTheme } from '../../hooks/useVisualTheme';
 import { ExportSubtitleSection } from '../../components/export/ExportSubtitleSection';
 import { LyricLine, ProjectState } from '../../types';
 import * as apiModule from '../../api';
@@ -15,7 +15,10 @@ import {
   BREAKPOINTS,
   expectTouchTarget,
 } from '../helpers/responsiveTestUtils';
-import { DEFAULT_SINGER2_COLOR } from '../../theme/stagePresets';
+import { getStageLook } from '../../theme/stageLooks';
+
+const marquee = getStageLook('marquee');
+const ktv = getStageLook('ktv');
 
 describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () => {
   const sampleLines: LyricLine[] = [
@@ -54,16 +57,16 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
     vi.useRealTimers();
   });
 
-  describe('useVisualTheme hook and cssToAssColor', () => {
+  describe('useVisualTheme hook', () => {
     it('initializes with default theme and 1.0 font size scale', () => {
       const { result } = renderHook(() => useVisualTheme());
-      expect(result.current.selectedTheme.id).toBe('afterglow');
+      expect(result.current.selectedTheme.id).toBe('marquee');
       expect(result.current.customSungColor).toBeNull();
       expect(result.current.customUnsungColor).toBeNull();
       expect(result.current.fontSizeScale).toBe(1.0);
       expect(result.current.aspectRatio).toBe('16:9');
-      expect(result.current.activeSungColor).toBe('#fbbf24');
-      expect(result.current.activeUnsungColor).toBe('#edebff');
+      expect(result.current.activeSungColor).toBe(marquee.palette.sung);
+      expect(result.current.activeUnsungColor).toBe(marquee.palette.unsung);
     });
 
     it('updates custom sung and unsung colors, font scale, and aspect ratio', () => {
@@ -82,8 +85,6 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
       expect(result.current.aspectRatio).toBe('9:16');
       expect(result.current.activeSungColor).toBe('#ff0055');
       expect(result.current.activeUnsungColor).toBe('#00ffcc');
-      expect(result.current.effectiveTheme.primary_color).toBe('&H005500FF');
-      expect(result.current.effectiveTheme.secondary_color).toBe('&H00CCFF00');
     });
 
     it('resets custom colors and font size scale to theme defaults', () => {
@@ -104,16 +105,7 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
       expect(result.current.customSungColor).toBeNull();
       expect(result.current.customUnsungColor).toBeNull();
       expect(result.current.fontSizeScale).toBe(1.0);
-      expect(result.current.activeSungColor).toBe('#fbbf24');
-    });
-
-    it('cssToAssColor converts hex colors to ASS BGR format', () => {
-      expect(cssToAssColor('#fbbf24')).toBe('&H0024BFFB');
-      expect(cssToAssColor('#06b6d4')).toBe('&H00D4B606');
-      expect(cssToAssColor('#ffffff')).toBe('&H00FFFFFF');
-      expect(cssToAssColor('#f00')).toBe('&H000000FF');
-      expect(cssToAssColor('&H0000D7FF')).toBe('&H0000D7FF');
-      expect(cssToAssColor('invalid', '&H00DEFAULT')).toBe('&H00DEFAULT');
+      expect(result.current.activeSungColor).toBe(marquee.palette.sung);
     });
   });
 
@@ -126,7 +118,7 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
 
       render(
         <VisualThemePicker
-          selectedTheme={THEMES[0]}
+          selectedTheme={marquee}
           onSelectTheme={vi.fn()}
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
@@ -154,7 +146,7 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
 
       render(
         <VisualThemePicker
-          selectedTheme={THEMES[0]}
+          selectedTheme={marquee}
           onSelectTheme={vi.fn()}
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
@@ -300,19 +292,31 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
 
   describe('LyricDisplay Font Size Scaling & Colors', () => {
     it('applies font size scaling and custom colors to active lyrics', () => {
-      render(
+      const { rerender } = render(
         <LyricDisplay
           lines={sampleLines}
           currentTime={3.0}
+          selectedTheme={ktv}
+          themeSungColor="#fbbf24"
+          themeUnsungColor="#00ffee"
+        />
+      );
+      const size = () =>
+        Number(screen.getByTestId('active-lyrics-line').style.getPropertyValue('--size'));
+      const lyricSize = ktv.frames['16:9'].lyric.size ?? 0;
+      expect(size()).toBe(lyricSize);
+
+      rerender(
+        <LyricDisplay
+          lines={sampleLines}
+          currentTime={3.0}
+          selectedTheme={ktv}
           fontSizeScale={1.5}
           themeSungColor="#fbbf24"
           themeUnsungColor="#00ffee"
         />
       );
-
-      const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toHaveAttribute('data-font-scale', '1.5');
-      expect(activeLine).toHaveStyle({ fontSize: '1.5em' });
+      expect(size()).toBeCloseTo(lyricSize * 1.5, 5);
 
       // First word should have custom unsung color and sung overlay
       const liveSpans = screen.getAllByText('Live');
@@ -357,10 +361,10 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
       render(
         <ExportSubtitleSection
           project={mockProject}
-          selectedTheme={THEMES[0]}
+          selectedTheme={marquee}
           aspectRatio="16:9"
-          primaryColor="&H0024BFFB"
-          secondaryColor="&H00FFFFFF"
+          primaryColor="#24bffb"
+          secondaryColor="#ffffff"
           fontSizeScale={1.5}
         />
       );
@@ -371,8 +375,9 @@ describe('Fullscreen TV Stage Mode & Custom Theme Styling (Requirement R4)', () 
       expect(mockApiFetch).toHaveBeenCalledTimes(1);
       const url = mockApiFetch.mock.calls[0][0] as string;
       expect(url).toContain('/api/project/proj_test_export_prop/export/ass');
-      expect(url).toContain('primary_color=%26H0024BFFB');
-      expect(url).toContain('secondary_color=%26H00FFFFFF');
+      expect(url).toContain('theme_id=marquee');
+      expect(url).toContain('primary_color=%2324bffb');
+      expect(url).toContain('secondary_color=%23ffffff');
       expect(url).toContain('font_size_scale=1.5');
     });
   });
@@ -408,12 +413,13 @@ describe('LyricDisplay Fullscreen TV Stage Multi-Singer Integration (Requirement
     resetTestViewport();
   });
 
-  it('scales active singer badge and preserves color treatments in Fullscreen TV Stage Mode', () => {
+  it('names the singer part and preserves color treatments in Fullscreen TV Stage Mode', () => {
     render(
       <LyricDisplay
         lines={multiSingerLines}
         currentTime={2.0}
         duration={120}
+        selectedTheme={ktv}
         themeSungColor="#06b6d4"
       />
     );
@@ -424,18 +430,14 @@ describe('LyricDisplay Fullscreen TV Stage Multi-Singer Integration (Requirement
     const stage = screen.getByTestId('lyric-display-stage');
     expect(stage).toHaveAttribute('data-fullscreen', 'true');
 
-    // Badge scaled for TV visibility
-    const badge = screen.getByTestId('active-singer-badge');
-    expect(badge).toBeInTheDocument();
-    expect(badge.className).toContain('scale-110');
-    expect(badge).toHaveTextContent('Singer 1 / Lead');
-    // Singer icon is decorative; the label carries the meaning
-    expect(badge.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    // The part of the line being sung is named over it
+    const part = screen.getByTestId('stage-part-name');
+    expect(part).toHaveTextContent('Singer 1');
+    expect(part).toHaveAttribute('data-line', '0');
+    expect(screen.getByTestId('active-lyrics-line')).toHaveTextContent('Lead');
 
-    // Upcoming cue uses the duet default for Singer 2
-    const nextTag = screen.getByTestId('next-singer-tag');
-    expect(nextTag).toHaveTextContent('[Singer 2]');
-    expect(nextTag).toHaveStyle({ color: DEFAULT_SINGER2_COLOR });
+    // Singer 1 is filled in the sung colour
+    expect(screen.getByTestId('word-sung-0')).toHaveStyle({ color: '#06b6d4' });
 
     // Fullscreen play and exit controls meet >=44px touch targets
     expectTouchTarget(screen.getByTestId('stage-play-pause-btn'));
@@ -444,18 +446,27 @@ describe('LyricDisplay Fullscreen TV Stage Multi-Singer Integration (Requirement
     expectTouchTarget(exitBtn);
   });
 
-  it('renders Singer 2 Partner color and countdown in Fullscreen TV Stage Mode', () => {
-    render(<LyricDisplay lines={multiSingerLines} currentTime={6.0} duration={120} />);
+  it('renders Singer 2 Partner color and part name in Fullscreen TV Stage Mode', () => {
+    render(
+      <LyricDisplay
+        lines={multiSingerLines}
+        currentTime={6.0}
+        duration={120}
+        selectedTheme={ktv}
+        themeSungColor="#06b6d4"
+      />
+    );
 
     // Enter stage mode
     fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
 
-    const badge = screen.getByTestId('active-singer-badge');
-    expect(badge).toHaveAttribute('data-singer', 'singer2');
-    expect(badge).toHaveTextContent('Singer 2 / Partner');
+    const part = screen.getByTestId('stage-part-name');
+    expect(part).toHaveTextContent('Singer 2');
+    expect(part).toHaveAttribute('data-line', '1');
 
+    // Singer 2 is filled in the look's duet colour, not in Singer 1's
     const sungWord = screen.getByTestId('word-sung-0');
-    expect(sungWord).toHaveStyle({ color: DEFAULT_SINGER2_COLOR });
+    expect(sungWord).toHaveStyle({ color: ktv.palette.singer2 });
   });
 
   it('has zero horizontal overflow in Stage Mode across all breakpoints down to 320px', () => {
@@ -472,20 +483,21 @@ describe('LyricDisplay Fullscreen TV Stage Multi-Singer Integration (Requirement
     });
   });
 
-  it('renders countdown indicator in Fullscreen TV Stage Mode with zero overflow at 320px', () => {
+  it('renders the count-in in Fullscreen TV Stage Mode with zero overflow at 320px', () => {
     setTestViewport(320, 568);
     const { container } = render(
       <LyricDisplay
         lines={[{ id: 1, text: 'Stage line', start_time: 10.0, end_time: 15.0, words: [] }]}
-        currentTime={4.0}
+        currentTime={8.0}
         duration={120}
       />
     );
 
     fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
 
-    expect(screen.getByTestId('gap-countdown-progressbar')).toBeInTheDocument();
-    expect(screen.getByTestId('gap-countdown-time')).toHaveTextContent('Next vocals in 6s');
+    // Two seconds before the first line, the stage counts in to it
+    expect(screen.getByTestId('stage-count-in')).toHaveTextContent('2');
+    expect(screen.getByTestId('active-lyrics-line')).toHaveTextContent('STAGE LINE');
 
     assertZeroHorizontalOverflow(container, 320);
   });

@@ -49,7 +49,9 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
   <div
     data-testid="stage-toolbar"
     className={cn(
-      'absolute inset-x-0 top-0 z-20 flex items-center justify-end gap-2 p-2 transition-opacity duration-300 sm:p-3',
+      // A row above the frame, so nothing of the video is covered; over it in fullscreen
+      'z-20 flex items-center justify-end gap-2 transition-opacity duration-300',
+      isFullscreen ? 'absolute inset-x-0 top-0 p-2 sm:p-3' : 'pb-2',
       visible ? 'opacity-100' : 'pointer-events-none opacity-0'
     )}
   >

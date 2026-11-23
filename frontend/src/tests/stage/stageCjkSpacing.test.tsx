@@ -20,7 +20,9 @@ function timed(text: string, start = 10): LyricLine {
   };
 }
 
-const spaced = (name: RegExp) => screen.getByRole('button', { name }).className.includes('mr-2');
+/** Whether the word's button draws a space after the word. */
+const drawsSpace = (word: HTMLElement) => (word.firstElementChild?.textContent ?? '').endsWith(' ');
+const spaced = (name: RegExp) => drawsSpace(screen.getByRole('button', { name }));
 
 describe('the stage spaces words as the line is written', () => {
   it('keeps Japanese characters together and the source spaces between groups', () => {
@@ -34,7 +36,7 @@ describe('the stage spaces words as the line is written', () => {
     expect(spaced(/word せ /)).toBe(false);
     // The fifth character ends the first group, which the source follows with a space
     const fifth = screen.getAllByRole('button', { name: /word メ / })[0];
-    expect(fifth.className).toContain('mr-2');
+    expect(drawsSpace(fifth)).toBe(true);
     expect(spaced(/word \(Shiawase /)).toBe(true);
   });
 
@@ -49,11 +51,13 @@ describe('a Japanese line with its romanization', () => {
   it('shows the romanization under the line', () => {
     const line = { ...timed('我々和かつ'), romaji: 'Wareware wa katsu' };
     render(<LyricDisplay lines={[line]} currentTime={10.1} />);
-    expect(screen.getByTestId('active-lyrics-romaji')).toHaveTextContent('Wareware wa katsu');
+    const romaji = screen.getByTestId('stage-romaji');
+    expect(romaji).toHaveTextContent('Wareware wa katsu');
+    expect(romaji).toHaveAttribute('data-line', '0');
   });
 
   it('shows nothing extra for other lines', () => {
     render(<LyricDisplay lines={[timed('Lasers from the dark')]} currentTime={10.1} />);
-    expect(screen.queryByTestId('active-lyrics-romaji')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stage-romaji')).not.toBeInTheDocument();
   });
 });

@@ -13,7 +13,8 @@ import {
 import userEvent from '@testing-library/user-event';
 
 import { App } from '../../App';
-import { VisualThemePicker, THEMES } from '../../components/VisualThemePicker';
+import { VisualThemePicker } from '../../components/VisualThemePicker';
+import { STAGE_LOOKS } from '../../theme/stageLooks';
 import {
   AudioControls,
   parseMediaError,
@@ -590,7 +591,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
   // 2. VisualThemePicker.tsx White-Box Adversarial Coverage (Previously 0% Tested)
   // =========================================================================
   describe('2. VisualThemePicker.tsx White-Box Adversarial Hardening', () => {
-    it('renders all 4 theme options and executes onSelectTheme on card click', async () => {
+    it('renders all 5 looks and executes onSelectTheme when one is clicked', async () => {
       const user = userEvent.setup();
       const onSelectTheme = vi.fn();
       const onChangeAspectRatio = vi.fn();
@@ -599,7 +600,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       render(
         <ToastProvider>
           <VisualThemePicker
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
             onSelectTheme={onSelectTheme}
             aspectRatio="16:9"
             onChangeAspectRatio={onChangeAspectRatio}
@@ -608,15 +609,23 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
         </ToastProvider>
       );
 
-      // Verify all 4 themes are present
-      expect(screen.getByText('Modern Gold')).toBeInTheDocument();
-      expect(screen.getByText('Cyber Cyan')).toBeInTheDocument();
-      expect(screen.getByText('Neon Sunset')).toBeInTheDocument();
-      expect(screen.getByText('Classic KTV')).toBeInTheDocument();
+      // Every look is a button in the "Look" group, named by its name and description
+      const looks = within(screen.getByRole('group', { name: 'Look' })).getAllByRole('button');
+      expect(looks.map((button) => button.getAttribute('data-testid'))).toEqual(
+        ['marquee', 'ktv', 'songbook', 'cinema', 'prompter'].map((id) => `look-option-${id}`)
+      );
+      for (const look of STAGE_LOOKS) {
+        const button = screen.getByTestId(`look-option-${look.id}`);
+        expect(button).toHaveTextContent(look.name);
+        expect(button).toHaveTextContent(look.description);
+        // Only the look in use is pressed
+        expect(button).toHaveAttribute('aria-pressed', String(look === STAGE_LOOKS[0]));
+      }
 
-      // Click Cyber Cyan card
-      await user.click(screen.getByText('Cyber Cyan'));
-      expect(onSelectTheme).toHaveBeenCalledWith(THEMES[1]);
+      // Click another look
+      await user.click(screen.getByTestId(`look-option-${STAGE_LOOKS[1].id}`));
+      expect(onSelectTheme).toHaveBeenCalledTimes(1);
+      expect(onSelectTheme).toHaveBeenCalledWith(STAGE_LOOKS[1]);
     });
 
     it('toggles aspect ratio between 16:9 and 9:16', async () => {
@@ -626,7 +635,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       const { rerender } = render(
         <ToastProvider>
           <VisualThemePicker
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
             onSelectTheme={vi.fn()}
             aspectRatio="16:9"
             onChangeAspectRatio={onChangeAspectRatio}
@@ -642,7 +651,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       rerender(
         <ToastProvider>
           <VisualThemePicker
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
             onSelectTheme={vi.fn()}
             aspectRatio="9:16"
             onChangeAspectRatio={onChangeAspectRatio}
@@ -670,7 +679,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       const { container } = render(
         <ToastProvider>
           <VisualThemePicker
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
             onSelectTheme={vi.fn()}
             aspectRatio="16:9"
             onChangeAspectRatio={vi.fn()}
@@ -710,7 +719,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       const { container } = render(
         <ToastProvider>
           <VisualThemePicker
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
             onSelectTheme={vi.fn()}
             aspectRatio="16:9"
             onChangeAspectRatio={vi.fn()}
@@ -749,7 +758,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       const { container } = render(
         <ToastProvider>
           <VisualThemePicker
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
             onSelectTheme={vi.fn()}
             aspectRatio="16:9"
             onChangeAspectRatio={vi.fn()}
@@ -773,7 +782,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       const { container } = render(
         <ToastProvider>
           <VisualThemePicker
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
             onSelectTheme={vi.fn()}
             aspectRatio="16:9"
             onChangeAspectRatio={vi.fn()}
@@ -795,7 +804,7 @@ describe('Tier 5 White-Box Adversarial Hardening Suite (M6 Challenger Frontend)'
       render(
         <ToastProvider>
           <VisualThemePicker
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
             onSelectTheme={vi.fn()}
             aspectRatio="16:9"
             onChangeAspectRatio={vi.fn()}
