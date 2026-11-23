@@ -87,6 +87,8 @@ const STATUS_FIELDS = [
   'sync_job',
   'vocal_split_job',
   'vocal_splits',
+  'song_loop_job',
+  'song_loop',
 ] as const satisfies ReadonlyArray<keyof ProjectState>;
 
 // Fields whose type includes null; for the others null means unset (undefined), as when a
@@ -97,6 +99,8 @@ const NULLABLE_STATUS_FIELDS: ReadonlySet<string> = new Set([
   'sync_job',
   'vocal_split_job',
   'vocal_splits',
+  'song_loop_job',
+  'song_loop',
 ]);
 
 export type ProjectStatus = { id?: string } & {
@@ -157,7 +161,8 @@ function finishedSince(prev: ProjectState, next: ProjectState): boolean {
     (renderActive(prev) && !renderActive(next)) ||
     (isJobActive(prev.separation_job) && !isJobActive(next.separation_job)) ||
     (isJobActive(prev.sync_job) && !isJobActive(next.sync_job)) ||
-    (isJobActive(prev.vocal_split_job) && !isJobActive(next.vocal_split_job))
+    (isJobActive(prev.vocal_split_job) && !isJobActive(next.vocal_split_job)) ||
+    (isJobActive(prev.song_loop_job) && !isJobActive(next.song_loop_job))
   );
 }
 
@@ -202,7 +207,8 @@ export function useProjectPolling(
     Boolean(project && (pipelineActive(project) || renderActive(project))) ||
     isJobActive(project?.separation_job) ||
     isJobActive(project?.sync_job) ||
-    isJobActive(project?.vocal_split_job);
+    isJobActive(project?.vocal_split_job) ||
+    isJobActive(project?.song_loop_job);
 
   const recordFailure = useCallback((kind: 'not_found' | 'server' | 'network') => {
     consecutiveErrorsRef.current++;

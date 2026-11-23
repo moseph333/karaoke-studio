@@ -3,14 +3,16 @@
  *
  * The video format (16:9 / 9:16 Shorts), the look (five, each with its own type, layout and
  * motion), the colours chosen for that look, the lyric size and the background: cover art
- * (still or drifting), aurora, spectrum, plain, or an uploaded image/video. The lyric
- * highlight mode lives in the stage toolbar.
+ * (still or drifting), aurora, spectrum, plain, an uploaded image/video, or the song's own
+ * loop (made here, see look/SongLoopControl). The lyric highlight mode lives in the stage
+ * toolbar.
  */
 
 import React, { useRef, useState } from 'react';
 import {
   AudioLines,
   Check,
+  Film,
   ImageIcon,
   Monitor,
   Move,
@@ -23,6 +25,8 @@ import {
 } from 'lucide-react';
 import { STAGE_LOOKS, type StageLook } from '../theme/stageLooks';
 import { LookSample } from './stage/LookSample';
+import { SongLoopControl, type SongLoopControlProps } from './look/SongLoopControl';
+import { showsSongLoop } from '../utils/songLoop';
 import { StageSize } from '../theme/stageSettingsStorage';
 import { STAGE_BACKGROUND_OPTIONS, StageBackgroundStyle } from '../theme/stageBackgrounds';
 import { apiFetch, readApiError } from '../api';
@@ -47,6 +51,9 @@ export interface VisualThemePickerProps {
   onBackgroundStyleChange?: (style: StageBackgroundStyle) => void;
   /** The song has cover art (without it the art styles show the stage colour). */
   hasArtwork?: boolean;
+  /** The song's loop and how to make one; the control is hidden without it, and where
+   * the server has no way to make loops and the song has none. */
+  songLoop?: SongLoopControlProps;
   customSungColor?: string | null;
   onCustomSungColorChange?: (color: string) => void;
   customUnsungColor?: string | null;
@@ -86,6 +93,7 @@ const BACKGROUND_ICONS: Record<
   spectrum: AudioLines,
   color: Square,
   custom: Upload,
+  loop: Film,
 };
 
 const smallButton = cn(
@@ -108,6 +116,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   backgroundStyle = 'artwork',
   onBackgroundStyleChange,
   hasArtwork = true,
+  songLoop,
   customSungColor,
   onCustomSungColorChange,
   customUnsungColor,
@@ -138,8 +147,12 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
   const activeScale = fontSizeScale || 1.0;
   const activeScaleOption =
     FONT_SCALES.find((s) => Math.abs(activeScale - s) < 0.05)?.toString() ?? '';
+  const hasSongLoop = Boolean(songLoop?.loop);
+  // A style whose file this song lacks (no upload, no loop) shows the cover art
   const activeBackground =
-    backgroundStyle === 'custom' && !customBgId ? 'artwork' : backgroundStyle;
+    (backgroundStyle === 'custom' && !customBgId) || (backgroundStyle === 'loop' && !hasSongLoop)
+      ? 'artwork'
+      : backgroundStyle;
   const activeBackgroundOption = STAGE_BACKGROUND_OPTIONS.find((o) => o.value === activeBackground);
   const backgroundOptions = [
     ...STAGE_BACKGROUND_OPTIONS.map((o) => ({
@@ -156,6 +169,16 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
             label: 'Upload',
             title: 'Your uploaded image or video',
             testId: 'background-style-custom',
+          },
+        ]
+      : []),
+    ...(hasSongLoop
+      ? [
+          {
+            value: 'loop' as StageBackgroundStyle,
+            label: 'Song loop',
+            title: "The moving picture made from this song's lyrics",
+            testId: 'background-style-loop',
           },
         ]
       : []),
@@ -496,6 +519,8 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
             Image or looping video (MP4/WebM) shown behind the lyrics in the preview and export.
           </p>
         </div>
+
+        {songLoop && showsSongLoop(songLoop) && <SongLoopControl {...songLoop} />}
       </div>
     </Panel>
   );

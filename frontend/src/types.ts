@@ -166,7 +166,19 @@ export interface VocalSplitCapability {
   runs_on?: 'cloud-gpu' | null;
 }
 
-/** What this server can run: separation presets, vocal splits and the lyric aligner. */
+/** Whether this server can make song loops (GET /api/capabilities). */
+export interface SongLoopCapability {
+  available: boolean;
+  reason?: string | null;
+  /** Set when the server has a cloud GPU configured for loops, whether or not it is usable. */
+  runs_on?: 'cloud-gpu' | null;
+  model?: string;
+  model_label?: string;
+  max_prompt_chars?: number;
+}
+
+/** What this server can run: separation presets, vocal splits, the lyric aligner and song
+ *  loops. */
 export interface StudioCapabilities {
   separation: {
     default: SeparationPreset;
@@ -177,6 +189,8 @@ export interface StudioCapabilities {
     vocal_parts?: VocalSplitCapability[];
   };
   alignment: AlignmentCapabilities;
+  /** Missing on servers from before song loops. */
+  song_loop?: SongLoopCapability;
 }
 
 export type BackgroundJobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
@@ -222,6 +236,38 @@ export interface VocalSplitJob {
   status: BackgroundJobStatus;
   kind: VocalSplitKind;
   label?: string;
+  progress: number;
+  detail?: string;
+  eta_seconds?: number | null;
+  error?: string | null;
+  created_at?: number;
+  finished_at?: number | null;
+  elapsed_seconds?: number;
+}
+
+/** A song's loop: the looping background video made from its lyrics. */
+export interface SongLoop {
+  /** The video, under /static/output. */
+  url: string;
+  /** The scene it shows, in words. */
+  prompt: string;
+  /** Whether the scene was written from the lyrics (or the title) or typed. */
+  written_from?: 'lyrics' | 'title' | 'typed';
+  model?: string;
+  model_label?: string;
+  seed?: number | null;
+  width?: number;
+  height?: number;
+  duration?: number;
+  created_at?: number;
+}
+
+/** A song loop being made in the background while the song stays usable. */
+export interface SongLoopJob {
+  id: string;
+  status: BackgroundJobStatus;
+  /** The scene as typed; null when it is written from the lyrics. */
+  prompt?: string | null;
   progress: number;
   detail?: string;
   eta_seconds?: number | null;
@@ -363,6 +409,9 @@ export interface ProjectState {
   vocal_split_job?: VocalSplitJob | null;
   /** The parts the song's vocals have been split into, if any. */
   vocal_splits?: VocalSplits | null;
+  song_loop_job?: SongLoopJob | null;
+  /** The song's loop, if one was made. */
+  song_loop?: SongLoop | null;
   youtube_package?: {
     title: string;
     description: string;

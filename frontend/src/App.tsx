@@ -316,7 +316,10 @@ export const AppContent: React.FC = () => {
   useVocalRangeBackfill({ project, setProject });
   const waveform = useWaveformPeaksState(project?.id, isStudioReady, project?.master_audio_url);
   const intake = useTrackIntake({ currentUser, setProject });
-  const quality = useQualityJobs({ project, setProject });
+  // A loop made from this tab goes on stage when it is ready
+  const { setBackgroundStyle } = theme;
+  const showSongLoop = useCallback(() => setBackgroundStyle('loop'), [setBackgroundStyle]);
+  const quality = useQualityJobs({ project, setProject, onSongLoopReady: showSongLoop });
 
   const handleToggleChordBar = theme.toggleChordBar;
   const handleToggleVisualizer = theme.toggleVisualizer;
