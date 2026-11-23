@@ -17,6 +17,7 @@ from backend.services.ass_draw import (
     item_event,
     line_words,
     num,
+    opens_the_video,
     rect_path,
     shape_event,
 )
@@ -115,7 +116,9 @@ def _card_scrim(style: LookStyle, role: str, start: float, end: float) -> list[s
             start,
             end,
             style.color("ground"),
-            extra=fade_tags(end - start, strength, 0.0, fade, fade),
+            extra=fade_tags(
+                end - start, strength, None if opens_the_video(start) else 0.0, fade, fade
+            ),
         )
     ]
 

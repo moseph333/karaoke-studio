@@ -511,12 +511,13 @@ def layout_cases() -> list[dict[str, Any]]:
 
 # --- scenes ----------------------------------------------------------------------------------
 
-# Moments of the demo song a scene is read at: the frames the look_frames tool draws, and
+# Moments of the demo song a scene is read at: its first frame, the frames the look_frames
+# tool draws, and
 # moments inside a transition (a card fading in, a line arriving, a column stepping, a line
 # leaving)
-SCENE_TIMES = (0.6, 3.0, 9.2, 10.4, 13.4, 15.5, 21.2, 27.1, 28.6, 33.4, 37.6, 41.5, 42.4,
+SCENE_TIMES = (0.0, 0.6, 3.0, 9.2, 10.4, 13.4, 15.5, 21.2, 27.1, 28.6, 33.4, 37.6, 41.5, 42.4,
                47.0, 54.1, 58.3, 64.9, 66.2, 72.0)  # fmt: skip
-PORTRAIT_SCENE_TIMES = (3.0, 15.5, 28.6, 37.6, 47.0, 72.0)
+PORTRAIT_SCENE_TIMES = (0.0, 3.0, 15.5, 28.6, 37.6, 47.0, 72.0)
 _ALIGN = {"7": "left", "8": "center", "9": "right"}
 
 
