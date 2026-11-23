@@ -113,6 +113,9 @@ class RenderJob:
     picture: tuple[int, int, int, int] | None = None
     # The font files the subtitles need, which a cloud render must hold
     fonts: tuple[str, ...] = ()
+    # A video in a look: its lyrics are drawn on frames already in the video's own colour
+    # format, which costs FFmpeg less than drawing them on RGB frames and converting after
+    look: bool = False
 
 
 def _fill(width: int, height: int) -> str:
@@ -271,6 +274,7 @@ def ffmpeg_args(
     if fonts_dir:
         subtitles += f":fontsdir='{_escape_filter_path(fonts_dir)}'"
     bg = job.background
+    convert = "format=yuv420p," if job.look else ""
     if job.include_visualizer:
         vis_h = 240
         # The bars sit on the bottom edge of the picture (of the frame, unless the look
@@ -280,10 +284,10 @@ def ffmpeg_args(
             f"{bg.graph}"
             f"[1:a]showfreqs=s={job.width}x{vis_h}:mode=bar:fscale=log:colors=cyan|magenta[vis];"
             f"[bg][vis]overlay=0:{bottom}-{vis_h}:format=auto[bgvis];"
-            f"[bgvis]{subtitles}[v]"
+            f"[bgvis]{convert}{subtitles}[v]"
         )
     else:
-        graph = f"{bg.graph}[bg]{subtitles}[v]"
+        graph = f"{bg.graph}[bg]{convert}{subtitles}[v]"
     return [
         "-y",
         "-loglevel",
@@ -566,6 +570,7 @@ class VideoRenderer:
                 duration=duration,
                 include_visualizer=include_visualizer,
                 fonts=tuple(kwargs.get("fonts") or ()),
+                look=bool(kwargs.get("look_id")),
             )
             if not (
                 remote_render.enabled()

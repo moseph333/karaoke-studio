@@ -196,3 +196,27 @@ def test_ffmpeg_accepts_every_looks_chain_for_an_uploaded_image(tmp_path):
         assert background.kind == "image" and background.path == work / "background.png"
         with Image.open(background.path) as made:
             assert made.size == (1920, 1080)
+
+
+def test_a_looks_lyrics_are_drawn_on_frames_in_the_videos_own_colour_format(tmp_path):
+    """Drawing them on RGB frames and converting afterwards costs FFmpeg more per frame."""
+
+    def graph(look: bool, visualizer: bool = False) -> str:
+        job = RenderJob(
+            background=video_renderer.RenderBackground("color"),
+            audio_path=tmp_path / "a.wav",
+            ass_path=tmp_path / "s.ass",
+            output_path=tmp_path / "o.mp4",
+            width=1920,
+            height=1080,
+            duration=10.0,
+            include_visualizer=visualizer,
+            look=look,
+        )
+        args = ffmpeg_args(job, None, "a.wav", "s.ass", None, "o.mp4")
+        return args[args.index("-filter_complex") + 1]
+
+    assert "[bg]format=yuv420p,subtitles='s.ass'[v]" in graph(True)
+    assert "[bgvis]format=yuv420p,subtitles='s.ass'[v]" in graph(True, visualizer=True)
+    assert "[bg]subtitles='s.ass'[v]" in graph(False)
+    assert "format=yuv420p" not in graph(False, visualizer=True)
