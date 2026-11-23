@@ -635,14 +635,18 @@ function cardScene(
   texts: SceneText[],
   shapes: SceneShape[]
 ): void {
-  if (!window || !plan.title || !within(t, window[0], window[1])) return;
+  // The end card holds to the last frame, and stays once the song has played through (the
+  // player then rests at the song's length)
+  const ends = role === 'end';
+  if (!window || !plan.title || t < window[0] || (!ends && t >= window[1])) return;
   const { style } = plan;
   const { look } = style;
   const frame = look.frames[style.aspect];
   const fade = STAGE_TIMING.card_fade;
+  const leave = ends ? 0 : fade;
   const at = t - window[0];
   const length = window[1] - window[0];
-  const shown = { opacity: arriveAt(window[0], at, length, fade, fade), dy: 0 };
+  const shown = { opacity: arriveAt(window[0], at, length, fade, leave), dy: 0 };
   if (look.card_scrim) {
     const size = frameSize(style.aspect);
     const picture = frame.picture ?? { x: 0, y: 0, w: size.width, h: size.height };
@@ -655,7 +659,7 @@ function cardScene(
       width: picture.w,
       height: picture.h,
       color: look.palette.ground,
-      opacity: arriveAt(window[0], at, length, fade, fade, look.card_scrim),
+      opacity: arriveAt(window[0], at, length, fade, leave, look.card_scrim),
       outlined: false,
     });
   }
@@ -757,7 +761,7 @@ export function sceneAt(plan: StagePlan, t: number, furniture = true): StageScen
   else stackScene(plan, t, texts);
   cueScene(plan, t, texts, shapes);
   cardScene(plan, t, plan.timeline.end_card, 'end', texts, shapes);
-  if (furniture && plan.duration && plan.duration > 0 && within(t, 0, plan.duration)) {
+  if (furniture && plan.duration && plan.duration > 0 && t >= 0) {
     const size = frameSize(plan.style.aspect);
     const height = look.frames[plan.style.aspect].progress.height;
     shapes.push({
@@ -766,7 +770,8 @@ export function sceneAt(plan: StagePlan, t: number, furniture = true): StageScen
       shape: 'rect',
       x: 0,
       y: size.height - height,
-      width: (size.width * t) / plan.duration,
+      // Full once the song has played through
+      width: (size.width * Math.min(t, plan.duration)) / plan.duration,
       height,
       color: look.palette.cue,
       opacity: 1,
@@ -792,7 +797,8 @@ export function wordFill(text: SceneText, word: SceneWord, t: number): number {
   if (text.sweep === 'none') return 0;
   if (text.sweep === 'line' || word.start === null) return t >= text.flipAt ? 1 : 0;
   const end = word.end ?? word.start + 0.4;
-  if (t <= word.start) return 0;
+  if (t < word.start) return 0;
+  // A word with no length is sung the moment it starts
   if (t >= end || end <= word.start) return 1;
   return (t - word.start) / (end - word.start);
 }

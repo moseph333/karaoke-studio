@@ -288,6 +288,24 @@ def test_the_plain_download_leaves_out_the_progress_line():
     assert "progress" not in kinds and "lyric" in kinds
 
 
+@pytest.mark.parametrize(("look_id", "aspect"), EVERY_LOOK)
+def test_the_end_card_fades_in_and_holds_to_the_last_frame(look_id, aspect):
+    """A video ends on its card. The title card, which gives way to the song, fades out."""
+    events = ass_events(write(look_id, aspect))
+    closing = [e for e in events if e.kind == "end"]
+    opening = [e for e in events if e.kind == "title"]
+    assert closing and opening
+    for event in closing:
+        assert event.end == pytest.approx(SONG_SECONDS)
+        fade = re.search(r"\\fade\((\d+),(\d+),(\d+),0,(\d+),(\d+),(\d+)\)", event.tags)
+        first, held, last, enter, leave_at, total = (int(n) for n in fade.groups())
+        assert first == 255 and enter > 0, "fades in"
+        assert last == held and leave_at == total, "never fades out"
+    for event in opening:
+        fade = re.search(r"\\fade\((\d+),(\d+),(\d+),0,(\d+),(\d+),(\d+)\)", event.tags)
+        assert fade and int(fade.group(3)) == 255, "fades out"
+
+
 def test_a_song_of_unknown_length_gets_no_end_card_and_no_progress_line():
     style = LookStyle.of("marquee")
     text = generate_look_ass(LINES, style, title=SONG_TITLE, artist=SONG_ARTIST)

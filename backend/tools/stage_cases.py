@@ -263,6 +263,20 @@ def timeline_cases() -> list[dict[str, Any]]:
             "a line without times starts at 0 and lasts four seconds", [{"text": "untimed"}], 20.0
         ),
         tl_case("times are rounded to the centisecond", [ln(1.005, 3.333), ln(3.337, 5.001)], 12.0),
+        tl_case(
+            "the end card waits for the latest end, not the last line's",
+            [ln(1.0, 12.0), ln(2.0, 4.0)],
+            30.0,
+        ),
+        tl_case(
+            "lines that were never timed (all at 0) are planned at the start",
+            [ln(0.0, 0.0), ln(0.0, 0.0)],
+            20.0,
+        ),
+        tl_case(
+            "a break of exactly four seconds gets a count-in", [ln(1.0, 3.0), ln(7.0, 9.0)], 30.0
+        ),
+        tl_case("an intro of exactly four seconds gets a count-in", [ln(4.0, 7.0)], 20.0),
         tl_case("no lines", [], 20.0),
     ]
 
@@ -534,7 +548,7 @@ def layout_cases() -> list[dict[str, Any]]:
 # moments inside a transition (a card fading in, a line arriving, a column stepping, a line
 # leaving)
 SCENE_TIMES = (0.0, 0.6, 3.0, 9.2, 10.4, 13.4, 15.5, 21.2, 27.1, 28.6, 33.4, 37.6, 41.5, 42.4,
-               47.0, 54.1, 58.3, 64.9, 66.2, 72.0)  # fmt: skip
+               47.0, 54.1, 58.3, 64.9, 66.2, 72.0, 75.8)  # fmt: skip
 PORTRAIT_SCENE_TIMES = (0.0, 3.0, 15.5, 28.6, 37.6, 47.0, 72.0)
 _ALIGN = {"7": "left", "8": "center", "9": "right"}
 
