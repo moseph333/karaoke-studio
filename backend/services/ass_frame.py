@@ -45,10 +45,12 @@ def card_events(
         return []
     start, end = window
     fade = TIMING["card_fade"]
+    # The end card holds to the last frame: the video ends on it, and so does the stage
+    leave = 0.0 if role == "end" else fade
     spec = frame["title"]
     text = plain_text(heading, bool(look["caps"].get("title")))
     block = place_block(look, spec, text, role="title")
-    events = _card_scrim(style, role, start, end)
+    events = _card_scrim(style, role, start, end, leave)
     events += block_events(
         style,
         block,
@@ -60,7 +62,7 @@ def card_events(
         f"\\1c{ass_color(style.color(spec.get('color', 'unsung')))}",
         from_opacity=0.0,
         enter=fade,
-        exit_=fade,
+        exit_=leave,
         tracking=look["tracking"].get("title", 0.0),
     )
     if byline:
@@ -91,13 +93,13 @@ def card_events(
             style.color(by["color"]),
             from_opacity=0.0,
             enter=fade,
-            exit_=fade,
+            exit_=leave,
             tracking=look["tracking"].get("artist", 0.0),
         )
     return events
 
 
-def _card_scrim(style: LookStyle, role: str, start: float, end: float) -> list[str]:
+def _card_scrim(style: LookStyle, role: str, start: float, end: float, leave: float) -> list[str]:
     """A look whose cards sit on the picture (Cinema) dims the picture under them."""
     strength = style.look.get("card_scrim")
     if not strength:
@@ -117,7 +119,7 @@ def _card_scrim(style: LookStyle, role: str, start: float, end: float) -> list[s
             end,
             style.color("ground"),
             extra=fade_tags(
-                end - start, strength, None if opens_the_video(start) else 0.0, fade, fade
+                end - start, strength, None if opens_the_video(start) else 0.0, fade, leave
             ),
         )
     ]
