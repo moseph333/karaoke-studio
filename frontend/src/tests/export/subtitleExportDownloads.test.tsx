@@ -305,6 +305,13 @@ describe('Milestone 2 Iteration 2 Challenger 2: Subtitle Exports & Accessibility
   // =========================================================================
   // Test Suite 2: Rapid/Concurrent Triggers, Mutual Exclusion & Spinners
   // =========================================================================
+  it("says that the .ass file is laid out for the look's typeface", () => {
+    render(<ExportModal project={baseProject} isOpen={true} onClose={vi.fn()} />);
+    expect(screen.getByTestId('ass-fonts-note')).toHaveTextContent(
+      /laid out for the look's typeface and names it at the top/
+    );
+  });
+
   describe('Suite 2: Rapid/Concurrent Triggers, Mutual Exclusion & Spinners', () => {
     it('dispatches only 1 apiFetch call under rapid repeated clicks on same button', async () => {
       const user = userEvent.setup();

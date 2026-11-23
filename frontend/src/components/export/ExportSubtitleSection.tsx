@@ -246,6 +246,11 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
         </Tooltip>
       </div>
 
+      <p data-testid="ass-fonts-note" className="text-xs text-theme-text-muted">
+        The .ass file is laid out for the look&apos;s typeface and names it at the top. A player
+        without that font draws the lyrics in another one, so they may sit differently.
+      </p>
+
       {downloadError && (
         <div role="alert" className={EXPORT_ERROR}>
           {downloadError}
