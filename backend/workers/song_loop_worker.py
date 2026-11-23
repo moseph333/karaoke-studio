@@ -1,7 +1,8 @@
 """Song loop worker: a looping background video made from a song's lyrics.
 
-gpu/modal_app.py runs this on a cloud GPU (it needs about 24 GB of video memory and the
-diffusers and transformers packages, which only that image installs):
+gpu/modal_app.py runs this on a cloud GPU (a 48 GB card: LTX-Video needs about 44 GB of
+video memory, Wan 2.2 less; and the diffusers and transformers packages, which only that
+image installs):
 
     python -u -m backend.workers.song_loop_worker --out DIR --model-dir MODELS
         [--lyrics-file LYRICS.txt] [--title TITLE] [--artist ARTIST] [--prompt TEXT]
@@ -86,16 +87,23 @@ SCENE_RULES = (
     "- No text of any kind: no signs, letters, captions or logos.\n"
     "- Slow, steady motion that could go on forever: drifting, flowing, swaying, falling, "
     "flickering.\n"
-    "- A still or very slowly moving camera. No cuts.\n"
+    "- The camera stands still, as if on a tripod. No cuts.\n"
+    "- Only what can be seen: no sounds, smells or feelings.\n"
     "- Name the colours and the light.\n"
     f"Write in English, in the present tense, as one paragraph of at most {SCENE_WORDS} words. "
     "Do not quote the lyrics, name the song or the artist, or explain yourself: answer with "
     "the description only."
 )
-PROMPT_STYLE = "Slow, continuous motion. Cinematic lighting, soft focus, rich colour."
+# The fixed camera matters most: the loop is made by fading the clip into its own start,
+# which shows as a double image when the view has moved in between
+PROMPT_STYLE = (
+    "Static shot from a camera fixed on a tripod: the view does not pan, zoom or travel. "
+    "Slow, continuous motion within the frame. Cinematic lighting, rich colour."
+)
 NEGATIVE_PROMPT = (
     "text, letters, words, subtitles, captions, watermark, logo, signature, faces, close-up "
-    "of a person, fast motion, camera cuts, flicker, static image, overexposed, worst quality, "
+    "of a person, fast motion, camera movement, panning, zooming, camera cuts, flicker, static "
+    "image, overexposed, worst quality, "
     "low quality, jpeg artifacts, blurry, jittery, distorted"
 )
 # What the LTX-Video pipeline is documented with (the scene's own limits go in the prompt)
@@ -410,7 +418,7 @@ def write_scene(args: argparse.Namespace, seed: int) -> str:
     torch.manual_seed(seed)
     with torch.no_grad():
         generated = model.generate(
-            **inputs, max_new_tokens=220, do_sample=True, temperature=0.7, top_p=0.8, top_k=20
+            **inputs, max_new_tokens=160, do_sample=True, temperature=0.7, top_p=0.8, top_k=20
         )
     answer = tokenizer.decode(generated[0][inputs.input_ids.shape[1] :], skip_special_tokens=True)
     del model, inputs, generated
