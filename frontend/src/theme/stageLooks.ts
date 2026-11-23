@@ -39,6 +39,8 @@ export interface FitRules {
   min_condense: number;
   size_step: number;
   shrink: number;
+  /** The most rows a line too wide for its box may take. */
+  most_rows: number;
 }
 
 /** A place for text: one `size`, or a range the fit may choose from. */

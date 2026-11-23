@@ -6,8 +6,9 @@
  * backend/services/text_fit.py; both suites run stage_fit_cases.json.
  *
  * The fewest rows that reach the preferred size win; when none does, the row count that allows
- * the largest type; text still too wide at the smallest size is condensed. Rows are balanced:
- * the break that makes the widest row narrowest.
+ * the largest type; text still too wide at the smallest size is condensed, and past the
+ * tightest squeeze takes more rows than the box asks for. Rows are balanced: the break that
+ * makes the widest row narrowest.
  */
 import { FIT_RULES, type TextBoxSpec } from '../theme/stageLooks';
 
@@ -73,20 +74,19 @@ export function rowWidth(
   return total;
 }
 
-/** Every way to pick `count` of `items`, in the order Python's itertools.combinations gives. */
-function* combinations(items: number[], count: number): Generator<number[]> {
-  const total = items.length;
-  if (count > total) return;
-  const picks = Array.from({ length: count }, (_, i) => i);
-  yield picks.map((i) => items[i]);
-  for (;;) {
-    let at = count - 1;
-    while (at >= 0 && picks[at] === at + total - count) at -= 1;
-    if (at < 0) return;
-    picks[at] += 1;
-    for (let next = at + 1; next < count; next += 1) picks[next] = picks[next - 1] + 1;
-    yield picks.map((i) => items[i]);
+/** table[a][b]: the width of tokens [a, b) on one row (rowWidth, for every range). */
+function rowWidths(widths: number[], spaces: boolean[], space: number): number[][] {
+  const count = widths.length;
+  const table = Array.from({ length: count + 1 }, () => new Array<number>(count + 1).fill(0));
+  for (let first = 0; first < count; first += 1) {
+    let total = 0;
+    for (let end = first + 1; end <= count; end += 1) {
+      if (end - first > 1 && spaces[end - 2]) total += space;
+      total += widths[end - 1];
+      table[first][end] = total;
+    }
   }
+  return table;
 }
 
 /** The split of the tokens into exactly `rows` rows whose widest row is narrowest (the
@@ -103,18 +103,38 @@ export function balancedRows(
   const places: number[] = [];
   for (let i = 0; i < count - 1; i += 1) if (breaks[i]) places.push(i + 1);
   if (rows - 1 > places.length) return null;
-  let best: { ranges: Array<[number, number]>; widest: number } | null = null;
-  for (const cuts of combinations(places, rows - 1)) {
-    const edges = [0, ...cuts, count];
-    const ranges: Array<[number, number]> = [];
-    let widest = 0;
-    for (let k = 0; k < rows; k += 1) {
-      ranges.push([edges[k], edges[k + 1]]);
-      widest = Math.max(widest, rowWidth(widths, spaces, space, edges[k], edges[k + 1]));
+  const table = rowWidths(widths, spaces, space);
+  // tail[k][i]: the narrowest widest row when tokens [i, count) take k rows
+  const tail = Array.from({ length: rows + 1 }, () => new Array<number>(count + 1).fill(Infinity));
+  for (let start = 0; start < count; start += 1) tail[1][start] = table[start][count];
+  for (let k = 2; k <= rows; k += 1) {
+    for (let start = 0; start < count; start += 1) {
+      let best = Infinity;
+      for (const cut of places) {
+        if (cut <= start || tail[k - 1][cut] === Infinity) continue;
+        const widest = Math.max(table[start][cut], tail[k - 1][cut]);
+        if (widest < best) best = widest;
+      }
+      tail[k][start] = best;
     }
-    if (best === null || widest < best.widest - 1e-9) best = { ranges, widest };
   }
-  return best;
+  const target = tail[rows][0];
+  if (target === Infinity) return null;
+  // The earliest breaks that reach it
+  const ranges: Array<[number, number]> = [];
+  let start = 0;
+  for (let k = rows; k > 1; k -= 1) {
+    for (const cut of places) {
+      if (cut <= start || tail[k - 1][cut] === Infinity) continue;
+      if (Math.max(table[start][cut], tail[k - 1][cut]) <= target + 1e-9) {
+        ranges.push([start, cut]);
+        start = cut;
+        break;
+      }
+    }
+  }
+  ranges.push([start, count]);
+  return { ranges, widest: target };
 }
 
 /** Fits tokens of the given widths (ems) into `box`. `spaces[i]` says a space follows token
@@ -146,17 +166,23 @@ export function fitBlock(
       if (option.size > chosen.size + 1e-9) chosen = option;
     }
   }
-  let { size } = chosen;
+  let { size, ranges, widest } = chosen;
   let condense = 1;
   const smallest = floorTo(box.min, rules.size_step);
   if (size < smallest) {
     size = smallest;
-    const squeeze = chosen.widest > 0 ? usable / (chosen.widest * size) : 1;
+    let squeeze = widest > 0 ? usable / (widest * size) : 1;
+    // Still too wide at the tightest squeeze: more rows than the box asks for, rather than
+    // run off the frame
+    let rows = ranges.length;
+    while (squeeze < rules.min_condense && rows < rules.most_rows) {
+      rows += 1;
+      const split = balancedRows(widths, spaces, breaks, space, rows);
+      if (split === null) break;
+      ({ ranges, widest } = split);
+      squeeze = widest > 0 ? usable / (widest * size) : 1;
+    }
     condense = Math.max(rules.min_condense, Math.floor(squeeze * 100 + 1e-9) / 100);
   }
-  return {
-    size: Math.round(size * 10000) / 10000,
-    condense: Math.min(1, condense),
-    rows: chosen.ranges,
-  };
+  return { size: Math.round(size * 10000) / 10000, condense: Math.min(1, condense), rows: ranges };
 }

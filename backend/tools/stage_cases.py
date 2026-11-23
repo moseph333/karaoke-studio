@@ -121,15 +121,33 @@ def fit_cases() -> list[dict[str, Any]]:
         ),
         fit_case(
             "text too wide at the smallest size is condensed",
-            [6.0, 6.0, 6.0],
+            [5.0, 5.0, 5.0],
             [True, True, False],
             {"measure": 60, "min": 5, "prefer": 7, "max": 7, "rows": 1},
         ),
         fit_case(
-            "condensing stops at the limit",
-            [20.0, 20.0],
-            [True, False],
+            "one word too wide even at the tightest squeeze keeps that squeeze",
+            [20.0],
+            [False],
             {"measure": 60, "min": 5, "prefer": 7, "max": 7, "rows": 1},
+        ),
+        fit_case(
+            "a line too wide at the tightest squeeze takes more rows than the box asks for",
+            [5.0] * 12,
+            [True] * 11 + [False],
+            {"measure": 60, "min": 5, "prefer": 7, "max": 7, "rows": 2},
+        ),
+        fit_case(
+            "extra rows stop as soon as the line fits, squeezed if need be",
+            [3.0] * 9,
+            [True] * 8 + [False],
+            {"measure": 30, "min": 5, "prefer": 7, "max": 7, "rows": 1},
+        ),
+        fit_case(
+            "many rows are still balanced",
+            [float(n % 4 + 1) for n in range(40)],
+            [True] * 39 + [False],
+            {"measure": 50, "min": 6, "prefer": 8, "max": 8, "rows": 2},
         ),
         fit_case(
             "one word cannot be broken",

@@ -452,3 +452,37 @@ def test_what_starts_with_the_song_is_there_from_the_first_frame(look_id):
         fade = event.numbers("fade")
         assert not fade or fade[0] == fade[1], event.text
         assert not event.numbers("move"), event.text
+
+
+@pytest.mark.parametrize(("look_id", "aspect"), EVERY_LOOK)
+def test_a_very_long_line_takes_more_rows_and_stays_in_the_frame(look_id, aspect):
+    """The old stage wrapped a line of any length. A line far too long for its box takes
+    more rows than the look asks for, instead of running off the frame."""
+    from backend.services import font_metrics as metrics
+    from backend.services.stage_layout import line_text
+
+    words = [f"word{n}" for n in range(50)]
+    long_line = [
+        {
+            "text": " ".join(words),
+            "start_time": 1.0,
+            "end_time": 21.0,
+            "words": [
+                {"word": w, "start_time": 1.0 + 0.4 * n, "end_time": 1.3 + 0.4 * n}
+                for n, w in enumerate(words)
+            ],
+        }
+    ]
+    style = LookStyle.of(look_id, aspect)
+    rows = [e for e in ass_events(write(look_id, aspect, lines=long_line)) if e.kind == "lyric"]
+    drawn = " ".join(e.plain.strip() for e in rows).casefold().split()
+    assert drawn == [w.casefold() for w in line_text(long_line[0]).tokens]
+    assert len(rows) > style.spec["lyric"].get("rows", 1)
+    for row in rows:
+        size = float(re.search(r"\\fs([\d.]+)", row.tags).group(1))
+        squeeze = re.search(r"\\fscx([\d.]+)", row.tags)
+        face = metrics.face(row.style)
+        em = size / face["ass_size"]
+        width = metrics.text_width(row.style, row.plain.strip()) * em
+        width *= float(squeeze.group(1)) / 100 if squeeze else 1.0
+        assert width <= style.spec["lyric"]["measure"] * style.u + 1, row.plain
