@@ -427,17 +427,16 @@ def song_loop(
             str(out),
             "--model-dir",
             LOOP_MODEL_DIR,
-            "--title",
-            title,
-            "--artist",
-            artist,
+            # As one argument each: a title may begin with a dash
+            f"--title={title}",
+            f"--artist={artist}",
         ]
         if lyrics.strip():
             words = work / "lyrics.txt"
             words.write_text(lyrics, encoding="utf-8")
             cmd += ["--lyrics-file", str(words)]
         if prompt.strip():
-            cmd += ["--prompt", prompt]
+            cmd.append(f"--prompt={prompt}")
         if model:
             cmd += ["--model", model]
         if seed is not None:

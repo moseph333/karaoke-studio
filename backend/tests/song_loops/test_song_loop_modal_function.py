@@ -32,8 +32,12 @@ def test_a_warm_up_returns_before_anything_runs():
 def test_it_runs_the_worker_and_returns_what_the_worker_recorded():
     body = ast.unparse(_function("song_loop"))
     assert "'backend.workers.song_loop_worker'" in body
-    for flag in ("--out", "--model-dir", "--lyrics-file", "--prompt", "--model", "--seed"):
+    for flag in ("--out", "--model-dir", "--lyrics-file", "--model", "--seed"):
         assert f"'{flag}'" in body
+        assert flag in _worker_flags()
+    # Free text goes as one argument each, so a title that begins with a dash stays a title
+    for flag in ("--title", "--artist", "--prompt"):
+        assert f"f'{flag}={{" in body
         assert flag in _worker_flags()
     assert "result.json" in body and "result['video']" in body
     assert "weights.commit()" in body

@@ -88,3 +88,10 @@ def test_a_fade_must_leave_a_loop(tmp_path):
         worker.parse_args([*base, "--fade", "4"])
     with pytest.raises(SystemExit):
         worker.parse_args([*base, "--fade", "0"])
+
+
+def test_a_title_may_begin_with_a_dash(tmp_path):
+    args = worker.parse_args(
+        ["--out", str(tmp_path), "--model-dir", str(tmp_path), "--title=-ish", "--artist=--"]
+    )
+    assert (args.title, args.artist) == ("-ish", "--")
