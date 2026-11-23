@@ -1,8 +1,9 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricDisplay } from '../../components/LyricDisplay';
+import { getStageLook } from '../../theme/stageLooks';
 import { useInterpolatedTime } from '../../hooks/useInterpolatedTime';
 import { LyricLine, SingerRole } from '../../types';
 import { renderHook } from '@testing-library/react';
@@ -11,6 +12,19 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
 } from '../helpers/responsiveTestUtils';
+
+// KTV draws the words as the lyrics write them and keeps each line in a row of its own
+const KTV = getStageLook('ktv');
+
+/** The element that carries a row's colour. */
+const ink = (row: HTMLElement) => row.querySelector('.ks-words') as HTMLElement;
+
+/** The words of the line being sung as the stage draws them (each word is drawn twice: once
+ * to sing, once sung). */
+const drawn = (row: HTMLElement) =>
+  Array.from(row.querySelectorAll('.ks-word > span:first-child'), (word) => word.textContent).join(
+    ''
+  );
 
 describe('LyricDisplay (Feature 43: Fluid Word Sweep Interpolation)', () => {
   const mockLines: LyricLine[] = [
@@ -43,14 +57,26 @@ describe('LyricDisplay (Feature 43: Fluid Word Sweep Interpolation)', () => {
 
   it('renders instrumental intro before first lyric line', () => {
     render(<LyricDisplay lines={mockLines} currentTime={0.0} />);
-    expect(screen.getByText('♪ Instrumental Intro ♪')).toBeInTheDocument();
+    // The seconds left until the vocals, with the first line waiting under the reading place
+    expect(screen.getByTestId('stage-break-marker')).toHaveTextContent('4');
+    expect(screen.queryByTestId('active-lyrics-line')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Jump playback to line at 4.00 seconds' })
+    ).toHaveTextContent('Hello world');
   });
 
   it('renders active line words and next upcoming line', () => {
     render(<LyricDisplay lines={mockLines} currentTime={4.5} />);
-    expect(screen.getAllByText('Hello').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('world').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('Next line begins')).toBeInTheDocument();
+    const active = screen.getByTestId('active-lyrics-line');
+    expect(
+      within(active).getByRole('button', { name: 'Jump playback to word Hello at 4.00 seconds' })
+    ).toBeInTheDocument();
+    expect(
+      within(active).getByRole('button', { name: 'Jump playback to word world at 5.00 seconds' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Jump playback to line at 8.00 seconds' })
+    ).toHaveTextContent('Next line begins');
   });
 
   it('triggers onSeek when clicking on a word', async () => {
@@ -64,10 +90,16 @@ describe('LyricDisplay (Feature 43: Fluid Word Sweep Interpolation)', () => {
   });
 
   it('displays countdown dots when within 3 seconds of active line', () => {
-    render(<LyricDisplay lines={mockLines} currentTime={2.5} />);
-    const countdown = screen.getByTestId('countdown-cue');
-    expect(countdown).toBeInTheDocument();
-    expect(countdown).toHaveAttribute('aria-label', expect.stringContaining('Starting in'));
+    // The line starts 4 s into the song, a gap long enough to count in; KTV counts with dots,
+    // one going out each second
+    const { rerender } = render(
+      <LyricDisplay lines={mockLines} currentTime={1.5} selectedTheme={KTV} />
+    );
+    expect(screen.getAllByTestId('stage-countin')).toHaveLength(3);
+    rerender(<LyricDisplay lines={mockLines} currentTime={2.5} selectedTheme={KTV} />);
+    expect(screen.getAllByTestId('stage-countin')).toHaveLength(2);
+    rerender(<LyricDisplay lines={mockLines} currentTime={4.0} selectedTheme={KTV} />);
+    expect(screen.queryByTestId('stage-countin')).not.toBeInTheDocument();
   });
 
   it('renders blurred album art background when albumArtUrl is provided', () => {
@@ -182,53 +214,43 @@ describe('LyricDisplay Multi-Singer Duet Presentations (Requirement R2)', () => 
     resetTestViewport();
   });
 
-  it('renders Singer 1 with themeSungColor and accessible Lead badge', () => {
-    render(<LyricDisplay lines={duetLines} currentTime={3.0} themeSungColor="#fbbf24" />);
+  it('fills Singer 1 with themeSungColor and names each part where the singer changes', () => {
+    // 5.5 s: the first line is in its last moments on stage and the second is already showing
+    render(
+      <LyricDisplay
+        lines={duetLines}
+        currentTime={5.5}
+        themeSungColor="#fbbf24"
+        selectedTheme={KTV}
+      />
+    );
 
-    const badge = screen.getByTestId('active-singer-badge');
-    expect(badge).toBeInTheDocument();
-    expect(badge).toHaveAttribute('data-singer', 'singer1');
-    expect(badge).toHaveTextContent('Singer 1 / Lead');
-    // Icons are decorative SVGs, not emoji characters
-    expect(badge.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByTestId('active-lyrics-line')).toHaveAttribute('data-line', '0');
+    expect(screen.getByTestId('word-sung-0')).toHaveStyle({ color: '#fbbf24' });
 
-    const sungOverlay = screen.getByTestId('word-sung-0');
-    expect(sungOverlay).toHaveStyle({ color: '#fbbf24' });
-
-    const nextTag = screen.getByTestId('next-singer-tag');
-    expect(nextTag).toBeInTheDocument();
-    expect(nextTag).toHaveAttribute('data-singer', 'singer2');
-    expect(nextTag).toHaveTextContent('[Singer 2]');
-    expect(nextTag).toHaveStyle({ color: '#ff00b3' });
+    const names = screen.getAllByTestId('stage-part-name');
+    expect(names.map((name) => name.textContent)).toEqual(['Singer 1', 'Singer 2']);
+    expect(names.map((name) => name.getAttribute('data-line'))).toEqual(['0', '1']);
+    expect(ink(names[0])).toHaveStyle({ color: '#fbbf24' });
+    expect(ink(names[1])).toHaveStyle({ color: KTV.palette.singer2 });
   });
 
-  it('renders Singer 2 with the export default magenta (#ff00b3) and Partner badge', () => {
-    render(<LyricDisplay lines={duetLines} currentTime={7.0} />);
+  it("renders Singer 2 in the look's Singer 2 colour under the part's name", () => {
+    render(<LyricDisplay lines={duetLines} currentTime={7.0} selectedTheme={KTV} />);
 
-    const badge = screen.getByTestId('active-singer-badge');
-    expect(badge).toBeInTheDocument();
-    expect(badge).toHaveAttribute('data-singer', 'singer2');
-    expect(badge).toHaveTextContent('Singer 2 / Partner');
-
-    const sungOverlay = screen.getByTestId('word-sung-0');
-    expect(sungOverlay).toHaveStyle({ color: '#ff00b3' });
-
-    const nextTag = screen.getByTestId('next-singer-tag');
-    expect(nextTag).toHaveAttribute('data-singer', 'both');
-    expect(nextTag).toHaveTextContent('[Both / Duet]');
-    expect(nextTag).toHaveStyle({ color: '#7bfa50' });
+    expect(screen.getByTestId('active-lyrics-line')).toHaveAttribute('data-line', '1');
+    expect(screen.getByTestId('word-sung-0')).toHaveStyle({ color: KTV.palette.singer2 });
+    expect(screen.getByTestId('stage-part-name')).toHaveTextContent('Singer 2');
   });
 
-  it('renders Both / Duet with the export default green (#7bfa50) and Duet icon badge', () => {
-    render(<LyricDisplay lines={duetLines} currentTime={11.0} />);
+  it("renders Both in the look's colour for both singers under the part's name", () => {
+    render(<LyricDisplay lines={duetLines} currentTime={11.0} selectedTheme={KTV} />);
 
-    const badge = screen.getByTestId('active-singer-badge');
-    expect(badge).toBeInTheDocument();
-    expect(badge).toHaveAttribute('data-singer', 'both');
-    expect(badge).toHaveTextContent('Both / Duet');
-
-    const sungOverlay = screen.getByTestId('word-sung-0');
-    expect(sungOverlay).toHaveStyle({ color: '#7bfa50' });
+    expect(screen.getByTestId('active-lyrics-line')).toHaveAttribute('data-line', '2');
+    expect(screen.getByTestId('word-sung-0')).toHaveStyle({ color: KTV.palette.both });
+    const name = screen.getByTestId('stage-part-name');
+    expect(name).toHaveTextContent('Both');
+    expect(ink(name)).toHaveStyle({ color: KTV.palette.both });
   });
 
   it('gracefully normalizes string aliases (partner, unison, duet) and defaults unset lines to singer1', () => {
@@ -249,27 +271,42 @@ describe('LyricDisplay Multi-Singer Duet Presentations (Requirement R2)', () => 
         singer: 'unison' as unknown as SingerRole,
         words: [{ word: 'Unison', start_time: 5.0, end_time: 8.0 }],
       },
+      {
+        id: 12,
+        text: 'Unset closing line',
+        start_time: 9.0,
+        end_time: 12.0,
+        words: [{ word: 'Unset', start_time: 9.0, end_time: 12.0 }],
+      },
     ];
 
-    render(<LyricDisplay lines={aliasedLines} currentTime={2.0} />);
-    const badge = screen.getByTestId('active-singer-badge');
-    expect(badge).toHaveAttribute('data-singer', 'singer2');
-    expect(badge).toHaveTextContent('Singer 2 / Partner');
+    // 4.5 s: the "partner" line is still on stage and the "unison" line is showing
+    const { rerender } = render(
+      <LyricDisplay lines={aliasedLines} currentTime={4.5} selectedTheme={KTV} />
+    );
+    expect(screen.getAllByTestId('stage-part-name').map((name) => name.textContent)).toEqual([
+      'Singer 2',
+      'Both',
+    ]);
+    expect(screen.getByTestId('word-sung-0')).toHaveStyle({ color: KTV.palette.singer2 });
+    expect(screen.getByTestId('word-sung-1-0')).toHaveStyle({ color: KTV.palette.both });
 
-    const nextTag = screen.getByTestId('next-singer-tag');
-    expect(nextTag).toHaveAttribute('data-singer', 'both');
-    expect(nextTag).toHaveTextContent('[Both / Duet]');
+    rerender(<LyricDisplay lines={aliasedLines} currentTime={10.0} selectedTheme={KTV} />);
+    expect(screen.getByTestId('stage-part-name')).toHaveTextContent('Singer 1');
+    expect(screen.getByTestId('word-sung-0')).toHaveStyle({ color: KTV.palette.sung });
   });
 
   it('provides upcoming singer anticipatory cue before the first line during intro', () => {
-    render(<LyricDisplay lines={duetLines} currentTime={0.2} />);
-    expect(screen.getByText('♪ Instrumental Intro ♪')).toBeInTheDocument();
-    const nextTag = screen.getByTestId('next-singer-tag');
-    expect(nextTag).toBeInTheDocument();
-    expect(nextTag).toHaveTextContent('[Singer 1]');
+    render(<LyricDisplay lines={duetLines} currentTime={0.2} selectedTheme={KTV} />);
+    // The first line is on stage before it is sung, under the name of the part that sings it
+    expect(drawn(screen.getByTestId('active-lyrics-line'))).toBe('Lead singer opens the song');
+    expect(screen.getByTestId('word-sung-0')).toHaveStyle({ width: '0.00%' });
+    const name = screen.getByTestId('stage-part-name');
+    expect(name).toHaveTextContent('Singer 1');
+    expect(name).toHaveAttribute('data-line', '0');
   });
 
-  it('hides the Singer 1 / Lead pill and [Singer 1] up next cue when a song only has one singer', () => {
+  it('shows no part name when a song only has one singer', () => {
     const singleSingerLines: LyricLine[] = [
       {
         id: 1,
@@ -296,19 +333,18 @@ describe('LyricDisplay Multi-Singer Duet Presentations (Requirement R2)', () => 
       },
     ];
 
-    const { rerender } = render(<LyricDisplay lines={singleSingerLines} currentTime={0.2} />);
-    expect(screen.getByText('♪ Instrumental Intro ♪')).toBeInTheDocument();
-    expect(screen.getByTestId('upcoming-lyrics-line')).toHaveTextContent('Solo opening line');
-    expect(screen.queryByTestId('active-singer-badge')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('next-singer-tag')).not.toBeInTheDocument();
-
-    rerender(<LyricDisplay lines={singleSingerLines} currentTime={3.0} />);
-    expect(screen.getByTestId('active-lyrics-line')).toBeInTheDocument();
-    expect(screen.getByTestId('upcoming-lyrics-line')).toHaveTextContent(
-      'Solo second line without explicit singer prop'
+    const { rerender } = render(
+      <LyricDisplay lines={singleSingerLines} currentTime={0.2} selectedTheme={KTV} />
     );
-    expect(screen.queryByTestId('active-singer-badge')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('next-singer-tag')).not.toBeInTheDocument();
+    expect(drawn(screen.getByTestId('active-lyrics-line'))).toBe('Solo opening line');
+    expect(screen.queryByTestId('stage-part-name')).not.toBeInTheDocument();
+
+    // 5.5 s: both lines are on stage, and neither is named
+    rerender(<LyricDisplay lines={singleSingerLines} currentTime={5.5} selectedTheme={KTV} />);
+    expect(drawn(screen.getByTestId('active-lyrics-line'))).toBe('Solo opening line');
+    // A line is drawn from its timed words
+    expect(drawn(screen.getByTestId('stage-line'))).toBe('Solo second line');
+    expect(screen.queryByTestId('stage-part-name')).not.toBeInTheDocument();
   });
 
   it('maintains >=44px touch targets on fullscreen toggle and zero overflow at 320px viewport', () => {
@@ -343,57 +379,66 @@ describe('LyricDisplay Instrumental Gap Countdown (Requirement R3)', () => {
     },
   ];
 
-  it('renders countdown progress bar and remaining time during intro gap >= 4.0s', () => {
-    render(<LyricDisplay lines={gapLines} currentTime={2.0} />);
+  it('counts the seconds left during an intro gap >= 4.0s', () => {
+    // An intro of 6 s or more belongs to the title card, so this song starts at 5.5 s
+    const introLines = [{ ...gapLines[0], start_time: 5.5 }, gapLines[1]];
+    const { rerender } = render(<LyricDisplay lines={introLines} currentTime={2.0} />);
+    expect(screen.getByTestId('stage-break-marker')).toHaveTextContent(/^4$/);
+    expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
 
-    expect(screen.getByText('♪ Instrumental Intro ♪')).toBeInTheDocument();
-
-    const timeReadout = screen.getByTestId('gap-countdown-time');
-    expect(timeReadout).toBeInTheDocument();
-    expect(timeReadout).toHaveTextContent('Next vocals in 4s');
-
-    const progressbar = screen.getByTestId('gap-countdown-progressbar');
-    expect(progressbar).toBeInTheDocument();
-    expect(progressbar).toHaveAttribute('role', 'progressbar');
-    expect(progressbar).toHaveAttribute('aria-valuenow', '33');
+    rerender(<LyricDisplay lines={introLines} currentTime={0.2} />);
+    expect(screen.getByTestId('stage-break-marker')).toHaveTextContent(/^6$/);
   });
 
-  it('shows 3-2-1 countdown cue dots during the final 3 seconds of the gap', () => {
-    render(<LyricDisplay lines={gapLines} currentTime={4.5} />);
+  it('shows the 3-2-1 count-in during the final 3 seconds of the gap', () => {
+    const { rerender } = render(<LyricDisplay lines={gapLines} currentTime={2.9} />);
+    expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
 
-    const cue = screen.getByTestId('countdown-cue');
-    expect(cue).toBeInTheDocument();
-    expect(cue).toHaveAttribute('aria-label', expect.stringContaining('Starting in 2 seconds'));
+    for (const [time, numeral] of [
+      [3.0, '3'],
+      [4.5, '2'],
+      [5.5, '1'],
+    ] as const) {
+      rerender(<LyricDisplay lines={gapLines} currentTime={time} />);
+      expect(screen.getByTestId('stage-count-in')).toHaveTextContent(numeral);
+      expect(screen.queryByTestId('stage-break-marker')).not.toBeInTheDocument();
+    }
   });
 
   it('automatically hides countdown indicator immediately when singing begins', () => {
     const { rerender } = render(<LyricDisplay lines={gapLines} currentTime={5.9} />);
-    expect(screen.getByTestId('gap-countdown-progressbar')).toBeInTheDocument();
+    expect(screen.getByTestId('stage-count-in')).toBeInTheDocument();
 
     rerender(<LyricDisplay lines={gapLines} currentTime={6.0} />);
-    expect(screen.queryByTestId('gap-countdown-progressbar')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('gap-countdown-time')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stage-break-marker')).not.toBeInTheDocument();
     expect(screen.getByTestId('active-lyrics-line')).toBeInTheDocument();
   });
 
   it('detects inter-line gap >= 4.0s and matches upcoming singer color (Singer 2)', () => {
-    render(<LyricDisplay lines={gapLines} currentTime={14.0} singer2SungColor="#ec4899" />);
+    const { rerender } = render(
+      <LyricDisplay lines={gapLines} currentTime={14.0} singer2SungColor="#ec4899" />
+    );
+    // The break counts the seconds to the vocals at 18 s, then the count-in takes the colour
+    // of the part about to sing
+    expect(screen.getByTestId('stage-break-marker')).toHaveTextContent(/^4$/);
 
-    expect(screen.getByText('♪ Instrumental Solo ♪')).toBeInTheDocument();
-
-    const timeReadout = screen.getByTestId('gap-countdown-time');
-    expect(timeReadout).toHaveTextContent('Next vocals in 4s');
-
-    const fillBar = screen.getByTestId('gap-countdown-progressbar-fill');
-    expect(fillBar).toHaveStyle({ backgroundColor: '#ec4899' });
+    rerender(<LyricDisplay lines={gapLines} currentTime={16.0} singer2SungColor="#ec4899" />);
+    const countIn = screen.getByTestId('stage-count-in');
+    expect(countIn).toHaveTextContent('2');
+    expect(ink(countIn)).toHaveStyle({ color: '#ec4899' });
   });
 
-  it('does not render gap progress bar for short breaks < 4.0s', () => {
+  it('does not render a break marker or count-in for short breaks < 4.0s', () => {
     const shortBreakLines: LyricLine[] = [
       { id: 1, text: 'Line 1', start_time: 1.0, end_time: 4.0, words: [] },
       { id: 2, text: 'Line 2', start_time: 6.5, end_time: 9.0, words: [] }, // 2.5s gap
     ];
-    render(<LyricDisplay lines={shortBreakLines} currentTime={5.0} />);
-    expect(screen.queryByTestId('gap-countdown-progressbar')).not.toBeInTheDocument();
+    for (const time of [4.5, 5.0, 6.0]) {
+      const { unmount } = render(<LyricDisplay lines={shortBreakLines} currentTime={time} />);
+      expect(screen.queryByTestId('stage-break-marker')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
+      unmount();
+    }
   });
 });

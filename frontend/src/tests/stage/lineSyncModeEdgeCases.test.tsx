@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, renderHook } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricDisplay } from '../../components/LyricDisplay';
-import { VisualThemePicker, THEMES } from '../../components/VisualThemePicker';
+import { VisualThemePicker } from '../../components/VisualThemePicker';
+import { getStageLook } from '../../theme/stageLooks';
 import { useVisualTheme } from '../../hooks/useVisualTheme';
 import { ExportSubtitleSection } from '../../components/export/ExportSubtitleSection';
 import { ExportModal } from '../../components/ExportModal';
@@ -14,6 +15,12 @@ import {
   resetTestViewport,
   assertZeroHorizontalOverflow,
 } from '../helpers/responsiveTestUtils';
+
+// KTV draws the words as the lyrics write them and keeps each line in a row of its own
+const KTV = getStageLook('ktv');
+
+/** The element that carries a row's colour. */
+const ink = (row: HTMLElement) => row.querySelector('.ks-words') as HTMLElement;
 
 describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization', () => {
   const standardTestLines: LyricLine[] = [
@@ -87,15 +94,12 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
         },
       ];
 
-      // At 0.49s (before 1.5s lead-in), active line is not mounted
+      // The first line shows up to 2.5 s early, so this one is on stage from 0 s, all words at 0%
       const { rerender } = render(
-        <LyricDisplay lines={noGapLines} currentTime={0.49} syncMode="line" />
+        <LyricDisplay lines={noGapLines} currentTime={0} syncMode="line" />
       );
-      expect(screen.queryByTestId('active-lyrics-line')).not.toBeInTheDocument();
-
-      // At 0.50s (exact start of 1.5s lead-in: 2.0 - 1.5 = 0.5), active line mounts, all words at 0%
-      rerender(<LyricDisplay lines={noGapLines} currentTime={0.5} syncMode="line" />);
       expect(screen.getByTestId('active-lyrics-line')).toBeInTheDocument();
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
       for (let i = 0; i < 3; i++) {
         const word = screen.getByTestId(`word-sung-${i}`);
         expect(parseFloat(word.style.width)).toBe(0);
@@ -117,10 +121,18 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
         expect(parseFloat(word.style.width)).toBe(100);
       }
 
-      // 2. Lines with long instrumental gap (start_time >= 4.0s) show countdown during gap
-      rerender(<LyricDisplay lines={standardTestLines} currentTime={8.5} syncMode="line" />);
-      expect(screen.getByTestId('gap-countdown-indicator')).toBeInTheDocument();
+      // 2. A line after a long instrumental gap (start_time >= 4.0s) is counted in over its
+      // last 3 s: from 7.0s here, half a second before the line takes the reading place
+      rerender(<LyricDisplay lines={standardTestLines} currentTime={7.2} syncMode="line" />);
+      expect(screen.getByTestId('stage-count-in')).toHaveTextContent(/^3$/);
       expect(screen.queryByTestId('active-lyrics-line')).not.toBeInTheDocument();
+
+      rerender(<LyricDisplay lines={standardTestLines} currentTime={8.5} syncMode="line" />);
+      expect(screen.getByTestId('stage-count-in')).toHaveTextContent(/^2$/);
+      expect(screen.getByTestId('active-lyrics-line')).toBeInTheDocument();
+      for (let i = 0; i < 4; i++) {
+        expect(parseFloat(screen.getByTestId(`word-sung-${i}`).style.width)).toBe(0);
+      }
     });
 
     it('ADV-1.2: Exact onset instant (t = start_time) and post-onset (t = start_time + delta)', () => {
@@ -142,7 +154,7 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
       }
     });
 
-    it('ADV-1.3: End boundary and lead-out hold (t = end_time through end_time + 1.0s)', () => {
+    it('ADV-1.3: End boundary and lead-out hold (t = end_time through end_time + 1.2s)', () => {
       // Line ends at 14.0s.
       // At 13.999s, all words are 100%
       const { rerender } = render(
@@ -154,17 +166,17 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
       rerender(<LyricDisplay lines={standardTestLines} currentTime={14.0} syncMode="line" />);
       expect(parseFloat(screen.getByTestId('word-sung-3').style.width)).toBe(100);
 
-      // At 14.999s (inside 1.0s lead-out), words remain 100%
+      // At 14.999s (inside 1.2s lead-out), words remain 100%
       rerender(<LyricDisplay lines={standardTestLines} currentTime={14.999} syncMode="line" />);
       expect(parseFloat(screen.getByTestId('word-sung-0').style.width)).toBe(100);
       expect(parseFloat(screen.getByTestId('word-sung-3').style.width)).toBe(100);
 
-      // At exact 15.00s, line is still held
-      rerender(<LyricDisplay lines={standardTestLines} currentTime={15.0} syncMode="line" />);
+      // At 15.19s, line is still held
+      rerender(<LyricDisplay lines={standardTestLines} currentTime={15.19} syncMode="line" />);
       expect(screen.getByTestId('active-lyrics-line')).toBeInTheDocument();
 
-      // At 15.01s (lead-out expired), active line unmounts cleanly
-      rerender(<LyricDisplay lines={standardTestLines} currentTime={15.01} syncMode="line" />);
+      // At exact 15.20s (lead-out expired), active line unmounts cleanly
+      rerender(<LyricDisplay lines={standardTestLines} currentTime={15.2} syncMode="line" />);
       expect(screen.queryByTestId('active-lyrics-line')).not.toBeInTheDocument();
     });
 
@@ -192,23 +204,40 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
         },
       ];
 
-      // At 4.9s, line 1 is active, 100% in line mode
+      // At 4.9s, line 1 is active, 100% in line mode; line 2 is on stage in the other row,
+      // not yet sung
       const { rerender } = render(
-        <LyricDisplay lines={contiguousLines} currentTime={4.9} syncMode="line" />
+        <LyricDisplay
+          lines={contiguousLines}
+          currentTime={4.9}
+          syncMode="line"
+          selectedTheme={KTV}
+        />
       );
       expect(screen.getByTestId('word-sung-0')).toHaveTextContent('First');
       expect(screen.getByTestId('word-sung-1')).toHaveTextContent('line');
       expect(parseFloat(screen.getByTestId('word-sung-0').style.width)).toBe(100);
       expect(parseFloat(screen.getByTestId('word-sung-1').style.width)).toBe(100);
+      expect(parseFloat(screen.getByTestId('word-sung-1-0').style.width)).toBe(0);
+      expect(parseFloat(screen.getByTestId('word-sung-1-1').style.width)).toBe(0);
 
-      // At 5.1s, line 1 is in lead-out until 6.0, line 2 started at 5.0.
-      // Regardless of which line is activeLineIndex, whichever line is rendered as currentLine
-      // MUST have 100% illumination since effectiveTime >= start_time for both!
-      rerender(<LyricDisplay lines={contiguousLines} currentTime={5.1} syncMode="line" />);
+      // At 5.1s, line 1 is in lead-out until 6.2, line 2 started at 5.0 and is the one a
+      // singer follows. Both are 100% illuminated since effectiveTime >= start_time for both!
+      rerender(
+        <LyricDisplay
+          lines={contiguousLines}
+          currentTime={5.1}
+          syncMode="line"
+          selectedTheme={KTV}
+        />
+      );
       const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toBeInTheDocument();
+      expect(activeLine).toHaveAttribute('data-line', '1');
+      expect(screen.getByTestId('word-sung-0')).toHaveTextContent('Second');
       expect(parseFloat(screen.getByTestId('word-sung-0').style.width)).toBe(100);
       expect(parseFloat(screen.getByTestId('word-sung-1').style.width)).toBe(100);
+      expect(parseFloat(screen.getByTestId('word-sung-0-0').style.width)).toBe(100);
+      expect(parseFloat(screen.getByTestId('word-sung-0-1').style.width)).toBe(100);
     });
   });
 
@@ -263,9 +292,15 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
         <LyricDisplay lines={untimedLines} currentTime={9.0} syncMode="line" onSeek={onSeek} />
       );
 
-      const lineButton = screen.getByRole('button', { name: /jump playback to line/i });
-      await user.click(lineButton);
-      expect(onSeek).toHaveBeenCalledWith(7.5);
+      // Without word timing every word of the line seeks to the start of the line
+      const words = screen.getAllByRole('button', { name: /jump playback to word/i });
+      expect(words).toHaveLength(6);
+      for (const word of words) {
+        expect(word).toHaveAccessibleName(/ at 7\.50 seconds$/);
+      }
+      await user.click(words[0]);
+      await user.click(words[5]);
+      expect(onSeek.mock.calls).toEqual([[7.5], [7.5]]);
     });
 
     it('ADV-2.3: Clicking words does not throw when onSeek prop is omitted', async () => {
@@ -381,12 +416,12 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
         },
       ];
 
-      // At 9999.0s: intro gap >= 4.0s is active, displaying countdown
+      // At 9999.0s: the line is being counted in after the long intro, nothing sung yet
       const { rerender } = render(
         <LyricDisplay lines={highTimeLines} currentTime={9999.0} syncMode="line" />
       );
-      expect(screen.getByTestId('gap-countdown-indicator')).toBeInTheDocument();
-      expect(screen.getByTestId('gap-countdown-time')).toHaveTextContent('Next vocals in 1s');
+      expect(screen.getByTestId('stage-count-in')).toHaveTextContent(/^1$/);
+      expect(parseFloat(screen.getByTestId('word-sung-0').style.width)).toBe(0);
 
       // At 10000.0s: exact onset, all words 100%
       rerender(<LyricDisplay lines={highTimeLines} currentTime={10000.0} syncMode="line" />);
@@ -394,6 +429,7 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
       expect(parseFloat(screen.getByTestId('word-sung-1').style.width)).toBe(100);
       expect(parseFloat(screen.getByTestId('word-sung-2').style.width)).toBe(100);
       expect(screen.getByTestId('word-sung-0').style.clipPath).toBe('inset(0 0.00% 0 0)');
+      expect(screen.queryByTestId('stage-count-in')).not.toBeInTheDocument();
     });
 
     it('ADV-4.3: Empty lines array renders without crashing', () => {
@@ -414,7 +450,10 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
       ];
 
       render(<LyricDisplay lines={emptyTextLines} currentTime={2.0} syncMode="line" />);
-      expect(screen.getByTestId('active-lyrics-line')).toBeInTheDocument();
+      // A line with nothing to draw leaves the stage empty
+      expect(screen.getByTestId('stage-frame')).toBeInTheDocument();
+      expect(screen.queryByTestId('active-lyrics-line')).not.toBeInTheDocument();
+      expect(screen.queryAllByRole('button', { name: /jump playback to/i })).toHaveLength(0);
     });
   });
 
@@ -459,9 +498,10 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
           singer2SungColor="#ec4899"
           bothSungColor="#10b981"
           themeSungColor="#facc15"
+          selectedTheme={KTV}
         />
       );
-      expect(screen.getByTestId('active-singer-badge')).toHaveAttribute('data-singer', 'singer2');
+      expect(screen.getByTestId('stage-part-name')).toHaveTextContent('Singer 2');
       expect(screen.getByTestId('word-sung-0')).toHaveStyle({ color: '#ec4899' });
 
       // UNISON -> both -> bothSungColor (#10b981)
@@ -473,9 +513,10 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
           singer2SungColor="#ec4899"
           bothSungColor="#10b981"
           themeSungColor="#facc15"
+          selectedTheme={KTV}
         />
       );
-      expect(screen.getByTestId('active-singer-badge')).toHaveAttribute('data-singer', 'both');
+      expect(screen.getByTestId('stage-part-name')).toHaveTextContent('Both');
       expect(screen.getByTestId('word-sung-0')).toHaveStyle({ color: '#10b981' });
 
       // MysteryGuest -> singer1 (fallback) -> themeSungColor (#facc15)
@@ -487,28 +528,39 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
           singer2SungColor="#ec4899"
           bothSungColor="#10b981"
           themeSungColor="#facc15"
+          selectedTheme={KTV}
         />
       );
-      expect(screen.getByTestId('active-singer-badge')).toHaveAttribute('data-singer', 'singer1');
+      expect(screen.getByTestId('stage-part-name')).toHaveTextContent('Singer 1');
       expect(screen.getByTestId('word-sung-0')).toHaveStyle({ color: '#facc15' });
     });
 
     it('ADV-5.2: Upcoming singer cue tag renders with matching color in line mode', () => {
-      // At t = 11.0s, line 1 is active (Singer 1 Lead). Line 2 is upcoming (PARTNER / Singer 2).
+      // At t = 18.5s, line 2 (Singer 2) is on stage 1.5 s before it is sung, under its part's
+      // name and counted in with dots, all in the part's colour
       render(
         <LyricDisplay
           lines={standardTestLines}
-          currentTime={11.0}
+          currentTime={18.5}
           syncMode="line"
           singer2SungColor="#ec4899"
+          selectedTheme={KTV}
         />
       );
 
-      const nextTag = screen.getByTestId('next-singer-tag');
-      expect(nextTag).toBeInTheDocument();
-      expect(nextTag).toHaveAttribute('data-singer', 'singer2');
-      expect(nextTag).toHaveTextContent('[Singer 2]');
-      expect(nextTag).toHaveStyle({ color: '#ec4899' });
+      expect(screen.getByTestId('active-lyrics-line')).toHaveAttribute('data-line', '1');
+      expect(parseFloat(screen.getByTestId('word-sung-0').style.width)).toBe(0);
+
+      const nextName = screen.getByTestId('stage-part-name');
+      expect(nextName).toHaveAttribute('data-line', '1');
+      expect(nextName).toHaveTextContent('Singer 2');
+      expect(ink(nextName)).toHaveStyle({ color: '#ec4899' });
+
+      const dots = screen.getAllByTestId('stage-countin');
+      expect(dots).toHaveLength(2);
+      for (const dot of dots) {
+        expect(dot).toHaveStyle({ backgroundColor: '#ec4899' });
+      }
     });
   });
 
@@ -598,7 +650,7 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
     it('ADV-7.1b: The Look panel no longer renders its own highlight selector', () => {
       render(
         <VisualThemePicker
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           onSelectTheme={vi.fn()}
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
@@ -688,7 +740,7 @@ describe('Challenger 1 Adversarial Suite: M1 Line-by-Line Lyric Synchronization'
       render(
         <ExportSubtitleSection
           project={testProject}
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           aspectRatio="16:9"
           syncMode="word"
         />

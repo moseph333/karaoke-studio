@@ -1,12 +1,13 @@
 import { loadDeferredScreens } from '../../deferredScreens';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { THEMES, VisualThemePicker } from '../../components/VisualThemePicker';
+import { VisualThemePicker } from '../../components/VisualThemePicker';
 import { LyricDisplay } from '../../components/LyricDisplay';
 import { ExportModal } from '../../components/ExportModal';
 import { StudioModals } from '../../components/StudioModals';
+import { STAGE_LOOKS, getStageLook } from '../../theme/stageLooks';
 import * as apiModule from '../../api';
 import { LyricLine, ProjectState } from '../../types';
 
@@ -50,116 +51,23 @@ const mockProject: ProjectState = {
   guide_volume: 0,
 };
 
-describe('Milestone 3: Stage Presets', () => {
+const ktv = getStageLook('ktv');
+const cinema = getStageLook('cinema');
+
+describe('Milestone 3: Stage Looks', () => {
   beforeEach(() => {
     localStorage.clear();
-    document.documentElement.removeAttribute('data-stage-preset');
+    document.documentElement.removeAttribute('data-stage-look');
     vi.restoreAllMocks();
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
   });
 
-  describe('THEMES Array Specification & Legacy Preservation', () => {
-    it('defines 9 stage presets: 4 legacy, 4 app-matched, then the flagship afterglow preset', () => {
-      expect(THEMES).toHaveLength(9);
-      const ids = THEMES.map((t) => t.id);
-      expect(ids).toEqual([
-        'modern_gold',
-        'cyber_cyan',
-        'neon_pink',
-        'classic_ktv',
-        'punk_diy',
-        'tape_70s',
-        'crt_ktv',
-        'clean_paper',
-        'afterglow',
-      ]);
-    });
-
-    it('preserves exact legacy properties for modern_gold, cyber_cyan, neon_pink, and classic_ktv', () => {
-      const gold = THEMES[0];
-      expect(gold.id).toBe('modern_gold');
-      expect(gold.primary_color).toBe('&H0000D7FF');
-      expect(gold.secondary_color).toBe('&H00FFFFFF');
-      expect(gold.previewSung).toBe('#fbbf24');
-      expect(gold.previewUnsung).toBe('#ffffff');
-
-      const cyber = THEMES[1];
-      expect(cyber.id).toBe('cyber_cyan');
-      expect(cyber.primary_color).toBe('&H00FFFF00');
-      expect(cyber.secondary_color).toBe('&H00FFFFFF');
-      expect(cyber.previewSung).toBe('#06b6d4');
-      expect(cyber.previewUnsung).toBe('#ffffff');
-
-      const neon = THEMES[2];
-      expect(neon.id).toBe('neon_pink');
-      expect(neon.primary_color).toBe('&H00B300FF');
-      expect(neon.secondary_color).toBe('&H00FFFFFF');
-      expect(neon.previewSung).toBe('#ec4899');
-      expect(neon.previewUnsung).toBe('#ffffff');
-
-      const ktv = THEMES[3];
-      expect(ktv.id).toBe('classic_ktv');
-      expect(ktv.primary_color).toBe('&H0000FFFF');
-      expect(ktv.secondary_color).toBe('&H00FFFFFF');
-      expect(ktv.previewSung).toBe('#facc15');
-      expect(ktv.previewUnsung).toBe('#ffffff');
-    });
-
-    it('correctly defines punk_diy matching stage preset', () => {
-      const punk = THEMES[4];
-      expect(punk.id).toBe('punk_diy');
-      expect(punk.name).toBe('Basement Flyer');
-      expect(punk.previewSung).toBe('#facc15');
-      expect(punk.previewUnsung).toBe('#f5f5f5');
-      expect(punk.previewBg).toBe('#0d0d0f');
-      expect(punk.primary_color).toBe('&H0015CCFA');
-      expect(punk.secondary_color).toBe('&H00F5F5F5');
-      expect(punk.fontFamily).toContain('Impact');
-    });
-
-    it('correctly defines tape_70s matching stage preset', () => {
-      const tape = THEMES[5];
-      expect(tape.id).toBe('tape_70s');
-      expect(tape.name).toBe("Reel-to-Reel '74");
-      expect(tape.previewSung).toBe('#f59e0b');
-      expect(tape.previewUnsung).toBe('#fef3c7');
-      expect(tape.previewBg).toBe('#1c140e');
-      expect(tape.primary_color).toBe('&H000B9EF5');
-      expect(tape.secondary_color).toBe('&H00C7F3FE');
-      expect(tape.fontFamily).toContain('Georgia');
-    });
-
-    it('correctly defines crt_ktv matching stage preset', () => {
-      const crt = THEMES[6];
-      expect(crt.id).toBe('crt_ktv');
-      expect(crt.name).toBe('Midnight KTV Booth');
-      expect(crt.previewSung).toBe('#22c55e');
-      expect(crt.previewUnsung).toBe('#86efac');
-      expect(crt.previewBg).toBe('#061309');
-      expect(crt.primary_color).toBe('&H005EC522');
-      expect(crt.secondary_color).toBe('&H00ACEF86');
-      expect(crt.fontFamily).toContain('VT323');
-    });
-
-    it('correctly defines clean_paper matching stage preset', () => {
-      const paper = THEMES[7];
-      expect(paper.id).toBe('clean_paper');
-      expect(paper.name).toBe('Monolith Press');
-      expect(paper.previewSung).toBe('#dc2626');
-      expect(paper.previewUnsung).toBe('#111111');
-      expect(paper.previewBg).toBe('#f4f4f0');
-      expect(paper.primary_color).toBe('&H002626DC');
-      expect(paper.secondary_color).toBe('&H00111111');
-      expect(paper.fontFamily).toContain('Space Grotesk');
-    });
-  });
-
   describe('VisualThemePicker UI Component Rendering', () => {
-    it('renders all 8 stage preset cards with accessible names and selection states', () => {
+    it('renders all five looks as buttons with accessible names and selection states', () => {
       const onSelectTheme = vi.fn();
       render(
         <VisualThemePicker
-          selectedTheme={THEMES[4]} // punk_diy
+          selectedTheme={ktv}
           onSelectTheme={onSelectTheme}
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
@@ -167,42 +75,40 @@ describe('Milestone 3: Stage Presets', () => {
         />
       );
 
-      THEMES.forEach((theme) => {
-        expect(screen.getByText(theme.name)).toBeInTheDocument();
+      const group = screen.getByRole('group', { name: 'Look' });
+      const options = within(group).getAllByRole('button');
+      expect(options.map((option) => option.getAttribute('data-testid'))).toEqual(
+        STAGE_LOOKS.map((look) => `look-option-${look.id}`)
+      );
+      STAGE_LOOKS.forEach((look, i) => {
+        // The name is the look's name and what it is; its small picture adds nothing to it
+        expect(options[i]).toHaveAccessibleName(`${look.name} ${look.description}`);
+        expect(options[i]).toHaveAttribute('aria-pressed', String(look.id === 'ktv'));
+        const sample = options[i].querySelector(`[data-look-sample="${look.id}"]`);
+        expect(sample).toHaveAttribute('aria-hidden', 'true');
       });
 
-      const punkCard = screen.getByRole('button', { name: new RegExp(THEMES[4].name, 'i') });
-      expect(punkCard).toHaveAttribute('aria-pressed', 'true');
-
-      const tapeCard = screen.getByRole('button', { name: new RegExp(THEMES[5].name, 'i') });
-      fireEvent.click(tapeCard);
-      expect(onSelectTheme).toHaveBeenCalledWith(THEMES[5]);
+      fireEvent.click(screen.getByTestId('look-option-cinema'));
+      expect(onSelectTheme).toHaveBeenCalledWith(cinema);
     });
   });
 
   describe('LyricDisplay Stage Typography & High Contrast', () => {
-    it('applies stage font style from selectedTheme to active and upcoming lyric lines', () => {
+    it("draws the active and upcoming lyric lines in the look's typeface", () => {
       render(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={2.0}
-          duration={120}
-          selectedTheme={THEMES[4]} // punk_diy with Impact font
-        />
+        <LyricDisplay lines={sampleLines} currentTime={2.0} duration={120} selectedTheme={cinema} />
       );
 
       const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toHaveStyle({
-        fontFamily: "'Impact', 'Arial Black', sans-serif",
-      });
+      expect(activeLine.style.fontFamily).toContain('Jost');
+      expect(activeLine.style.fontWeight).toBe('500');
 
-      const upcomingLine = screen.getByTestId('upcoming-lyrics-line');
-      expect(upcomingLine).toHaveStyle({
-        fontFamily: "'Impact', 'Arial Black', sans-serif",
-      });
+      const upcomingLine = screen.getByTestId('stage-line');
+      expect(upcomingLine).toHaveTextContent('Next line in the underground');
+      expect(upcomingLine.style.fontFamily).toContain('Jost');
     });
 
-    it('renders Punk Rock DIY with flyer yellow sung overlay', () => {
+    it('fills the sung words in the sung colour it is given', () => {
       render(
         <LyricDisplay
           lines={sampleLines}
@@ -210,7 +116,7 @@ describe('Milestone 3: Stage Presets', () => {
           duration={120}
           themeSungColor="#facc15"
           themeUnsungColor="#f5f5f5"
-          selectedTheme={THEMES[4]}
+          selectedTheme={ktv}
         />
       );
 
@@ -236,7 +142,7 @@ describe('Milestone 3: Stage Presets', () => {
           project={mockProject}
           isOpen={true}
           onClose={vi.fn()}
-          selectedTheme={THEMES[4]} // punk_diy
+          selectedTheme={ktv}
           primaryColor="#00ff00"
           secondaryColor="#ff00ff"
           fontSizeScale={1.2}
@@ -258,7 +164,7 @@ describe('Milestone 3: Stage Presets', () => {
             include_visualizer: false,
             include_countdown: true,
             style_config: {
-              theme_id: 'punk_diy',
+              theme_id: 'ktv',
               primary_color: '#00ff00',
               secondary_color: '#ff00ff',
               font_size_scale: 1.2,
@@ -285,7 +191,7 @@ describe('Milestone 3: Stage Presets', () => {
           project={mockProject}
           isOpen={true}
           onClose={vi.fn()}
-          selectedTheme={THEMES[4]} // punk_diy
+          selectedTheme={ktv}
           primaryColor="#00ff00"
           secondaryColor="#ff00ff"
           fontSizeScale={1.2}
@@ -297,7 +203,7 @@ describe('Milestone 3: Stage Presets', () => {
       await user.click(assBtn);
 
       expect(apiFetchSpy).toHaveBeenCalledWith(
-        '/api/project/test-sync-project/export/ass?aspect_ratio=9%3A16&theme_id=punk_diy&primary_color=%2300ff00&secondary_color=%23ff00ff&font_size_scale=1.2'
+        '/api/project/test-sync-project/export/ass?aspect_ratio=9%3A16&theme_id=ktv&primary_color=%2300ff00&secondary_color=%23ff00ff&font_size_scale=1.2'
       );
     });
 
@@ -320,7 +226,7 @@ describe('Milestone 3: Stage Presets', () => {
           onCloseExport={vi.fn()}
           onCancelRender={vi.fn()}
           onStartRender={vi.fn()}
-          selectedTheme={THEMES[4]} // punk_diy
+          selectedTheme={ktv}
           aspectRatio="16:9"
           primaryColor="#00ff00"
           secondaryColor="#ff00ff"
@@ -343,7 +249,7 @@ describe('Milestone 3: Stage Presets', () => {
       await user.click(assBtn);
 
       expect(apiFetchSpy).toHaveBeenCalledWith(
-        '/api/project/test-sync-project/export/ass?aspect_ratio=16%3A9&theme_id=punk_diy&primary_color=%2300ff00&secondary_color=%23ff00ff&font_size_scale=1.25'
+        '/api/project/test-sync-project/export/ass?aspect_ratio=16%3A9&theme_id=ktv&primary_color=%2300ff00&secondary_color=%23ff00ff&font_size_scale=1.25'
       );
     });
   });

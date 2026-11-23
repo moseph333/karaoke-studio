@@ -119,13 +119,16 @@ describe('Empirical Challenger: Milestone 2 Iteration 3 Scope', () => {
       const chordBar = screen.getByTestId('chord-bar');
       expect(chordBar).toBeInTheDocument();
 
-      // 2. Verify ChordBar is rendered ABOVE active lyrics line in DOM tree
+      // 2. Verify ChordBar lies over the top of the screen, outside the frame the active
+      // lyrics line is drawn in
       const activeLyrics = screen.getByTestId('active-lyrics-line');
-      expect(activeLyrics).toBeInTheDocument();
-
-      const positionComparison = chordBar.compareDocumentPosition(activeLyrics);
-      // DOCUMENT_POSITION_FOLLOWING (4) means activeLyrics follows chordBar in DOM order
-      expect(positionComparison & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const frame = screen.getByTestId('stage-frame');
+      expect(frame).toContainElement(activeLyrics);
+      expect(frame).not.toContainElement(chordBar);
+      expect(screen.getByTestId('stage-screen')).toContainElement(chordBar);
+      const overlay = chordBar.closest('.absolute') as HTMLElement;
+      expect(overlay.className).toContain('top-0');
+      expect(overlay.className).toContain('inset-x-0');
 
       // 3. Verify active chord badge is transposed by +2 semitones: C (0-2s) transposed +2 is 'D'
       const activeBadge = screen.getByTestId('active-chord-badge');

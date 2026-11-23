@@ -59,7 +59,10 @@ describe('LyricTimelineEditor', () => {
   it('renders instrumental intro cue when current time is before first line', () => {
     render(<LyricTimelineEditor {...defaultProps} currentTime={0.0} />);
 
-    expect(screen.getByText('♪ Instrumental Intro ♪')).toBeInTheDocument();
+    // The stage counts the seconds left until the vocals at 5 s
+    const stage = screen.getByTestId('lyric-display-stage');
+    expect(within(stage).getByTestId('stage-break-marker')).toHaveTextContent(/^5$/);
+    expect(within(stage).queryByTestId('active-lyrics-line')).not.toBeInTheDocument();
   });
 
   it('renders words of current active line on the stage preview', () => {

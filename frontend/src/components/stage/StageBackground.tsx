@@ -22,6 +22,7 @@ import {
   orbSize,
   scrimGradient,
 } from '../../theme/stageBackgrounds';
+import type { ArtTreatment } from '../../theme/stageLooks';
 import { StageSpectrum } from './StageSpectrum';
 
 export type { StageBackgroundMedia };
@@ -33,6 +34,8 @@ export interface StageBackgroundProps {
   /** The export's processed cover-art still (the backdrop route), drawn as it is. */
   artworkUrl?: string;
   media?: StageBackgroundMedia | null;
+  /** What the look does to an upload so its lyrics stay readable (exports do the same). */
+  mediaTreatment?: ArtTreatment | null;
   tone?: 'dark' | 'light';
   style?: StageBackgroundStyle;
   /** Song time in seconds. */
@@ -88,6 +91,7 @@ const StageBackgroundView: React.FC<StageBackgroundProps> = ({
   albumArtUrl,
   artworkUrl,
   media,
+  mediaTreatment,
   tone = 'dark',
   style = 'artwork',
   time = 0,
@@ -120,6 +124,14 @@ const StageBackgroundView: React.FC<StageBackgroundProps> = ({
     () => palette.slice(0, AURORA_ORB_COUNT).map((color) => orbGradient(color, tone)),
     [palette, tone]
   );
+
+  // A look dims an upload, or washes it into its ground, as exports do
+  const mediaStyle: React.CSSProperties | undefined =
+    mediaTreatment?.kind === 'dim'
+      ? { filter: `brightness(${mediaTreatment.level})` }
+      : mediaTreatment?.kind === 'wash'
+        ? { filter: 'grayscale(1)' }
+        : undefined;
 
   let art: React.ReactNode = null;
   if (isArt && artworkUrl && artworkAvailable) {
@@ -207,6 +219,7 @@ const StageBackgroundView: React.FC<StageBackgroundProps> = ({
             ref={videoRef}
             data-testid="stage-custom-bg"
             className="absolute inset-0 h-full w-full object-cover"
+            style={mediaStyle}
             src={media.url}
             autoPlay={!reducedMotion}
             muted
@@ -217,10 +230,18 @@ const StageBackgroundView: React.FC<StageBackgroundProps> = ({
           <img
             data-testid="stage-custom-bg"
             className="absolute inset-0 h-full w-full object-cover"
+            style={mediaStyle}
             src={media.url}
             alt=""
           />
         ))}
+      {media && mediaTreatment?.kind === 'wash' && (
+        <div
+          data-testid="stage-media-wash"
+          className="absolute inset-0"
+          style={{ backgroundColor: baseColor, opacity: 1 - mediaTreatment.keep }}
+        />
+      )}
       {(kind === 'aurora' || kind === 'spectrum') && (
         <div
           data-testid="stage-scrim"

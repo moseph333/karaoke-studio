@@ -6,7 +6,7 @@ import { ExportModal } from '../../components/ExportModal';
 import { getFocusableElements } from '../../hooks/useFocusTrap';
 import { ProjectState } from '../../types';
 import * as apiModule from '../../api';
-import { THEMES } from '../../components/VisualThemePicker';
+import { STAGE_LOOKS, getStageLook } from '../../theme/stageLooks';
 
 describe('ExportModal', () => {
   const baseProject: ProjectState = {
@@ -162,7 +162,7 @@ describe('ExportModal', () => {
           isOpen={true}
           onClose={vi.fn()}
           aspectRatio="16:9"
-          selectedTheme={THEMES[0]}
+          selectedTheme={STAGE_LOOKS[0]}
         />
       );
 
@@ -243,7 +243,7 @@ describe('ExportModal', () => {
           isOpen={true}
           onClose={vi.fn()}
           aspectRatio="9:16"
-          selectedTheme={THEMES[1]} // cyber_cyan
+          selectedTheme={getStageLook('ktv')} // not the default look
         />
       );
 
@@ -251,7 +251,7 @@ describe('ExportModal', () => {
       await user.click(assBtn);
 
       expect(apiFetchSpy).toHaveBeenCalledWith(
-        '/api/project/test-project-export/export/ass?aspect_ratio=9%3A16&theme_id=cyber_cyan'
+        '/api/project/test-project-export/export/ass?aspect_ratio=9%3A16&theme_id=ktv'
       );
     });
 
@@ -350,7 +350,7 @@ describe('ExportModal', () => {
           isOpen={true}
           onClose={vi.fn()}
           aspectRatio="9:16"
-          selectedTheme={THEMES[1]} // cyber_cyan
+          selectedTheme={getStageLook('ktv')} // not the default look
         />
       );
 
@@ -370,7 +370,7 @@ describe('ExportModal', () => {
           aspect_ratio: '9:16',
           include_visualizer: true,
           include_countdown: true,
-          style_config: { theme_id: 'cyber_cyan' },
+          style_config: { theme_id: 'ktv' },
         }),
       });
     });

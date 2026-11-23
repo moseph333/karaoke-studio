@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent, within } from '@testing-library/react';
 import App from '../../App';
 import { TrackSearch } from '../../components/TrackSearch';
 import { AuthModal } from '../../components/AuthModal';
@@ -10,7 +10,8 @@ import { EditMetadataModal } from '../../components/EditMetadataModal';
 import { LyricTimelineEditor } from '../../components/LyricTimelineEditor';
 import { AudioControls } from '../../components/AudioControls';
 import { TransportDock } from '../../components/transport/TransportDock';
-import { VisualThemePicker, THEMES } from '../../components/VisualThemePicker';
+import { VisualThemePicker } from '../../components/VisualThemePicker';
+import { STAGE_LOOKS } from '../../theme/stageLooks';
 import { LyricDisplay } from '../../components/LyricDisplay';
 import { LyricLine, ProjectState } from '../../types';
 import {
@@ -655,8 +656,8 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
             <LyricDisplay
               lines={sampleLines}
               currentTime={2.5}
-              themeSungColor={THEMES[0].previewSung}
-              themeUnsungColor={THEMES[0].previewUnsung}
+              themeSungColor={STAGE_LOOKS[0].palette.sung}
+              themeUnsungColor={STAGE_LOOKS[0].palette.unsung}
               aspectRatio="16:9"
             />
           );
@@ -665,7 +666,7 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
 
           const { container: pickerContainer } = render(
             <VisualThemePicker
-              selectedTheme={THEMES[0]}
+              selectedTheme={STAGE_LOOKS[0]}
               onSelectTheme={vi.fn()}
               aspectRatio="16:9"
               onChangeAspectRatio={vi.fn()}
@@ -682,14 +683,23 @@ describe('Responsive Layout & Mobile Usability Test Suite (Milestone 3)', () => 
           <LyricDisplay
             lines={sampleLines}
             currentTime={2.5}
-            themeSungColor={THEMES[0].previewSung}
-            themeUnsungColor={THEMES[0].previewUnsung}
+            themeSungColor={STAGE_LOOKS[0].palette.sung}
+            themeUnsungColor={STAGE_LOOKS[0].palette.unsung}
             aspectRatio="9:16"
           />
         );
 
+        // The screen has the video's shape, and the frame drawn in it is the 9:16 one
         const stage = container.firstElementChild as HTMLElement;
-        expect(stage.className).toContain('aspect-[9/16]');
+        const stageScreen = within(stage).getByTestId('stage-screen');
+        expect(stageScreen).toHaveClass('aspect-[9/16]');
+        expect(stageScreen).not.toHaveClass('aspect-video');
+        expect(within(stageScreen).getByTestId('stage-frame')).toHaveAttribute(
+          'data-aspect',
+          '9:16'
+        );
+        // A tall stage stays narrow, so it does not push the page down a phone
+        expect(stage).toHaveClass('max-w-xs');
         assertZeroHorizontalOverflow(container, 375);
       });
     });

@@ -1,35 +1,28 @@
 /**
  * Live Lyric Display & Fullscreen TV Stage Preview Component
  *
- * Orchestrates the live stage: sub-frame time interpolation, active/upcoming line and
- * duet singer resolution, instrumental gap countdowns, the end card with the song's title
- * once the last line has gone, and the fullscreen TV stage with auto-hiding controls.
- * Rendering is split into StageBackground, StageToolbar, StageLyrics and
- * StageFloatingControls.
+ * The live stage: a frame of the video in the chosen look (StageFrame draws the scene
+ * utils/stageScene gives for the song time, so a paused stage is the video's frame at that
+ * moment), with the toolbar in a row above it, the chord bar over it, and the fullscreen TV
+ * stage with auto-hiding controls.
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { LyricLine, ChordSegment, SyncDisplayMode, VisualTheme, PartNames } from '../types';
+import { LyricLine, ChordSegment, SyncDisplayMode, PartNames } from '../types';
 import { useInterpolatedTime } from '../hooks/useInterpolatedTime';
 import { usePlaybackClock, usePlaybackTime } from '../hooks/usePlaybackClock';
 import { useIsVisible } from '../hooks/useIsVisible';
 import { isInputElement, isModalActive } from '../hooks/useKeyboardShortcuts';
 import { characterShortcutsEnabled } from '../utils/shortcutPrefs';
-import {
-  detectInstrumentalGaps,
-  detectOutroStart,
-  getCountdownState,
-  isInOutro,
-  LINE_LEAD_OUT_SECONDS,
-} from '../utils/gapDetection';
-import { DEFAULT_BOTH_COLOR, DEFAULT_SINGER2_COLOR } from '../theme/stagePresets';
+import { DEFAULT_STAGE_LOOK_ID, getStageLook, type StageLook } from '../theme/stageLooks';
+import { planStage, sceneAt, type StageStyle } from '../utils/stageScene';
 import { BeatVisualizer } from './BeatVisualizer';
 import { StageBackground, StageBackgroundMedia } from './stage/StageBackground';
 import type { StageBackgroundStyle } from '../theme/stageBackgrounds';
 import { StageToolbar } from './stage/StageToolbar';
-import { StageLyrics } from './stage/StageLyrics';
+import { StageFrame } from './stage/StageFrame';
 import { StageFloatingControls } from './stage/StageFloatingControls';
-import { NormalizedSinger, normalizeSingerRole } from './stage/singers';
+import { ChordBar } from './ChordBar';
 import { cn } from '../utils/cn';
 import { useRegisterCommands } from './commandPalette/context';
 import { Maximize, Minimize } from 'lucide-react';
@@ -77,8 +70,8 @@ export interface LyricDisplayProps {
   syncMode?: SyncDisplayMode;
   onToggleSyncMode?: () => void;
   onSyncModeChange?: (mode: SyncDisplayMode) => void;
-  fontFamily?: string;
-  selectedTheme?: VisualTheme;
+  /** The look the stage is drawn in (the default look when omitted). */
+  selectedTheme?: StageLook;
   // Stage controls
   onSemitonesChange?: (semitones: number) => void;
   onPitchStep?: (delta: number) => void;
@@ -86,31 +79,17 @@ export interface LyricDisplayProps {
   onVolumeChange?: (volume: number) => void;
   isMuted?: boolean;
   onToggleMute?: () => void;
-  /** The song's title and artist, shown on the end card after the last line. */
+  /** The song's title and artist, shown on the opening title card and the end card. */
   trackTitle?: string;
   trackArtist?: string;
 }
 
-/** End-card text: blank values, and the backend's placeholder artist, are left out. */
-function endCardText(value: string | undefined, placeholder?: string): string | undefined {
+/** Card text: blank values, and the backend's placeholder artist, are left out. */
+function cardText(value: string | undefined, placeholder?: string): string {
   const text = value?.trim();
-  if (!text) return undefined;
-  if (placeholder && text.toLowerCase() === placeholder.toLowerCase()) return undefined;
+  if (!text) return '';
+  if (placeholder && text.toLowerCase() === placeholder.toLowerCase()) return '';
   return text;
-}
-
-/** The line that starts soonest after `time`, whatever order the lines are in. */
-function lineStartingAfter(lines: LyricLine[], time: number): LyricLine | null {
-  return lines.reduce<LyricLine | null>(
-    (best, l) =>
-      l &&
-      Number.isFinite(l.start_time) &&
-      l.start_time > time &&
-      (!best || l.start_time < best.start_time)
-        ? l
-        : best,
-    null
-  );
 }
 
 const LyricDisplayView: React.FC<LyricDisplayProps> = ({
@@ -127,10 +106,10 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
   artworkUrl,
   backgroundStyle,
   backgroundPalette,
-  themeSungColor = '#facc15',
-  themeUnsungColor = '#ffffff',
-  singer2SungColor = DEFAULT_SINGER2_COLOR,
-  bothSungColor = DEFAULT_BOTH_COLOR,
+  themeSungColor,
+  themeUnsungColor,
+  singer2SungColor,
+  bothSungColor,
   partNames,
   className = '',
   aspectRatio = '16:9',
@@ -148,7 +127,6 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
   syncMode = 'word',
   onToggleSyncMode,
   onSyncModeChange,
-  fontFamily,
   selectedTheme,
   onSemitonesChange,
   onPitchStep,
@@ -159,10 +137,12 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
   trackTitle,
   trackArtist,
 }) => {
-  const stageFontFamily =
-    fontFamily || selectedTheme?.fontFamily || 'var(--karaoke-font-family, sans-serif)';
-  const stageTone: 'dark' | 'light' = selectedTheme?.tone ?? 'dark';
-  const stageBaseColor = selectedTheme?.stageBg || selectedTheme?.previewBg || undefined;
+  const look = selectedTheme ?? getStageLook(DEFAULT_STAGE_LOOK_ID);
+  const aspect = aspectRatio === '9:16' ? '9:16' : '16:9';
+  const sungColor = themeSungColor ?? look.palette.sung;
+  const unsungColor = themeUnsungColor ?? look.palette.unsung;
+  const singer2Color = singer2SungColor ?? look.palette.singer2;
+  const bothColor = bothSungColor ?? look.palette.both;
 
   // --- Key (fullscreen steppers) -------------------------------------------------
   const [internalSemitones, setInternalSemitones] = useState(semitones);
@@ -375,88 +355,73 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleFullscreen, isFullscreen, resetIdleTimer]);
 
-  // --- Lines, gaps and singers ---------------------------------------------------------
-  const instrumentalGaps = useMemo(() => detectInstrumentalGaps(lines), [lines]);
-  const outroStart = useMemo(() => detectOutroStart(lines), [lines]);
-  const countdownState = getCountdownState(effectiveTime, instrumentalGaps);
+  // KTV's typeface draws Japanese itself; its 118 slices are declared only once the look is
+  // on, and each is fetched only when one of its characters is on the stage
+  const needsJapaneseFace = look.id === 'ktv';
+  useEffect(() => {
+    if (needsJapaneseFace) void import('../stageFonts.ktv.css');
+  }, [needsJapaneseFace]);
 
-  // While an instrumental gap (>= 4s) runs, singing has not begun: no active line until
-  // the gap ends. Otherwise lines get a 1.5s lead-in and a 1.0s lead-out.
-  const activeLineIndex = lines.findIndex((l) => {
-    const leadIn = countdownState.hasGap ? 0.0 : 1.5;
-    return (
-      effectiveTime >= l.start_time - leadIn && effectiveTime <= l.end_time + LINE_LEAD_OUT_SECONDS
-    );
-  });
-
-  const currentLine = activeLineIndex >= 0 ? lines[activeLineIndex] : null;
-  // Once the last line has left the stage, the end card replaces the break and the
-  // upcoming line until playback moves back. Untimed lyrics (all at 0s) have no outro and
-  // no later line, so they keep previewing the first line
-  const isOutro = !currentLine && isInOutro(effectiveTime, outroStart);
-  const nextLine = currentLine
-    ? (lines[activeLineIndex + 1] ?? null)
-    : isOutro
-      ? null
-      : (countdownState.gap?.nextLine ??
-        lineStartingAfter(lines, effectiveTime) ??
-        (outroStart === null ? (lines[0] ?? null) : null));
-  const endCard = isOutro
-    ? {
-        title: endCardText(trackTitle),
-        artist: endCardText(trackArtist, 'Unknown Artist'),
-      }
-    : null;
-
-  const singerColor = useCallback(
-    (role: NormalizedSinger): string =>
-      role === 'singer2' ? singer2SungColor : role === 'both' ? bothSungColor : themeSungColor,
-    [singer2SungColor, bothSungColor, themeSungColor]
+  // --- The scene ------------------------------------------------------------------------
+  // Where every line goes is worked out once per song and style; each frame only asks what
+  // is on the stage at that time
+  const style = useMemo<StageStyle>(
+    () => ({
+      look,
+      aspect,
+      sung: sungColor,
+      unsung: unsungColor,
+      singer2: singer2Color,
+      both: bothColor,
+      scale: fontSizeScale,
+      syncMode: activeSyncMode,
+      cues: true,
+      partNames,
+    }),
+    [
+      look,
+      aspect,
+      sungColor,
+      unsungColor,
+      singer2Color,
+      bothColor,
+      fontSizeScale,
+      activeSyncMode,
+      partNames,
+    ]
   );
-
-  const hasMultipleSingers = useMemo(
-    () => lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1'),
-    [lines]
+  const cardTitle = cardText(trackTitle);
+  const cardArtist = cardText(trackArtist, 'Unknown Artist');
+  const plan = useMemo(
+    () => planStage(lines, duration, style, { title: cardTitle, artist: cardArtist }),
+    [lines, duration, style, cardTitle, cardArtist]
   );
-
-  const activeSinger = normalizeSingerRole(currentLine?.singer);
-  const activeSungColor = singerColor(activeSinger);
-  const nextSinger = nextLine ? normalizeSingerRole(nextLine.singer) : null;
-  const nextSungColor = nextSinger ? singerColor(nextSinger) : themeSungColor;
-
-  const upcomingSingerRole = countdownState.gap
-    ? normalizeSingerRole(countdownState.gap.nextLine?.singer)
-    : nextSinger || 'singer1';
-  const upcomingSingerColor = singerColor(upcomingSingerRole);
-
-  // 3-2-1 lead-in countdown into the active line or out of an instrumental gap
-  const leadInRemaining = countdownState.hasGap
-    ? countdownState.remainingTime
-    : currentLine
-      ? currentLine.start_time - effectiveTime
-      : 0;
-  const showCountdown = countdownState.hasGap
-    ? countdownState.isLeadIn
-    : Boolean(currentLine && leadInRemaining > 0 && leadInRemaining <= 3.0);
-  const countdownSeconds = countdownState.hasGap
-    ? countdownState.countdownSeconds
-    : currentLine
-      ? Math.ceil(currentLine.start_time - effectiveTime)
-      : 0;
+  const scene = sceneAt(plan, effectiveTime);
 
   const containerClasses = isFullscreen
     ? cn(
-        'fixed inset-0 z-50 flex h-screen w-screen flex-col justify-between overflow-hidden bg-theme-bg p-4 font-theme-heading text-theme-text sm:p-8 md:p-12',
+        'fixed inset-0 z-50 flex h-screen w-screen flex-col overflow-hidden bg-theme-bg font-theme-heading text-theme-text',
         !showControls && 'cursor-none'
       )
     : cn(
-        'relative',
-        aspectRatio === '9:16'
-          ? 'aspect-[9/16] max-w-xs mx-auto md:ks-stage-fit-portrait'
-          : 'aspect-video w-full min-h-[340px] sm:min-h-0 md:mx-auto md:ks-stage-fit',
-        'ks-stage-container flex select-none flex-col justify-end overflow-hidden border border-theme-border-subtle bg-theme-bg px-3 pb-5 pt-16 font-theme-heading text-theme-text sm:px-6 sm:pb-6 sm:pt-16 md:px-8 md:pb-8',
+        'relative flex select-none flex-col font-theme-heading text-theme-text',
+        aspect === '9:16'
+          ? 'mx-auto max-w-xs md:ks-stage-fit-portrait'
+          : 'w-full md:mx-auto md:ks-stage-fit',
         className
       );
+  // The screen is the video's shape inline; fullscreen it takes what the display has and the
+  // frame sits centred in it
+  const screenClasses = isFullscreen
+    ? 'relative min-h-0 flex-1'
+    : cn(
+        'relative overflow-hidden border border-theme-border-subtle',
+        aspect === '9:16' ? 'aspect-[9/16]' : 'aspect-video'
+      );
+  // The export's own cover-art still already has the look's picture frame in it; every other
+  // background is drawn inside that frame
+  const movingArt = !backgroundMedia && backgroundStyle === 'drift';
+  const stillArt = !backgroundMedia && (backgroundStyle ?? 'artwork') === 'artwork';
 
   return (
     <div
@@ -464,42 +429,13 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
       data-testid="lyric-display-stage"
       data-fullscreen={isFullscreen ? 'true' : 'false'}
       data-sync-mode={activeSyncMode}
-      data-tone={stageTone}
+      data-tone={look.tone}
+      data-look={look.id}
       onMouseMove={resetIdleTimer}
       onClick={resetIdleTimer}
       onFocus={resetIdleTimer}
       className={containerClasses}
-      style={{ backgroundColor: stageBaseColor, fontFamily: stageFontFamily }}
     >
-      <StageBackground
-        baseColor={stageBaseColor}
-        albumArtUrl={albumArtUrl}
-        artworkUrl={artworkUrl}
-        media={backgroundMedia}
-        tone={stageTone}
-        style={backgroundStyle}
-        // Only moving styles use the time; a still background then skips frame re-renders
-        time={
-          !backgroundMedia && (backgroundStyle === 'drift' || backgroundStyle === 'aurora')
-            ? effectiveTime
-            : 0
-        }
-        palette={backgroundPalette}
-        aspect={aspectRatio === '9:16' ? '9:16' : '16:9'}
-        analyserNode={analyserNode}
-        isPlaying={isAnimating}
-      />
-
-      {isVisualizerActive && (
-        <BeatVisualizer
-          analyserNode={analyserNode ?? null}
-          isPlaying={isAnimating}
-          themeSungColor={activeSungColor}
-          themeUnsungColor={themeUnsungColor}
-          className="pointer-events-none absolute inset-0 z-[1]"
-        />
-      )}
-
       <StageToolbar
         isFullscreen={isFullscreen}
         visible={!isFullscreen || showControls}
@@ -512,48 +448,62 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
         onToggleFullscreen={toggleFullscreen}
       />
 
-      <StageLyrics
-        lines={lines}
-        currentLine={currentLine}
-        nextLine={nextLine}
-        time={effectiveTime}
-        syncMode={activeSyncMode}
-        fontSizeScale={fontSizeScale}
-        fontFamily={stageFontFamily}
-        isFullscreen={isFullscreen}
-        tone={stageTone}
-        unsungColor={themeUnsungColor}
-        activeSinger={activeSinger}
-        activeSungColor={activeSungColor}
-        hasMultipleSingers={hasMultipleSingers}
-        partNames={partNames}
-        nextSinger={nextSinger}
-        nextSungColor={nextSungColor}
-        gap={
-          countdownState.hasGap && countdownState.gap
-            ? {
-                hasGap: true,
-                isIntro: countdownState.gap.isIntro,
-                countdownSeconds: countdownState.countdownSeconds,
-                progressPct: countdownState.progressPct,
-              }
-            : null
-        }
-        upcomingSingerColor={upcomingSingerColor}
-        endCard={endCard}
-        countdown={{
-          show: showCountdown,
-          seconds: countdownSeconds,
-          remaining: leadInRemaining,
-          color: countdownState.hasGap ? upcomingSingerColor : activeSungColor,
-        }}
-        chords={chords}
-        showChordBar={isChordBarVisible}
-        semitones={effectiveSemitones}
-        keyHint={keyHint}
-        onSeek={onSeek}
-        onEditChord={onEditChord}
-      />
+      <div
+        data-testid="stage-screen"
+        className={screenClasses}
+        style={{ backgroundColor: look.palette.ground }}
+      >
+        <StageFrame
+          look={look}
+          aspect={aspect}
+          scene={scene}
+          time={effectiveTime}
+          onSeek={onSeek}
+          pictureOnly={!(stillArt && Boolean(artworkUrl))}
+        >
+          <StageBackground
+            baseColor={look.palette.ground}
+            albumArtUrl={albumArtUrl}
+            artworkUrl={artworkUrl}
+            media={backgroundMedia}
+            mediaTreatment={look.art.upload}
+            tone={look.tone}
+            style={backgroundStyle}
+            // Only moving styles use the time; a still background then skips frame re-renders
+            time={
+              movingArt || (!backgroundMedia && backgroundStyle === 'aurora') ? effectiveTime : 0
+            }
+            palette={backgroundPalette}
+            aspect={aspect}
+            analyserNode={analyserNode}
+            isPlaying={isAnimating}
+          />
+          {isVisualizerActive && (
+            <BeatVisualizer
+              analyserNode={analyserNode ?? null}
+              isPlaying={isAnimating}
+              themeSungColor={sungColor}
+              themeUnsungColor={unsungColor}
+              className="pointer-events-none absolute inset-0 z-[1]"
+            />
+          )}
+        </StageFrame>
+
+        {isChordBarVisible && chords && chords.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center px-2 pt-2">
+            <ChordBar
+              chords={chords}
+              currentTime={effectiveTime}
+              semitones={effectiveSemitones}
+              keyHint={keyHint}
+              visible={isChordBarVisible}
+              onSeek={onSeek}
+              onEditChord={onEditChord}
+              className="pointer-events-auto mx-auto max-w-xl"
+            />
+          </div>
+        )}
+      </div>
 
       {isFullscreen && (
         <StageFloatingControls

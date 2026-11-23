@@ -1,54 +1,29 @@
 /**
- * Visual Theme, Custom Palette & Typography Hook
+ * Stage look, colours and typography hook
  *
- * Encapsulates visual themes, custom sung/unsung colors, font size scaling,
- * aspect ratio switching, and the stage background (style, palette and upload).
- * A stage starts on the default preset, or on the one it showed last when settings are kept.
+ * Holds the stage look, the colours chosen for it, the lyric size, the format and the stage
+ * background (style, palette and upload). A stage starts on the default look, or on the one it
+ * showed last when settings are kept. Colour choices belong to the look they were made on.
  */
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { VisualTheme, SyncDisplayMode } from '../types';
+import { SyncDisplayMode } from '../types';
 import {
-  DEFAULT_BOTH_COLOR,
-  DEFAULT_SINGER2_COLOR,
-  DEFAULT_STAGE_PRESET_ID,
-  THEMES,
-  getStageBackground,
-  getStagePreset,
-} from '../theme/stagePresets';
+  DEFAULT_STAGE_LOOK_ID,
+  getStageLook,
+  type LookId,
+  type StageLook,
+} from '../theme/stageLooks';
 import {
   DEFAULT_STAGE_SETTINGS,
+  NO_LOOK_COLORS,
+  LookColors,
   StageSettings,
   StageSize,
   loadStageSettings,
   saveStageSettings,
 } from '../theme/stageSettingsStorage';
-import { StageBackgroundStyle, stageBackgroundPalette } from '../theme/stageBackgrounds';
-
-/**
- * Converts CSS hex color (#RRGGBB or RRGGBB) to ASS color format (&H00BBGGRR).
- */
-export function cssToAssColor(cssColor: string, defaultAss = '&H0000D7FF'): string {
-  if (!cssColor) return defaultAss;
-  const c = cssColor.trim();
-  if (c.startsWith('&H') || c.startsWith('&h')) {
-    return c.toUpperCase();
-  }
-  let hex = c.startsWith('#') ? c.slice(1) : c;
-  if (hex.length === 3) {
-    hex = hex
-      .split('')
-      .map((ch) => ch + ch)
-      .join('');
-  }
-  if (hex.length === 6 && /^[0-9a-fA-F]{6}$/.test(hex)) {
-    const r = hex.slice(0, 2).toUpperCase();
-    const g = hex.slice(2, 4).toUpperCase();
-    const b = hex.slice(4, 6).toUpperCase();
-    return `&H00${b}${g}${r}`;
-  }
-  return defaultAss;
-}
+import { StageBackgroundStyle } from '../theme/stageBackgrounds';
 
 export interface StageBackgroundMedia {
   url: string;
@@ -67,16 +42,18 @@ export function stageBackgroundFromId(
 }
 
 export interface UseVisualThemeReturn {
-  selectedTheme: VisualTheme;
-  setSelectedTheme: (theme: VisualTheme) => void;
+  /** The look the stage and exports are drawn in. */
+  selectedTheme: StageLook;
+  setSelectedTheme: (look: StageLook) => void;
+  /** The colours chosen for the current look (null: the look's own). */
   customSungColor: string | null;
   setCustomSungColor: (color: string | null) => void;
   customUnsungColor: string | null;
   setCustomUnsungColor: (color: string | null) => void;
-  /** Singer 2 sung color override (duets). */
+  /** Singer 2 colour override (duets). */
   customSinger2Color: string | null;
   setCustomSinger2Color: (color: string | null) => void;
-  /** Sung color override for lines both singers share. */
+  /** Colour override for lines both singers share. */
   customBothColor: string | null;
   setCustomBothColor: (color: string | null) => void;
   fontSizeScale: number;
@@ -89,7 +66,7 @@ export interface UseVisualThemeReturn {
   /** What the stage and exports show behind the lyrics ('custom' is the uploaded file). */
   backgroundStyle: StageBackgroundStyle;
   setBackgroundStyle: (style: StageBackgroundStyle) => void;
-  /** Aurora and spectrum colours: the sung colour and two accents. */
+  /** Aurora and spectrum colours: the sung, Singer 2 and Both colours in use. */
   backgroundPalette: [string, string, string];
   syncMode: SyncDisplayMode;
   setSyncMode: (mode: SyncDisplayMode) => void;
@@ -102,16 +79,16 @@ export interface UseVisualThemeReturn {
   /** Desktop stage height budget in the studio layout. */
   stageSize: StageSize;
   setStageSize: (size: StageSize) => void;
+  /** Back to the current look's own colours, the normal lyric size and word highlighting. */
   resetThemeDefaults: () => void;
   activeSungColor: string;
   activeUnsungColor: string;
   activeSinger2Color: string;
   activeBothColor: string;
-  /** Solid stage backdrop behind artwork (also the video's fallback background). */
+  /** The look's ground colour, behind everything. */
   stageBackgroundColor: string;
   /** Uploaded background shown behind the stage lyrics, when it is the chosen style. */
   stageBackground: StageBackgroundMedia | null;
-  effectiveTheme: VisualTheme & { font_size_scale: number; sync_mode?: SyncDisplayMode };
 }
 
 export interface UseVisualThemeOptions {
@@ -120,27 +97,19 @@ export interface UseVisualThemeOptions {
 }
 
 export function useVisualTheme(
-  initialTheme?: VisualTheme,
+  initialLook?: StageLook,
   options: UseVisualThemeOptions = {}
 ): UseVisualThemeReturn {
   const { persist = false } = options;
 
   // Saved settings are read once, when the studio mounts
   const [stored] = useState<StageSettings | null>(() => (persist ? loadStageSettings() : null));
-
-  const [selectedTheme, setSelectedTheme] = useState<VisualTheme>(
-    () =>
-      initialTheme ??
-      getStagePreset(stored?.presetId) ??
-      getStagePreset(DEFAULT_STAGE_PRESET_ID) ??
-      THEMES[0]
-  );
-
   const seed = stored ?? DEFAULT_STAGE_SETTINGS;
-  const [customSungColor, setCustomSungColor] = useState<string | null>(seed.customSungColor);
-  const [customUnsungColor, setCustomUnsungColor] = useState<string | null>(seed.customUnsungColor);
-  const [customSinger2Color, setCustomSinger2Color] = useState<string | null>(seed.singer2Color);
-  const [customBothColor, setCustomBothColor] = useState<string | null>(seed.bothColor);
+
+  const [selectedTheme, setSelectedTheme] = useState<StageLook>(
+    () => initialLook ?? getStageLook(stored?.lookId ?? DEFAULT_STAGE_LOOK_ID)
+  );
+  const [colors, setColors] = useState<StageSettings['colors']>(seed.colors);
   const [fontSizeScale, setFontSizeScale] = useState<number>(seed.fontSizeScale);
   const [aspectRatio, setAspectRatio] = useState<string>(seed.aspectRatio);
   const [customBgId, setCustomBgIdState] = useState<string>(seed.customBgId);
@@ -152,6 +121,26 @@ export function useVisualTheme(
   const [showChordBar, setShowChordBar] = useState<boolean>(seed.showChordBar);
   const [stageSize, setStageSize] = useState<StageSize>(seed.stageSize);
 
+  const lookId: LookId = selectedTheme.id;
+  const chosen = colors[lookId] ?? NO_LOOK_COLORS;
+
+  /** Sets one of the current look's colours. */
+  const setColor = useCallback(
+    (key: keyof LookColors, value: string | null) =>
+      setColors((all) => ({
+        ...all,
+        [lookId]: { ...(all[lookId] ?? NO_LOOK_COLORS), [key]: value },
+      })),
+    [lookId]
+  );
+  const setCustomSungColor = useCallback((c: string | null) => setColor('sung', c), [setColor]);
+  const setCustomUnsungColor = useCallback((c: string | null) => setColor('unsung', c), [setColor]);
+  const setCustomSinger2Color = useCallback(
+    (c: string | null) => setColor('singer2', c),
+    [setColor]
+  );
+  const setCustomBothColor = useCallback((c: string | null) => setColor('both', c), [setColor]);
+
   const setCustomBgId = useCallback((id: string) => {
     setCustomBgIdState(id);
     setBackgroundStyle((prev) => (id ? 'custom' : prev === 'custom' ? 'artwork' : prev));
@@ -162,11 +151,8 @@ export function useVisualTheme(
   useEffect(() => {
     if (!persist) return;
     saveStageSettings({
-      presetId: selectedTheme.id,
-      customSungColor,
-      customUnsungColor,
-      singer2Color: customSinger2Color,
-      bothColor: customBothColor,
+      lookId,
+      colors,
       fontSizeScale,
       aspectRatio: aspectRatio === '9:16' ? '9:16' : '16:9',
       syncMode,
@@ -178,11 +164,8 @@ export function useVisualTheme(
     });
   }, [
     persist,
-    selectedTheme.id,
-    customSungColor,
-    customUnsungColor,
-    customSinger2Color,
-    customBothColor,
+    lookId,
+    colors,
     fontSizeScale,
     aspectRatio,
     syncMode,
@@ -198,85 +181,49 @@ export function useVisualTheme(
     [backgroundStyle, customBgId]
   );
 
-  const activeSungColor = customSungColor ?? selectedTheme.previewSung;
-  const activeUnsungColor = customUnsungColor ?? selectedTheme.previewUnsung;
-  const activeSinger2Color =
-    customSinger2Color ?? selectedTheme.singer2Color ?? DEFAULT_SINGER2_COLOR;
-  const activeBothColor = customBothColor ?? selectedTheme.bothColor ?? DEFAULT_BOTH_COLOR;
-  const stageBackgroundColor = getStageBackground(selectedTheme);
-  const backgroundPalette = useMemo(
-    () =>
-      stageBackgroundPalette(selectedTheme, {
-        sung: activeSungColor,
-        singer2: customSinger2Color,
-        both: customBothColor,
-      }),
-    [selectedTheme, activeSungColor, customSinger2Color, customBothColor]
+  const { palette } = selectedTheme;
+  const activeSungColor = chosen.sung ?? palette.sung;
+  const activeUnsungColor = chosen.unsung ?? palette.unsung;
+  const activeSinger2Color = chosen.singer2 ?? palette.singer2;
+  const activeBothColor = chosen.both ?? palette.both;
+  // Aurora and spectrum glow in the colour that marks the look's words (the words to sing,
+  // in a look that dims what was sung), then the two duet colours
+  const leadColor = selectedTheme.emphasis === 'unsung' ? activeUnsungColor : activeSungColor;
+  const backgroundPalette = useMemo<[string, string, string]>(
+    () => [leadColor, activeSinger2Color, activeBothColor],
+    [leadColor, activeSinger2Color, activeBothColor]
   );
 
   const resetThemeDefaults = useCallback(() => {
-    setCustomSungColor(null);
-    setCustomUnsungColor(null);
-    setCustomSinger2Color(null);
-    setCustomBothColor(null);
+    setColors((all) => {
+      const rest = { ...all };
+      delete rest[lookId];
+      return rest;
+    });
     setFontSizeScale(1.0);
     setSyncMode('word');
-  }, []);
+  }, [lookId]);
 
-  const effectiveTheme = useMemo(
-    () => ({
-      ...selectedTheme,
-      primary_color: customSungColor
-        ? cssToAssColor(activeSungColor, selectedTheme.primary_color)
-        : selectedTheme.primary_color,
-      secondary_color: customUnsungColor
-        ? cssToAssColor(activeUnsungColor, selectedTheme.secondary_color)
-        : selectedTheme.secondary_color,
-      previewSung: activeSungColor,
-      previewUnsung: activeUnsungColor,
-      font_size_scale: fontSizeScale,
-      sync_mode: syncMode,
-    }),
-    [
-      selectedTheme,
-      customSungColor,
-      customUnsungColor,
-      activeSungColor,
-      activeUnsungColor,
-      fontSizeScale,
-      syncMode,
-    ]
-  );
-
-  // Sync active CSS variables to root element for responsive typography & theme sweeps
+  // The look and highlight mode on the root element, for styles and tests that follow them
   useEffect(() => {
     if (typeof document !== 'undefined' && document.documentElement) {
-      document.documentElement.style.setProperty('--karaoke-font-scale', String(fontSizeScale));
-      document.documentElement.style.setProperty('--karaoke-sung-color', activeSungColor);
-      document.documentElement.style.setProperty('--karaoke-unsung-color', activeUnsungColor);
-      if (selectedTheme.fontFamily) {
-        document.documentElement.style.setProperty(
-          '--karaoke-font-family',
-          selectedTheme.fontFamily
-        );
-      }
       document.documentElement.setAttribute('data-sync-mode', syncMode);
-      document.documentElement.setAttribute('data-stage-preset', selectedTheme.id);
+      document.documentElement.setAttribute('data-stage-look', lookId);
     }
-  }, [fontSizeScale, activeSungColor, activeUnsungColor, selectedTheme, syncMode]);
+  }, [lookId, syncMode]);
 
   // Memoised so components receiving `theme` re-render only when it changes
   return useMemo(
     () => ({
       selectedTheme,
       setSelectedTheme,
-      customSungColor,
+      customSungColor: chosen.sung,
       setCustomSungColor,
-      customUnsungColor,
+      customUnsungColor: chosen.unsung,
       setCustomUnsungColor,
-      customSinger2Color,
+      customSinger2Color: chosen.singer2,
       setCustomSinger2Color,
-      customBothColor,
+      customBothColor: chosen.both,
       setCustomBothColor,
       fontSizeScale,
       setFontSizeScale,
@@ -302,48 +249,38 @@ export function useVisualTheme(
       activeUnsungColor,
       activeSinger2Color,
       activeBothColor,
-      stageBackgroundColor,
+      stageBackgroundColor: palette.ground,
       stageBackground,
-      effectiveTheme,
     }),
     [
       selectedTheme,
-      setSelectedTheme,
-      customSungColor,
+      chosen.sung,
+      chosen.unsung,
+      chosen.singer2,
+      chosen.both,
       setCustomSungColor,
-      customUnsungColor,
       setCustomUnsungColor,
-      customSinger2Color,
       setCustomSinger2Color,
-      customBothColor,
       setCustomBothColor,
       fontSizeScale,
-      setFontSizeScale,
       aspectRatio,
-      setAspectRatio,
       customBgId,
       setCustomBgId,
       backgroundStyle,
-      setBackgroundStyle,
       backgroundPalette,
       syncMode,
-      setSyncMode,
       showVisualizer,
-      setShowVisualizer,
       toggleVisualizer,
       showChordBar,
-      setShowChordBar,
       toggleChordBar,
       stageSize,
-      setStageSize,
       resetThemeDefaults,
       activeSungColor,
       activeUnsungColor,
       activeSinger2Color,
       activeBothColor,
-      stageBackgroundColor,
+      palette.ground,
       stageBackground,
-      effectiveTheme,
     ]
   );
 }

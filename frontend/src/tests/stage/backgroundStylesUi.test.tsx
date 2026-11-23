@@ -1,6 +1,6 @@
 /**
  * Background styles in the studio: the Look panel picker, what a render request carries for
- * each style, the export-matching lyric outline, and the command palette entries.
+ * each style, and the command palette entries.
  */
 
 import { loadDeferredScreens } from '../../deferredScreens';
@@ -9,19 +9,18 @@ import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } fr
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import App from '../../App';
 import { VisualThemePicker } from '../../components/VisualThemePicker';
-import { LyricDisplay } from '../../components/LyricDisplay';
 import { ToastProvider } from '../../hooks/useToast';
 import { STAGE_SETTINGS_STORAGE_KEY } from '../../theme/stageSettingsStorage';
-import { THEMES } from '../../theme/stagePresets';
+import { getStageLook } from '../../theme/stageLooks';
 import { ProjectState } from '../../types';
 
-const afterglow = THEMES.find((t) => t.id === 'afterglow')!;
+const marquee = getStageLook('marquee');
 
 const renderPicker = (props: Partial<React.ComponentProps<typeof VisualThemePicker>> = {}) =>
   render(
     <ToastProvider>
       <VisualThemePicker
-        selectedTheme={afterglow}
+        selectedTheme={marquee}
         onSelectTheme={vi.fn()}
         aspectRatio="16:9"
         onChangeAspectRatio={vi.fn()}
@@ -73,7 +72,7 @@ describe('background picker', () => {
     rerender(
       <ToastProvider>
         <VisualThemePicker
-          selectedTheme={afterglow}
+          selectedTheme={marquee}
           onSelectTheme={vi.fn()}
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
@@ -90,27 +89,6 @@ describe('background picker', () => {
     renderPicker();
     expect(screen.queryByRole('radiogroup', { name: 'Stage background' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Upload' })).toBeInTheDocument();
-  });
-});
-
-describe('stage lyrics outline', () => {
-  it('outlines the lyrics like the exported video', () => {
-    render(
-      <LyricDisplay
-        lines={[
-          {
-            id: 1,
-            text: 'Neon',
-            start_time: 1,
-            end_time: 3,
-            words: [{ word: 'Neon', start_time: 1, end_time: 3 }],
-          },
-        ]}
-        currentTime={1.5}
-      />
-    );
-    const base = screen.getAllByText('Neon')[0];
-    expect(base.style.textShadow).toContain('#111111');
   });
 });
 
@@ -167,31 +145,56 @@ describe('render requests and palette commands', () => {
   it('sends nothing new for the cover-art default', async () => {
     const body = await renderBody(null);
     expect(body.custom_bg_id).toBeUndefined();
-    expect(body.style_config).not.toHaveProperty('background_style');
-    expect(body.style_config).not.toHaveProperty('background_palette');
-    expect(body.style_config).not.toHaveProperty('background_tone');
+    // A first visit renders in the default look, with nothing chosen on top of it
+    expect(body.style_config).toEqual({
+      theme_id: 'marquee',
+      font_size_scale: 1,
+      sync_mode: 'word',
+    });
   });
 
-  it('sends a generated style with its colours, and the light tone on light presets', async () => {
+  it('sends a generated style with its colours, and leaves the tone and ground to the look', async () => {
     const body = await renderBody({
-      v: 1,
-      presetId: 'clean_paper',
-      presetSource: 'user',
+      v: 2,
+      lookId: 'songbook',
       backgroundStyle: 'aurora',
       customBgId: 'ab12cd34_loop.mp4',
     });
+    const { palette } = getStageLook('songbook');
     expect(body.custom_bg_id).toBeUndefined(); // a stored upload must not outrank the style
     expect(body.style_config).toMatchObject({
+      theme_id: 'songbook',
       background_style: 'aurora',
-      background_palette: ['#dc2626', '#d97706', '#1f2937'],
-      background_tone: 'light',
-      background_color: '#f4f4f0',
+      background_palette: [palette.sung, palette.singer2, palette.both],
     });
+    // The server knows a look's tone and ground; an old tab's values must not be mistaken
+    // for a choice
+    expect(body.style_config).not.toHaveProperty('background_tone');
+    expect(body.style_config).not.toHaveProperty('background_color');
+    expect(body.style_config).not.toHaveProperty('primary_color');
+  });
+
+  it('draws a generated style in the colours picked for the look', async () => {
+    const body = await renderBody({
+      v: 2,
+      lookId: 'ktv',
+      colors: { ktv: { sung: '#12ab34', both: '#ab12cd' }, marquee: { sung: '#ff0000' } },
+      backgroundStyle: 'spectrum',
+    });
+    expect(body.style_config).toMatchObject({
+      theme_id: 'ktv',
+      primary_color: '#12ab34',
+      both_color: '#ab12cd',
+      background_style: 'spectrum',
+      background_palette: ['#12ab34', getStageLook('ktv').palette.singer2, '#ab12cd'],
+    });
+    expect(body.style_config).not.toHaveProperty('secondary_color');
+    expect(body.style_config).not.toHaveProperty('singer2_color');
   });
 
   it('sends the drift without colours and the upload only when it is chosen', async () => {
     const drift = await renderBody({
-      v: 1,
+      v: 2,
       backgroundStyle: 'drift',
       customBgId: 'ab12cd34_a.png',
     });
@@ -202,12 +205,22 @@ describe('render requests and palette commands', () => {
 
   it('sends the uploaded file for the upload style', async () => {
     const body = await renderBody({
-      v: 1,
+      v: 2,
       backgroundStyle: 'custom',
       customBgId: 'ab12cd34_a.png',
     });
     expect(body.custom_bg_id).toBe('ab12cd34_a.png');
     expect(body.style_config).not.toHaveProperty('background_style');
+  });
+
+  it('asks for the cover art as the look treats it', async () => {
+    localStorage.setItem(STAGE_SETTINGS_STORAGE_KEY, JSON.stringify({ v: 2, lookId: 'cinema' }));
+    render(<App />);
+    await waitFor(() => expect(screen.getByText('Backdrop Song')).toBeInTheDocument());
+    const art = await screen.findByTestId('stage-album-art');
+    expect(art.style.backgroundImage).toContain(
+      '/api/project/bg-proj/backdrop?aspect=16:9&look=cinema'
+    );
   });
 
   it('switches the background from the command palette', async () => {

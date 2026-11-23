@@ -8,7 +8,6 @@
  */
 
 import motion from '@shared/background_motion.json';
-import { VisualTheme } from '../types';
 
 export const STAGE_BACKGROUND_STYLES = [
   'artwork',
@@ -48,7 +47,7 @@ export const STAGE_BACKGROUND_OPTIONS: readonly StageBackgroundOption[] = [
   {
     value: 'aurora',
     label: 'Aurora',
-    hint: 'Soft glowing orbs in the preset colours',
+    hint: "Soft glowing orbs in the look's colours",
     moves: true,
   },
   { value: 'spectrum', label: 'Spectrum', hint: 'A glow that rises with the music', moves: true },
@@ -156,47 +155,7 @@ export function scrimGradient(tone: 'dark' | 'light'): string {
 
 export const SPECTRUM = motion.spectrum;
 
-// --- Palette ------------------------------------------------------------------------------
-
-/** Accents for presets that define none (Afterglow's duet colours). */
-export const DEFAULT_BACKGROUND_ACCENTS: readonly [string, string] = ['#f472b6', '#5eead4'];
-
-/**
- * Colours for aurora and spectrum: the sung colour, then the Singer 2 and Both colours the user
- * picked, else the preset's own accents. (The default duet colours clash with most presets.)
- */
-export function stageBackgroundPalette(
-  theme: VisualTheme,
-  colors: { sung: string; singer2?: string | null; both?: string | null }
-): [string, string, string] {
-  const accents = theme.backgroundAccents ?? DEFAULT_BACKGROUND_ACCENTS;
-  return [colors.sung, colors.singer2 || accents[0], colors.both || accents[1]];
-}
-
 export function hexToRgb(color: string): [number, number, number] {
   const hex = /^#?([0-9a-f]{6})$/i.exec(color.trim())?.[1] ?? '000000';
   return [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
-}
-
-// --- Lyric outline ----------------------------------------------------------------------
-
-/**
- * The outline exports draw around lyrics (ASS Outline 3 at a 52 px font, dark ink; 2 px of
- * paper white on light presets; backend/services/ass_generator.py), as text shadows, so the
- * stage stays as readable as the video over bright cover art.
- */
-export function lyricOutline(tone: 'dark' | 'light'): string {
-  const [width, color] = tone === 'light' ? [0.038, '#ffffff'] : [0.058, '#111111'];
-  const d = width * Math.SQRT1_2;
-  const offsets: Array<[number, number]> = [
-    [width, 0],
-    [-width, 0],
-    [0, width],
-    [0, -width],
-    [d, d],
-    [-d, d],
-    [d, -d],
-    [-d, -d],
-  ];
-  return offsets.map(([x, y]) => `${x.toFixed(3)}em ${y.toFixed(3)}em 0 ${color}`).join(', ');
 }

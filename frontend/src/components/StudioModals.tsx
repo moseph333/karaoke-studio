@@ -12,7 +12,8 @@ import { DeleteConfirmModal } from './DeleteConfirmModal';
 import { ErrorBoundary } from './ErrorBoundary';
 import { EditMetadataModal, type EditedMetadata } from './EditMetadataModal';
 import { ExportModal, HelpModal, ReseparateDialog, SongCheckupDialog } from '../deferredScreens';
-import { ProjectState, VisualTheme, SyncDisplayMode } from '../types';
+import { ProjectState, SyncDisplayMode } from '../types';
+import type { StageLook } from '../theme/stageLooks';
 import type { UseQualityJobsReturn } from '../hooks/useQualityJobs';
 import type { GuideAction, HelpTab } from '../utils/guideActions';
 
@@ -27,7 +28,7 @@ export interface StudioModalsProps {
     includeChords?: boolean;
     syncMode?: SyncDisplayMode;
   }) => void;
-  selectedTheme: VisualTheme;
+  selectedTheme: StageLook;
   aspectRatio: string;
   activeSemitones?: number;
   syncMode?: SyncDisplayMode;
@@ -37,7 +38,6 @@ export interface StudioModalsProps {
   /** Duet colors and stage backdrop from the Look panel, so exports match the preview. */
   singer2Color?: string;
   bothColor?: string;
-  backgroundColor?: string;
   fontSizeScale?: number;
   showAuthModal: boolean;
   onAuthSuccess: (username: string, token: string) => void;
@@ -82,7 +82,6 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   secondaryColor,
   singer2Color,
   bothColor,
-  backgroundColor,
   fontSizeScale,
   showAuthModal,
   onAuthSuccess,
@@ -136,7 +135,6 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
           secondaryColor={secondaryColor}
           singer2Color={singer2Color}
           bothColor={bothColor}
-          backgroundColor={backgroundColor}
           fontSizeScale={fontSizeScale}
         />
       )}

@@ -466,27 +466,6 @@ export interface SongSearchResponse {
   sources?: string[];
 }
 
-export interface VisualTheme {
-  id: string;
-  name: string;
-  description: string;
-  primary_color: string; // ASS sung color
-  secondary_color: string; // ASS unsung color
-  previewBg: string;
-  previewSung: string;
-  previewUnsung: string;
-  sync_mode?: SyncDisplayMode;
-  fontFamily?: string;
-  /** Solid stage backdrop shared by the live preview and the video renderer fallback. */
-  stageBg?: string;
-  /** Preset-specific duet palette (falls back to the export defaults when omitted). */
-  singer2Color?: string;
-  bothColor?: string;
-  tone?: 'dark' | 'light';
-  /** Second and third colours of the aurora and spectrum backgrounds (the first is the sung colour). */
-  backgroundAccents?: [string, string];
-}
-
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 /** A button on a toast: clicking it runs `onClick`, then dismisses the toast. */

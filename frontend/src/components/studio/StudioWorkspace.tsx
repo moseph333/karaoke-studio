@@ -151,7 +151,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
   const artworkUrl = project.thumbnail_url
     ? `/api/project/${encodeURIComponent(project.id)}/backdrop?aspect=${
         theme.aspectRatio === '9:16' ? '9:16' : '16:9'
-      }${theme.backgroundStyle === 'drift' ? '&drift=1' : ''}`
+      }${theme.backgroundStyle === 'drift' ? '&drift=1' : ''}&look=${theme.selectedTheme.id}`
     : undefined;
 
   return (

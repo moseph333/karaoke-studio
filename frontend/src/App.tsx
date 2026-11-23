@@ -43,7 +43,7 @@ import { useVisualTheme } from './hooks/useVisualTheme';
 import { useMixController } from './hooks/useMixController';
 import { useStudioCommands } from './hooks/useStudioCommands';
 import { useWaveformPeaksState } from './hooks/useWaveformPeaks';
-import { isGeneratedStyle } from './theme/stageBackgrounds';
+import { renderStyleConfig } from './utils/renderRequest';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
 import { cn } from './utils/cn';
 import { hasVocalLevels } from './utils/vocalLevels';
@@ -439,7 +439,6 @@ export const AppContent: React.FC = () => {
     setIsExportOpen(true);
     const effectiveSyncMode = options?.syncMode ?? theme.syncMode;
     const style = theme.backgroundStyle;
-    const generated = isGeneratedStyle(style);
 
     try {
       const res = await apiFetch(`/api/project/${project.id}/render`, {
@@ -456,22 +455,20 @@ export const AppContent: React.FC = () => {
           include_visualizer: options?.includeVisualizer ?? showVisualizer,
           include_countdown: options?.includeCountdown ?? true,
           include_chords: options?.includeChords ?? false,
-          style_config: {
-            theme_id: theme.selectedTheme.id,
-            primary_color: theme.customSungColor || theme.selectedTheme.primary_color,
-            secondary_color: theme.customUnsungColor || theme.selectedTheme.secondary_color,
-            font_size_scale: theme.fontSizeScale,
-            sync_mode: effectiveSyncMode,
-            // Match the live preview: duet colors and the preset backdrop behind artwork
-            singer2_color: theme.activeSinger2Color,
-            both_color: theme.activeBothColor,
-            background_color: theme.stageBackgroundColor,
-            // Cover art is the renderer's default; generated styles also need colours and tone
-            background_style: style === 'artwork' || style === 'custom' ? undefined : style,
-            background_palette: generated ? theme.backgroundPalette : undefined,
-            background_tone:
-              generated && theme.selectedTheme.tone === 'light' ? 'light' : undefined,
-          },
+          // The look, and only what was chosen on top of it: its own colours, ground and
+          // tone are the server's to fill in
+          style_config: renderStyleConfig(
+            {
+              lookId: theme.selectedTheme.id,
+              sung: theme.customSungColor,
+              unsung: theme.customUnsungColor,
+              singer2: theme.customSinger2Color,
+              both: theme.customBothColor,
+              fontSizeScale: theme.fontSizeScale,
+              syncMode: effectiveSyncMode,
+            },
+            { style, palette: theme.backgroundPalette }
+          ),
         }),
       });
       if (!res.ok) {
@@ -739,16 +736,15 @@ export const AppContent: React.FC = () => {
           onCloseExport={() => setIsExportOpen(false)}
           onCancelRender={handleCancelRender}
           onStartRender={handleStartRender}
-          selectedTheme={theme.effectiveTheme}
+          selectedTheme={theme.selectedTheme}
           aspectRatio={theme.aspectRatio}
           activeSemitones={mix.semitones}
           syncMode={theme.syncMode}
           onSyncModeChange={theme.setSyncMode}
           primaryColor={theme.customSungColor || undefined}
           secondaryColor={theme.customUnsungColor || undefined}
-          singer2Color={theme.activeSinger2Color}
-          bothColor={theme.activeBothColor}
-          backgroundColor={theme.stageBackgroundColor}
+          singer2Color={theme.customSinger2Color || undefined}
+          bothColor={theme.customBothColor || undefined}
           fontSizeScale={theme.fontSizeScale}
           showAuthModal={showAuthModal}
           onAuthSuccess={handleAuthSuccess}

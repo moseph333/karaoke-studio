@@ -6,7 +6,15 @@ import App from '../../App';
 import { LyricTimelineEditor } from '../../components/LyricTimelineEditor';
 import { AudioControls } from '../../components/AudioControls';
 import { TransportDock } from '../../components/transport/TransportDock';
-import { VisualThemePicker, THEMES } from '../../components/VisualThemePicker';
+import { VisualThemePicker } from '../../components/VisualThemePicker';
+import {
+  DEFAULT_STAGE_LOOK_ID,
+  STAGE_LOOKS,
+  frameSize,
+  getStageLook,
+  type Aspect,
+} from '../../theme/stageLooks';
+import { textWidth } from '../../theme/stageFontMetrics';
 import { LyricDisplay } from '../../components/LyricDisplay';
 import { LyricLine, ProjectState } from '../../types';
 import { expectTouchTarget } from '../helpers/responsiveTestUtils';
@@ -59,6 +67,30 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
       ],
     },
   ];
+
+  /** Every row of the line being sung (a long line is broken into rows by the frame). */
+  const sungRows = (): HTMLElement[] => {
+    const line = screen.getByTestId('active-lyrics-line').getAttribute('data-line');
+    return Array.from(
+      document.querySelectorAll<HTMLElement>(`.ks-row[data-role="lyric"][data-line="${line}"]`)
+    );
+  };
+
+  /** Where a row of the default look ends, in u from the frame's left edge: its words measured
+   * with the stage's own font table at the row's size and squeeze. */
+  const rowRightEdge = (row: HTMLElement, aspect: Aspect): number => {
+    const face = getStageLook(DEFAULT_STAGE_LOOK_ID).frames[aspect].lyric.face;
+    const text = within(row)
+      .getAllByRole('button')
+      .map((word) => word.firstElementChild?.textContent ?? '')
+      .join('');
+    const squeeze = Number(/scaleX\(([\d.]+)\)/.exec(row.style.transform)?.[1] ?? 1);
+    const size = Number(row.style.getPropertyValue('--size'));
+    const tracking = Number.parseFloat(row.style.letterSpacing) || 0;
+    return (
+      Number(row.style.getPropertyValue('--x')) + textWidth(face, text, tracking) * size * squeeze
+    );
+  };
 
   describe('Focus Area 1: Mobile Line Item Layout at 320px in LyricTimelineEditor', () => {
     it('renders 2-row layout on mobile viewports with full text visibility without collapsing', () => {
@@ -396,36 +428,47 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
         <LyricDisplay lines={sampleLines} currentTime={2.5} aspectRatio="16:9" />
       );
 
-      const stage16_9 = screen.getByTestId('lyric-display-stage');
-      expect(stage16_9).toHaveClass('aspect-video', 'w-full');
-      expect(stage16_9).not.toHaveClass('aspect-[9/16]');
+      // The screen has the video's shape; the stage around it takes the width it is given
+      expect(screen.getByTestId('stage-screen')).toHaveClass('aspect-video');
+      expect(screen.getByTestId('stage-screen')).not.toHaveClass('aspect-[9/16]');
+      expect(screen.getByTestId('stage-frame')).toHaveAttribute('data-aspect', '16:9');
+      expect(screen.getByTestId('lyric-display-stage')).toHaveClass('w-full');
+      expect(screen.getByTestId('lyric-display-stage')).not.toHaveClass('max-w-xs');
 
       // Switch to 9:16
       rerender(<LyricDisplay lines={sampleLines} currentTime={2.5} aspectRatio="9:16" />);
-      const stage9_16 = screen.getByTestId('lyric-display-stage');
-      expect(stage9_16).toHaveClass('aspect-[9/16]', 'max-w-xs', 'mx-auto');
-      expect(stage9_16).not.toHaveClass('aspect-video');
+      expect(screen.getByTestId('stage-screen')).toHaveClass('aspect-[9/16]');
+      expect(screen.getByTestId('stage-screen')).not.toHaveClass('aspect-video');
+      expect(screen.getByTestId('stage-frame')).toHaveAttribute('data-aspect', '9:16');
+      expect(screen.getByTestId('lyric-display-stage')).toHaveClass('max-w-xs', 'mx-auto');
     });
 
     it('wraps active lyric text without clipping or colliding with the stage toolbar', () => {
       render(<LyricDisplay lines={sampleLines} currentTime={2.5} aspectRatio="9:16" />);
 
-      // The toolbar is pinned to the top edge of the stage and holds controls only:
-      // no badge says the preview is live
-      const toolbar = screen.getByTestId('stage-toolbar');
-      expect(within(toolbar).queryByText(/live preview/i)).toBeNull();
-      expect(toolbar).toHaveClass('absolute', 'inset-x-0', 'top-0');
-      // ...and the stage reserves top padding so lyrics never slide under it
-      expect(screen.getByTestId('lyric-display-stage')).toHaveClass('pt-16');
-
-      // Active lyrics line has flex-wrap and responsive typography
-      const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toHaveClass('flex', 'flex-wrap', 'justify-center');
-      expect(activeLine).toHaveClass('text-xl', 'sm:text-3xl', 'md:text-5xl');
-
-      // The lyrics stage uses flex flex-col justify-end so text stays anchored cleanly at bottom
+      // The toolbar holds controls only: no badge says the preview is live
       const stage = screen.getByTestId('lyric-display-stage');
-      expect(stage).toHaveClass('flex', 'flex-col', 'justify-end');
+      const toolbar = screen.getByTestId('stage-toolbar');
+      const stageScreen = screen.getByTestId('stage-screen');
+      expect(within(toolbar).queryByText(/live preview/i)).toBeNull();
+      // It is a row of its own above the screen, never over the frame of the video
+      expect(toolbar).not.toHaveClass('absolute');
+      expect(Array.from(stage.children).slice(0, 2)).toEqual([toolbar, stageScreen]);
+      expect(stage).toHaveClass('flex', 'flex-col');
+      expect(stageScreen).not.toContainElement(toolbar);
+
+      // The line is too long for one row of a 9:16 frame: it is broken into rows that
+      // together hold every word, each sized by the frame and ending inside it
+      const rows = sungRows();
+      expect(rows.length).toBeGreaterThan(1);
+      expect(rows[0]).toBe(screen.getByTestId('active-lyrics-line'));
+      expect(rows.flatMap((row) => within(row).getAllByRole('button'))).toHaveLength(
+        sampleLines[0].words.length
+      );
+      for (const row of rows) {
+        expect(Number(row.style.getPropertyValue('--size'))).toBeGreaterThan(0);
+        expect(rowRightEdge(row, '9:16')).toBeLessThanOrEqual(frameSize('9:16').width);
+      }
     });
 
     it('interactively toggles aspect ratio via VisualThemePicker controls', async () => {
@@ -434,7 +477,7 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
 
       render(
         <VisualThemePicker
-          selectedTheme={THEMES[0]}
+          selectedTheme={STAGE_LOOKS[0]}
           onSelectTheme={vi.fn()}
           aspectRatio="16:9"
           onChangeAspectRatio={onChangeAspectRatio}
@@ -504,19 +547,26 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
 
       // Initial aspect ratio is 16:9 widescreen
       const stage = screen.getByTestId('lyric-display-stage');
-      expect(stage).toHaveClass('aspect-video');
+      const stageScreen = within(stage).getByTestId('stage-screen');
+      expect(stageScreen).toHaveClass('aspect-video');
+      expect(within(stage).getByTestId('stage-frame')).toHaveAttribute('data-aspect', '16:9');
 
       // Click 9:16 Shorts button in VisualThemePicker
       const shortsToggle = screen.getByRole('button', { name: /9:16 shorts/i });
       await user.click(shortsToggle);
 
       // Stage must now switch to 9:16 Shorts
-      expect(stage).toHaveClass('aspect-[9/16]', 'max-w-xs');
+      expect(stageScreen).toHaveClass('aspect-[9/16]');
+      expect(stageScreen).not.toHaveClass('aspect-video');
+      expect(within(stage).getByTestId('stage-frame')).toHaveAttribute('data-aspect', '9:16');
+      expect(stage).toHaveClass('max-w-xs');
 
       // Click back to 16:9 Widescreen
       const widescreenToggle = screen.getByRole('button', { name: /16:9 widescreen/i });
       await user.click(widescreenToggle);
-      expect(stage).toHaveClass('aspect-video');
+      expect(stageScreen).toHaveClass('aspect-video');
+      expect(within(stage).getByTestId('stage-frame')).toHaveAttribute('data-aspect', '16:9');
+      expect(stage).not.toHaveClass('max-w-xs');
     });
 
     it('renders responsive song meta header with line-clamping and a touch-friendly Export button on mobile', async () => {
@@ -646,10 +696,14 @@ describe('Milestone 2 Empirical Challenger Suite (Studio Dashboard & Mobile Touc
 
       render(<LyricDisplay lines={longLines} currentTime={3.0} aspectRatio="9:16" />);
 
-      const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toHaveClass('flex', 'flex-wrap');
-      const wordButtons = within(activeLine).getAllByRole('button');
-      expect(wordButtons.length).toBe(50);
+      // The line is broken into rows that together hold every word
+      const rows = sungRows();
+      expect(rows.length).toBeGreaterThan(1);
+      expect(rows.flatMap((row) => within(row).getAllByRole('button'))).toHaveLength(50);
+      // No row runs past the frame's right edge, where it would be cut off
+      for (const row of rows) {
+        expect(rowRightEdge(row, '9:16')).toBeLessThanOrEqual(frameSize('9:16').width);
+      }
     });
   });
 });

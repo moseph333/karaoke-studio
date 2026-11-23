@@ -52,7 +52,6 @@
   --theme-font-heading: 'Sofia Sans', 'Helvetica Neue', Arial, sans-serif;
   --theme-font-body: 'Sofia Sans', 'Helvetica Neue', Arial, sans-serif;
   --theme-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --karaoke-font-family: Sora, Inter, system-ui, sans-serif;
   /* Square and flat: there are no radius or shadow tokens. A hairline is 1px, a rule 2px. */
   --theme-border-width: 1px;
   --theme-border-width-thick: 2px;
@@ -289,25 +288,6 @@
   }
   .ks-shape[data-shape='triangle'] {
     clip-path: polygon(0 0, 100% 50%, 0 100%);
-  }
-
-  /* Stage typography follows the stage box, so short laptop stages never clip lyrics */
-  .ks-stage-container {
-    container-type: size;
-    container-name: stage;
-  }
-  @container stage (max-height: 380px) {
-    .ks-stage-container .ks-stage-lyrics > :not([hidden]) ~ :not([hidden]) {
-      margin-top: 0.375rem;
-    }
-    .ks-stage-container .ks-stage-line {
-      min-height: 0;
-      font-size: clamp(1.1rem, 13cqh, 2.75rem);
-    }
-    .ks-stage-container .ks-stage-next {
-      min-height: 0;
-      font-size: clamp(0.8rem, 6.5cqh, 1.25rem);
-    }
   }
 
   /* Thin, theme-aware range slider. Set --ks-range-fill (0-100%) inline for the filled track. */

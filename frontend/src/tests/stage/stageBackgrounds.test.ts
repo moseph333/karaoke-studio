@@ -1,28 +1,27 @@
 /**
  * Stage background maths shared with the video renderer: drift and orb motion as functions of
- * song time, the overscan sizes, the gradients, the palette and the lyric outline.
+ * song time, the overscan sizes, the gradients and the palette.
  */
 
 import { describe, it, expect } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
 import motion from '@shared/background_motion.json';
 import {
   AURORA_ORB_COUNT,
-  DEFAULT_BACKGROUND_ACCENTS,
   STAGE_BACKGROUND_OPTIONS,
   driftLayer,
   driftOffset,
   hexToRgb,
   isGeneratedStyle,
   isStageBackgroundStyle,
-  lyricOutline,
   orbCentre,
   orbGradient,
   orbSize,
   overscanSize,
   scrimGradient,
-  stageBackgroundPalette,
 } from '../../theme/stageBackgrounds';
-import { THEMES, getStageBackground } from '../../theme/stagePresets';
+import { useVisualTheme } from '../../hooks/useVisualTheme';
+import { STAGE_LOOKS, getStageLook } from '../../theme/stageLooks';
 
 describe('drifting art', () => {
   it('uses the same even overscan sizes as the renderer', () => {
@@ -89,7 +88,7 @@ describe('aurora', () => {
   });
 });
 
-describe('scrim, palette and outline', () => {
+describe('scrim and palette', () => {
   it('draws the export scrim for each tone', () => {
     expect(scrimGradient('dark')).toBe(
       'linear-gradient(to top, rgb(0 0 0 / 0.75), rgb(0 0 0 / 0.3), rgb(0 0 0 / 0.1))'
@@ -100,44 +99,66 @@ describe('scrim, palette and outline', () => {
   });
 
   it('starts from the sung colour and prefers the colours the user picked', () => {
-    const afterglow = THEMES.find((t) => t.id === 'afterglow')!;
-    const tape = THEMES.find((t) => t.id === 'tape_70s')!;
-    expect(stageBackgroundPalette(afterglow, { sung: '#fbbf24' })).toEqual([
-      '#fbbf24',
-      '#f472b6',
-      '#5eead4',
+    const cinema = getStageLook('cinema');
+    const { result } = renderHook(() => useVisualTheme(cinema));
+    expect(result.current.backgroundPalette).toEqual([
+      cinema.palette.sung,
+      cinema.palette.singer2,
+      cinema.palette.both,
     ]);
-    expect(stageBackgroundPalette(tape, { sung: '#f59e0b', singer2: null, both: null })).toEqual([
-      '#f59e0b',
-      ...tape.backgroundAccents!,
+
+    act(() => result.current.setCustomSungColor('#123456'));
+    expect(result.current.backgroundPalette).toEqual([
+      '#123456',
+      cinema.palette.singer2,
+      cinema.palette.both,
     ]);
-    expect(
-      stageBackgroundPalette(tape, { sung: '#123456', singer2: '#aa0000', both: '#00aa00' })
-    ).toEqual(['#123456', '#aa0000', '#00aa00']);
-    expect(
-      stageBackgroundPalette({ ...tape, backgroundAccents: undefined }, { sung: '#fff' })
-    ).toEqual(['#fff', ...DEFAULT_BACKGROUND_ACCENTS]);
+
+    act(() => {
+      result.current.setCustomSinger2Color('#aa0000');
+      result.current.setCustomBothColor('#00aa00');
+    });
+    expect(result.current.backgroundPalette).toEqual(['#123456', '#aa0000', '#00aa00']);
+
+    // Another look glows in its own colours: the picks stay with the look they were made on
+    const marquee = getStageLook('marquee');
+    act(() => result.current.setSelectedTheme(marquee));
+    expect(result.current.backgroundPalette).toEqual([
+      marquee.palette.sung,
+      marquee.palette.singer2,
+      marquee.palette.both,
+    ]);
   });
 
-  it('gives every preset accents the spectrum can blend towards', () => {
-    // The export lifts dark stages towards the treble colour (lightens light ones), one way
-    // per channel, so each curated treble accent sits on the right side of the stage colour.
-    for (const theme of THEMES) {
-      expect(theme.backgroundAccents, theme.id).toHaveLength(2);
-      const base = hexToRgb(getStageBackground(theme));
-      const treble = hexToRgb(theme.backgroundAccents![0]);
+  it('starts from the words still to sing in a look that dims what was sung', () => {
+    const prompter = getStageLook('prompter');
+    expect(prompter.emphasis).toBe('unsung');
+    const { result } = renderHook(() => useVisualTheme(prompter));
+    expect(result.current.backgroundPalette).toEqual([
+      prompter.palette.unsung,
+      prompter.palette.singer2,
+      prompter.palette.both,
+    ]);
+
+    // The dim colour of the sung words is not what marks the look
+    act(() => result.current.setCustomSungColor('#333333'));
+    expect(result.current.backgroundPalette[0]).toBe(prompter.palette.unsung);
+    act(() => result.current.setCustomUnsungColor('#fff000'));
+    expect(result.current.backgroundPalette[0]).toBe('#fff000');
+  });
+
+  it('gives every look a treble colour the spectrum can blend towards', () => {
+    // The export lifts dark stages towards the treble colour (darkens light ones), one way
+    // per channel, so each look's second palette colour (Singer 2's) sits on the right side
+    // of its ground.
+    for (const look of STAGE_LOOKS) {
+      const base = hexToRgb(look.palette.ground);
+      const treble = hexToRgb(look.palette.singer2);
       treble.forEach((channel, i) => {
-        if (theme.tone === 'light') expect(channel, theme.id).toBeLessThanOrEqual(base[i]);
-        else expect(channel, theme.id).toBeGreaterThanOrEqual(base[i]);
+        if (look.tone === 'light') expect(channel, look.id).toBeLessThanOrEqual(base[i]);
+        else expect(channel, look.id).toBeGreaterThanOrEqual(base[i]);
       });
     }
-  });
-
-  it('outlines lyrics the way the export does', () => {
-    const dark = lyricOutline('dark').split(', ');
-    expect(dark).toHaveLength(8);
-    expect(dark[0]).toBe('0.058em 0.000em 0 #111111');
-    expect(lyricOutline('light').split(', ')[0]).toBe('0.038em 0.000em 0 #ffffff');
   });
 });
 

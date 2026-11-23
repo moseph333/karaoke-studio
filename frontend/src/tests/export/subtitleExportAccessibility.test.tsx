@@ -1,12 +1,13 @@
 import React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ExportModal } from '../../components/ExportModal';
 import App from '../../App';
 import { ProjectState } from '../../types';
 import * as apiModule from '../../api';
-import { THEMES } from '../../components/VisualThemePicker';
+import { STAGE_LOOKS } from '../../theme/stageLooks';
+import { loadDeferredScreens } from '../../deferredScreens';
 import {
   BREAKPOINTS,
   setTestViewport,
@@ -117,7 +118,7 @@ describe('Milestone 2 Challenger 2: Frontend & Accessibility Adversarial Suite (
             isOpen={true}
             onClose={vi.fn()}
             aspectRatio="16:9"
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
           />
         );
 
@@ -391,6 +392,9 @@ describe('Milestone 2 Challenger 2: Frontend & Accessibility Adversarial Suite (
   // Focus Area 4: Touch Targets (>= 44px) & Accessibility Standards
   // =========================================================================
   describe('Focus Area 4: Touch Targets & Accessibility Standards', () => {
+    // The studio is a deferred chunk: fetched here so the App test does not wait on it
+    beforeAll(() => loadDeferredScreens());
+
     it('verifies >=44px touch targets on all interactive buttons in ExportModal', () => {
       render(
         <ExportModal
@@ -517,7 +521,7 @@ describe('Milestone 2 Challenger 2: Frontend & Accessibility Adversarial Suite (
             isOpen={true}
             onClose={vi.fn()}
             aspectRatio="16:9"
-            selectedTheme={THEMES[0]}
+            selectedTheme={STAGE_LOOKS[0]}
           />
         );
 

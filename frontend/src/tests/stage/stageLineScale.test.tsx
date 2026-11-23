@@ -1,14 +1,14 @@
 /**
  * Stage lyric size
  *
- * The lyric size setting scales the line being sung. The next line follows at three quarters
- * of that, but never drops below 0.7em, so it stays readable at the smallest setting.
+ * The lyric size setting scales the line being sung, and the line waiting under it by as much.
  */
 
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { LyricDisplay } from '../../components/LyricDisplay';
+import { getStageLook } from '../../theme/stageLooks';
 import { LyricLine } from '../../types';
 
 const lines: LyricLine[] = [
@@ -43,24 +43,37 @@ const lines: LyricLine[] = [
   },
 ];
 
+/** The em sizes (in u) of the line being sung and of the line waiting under it. */
 function sizesAt(scale: number) {
-  render(<LyricDisplay lines={lines} currentTime={2.0} isPlaying fontSizeScale={scale} />);
-  return {
-    active: screen.getByTestId('active-lyrics-line').style.fontSize,
-    next: screen.getByTestId('upcoming-lyrics-line').style.fontSize,
+  // Cinema keeps one size for its lines, so only the setting changes them
+  const { unmount } = render(
+    <LyricDisplay
+      lines={lines}
+      currentTime={2.0}
+      isPlaying
+      fontSizeScale={scale}
+      selectedTheme={getStageLook('cinema')}
+    />
+  );
+  const sizeOf = (row: HTMLElement) => Number(row.style.getPropertyValue('--size'));
+  const sizes = {
+    active: sizeOf(screen.getByTestId('active-lyrics-line')),
+    next: sizeOf(screen.getByTestId('stage-line')),
   };
+  unmount();
+  return sizes;
 }
 
 describe('stage lyric size', () => {
-  it('keeps the next line at 0.7em when the lyric size is tiny', () => {
-    expect(sizesAt(0.1)).toEqual({ active: '0.1em', next: '0.7em' });
-  });
+  it('scales the line being sung and the next line with the lyric size', () => {
+    const standard = sizesAt(1);
+    expect(standard.active).toBeGreaterThan(standard.next);
+    expect(standard.next).toBeGreaterThan(0);
 
-  it('keeps the next line at 0.7em when the lyric size is zero', () => {
-    expect(sizesAt(0)).toEqual({ active: '0em', next: '0.7em' });
-  });
-
-  it('scales the next line to three quarters of a large lyric size', () => {
-    expect(sizesAt(3.5)).toEqual({ active: '3.5em', next: '2.625em' });
+    for (const scale of [0.5, 2]) {
+      const sizes = sizesAt(scale);
+      expect(sizes.active).toBeCloseTo(standard.active * scale, 5);
+      expect(sizes.next).toBeCloseTo(standard.next * scale, 5);
+    }
   });
 });

@@ -7,7 +7,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Download, Loader2 } from 'lucide-react';
-import { ProjectState, VisualTheme, SyncDisplayMode } from '../../types';
+import { ProjectState, SyncDisplayMode } from '../../types';
+import { DEFAULT_STAGE_LOOK_ID, type StageLook } from '../../theme/stageLooks';
+import { assExportQuery } from '../../utils/renderRequest';
 import { apiFetch, readApiError } from '../../api';
 import { Tooltip } from '../Tooltip';
 import { useToast } from '../../hooks/useToast';
@@ -25,7 +27,7 @@ import { formatSemitonesShort } from '../../utils/format';
 
 export interface ExportSubtitleSectionProps {
   project: ProjectState;
-  selectedTheme?: VisualTheme;
+  selectedTheme?: StageLook;
   aspectRatio?: '16:9' | '9:16' | string;
   primaryColor?: string;
   secondaryColor?: string;
@@ -77,33 +79,18 @@ export const ExportSubtitleSection: React.FC<ExportSubtitleSectionProps> = ({
       else setDownloadingAss(true);
       setDownloadError(null);
 
-      const themeId = selectedTheme?.id || 'modern_gold';
-
-      let assUrl = `/api/project/${project?.id}/export/ass?aspect_ratio=${encodeURIComponent(
-        aspectRatio
-      )}&theme_id=${encodeURIComponent(themeId)}`;
-
-      if (primaryColor) {
-        assUrl += `&primary_color=${encodeURIComponent(primaryColor)}`;
-      }
-      if (secondaryColor) {
-        assUrl += `&secondary_color=${encodeURIComponent(secondaryColor)}`;
-      }
-      if (fontSizeScale !== undefined) {
-        assUrl += `&font_size_scale=${encodeURIComponent(fontSizeScale)}`;
-      }
-      if (singer2Color) {
-        assUrl += `&singer2_color=${encodeURIComponent(singer2Color)}`;
-      }
-      if (bothColor) {
-        assUrl += `&both_color=${encodeURIComponent(bothColor)}`;
-      }
-      if (syncMode || activeSyncMode !== 'word') {
-        assUrl += `&sync_mode=${encodeURIComponent(activeSyncMode)}`;
-      }
-      if (includeChords) {
-        assUrl += `&include_chords=true&semitones=${encodeURIComponent(semitones)}`;
-      }
+      const assUrl = `/api/project/${project?.id}/export/ass?${assExportQuery(
+        {
+          lookId: selectedTheme?.id ?? DEFAULT_STAGE_LOOK_ID,
+          sung: primaryColor,
+          unsung: secondaryColor,
+          singer2: singer2Color,
+          both: bothColor,
+          fontSizeScale,
+          syncMode: syncMode || activeSyncMode !== 'word' ? activeSyncMode : undefined,
+        },
+        { aspectRatio, includeChords, semitones }
+      )}`;
 
       const url = format === 'lrc' ? `/api/project/${project.id}/export/lrc` : assUrl;
 

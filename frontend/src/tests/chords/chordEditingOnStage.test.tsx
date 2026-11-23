@@ -575,14 +575,13 @@ describe('Challenger M2 Iteration 2: Stage Mode & UI Persistence Empirical Tests
       // Enter TV Stage Mode
       fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
 
-      // Both ChordBar and Gap Countdown must be visible
+      // Both ChordBar and the count-in to the vocals at 5.0s must be visible
       expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
       expect(screen.getByTestId('active-chord-badge')).toHaveTextContent('Am');
-      expect(screen.getByTestId('gap-countdown-indicator')).toBeInTheDocument();
-      expect(screen.getByTestId('gap-countdown-time')).toHaveTextContent(/Next vocals in/i);
+      expect(screen.getByTestId('stage-count-in')).toHaveTextContent(/^3$/);
     });
 
-    it('renders ChordBar concurrently with Duet / Multi-Singer badge in Stage Mode', () => {
+    it('renders ChordBar concurrently with Duet / Multi-Singer part name in Stage Mode', () => {
       const duetLines: LyricLine[] = [
         {
           id: 1,
@@ -612,11 +611,11 @@ describe('Challenger M2 Iteration 2: Stage Mode & UI Persistence Empirical Tests
       // Enter TV Stage Mode
       fireEvent.click(screen.getByTestId('stage-fullscreen-toggle'));
 
-      // Verify ChordBar and Singer Badge are both mounted
+      // Verify ChordBar and the part's name are both mounted
       expect(screen.getByTestId('chord-bar')).toBeInTheDocument();
-      const badge = screen.getByTestId('active-singer-badge');
-      expect(badge).toBeInTheDocument();
-      expect(badge).toHaveAttribute('data-singer', 'singer2');
+      const partName = screen.getByTestId('stage-part-name');
+      expect(partName).toHaveAttribute('data-line', '0');
+      expect(partName).toHaveTextContent(/^singer 2$/i);
     });
   });
 

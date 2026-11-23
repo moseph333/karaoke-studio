@@ -3,12 +3,13 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { THEMES } from '../../components/VisualThemePicker';
 import { LyricDisplay } from '../../components/LyricDisplay';
 import { StudioModals } from '../../components/StudioModals';
 import { ExportModal } from '../../components/ExportModal';
+import { DEFAULT_STAGE_LOOK_ID, getStageLook } from '../../theme/stageLooks';
+import { faceMetrics } from '../../theme/stageFontMetrics';
 import * as apiModule from '../../api';
-import { LyricLine, ProjectState, VisualTheme } from '../../types';
+import { LyricLine, ProjectState } from '../../types';
 
 const sampleLines: LyricLine[] = [
   {
@@ -50,12 +51,8 @@ const mockProject: ProjectState = {
 describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
   beforeEach(() => {
     localStorage.clear();
-    document.documentElement.removeAttribute('data-stage-preset');
+    document.documentElement.removeAttribute('data-stage-look');
     document.documentElement.removeAttribute('data-sync-mode');
-    document.documentElement.style.removeProperty('--karaoke-sung-color');
-    document.documentElement.style.removeProperty('--karaoke-unsung-color');
-    document.documentElement.style.removeProperty('--karaoke-font-family');
-    document.documentElement.style.removeProperty('--karaoke-font-scale');
     vi.restoreAllMocks();
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     window.URL.createObjectURL = vi.fn().mockReturnValue('blob:mock-stress-ass');
@@ -79,7 +76,7 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
           onCloseExport={vi.fn()}
           onCancelRender={vi.fn()}
           onStartRender={vi.fn()}
-          selectedTheme={THEMES[4]} // punk_diy
+          selectedTheme={getStageLook('marquee')}
           aspectRatio="16:9"
           primaryColor="#33ff33"
           secondaryColor="#ff33cc"
@@ -105,7 +102,7 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
       const calledUrl = apiFetchSpy.mock.calls[0][0];
       expect(calledUrl).toContain('/api/project/challenger-stress-project/export/ass?');
       expect(calledUrl).toContain('aspect_ratio=16%3A9');
-      expect(calledUrl).toContain('theme_id=punk_diy');
+      expect(calledUrl).toContain('theme_id=marquee');
       expect(calledUrl).toContain('primary_color=%2333ff33');
       expect(calledUrl).toContain('secondary_color=%23ff33cc');
       expect(calledUrl).toContain('font_size_scale=1.45');
@@ -125,7 +122,7 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
           project={mockProject}
           isOpen={true}
           onClose={vi.fn()}
-          selectedTheme={THEMES[5]} // tape_70s
+          selectedTheme={getStageLook('cinema')}
           aspectRatio="9:16"
           primaryColor="#123456"
           secondaryColor="#654321"
@@ -148,7 +145,7 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
             include_visualizer: false,
             include_countdown: true,
             style_config: {
-              theme_id: 'tape_70s',
+              theme_id: 'cinema',
               primary_color: '#123456',
               secondary_color: '#654321',
               font_size_scale: 0.85,
@@ -171,7 +168,7 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
           onCloseExport={vi.fn()}
           onCancelRender={vi.fn()}
           onStartRender={onStartRenderMock}
-          selectedTheme={THEMES[5]} // tape_70s
+          selectedTheme={getStageLook('cinema')}
           aspectRatio="9:16"
           primaryColor="#123456"
           secondaryColor="#654321"
@@ -215,7 +212,7 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
           project={mockProject}
           isOpen={true}
           onClose={vi.fn()}
-          selectedTheme={THEMES[6]} // crt_ktv
+          selectedTheme={getStageLook('prompter')}
           aspectRatio="16:9"
         />
       );
@@ -225,48 +222,15 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
 
       const payload = JSON.parse(apiFetchSpy.mock.calls[0][1]?.body as string);
       expect(payload.style_config).toEqual({
-        theme_id: 'crt_ktv',
+        theme_id: 'prompter',
       });
       expect(payload.style_config.primary_color).toBeUndefined();
       expect(payload.style_config.secondary_color).toBeUndefined();
     });
   });
 
-  describe('3. Stage Lyrics Font Family Fallback in LyricDisplay & useVisualTheme', () => {
-    it('falls back to var(--karaoke-font-family, sans-serif) when theme preset has no fontFamily and prop is undefined', () => {
-      const incompleteTheme: VisualTheme = {
-        id: 'no_font_theme',
-        name: 'No Font Theme',
-        description: 'Theme without font family',
-        primary_color: '&H00FFFFFF',
-        secondary_color: '&H00AAAAAA',
-        previewSung: '#ffffff',
-        previewUnsung: '#aaaaaa',
-        previewBg: '#000000',
-        fontFamily: undefined,
-      };
-
-      render(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={2.0}
-          duration={150}
-          selectedTheme={incompleteTheme}
-        />
-      );
-
-      const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toHaveStyle({
-        fontFamily: 'var(--karaoke-font-family, sans-serif)',
-      });
-
-      const upcomingLine = screen.getByTestId('upcoming-lyrics-line');
-      expect(upcomingLine).toHaveStyle({
-        fontFamily: 'var(--karaoke-font-family, sans-serif)',
-      });
-    });
-
-    it('falls back to var(--karaoke-font-family, sans-serif) when selectedTheme is undefined and prop is undefined', () => {
+  describe('3. Stage Lyrics Typeface Without a Chosen Look', () => {
+    it('draws the stage in the default look and its typeface when selectedTheme is undefined', () => {
       render(
         <LyricDisplay
           lines={sampleLines}
@@ -276,27 +240,14 @@ describe('M3 Iteration 2: Challenger Adversarial Stress Suite', () => {
         />
       );
 
-      const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toHaveStyle({
-        fontFamily: 'var(--karaoke-font-family, sans-serif)',
-      });
-    });
+      const look = getStageLook(DEFAULT_STAGE_LOOK_ID);
+      expect(screen.getByTestId('lyric-display-stage')).toHaveAttribute('data-look', look.id);
+      expect(screen.getByTestId('stage-frame')).toHaveAttribute('data-look', look.id);
 
-    it('prioritizes explicit fontFamily prop over selectedTheme.fontFamily', () => {
-      render(
-        <LyricDisplay
-          lines={sampleLines}
-          currentTime={2.0}
-          duration={150}
-          selectedTheme={THEMES[4]} // punk_diy with Impact
-          fontFamily="'Courier New', monospace"
-        />
-      );
-
+      const face = faceMetrics(look.frames['16:9'].lyric.face);
       const activeLine = screen.getByTestId('active-lyrics-line');
-      expect(activeLine).toHaveStyle({
-        fontFamily: "'Courier New', monospace",
-      });
+      expect(activeLine.style.fontFamily).toContain(face.css_family);
+      expect(activeLine.style.fontWeight).toBe(String(face.css_weight));
     });
   });
 });

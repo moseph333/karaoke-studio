@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LyricDisplay } from '../../components/LyricDisplay';
-import { VisualThemePicker, THEMES } from '../../components/VisualThemePicker';
+import { VisualThemePicker } from '../../components/VisualThemePicker';
+import { getStageLook } from '../../theme/stageLooks';
 import { ExportModal } from '../../components/ExportModal';
 import { ExportSubtitleSection } from '../../components/export/ExportSubtitleSection';
 import { useVisualTheme } from '../../hooks/useVisualTheme';
@@ -256,6 +257,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
           duration={60}
           syncMode="line"
           bothSungColor="#10b981"
+          selectedTheme={getStageLook('ktv')}
         />
       );
 
@@ -263,9 +265,11 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       const stage = screen.getByTestId('lyric-display-stage');
       expect(stage).toHaveAttribute('data-fullscreen', 'true');
 
-      const badge = screen.getByTestId('active-singer-badge');
-      expect(badge).toHaveAttribute('data-singer', 'both');
-      expect(badge).toHaveTextContent('Both / Duet');
+      // The part's name, in the part's colour
+      const name = screen.getByTestId('stage-part-name');
+      expect(name).toHaveAttribute('data-line', '2');
+      expect(name).toHaveTextContent('Both');
+      expect(name.querySelector('.ks-words')).toHaveStyle({ color: '#10b981' });
 
       // Active words illuminate in bothSungColor
       sampleLines[2].words.forEach((_, idx) => {
@@ -356,7 +360,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
     it('C2.3: VisualThemePicker format and lyric size buttons meet the touch target requirement', () => {
       render(
         <VisualThemePicker
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           onSelectTheme={vi.fn()}
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
@@ -394,7 +398,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       render(
         <ExportSubtitleSection
           project={mockProject}
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           aspectRatio="16:9"
           syncMode="line"
         />
@@ -503,7 +507,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       render(
         <ExportSubtitleSection
           project={mockProject}
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           aspectRatio="16:9"
           syncMode="word"
         />
@@ -533,12 +537,20 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       });
     });
 
-    it('C3.7: Active singer badge has role="status" and descriptive aria-label', () => {
-      render(<LyricDisplay lines={sampleLines} currentTime={4.5} syncMode="line" />);
+    it('C3.7: The part name on the stage is text assistive technology can read', () => {
+      render(
+        <LyricDisplay
+          lines={sampleLines}
+          currentTime={4.5}
+          syncMode="line"
+          selectedTheme={getStageLook('ktv')}
+        />
+      );
 
-      const badge = screen.getByTestId('active-singer-badge');
-      expect(badge).toHaveAttribute('role', 'status');
-      expect(badge).toHaveAttribute('aria-label', 'Current Singer: Singer 1 / Lead');
+      const name = screen.getByTestId('stage-part-name');
+      expect(name).toHaveTextContent(/^Singer 1$/);
+      expect(name).not.toHaveAttribute('aria-hidden');
+      expect(name.closest('[aria-hidden="true"]')).toBeNull();
     });
   });
 
@@ -602,7 +614,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       setTestViewport(320, 568);
       const { container } = render(
         <VisualThemePicker
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           onSelectTheme={vi.fn()}
           aspectRatio="16:9"
           onChangeAspectRatio={vi.fn()}
@@ -633,7 +645,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       const { container } = render(
         <ExportSubtitleSection
           project={mockProject}
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           aspectRatio="16:9"
           syncMode="line"
         />
@@ -667,7 +679,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       render(
         <ExportSubtitleSection
           project={mockProject}
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           aspectRatio="16:9"
           syncMode="line"
         />
@@ -702,7 +714,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
       render(
         <ExportSubtitleSection
           project={mockProject}
-          selectedTheme={THEMES[0]}
+          selectedTheme={getStageLook('marquee')}
           aspectRatio="16:9"
           syncMode="word"
         />
@@ -734,7 +746,11 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
 
       // Sub-test 1: Uncontrolled mode (internal state manages toggle)
       const { unmount } = render(
-        <ExportSubtitleSection project={mockProject} selectedTheme={THEMES[0]} aspectRatio="16:9" />
+        <ExportSubtitleSection
+          project={mockProject}
+          selectedTheme={getStageLook('marquee')}
+          aspectRatio="16:9"
+        />
       );
 
       // User switches to Line-by-Line
@@ -757,7 +773,7 @@ describe('Milestone M1 Challenger 2: Adversarial & Empirical Verification', () =
         return (
           <ExportSubtitleSection
             project={mockProject}
-            selectedTheme={THEMES[0]}
+            selectedTheme={getStageLook('marquee')}
             aspectRatio="16:9"
             syncMode={mode}
             onSyncModeChange={setMode}
