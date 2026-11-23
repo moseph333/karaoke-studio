@@ -32,6 +32,9 @@ def test_the_chat_carries_the_rules_and_the_song():
     assert system["role"] == "system" and user["role"] == "user"
     for rule in ("No faces", "No text of any kind", "No cuts", "English"):
         assert rule in system["content"]
+    # A view that moves shows as a double image where the loop fades into its start
+    assert "camera stands still" in system["content"]
+    assert "Only what can be seen" in system["content"]
     assert user["content"].startswith("Title: Paper Boats\nArtist: The Lanterns\n\nLyrics:\n")
     assert user["content"].count("lanterns glow") == 1
 
@@ -59,7 +62,8 @@ def test_a_scene_that_runs_long_ends_at_a_sentence():
 def test_the_video_prompt_is_the_scene_then_how_every_loop_moves():
     prompt = worker.video_prompt("Rain on a window at night")
     assert prompt == f"Rain on a window at night. {worker.PROMPT_STYLE}"
-    for unwanted in ("text", "subtitles", "faces", "camera cuts"):
+    assert "fixed on a tripod" in worker.PROMPT_STYLE
+    for unwanted in ("text", "subtitles", "faces", "camera cuts", "camera movement"):
         assert unwanted in worker.NEGATIVE_PROMPT
 
 
