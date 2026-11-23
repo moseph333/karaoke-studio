@@ -83,13 +83,15 @@ def settle_stale_job(proj: dict, active_cancellations: dict) -> bool:
     return True
 
 
-def create_job(proj: dict, prompt: str | None) -> dict:
+def create_job(proj: dict, prompt: str | None, model: str | None = None) -> dict:
     """A queued song loop job, put on the project. ``prompt`` is the scene as typed, or None
-    to have one written from the lyrics."""
+    to have one written from the lyrics; ``model`` the video model chosen, or None for the
+    server's default."""
     job = {
         "id": uuid.uuid4().hex[:12],
         "status": "queued",
         "prompt": prompt or None,
+        "model": model or song_loops.configured_model(),
         "progress": 0,
         "detail": "Waiting for another song's loop to finish…",
         "eta_seconds": None,
@@ -123,7 +125,7 @@ def _request(proj: dict, job: dict) -> dict[str, Any]:
     request: dict[str, Any] = {
         "title": str(proj.get("title") or ""),
         "artist": str(proj.get("artist") or ""),
-        "model": song_loops.configured_model(),
+        "model": job.get("model") or song_loops.configured_model(),
     }
     if job.get("prompt"):
         request["prompt"] = job["prompt"]

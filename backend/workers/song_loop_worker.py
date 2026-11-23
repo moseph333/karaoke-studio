@@ -46,10 +46,15 @@ EXIT_FAILED = 5
 # The model a loop is made with when none is named
 DEFAULT_MODEL = "wan22"
 
-# Sizes are what each model was trained at; a loop is scaled to the video when it is drawn
+# Sizes are what each model was trained at; a loop is scaled to the video when it is drawn.
+# `name`, `minutes` (about how long a loop takes, measured on an L40S) and `note` are what
+# the studio shows where a model is chosen
 MODELS: dict[str, dict] = {
     "wan22": {
         "label": "Wan 2.2 (5B)",
+        "name": "Best",
+        "minutes": 8,
+        "note": "",
         "repos": ["Wan-AI/Wan2.2-TI2V-5B-Diffusers"],
         "width": 1280,
         "height": 704,
@@ -60,6 +65,9 @@ MODELS: dict[str, dict] = {
     },
     "ltx": {
         "label": "LTX-Video 0.9.7 (distilled)",
+        "name": "Fast",
+        "minutes": 2,
+        "note": "The view may drift, which can show as a faint double image where the loop repeats",
         "repos": ["Lightricks/LTX-Video-0.9.7-distilled", "Lightricks/ltxv-spatial-upscaler-0.9.7"],
         # Drawn small, doubled by the latent upscaler, then scaled to width x height
         "base_width": 800,

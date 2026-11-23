@@ -57,9 +57,10 @@ export interface UseQualityJobsReturn {
    * model) is shown as a toast with the server's reason. */
   startVocalSplit: (kind?: VocalSplitKind) => Promise<void>;
   cancelVocalSplit: () => Promise<void>;
-  /** Starts the song's loop from the scene typed, or from the lyrics when none is given;
-   * a refusal is shown as a toast with the server's reason. */
-  startSongLoop: (prompt?: string) => Promise<void>;
+  /** Starts the song's loop from the scene typed, or from the lyrics when none is given,
+   * with the video model chosen (the server's default when none is); a refusal is shown as
+   * a toast with the server's reason. */
+  startSongLoop: (prompt?: string, model?: string) => Promise<void>;
   cancelSongLoop: () => Promise<void>;
   removeSongLoop: () => Promise<void>;
 }
@@ -216,14 +217,14 @@ export function useQualityJobs({
   }, [projectId, putJob, toast]);
 
   const startSongLoop = useCallback(
-    async (prompt?: string) => {
+    async (prompt?: string, model?: string) => {
       if (!projectId) return;
       const typed = prompt?.trim();
       try {
-        const data = await postJson(
-          `/api/project/${projectId}/song-loop`,
-          typed ? { prompt: typed } : {}
-        );
+        const data = await postJson(`/api/project/${projectId}/song-loop`, {
+          ...(typed ? { prompt: typed } : {}),
+          ...(model ? { model } : {}),
+        });
         startedLoopId.current = data.job?.id ?? null;
         putJob('song_loop_job', data.job);
         toast.info('Making the song loop. This takes a few minutes; the song stays playable.');

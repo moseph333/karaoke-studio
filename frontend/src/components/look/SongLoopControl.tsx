@@ -4,8 +4,9 @@
  * The song's loop: a looping background video drawn from its lyrics on the server's cloud
  * GPU. The box holds the scene in words. Left empty, the scene is written from the lyrics;
  * once a loop exists it holds the scene that loop shows, which can be edited and made
- * again. Making one runs in the background (with Cancel) and replaces the loop the song
- * had; Remove deletes it.
+ * again. Where the server offers more than one video model, a loop is made Best (slow) or
+ * Fast (to try a scene out). Making one runs in the background (with Cancel) and replaces
+ * the loop the song had; Remove deletes it.
  */
 
 import React, { useState } from 'react';
@@ -15,6 +16,7 @@ import { isJobActive } from '../../utils/jobs';
 import { Button } from '../ui/Button';
 import { Textarea } from '../ui/Field';
 import { ProgressBar } from '../ui/Progress';
+import { SegmentedControl } from '../ui/SegmentedControl';
 
 export interface SongLoopControlProps {
   /** The song's loop; unset when it has none. */
@@ -22,8 +24,9 @@ export interface SongLoopControlProps {
   job?: SongLoopJob | null;
   /** What the server says about making loops; unknown while it loads. */
   capability?: SongLoopCapability | null;
-  /** Makes the loop from this scene, or from the lyrics when the scene is empty. */
-  onMake?: (prompt: string) => void;
+  /** Makes the loop from this scene, or from the lyrics when the scene is empty, with the
+   * model chosen (none where the server offers no choice). */
+  onMake?: (prompt: string, model?: string) => void;
   onCancel?: () => void;
   onRemove?: () => void;
 }
@@ -53,6 +56,14 @@ export const SongLoopControl: React.FC<SongLoopControlProps> = ({
     capability && !capability.available ? capability.reason || 'unavailable' : null;
   const cannot = unavailable ? `This server cannot make song loops: ${unavailable}` : null;
   const maxChars = capability?.max_prompt_chars ?? DEFAULT_MAX_CHARS;
+  // The choice is kept while the song stays open; until one is made it is the server's
+  const models = capability?.models ?? [];
+  const [picked, setPicked] = useState<string | null>(null);
+  const model =
+    models.find((m) => m.id === picked) ??
+    models.find((m) => m.id === capability?.model) ??
+    models[0];
+  const madeWith = models.find((m) => m.id === loop?.model);
 
   return (
     <section aria-labelledby="song-loop-heading" className="space-y-2" data-testid="song-loop">
@@ -62,7 +73,7 @@ export const SongLoopControl: React.FC<SongLoopControlProps> = ({
         </h3>
         <p className="mt-0.5 text-xs text-theme-text-muted" data-testid="song-loop-label">
           {loop
-            ? 'A moving picture made for this song'
+            ? `A moving picture made for this song${madeWith ? ` (${madeWith.name})` : ''}`
             : 'A moving picture made for this song from its lyrics, which takes a few minutes'}
         </p>
       </div>
@@ -89,6 +100,30 @@ export const SongLoopControl: React.FC<SongLoopControlProps> = ({
         </p>
       </div>
 
+      {!active && onMake && models.length > 1 && model && (
+        <div className="space-y-1">
+          <SegmentedControl<string>
+            value={model.id}
+            onChange={setPicked}
+            semantics="radio"
+            ariaLabel="Song loop quality"
+            size="sm"
+            fullWidth
+            tone="neutral"
+            testId="song-loop-quality"
+            options={models.map((m) => ({
+              value: m.id,
+              label: `${m.name} · ${m.minutes} min`,
+              title: m.label,
+              testId: `song-loop-quality-${m.id}`,
+            }))}
+          />
+          <p className="text-xs leading-snug text-theme-text-muted" data-testid="song-loop-model">
+            {model.label}, about {model.minutes} minutes.{model.note ? ` ${model.note}.` : ''}
+          </p>
+        </div>
+      )}
+
       {!active && (
         <div className="flex flex-wrap items-center gap-2">
           {onMake && (
@@ -96,7 +131,7 @@ export const SongLoopControl: React.FC<SongLoopControlProps> = ({
               variant="secondary"
               size="sm"
               leftIcon={<Film className="h-3.5 w-3.5" aria-hidden="true" />}
-              onClick={() => onMake(text.trim())}
+              onClick={() => onMake(text.trim(), models.length > 1 ? model?.id : undefined)}
               disabled={Boolean(cannot)}
               title={cannot ?? 'Draw a looping video of this scene behind the lyrics'}
             >

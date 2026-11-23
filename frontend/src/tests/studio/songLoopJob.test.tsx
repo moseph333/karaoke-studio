@@ -33,6 +33,7 @@ import type {
   SongLoop,
   SongLoopCapability,
   SongLoopJob,
+  SongLoopModel,
   StudioCapabilities,
 } from '../../types';
 import { CAPABILITIES, json, mockStudioFetch } from '../helpers/qualityFixtures';
@@ -57,6 +58,15 @@ const job = (overrides: Partial<SongLoopJob> = {}): SongLoopJob => ({
   detail: 'Wan 2.2 (5B) drawing the loop (step 15 of 50)',
   ...overrides,
 });
+
+const BEST: SongLoopModel = { id: 'wan22', name: 'Best', label: 'Wan 2.2 (5B)', minutes: 8 };
+const FAST: SongLoopModel = {
+  id: 'ltx',
+  name: 'Fast',
+  label: 'LTX-Video 0.9.7 (distilled)',
+  minutes: 2,
+  note: 'The view may drift, which can show as a faint double image where the loop repeats',
+};
 
 const capability = (overrides: Partial<SongLoopCapability> = {}): SongLoopCapability => ({
   available: true,
@@ -108,7 +118,7 @@ describe('Song loop control', () => {
     expect(screen.queryByRole('button', { name: 'Remove song loop' })).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Make a loop' }));
-    expect(onMake).toHaveBeenCalledWith('');
+    expect(onMake).toHaveBeenCalledWith('', undefined);
   });
 
   it('makes a loop of the scene that was typed', async () => {
@@ -118,7 +128,7 @@ describe('Song loop control', () => {
 
     await user.type(screen.getByRole('textbox', { name: 'What the loop shows' }), '  Rain  ');
     await user.click(screen.getByRole('button', { name: 'Make a loop' }));
-    expect(onMake).toHaveBeenCalledWith('Rain');
+    expect(onMake).toHaveBeenCalledWith('Rain', undefined);
   });
 
   it('shows the scene of the loop the song has, to edit and make again or remove', async () => {
@@ -139,7 +149,7 @@ describe('Song loop control', () => {
     await user.clear(scene);
     await user.type(scene, 'A field of wheat');
     await user.click(screen.getByRole('button', { name: 'Make again' }));
-    expect(onMake).toHaveBeenCalledWith('A field of wheat');
+    expect(onMake).toHaveBeenCalledWith('A field of wheat', undefined);
 
     await user.click(screen.getByRole('button', { name: 'Remove song loop' }));
     expect(onRemove).toHaveBeenCalledTimes(1);
@@ -154,6 +164,59 @@ describe('Song loop control', () => {
       />
     );
     expect(scene).toHaveValue('A field of wheat under slow clouds.');
+  });
+
+  it("offers Best or Fast where the server has both, starting on the server's own", async () => {
+    const onMake = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SongLoopControl
+        loop={loop({ model: 'ltx' })}
+        capability={capability({ models: [BEST, FAST] })}
+        onMake={onMake}
+      />
+    );
+
+    const quality = screen.getByRole('radiogroup', { name: 'Song loop quality' });
+    const best = within(quality).getByRole('radio', { name: 'Best · 8 min' });
+    const fast = within(quality).getByRole('radio', { name: 'Fast · 2 min' });
+    expect(best).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('song-loop-model')).toHaveTextContent(
+      'Wan 2.2 (5B), about 8 minutes.'
+    );
+    // The loop the song has says how it was made
+    expect(screen.getByTestId('song-loop-label')).toHaveTextContent(
+      'A moving picture made for this song (Fast)'
+    );
+
+    await user.click(fast);
+    expect(fast).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByTestId('song-loop-model')).toHaveTextContent(
+      'LTX-Video 0.9.7 (distilled), about 2 minutes. The view may drift, which can show as a faint double image where the loop repeats.'
+    );
+    await user.click(screen.getByRole('button', { name: 'Make again' }));
+    expect(onMake).toHaveBeenCalledWith(SCENE, 'ltx');
+
+    await user.click(best);
+    await user.click(screen.getByRole('button', { name: 'Make again' }));
+    expect(onMake).toHaveBeenLastCalledWith(SCENE, 'wan22');
+  });
+
+  it('starts on the model the server is set to, and has no choice to show for one model', () => {
+    const { unmount } = render(
+      <SongLoopControl
+        capability={capability({ model: 'ltx', models: [BEST, FAST] })}
+        onMake={vi.fn()}
+      />
+    );
+    expect(screen.getByRole('radio', { name: 'Fast · 2 min' })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    unmount();
+
+    render(<SongLoopControl capability={capability({ models: [BEST] })} onMake={vi.fn()} />);
+    expect(screen.queryByRole('radiogroup', { name: 'Song loop quality' })).toBeNull();
   });
 
   it('shows a loop being made with its progress and a way to cancel', async () => {
@@ -328,8 +391,8 @@ describe('Song loop jobs', () => {
       )
     ).toBeInTheDocument();
 
-    await act(() => hook.result.current.startSongLoop('  Rain on a window '));
-    expect(requests[1].body).toEqual({ prompt: 'Rain on a window' });
+    await act(() => hook.result.current.startSongLoop('  Rain on a window ', 'ltx'));
+    expect(requests[1].body).toEqual({ prompt: 'Rain on a window', model: 'ltx' });
 
     await act(() => hook.result.current.cancelSongLoop());
     expect(requests[2].url).toBe('/api/project/loop-song/song-loop/cancel');
@@ -462,15 +525,16 @@ describe('Song loops in the studio', () => {
   };
 
   it('starts a loop from the Look panel and shows it being made', async () => {
-    serve(withLoops(capability()));
+    serve(withLoops(capability({ models: [BEST, FAST] })));
     await openStudio();
     const panel = await screen.findByTestId('song-loop');
 
+    fireEvent.click(within(panel).getByRole('radio', { name: 'Fast · 2 min' }));
     fireEvent.click(within(panel).getByRole('button', { name: 'Make a loop' }));
 
     await waitFor(() =>
       expect(requests).toEqual([
-        { url: '/api/project/loop-song/song-loop', method: 'POST', body: {} },
+        { url: '/api/project/loop-song/song-loop', method: 'POST', body: { model: 'ltx' } },
       ])
     );
     expect(

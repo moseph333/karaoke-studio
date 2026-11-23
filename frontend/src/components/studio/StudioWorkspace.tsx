@@ -154,7 +154,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
             loop: project.song_loop,
             job: project.song_loop_job,
             capability: songLoopCapability,
-            onMake: (prompt: string) => void quality.startSongLoop(prompt),
+            onMake: (prompt: string, model?: string) => void quality.startSongLoop(prompt, model),
             onCancel: () => void quality.cancelSongLoop(),
             onRemove: () => void quality.removeSongLoop(),
           }

@@ -71,11 +71,35 @@ def lyrics_text(proj: dict) -> str:
     return "\n".join(text.strip() for text in texts if isinstance(text, str) and text.strip())
 
 
+def offered_models() -> list[str]:
+    """SONG_LOOP_MODELS: the video models the studio may choose between, in the worker's
+    order (all of them if unset, or if it names none the worker knows)."""
+    named = {name.strip().lower() for name in (os.getenv("SONG_LOOP_MODELS") or "").split(",")}
+    offered = [model for model in MODELS if model in named]
+    return offered or list(MODELS)
+
+
 def configured_model() -> str:
-    """SONG_LOOP_MODEL: the video model loops are made with (the worker's default if unset
-    or unknown)."""
+    """SONG_LOOP_MODEL: the video model a loop is made with when the request names none
+    (the worker's default if unset or unknown; the first one offered if that is not)."""
     value = (os.getenv("SONG_LOOP_MODEL") or "").strip().lower()
-    return value if value in MODELS else DEFAULT_MODEL
+    model = value if value in MODELS else DEFAULT_MODEL
+    offered = offered_models()
+    return model if model in offered else offered[0]
+
+
+def model_choices() -> list[dict[str, Any]]:
+    """The offered models as the studio lists them."""
+    return [
+        {
+            "id": model,
+            "name": MODELS[model]["name"],
+            "label": MODELS[model]["label"],
+            "minutes": MODELS[model]["minutes"],
+            "note": MODELS[model]["note"] or None,
+        }
+        for model in offered_models()
+    ]
 
 
 def capability() -> dict[str, Any]:
@@ -88,6 +112,7 @@ def capability() -> dict[str, Any]:
         "runs_on": "cloud-gpu" if remote_song_loop.backend() else None,
         "model": model,
         "model_label": MODELS[model]["label"],
+        "models": model_choices(),
         "max_prompt_chars": MAX_PROMPT_CHARS,
     }
 
