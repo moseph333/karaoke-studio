@@ -138,6 +138,17 @@ describe('FirstSongCard', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Hide the first-song steps' }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
+
+  it('offers the tour beside its heading, outside the heading itself', async () => {
+    const onAction = vi.fn();
+    render(<FirstSongCard toCheck={0} onAction={onAction} onDismiss={vi.fn()} />);
+
+    const tour = screen.getByRole('button', { name: 'Show me around' });
+    expectTouchTarget(tour);
+    expect(screen.getByRole('heading', { name: 'Your first song' })).not.toContainElement(tour);
+    await userEvent.click(tour);
+    expect(onAction).toHaveBeenCalledWith('tour');
+  });
 });
 
 describe('in the studio', () => {

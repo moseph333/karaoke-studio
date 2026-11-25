@@ -14,7 +14,7 @@ import { RenderProgressAnnouncer } from './components/RenderProgressAnnouncer';
 import { StudioModals } from './components/StudioModals';
 import { InstallAppDialog } from './components/InstallAppDialog';
 import { StudioSkeleton, WhenShown } from './components/studio/StudioSkeleton';
-import { StudioWorkspace, TransportDock } from './deferredScreens';
+import { GuideTour, StudioWorkspace, TransportDock } from './deferredScreens';
 import { LyricLine, ProjectState, SyncDisplayMode, StudioWorkspaceTab } from './types';
 import type { EditedMetadata } from './components/EditMetadataModal';
 import { useProjectChords } from './hooks/useProjectChords';
@@ -28,6 +28,7 @@ import { useFirstSongGuide } from './hooks/useFirstSongGuide';
 import { useGuideActions } from './hooks/useGuideActions';
 import { isUploadedSong, retryInput } from './utils/processingErrors';
 import type { HelpTab } from './utils/guideActions';
+import type { GuideRequest } from './utils/guideStops';
 import { useToast } from './hooks/useToast';
 import { useUpdatePrompt } from './hooks/useUpdatePrompt';
 import { useServerUpdatePrompt } from './hooks/useServerUpdatePrompt';
@@ -45,6 +46,7 @@ import { useStudioCommands } from './hooks/useStudioCommands';
 import { useWaveformPeaksState } from './hooks/useWaveformPeaks';
 import { renderStyleConfig } from './utils/renderRequest';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { cn } from './utils/cn';
 import { hasVocalLevels } from './utils/vocalLevels';
 import { focusQuietly } from './utils/focusIntent';
@@ -78,6 +80,9 @@ export const AppContent: React.FC = () => {
     setShowHelpModal((prev) => !prev);
   }, []);
   const [showCheckup, setShowCheckup] = useState(false);
+  // What the guide is pointing at: a tour of this screen or one control. Only ever asked for
+  const [guide, setGuide] = useState<GuideRequest | null>(null);
+  const endGuide = useCallback(() => setGuide(null), []);
   const [showInstallSteps, setShowInstallSteps] = useState(false);
   const openInstallSteps = useCallback(() => setShowInstallSteps(true), []);
   const installApp = useInstallPrompt(openInstallSteps);
@@ -92,6 +97,7 @@ export const AppContent: React.FC = () => {
     setTrackedProjectId(project?.id);
     setActiveWorkspaceTab('stage');
     setShowCheckup(false);
+    setGuide(null);
     // A dialog left open over one song (Back was pressed, the song was switched from the
     // palette) must not reopen over the library or the next song
     setIsExportOpen(false);
@@ -382,6 +388,7 @@ export const AppContent: React.FC = () => {
       setHelpTab('fix');
       setShowHelpModal(true);
     },
+    onStartTour: () => setGuide({ tour: 'studio' }),
     onCloseGuidance: () => {
       setShowCheckup(false);
       setShowHelpModal(false);
@@ -775,6 +782,23 @@ export const AppContent: React.FC = () => {
           onClose={() => setShowInstallSteps(false)}
           onHideButton={installApp.showHeaderButton ? installApp.hideHeaderButton : undefined}
         />
+        {/* The guide, over everything but the toasts. Its code is fetched when first asked
+            for; a failure leaves it closed rather than taking the studio down */}
+        {guide && !showAuthModal && (
+          <ErrorBoundary fallback={() => null} onError={endGuide}>
+            <Suspense fallback={null}>
+              <GuideTour
+                key={'tour' in guide ? `tour:${guide.tour}` : `feature:${guide.feature}`}
+                request={guide}
+                activeTab={activeWorkspaceTab}
+                onSelectTab={setActiveWorkspaceTab}
+                isPlaying={isPlaying}
+                onTogglePlay={audio.handleTogglePlay}
+                onEnd={endGuide}
+              />
+            </Suspense>
+          </ErrorBoundary>
+        )}
       </div>
     </PlaybackClockContext.Provider>
   );

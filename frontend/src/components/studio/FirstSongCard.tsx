@@ -3,14 +3,15 @@
  *
  * The getting-started steps a first-time user sees above the stage: play, check the lyrics,
  * set the key, make a video. The wording is short on purpose: four steps share one row from
- * `lg` up, in a column that is about 600px wide there. Each step is a button that goes to the place it names. A plain
+ * `lg` up, in a column that is about 600px wide there. Each step is a button that goes to the place it names, and
+ * "Show me around" beside the heading starts the tour that points every part out. A plain
  * section, never a dialog: the song stays playable and the keyboard shortcuts keep working
  * while it is shown. `hooks/useFirstSongGuide` decides whether it is shown.
  */
 
 import React from 'react';
 import { Download, ListChecks, Play, SlidersHorizontal, X } from 'lucide-react';
-import type { GuideAction } from '../../utils/guideActions';
+import { GUIDE_ACTION_LABELS, type GuideAction } from '../../utils/guideActions';
 import { cn } from '../../utils/cn';
 import { IconButton } from '../ui/IconButton';
 import { focusRing } from '../ui/variants';
@@ -28,6 +29,12 @@ interface Step {
   title: string;
   hint: string;
 }
+
+const textLink = cn(
+  // A 44px target on phones that does not make the card taller
+  '-my-3 inline-flex min-h-[44px] items-center text-left text-xs text-theme-text-muted underline decoration-theme-border underline-offset-2 hover:text-theme-text md:-my-1 md:min-h-[24px]',
+  focusRing
+);
 
 const steps = (toCheck: number): Step[] => [
   { action: 'play', Icon: Play, title: 'Play and sing', hint: 'Words light up' },
@@ -55,18 +62,15 @@ export const FirstSongCard: React.FC<FirstSongCardProps> = ({ toCheck, onAction,
     className="flex flex-wrap items-center gap-x-5 gap-y-1 border-y border-theme-border-subtle py-1.5"
   >
     <div className="order-1 min-w-0 flex-1 xl:flex-none">
-      <h2 id="first-song-heading" className="ks-display text-[22px] text-theme-text">
-        Your first song
-      </h2>
-      <button
-        type="button"
-        onClick={() => onAction('help-fix')}
-        className={cn(
-          // A 44px target on phones that does not make the card taller
-          '-my-3 inline-flex min-h-[44px] items-center text-left text-xs text-theme-text-muted underline decoration-theme-border underline-offset-2 hover:text-theme-text md:-my-1 md:min-h-[24px]',
-          focusRing
-        )}
-      >
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <h2 id="first-song-heading" className="ks-display text-[22px] text-theme-text">
+          Your first song
+        </h2>
+        <button type="button" onClick={() => onAction('tour')} className={textLink}>
+          {GUIDE_ACTION_LABELS.tour}
+        </button>
+      </div>
+      <button type="button" onClick={() => onAction('help-fix')} className={textLink}>
         Something off? Fix a problem
       </button>
     </div>

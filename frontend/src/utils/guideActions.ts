@@ -1,6 +1,6 @@
 /**
  * Guide actions: the places in the studio that guidance (the first-song card, the song
- * check-up, Help's fixes) can take the user to. `hooks/useGuideActions.ts` carries
+ * check-up, Help's fixes) can take the user to, and the tour that points them all out. `hooks/useGuideActions.ts` carries
  * them out; this file only names them, so the help chunk does not pull in the studio.
  */
 
@@ -17,7 +17,8 @@ export type GuideAction =
   | 'mix'
   | 'export'
   | 'checkup'
-  | 'help-fix';
+  | 'help-fix'
+  | 'tour';
 
 /** What a button that performs the action says, unless the place it sits in words it. */
 export const GUIDE_ACTION_LABELS: Record<GuideAction, string> = {
@@ -34,6 +35,7 @@ export const GUIDE_ACTION_LABELS: Record<GuideAction, string> = {
   export: 'Open export',
   checkup: 'Check this song',
   'help-fix': 'Fix a problem',
+  tour: 'Show me around',
 };
 
 /** The Help dialog's tabs. */
