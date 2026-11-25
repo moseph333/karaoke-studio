@@ -34,11 +34,12 @@ afterEach(() => {
 const fixPanel = () => screen.getByRole('tabpanel', { name: 'Fix a problem' });
 
 describe('the Fix a problem tab', () => {
-  it('is the third help topic and opens when asked for', () => {
+  it('is the last help topic and opens when asked for', () => {
     render(<HelpModal isOpen onClose={vi.fn()} initialTab="fix" />);
 
     expect(screen.getAllByRole('tab').map((tab) => tab.textContent)).toEqual([
       'Keyboard shortcuts',
+      'What you can do',
       'Studio usage guide',
       'Fix a problem',
     ]);

@@ -16,6 +16,7 @@ import { ProjectState, SyncDisplayMode } from '../types';
 import type { StageLook } from '../theme/stageLooks';
 import type { UseQualityJobsReturn } from '../hooks/useQualityJobs';
 import type { GuideAction, HelpTab } from '../utils/guideActions';
+import type { GuideScreen } from '../utils/guideStops';
 
 export interface StudioModalsProps {
   project: ProjectState | null;
@@ -52,6 +53,12 @@ export interface StudioModalsProps {
   onCloseHelp: () => void;
   /** Brings back the first-song card from Help; left out while the card is showing. */
   onShowFirstSongSteps?: () => void;
+  /** The screen behind Help, when the guide can point at its controls. */
+  guideScreen?: GuideScreen | null;
+  /** Help's "Show me": points at a feature's control. */
+  onShowFeature?: (featureId: string) => void;
+  /** Help's tour button: starts the tour of the screen behind it. */
+  onStartTour?: () => void;
   showStudioDeleteModal: boolean;
   onCloseStudioDelete: () => void;
   onStudioProjectDeleted: () => void;
@@ -92,6 +99,9 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   helpTab,
   onCloseHelp,
   onShowFirstSongSteps,
+  guideScreen,
+  onShowFeature,
+  onStartTour,
   showStudioDeleteModal,
   onCloseStudioDelete,
   onStudioProjectDeleted,
@@ -160,6 +170,9 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
             songOpen={project?.status === 'ready'}
             onAction={onGuideAction}
             onShowFirstSongSteps={onShowFirstSongSteps}
+            guideScreen={guideScreen}
+            onShowFeature={onShowFeature}
+            onStartTour={onStartTour}
           />
         </ErrorBoundary>
       )}

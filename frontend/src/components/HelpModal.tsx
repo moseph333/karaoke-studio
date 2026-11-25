@@ -1,10 +1,12 @@
 /**
  * Help & Usage Guide Modal Component
  *
- * In-app help with three tabs: a keyboard shortcut reference grouped by area (with the
- * typing/modal isolation note), the studio usage guide (the first-song steps, what to expect
- * and the workflow stage by stage) and "Fix a problem" (`utils/troubleshooting`), whose
- * buttons go to the tool that fixes each problem while a song is open.
+ * In-app help with four tabs: a keyboard shortcut reference grouped by area (with the
+ * typing/modal isolation note), "What you can do" (`help/HelpFeatures`: the features that are
+ * easy to miss, each with a button that points at its control), the studio usage guide (the
+ * first-song steps, what to expect and the workflow stage by stage) and "Fix a problem"
+ * (`utils/troubleshooting`), whose buttons go to the tool that fixes each problem while a
+ * song is open.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -18,6 +20,8 @@ import { characterShortcutsEnabled, setCharacterShortcutsEnabled } from '../util
 import { useServerVersion } from '../hooks/useServerVersion';
 import { GUIDE_ACTION_LABELS, type GuideAction, type HelpTab } from '../utils/guideActions';
 import { FIRST_SONG_STEPS, PROBLEMS } from '../utils/troubleshooting';
+import type { GuideScreen } from '../utils/guideStops';
+import { HelpFeatures } from './help/HelpFeatures';
 import { cn } from '../utils/cn';
 import { focusRing } from './ui/variants';
 
@@ -31,6 +35,12 @@ export interface HelpModalProps {
   onAction?: (action: GuideAction) => void;
   /** Brings back the studio's first-song card; left out while it is showing. */
   onShowFirstSongSteps?: () => void;
+  /** The screen behind the dialog, when the guide can point at its controls. */
+  guideScreen?: GuideScreen | null;
+  /** Points at a feature's control; the caller closes this dialog first. */
+  onShowFeature?: (featureId: string) => void;
+  /** Starts the tour of the screen behind the dialog; the caller closes this dialog first. */
+  onStartTour?: () => void;
 }
 
 interface ShortcutItem {
@@ -198,6 +208,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({
   songOpen = false,
   onAction,
   onShowFirstSongSteps,
+  guideScreen = null,
+  onShowFeature,
+  onStartTour,
 }) => {
   const [activeTab, setActiveTab] = useState<HelpTab>(initialTab);
   const canAct = songOpen && Boolean(onAction);
@@ -237,7 +250,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
       <DialogHeader
         title="Help"
         titleId="help-modal-title"
-        description="Keyboard shortcuts, how the studio works and fixes for common problems"
+        description="Keyboard shortcuts, what you can do, how the studio works and fixes for common problems"
         descriptionId="help-modal-desc"
         onClose={onClose}
         closeLabel="Close help"
@@ -255,6 +268,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             id: 'shortcuts',
             label: 'Keyboard shortcuts',
             controls: 'tabpanel-shortcuts',
+          },
+          {
+            id: 'features',
+            label: 'What you can do',
+            controls: 'tabpanel-features',
           },
           {
             id: 'guide',
@@ -396,6 +414,18 @@ export const HelpModal: React.FC<HelpModalProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {activeTab === 'features' && (
+        <div
+          role="tabpanel"
+          id="tabpanel-features"
+          aria-labelledby="tab-features"
+          tabIndex={0}
+          className="focus:outline-none"
+        >
+          <HelpFeatures screen={guideScreen} onShow={onShowFeature} onStartTour={onStartTour} />
         </div>
       )}
 

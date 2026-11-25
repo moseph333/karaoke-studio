@@ -39,4 +39,4 @@ export const GUIDE_ACTION_LABELS: Record<GuideAction, string> = {
 };
 
 /** The Help dialog's tabs. */
-export type HelpTab = 'shortcuts' | 'guide' | 'fix';
+export type HelpTab = 'shortcuts' | 'features' | 'guide' | 'fix';
