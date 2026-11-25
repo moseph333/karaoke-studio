@@ -27,10 +27,13 @@ Local-first web app that turns any song into karaoke: it splits the vocals from 
 | ![Phone timeline](docs/screenshots/phone-timeline.png) <br> Phone: timeline | ![First-song steps](docs/screenshots/first-song.png) <br> First-song steps |
 | ![Song check-up](docs/screenshots/song-checkup.png) <br> Song check-up | ![Fix a problem in Help](docs/screenshots/help-fix-a-problem.png) <br> Help: Fix a problem |
 | ![A failed song](docs/screenshots/processing-failed.png) <br> A song that failed | ![Upload to YouTube steps](docs/screenshots/youtube-upload.png) <br> Export: Upload to YouTube |
+| ![The studio tour](docs/screenshots/tour.png) <br> The tour: a toolbar's icons, named | ![What you can do in Help](docs/screenshots/what-you-can-do.png) <br> Help: What you can do |
 
 ## Using Karaoke Studio
 
 A first song, start to finish. The studio shows the same steps on a card the first time you open a finished song, and **Help** (<kbd>?</kbd>) has them under **Studio Usage Guide**.
+
+To be shown rather than told, press **Show me around**: on that card, under "How it works" on the home screen, or in the command palette. It starts a tour that rings one part of the screen at a time and says what it does, naming the icon-only buttons on the way; on a phone it switches to the tab each part is on. Help's **What you can do** tab lists the features that are easy to miss (finding your key, re-timing one line, splitting a line, keeping a duet partner in, a moving background and more), and **Show me** beside each one points at its control.
 
 1. **Add a song.** Type its title, its artist or both and pick it from the songs listed under the box (small typos are fine, and the artwork plays a 30-second preview). Or paste a song link (YouTube, SoundCloud, Bandcamp, Vimeo, the Internet Archive, Spotify, Apple Music, TIDAL or Deezer), or switch to **Local Audio File** and upload one. **Advanced options** holds the stem quality (Fast, Balanced, Best) and a box for your own lyrics.
 2. **Wait a few minutes.** The screen shows the stage it is on and a time estimate. You can leave: the song keeps processing and waits in your library. Best quality on a CPU, and a server's first Balanced or Best song (it downloads its model once), take longer.
