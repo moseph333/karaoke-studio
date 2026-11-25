@@ -43,6 +43,7 @@ import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
 import { useMixController } from './hooks/useMixController';
 import { useStudioCommands } from './hooks/useStudioCommands';
+import { useGuideCommands } from './hooks/useGuideCommands';
 import { useWaveformPeaksState } from './hooks/useWaveformPeaks';
 import { renderStyleConfig } from './utils/renderRequest';
 import { CommandPaletteProvider } from './components/commandPalette/CommandPaletteProvider';
@@ -576,6 +577,17 @@ export const AppContent: React.FC = () => {
     onInstallApp: installApp.canInstall ? installApp.install : undefined,
   });
 
+  const guideScreen = view === 'studio' ? 'studio' : view === 'library' ? 'home' : null;
+  useGuideCommands({
+    screen: guideScreen,
+    onStartTour: isStudioReady ? handlers.startTour : undefined,
+    onShowFeature: handlers.showFeature,
+    onOpenFeatures: () => {
+      setHelpTab('features');
+      setShowHelpModal(true);
+    },
+  });
+
   const handleStudioMetadataSaved = (updated: EditedMetadata) => {
     setProject((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
     setShowStudioEditModal(false);
@@ -774,7 +786,7 @@ export const AppContent: React.FC = () => {
           helpTab={helpTab}
           onCloseHelp={() => setShowHelpModal(false)}
           onShowFirstSongSteps={firstSong.visible ? undefined : firstSong.show}
-          guideScreen={view === 'studio' ? 'studio' : view === 'library' ? 'home' : null}
+          guideScreen={guideScreen}
           onShowFeature={handlers.showFeature}
           onStartTour={isStudioReady ? handlers.startTour : undefined}
           showStudioDeleteModal={showStudioDeleteModal}
