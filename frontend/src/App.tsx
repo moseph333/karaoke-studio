@@ -533,6 +533,15 @@ export const AppContent: React.FC = () => {
     openEditModal: () => setShowStudioEditModal(true),
     openDeleteModal: () => setShowStudioDeleteModal(true),
     openCheckup: () => setShowCheckup(true),
+    // Help steps aside for the guide it starts
+    startTour: () => {
+      setShowHelpModal(false);
+      setGuide({ tour: 'studio' });
+    },
+    showFeature: (feature: string) => {
+      setShowHelpModal(false);
+      setGuide({ feature });
+    },
     customInstrumentalUploaded: (url: string) =>
       setProject((prev) => (prev ? { ...prev, instrumental_url: url } : prev)),
     playbackEnded: () => setIsPlaying(false),
@@ -765,6 +774,9 @@ export const AppContent: React.FC = () => {
           helpTab={helpTab}
           onCloseHelp={() => setShowHelpModal(false)}
           onShowFirstSongSteps={firstSong.visible ? undefined : firstSong.show}
+          guideScreen={view === 'studio' ? 'studio' : view === 'library' ? 'home' : null}
+          onShowFeature={handlers.showFeature}
+          onStartTour={isStudioReady ? handlers.startTour : undefined}
           showStudioDeleteModal={showStudioDeleteModal}
           onCloseStudioDelete={() => setShowStudioDeleteModal(false)}
           onStudioProjectDeleted={handleStudioProjectDeleted}

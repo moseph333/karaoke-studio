@@ -440,7 +440,7 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
 
       const closeBtn = screen.getByRole('button', { name: /close help/i });
       const shortcutsTab = screen.getByRole('tab', { name: /keyboard shortcuts/i });
-      const guideTab = screen.getByRole('tab', { name: /studio usage guide/i });
+      const nextTab = screen.getByRole('tab', { name: /what you can do/i });
       const tabpanel = screen.getByRole('tabpanel', { name: /keyboard shortcuts/i });
       const footerBtn = screen.getByRole('button', { name: 'Close' });
 
@@ -450,15 +450,15 @@ describe('HelpDialogAccessibility — Empirical Verification Suite', () => {
       expect(footerBtn.tabIndex).not.toBe(-1);
 
       // WAI-ARIA tabs use a roving tabindex: only the selected tab sits in the Tab sequence and
-      // the other tab is reached with the arrow keys.
-      expect(guideTab.tabIndex).toBe(-1);
+      // the other tabs are reached with the arrow keys.
+      expect(nextTab.tabIndex).toBe(-1);
       act(() => {
         shortcutsTab.focus();
       });
       fireEvent.keyDown(shortcutsTab, { key: 'ArrowRight' });
-      expect(document.activeElement).toBe(guideTab);
-      expect(guideTab).toHaveAttribute('aria-selected', 'true');
-      expect(guideTab.tabIndex).toBe(0);
+      expect(document.activeElement).toBe(nextTab);
+      expect(nextTab).toHaveAttribute('aria-selected', 'true');
+      expect(nextTab.tabIndex).toBe(0);
     });
   });
 
