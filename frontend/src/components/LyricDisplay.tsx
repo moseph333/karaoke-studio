@@ -438,6 +438,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
     <div
       ref={stageRef}
       data-testid="lyric-display-stage"
+      data-guide="stage"
       data-fullscreen={isFullscreen ? 'true' : 'false'}
       data-sync-mode={activeSyncMode}
       data-tone={look.tone}

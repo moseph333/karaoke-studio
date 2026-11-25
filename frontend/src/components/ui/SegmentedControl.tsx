@@ -25,6 +25,8 @@ export interface SegmentedControlProps<T extends string> {
   tone?: 'accent' | 'neutral';
   fullWidth?: boolean;
   testId?: string;
+  /** The name a guide stop points at this control by (`data-guide`). */
+  guide?: string;
   className?: string;
   optionClassName?: string;
 }
@@ -39,6 +41,7 @@ export function SegmentedControl<T extends string>({
   tone = 'accent',
   fullWidth = false,
   testId,
+  guide,
   className,
   optionClassName,
 }: SegmentedControlProps<T>) {
@@ -67,6 +70,7 @@ export function SegmentedControl<T extends string>({
       role={isRadio ? 'radiogroup' : 'group'}
       aria-label={ariaLabel}
       data-testid={testId}
+      data-guide={guide}
       className={cn(
         'inline-flex flex-wrap items-center gap-x-5 gap-y-1',
         fullWidth && 'flex w-full',

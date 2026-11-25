@@ -28,7 +28,7 @@ export const GuideVocalControl: React.FC<GuideVocalControlProps> = ({
   const percent = Math.round(guideVolume * 100);
 
   return (
-    <div className="flex flex-col gap-2" data-testid="guide-vocal-control">
+    <div className="flex flex-col gap-2" data-testid="guide-vocal-control" data-guide="guide-vocal">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold text-theme-text">Guide vocal</span>
         <span className="tabular-nums text-sm font-semibold text-theme-text">{percent}%</span>

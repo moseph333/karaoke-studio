@@ -257,6 +257,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
         id="workspace-panel-timeline"
         {...workspacePanelProps('timeline', asTabs)}
         data-testid="studio-panel-timeline"
+        data-guide="timeline"
         className={`${panelCls(activeWorkspaceTab, 'timeline')} studio:min-h-0 studio:flex-1`}
       >
         <div className="@container relative flex flex-col gap-2 border-t-2 border-theme-border pt-2.5 studio:h-full studio:min-h-0">
@@ -311,6 +312,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
           <div
             ref={containerRef}
             data-testid="timeline-scroll-container"
+            data-guide="timeline-list"
             tabIndex={0}
             onScroll={handleScroll}
             onWheel={handleUserScrollInteraction}

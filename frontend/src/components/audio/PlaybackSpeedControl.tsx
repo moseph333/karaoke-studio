@@ -40,7 +40,7 @@ export const PlaybackSpeedControl: React.FC<PlaybackSpeedControlProps> = ({
   };
 
   return (
-    <div className={cn('flex items-center gap-1', className)}>
+    <div className={cn('flex items-center gap-1', className)} data-guide="speed">
       <span className="flex items-center pl-1.5 pr-0.5 text-theme-text-muted" aria-hidden="true">
         <Gauge className="h-3.5 w-3.5" />
       </span>

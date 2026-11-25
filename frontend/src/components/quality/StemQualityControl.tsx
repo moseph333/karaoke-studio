@@ -42,6 +42,7 @@ export const StemQualityControl: React.FC<StemQualityControlProps> = ({
       aria-labelledby="stem-quality-heading"
       className="space-y-2"
       data-testid="stem-quality"
+      data-guide="stems"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">

@@ -375,6 +375,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
     <section
       ref={dockRef}
       data-testid="transport-dock"
+      data-guide="transport"
       aria-label="Playback transport"
       className={cn(
         // A band across the bottom of the studio, over a rule
@@ -499,6 +500,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
           <button
             type="button"
             data-testid="transport-more-toggle"
+            data-guide="transport-more"
             onClick={() => setExtrasOpen((o) => !o)}
             aria-expanded={extrasOpen}
             aria-controls="transport-extras"

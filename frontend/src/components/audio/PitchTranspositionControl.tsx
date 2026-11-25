@@ -68,7 +68,7 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
   );
 
   return (
-    <div className="flex flex-col gap-3" data-testid="pitch-transposition-control">
+    <div className="flex flex-col gap-3" data-testid="pitch-transposition-control" data-guide="key">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold text-theme-text">Key</span>
         {(isRemixing || isPending) && (
@@ -159,6 +159,7 @@ export const PitchTranspositionControl: React.FC<PitchTranspositionControlProps>
         <button
           type="button"
           onClick={onOpenRecommender || onAnalyzeVocalRange}
+          data-guide="key-suggest"
           disabled={isAnalyzingRange}
           className={cn(
             'ks-display inline-flex min-h-[44px] md:min-h-[32px] items-center gap-1.5 border border-theme-border px-3 text-[20px] text-theme-text transition-colors hover:bg-theme-text hover:text-theme-text-inverse disabled:opacity-50',

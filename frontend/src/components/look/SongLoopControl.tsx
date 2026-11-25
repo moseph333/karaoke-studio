@@ -66,7 +66,12 @@ export const SongLoopControl: React.FC<SongLoopControlProps> = ({
   const madeWith = models.find((m) => m.id === loop?.model);
 
   return (
-    <section aria-labelledby="song-loop-heading" className="space-y-2" data-testid="song-loop">
+    <section
+      aria-labelledby="song-loop-heading"
+      className="space-y-2"
+      data-testid="song-loop"
+      data-guide="song-loop"
+    >
       <div className="min-w-0">
         <h3 id="song-loop-heading" className="text-sm font-semibold text-theme-text">
           Song loop

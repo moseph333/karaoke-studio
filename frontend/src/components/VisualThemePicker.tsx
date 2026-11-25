@@ -234,6 +234,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
       description="How the stage and the video look"
       className={className}
       data-testid="stage-look-panel"
+      data-guide="stage-look"
       actions={
         onResetThemeDefaults ? (
           <button
@@ -254,7 +255,7 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
       }
     >
       <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" data-guide="format">
           <span className={sectionLabel}>Format</span>
           <SegmentedControl
             value={aspectRatio === '9:16' ? '9:16' : '16:9'}
@@ -281,7 +282,12 @@ export const VisualThemePicker: React.FC<VisualThemePickerProps> = ({
           <span className={sectionLabel} id="stage-look-list-label">
             Look
           </span>
-          <div role="group" aria-labelledby="stage-look-list-label" className="flex flex-col">
+          <div
+            role="group"
+            aria-labelledby="stage-look-list-label"
+            data-guide="looks"
+            className="flex flex-col"
+          >
             {STAGE_LOOKS.map((look) => {
               const isSelected = selectedTheme.id === look.id;
               return (
