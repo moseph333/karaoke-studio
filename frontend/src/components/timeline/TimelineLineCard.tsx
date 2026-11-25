@@ -386,7 +386,10 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
           </div>
         )}
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-1 @[720px]:flex-nowrap @[720px]:justify-end">
+        <div
+          data-guide="line-tools"
+          className="flex shrink-0 flex-wrap items-center justify-between gap-1 @[720px]:flex-nowrap @[720px]:justify-end"
+        >
           <div className="flex items-center gap-px">
             <Tooltip content="Nudge line 0.2s earlier" position="top" portal>
               <button
@@ -484,6 +487,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   type="button"
                   aria-label={`More actions for line ${line.id}`}
                   data-testid={`line-more-${line.id}`}
+                  data-guide="line-more"
                   className={cn(rowControl, calm)}
                 >
                   <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
@@ -569,6 +573,7 @@ export const TimelineLineCard = React.memo(function TimelineLineCard({
                   : `Expand word timings for line ${line.id}`
               }
               aria-expanded={isExpanded}
+              data-guide="line-expand"
               className={cn(rowControl, isExpanded && 'text-theme-text')}
               title="Expand word timings"
             >

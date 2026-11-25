@@ -85,6 +85,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
           <button
             type="button"
             data-testid="timeline-review-filter"
+            data-guide="timeline-review"
             aria-pressed={filter === 'review'}
             onClick={() => onFilterChange(filter === 'review' ? 'all' : 'review')}
             title={
@@ -106,7 +107,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-1">
+      <div data-guide="timeline-tools" className="flex flex-wrap items-center justify-end gap-1">
         <IconButton
           data-testid="undo-lyrics-btn"
           label="Undo lyric change (Ctrl+Z)"
@@ -128,6 +129,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         <Divider />
         <IconButton
           data-testid="batch-offset-btn"
+          data-guide="timeline-offset"
           label="Batch offset timestamps"
           tooltip="Batch shift timestamps"
           icon={
@@ -143,6 +145,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         />
         <IconButton
           data-testid="duet-assign-btn"
+          data-guide="timeline-duet"
           label="Duet parts: assign duet roles / singer parts"
           tooltip="Assign duet singer parts"
           icon={
@@ -158,6 +161,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         />
         <IconButton
           data-testid="tap-to-sync-btn"
+          data-guide="timeline-tap"
           label="Tap sync: live tap to sync mode (T)"
           tooltip="Live tap-to-sync mode"
           hotkey="T"
@@ -174,6 +178,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({
         />
         <IconButton
           data-testid="replace-lyrics-btn"
+          data-guide="timeline-reimport"
           label="Re-import: replace text or re-align lyrics"
           tooltip="Replace or re-align lyrics"
           icon={

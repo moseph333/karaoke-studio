@@ -134,6 +134,7 @@ export const VocalPartsControl: React.FC<VocalPartsControlProps> = ({
           aria-labelledby="vocal-singers-heading"
           className="space-y-2.5"
           data-testid="vocal-singers"
+          data-guide="vocal-singers"
         >
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <h3 id="vocal-singers-heading" className="text-sm font-semibold text-theme-text">

@@ -272,7 +272,10 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
 
   return (
     <div className="mt-10 space-y-4 border-t-2 border-theme-border pt-5 font-theme-body sm:mt-14 sm:pt-6">
-      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+      <div
+        data-guide="setlist"
+        className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"
+      >
         <h2 className="ks-display text-[36px] font-black text-theme-text sm:text-[64px] sm:leading-[0.9]">
           Setlist
         </h2>

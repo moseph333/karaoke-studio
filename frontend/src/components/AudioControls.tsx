@@ -287,6 +287,7 @@ export const AudioControls: React.FC<AudioControlsProps> = ({
       description="Changes apply automatically"
       className={className}
       data-testid="audio-mix-panel"
+      data-guide="audio-mix"
     >
       <div className="flex flex-col gap-5">
         <PitchTranspositionControl

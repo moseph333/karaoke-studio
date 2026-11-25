@@ -55,7 +55,7 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
       visible ? 'opacity-100' : 'pointer-events-none opacity-0'
     )}
   >
-    <div className="flex shrink-0 items-center gap-1.5">
+    <div data-guide="stage-tools" className="flex shrink-0 items-center gap-1.5">
       <div
         role="group"
         aria-label="Lyric highlight mode"
@@ -97,6 +97,7 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
       />
       <IconButton
         data-testid="chord-bar-toggle"
+        data-guide="stage-chords"
         icon={<Music2 className="h-4 w-4" aria-hidden="true" />}
         label="Chord bar"
         hotkey="C"
@@ -107,6 +108,7 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
       />
       <IconButton
         data-testid="stage-fullscreen-toggle"
+        data-guide="stage-fullscreen"
         icon={
           isFullscreen ? (
             <Minimize className="h-4 w-4" aria-hidden="true" />

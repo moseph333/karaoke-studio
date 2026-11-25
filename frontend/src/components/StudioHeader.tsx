@@ -100,7 +100,10 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
           )}
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center justify-end gap-x-1 sm:flex-nowrap sm:gap-x-4">
+        <div
+          data-guide="header-tools"
+          className="flex min-w-0 flex-wrap items-center justify-end gap-x-1 sm:flex-nowrap sm:gap-x-4"
+        >
           {/* Background render status (hidden while the export dialog shows progress) */}
           {isRendering && !isExportModalOpen && (
             <div
@@ -165,6 +168,7 @@ const StudioHeaderView: React.FC<StudioHeaderProps> = ({
             <button
               type="button"
               onClick={onOpenHelp}
+              data-guide="help"
               className={cn(headerButton, 'min-w-[44px] justify-center')}
               aria-label="Help and studio usage guide (?)"
             >

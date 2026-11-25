@@ -45,6 +45,7 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
     <div
       className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4"
       data-testid="song-header"
+      data-guide="song"
     >
       {project.thumbnail_url ? (
         <img
@@ -110,6 +111,7 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
                 type="button"
                 onClick={onOpenCheckup}
                 data-testid="song-checkup-button"
+                data-guide="checkup"
                 aria-label={`Song check-up: ${toFix > 0 ? `${toFix} to fix` : 'nothing to fix'}`}
                 className={cn(
                   // The chip is badge-sized; the button around it is the 44px touch target and
@@ -139,6 +141,7 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
         <IconButton
           icon={<Pencil className="h-4 w-4" aria-hidden="true" />}
           label="Edit song details"
+          data-guide="song-details"
           tooltip="Edit song title and artist"
           onClick={onOpenEditModal}
         />

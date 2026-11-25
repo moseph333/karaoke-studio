@@ -100,7 +100,12 @@ export const VocalSplitControl: React.FC<VocalSplitControlProps> = ({
   const Heading = nested ? 'h4' : 'h3';
 
   return (
-    <section aria-labelledby={headingId} className="space-y-2" data-testid={words.testId}>
+    <section
+      aria-labelledby={headingId}
+      className="space-y-2"
+      data-testid={words.testId}
+      data-guide={words.testId}
+    >
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
           <Heading id={headingId} className="text-sm font-semibold text-theme-text">

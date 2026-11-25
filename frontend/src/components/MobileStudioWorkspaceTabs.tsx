@@ -94,6 +94,7 @@ export const MobileStudioWorkspaceTabs: React.FC<MobileStudioWorkspaceTabsProps>
   return (
     <nav
       data-testid={testId}
+      data-guide="workspace-tabs"
       aria-label="Studio workspace navigation"
       className={cn('sticky top-[3.5rem] z-30 w-full bg-theme-bg md:hidden', className)}
     >

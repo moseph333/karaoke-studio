@@ -223,6 +223,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
         <div className="min-w-0 space-y-3">
           <SegmentedControl<IntakeMode>
             ariaLabel="Track intake mode"
+            guide="intake-mode"
             value={intakeMode}
             onChange={(mode) => {
               setIntakeMode(mode);
@@ -251,6 +252,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
               <form
                 onSubmit={handleSearch}
                 role="search"
+                data-guide="home-search"
                 className="flex items-stretch border-2 border-theme-border focus-within:border-theme-accent"
               >
                 <input
@@ -345,6 +347,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
               aria-expanded={showAdvanced}
               aria-controls="custom-lyrics-panel"
               aria-label="Advanced options"
+              data-guide="advanced"
               aria-describedby={advancedHintId}
               className={cn(
                 'flex min-h-[44px] w-full items-center justify-between gap-3 border-b border-theme-border-subtle text-left transition-colors hover:border-theme-border',
