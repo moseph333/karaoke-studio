@@ -20,6 +20,7 @@ import { ProjectLibrary, type LibraryCounts } from './track-search/ProjectLibrar
 import { SungHeadline } from './track-search/SungHeadline';
 import { SongSearchResults } from './track-search/SongSearchResults';
 import { SeparationQualityPicker } from './quality/SeparationQualityPicker';
+import { Button } from './ui/Button';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
@@ -51,6 +52,8 @@ export interface TrackSearchProps {
   focusSearch?: boolean;
   /** The library song being fetched in full after its card was chosen. */
   openingProjectId?: string | null;
+  /** Starts the tour of this screen; offered to first-time visitors under "How it works". */
+  onShowAround?: () => void;
 }
 
 export type IntakeMode = 'youtube' | 'local';
@@ -97,6 +100,7 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   initialMode = 'youtube',
   focusSearch = false,
   openingProjectId = null,
+  onShowAround,
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -444,6 +448,11 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
             It is all automatic, so now and then a lyric is wrong or a line is out of time. The
             studio marks what to check and has a fix for each.
           </p>
+          {onShowAround && (
+            <Button size="sm" className="mt-4" onClick={onShowAround}>
+              Show me around
+            </Button>
+          )}
         </section>
       )}
 

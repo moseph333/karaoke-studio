@@ -537,7 +537,7 @@ export const AppContent: React.FC = () => {
     // Help steps aside for the guide it starts
     startTour: () => {
       setShowHelpModal(false);
-      setGuide({ tour: 'studio' });
+      setGuide({ tour: view === 'library' ? 'home' : 'studio' });
     },
     showFeature: (feature: string) => {
       setShowHelpModal(false);
@@ -580,7 +580,7 @@ export const AppContent: React.FC = () => {
   const guideScreen = view === 'studio' ? 'studio' : view === 'library' ? 'home' : null;
   useGuideCommands({
     screen: guideScreen,
-    onStartTour: isStudioReady ? handlers.startTour : undefined,
+    onStartTour: guideScreen ? handlers.startTour : undefined,
     onShowFeature: handlers.showFeature,
     onOpenFeatures: () => {
       setHelpTab('features');
@@ -655,6 +655,7 @@ export const AppContent: React.FC = () => {
                 initialQuery={sharedQuery ?? undefined}
                 initialMode={shortcut === 'upload' ? 'local' : undefined}
                 focusSearch={shortcut === 'new'}
+                onShowAround={handlers.startTour}
               />
             ) : project.status === 'album' ? (
               <AlbumTrackPicker
@@ -788,7 +789,7 @@ export const AppContent: React.FC = () => {
           onShowFirstSongSteps={firstSong.visible ? undefined : firstSong.show}
           guideScreen={guideScreen}
           onShowFeature={handlers.showFeature}
-          onStartTour={isStudioReady ? handlers.startTour : undefined}
+          onStartTour={guideScreen ? handlers.startTour : undefined}
           showStudioDeleteModal={showStudioDeleteModal}
           onCloseStudioDelete={() => setShowStudioDeleteModal(false)}
           onStudioProjectDeleted={handleStudioProjectDeleted}
