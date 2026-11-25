@@ -1,6 +1,6 @@
 /**
  * Screens the library (the first thing a visitor sees) does not need: the studio, the
- * export and help dialogs and the command palette.
+ * export and help dialogs, the command palette and the guided tour.
  *
  * They are split out of the first-load script and fetched when first shown.
  * preloadDeferredScreens() fetches them in the background once the page is idle, so opening
@@ -115,6 +115,7 @@ function deferred<M, P extends object>(
 const studio = chunk(() => import('./components/studio/studioBundle'));
 const help = chunk(() => import('./components/HelpModal'));
 const palette = chunk(() => import('./components/commandPalette/CommandPalette'));
+const guide = chunk(() => import('./components/guide/GuideTour'));
 
 // The studio's chunk is fetched when a song opens, before there is anything to lose, so a
 // missing one reloads the page. Help and the palette open over a studio that may hold unsaved
@@ -128,10 +129,14 @@ export const ReseparateDialog = deferred(studio, (m) => m.ReseparateDialog);
 export const SongCheckupDialog = deferred(studio, (m) => m.SongCheckupDialog);
 export const HelpModal = deferred(help, (m) => m.HelpModal);
 export const CommandPalette = deferred(palette, (m) => m.CommandPalette);
+// The tour opens over the studio too: a failure only leaves it closed
+export const GuideTour = deferred(guide, (m) => m.GuideTour);
 
 /** Fetches every deferred chunk now; resolves when all have arrived. */
 export function loadDeferredScreens(): Promise<void> {
-  return Promise.all([studio.load(), help.load(), palette.load()]).then(() => undefined);
+  return Promise.all([studio.load(), help.load(), palette.load(), guide.load()]).then(
+    () => undefined
+  );
 }
 
 let preloadStarted = false;
