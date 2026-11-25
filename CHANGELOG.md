@@ -1,5 +1,43 @@
 # Changelog
 
+## [2.14.0](https://github.com/moseph333/karaoke-studio/compare/v2.13.0...v2.14.0) (2026-11-25)
+
+
+### Features
+
+* **cloud:** make a looping background video from a song's lyrics on the gpu ([65ff0d0](https://github.com/moseph333/karaoke-studio/commit/65ff0d0c5ebd632c5ecec598e3ada5239d07ddb0))
+* **export:** draw exported videos in the five new looks ([bc457b8](https://github.com/moseph333/karaoke-studio/commit/bc457b8c2a283b0a235fa6066a05d5e1f4baa845))
+* **export:** say that the .ass download is laid out for the look's typeface ([c1f6fce](https://github.com/moseph333/karaoke-studio/commit/c1f6fce6e3b5946c87ab3d4956988739d3c5d3c8))
+* **guide:** show a tour of the studio from the first-song card ([4a12266](https://github.com/moseph333/karaoke-studio/commit/4a12266c8b3561550ffb473b9351bb0ca0961481))
+* **help:** list what you can do and point at each control ([da6b850](https://github.com/moseph333/karaoke-studio/commit/da6b8500aa9b0a1137920e6ad73a9e0556883d8e))
+* **home:** show a short tour of the home screen ([ed89edd](https://github.com/moseph333/karaoke-studio/commit/ed89edd0a37bd2dadf38d45145d80afb17936359))
+* **look:** choose best or fast when making a song loop ([c012402](https://github.com/moseph333/karaoke-studio/commit/c012402f5000d8a3b5a681c95f8991850fa134ef))
+* **look:** make a song loop from the look panel and show it on the stage ([a3782aa](https://github.com/moseph333/karaoke-studio/commit/a3782aac4e4b943efd278d28ef68c95f7ecb574d))
+* **loops:** make a song's loop as a background job on the cloud gpu ([4460564](https://github.com/moseph333/karaoke-studio/commit/44605642c36892e9414615a8b9085f64050d4911))
+* **palette:** start the tour or find a feature by typing ([6d3c1e5](https://github.com/moseph333/karaoke-studio/commit/6d3c1e54e87f15013ae7f2f56d6d1ddd3a41d556))
+* **render:** draw the song's loop behind the lyrics of an export ([4ac8eca](https://github.com/moseph333/karaoke-studio/commit/4ac8eca0397f3b0d080a6fed0d666476a75ddd4b))
+* **stage:** serve the cover art the way a look treats it ([5ff8242](https://github.com/moseph333/karaoke-studio/commit/5ff8242e513a26709bfca16c1ed00b0ac990bbae))
+* **stage:** show the video's frame on the stage, in five looks ([25e9491](https://github.com/moseph333/karaoke-studio/commit/25e949101707486e88b2faf6b5a60dc06f7c580d))
+
+
+### Bug Fixes
+
+* **cloud:** ask for a fixed camera, so a song loop repeats without a double image ([e074061](https://github.com/moseph333/karaoke-studio/commit/e074061fba8421e1883c85809433c0171f879d78))
+* **cloud:** get a song loop through its last two steps on the cloud gpu ([4f2d409](https://github.com/moseph333/karaoke-studio/commit/4f2d40954c00e00c9a5755941777cb3361b2dbe5))
+* **cloud:** keep the model libraries' progress bars out of a song loop's progress ([5605118](https://github.com/moseph333/karaoke-studio/commit/5605118ef69d8d8a39561eee5ed60de74ee2434a))
+* **cloud:** make song loops only on gpus they are known to fit ([396094c](https://github.com/moseph333/karaoke-studio/commit/396094cd0428604fc102263f1f19c42c95b3aab2))
+* **cloud:** take a song title that begins with a dash as the title ([506f39c](https://github.com/moseph333/karaoke-studio/commit/506f39c55052940f298a95a4dd101d33c2e73113))
+* **export:** give a very long line more rows instead of running it off the frame ([44c1901](https://github.com/moseph333/karaoke-studio/commit/44c19010e3afa6303dee4ba5d0ac517615f5c83a))
+* **export:** keep the end card up to the video's last frame ([7761a99](https://github.com/moseph333/karaoke-studio/commit/7761a99b9aa0646811ea0033601cad909d643c4a))
+* **export:** show what starts with the song from the video's first frame ([24bf222](https://github.com/moseph333/karaoke-studio/commit/24bf22263525572d049ddc86c670cb295cbaabc0))
+* **look:** show each look's sample as a strip of the frame that can be read ([a212706](https://github.com/moseph333/karaoke-studio/commit/a2127064405a4a35a45b2c9fce806cd79506c67b))
+* **pwa:** leave font files out of the service worker's asset cache ([becab7c](https://github.com/moseph333/karaoke-studio/commit/becab7cf77622597b27c1f0bab99b73238130db9))
+* **render:** draw a look's lyrics on frames in the video's own colour format ([12b6fef](https://github.com/moseph333/karaoke-studio/commit/12b6fef4bd643696941d3adb24c751f105d393e8))
+* **render:** draw the visualizer's bars in the look's colour ([d303364](https://github.com/moseph333/karaoke-studio/commit/d303364698399b610991e4caddc650c21d76a984))
+* **stage:** count the toolbar in the stage's height and fit a 9:16 frame on a phone ([b4131cb](https://github.com/moseph333/karaoke-studio/commit/b4131cb6b066b9da3ab25c971a839657ab849dd5))
+* **stage:** keep the visualizer under the lyrics, in the band the video draws it in ([4971ca6](https://github.com/moseph333/karaoke-studio/commit/4971ca67d5f7206ca6005fa5a408ecf3d92fd83a))
+* **stage:** light as much of a word as the video does ([8737df6](https://github.com/moseph333/karaoke-studio/commit/8737df636970a4c5e659a7e29479b4fe5396fb2b))
+
 ## [2.13.0](https://github.com/moseph333/karaoke-studio/compare/v2.12.0...v2.13.0) (2026-11-22)
 
 
