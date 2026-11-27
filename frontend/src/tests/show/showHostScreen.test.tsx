@@ -341,6 +341,82 @@ describe('the queue', () => {
   });
 });
 
+describe('singers taking turns', () => {
+  const order = (host: Screen) => queuedSingers(host).map((row) => row.match(/Alex|Bo|Cy/)?.[0]);
+  const turns = (host: Screen) => host.getByRole('switch', { name: 'Take turns' });
+
+  it('puts a singer’s second song behind those who have not been on, and says where', async () => {
+    const host = openHost();
+    expect(turns(host)).toBeChecked();
+
+    await addVideo(host, 'Alex', results[0].title);
+    await addVideo(host, 'Bo', results[0].title);
+    await addVideo(host, 'Alex', results[0].title);
+    expect(order(host)).toEqual(['Alex', 'Bo', 'Alex']);
+
+    await addVideo(host, 'Cy', results[0].title);
+    expect(order(host)).toEqual(['Alex', 'Bo', 'Cy', 'Alex']);
+    expect(await host.findByText('Cy is in the queue, after Bo')).toBeInTheDocument();
+    expect(savedQueue().map((entry) => entry.singer)).toEqual(['Alex', 'Bo', 'Cy', 'Alex']);
+  });
+
+  it('says so when a singer goes ahead of everyone waiting', async () => {
+    const host = openHost();
+    await addVideo(host, 'Alex', results[0].title);
+    fireEvent.click(host.getByRole('button', { name: 'Start the song' }));
+    await addVideo(host, 'Alex', results[0].title);
+
+    await addVideo(host, 'Bo', results[0].title);
+
+    expect(order(host)).toEqual(['Bo', 'Alex']);
+    expect(await host.findByText('Bo is in the queue, next to sing')).toBeInTheDocument();
+  });
+
+  it('puts a singer who goes again behind those still waiting for a turn', async () => {
+    const host = openHost();
+    await addVideo(host, 'Alex', results[0].title);
+    await addVideo(host, 'Bo', results[0].title);
+    await addVideo(host, 'Cy', results[0].title);
+    await addVideo(host, 'Bo', results[0].title);
+    fireEvent.click(host.getByRole('button', { name: 'Start the song' }));
+    fireEvent.click(host.getByRole('button', { name: 'Song is over' }));
+    expect(order(host)).toEqual(['Bo', 'Cy', 'Bo']);
+
+    fireEvent.click(host.getByRole('button', { name: 'Put Alex back in the queue' }));
+
+    expect(order(host)).toEqual(['Bo', 'Cy', 'Alex', 'Bo']);
+  });
+
+  it('adds to the end of the line once turned off, and stays off after a reload', async () => {
+    const host = openHost();
+    fireEvent.click(turns(host));
+    expect(turns(host)).not.toBeChecked();
+
+    await addVideo(host, 'Alex', results[0].title);
+    await addVideo(host, 'Bo', results[0].title);
+    await addVideo(host, 'Alex', results[0].title);
+    await addVideo(host, 'Cy', results[0].title);
+    expect(order(host)).toEqual(['Alex', 'Bo', 'Alex', 'Cy']);
+    expect(await host.findByText('Cy is in the queue')).toBeInTheDocument();
+
+    document.body.innerHTML = '';
+    expect(turns(openHost())).not.toBeChecked();
+  });
+
+  it('moves nobody when it is turned on or off', async () => {
+    const host = openHost();
+    fireEvent.click(turns(host));
+    await addVideo(host, 'Alex', results[0].title);
+    await addVideo(host, 'Alex', results[0].title);
+    await addVideo(host, 'Bo', results[0].title);
+
+    fireEvent.click(turns(host));
+
+    expect(turns(host)).toBeChecked();
+    expect(order(host)).toEqual(['Alex', 'Alex', 'Bo']);
+  });
+});
+
 describe('a video with no stage window open', () => {
   it('says where videos play and offers to open the window', async () => {
     const open = vi.spyOn(window, 'open').mockReturnValue(null);
