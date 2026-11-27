@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import math
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -294,6 +295,45 @@ class VocalRangeAnalyzer:
         confidence = max(0.0, min(1.0, float(best_corr)))
         return best_key, round(confidence, 2)
 
+    def _frame_pitches(
+        self, mono: np.ndarray, sample_rate: int
+    ) -> Iterator[tuple[int, float, float | None]]:
+        """Each analysis frame of ``mono`` in turn: its number, its loudness (RMS) and its
+        pitch in Hz, None where the frame is too quiet to look at or holds no clear pitch.
+        Frame n covers the samples from n * hop_length for frame_length."""
+        tau_min = max(2, int(sample_rate / self.max_freq))
+        tau_max = min(self.frame_length // 2, int(sample_rate / self.min_freq))
+        W = self.frame_length - tau_max
+        starts = range(0, len(mono) - self.frame_length + 1, self.hop_length)
+        for number, i in enumerate(starts):
+            frame = mono[i : i + self.frame_length]
+            rms = float(np.sqrt(np.mean(frame**2)))
+            if rms < self.energy_threshold:
+                yield number, rms, None
+                continue
+            freq, _ = self._detect_pitch_frame(frame, tau_min, tau_max, W)
+            yield number, rms, freq
+
+    def pitch_contour(
+        self, audio_input: str | Path | np.ndarray, sr: int | None = None
+    ) -> dict[str, Any]:
+        """The pitch of a voice over time, as the range analysis hears it frame by frame.
+
+        Returns ``hop`` (seconds between frames), ``start`` (the middle of the first frame, in
+        seconds from the start of the audio) and ``midi``, one continuous MIDI note number per
+        frame with NaN where nothing is sung. Audio shorter than one frame gives no frames;
+        silence gives frames that are all NaN."""
+        mono, sample_rate = self._load_audio(audio_input, sr=sr)
+        hop = self.hop_length / sample_rate
+        start = self.frame_length / 2 / sample_rate
+        total_frames = max(0, (len(mono) - self.frame_length) // self.hop_length + 1)
+        midi = np.full(total_frames, np.nan, dtype=float)
+        if total_frames and float(np.max(np.abs(mono))) >= 1e-4:
+            for number, _, freq in self._frame_pitches(mono, sample_rate):
+                if freq is not None:
+                    midi[number] = hz_to_midi(freq)
+        return {"hop": hop, "start": start, "midi": midi}
+
     def analyze_audio(self, audio_data: np.ndarray, sr: int | None = None) -> dict[str, Any]:
         """Analyze raw numpy audio array for vocal range, tessitura, and musical key."""
         mono, sample_rate = self._load_audio(audio_data, sr=sr)
@@ -306,21 +346,11 @@ class VocalRangeAnalyzer:
             total_frames = max(0, (total_samples - self.frame_length) // self.hop_length + 1)
             return self._safe_empty_result(0, total_frames)
 
-        tau_min = max(2, int(sample_rate / self.max_freq))
-        tau_max = min(self.frame_length // 2, int(sample_rate / self.min_freq))
-        W = self.frame_length - tau_max
-
         total_frames = max(0, (total_samples - self.frame_length) // self.hop_length + 1)
         voiced_pitches: list[float] = []
         chroma = np.zeros(12, dtype=float)
 
-        for i in range(0, total_samples - self.frame_length + 1, self.hop_length):
-            frame = mono[i : i + self.frame_length]
-            rms = float(np.sqrt(np.mean(frame**2)))
-            if rms < self.energy_threshold:
-                continue
-
-            freq, _ = self._detect_pitch_frame(frame, tau_min, tau_max, W)
+        for _, rms, freq in self._frame_pitches(mono, sample_rate):
             if freq is not None:
                 voiced_pitches.append(freq)
                 midi = hz_to_midi(freq)

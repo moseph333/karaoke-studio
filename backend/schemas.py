@@ -457,6 +457,28 @@ class VocalLevels(BaseModel):
         return normalize_levels(self.model_dump(exclude_none=True))
 
 
+class MelodyResponse(BaseModel):
+    project_id: str
+    version: int = Field(description="The version of the melody analysis that made this")
+    source: Literal["lead", "vocals"] = Field(
+        description="What the melody was read from: the lead part of split vocals, or the "
+        "whole vocal stem"
+    )
+    detected: bool = Field(description="False when no sung pitch was found")
+    start: float = Field(description="Seconds from the start of the song to the first frame")
+    hop: float = Field(description="Seconds between frames")
+    low: float | None = Field(
+        default=None, description="The low end of the sung range, as a MIDI note number"
+    )
+    high: float | None = Field(
+        default=None, description="The high end of the sung range, as a MIDI note number"
+    )
+    midi: list[float | None] = Field(
+        description="One MIDI note number per frame, in the song's original key; null where "
+        "nothing is sung"
+    )
+
+
 class PracticeVocalRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     semitones: int = Field(
