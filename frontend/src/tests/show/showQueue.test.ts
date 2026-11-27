@@ -93,6 +93,36 @@ describe('the order of the queue', () => {
     expect(singers(queue)).toEqual(['Cy', 'Alex']);
   });
 
+  it('puts a singer at any place in the line', () => {
+    expect(singers(run([{ type: 'place', id: 'c', at: 0 }], three))).toEqual(['Cy', 'Alex', 'Bo']);
+    expect(singers(run([{ type: 'place', id: 'a', at: 2 }], three))).toEqual(['Bo', 'Cy', 'Alex']);
+    expect(singers(run([{ type: 'place', id: 'a', at: 1 }], three))).toEqual(['Bo', 'Alex', 'Cy']);
+  });
+
+  it('takes a place past either end as that end, and the same place as no move', () => {
+    expect(singers(run([{ type: 'place', id: 'a', at: 9 }], three))).toEqual(['Bo', 'Cy', 'Alex']);
+    expect(singers(run([{ type: 'place', id: 'c', at: -3 }], three))).toEqual(['Cy', 'Alex', 'Bo']);
+    expect(run([{ type: 'place', id: 'b', at: 1 }], three)).toBe(three);
+    expect(run([{ type: 'place', id: 'nobody', at: 0 }], three)).toBe(three);
+  });
+
+  it('counts places among those waiting, and leaves the singer on stage alone', () => {
+    const queue = run(
+      [
+        { type: 'add', id: 'd', singer: 'Di', source: song('Halo') },
+        { type: 'start', id: 'a' },
+        { type: 'finish', id: 'a' },
+        { type: 'start', id: 'b' },
+      ],
+      three
+    );
+    const placed = run([{ type: 'place', id: 'd', at: 0 }], queue);
+    expect(singers(placed)).toEqual(['Di', 'Cy']);
+    expect(playingEntry(placed)?.singer).toBe('Bo');
+    expect(finishedEntries(placed).map((e) => e.singer)).toEqual(['Alex']);
+    expect(run([{ type: 'place', id: 'b', at: 1 }], queue)).toBe(queue);
+  });
+
   it('takes a singer off', () => {
     expect(singers(run([{ type: 'remove', id: 'b' }], three))).toEqual(['Alex', 'Cy']);
   });

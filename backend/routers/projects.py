@@ -71,7 +71,7 @@ from backend.schemas import (
     RenderRequest,
     VocalRangeData,
 )
-from backend.services import remote_render
+from backend.services import intake_lyrics, remote_render, uploaded_backgrounds
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.media_links import parse_media_link
 from backend.services.separator import adopt_provenance
@@ -234,13 +234,21 @@ def process_track(req: ProcessRequest, bg_tasks: BackgroundTasks):
         if isinstance(previous, dict) and previous.get("album_whole"):
             # An album being made as one song is tried again as one song
             proj_data["album_whole"] = True
+        # Lyrics pasted with the link stay on the song until it has its lines. A song started
+        # again gets the ones pasted for it the first time, unless this request brings its own
+        lyrics = intake_lyrics.pasted(req.custom_lyrics)
+        if lyrics is None and req.retry:
+            lyrics = intake_lyrics.kept(previous)
+        intake_lyrics.keep(proj_data, lyrics)
         cancel_event = threading.Event()
         main_mod.active_cancellations[project_id] = cancel_event
         if video_id and video_id != project_id:
             main_mod.active_cancellations[video_id] = cancel_event
         main_mod.projects[project_id] = proj_data
         save_projects()
-    bg_tasks.add_task(run_job, main_mod.run_pipeline, project_id, req.url_or_id, req.custom_lyrics)
+    bg_tasks.add_task(
+        run_job, main_mod.run_pipeline, project_id, req.url_or_id, lyrics or req.custom_lyrics
+    )
     return {"project_id": project_id, "status": "queued"}
 
 
@@ -988,9 +996,23 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
         proj["render_eta_seconds"] = 45
         proj["render_heartbeat"] = int(time.time() * 1000)
         save_projects()
-    bg_tasks.add_task(run_job, main_mod.run_video_render, project_id, req)
+        # Held from here, not from when the render reaches FFmpeg: the studio may let go
+        # of the upload while the render waits behind other jobs
+        uploaded_backgrounds.hold(req.custom_bg_id)
+    bg_tasks.add_task(run_job, run_render_job, project_id, req)
 
     return {"status": "queued"}
+
+
+def run_render_job(project_id: str, req: RenderRequest) -> None:
+    """The render a request queued, ending the hold that request took on its uploaded
+    background however the render ends."""
+    import backend.main as main_mod
+
+    try:
+        main_mod.run_video_render(project_id, req)
+    finally:
+        uploaded_backgrounds.release(req.custom_bg_id)
 
 
 @router.post("/api/render/warmup", status_code=202)

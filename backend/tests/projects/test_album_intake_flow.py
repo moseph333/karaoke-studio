@@ -267,3 +267,52 @@ def test_a_long_upload_with_no_songs_to_tell_apart_is_one_song(studio, monkeypat
     proj = find_project("local_long1")
     assert proj["status"] == "ready", proj.get("error")
     assert "album" not in proj
+
+
+PASTED = "Line one of mine\nLine two of mine"
+
+
+def test_an_album_made_one_song_is_made_with_the_lyrics_pasted_with_its_link(client, studio):
+    res = client.post("/api/process", json={"url_or_id": URL, "custom_lyrics": PASTED})
+    album_id = res.json()["project_id"]
+    assert find_project(album_id)["status"] == "album"
+
+    client.post(f"/api/project/{album_id}/album/whole", json={})
+
+    proj = find_project(album_id)
+    assert proj["status"] == "ready", proj.get("error")
+    assert proj["lyric_source"] == "custom"
+    assert [line["text"] for line in proj["lines"]] == PASTED.split("\n")
+    assert studio.lyrics_asked == []
+    assert "intake_lyrics" not in proj
+
+
+def test_an_uploaded_album_made_one_song_is_made_with_the_lyrics_sent_with_it(
+    client, studio, monkeypatch
+):
+    monkeypatch.setattr(pipeline, "ALBUM_MIN_SECONDS", 120)
+    monkeypatch.setattr(album_audio, "SONG_MIN_SEC", 30.0)
+    monkeypatch.setattr("backend.services.album_tracks.find_catalog_album", lambda *a, **k: None)
+    pid = "local_album2"
+    wav = main_mod.DOWNLOADS_DIR / f"{pid}.wav"
+    write_album(wav, [50.0, 45.0, 40.0], rate=44100)
+    # As POST /api/upload-track leaves an upload that was sent with lyrics
+    projects[pid] = {
+        "id": pid,
+        "track_id": pid,
+        "status": "queued",
+        "lines": [],
+        "intake_lyrics": PASTED,
+    }
+    save_projects()
+    active_cancellations.pop(pid, None)
+    pipeline.run_local_pipeline(pid, str(wav), "The Record", "The Band", PASTED)
+    assert find_project(pid)["status"] == "album"
+
+    client.post(f"/api/project/{pid}/album/whole", json={})
+
+    proj = find_project(pid)
+    assert proj["status"] == "ready", proj.get("error")
+    assert proj["lyric_source"] == "custom"
+    assert [line["text"] for line in proj["lines"]] == PASTED.split("\n")
+    assert "intake_lyrics" not in proj

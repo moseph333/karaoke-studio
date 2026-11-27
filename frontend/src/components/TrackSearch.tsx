@@ -28,6 +28,8 @@ import { focusRing } from './ui/variants';
 import { cn } from '../utils/cn';
 import { SUPPORTED_SITES_SENTENCE, linkSite, looksLikeLink } from '../utils/mediaLinks';
 import { PRESET_NAMES, defaultPreset } from '../utils/quality';
+import { TEXT_LIMITS } from '../utils/textLimits';
+import { LyricsLimitNote } from './LyricsLimitNote';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { useSongSearch } from '../hooks/useSongSearch';
 import { useSongPreview } from '../hooks/useSongPreview';
@@ -424,11 +426,13 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
                   onChange={(e) => setCustomLyrics(e.target.value)}
                   placeholder="Paste line-by-line lyrics here. If left blank, synchronized lyrics are queried automatically from LRCLIB."
                   rows={4}
+                  maxLength={TEXT_LIMITS.lyrics}
                   className="w-full border-2 border-theme-border bg-transparent p-3 font-mono text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none sm:text-sm"
                 />
                 <p className="text-sm text-theme-text-muted">
                   One lyric line per row. Words are timed automatically against the vocals.
                 </p>
+                <LyricsLimitNote text={customLyrics} />
               </div>
             )}
           </div>

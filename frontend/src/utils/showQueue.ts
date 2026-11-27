@@ -51,6 +51,8 @@ export type ShowAction =
   | { type: 'remove'; id: string }
   /** Moves a waiting entry one place earlier (-1) or later (1) among the waiting ones. */
   | { type: 'move'; id: string; by: -1 | 1 }
+  /** Puts a waiting entry at a place among the waiting ones; 0 is the head of the line. */
+  | { type: 'place'; id: string; at: number }
   /** Puts the entry on stage; whoever was on is done. */
   | { type: 'start'; id: string }
   | { type: 'finish'; id: string }
@@ -96,6 +98,14 @@ export function showQueueReducer(queue: ShowQueue, action: ShowAction): ShowQueu
       const neighbour = waiting[at + action.by];
       if (at < 0 || !neighbour) return queue;
       return placed(queue, action.id, neighbour.id, action.by > 0);
+    }
+    case 'place': {
+      const waiting = queue.filter((e) => e.status === 'waiting');
+      const from = waiting.findIndex((e) => e.id === action.id);
+      if (from < 0 || !Number.isFinite(action.at)) return queue;
+      const to = Math.min(Math.max(Math.round(action.at), 0), waiting.length - 1);
+      if (to === from) return queue;
+      return placed(queue, action.id, waiting[to].id, to > from);
     }
     case 'start': {
       if (!queue.some((e) => e.id === action.id)) return queue;

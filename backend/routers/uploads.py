@@ -19,7 +19,8 @@ from backend.project_store import (
     restore_on_failed_save,
     save_projects,
 )
-from backend.schemas import parse_separation_quality
+from backend.schemas import TEXT_LIMITS, parse_separation_quality
+from backend.services import intake_lyrics, uploaded_backgrounds
 from backend.update_drain import ensure_not_draining
 from backend.upload_utils import (
     ALLOWED_AUDIO_EXTS,
@@ -193,16 +194,32 @@ async def upload_background(file: UploadFile = File(...)):
     return {"status": "ok", "bg_id": bg_id, "bg_url": f"/static/backgrounds/{bg_id}"}
 
 
+@router.delete(
+    "/api/background/{bg_id}",
+    summary="Delete an uploaded stage background",
+)
+def delete_background(bg_id: str):
+    """Deletes an uploaded background the studio has replaced or removed. Its id is kept
+    only by the browser that uploaded it, so nothing else can say the file is unused.
+
+    `deleted` is false when the file was already gone, or when a video that was asked for
+    with it is still queued or rendering: the file is then deleted when that render ends."""
+    # Anything that is not an upload's id names no file (and never becomes part of a path)
+    if not uploaded_backgrounds.is_id(bg_id):
+        raise HTTPException(status_code=404, detail="Background not found")
+    return {"status": "ok", "deleted": uploaded_backgrounds.remove(bg_id)}
+
+
 @router.post("/api/upload-track")
 @router.post("/api/upload-audio")
 async def upload_audio_track(
     file: UploadFile = File(...),
     # The same limits as a link intake (ProcessRequest) and a rename (ProjectMetadataUpdate):
     # without them a megabyte of text in any field went into projects.json
-    title: str | None = Form(default=None, max_length=300),
-    artist: str | None = Form(default=None, max_length=300),
-    created_by: str | None = Form(default=None, max_length=64),
-    custom_lyrics: str | None = Form(default=None, max_length=50000),
+    title: str | None = Form(default=None, max_length=TEXT_LIMITS["title"]),
+    artist: str | None = Form(default=None, max_length=TEXT_LIMITS["artist"]),
+    created_by: str | None = Form(default=None, max_length=TEXT_LIMITS["singer"]),
+    custom_lyrics: str | None = Form(default=None, max_length=TEXT_LIMITS["lyrics"]),
     separation_quality: str | None = Form(default=None),
     bg_tasks: BackgroundTasks = BackgroundTasks(),
 ):
@@ -272,6 +289,9 @@ async def upload_audio_track(
     }
     if quality:
         proj_data["separation_quality"] = quality
+    # Kept until the song has its lines: an upload that turns out to be an album can still
+    # be made as one song with them
+    intake_lyrics.keep(proj_data, custom_lyrics)
 
     await run_in_threadpool(_register_upload, project_id, proj_data)
 
