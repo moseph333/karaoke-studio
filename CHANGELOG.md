@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.16.0](https://github.com/moseph333/karaoke-studio/compare/v2.15.0...v2.16.0) (2026-11-27)
+
+
+### Features
+
+* **show:** have singers take turns in the queue ([a03857c](https://github.com/moseph333/karaoke-studio/commit/a03857c949f6d20d69003293a46abd893d5b9619))
+
 ## [2.15.0](https://github.com/moseph333/karaoke-studio/compare/v2.14.0...v2.15.0) (2026-11-27)
 
 
