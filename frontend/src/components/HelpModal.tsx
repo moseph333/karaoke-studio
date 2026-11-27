@@ -41,6 +41,8 @@ export interface HelpModalProps {
   onShowFeature?: (featureId: string) => void;
   /** Starts the tour of the screen behind the dialog; the caller closes this dialog first. */
   onStartTour?: () => void;
+  /** Opens the owner's Server settings page; only on a server that has an admin passphrase. */
+  onOpenServerSettings?: () => void;
 }
 
 interface ShortcutItem {
@@ -211,6 +213,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
   guideScreen = null,
   onShowFeature,
   onStartTour,
+  onOpenServerSettings,
 }) => {
   const [activeTab, setActiveTab] = useState<HelpTab>(initialTab);
   const canAct = songOpen && Boolean(onAction);
@@ -510,6 +513,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({
           <p className="self-center text-sm text-theme-text-muted sm:mr-auto">
             Karaoke Studio {serverVersion}
           </p>
+        )}
+        {onOpenServerSettings && (
+          <Button variant="ghost" fullWidth="mobile" onClick={onOpenServerSettings}>
+            Server settings
+          </Button>
         )}
         <Button variant="secondary" fullWidth="mobile" onClick={onClose} className="min-w-[44px]">
           Close
