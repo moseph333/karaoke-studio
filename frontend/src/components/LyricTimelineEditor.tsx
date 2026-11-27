@@ -54,6 +54,8 @@ export interface LyricTimelineEditorProps extends LyricDisplayProps {
   onCancelRealign?: () => void;
   /** The last alignment's report: its vocal regions show singing that has no line. */
   syncReport?: SyncReport | null;
+  /** Practice: shown in place of the timeline, which stays mounted with its unsaved edits. */
+  practicePanel?: React.ReactNode;
 }
 
 /** The stage's own props: passing the editor's too would defeat LyricDisplay's memo. */
@@ -67,6 +69,7 @@ function stagePropsOf({
   onStartBackgroundRealign: _onStartBackgroundRealign,
   onCancelRealign: _onCancelRealign,
   syncReport: _syncReport,
+  practicePanel: _practicePanel,
   ...stage
 }: LyricTimelineEditorProps): LyricDisplayProps {
   return stage;
@@ -85,6 +88,7 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
     syncJob,
     onStartBackgroundRealign,
     onCancelRealign,
+    practicePanel,
   } = props;
   const { toast } = useToast();
   const clock = usePlaybackClock();
@@ -252,13 +256,15 @@ export const LyricTimelineEditor: React.FC<LyricTimelineEditorProps> = (props) =
       >
         <LyricDisplay {...stagePropsOf(props)} lines={ed.editableLines} />
       </div>
+      {practicePanel}
 
       <div
         id="workspace-panel-timeline"
         {...workspacePanelProps('timeline', asTabs)}
         data-testid="studio-panel-timeline"
         data-guide="timeline"
-        className={`${panelCls(activeWorkspaceTab, 'timeline')} studio:min-h-0 studio:flex-1`}
+        hidden={Boolean(practicePanel)}
+        className={`${practicePanel ? 'hidden' : panelCls(activeWorkspaceTab, 'timeline')} studio:min-h-0 studio:flex-1`}
       >
         <div className="@container relative flex flex-col gap-2 border-t-2 border-theme-border pt-2.5 studio:h-full studio:min-h-0">
           <TimelineToolbar

@@ -149,6 +149,26 @@ describe('Studio accessible-name uniqueness', () => {
     });
   }
 
+  for (const [label, width, height] of [
+    ['phone', 375, 812],
+    ['desktop', 1280, 800],
+  ] as const) {
+    it(`has no duplicated (role, name) pairs in practice at ${label} width (${width}px)`, async () => {
+      setTestViewport(width, height);
+      render(<App />);
+      await waitFor(() => expect(screen.getByText('Uniqueness Anthem')).toBeInTheDocument());
+      fireEvent.click(screen.getByRole('button', { name: 'Practice' }));
+      expect(screen.getByTestId('practice-panel')).toBeInTheDocument();
+
+      expect(collectDuplicates()).toEqual([]);
+      // With a part repeating, its row and the switch change their state, not their names
+      fireEvent.click(screen.getByRole('switch', { name: 'Repeat this part' }));
+      expect(collectDuplicates(), 'while a part repeats').toEqual([]);
+      fireEvent.click(screen.getByRole('tab', { name: /mix & look/i }));
+      expect(collectDuplicates(), 'after selecting Mix & Look').toEqual([]);
+    });
+  }
+
   it('exposes exactly one primary control per transport function', async () => {
     render(<App />);
     await waitFor(() => expect(screen.getByText('Uniqueness Anthem')).toBeInTheDocument());

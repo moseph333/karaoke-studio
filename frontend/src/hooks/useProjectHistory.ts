@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { PRACTICE_PARAM } from '../utils/practiceLink';
 
 export const PROJECT_PARAM = 'project';
 export const DISCARD_ON_BACK_MESSAGE =
@@ -32,7 +33,10 @@ export interface UseProjectHistoryOptions {
 function urlWithProject(projectId: string | null): string {
   const params = new URLSearchParams(window.location.search);
   if (projectId) params.set(PROJECT_PARAM, projectId);
-  else params.delete(PROJECT_PARAM);
+  else {
+    params.delete(PROJECT_PARAM);
+    params.delete(PRACTICE_PARAM); // practice belongs to the song that was open
+  }
   params.delete('t'); // a seek position belongs to the link that opened the song
   const query = params.toString();
   return `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;

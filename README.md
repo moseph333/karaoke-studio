@@ -37,7 +37,7 @@ To be shown rather than told, press **Show me around**: on that card, under "How
 
 1. **Add a song.** Type its title, its artist or both and pick it from the songs listed under the box (small typos are fine, and the artwork plays a 30-second preview). Or paste a song link (YouTube, SoundCloud, Bandcamp, Vimeo, the Internet Archive, Spotify, Apple Music, TIDAL or Deezer), or switch to **Local Audio File** and upload one. **Advanced options** holds the stem quality (Fast, Balanced, Best) and a box for your own lyrics.
 2. **Wait a few minutes.** The screen shows the stage it is on and a time estimate. You can leave: the song keeps processing and waits in your library. Best quality on a CPU, and a server's first Balanced or Best song (it downloads its model once), take longer.
-3. **Play and sing.** Press <kbd>Space</kbd>. The words light up as they are sung.
+3. **Play and sing.** Press <kbd>Space</kbd>. The words light up as they are sung. To learn a hard part, press **Practice** next to the song's title and let that part go round.
 4. **Check the lyrics.** Everything is automatic, so now and then a lyric is wrong or a line is out of time. The **check-up** button next to the song's title counts what looks off and takes you to each fix; **Needs review** above the timeline shows the lines the aligner was unsure about.
 5. **Set your key.** In **Audio mix**, shift the key to your range (the tempo stays the same) and turn the guide vocal up to sing along with the original singer. The same panel can leave the backing vocals or your duet partner in while the voice you sing is removed.
 6. **Make a video.** **Export** renders a 1080p karaoke video of the song as it is now: its lyrics and timing, the key and the vocals kept in Audio mix, and the look and format (16:9 or 9:16 Shorts) from Stage look. Most songs take a few minutes, and you can close the dialog while it renders. The same dialog has subtitle files, the stems and a chord sheet.
@@ -122,6 +122,15 @@ The levels are part of the song like its key: videos are rendered with them, a m
 ### Timeline editor
 
 50-step undo and redo, live tap-to-sync (<kbd>T</kbd>), batch offsets, ±0.2 s and ±0.05 s nudges, an expandable per-word editor, splitting a line after any word and merging it with the next, inline text and chord editing, and duet parts (Singer 1, Singer 2, Both). New songs whose vocals clearly hold two voices get their parts by voice, **Duet parts → By Voice** assigns them later, and the parts can be given names in the track details, which the stage shows.
+
+### Practice
+
+**Practice**, next to the song's title (or <kbd>P</kbd>), swaps the timeline for what you rehearse with; the stage, the mix and the player stay, and lyric edits you have not saved are still there when you come back. The address keeps `practice=1`, so a reload or a bookmark returns to it.
+
+- **Repeat a part.** Turn on **Repeat this part** (or press <kbd>L</kbd>) while a part plays and it goes round until you turn it off. Each pass starts two seconds before the part's first line and runs a moment past its last, and the scrubber marks the stretch in yellow. Jump to another part and that one repeats instead.
+- **Pick the part.** The panel lists the song's parts by their first words. A song has no verse or chorus markers, so the parts are split where the singing pauses, and a long run is cut at its longest breath so no part has more than eight lines. Press a part to repeat it from its start.
+- **Or pick the lines.** **Repeat from line** and **Repeat to line** set a stretch of your own, down to a single line. It stays where you put it.
+- Slow the part down with the player's speed (0.5× to 1.5×, the pitch stays), and set your key in Audio mix: both work as they do outside practice.
 
 ### Stage, look and export
 
@@ -254,6 +263,8 @@ Shortcuts are ignored while you type in a field or while a dialog is open.
 | <kbd>[</kbd> / <kbd>]</kbd> | Previous / next lyric line |
 | <kbd>R</kbd> | Replay the current line |
 | <kbd>M</kbd> | Mute / unmute |
+| <kbd>P</kbd> | Practice on / off |
+| <kbd>L</kbd> | In practice: repeat the part being sung |
 | <kbd>F</kbd> | Fullscreen stage |
 | <kbd>V</kbd> | Beat visualizer |
 | <kbd>C</kbd> | Chord bar |

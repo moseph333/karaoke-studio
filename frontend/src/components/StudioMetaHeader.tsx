@@ -3,12 +3,12 @@
  *
  * Compact header for the open song: album art, title, artist, line count, a lyric sync
  * badge (timing fidelity, confidence, auto-aligned), a stems badge, the button that opens
- * the song check-up (with a count of the things to fix), and quick actions to edit details
- * or delete the project. Exports live in the top bar's Export dialog.
+ * the song check-up (with a count of the things to fix), the button that turns practice on
+ * and off, and quick actions to edit details or delete the project. Exports live in the top bar's Export dialog.
  */
 
 import React, { useMemo } from 'react';
-import { Pencil, Stethoscope, Trash2, Music } from 'lucide-react';
+import { Mic, Pencil, Stethoscope, Trash2, Music } from 'lucide-react';
 import { ProjectState } from '../types';
 import { checkupFixCount } from '../utils/songCheckup';
 import { getLyricSyncFidelity, getStemsBadge } from '../utils/syncStatus';
@@ -24,6 +24,9 @@ export interface StudioMetaHeaderProps {
   onOpenDeleteModal: () => void;
   /** Opens the song check-up; its button is left out without it. */
   onOpenCheckup?: () => void;
+  /** Practice is showing; its button is left out without `onTogglePractice`. */
+  practiceOn?: boolean;
+  onTogglePractice?: () => void;
   /** Kept for API compatibility; exports open from the top bar. */
   onOpenExportModal?: () => void;
   /** Kept for API compatibility; renders start from the Export dialog. */
@@ -35,6 +38,8 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
   onOpenEditModal,
   onOpenDeleteModal,
   onOpenCheckup,
+  practiceOn = false,
+  onTogglePractice,
 }) => {
   const syncFidelity = getLyricSyncFidelity(project);
   const stems = getStemsBadge(project);
@@ -130,6 +135,39 @@ export const StudioMetaHeader: React.FC<StudioMetaHeaderProps> = ({
                 >
                   <Stethoscope className="h-4 w-4" aria-hidden="true" />
                   {toFix > 0 ? `${toFix} to fix` : 'Check-up'}
+                </span>
+              </button>
+            </Tooltip>
+          )}
+          {onTogglePractice && (
+            <Tooltip
+              content="Repeat a part and sing it until it sits right"
+              hotkey={['P']}
+              position="bottom"
+            >
+              <button
+                type="button"
+                onClick={onTogglePractice}
+                data-testid="practice-button"
+                data-guide="practice"
+                aria-expanded={practiceOn}
+                aria-controls={practiceOn ? 'workspace-panel-practice' : undefined}
+                className={cn(
+                  'group -my-2.5 inline-flex min-h-[44px] items-center md:-my-1 md:min-h-[26px]',
+                  focusRing
+                )}
+              >
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold underline underline-offset-4 transition-colors',
+                    // Lit while practice is on
+                    practiceOn
+                      ? 'text-theme-accent'
+                      : 'text-theme-text-muted group-hover:text-theme-text'
+                  )}
+                >
+                  <Mic className="h-4 w-4" aria-hidden="true" />
+                  Practice
                 </span>
               </button>
             </Tooltip>

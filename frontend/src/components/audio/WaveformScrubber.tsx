@@ -41,6 +41,8 @@ export interface WaveformScrubberProps {
   deferDecode?: boolean;
   /** Render lyric line start markers along the track. */
   showMarkers?: boolean;
+  /** A stretch of the song marked along the top (the part that repeats in practice). */
+  range?: { start: number; end: number } | null;
 }
 
 const BAR_COUNT = 100;
@@ -86,6 +88,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
   peaks,
   deferDecode = false,
   showMarkers = false,
+  range = null,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -219,6 +222,15 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
       .filter((t) => t >= 0 && t <= duration)
       .map((t) => (t / duration) * 100);
   }, [showMarkers, lines, duration]);
+  const rangeStart = range?.start;
+  const rangeEnd = range?.end;
+  const rangeSpan = useMemo(() => {
+    if (rangeStart === undefined || rangeEnd === undefined) return null;
+    if (!Number.isFinite(duration) || duration <= 0 || !(rangeEnd > rangeStart)) return null;
+    const left = Math.min(100, Math.max(0, (rangeStart / duration) * 100));
+    const right = Math.min(100, Math.max(0, (rangeEnd / duration) * 100));
+    return right > left ? { left, width: right - left } : null;
+  }, [rangeStart, rangeEnd, duration]);
   const progressPercent =
     Number.isFinite(duration) && duration > 0
       ? Math.min(100, Math.max(0, (currentTime / duration) * 100))
@@ -328,6 +340,16 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
           style={{ left: `${pct}%` }}
         />
       ))}
+
+      {/* The stretch that repeats */}
+      {rangeSpan && (
+        <span
+          aria-hidden="true"
+          data-testid="waveform-range"
+          className="pointer-events-none absolute top-0 h-0.5 bg-theme-accent"
+          style={{ left: `${rangeSpan.left}%`, width: `${rangeSpan.width}%` }}
+        />
+      )}
 
       {/* Hover position indicator */}
       {hoverRatio !== null && Number.isFinite(duration) && duration > 0 && !isDragging && (
