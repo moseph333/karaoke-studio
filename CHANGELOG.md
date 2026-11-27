@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.17.0](https://github.com/moseph333/karaoke-studio/compare/v2.16.0...v2.17.0) (2026-11-27)
+
+
+### Features
+
+* **practice:** add a practice view that repeats a part of the song ([9375e23](https://github.com/moseph333/karaoke-studio/commit/9375e23315b1441dac10b84507a80b9db72aea46))
+* **practice:** score each pass ([7c73108](https://github.com/moseph333/karaoke-studio/commit/7c731089ae3ba74d3716b60257d45d7c99b276ac))
+* **practice:** serve the vocals alone at the song's key ([784314e](https://github.com/moseph333/karaoke-studio/commit/784314e9609e14c6669527f43601566984222ab0))
+* **practice:** show the singer's pitch against the melody ([f7a0c18](https://github.com/moseph333/karaoke-studio/commit/f7a0c182543410dca877c1e06c7a9c6053ed0aca))
+* **practice:** switch the original singer on and off at once ([055c0bd](https://github.com/moseph333/karaoke-studio/commit/055c0bd8fe172258ce91e469b69a9d127c41f115))
+* **practice:** work out the melody and allow the microphone ([3c3a8c9](https://github.com/moseph333/karaoke-studio/commit/3c3a8c94dd6692dcd38ce0151542395285db80da))
+
 ## [2.16.0](https://github.com/moseph333/karaoke-studio/compare/v2.15.0...v2.16.0) (2026-11-27)
 
 
