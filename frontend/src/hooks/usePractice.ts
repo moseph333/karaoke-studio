@@ -2,7 +2,8 @@
  * Practice: the studio's view for rehearsing the open song. This hook holds whether practice
  * is on (kept in the address as `?practice=1`), its keys and palette commands, and the pieces
  * a singer practises with: repeating a part of the song, the original singer switched on
- * and off at once, and the singer's own pitch from the microphone against the song's melody.
+ * and off at once, the singer's own pitch from the microphone against the song's melody,
+ * and a score for each pass.
  *
  * It is called once by the app, whether or not practice is on, so turning practice on and off
  * never remounts the studio: the timeline keeps its unsaved edits behind the practice panel.
@@ -16,6 +17,7 @@ import { isInputElement, isModalActive } from './useKeyboardShortcuts';
 import { useMelody, type UseMelodyReturn } from './useMelody';
 import { useMicPitch, type UseMicPitchReturn } from './useMicPitch';
 import { useOriginalVocal, type UseOriginalVocalReturn } from './useOriginalVocal';
+import { usePracticeScore, type UsePracticeScoreReturn } from './usePracticeScore';
 import { usePracticeLoop, type UsePracticeLoopReturn } from './usePracticeLoop';
 import { useStableHandlers } from './useStableHandlers';
 import { PaletteCommand, useRegisterCommands } from '../components/commandPalette/context';
@@ -46,6 +48,8 @@ export interface UsePracticeReturn {
   mic: UseMicPitchReturn;
   /** The song's melody, asked for once the microphone is wanted. */
   melody: UseMelodyReturn;
+  /** How much of each pass was sung in tune. */
+  score: UsePracticeScoreReturn;
 }
 
 const NO_LINES: ProjectState['lines'] = [];
@@ -84,6 +88,24 @@ export function usePractice({
   }, [songId, on, enter]);
   const leave = useCallback(() => setWanted(false), []);
 
+  const mic = useMicPitch({ enabled: on });
+  const melody = useMelody({
+    wanted: on && mic.wanted,
+    projectId: songId,
+    vocalsUrl: project?.vocals_url,
+  });
+  const score = usePracticeScore({
+    enabled: on && mic.status === 'on' && melody.melody !== null,
+    songId,
+    lines: project?.lines ?? NO_LINES,
+    melody: melody.melody,
+    semitones,
+    playbackRate: audio.playbackRate,
+    isPlaying: audio.isPlaying,
+    clock: audio.clock,
+    subscribe: mic.subscribe,
+  });
+
   const loop = usePracticeLoop({
     enabled: on,
     songId,
@@ -93,6 +115,8 @@ export function usePractice({
     isPlaying: audio.isPlaying,
     playbackRate: audio.playbackRate,
     onSeek: audio.handleSeek,
+    // A repeat going round ends a pass
+    onPassEnd: score.endPass,
   });
 
   const singer = useOriginalVocal({
@@ -101,13 +125,6 @@ export function usePractice({
     hasVocals: Boolean(project?.vocals_url),
     semitones,
     audio,
-  });
-
-  const mic = useMicPitch({ enabled: on });
-  const melody = useMelody({
-    wanted: on && mic.wanted,
-    projectId: songId,
-    vocalsUrl: project?.vocals_url,
   });
 
   // P turns practice on and off; in practice L repeats the part being sung and O switches
@@ -191,7 +208,7 @@ export function usePractice({
   useRegisterCommands('practice', commands);
 
   return useMemo(
-    () => ({ on, toggle, leave, loop, singer, mic, melody }),
-    [on, toggle, leave, loop, singer, mic, melody]
+    () => ({ on, toggle, leave, loop, singer, mic, melody, score }),
+    [on, toggle, leave, loop, singer, mic, melody, score]
   );
 }

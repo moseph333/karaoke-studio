@@ -139,7 +139,7 @@ export const FEATURES: Feature[] = [
     missing: 'Open Practice first: its button is beside the song’s title.',
     title: 'See if you are in tune',
     text: 'Sing into the microphone and watch your pitch against the song’s melody. What you sing stays on this device.',
-    how: 'Switch this on and allow the microphone. Your line turns yellow while you are on the note.',
+    how: 'Switch this on and allow the microphone. Your line turns yellow while you are on the note, and each pass gets a score.',
   },
   {
     id: 'fullscreen',
