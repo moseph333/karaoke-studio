@@ -2,7 +2,8 @@
  * Track Search Component
  *
  * The home screen: the headline (sung once on arrival), the intake band, three "how it
- * works" steps for visitors who have not made a song yet, and the song library.
+ * works" steps for visitors who have not made a song yet, the songs asked for at a show that
+ * it could not find (`track-search/SongRequests`), and the song library.
  *
  * The intake takes a song three ways. Typed words are searched as the typing pauses
  * (`useSongSearch`): songs from the music catalogs, listed under the box with a preview of
@@ -18,6 +19,7 @@ import { SearchResult, ProjectState, SeparationPreset } from '../types';
 import { LocalAudioUploader, type UploadTrackParams } from './track-search/LocalAudioUploader';
 import { ProjectLibrary, type LibraryCounts } from './track-search/ProjectLibrary';
 import { SungHeadline } from './track-search/SungHeadline';
+import { SongRequests } from './track-search/SongRequests';
 import { SongSearchResults } from './track-search/SongSearchResults';
 import { SeparationQualityPicker } from './quality/SeparationQualityPicker';
 import { Button } from './ui/Button';
@@ -31,6 +33,8 @@ import { LyricsLimitNote } from './LyricsLimitNote';
 import { useCapabilities } from '../hooks/useCapabilities';
 import { useSongSearch } from '../hooks/useSongSearch';
 import { useSongPreview } from '../hooks/useSongPreview';
+import { useSongRequests } from '../hooks/useSongRequests';
+import { cleanSongRequest, type SongRequest } from '../utils/songRequests';
 
 export type { UploadTrackParams };
 
@@ -118,6 +122,9 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
   // Typed words are searched as the typing pauses; a link is not searched at all
   const search = useSongSearch(query, intakeMode === 'youtube');
   const preview = useSongPreview();
+  // The songs shows asked for, and the one whose words are in the search now
+  const songRequests = useSongRequests(authToken);
+  const [finding, setFinding] = useState<SongRequest | null>(null);
   const showResults =
     intakeMode === 'youtube' && (search.phase !== 'idle' || search.videosPhase !== 'idle');
   const isLink = Boolean(linkSite(query.trim()));
@@ -166,6 +173,26 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
 
   const createFromResult = (result: SearchResult) => {
     onSelectTrack(result.url, customLyrics.trim() || undefined);
+    // A song started from a request's own search answers the request
+    if (finding && cleanSongRequest(query) === finding.song) {
+      void songRequests.remove(finding.id);
+      setFinding(null);
+    }
+  };
+
+  // "Find it" on a request: its words go in the song search, which lists the recordings
+  const findRequest = (request: SongRequest) => {
+    setIntakeMode('youtube');
+    setQuery(request.song);
+    setError(null);
+    setFinding(request);
+    searchInputRef.current?.focus();
+  };
+
+  const removeRequest = async (request: SongRequest) => {
+    const result = await songRequests.remove(request.id);
+    if (finding?.id === request.id) setFinding(null);
+    return result.ok ? null : result.error;
   };
 
   // A result that is already in the library opens that song; the app fetches it in full
@@ -459,6 +486,12 @@ export const TrackSearch: React.FC<TrackSearchProps> = ({
           )}
         </section>
       )}
+
+      <SongRequests
+        requests={songRequests.requests}
+        onFind={findRequest}
+        onRemove={removeRequest}
+      />
 
       <ProjectLibrary
         currentUser={currentUser}

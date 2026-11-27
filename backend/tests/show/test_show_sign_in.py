@@ -164,6 +164,27 @@ def test_a_show_fetches_and_plays_a_videos_copy(venue, monkeypatch):
     assert video.content == b"mp4"
 
 
+def test_a_show_asks_for_a_song_it_could_not_find_and_reads_the_requests(venue):
+    asked = venue.post("/api/show/requests", json={"song": "Pink Pony Club", "singer": "Ana"})
+    assert asked.status_code == 200
+
+    listed = venue.get("/api/show/requests")
+    assert listed.status_code == 200
+    assert [entry["song"] for entry in listed.json()["requests"]] == ["Pink Pony Club"]
+
+
+def test_a_show_cannot_take_a_request_off_the_list(venue, client):
+    request_id = venue.post("/api/show/requests", json={"song": "Halo"}).json()["request"]["id"]
+
+    refused = venue.delete(f"/api/show/requests/{request_id}")
+
+    assert refused.status_code == 403
+    assert refused.json()["detail"] == show_auth.SHOW_ONLY_DETAIL
+    assert len(venue.get("/api/show/requests").json()["requests"]) == 1
+    # The studio can
+    assert client.delete(f"/api/show/requests/{request_id}").status_code == 200
+
+
 def test_a_show_loads_media_with_the_cookie_alone(show_on, song):
     # <audio>, <video> and <img> send no header: the cookie the sign-in set has to do
     browser = TestClient(app)
@@ -299,6 +320,11 @@ def test_without_a_studio_passphrase_there_is_nothing_to_sign_in_to(monkeypatch)
         ("GET", "/api/project/abc/chords", False),
         ("GET", "/static/", False),
         ("GET", "/api/show/videos", False),
+        ("GET", "/api/show/requests", True),
+        ("POST", "/api/show/requests", True),
+        ("DELETE", "/api/show/requests", False),
+        ("DELETE", "/api/show/requests/abc", False),
+        ("POST", "/api/show/requests/abc", False),
         ("PUT", "/api/admin/settings", False),
     ],
 )
