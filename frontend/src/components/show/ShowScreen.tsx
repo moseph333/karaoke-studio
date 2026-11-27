@@ -170,6 +170,7 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true }) => {
             busy={onStage}
             onStart={player.start}
             onMove={(id, by) => dispatch({ type: 'move', id, by })}
+            onPlace={(id, at) => dispatch({ type: 'place', id, at })}
             onRemove={(id) => dispatch({ type: 'remove', id })}
             onAgain={(id) => dispatch({ type: 'again', id })}
             onClearFinished={() => dispatch({ type: 'clear-finished' })}
