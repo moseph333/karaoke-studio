@@ -6,7 +6,8 @@
  * showed last when settings are kept. Colour choices belong to the look they were made on.
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { apiFetch } from '../api';
 import { SyncDisplayMode } from '../types';
 import {
   DEFAULT_STAGE_LOOK_ID,
@@ -39,6 +40,17 @@ export function stageBackgroundFromId(
     url: `/static/backgrounds/${encodeURIComponent(bgId)}`,
     kind: /\.(mp4|webm|mov|m4v)$/i.test(bgId) ? 'video' : 'image',
   };
+}
+
+/**
+ * Asks the server to delete an uploaded background this browser has replaced or removed.
+ * Nothing waits for the answer: a request that does not get through only leaves the file
+ * on the server, and a video still rendering with it keeps it until the render ends.
+ */
+export function deleteUploadedBackground(bgId: string): void {
+  apiFetch(`/api/background/${encodeURIComponent(bgId)}`, { method: 'DELETE' }).catch(
+    () => undefined
+  );
 }
 
 export interface UseVisualThemeReturn {
@@ -141,9 +153,15 @@ export function useVisualTheme(
   );
   const setCustomBothColor = useCallback((c: string | null) => setColor('both', c), [setColor]);
 
+  const customBgIdRef = useRef(seed.customBgId);
   const setCustomBgId = useCallback((id: string) => {
+    const replaced = customBgIdRef.current;
+    customBgIdRef.current = id;
     setCustomBgIdState(id);
     setBackgroundStyle((prev) => (id ? 'custom' : prev === 'custom' ? 'artwork' : prev));
+    // Only this browser knows the upload it showed until now, so it tells the server to
+    // delete the file: nothing else ever would
+    if (replaced && replaced !== id) deleteUploadedBackground(replaced);
   }, []);
   const toggleVisualizer = useCallback(() => setShowVisualizer((prev) => !prev), []);
   const toggleChordBar = useCallback(() => setShowChordBar((prev) => !prev), []);
