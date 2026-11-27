@@ -4,6 +4,9 @@ The original singer is switched on and off at once there, without a new master: 
 plays the song's vocals by themselves beside the master and changes their level. This router
 says where those vocals are, and makes them at the master's key when that is not the
 original (see ``master_audio.make_practice_vocal``).
+
+A singer's pitch is drawn there against the song's melody, which this router also serves
+(see ``services/melody``).
 """
 
 import logging
@@ -22,9 +25,9 @@ from backend.master_audio import (
     prune_mix_cache,
     streams_previews,
 )
-from backend.project_analysis import usable_file
+from backend.project_analysis import StemMissing, ensure_melody, usable_file
 from backend.project_store import ensure_free_space, get_project_or_404
-from backend.schemas import PracticeVocalRequest, PracticeVocalResponse
+from backend.schemas import MelodyResponse, PracticeVocalRequest, PracticeVocalResponse
 
 logger = logging.getLogger("karaoke_backend")
 
@@ -96,3 +99,31 @@ def practice_vocal(project_id: str, req: PracticeVocalRequest):
         "url": f"/static/output/{Path(served).name}?v={mix_version(served)}",
         "semitones": req.semitones,
     }
+
+
+@router.get(
+    "/api/project/{project_id}/melody",
+    response_model=MelodyResponse,
+    summary="The pitch the song's singer holds, over time",
+)
+def song_melody(project_id: str):
+    """The song's melody: one MIDI note number per frame of its vocals (`start` seconds in,
+    then every `hop` seconds), null where nothing is sung, in the song's original key. `low`
+    and `high` are the range to draw it in.
+
+    It is read from the lead part when the vocals have been split into lead and backing,
+    else from the whole vocal stem (`source`), worked out on the first request and kept
+    beside the stems until the vocals change. Vocals with nothing sung in them, or that
+    cannot be read, answer with `detected: false`."""
+    try:
+        return {"project_id": project_id, **ensure_melody(project_id)}
+    except StemMissing as exc:
+        raise HTTPException(status_code=400, detail=NO_VOCALS_DETAIL) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Melody analysis failed for {project_id}: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Could not work out the melody. See the server log for details.",
+        ) from exc
