@@ -19,6 +19,8 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 logger = logging.getLogger("karaoke_backend")
@@ -30,6 +32,8 @@ FILE_VERSION = 1
 _lock = threading.RLock()
 # Saved values by settings file path: tests give every test its own data folder
 _saved: dict[str, dict[str, str]] = {}
+# The values one thread is trying out (see trying)
+_view = threading.local()
 
 
 def settings_file() -> Path:
@@ -58,6 +62,9 @@ def _read(path: Path) -> dict[str, str]:
 
 
 def _current() -> dict[str, str]:
+    tried = getattr(_view, "values", None)
+    if tried is not None:
+        return tried
     path = settings_file()
     key = str(path)
     with _lock:
@@ -89,6 +96,19 @@ def save(values: dict[str, str]) -> None:
     with _lock:
         write_text_atomically(path, text, backup=path.with_name(BACKUP_FILE_NAME))
         _saved[str(path)] = clean
+
+
+@contextmanager
+def trying(values: dict[str, str]) -> Iterator[None]:
+    """Within the block, on this thread only, these are the saved values: what every reader
+    would answer if they were saved (the page checks a change before saving it), or with
+    ``{}`` what the environment alone gives."""
+    before = getattr(_view, "values", None)
+    _view.values = dict(values)
+    try:
+        yield
+    finally:
+        _view.values = before
 
 
 def reset_cache() -> None:

@@ -253,7 +253,7 @@ def test_auth_status_counts_guesses_and_reports_false_while_limited(unauth_clien
     for i in range(5):
         res = unauth_client.get("/api/auth/status", headers={**IP_A, "X-App-Password": f"g{i}"})
         assert res.status_code == 200
-        assert res.json() == {"auth_required": True, "authenticated": False}
+        assert res.json() == {"auth_required": True, "authenticated": False, "admin": False}
     assert _failures("198.51.100.10") == 5
 
     from_a = unauth_client.get("/api/auth/status", headers={**IP_A, "X-App-Password": PASSPHRASE})

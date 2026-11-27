@@ -27,10 +27,14 @@ async def auth_status(request: Request):
     # Wrong credentials count against the login limit here too, and a client over it reads
     # authenticated: false (not 429, which the studio would take for open access). Async, so
     # checking and counting a guess is one step on the event loop.
+    # "admin": this server has an owner who can change its settings (ADMIN_PASSWORD), so the
+    # studio offers the Server settings page
     app_pwd = config.APP_PASSWORD
+    admin = bool(config.ADMIN_PASSWORD)
     if not app_pwd:
-        return {"auth_required": False, "authenticated": True}
-    return {"auth_required": True, "authenticated": authenticated_within_limit(request, app_pwd)}
+        return {"auth_required": False, "authenticated": True, "admin": admin}
+    authenticated = authenticated_within_limit(request, app_pwd)
+    return {"auth_required": True, "authenticated": authenticated, "admin": admin}
 
 
 @router.post("/api/auth/login")

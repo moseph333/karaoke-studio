@@ -25,6 +25,18 @@ class LoginRequest(BaseModel):
     username: str | None = Field(default="Friend", max_length=64)
 
 
+class AdminLoginRequest(BaseModel):
+    password: str = Field(..., max_length=256, description="The server's admin passphrase")
+
+
+class AdminSettingsUpdate(BaseModel):
+    values: dict[str, Any] = Field(
+        ...,
+        max_length=64,
+        description="Changes by setting id: the value to save, or null to forget the saved one",
+    )
+
+
 class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     query: str = Field(..., max_length=300, description="Search query")
