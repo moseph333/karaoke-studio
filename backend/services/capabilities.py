@@ -22,6 +22,7 @@ from backend.services.separation_presets import (
     remote_backend,
     weights_cached,
 )
+from backend.services.show_videos import capability as show_capability
 from backend.services.song_loops import capability as song_loop_capability
 from backend.services.vocal_parts import split_capabilities
 
@@ -74,4 +75,5 @@ def get_capabilities() -> dict[str, Any]:
         "separation": separation_capabilities(),
         "alignment": alignment_capabilities(),
         "song_loop": song_loop_capability(),
+        "show": show_capability(),
     }

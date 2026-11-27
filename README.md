@@ -146,6 +146,17 @@ The levels are part of the song like its key: videos are rendered with them, a m
 - Exports: 1080p60 MP4 (16:9 or 9:16 Shorts) in the chosen look, with the lyric sweep drawn for every frame and long lines sized and broken to fit, `.lrc` and `.ass` subtitles (the `.ass` file is laid out for the look's typeface, which it names in its first lines), WAV stems (with the vocal parts of a song that has been split), chord and lyric sheets, and a YouTube metadata kit. **Render Again** makes a new video after you change the lyrics, key or look, and **Try Again** retries a failed render. A failed or cancelled render keeps the previous video, and the 16:9 and 9:16 videos are kept side by side, so rendering one format never replaces the other.
 - **Cloud export (optional).** With `RENDER_REMOTE=modal` (same Modal deployment and token as the cloud GPU), MP4s render on a 16-core Modal CPU: about 1¼ minutes for a 3-minute song, around a cent each. Opening the Export dialog starts a cloud CPU in the background, so Modal finds one while you choose the options, and it stays ready for 2 minutes after each export. While the export waits for a CPU, the studio counts the seconds. If it is unavailable or fails, the export renders on your server.
 
+### A karaoke night
+
+**Run a show** (on the home screen, or in the command palette) opens a host screen for running karaoke with one computer and two screens: yours has the queue, and the TV or projector has the stage window.
+
+- **Add a singer**: type their name, then pick their song. **Karaoke videos** searches YouTube for karaoke uploads of the song (a pasted YouTube link works too); **Library** lists the songs you have made here.
+- **Start the song** calls the first singer in the queue. Between singers the TV shows who is up next with their song, and the name of the night when nobody is waiting. A song that ends is marked sung and the next singer is called; "Again" puts a singer back in the queue.
+- **A library song** plays with its word-timed lyrics, in the look you chose in the studio. **A YouTube video** plays on the stage window in YouTube's own player, started, paused and stopped from your screen.
+- **Videos YouTube will not embed.** Some uploaders, the largest karaoke channels among them, only let their videos play on youtube.com. The server finds this out when the video is queued, fetches a copy (720p at most) and plays that on the stage window instead. Copies are kept up to `SHOW_VIDEO_CACHE_GB` (3 GB), the least recently used going first; `SHOW_VIDEO_DOWNLOADS=0` turns this off, and those videos then cannot be played.
+- The queue and the name of the night are kept in the browser, so a reload does not lose them. Click the stage window once after opening it (the prompt to fill the screen is that click): browsers start sound only in a window that has been clicked.
+- YouTube shows its adverts in its player unless the browser is signed in to an account without them.
+
 ### On your phone
 
 - **Install it as an app.** On Android (Chrome), tap **Install** in the header on the library screen, or pick **Install app** from the command palette or the browser menu. On iPhone and iPad, open the studio in Safari, tap **Share**, then **Add to Home Screen**. Installing needs the studio served over HTTPS, and the installed app keeps its own sign-in, so you enter the passphrase once more there.
@@ -281,6 +292,8 @@ cp .env.example .env
 | `MAX_SONG_MINUTES` | `60` | The longest recording a pasted link may download, in minutes. A longer video is refused before anything is downloaded, as is a live stream; `0` lifts the length limit. Uploaded files have their own size limit. |
 | `MAX_ALBUM_MINUTES` | `120` | The longest whole-album recording a pasted link may download to pick songs from, in minutes (kept compressed; each picked song is cut out of it). A longer album is refused before anything is downloaded; `0` lifts the limit. |
 | `SONG_SEARCH_SOURCES` | `deezer,itunes,suggest` | The services the song search asks, comma-separated: `deezer` and `itunes` are the music catalogs the songs come from, `suggest` is YouTube's search suggestions, used to respell a misspelled search. Each search sends the typed words to the ones listed. `none` turns the catalog search off: the studio then lists YouTube uploads, as it does when no catalog answers. |
+| `SHOW_VIDEO_DOWNLOADS` | `1` | In a show, a YouTube karaoke video whose uploader does not allow embedding is downloaded and played from the server's copy. `0` turns that off: such videos then cannot be played. |
+| `SHOW_VIDEO_CACHE_GB` | `3` | How many gigabytes of those copies are kept (`<data dir>/show_videos`). Past it the least recently used are removed; `0` removes the limit. |
 | `SONG_SEARCH_COUNTRY` | `us` | The iTunes Store whose songs are searched, as a two-letter country code (`gb`, `jp`, ...). |
 | `DISK_MIN_FREE_MB` | `1024` | Free space (MB) to keep on the data folder's disk. Below it, new songs, uploads, renders and re-separations are refused with HTTP `507`; edits are never blocked. `0` turns the check off. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Cloudflare tunnel token (Docker `--profile tunnel`) |

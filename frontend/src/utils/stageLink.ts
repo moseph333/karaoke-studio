@@ -20,6 +20,8 @@ import type { StageBackgroundStyle } from '../theme/stageBackgrounds';
 export const STAGE_CHANNEL_NAME = 'karaoke-stage';
 /** `/?stage=1` opens the stage window instead of the app. */
 export const STAGE_PARAM = 'stage';
+/** `/?show=1` opens the host screen of a show instead of the app. */
+export const SHOW_PARAM = 'show';
 
 /** Everything the stage draws apart from the song position. */
 export interface StageState {
@@ -60,6 +62,51 @@ export interface StageTransport {
 
 export type StageCommand = { name: 'play' } | { name: 'pause' } | { name: 'seek'; time: number };
 
+// --- A show (the host screen, /?show=1) ---------------------------------------------------
+// A show puts more on the stage window than a song's lyrics: a card between singers, and
+// karaoke videos, which play in the stage window itself (there is one sound, and it is the
+// window the room watches). The host sends the `scene`; a video's player lives in the stage
+// window, takes `player` commands and sends back `report`s.
+
+/** A singer and their song, as the cards name them. */
+export interface StageBilling {
+  singer: string;
+  title: string;
+  artist?: string;
+}
+
+export type StageScene =
+  /** Nobody is on: the night's name and who is coming up. */
+  | { kind: 'idle'; title: string; next: StageBilling[] }
+  /** A singer has been called and has not started. */
+  | { kind: 'upnext'; title: string; now: StageBilling; next: StageBilling[] }
+  /** A song from the library: the stage the host's window sends (`state`, `transport`). */
+  | { kind: 'lyrics' }
+  /** A YouTube video in YouTube's own player. `play` tells one playing of it from the next. */
+  | { kind: 'youtube'; videoId: string; play: number }
+  /** A video file (the server's copy of a video that cannot be embedded). */
+  | { kind: 'file'; url: string; play: number };
+
+export type PlayerCommand =
+  | { name: 'play' }
+  | { name: 'pause' }
+  | { name: 'seek'; time: number }
+  | { name: 'volume'; volume: number; muted: boolean };
+
+/** Why a video did not play: its uploader does not allow embedding, it is gone or private,
+ *  or the player failed. */
+export type PlayerError = 'embed' | 'unavailable' | 'playback';
+
+export interface PlayerReport {
+  /** The scene's `play`, so a report from the video before is not taken for this one's. */
+  play: number;
+  /** `blocked`: the browser will not start sound in the stage window until it is clicked. */
+  status: 'loading' | 'playing' | 'paused' | 'ended' | 'blocked' | 'error';
+  time: number;
+  duration: number;
+  error?: PlayerError;
+}
+
 export type StageMessage =
   /** From a studio: its stage, or null when its song closed. */
   | { type: 'state'; from: string; state: StageState | null }
@@ -71,7 +118,13 @@ export type StageMessage =
   /** From a stage window: it is closing. */
   | { type: 'closed' }
   /** From a stage window, to the studio it follows. */
-  | { type: 'command'; to: string; command: StageCommand };
+  | { type: 'command'; to: string; command: StageCommand }
+  /** From a show's host: what the stage window shows, or null when the show closed. */
+  | { type: 'scene'; from: string; scene: StageScene | null }
+  /** From a show's host, to the video playing in the stage window. */
+  | { type: 'player'; from: string; command: PlayerCommand }
+  /** From a stage window's video player, to the host that put it there. */
+  | { type: 'report'; to: string; report: PlayerReport };
 
 export const PAUSED_AT_START: StageTransport = {
   time: 0,
@@ -133,6 +186,11 @@ export function openStageLink(onMessage: (message: StageMessage) => void): Stage
 /** Whether this page was opened as a stage window. */
 export function isStageWindowUrl(search: string): boolean {
   return new URLSearchParams(search).has(STAGE_PARAM);
+}
+
+/** Whether this page was opened as a show's host screen. */
+export function isShowUrl(search: string): boolean {
+  return new URLSearchParams(search).has(SHOW_PARAM);
 }
 
 /** A name for one studio window, so a stage window can tell two studios apart. */

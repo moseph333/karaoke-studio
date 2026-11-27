@@ -15,6 +15,7 @@ import {
   ListMusic,
   Maximize2,
   Mic,
+  Mic2,
   Minus,
   Monitor,
   Music,
@@ -54,6 +55,7 @@ import { PLAYBACK_SPEEDS } from '../components/audio/PlaybackSpeedControl';
 import { lineStartAtOffset } from '../utils/lineNavigation';
 import { MIX_GUIDE_MAX } from './useMixController';
 import { formatSemitones } from '../utils/format';
+import { openShow } from '../utils/stageWindowOpen';
 import type { UseStudioAudioReturn } from './useStudioAudio';
 import type { UseMixControllerReturn } from './useMixController';
 import type { UseVisualThemeReturn } from './useVisualTheme';
@@ -497,6 +499,19 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       },
     });
   }
+  add({
+    id: 'run-show',
+    title: 'Run a show',
+    subtitle: 'A queue of singers, with the stage on a second screen',
+    group: 'Navigate',
+    icon: <Mic2 />,
+    keywords: ['karaoke night', 'host', 'queue', 'singers', 'bar', 'party', 'kj', 'video'],
+    run: () => {
+      if (confirmDiscard('You have unsaved lyric edits. Discard them and open the show?')) {
+        openShow();
+      }
+    },
+  });
   add({
     id: 'help',
     title: 'Help & keyboard shortcuts',

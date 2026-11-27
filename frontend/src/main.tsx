@@ -10,6 +10,8 @@
  * `/?stage=1` is a stage window (the stage alone, for a second screen): it mounts
  * `StageWindow` in place of the app, which would otherwise sign in, poll, offer updates and
  * save stage settings from a window that only shows what the studio's window sends it.
+ * `/?show=1` is a show's host screen (the queue of a karaoke night): it mounts `ShowApp`,
+ * which signs in and has no library to edit.
  */
 
 import React, { Suspense, lazy } from 'react';
@@ -19,14 +21,19 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './hooks/useToast';
 import { startInstallPromptCapture } from './utils/installPrompt';
 import { registerServiceWorker } from './utils/serviceWorker';
-import { isStageWindowUrl } from './utils/stageLink';
+import { isShowUrl, isStageWindowUrl } from './utils/stageLink';
 import { preloadDeferredScreens } from './deferredScreens';
 import './fonts.css';
 import './index.css';
 
 const isStageWindow = isStageWindowUrl(window.location.search);
+// A show's host screen: the queue of a karaoke night, in place of the library and studio
+const isShow = !isStageWindow && isShowUrl(window.location.search);
 const StageWindow = lazy(() =>
   import('./components/stage-window/StageWindow').then((m) => ({ default: m.StageWindow }))
+);
+const ShowApp = lazy(() =>
+  import('./components/show/ShowApp').then((m) => ({ default: m.ShowApp }))
 );
 
 // Before React mounts: the browser can offer installation as soon as the page loads
@@ -41,6 +48,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Suspense fallback={null}>
             <StageWindow />
           </Suspense>
+        ) : isShow ? (
+          <Suspense fallback={null}>
+            <ShowApp />
+          </Suspense>
         ) : (
           <App />
         )}
@@ -50,4 +61,4 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 );
 
 // After the first render is under way: nothing on the first screen waits for these
-if (!isStageWindow) preloadDeferredScreens();
+if (!isStageWindow && !isShow) preloadDeferredScreens();

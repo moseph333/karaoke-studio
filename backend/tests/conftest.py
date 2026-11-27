@@ -148,6 +148,14 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     # Demucs commands must not depend on which Demucs version is installed; tests that cover
     # the 4.1 quality flags switch them on themselves
     monkeypatch.setattr(separator_service, "demucs_supports_quality_flags", lambda: False)
+    # Show videos: no test asks YouTube whether a video can be embedded (a test that needs an
+    # answer replaces this), and none starts with another's fetches or answers
+    from backend.services import show_videos
+
+    show_videos.reset()
+    monkeypatch.setattr(show_videos, "_oembed", lambda video_id: (None, {}))
+    for name in ("SHOW_VIDEO_DOWNLOADS", "SHOW_VIDEO_CACHE_GB"):
+        monkeypatch.delenv(name, raising=False)
 
     # Re-target mounted Starlette StaticFiles directories to isolated test directories
     for route in app.routes:
