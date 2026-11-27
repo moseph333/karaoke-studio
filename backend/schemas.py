@@ -457,6 +457,22 @@ class VocalLevels(BaseModel):
         return normalize_levels(self.model_dump(exclude_none=True))
 
 
+class PracticeVocalRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    semitones: int = Field(
+        default=0,
+        ge=-12,
+        le=12,
+        description="The key the master plays in, in semitones from the original (-12 to +12)",
+    )
+
+
+class PracticeVocalResponse(BaseModel):
+    status: str = Field(description='"ok"')
+    url: str = Field(description="Where the song's vocals alone, at that key, are served")
+    semitones: int = Field(description="The key of that file, in semitones from the original")
+
+
 class MixRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     semitones: int = Field(

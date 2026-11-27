@@ -19,10 +19,17 @@ again, then the least recently used ones past the limit, each WAV with its .m4a.
 deletes any song's current master, or a mix made or reused in the last minute. The files the
 mixer was still writing when a restart stopped it (.tmp_) are deleted at startup instead.
 
+Practice plays the song's vocals by themselves beside the master, so the original singer can
+be switched on and off at once (see make_practice_vocal). That file is the vocal stem alone at
+the master's key, named as a mix with a vocal key of its own (PRACTICE_VOCAL_KEY), so
+everything above holds for it: reuse, the mixer version, pruning with the song's other mixes,
+and deletion with the song.
+
 Locks: prune_mix_cache copies the masters' names under PROJECTS_LOCK and releases it before it
 takes _MIX_CACHE_LOCK, so the order is always PROJECTS_LOCK, then _MIX_CACHE_LOCK.
 """
 
+import hashlib
 import logging
 import os
 import re
@@ -225,6 +232,85 @@ def make_master_mix(
             kept.unlink(missing_ok=True)
         except OSError as exc:
             logger.warning(f"Could not remove the kept vocals {kept.name}: {exc}")
+
+
+# The vocal key of a practice vocal: no vocal_mix plan has it (theirs hash their levels and lines)
+PRACTICE_VOCAL_KEY = hashlib.sha1(b"practice-vocal|vocals").hexdigest()[:8]
+# One practice vocal of a song and key is made at a time: the studio asks twice in development
+_PRACTICE_VOCAL_LOCKS: dict[str, threading.Lock] = {}
+_PRACTICE_VOCAL_LOCKS_GUARD = threading.Lock()
+
+
+class VocalsChanged(RuntimeError):
+    """The vocal stem was replaced while a practice vocal was being made from it."""
+
+
+def streams_previews() -> bool:
+    """Whether the studio is sent .m4a copies of mixes instead of their WAVs."""
+    return config.PREVIEW_AUDIO_FORMAT == "aac" and ffmpeg_has_encoder("aac")
+
+
+def practice_vocal_filename(track_id: str, semitones: int) -> str:
+    """The name of a song's vocals alone at a key: a mix name, so the mix cache covers it."""
+    return mix_filename(track_id, semitones, 1.0, PRACTICE_VOCAL_KEY)
+
+
+def _practice_vocal_sources(proj: dict) -> tuple[str, str, list]:
+    """The output folder, the file name's track id and what a practice vocal is dated against
+    (as prune_mix_cache dates a mix with a vocal key)."""
+    import backend.main as main_mod
+
+    output_dir = getattr(main_mod, "OUTPUT_DIR", config.OUTPUT_DIR)
+    track_id = proj.get("track_id") or proj.get("id") or "track"
+    vocals = proj.get("vocals_path")
+    return output_dir, track_id, [proj.get("instrumental_path"), vocals, *_part_files(vocals)]
+
+
+def find_practice_vocal(proj: dict, semitones: int) -> str | None:
+    """The song's vocals alone at this key when they are already made and still current."""
+    output_dir, track_id, sources = _practice_vocal_sources(proj)
+    return reusable_mix_path(output_dir, practice_vocal_filename(track_id, semitones), sources)
+
+
+def _stamp(path: str) -> tuple[int, int] | None:
+    try:
+        stat = os.stat(path)
+    except OSError:
+        return None
+    return stat.st_size, stat.st_mtime_ns
+
+
+def make_practice_vocal(proj: dict, semitones: int) -> str:
+    """Makes (or finds) the song's vocals alone at this key and returns the WAV's path.
+
+    The mixer runs with the vocal stem as its only input, which is the chain the backing takes
+    in a master at that key (the same pitch filter and limiter), so the two files keep the
+    same small delay. Raises VocalsChanged, leaving no file, when the stem is replaced during
+    the run: the file would be newer than the new stem and pass for current."""
+    import backend.main as main_mod
+
+    vocals = proj["vocals_path"]
+    _, track_id, _ = _practice_vocal_sources(proj)
+    name = practice_vocal_filename(track_id, semitones)
+    with _PRACTICE_VOCAL_LOCKS_GUARD:
+        lock = _PRACTICE_VOCAL_LOCKS.setdefault(name, threading.Lock())
+    with lock:
+        found = find_practice_vocal(proj, semitones)
+        if found:
+            logger.info(f"Reusing the practice vocal {name}")
+            return found
+        before = _stamp(vocals)
+        path = main_mod.audio_mixer.mix_and_shift(
+            instrumental_path=vocals,
+            vocals_path=None,
+            semitones=semitones,
+            guide_volume=0.0,
+            output_filename=name,
+        )
+        if _stamp(vocals) != before:
+            _delete_mix(Path(path))
+            raise VocalsChanged(name)
+        return path
 
 
 def _current_masters() -> set[str]:

@@ -81,6 +81,7 @@ from backend.routers.api_docs import OPENAPI_URL, install_openapi
 from backend.routers.api_docs import router as api_docs_router
 from backend.routers.auth import router as auth_router
 from backend.routers.exports import router as exports_router
+from backend.routers.practice import router as practice_router
 from backend.routers.projects import (
     cancel_project,
     cancel_render,
@@ -387,6 +388,7 @@ async def system_update_action(request: Request):
 app.include_router(auth_router)
 app.include_router(projects_router)
 app.include_router(albums_router)
+app.include_router(practice_router)
 app.include_router(search_router)
 app.include_router(show_router)
 app.include_router(exports_router)
