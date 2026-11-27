@@ -1,0 +1,156 @@
+{
+  "groups": [
+    {
+      "id": "song_loops",
+      "title": "Song loops",
+      "settings": [
+        {
+          "id": "song_loop.enabled",
+          "env": "SONG_LOOP_REMOTE",
+          "kind": "flag",
+          "on": "modal",
+          "off": "",
+          "cloud": true,
+          "title": "Make song loops",
+          "text": "A looping background video drawn from a song's lyrics on a cloud GPU. When off, songs keep the loops they have and no new ones are made."
+        },
+        {
+          "id": "song_loop.models",
+          "env": "SONG_LOOP_MODELS",
+          "kind": "set",
+          "min": 1,
+          "title": "Video models offered",
+          "text": "The models a singer may choose between when making a loop. Keep at least one."
+        },
+        {
+          "id": "song_loop.default_model",
+          "env": "SONG_LOOP_MODEL",
+          "kind": "choice",
+          "among": "song_loop.models",
+          "title": "Default video model",
+          "text": "The one a loop is made with unless the singer picks another."
+        }
+      ]
+    },
+    {
+      "id": "stems",
+      "title": "Stem quality",
+      "settings": [
+        {
+          "id": "separation.presets",
+          "env": "SEPARATION_PRESETS",
+          "kind": "set",
+          "min": 1,
+          "locked": ["fast"],
+          "choices": [
+            { "id": "fast", "label": "Fast", "note": "Demucs. Always offered: the others fall back to it" },
+            { "id": "balanced", "label": "Balanced", "note": "Mel-Band RoFormer" },
+            { "id": "best", "label": "Best", "note": "Two RoFormer models averaged" }
+          ],
+          "title": "Presets offered",
+          "text": "The qualities a singer may choose for a song's stems. One that is off is never run, not even as a fallback."
+        },
+        {
+          "id": "separation.default",
+          "env": "SEPARATION_QUALITY",
+          "kind": "choice",
+          "among": "separation.presets",
+          "title": "Default for new songs",
+          "text": "The quality a song gets unless the singer picks another."
+        },
+        {
+          "id": "separation.cloud",
+          "env": "SEPARATION_REMOTE",
+          "kind": "flag",
+          "on": "modal",
+          "off": "",
+          "cloud": true,
+          "title": "Run Balanced and Best on the cloud GPU",
+          "text": "When off, they run on this server, which needs the RoFormer extras installed and is slow without a GPU of its own."
+        }
+      ]
+    },
+    {
+      "id": "export",
+      "title": "Export and cloud",
+      "settings": [
+        {
+          "id": "render.cloud",
+          "env": "RENDER_REMOTE",
+          "kind": "flag",
+          "on": "modal",
+          "off": "",
+          "cloud": true,
+          "title": "Render videos in the cloud",
+          "text": "When off, videos render on this server."
+        },
+        {
+          "id": "render.prewarm",
+          "env": "RENDER_REMOTE_PREWARM",
+          "kind": "flag",
+          "on": "1",
+          "off": "0",
+          "title": "Start a cloud machine when Export opens",
+          "text": "The render then does not wait for one. A machine that goes unused stops by itself."
+        },
+        {
+          "id": "separation.prewarm",
+          "env": "SEPARATION_REMOTE_PREWARM",
+          "kind": "flag",
+          "on": "1",
+          "off": "0",
+          "title": "Start a cloud GPU when a song starts",
+          "text": "It is asked for while the audio downloads, so the stems do not wait for one."
+        }
+      ]
+    },
+    {
+      "id": "limits",
+      "title": "Limits and search",
+      "settings": [
+        {
+          "id": "limits.song_minutes",
+          "env": "MAX_SONG_MINUTES",
+          "kind": "minutes",
+          "max": 600,
+          "title": "Longest song, in minutes",
+          "text": "A link to a longer recording is refused before it downloads. 0 is no limit."
+        },
+        {
+          "id": "limits.album_minutes",
+          "env": "MAX_ALBUM_MINUTES",
+          "kind": "minutes",
+          "max": 1440,
+          "title": "Longest album, in minutes",
+          "text": "The longest whole-album recording a link may download to pick songs from. 0 is no limit."
+        },
+        {
+          "id": "search.sources",
+          "env": "SONG_SEARCH_SOURCES",
+          "kind": "set",
+          "min": 0,
+          "none": "none",
+          "choices": [
+            { "id": "deezer", "label": "Deezer", "note": "Songs from Deezer's catalog" },
+            { "id": "itunes", "label": "iTunes Store", "note": "Songs from the iTunes Store's catalog" },
+            { "id": "suggest", "label": "Spelling help", "note": "YouTube's search suggestions, used to respell a mistyped search" }
+          ],
+          "title": "Song search",
+          "text": "Where typed words are looked up. With both catalogs off, the search lists YouTube uploads instead."
+        },
+        {
+          "id": "alignment.engine",
+          "env": "ALIGNMENT_ENGINE",
+          "kind": "choice",
+          "choices": [
+            { "id": "auto", "label": "Automatic", "note": "The neural aligner when its model can run, else signal analysis" },
+            { "id": "ctc", "label": "Neural", "note": "The neural aligner (a 1.2 GB model, non-commercial licence)" },
+            { "id": "dsp", "label": "Signal only", "note": "Signal analysis alone; never loads the model" }
+          ],
+          "title": "Lyric timing",
+          "text": "How lyrics are timed to the singing."
+        }
+      ]
+    }
+  ]
+}

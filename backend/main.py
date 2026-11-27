@@ -75,6 +75,7 @@ from backend.project_store import (
 )
 from backend.render_worker import remove_render_leftovers, run_video_render
 from backend.reseparation import remove_staged_stems
+from backend.routers.admin import router as admin_router
 from backend.routers.albums import router as albums_router
 from backend.routers.api_docs import OPENAPI_URL, install_openapi
 from backend.routers.api_docs import router as api_docs_router
@@ -390,6 +391,7 @@ app.include_router(exports_router)
 app.include_router(uploads_router)
 app.include_router(quality_router)
 app.include_router(system_router)
+app.include_router(admin_router)
 app.include_router(api_docs_router)
 
 # Mount built frontend if available

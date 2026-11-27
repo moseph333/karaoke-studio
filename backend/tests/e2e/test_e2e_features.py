@@ -753,7 +753,7 @@ def test_auth_status_open_by_default(client, monkeypatch):
     monkeypatch.setattr(config, "APP_PASSWORD", "")
     response = client.get("/api/auth/status")
     assert response.status_code == 200
-    assert response.json() == {"auth_required": False, "authenticated": True}
+    assert response.json() == {"auth_required": False, "authenticated": True, "admin": False}
 
 
 def test_auth_protected_routes_reject_unauthenticated(unauth_client, monkeypatch):
