@@ -1,18 +1,20 @@
 /**
  * Practice: the studio's view for rehearsing the open song. This hook holds whether practice
  * is on (kept in the address as `?practice=1`), its keys and palette commands, and the pieces
- * a singer practises with: repeating a part of the song, and the original singer switched on
- * and off at once.
+ * a singer practises with: repeating a part of the song, the original singer switched on
+ * and off at once, and the singer's own pitch from the microphone against the song's melody.
  *
  * It is called once by the app, whether or not practice is on, so turning practice on and off
  * never remounts the studio: the timeline keeps its unsaved edits behind the practice panel.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Mic, Mic2, Repeat } from 'lucide-react';
+import { AudioLines, Mic, Mic2, Repeat } from 'lucide-react';
 import type { ProjectState } from '../types';
 import type { UseStudioAudioReturn } from './useStudioAudio';
 import { isInputElement, isModalActive } from './useKeyboardShortcuts';
+import { useMelody, type UseMelodyReturn } from './useMelody';
+import { useMicPitch, type UseMicPitchReturn } from './useMicPitch';
 import { useOriginalVocal, type UseOriginalVocalReturn } from './useOriginalVocal';
 import { usePracticeLoop, type UsePracticeLoopReturn } from './usePracticeLoop';
 import { useStableHandlers } from './useStableHandlers';
@@ -40,6 +42,10 @@ export interface UsePracticeReturn {
   loop: UsePracticeLoopReturn;
   /** The original singer, switched on and off without a new mix. */
   singer: UseOriginalVocalReturn;
+  /** The microphone: the singer's pitch, shown against the melody. */
+  mic: UseMicPitchReturn;
+  /** The song's melody, asked for once the microphone is wanted. */
+  melody: UseMelodyReturn;
 }
 
 const NO_LINES: ProjectState['lines'] = [];
@@ -97,6 +103,13 @@ export function usePractice({
     audio,
   });
 
+  const mic = useMicPitch({ enabled: on });
+  const melody = useMelody({
+    wanted: on && mic.wanted,
+    projectId: songId,
+    vocalsUrl: project?.vocals_url,
+  });
+
   // P turns practice on and off; in practice L repeats the part being sung and O switches
   // the original singer. Single letters, so they follow the same rules as the stage's F
   const { toggleCurrentPart } = loop;
@@ -152,10 +165,33 @@ export function usePractice({
           run: toggleSinger,
         });
       }
+      list.push({
+        id: 'practice-pitch',
+        title: mic.wanted ? 'Stop showing my pitch' : 'See my pitch',
+        group: 'Practice',
+        icon: React.createElement(AudioLines),
+        keywords: ['microphone', 'mic', 'tune', 'melody', 'sing', 'note'],
+        run: mic.wanted ? mic.stop : mic.start,
+      });
     }
     return list;
-  }, [songId, on, repeating, toggle, toggleCurrentPart, singer.available, singer.on, toggleSinger]);
+  }, [
+    songId,
+    on,
+    repeating,
+    toggle,
+    toggleCurrentPart,
+    singer.available,
+    singer.on,
+    toggleSinger,
+    mic.wanted,
+    mic.start,
+    mic.stop,
+  ]);
   useRegisterCommands('practice', commands);
 
-  return useMemo(() => ({ on, toggle, leave, loop, singer }), [on, toggle, leave, loop, singer]);
+  return useMemo(
+    () => ({ on, toggle, leave, loop, singer, mic, melody }),
+    [on, toggle, leave, loop, singer, mic, melody]
+  );
 }

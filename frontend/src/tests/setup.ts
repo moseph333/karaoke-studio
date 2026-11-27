@@ -232,6 +232,10 @@ class MockAnalyserNode extends MockAudioNode {
       array[i] = 128;
     }
   });
+  // Silence: a test that needs a voice replaces this (tests/helpers/fakeMicrophone)
+  getFloatTimeDomainData = vi.fn((array: Float32Array) => {
+    array.fill(0);
+  });
 }
 
 class MockAudioParam {
@@ -282,6 +286,8 @@ class MockAudioContext {
     return analyser;
   });
   createGain = vi.fn().mockImplementation(() => new MockGainNode(this));
+  createMediaStreamSource = vi.fn().mockImplementation(() => new MockAudioNode());
+  baseLatency = 0;
   createMediaElementSource = vi.fn().mockImplementation(() => new MockAudioNode());
 }
 

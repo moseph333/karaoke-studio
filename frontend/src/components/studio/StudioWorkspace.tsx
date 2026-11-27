@@ -25,6 +25,7 @@ import { checkupFixCount } from '../../utils/songCheckup';
 import { normalizeSingerRole } from '../stage/singers';
 import { FirstSongCard } from './FirstSongCard';
 import { PracticePanel } from '../practice/PracticePanel';
+import { PracticePitchLane } from '../practice/PracticePitchLane';
 import { useWorkspaceTabs, workspacePanelProps } from './workspacePanels';
 import { cn } from '../../utils/cn';
 import { isJobActive, vocalSplitBusyReason } from '../../utils/jobs';
@@ -183,6 +184,23 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
       ) : undefined,
     [practice, project.lines, mix, activeTab]
   );
+  // The singer's pitch against the melody, under the stage's screen once the microphone is
+  // asked for (whatever came of it: without one the melody is still drawn)
+  const practiceOn = Boolean(practice?.on);
+  const practiceMic = practice?.mic;
+  const practiceMelody = practice?.melody.melody ?? null;
+  const pitchLane = useMemo(
+    () =>
+      practiceOn && practiceMic?.wanted ? (
+        <PracticePitchLane
+          melody={practiceMelody}
+          semitones={mix.appliedSemitones}
+          playbackRate={audio.playbackRate}
+          subscribe={practiceMic.subscribe}
+        />
+      ) : undefined,
+    [practiceOn, practiceMic, practiceMelody, mix.appliedSemitones, audio.playbackRate]
+  );
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
 
   return (
@@ -275,6 +293,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
             onStartBackgroundRealign={quality?.startBackgroundRealign}
             onCancelRealign={quality ? () => void quality.cancelRealign() : undefined}
             practicePanel={practicePanel}
+            underScreen={pitchLane}
           />
         </div>
       </section>

@@ -7,6 +7,9 @@
  *
  * Original singer: a switch that brings the singer in and out at once (a second player beside
  * the master, not a new mix), with its own level.
+ *
+ * See your pitch: a switch that asks for the microphone and puts the pitch lane under the
+ * stage (`PracticePitchLane`). What the singer sings stays in the browser.
  */
 
 import React, { useId, useMemo } from 'react';
@@ -52,7 +55,7 @@ export const PracticePanel: React.FC<PracticePanelProps> = ({
   mix,
   className,
 }) => {
-  const { loop, singer } = practice;
+  const { loop, singer, mic, melody } = practice;
   const { parts, range, mode } = loop;
   const repeating = mode !== 'off';
   const ids = useId().replace(/:/g, '');
@@ -83,6 +86,17 @@ export const PracticePanel: React.FC<PracticePanelProps> = ({
         : singer.on
           ? 'The singer is in. Switch off to sing it alone.'
           : 'Hear the singer over the music, on and off at once.';
+
+  const micNote =
+    mic.status === 'asking'
+      ? 'Waiting for the microphone. Allow it when the browser asks.'
+      : mic.status === 'on'
+        ? 'Listening. Wear headphones, or the microphone hears the song too.'
+        : mic.status === 'refused'
+          ? 'The browser was not allowed to use the microphone. Allow it for this site, then switch this on again.'
+          : mic.status === 'unavailable'
+            ? 'No microphone can be used here. It needs one plugged in, and an https address.'
+            : 'Sing into the microphone and see your pitch against the song’s. Nothing you sing leaves this device.';
 
   const pickLine = (end: 'from' | 'to', value: string) => {
     const index = Number(value);
@@ -232,6 +246,32 @@ export const PracticePanel: React.FC<PracticePanelProps> = ({
           {mix && hasVocalLevels(mix.vocalLevels) && singer.on && (
             <p className={noteCls}>
               This mix keeps some of the vocals, so they play twice while the singer is on.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div data-guide="practice-pitch" className={cn(rowCls, 'py-1 @[720px]:items-center')}>
+        <Switch
+          checked={mic.wanted}
+          onChange={(wanted) => (wanted ? mic.start() : mic.stop())}
+          label="See your pitch"
+          description={micNote}
+          testId="practice-pitch-switch"
+        />
+        <div className="flex min-w-0 flex-col justify-center gap-1 pb-2 @[720px]:pb-0">
+          {mic.wanted && melody.status === 'loading' && (
+            <p className={noteCls}>Working out the song’s melody.</p>
+          )}
+          {mic.wanted && melody.status === 'missing' && (
+            <p className={noteCls}>
+              This song has no melody to show, so only your own pitch is drawn.
+            </p>
+          )}
+          {mic.status === 'on' && melody.status === 'ready' && (
+            <p className={noteCls}>
+              The grey line is the song. Yours turns yellow while you are on the note, in any
+              octave.
             </p>
           )}
         </div>

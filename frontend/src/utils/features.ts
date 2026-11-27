@@ -130,6 +130,18 @@ export const FEATURES: Feature[] = [
     how: 'Switch this on to hear the singer, off to sing alone. The O key does the same.',
   },
   {
+    id: 'practice-pitch',
+    group: 'Sing it',
+    screen: 'studio',
+    anchors: ['practice-pitch'],
+    open: 'practice',
+    optional: true,
+    missing: 'Open Practice first: its button is beside the song’s title.',
+    title: 'See if you are in tune',
+    text: 'Sing into the microphone and watch your pitch against the song’s melody. What you sing stays on this device.',
+    how: 'Switch this on and allow the microphone. Your line turns yellow while you are on the note.',
+  },
+  {
     id: 'fullscreen',
     group: 'Sing it',
     screen: 'studio',
