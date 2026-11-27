@@ -2,12 +2,13 @@
  * Stage Toolbar
  *
  * The single home for stage view toggles: highlight mode (word sweep / line), beat
- * visualizer, chord bar and fullscreen. Uses dark video-player style overlays that read
- * on any stage background; in fullscreen it fades out with the floating controls.
+ * visualizer, chord bar, the stage window (the stage on a second screen) and fullscreen.
+ * Uses dark video-player style overlays that read on any stage background; in fullscreen it
+ * fades out with the floating controls.
  */
 
 import React from 'react';
-import { Activity, Maximize, Minimize, Music2 } from 'lucide-react';
+import { Activity, Maximize, Minimize, MonitorUp, Music2 } from 'lucide-react';
 import { IconButton } from '../ui/IconButton';
 import { focusRing } from '../ui/variants';
 import { cn } from '../../utils/cn';
@@ -23,6 +24,9 @@ export interface StageToolbarProps {
   isChordBarVisible: boolean;
   onToggleChordBar: () => void;
   onToggleFullscreen: () => void;
+  /** Opens the stage in a window of its own; omitted where the browser cannot. */
+  onOpenStageWindow?: () => void;
+  isStageWindowOpen?: boolean;
 }
 
 const SYNC_OPTIONS: { mode: SyncDisplayMode; text: string; label: string; hint: string }[] = [
@@ -45,6 +49,8 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
   isChordBarVisible,
   onToggleChordBar,
   onToggleFullscreen,
+  onOpenStageWindow,
+  isStageWindowOpen = false,
 }) => (
   <div
     data-testid="stage-toolbar"
@@ -106,6 +112,25 @@ const StageToolbarView: React.FC<StageToolbarProps> = ({
         pressed={isChordBarVisible}
         onClick={onToggleChordBar}
       />
+      {onOpenStageWindow && !isFullscreen && (
+        // A second screen belongs to a desk, not a phone: the button starts at tablet width
+        <IconButton
+          data-testid="stage-window-open"
+          data-guide="stage-window"
+          icon={<MonitorUp className="h-4 w-4" aria-hidden="true" />}
+          label={isStageWindowOpen ? 'Show the stage window' : 'Open the stage window'}
+          tooltip={
+            isStageWindowOpen
+              ? 'The stage window is open. Bring it forward'
+              : 'Stage on a second screen'
+          }
+          tooltipPosition="bottom"
+          variant="overlay"
+          pressed={isStageWindowOpen}
+          wrapperClassName="hidden md:inline-flex"
+          onClick={onOpenStageWindow}
+        />
+      )}
       <IconButton
         data-testid="stage-fullscreen-toggle"
         data-guide="stage-fullscreen"

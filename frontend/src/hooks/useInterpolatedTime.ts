@@ -61,15 +61,16 @@ export function useInterpolatedTime({
         return;
       }
 
-      // Check audio element if available
-      if (audioRef?.current) {
-        const audio = audioRef.current;
-        const liveTime = getLiveTime ? getLiveTime() : audio.currentTime;
-        if (audio.paused) {
+      // Follow the audio element, or a live clock given without one (a stage window has no
+      // player: its clock keeps time from what the studio's window last told it)
+      const audio = audioRef?.current;
+      if (audio || getLiveTime) {
+        const liveTime = getLiveTime ? getLiveTime() : audio!.currentTime;
+        if (audio?.paused) {
           setInterpolatedTime(liveTime);
           return;
         }
-        // If audio element currentTime has progressed, re-anchor base
+        // If the live position has progressed, re-anchor base
         if (Math.abs(liveTime - lastBaseTimeRef.current) > 0.001) {
           lastBaseTimeRef.current = liveTime;
           lastPerfTimeRef.current = performance.now();

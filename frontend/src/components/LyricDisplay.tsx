@@ -4,7 +4,9 @@
  * The live stage: a frame of the video in the chosen look (StageFrame draws the scene
  * utils/stageScene gives for the song time, so a paused stage is the video's frame at that
  * moment), with the toolbar in a row above it, the chord bar over it, and the fullscreen TV
- * stage with auto-hiding controls.
+ * stage with auto-hiding controls. It also keeps a stage window on a second screen, when one
+ * is open, showing the same stage (useStageLeader); `bare` is that window's own stage, which
+ * is the screen alone.
  */
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
@@ -30,7 +32,10 @@ import { StageFloatingControls } from './stage/StageFloatingControls';
 import { ChordBar } from './ChordBar';
 import { cn } from '../utils/cn';
 import { useRegisterCommands } from './commandPalette/context';
-import { Maximize, Minimize } from 'lucide-react';
+import { useStageLeader } from '../hooks/useStageLeader';
+import { useToast } from '../hooks/useToast';
+import type { StageState } from '../utils/stageLink';
+import { Maximize, Minimize, MonitorUp } from 'lucide-react';
 
 export interface LyricDisplayProps {
   lines: LyricLine[];
@@ -87,6 +92,9 @@ export interface LyricDisplayProps {
   /** The song's title and artist, shown on the opening title card and the end card. */
   trackTitle?: string;
   trackArtist?: string;
+  /** The screen alone, filling the window: no toolbar, no controls, no shortcuts of its own.
+   *  A stage window draws its stage this way and follows the studio's. */
+  bare?: boolean;
 }
 
 /** Card text: blank values, and the backend's placeholder artist, are left out. */
@@ -141,6 +149,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
   onToggleMute,
   trackTitle,
   trackArtist,
+  bare = false,
 }) => {
   const look = selectedTheme ?? getStageLook(DEFAULT_STAGE_LOOK_ID);
   const aspect = aspectRatio === '9:16' ? '9:16' : '16:9';
@@ -267,10 +276,10 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
       clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
     }
-    if (isPlaying && isFullscreen) {
+    if (isPlaying && (isFullscreen || bare)) {
       idleTimerRef.current = setTimeout(() => setShowControls(false), 3000);
     }
-  }, [isPlaying, isFullscreen]);
+  }, [isPlaying, isFullscreen, bare]);
 
   // Keep controls always visible while paused
   useEffect(() => {
@@ -280,13 +289,13 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
         clearTimeout(idleTimerRef.current);
         idleTimerRef.current = null;
       }
-    } else if (isFullscreen) {
+    } else if (isFullscreen || bare) {
       resetIdleTimer();
     }
     return () => {
       if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     };
-  }, [isPlaying, isFullscreen, resetIdleTimer]);
+  }, [isPlaying, isFullscreen, bare, resetIdleTimer]);
 
   const toggleFullscreen = useCallback(async () => {
     const nextState = !isFullscreen;
@@ -305,17 +314,106 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
     }
   }, [isFullscreen]);
 
-  useRegisterCommands('stage-fullscreen', [
-    {
-      id: 'stage-fullscreen',
-      title: isFullscreen ? 'Exit fullscreen stage' : 'Enter fullscreen stage',
-      group: 'Stage',
-      icon: isFullscreen ? <Minimize /> : <Maximize />,
-      shortcut: ['F'],
-      keywords: ['tv', 'big screen', 'present'],
-      run: toggleFullscreen,
-    },
-  ]);
+  // --- The stage window ---------------------------------------------------------------
+  // What a stage window on a second screen needs to draw this stage; sent when it changes
+  const stageState = useMemo<StageState>(
+    () => ({
+      lines,
+      duration,
+      title: trackTitle,
+      artist: trackArtist,
+      partNames: partNames ?? null,
+      lookId: look.id,
+      aspect,
+      fontSizeScale,
+      syncMode: activeSyncMode,
+      sung: sungColor,
+      unsung: unsungColor,
+      singer2: singer2Color,
+      both: bothColor,
+      backgroundStyle,
+      backgroundMedia: backgroundMedia ?? null,
+      artworkUrl,
+      albumArtUrl,
+      backgroundPalette,
+      showVisualizer: isVisualizerActive,
+      showChordBar: isChordBarVisible,
+      chords,
+      semitones: effectiveSemitones,
+      keyHint,
+    }),
+    [
+      lines,
+      duration,
+      trackTitle,
+      trackArtist,
+      partNames,
+      look.id,
+      aspect,
+      fontSizeScale,
+      activeSyncMode,
+      sungColor,
+      unsungColor,
+      singer2Color,
+      bothColor,
+      backgroundStyle,
+      backgroundMedia,
+      artworkUrl,
+      albumArtUrl,
+      backgroundPalette,
+      isVisualizerActive,
+      isChordBarVisible,
+      chords,
+      effectiveSemitones,
+      keyHint,
+    ]
+  );
+  const stageWindow = useStageLeader({
+    enabled: !bare,
+    state: stageState,
+    isPlaying,
+    playbackRate,
+    fallbackTime: currentTime,
+    onTogglePlay,
+    onSeek,
+  });
+  const { toast } = useToast();
+  const openStage = stageWindow.open;
+  const openStageWindow = useCallback(() => {
+    if (!openStage()) {
+      toast.warning('The browser blocked the stage window. Allow pop-ups for this site.');
+    }
+  }, [openStage, toast]);
+
+  useRegisterCommands(
+    'stage-fullscreen',
+    bare
+      ? null
+      : [
+          {
+            id: 'stage-fullscreen',
+            title: isFullscreen ? 'Exit fullscreen stage' : 'Enter fullscreen stage',
+            group: 'Stage',
+            icon: isFullscreen ? <Minimize /> : <Maximize />,
+            shortcut: ['F'],
+            keywords: ['tv', 'big screen', 'present'],
+            run: toggleFullscreen,
+          },
+          ...(stageWindow.canOpen
+            ? [
+                {
+                  id: 'stage-window',
+                  title: stageWindow.isOpen ? 'Show the stage window' : 'Open the stage window',
+                  subtitle: 'The stage alone, for a second screen',
+                  group: 'Stage',
+                  icon: <MonitorUp />,
+                  keywords: ['tv', 'second screen', 'dual', 'monitor', 'projector', 'pop out'],
+                  run: openStageWindow,
+                },
+              ]
+            : []),
+        ]
+  );
 
   // Sync state when the user leaves native fullscreen (Esc / F11)
   useEffect(() => {
@@ -348,6 +446,8 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
 
   // 'F' toggles the fullscreen stage, 'Escape' exits
   useEffect(() => {
+    // A stage window has its own keys (StageWindow)
+    if (bare) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       // Any key brings the hidden fullscreen controls back, so keyboard users see focus
       if (isFullscreen) resetIdleTimer();
@@ -364,7 +464,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleFullscreen, isFullscreen, resetIdleTimer]);
+  }, [bare, toggleFullscreen, isFullscreen, resetIdleTimer]);
 
   // KTV's typeface draws Japanese itself; its 118 slices are declared only once the look is
   // on, and each is fetched only when one of its characters is on the stage
@@ -409,7 +509,9 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
   );
   const scene = sceneAt(plan, effectiveTime);
 
-  const containerClasses = isFullscreen
+  // A stage window's stage fills its window the way the fullscreen stage fills the screen
+  const filled = isFullscreen || bare;
+  const containerClasses = filled
     ? cn(
         'fixed inset-0 z-50 flex h-screen w-screen flex-col overflow-hidden bg-theme-bg font-theme-heading text-theme-text',
         !showControls && 'cursor-none'
@@ -423,7 +525,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
       );
   // The screen is the video's shape inline; fullscreen it takes what the display has and the
   // frame sits centred in it
-  const screenClasses = isFullscreen
+  const screenClasses = filled
     ? 'relative min-h-0 flex-1'
     : cn(
         'relative overflow-hidden border border-theme-border-subtle',
@@ -448,17 +550,21 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
       onFocus={resetIdleTimer}
       className={containerClasses}
     >
-      <StageToolbar
-        isFullscreen={isFullscreen}
-        visible={!isFullscreen || showControls}
-        syncMode={activeSyncMode}
-        onSyncModeChange={handleSyncModeChange}
-        isVisualizerActive={isVisualizerActive}
-        onToggleVisualizer={handleToggleVisualizer}
-        isChordBarVisible={isChordBarVisible}
-        onToggleChordBar={handleToggleChordBar}
-        onToggleFullscreen={toggleFullscreen}
-      />
+      {!bare && (
+        <StageToolbar
+          isFullscreen={isFullscreen}
+          visible={!isFullscreen || showControls}
+          syncMode={activeSyncMode}
+          onSyncModeChange={handleSyncModeChange}
+          isVisualizerActive={isVisualizerActive}
+          onToggleVisualizer={handleToggleVisualizer}
+          isChordBarVisible={isChordBarVisible}
+          onToggleChordBar={handleToggleChordBar}
+          onToggleFullscreen={toggleFullscreen}
+          onOpenStageWindow={stageWindow.canOpen ? openStageWindow : undefined}
+          isStageWindowOpen={stageWindow.isOpen}
+        />
+      )}
 
       <div
         data-testid="stage-screen"
@@ -524,7 +630,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
         )}
       </div>
 
-      {isFullscreen && (
+      {isFullscreen && !bare && (
         <StageFloatingControls
           visible={showControls}
           isPlaying={isPlaying}

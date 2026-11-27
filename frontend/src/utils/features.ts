@@ -98,6 +98,18 @@ export const FEATURES: Feature[] = [
     how: 'Press this, or the F key. Escape leaves.',
   },
   {
+    id: 'stage-window',
+    group: 'Sing it',
+    screen: 'studio',
+    anchors: ['stage-window'],
+    tab: 'stage',
+    optional: true,
+    missing: 'The stage window opens from a computer with a second screen, not from a phone.',
+    title: 'Use a second screen',
+    text: 'Put the stage on a TV while the timeline and the mix stay on this screen.',
+    how: 'Press this, drag the new window to the TV, then press F in it to fill that screen.',
+  },
+  {
     id: 'chords',
     group: 'Sing it',
     screen: 'studio',
