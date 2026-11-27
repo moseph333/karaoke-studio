@@ -11,6 +11,7 @@ import { apiFetch, readApiError } from '../api';
 import type { PartNames } from '../types';
 import { Dialog, DialogFooter, DialogHeader } from './ui/Dialog';
 import { Button } from './ui/Button';
+import { TEXT_LIMITS } from '../utils/textLimits';
 
 export interface EditMetadataModalProps {
   isOpen: boolean;
@@ -177,6 +178,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Bohemian Rhapsody"
+              maxLength={TEXT_LIMITS.title}
               required
               className={inputCls}
             />
@@ -192,6 +194,7 @@ export const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               value={artist}
               onChange={(e) => setArtist(e.target.value)}
               placeholder="e.g. Queen"
+              maxLength={TEXT_LIMITS.artist}
               required
               className={inputCls}
             />
