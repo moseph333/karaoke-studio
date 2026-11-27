@@ -71,7 +71,7 @@ from backend.schemas import (
     RenderRequest,
     VocalRangeData,
 )
-from backend.services import intake_lyrics, remote_render
+from backend.services import intake_lyrics, remote_render, uploaded_backgrounds
 from backend.services.lyric_sync import prepare_existing_lines, sync_lyrics
 from backend.services.media_links import parse_media_link
 from backend.services.separator import adopt_provenance
@@ -996,9 +996,23 @@ def render_video(project_id: str, req: RenderRequest, bg_tasks: BackgroundTasks)
         proj["render_eta_seconds"] = 45
         proj["render_heartbeat"] = int(time.time() * 1000)
         save_projects()
-    bg_tasks.add_task(run_job, main_mod.run_video_render, project_id, req)
+        # Held from here, not from when the render reaches FFmpeg: the studio may let go
+        # of the upload while the render waits behind other jobs
+        uploaded_backgrounds.hold(req.custom_bg_id)
+    bg_tasks.add_task(run_job, run_render_job, project_id, req)
 
     return {"status": "queued"}
+
+
+def run_render_job(project_id: str, req: RenderRequest) -> None:
+    """The render a request queued, ending the hold that request took on its uploaded
+    background however the render ends."""
+    import backend.main as main_mod
+
+    try:
+        main_mod.run_video_render(project_id, req)
+    finally:
+        uploaded_backgrounds.release(req.custom_bg_id)
 
 
 @router.post("/api/render/warmup", status_code=202)

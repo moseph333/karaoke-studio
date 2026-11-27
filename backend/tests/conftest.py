@@ -136,10 +136,13 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     # later tests' folders
     monkeypatch.setattr(update_drain, "start_jobs_heartbeat", lambda: None)
     from backend.services import separator as separator_service
-    from backend.services import sync_confidence
+    from backend.services import sync_confidence, uploaded_backgrounds
     from backend.services.audio_mixer import reset_ffmpeg_probe
 
     sync_confidence.clear_cache()
+    # A render a test only queued never ends, so its hold on an uploaded background would
+    # stay for the tests after it
+    uploaded_backgrounds.forget_holds()
     # FFmpeg filter and encoder probes are remembered; a faked FFmpeg must not leak into
     # later tests
     reset_ffmpeg_probe()
