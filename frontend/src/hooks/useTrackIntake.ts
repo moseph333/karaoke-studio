@@ -76,7 +76,8 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
 
   // Start processing a new track
   // `again`: the failed or cancelled song being started again, which keeps its owner and
-  // its quality rather than taking this browser's
+  // its quality rather than taking this browser's, and the lyrics pasted for it the first
+  // time (the server kept them; `retry` asks for them)
   const handleSelectTrack = async (
     urlOrId: string,
     customLyrics?: string,
@@ -93,6 +94,7 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
           custom_lyrics: customLyrics,
           created_by: again?.created_by || currentUser || 'Friend',
           ...(quality ? { separation_quality: quality } : {}),
+          ...(again ? { retry: true } : {}),
         }),
       });
       if (!res.ok) {

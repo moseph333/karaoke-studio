@@ -21,6 +21,7 @@ from backend.project_store import (
     save_projects,
 )
 from backend.schemas import AlbumSongsRequest, AlbumWholeRequest
+from backend.services import intake_lyrics
 from backend.services.downloader import album_audio_path
 from backend.update_drain import ensure_not_draining
 
@@ -206,6 +207,8 @@ def make_album_whole(project_id: str, req: AlbumWholeRequest, bg_tasks: Backgrou
         main_mod.active_cancellations[proj.get("id", project_id)] = threading.Event()
         save_projects()
     album_id = proj.get("id", project_id)
+    # Lyrics pasted with the link or the file were for the whole recording
+    lyrics = intake_lyrics.kept(proj)
     if album.get("kind") == "upload":
         wav = downloads / str(album.get("audio_file") or f"{album_id}.wav")
         bg_tasks.add_task(
@@ -215,12 +218,12 @@ def make_album_whole(project_id: str, req: AlbumWholeRequest, bg_tasks: Backgrou
             str(wav),
             proj.get("title") or "",
             proj.get("artist") or "",
-            None,
+            lyrics,
         )
     else:
         # The song is downloaded as a song; the album's compressed copy is not needed now
         compressed = album_audio_path(downloads, album_id)
         if compressed is not None:
             Path(compressed).unlink(missing_ok=True)
-        bg_tasks.add_task(run_job, main_mod.run_pipeline, album_id, album.get("url"), None)
+        bg_tasks.add_task(run_job, main_mod.run_pipeline, album_id, album.get("url"), lyrics)
     return {"project_id": album_id, "status": "queued"}
