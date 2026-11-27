@@ -2,6 +2,14 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { resetInputModality } from '../utils/inputModality';
+import {
+  installFakeBroadcastChannel,
+  resetFakeBroadcastChannels,
+} from './helpers/fakeBroadcastChannel';
+
+// The stage tells a stage window what it shows over a BroadcastChannel (utils/stageLink).
+// Node's own would deliver between tests and keep a worker alive
+installFakeBroadcastChannel();
 
 beforeEach(() => {
   Object.defineProperty(window.navigator, 'clipboard', {
@@ -43,6 +51,7 @@ afterEach(() => {
   if (typeof document !== 'undefined' && document.documentElement) {
     document.documentElement.removeAttribute('data-stage-look');
   }
+  resetFakeBroadcastChannels();
   // A keydown in one test must not make the next one's focus look keyboard-driven
   resetInputModality();
   // The studio keeps the open song in the URL (?project=…); a leftover one would make the

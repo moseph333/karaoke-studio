@@ -6,32 +6,48 @@
  * the browser's install offer and registers the offline service worker (production builds).
  * The studio, dialogs and command palette are separate chunks, fetched once the first screen
  * is idle (deferredScreens.ts).
+ *
+ * `/?stage=1` is a stage window (the stage alone, for a second screen): it mounts
+ * `StageWindow` in place of the app, which would otherwise sign in, poll, offer updates and
+ * save stage settings from a window that only shows what the studio's window sends it.
  */
 
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './hooks/useToast';
 import { startInstallPromptCapture } from './utils/installPrompt';
 import { registerServiceWorker } from './utils/serviceWorker';
+import { isStageWindowUrl } from './utils/stageLink';
 import { preloadDeferredScreens } from './deferredScreens';
 import './fonts.css';
 import './index.css';
 
+const isStageWindow = isStageWindowUrl(window.location.search);
+const StageWindow = lazy(() =>
+  import('./components/stage-window/StageWindow').then((m) => ({ default: m.StageWindow }))
+);
+
 // Before React mounts: the browser can offer installation as soon as the page loads
-startInstallPromptCapture();
+if (!isStageWindow) startInstallPromptCapture();
 registerServiceWorker();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <ToastProvider>
-        <App />
+        {isStageWindow ? (
+          <Suspense fallback={null}>
+            <StageWindow />
+          </Suspense>
+        ) : (
+          <App />
+        )}
       </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );
 
 // After the first render is under way: nothing on the first screen waits for these
-preloadDeferredScreens();
+if (!isStageWindow) preloadDeferredScreens();
