@@ -19,7 +19,7 @@ from backend.project_store import (
     restore_on_failed_save,
     save_projects,
 )
-from backend.schemas import parse_separation_quality
+from backend.schemas import TEXT_LIMITS, parse_separation_quality
 from backend.services import intake_lyrics
 from backend.update_drain import ensure_not_draining
 from backend.upload_utils import (
@@ -200,10 +200,10 @@ async def upload_audio_track(
     file: UploadFile = File(...),
     # The same limits as a link intake (ProcessRequest) and a rename (ProjectMetadataUpdate):
     # without them a megabyte of text in any field went into projects.json
-    title: str | None = Form(default=None, max_length=300),
-    artist: str | None = Form(default=None, max_length=300),
-    created_by: str | None = Form(default=None, max_length=64),
-    custom_lyrics: str | None = Form(default=None, max_length=50000),
+    title: str | None = Form(default=None, max_length=TEXT_LIMITS["title"]),
+    artist: str | None = Form(default=None, max_length=TEXT_LIMITS["artist"]),
+    created_by: str | None = Form(default=None, max_length=TEXT_LIMITS["singer"]),
+    custom_lyrics: str | None = Form(default=None, max_length=TEXT_LIMITS["lyrics"]),
     separation_quality: str | None = Form(default=None),
     bg_tasks: BackgroundTasks = BackgroundTasks(),
 ):
