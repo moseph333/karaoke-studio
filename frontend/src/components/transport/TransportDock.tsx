@@ -66,6 +66,8 @@ export interface TransportDockProps {
   mediaTitle?: string;
   mediaArtist?: string;
   mediaArtworkUrl?: string;
+  /** The stretch that repeats in practice, marked on the scrubber. */
+  loopRange?: { start: number; end: number } | null;
   className?: string;
 }
 
@@ -80,6 +82,7 @@ interface TransportProgressProps {
   lines?: WaveformLine[];
   peaks?: number[] | null;
   peaksPending?: boolean;
+  loopRange?: { start: number; end: number } | null;
   className?: string;
 }
 
@@ -95,6 +98,7 @@ const TransportProgress: React.FC<TransportProgressProps> = ({
   lines,
   peaks,
   peaksPending,
+  loopRange,
   className,
 }) => {
   const clock = usePlaybackClock();
@@ -125,6 +129,7 @@ const TransportProgress: React.FC<TransportProgressProps> = ({
         peaks={peaks}
         deferDecode={peaksPending}
         showMarkers
+        range={loopRange}
         isPlaying={isPlaying}
         className="h-11 flex-1"
       />
@@ -166,6 +171,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
   mediaTitle,
   mediaArtist,
   mediaArtworkUrl,
+  loopRange,
   className,
 }) => {
   const dockRef = useRef<HTMLElement>(null);
@@ -442,6 +448,7 @@ const TransportDockView: React.FC<TransportDockProps> = ({
           lines={lines}
           peaks={peaks}
           peaksPending={peaksPending}
+          loopRange={loopRange}
         />
 
         <div className="flex items-center gap-1.5 [grid-area:primary]">

@@ -72,6 +72,18 @@ describe('the controls the guide points at', () => {
     });
   }
 
+  it('finds the practice controls once practice is on', async () => {
+    window.history.pushState({}, '', `/?project=${GUIDE_SONG.id}&practice=1`);
+    render(<App />);
+    await screen.findByTestId('practice-panel');
+
+    const practice = targets('studio').filter((target) => target.id.startsWith('practice'));
+    expect(practice.length).toBeGreaterThan(1);
+    for (const target of practice) {
+      expect(anchorOnPage(target.anchors), `${target.id}: ${target.anchors}`).toBe(true);
+    }
+  });
+
   it('names the button that uncovers a collapsed control', async () => {
     window.history.pushState({}, '', `/?project=${GUIDE_SONG.id}`);
     render(<App />);

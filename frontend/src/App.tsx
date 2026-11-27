@@ -44,6 +44,7 @@ import { useStudioAuth } from './hooks/useStudioAuth';
 import { useVisualTheme } from './hooks/useVisualTheme';
 import { useMixController } from './hooks/useMixController';
 import { useStudioCommands } from './hooks/useStudioCommands';
+import { usePractice } from './hooks/usePractice';
 import { useGuideCommands } from './hooks/useGuideCommands';
 import { useWaveformPeaksState } from './hooks/useWaveformPeaks';
 import { renderStyleConfig } from './utils/renderRequest';
@@ -295,6 +296,22 @@ export const AppContent: React.FC = () => {
   };
 
   const isStudioReady = Boolean(project && project.status === 'ready');
+  // Practice: the open song with a part repeating in place of the timeline. Opening the
+  // timeline (its phone tab, a guide stop, a fix from the check-up) leaves practice.
+  const practice = usePractice({
+    project: isStudioReady ? project : null,
+    audio,
+    onEnter: () => setActiveWorkspaceTab('stage'),
+    keysEnabled: !showAuthModal,
+  });
+  const leavePractice = practice.leave;
+  const selectWorkspaceTab = useCallback(
+    (tab: StudioWorkspaceTab) => {
+      setActiveWorkspaceTab(tab);
+      if (tab === 'timeline') leavePractice();
+    },
+    [leavePractice]
+  );
   const openExport = useCallback(() => setIsExportOpen(true), []);
   useRenderOutcomeToast(project, openExport);
   // First finished song in this browser: the studio shows its getting-started steps
@@ -394,7 +411,7 @@ export const AppContent: React.FC = () => {
     isPlaying,
     onTogglePlay: audio.handleTogglePlay,
     onSeek: audio.handleSeek,
-    onSelectTab: setActiveWorkspaceTab,
+    onSelectTab: selectWorkspaceTab,
     onOpenMix: handleOpenMixSettings,
     onOpenExport: openExport,
     onOpenCheckup: () => setShowCheckup(true),
@@ -402,7 +419,10 @@ export const AppContent: React.FC = () => {
       setHelpTab('fix');
       setShowHelpModal(true);
     },
-    onStartTour: () => setGuide({ tour: 'studio' }),
+    onStartTour: () => {
+      leavePractice();
+      setGuide({ tour: 'studio' });
+    },
     onCloseGuidance: () => {
       setShowCheckup(false);
       setShowHelpModal(false);
@@ -555,10 +575,13 @@ export const AppContent: React.FC = () => {
     // Help steps aside for the guide it starts
     startTour: () => {
       setShowHelpModal(false);
+      // The tour walks the studio as it opens, timeline included
+      leavePractice();
       setGuide({ tour: view === 'library' ? 'home' : 'studio' });
     },
     showFeature: (feature: string) => {
       setShowHelpModal(false);
+      if (!feature.startsWith('practice')) leavePractice();
       setGuide({ feature });
     },
     customInstrumentalUploaded: (url: string) =>
@@ -590,7 +613,7 @@ export const AppContent: React.FC = () => {
     // The palette's song list is a snapshot that can be half a minute old: open the song
     // as the server has it now
     onOpenProject: (p) => fetchAndOpenProject(p.id),
-    onSelectTab: setActiveWorkspaceTab,
+    onSelectTab: selectWorkspaceTab,
     quality,
     onInstallApp: installApp.canInstall ? installApp.install : undefined,
     onOpenServerSettings: adminEnabled ? handlers.openServerSettings : undefined,
@@ -722,7 +745,7 @@ export const AppContent: React.FC = () => {
                   key={project.id}
                   project={project}
                   activeTab={activeWorkspaceTab}
-                  onSelectTab={setActiveWorkspaceTab}
+                  onSelectTab={selectWorkspaceTab}
                   hasUnsavedChanges={isLyricsDirty || chordHistory.isDirty}
                   onLyricsDirtyChange={setIsLyricsDirty}
                   onSaveLines={handlers.saveLines}
@@ -742,6 +765,7 @@ export const AppContent: React.FC = () => {
                   showFirstSongCard={firstSong.visible}
                   onDismissFirstSongCard={firstSong.dismiss}
                   onGuideAction={runGuideAction}
+                  practice={practice}
                 />
               </Suspense>
             )}
@@ -774,6 +798,7 @@ export const AppContent: React.FC = () => {
                 mediaTitle={project.title}
                 mediaArtist={project.artist}
                 mediaArtworkUrl={project.thumbnail_url}
+                loopRange={practice.loop.range}
               />
             </Suspense>
           )}
@@ -852,7 +877,7 @@ export const AppContent: React.FC = () => {
                 key={'tour' in guide ? `tour:${guide.tour}` : `feature:${guide.feature}`}
                 request={guide}
                 activeTab={activeWorkspaceTab}
-                onSelectTab={setActiveWorkspaceTab}
+                onSelectTab={selectWorkspaceTab}
                 isPlaying={isPlaying}
                 onTogglePlay={audio.handleTogglePlay}
                 onEnd={endGuide}
