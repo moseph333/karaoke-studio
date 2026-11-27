@@ -17,12 +17,14 @@ import type { UseStudioAudioReturn } from '../../hooks/useStudioAudio';
 import type { UseMixControllerReturn } from '../../hooks/useMixController';
 import type { UseVisualThemeReturn } from '../../hooks/useVisualTheme';
 import type { UseQualityJobsReturn } from '../../hooks/useQualityJobs';
+import type { UsePracticeReturn } from '../../hooks/usePractice';
 import { useCapabilities } from '../../hooks/useCapabilities';
 import { useProjectStageInputs } from '../../hooks/useProjectStageInputs';
 import type { GuideAction } from '../../utils/guideActions';
 import { checkupFixCount } from '../../utils/songCheckup';
 import { normalizeSingerRole } from '../stage/singers';
 import { FirstSongCard } from './FirstSongCard';
+import { PracticePanel } from '../practice/PracticePanel';
 import { useWorkspaceTabs, workspacePanelProps } from './workspacePanels';
 import { cn } from '../../utils/cn';
 import { isJobActive, vocalSplitBusyReason } from '../../utils/jobs';
@@ -54,6 +56,8 @@ export interface StudioWorkspaceProps {
   showFirstSongCard?: boolean;
   onDismissFirstSongCard?: () => void;
   onGuideAction?: (action: GuideAction) => void;
+  /** Practice: its panel takes the timeline's place while it is on. */
+  practice?: UsePracticeReturn;
 }
 
 /** Mobile tab visibility; every panel is visible from `md` up. */
@@ -83,6 +87,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
   showFirstSongCard = false,
   onDismissFirstSongCard,
   onGuideAction,
+  practice,
 }) => {
   const asTabs = useWorkspaceTabs();
   const firstSongCard = showFirstSongCard && onDismissFirstSongCard && onGuideAction;
@@ -163,6 +168,20 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
     [quality, project.song_loop, project.song_loop_job, songLoopCapability]
   );
   const { backgroundMedia, backgroundStyle, artworkUrl } = useProjectStageInputs(project, theme);
+  const practicePanel = useMemo(
+    () =>
+      practice?.on ? (
+        <PracticePanel
+          practice={practice}
+          lines={project.lines}
+          className={cn(
+            panelVisibility(activeTab, 'stage'),
+            'studio:min-h-0 studio:flex-1 studio:overflow-y-auto'
+          )}
+        />
+      ) : undefined,
+    [practice, project.lines, activeTab]
+  );
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
 
   return (
@@ -185,6 +204,8 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
           onOpenEditModal={onOpenEditModal}
           onOpenDeleteModal={onOpenDeleteModal}
           onOpenCheckup={onOpenCheckup}
+          practiceOn={practice?.on}
+          onTogglePractice={practice?.toggle}
         />
 
         {firstSongCard && (
@@ -252,6 +273,7 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
             syncJob={project.sync_job}
             onStartBackgroundRealign={quality?.startBackgroundRealign}
             onCancelRealign={quality ? () => void quality.cancelRealign() : undefined}
+            practicePanel={practicePanel}
           />
         </div>
       </section>
