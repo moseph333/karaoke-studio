@@ -7,7 +7,7 @@ import json
 import pytest
 
 from backend import config, project_store, server_settings
-from backend.services import admin_settings, separation_presets, song_loops
+from backend.services import admin_settings, remote_song_loop, separation_presets, song_loops
 
 ADMIN = "owner-only-words"
 URL = "/api/admin/settings"
@@ -119,7 +119,8 @@ def test_a_loop_with_a_model_that_was_turned_off_is_refused(owner, monkeypatch):
     from backend.main import projects
 
     monkeypatch.setenv("SONG_LOOP_REMOTE", "modal")
-    monkeypatch.setattr(separation_presets, "remote_status", lambda: (True, None))
+    # The cloud can be asked, whatever credentials the machine running the tests has
+    monkeypatch.setattr(remote_song_loop, "remote_status", lambda: (True, None))
     projects["p1"] = {"id": "p1", "status": "ready", "title": "Song", "lines": [{"text": "la"}]}
     save(owner, song_loop__models=["ltx"])
 
