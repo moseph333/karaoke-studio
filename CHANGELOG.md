@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.15.0](https://github.com/moseph333/karaoke-studio/compare/v2.14.0...v2.15.0) (2026-11-27)
+
+
+### Features
+
+* **admin:** add the server settings page ([0f79695](https://github.com/moseph333/karaoke-studio/commit/0f796956c4939d569912591e9e72e308fe407ac5))
+* **admin:** unlock server settings with an admin passphrase ([5282f5a](https://github.com/moseph333/karaoke-studio/commit/5282f5af813956b6154a6922598effc00af73e52))
+* **server:** let saved settings override the environment ([3e89484](https://github.com/moseph333/karaoke-studio/commit/3e8948450b5670eff5a39ab498cd268320c44d6d))
+* **show:** ask for a song the show could not find ([57e2bc2](https://github.com/moseph333/karaoke-studio/commit/57e2bc2a711216745e873575d1796c3b4fd22267))
+* **show:** drag a singer to another place in the queue ([0d73b55](https://github.com/moseph333/karaoke-studio/commit/0d73b555acd1e6fa8b736469033d08b4f324a3a7))
+* **show:** give a venue a passphrase that only runs the show ([ab772f2](https://github.com/moseph333/karaoke-studio/commit/ab772f24ddc6443225a0ad7777ac8ae2e592ea41))
+* **show:** run a karaoke night from a queue ([0fa18cf](https://github.com/moseph333/karaoke-studio/commit/0fa18cf6457cfc350afb2312ed12b3054da8791a))
+* **show:** show the stage's video on the host screen without sound ([e934d0b](https://github.com/moseph333/karaoke-studio/commit/e934d0ba5e65aedd85d8ec166a27c5d02596842d))
+* **stage:** show the stage in a second window ([1ca030b](https://github.com/moseph333/karaoke-studio/commit/1ca030bb56170c9b4bb03aac829bcca1d73cbb35))
+* **stems:** choose which quality presets a server offers ([096e231](https://github.com/moseph333/karaoke-studio/commit/096e231b776875d820233340325ed31fe3b1c6c1))
+
+
+### Bug Fixes
+
+* **intake:** start a failed song again with the lyrics pasted for it ([54ddb38](https://github.com/moseph333/karaoke-studio/commit/54ddb3861dc8b0b00dd63f9cb12f1bbdd27bfbc7))
+* **intake:** stop text fields at the lengths the server accepts ([13c1652](https://github.com/moseph333/karaoke-studio/commit/13c16525ba7491fc2b0a761c6af982bcc1389ed0))
+* **show:** clear the song search once a singer is queued ([13985ff](https://github.com/moseph333/karaoke-studio/commit/13985ff52e89ddb63d721266d99bd50573c3f17d))
+* **stage:** delete an uploaded background the studio has replaced or removed ([fac45b7](https://github.com/moseph333/karaoke-studio/commit/fac45b76c3326d03e507d2a5145e5437f957b6d4))
+
 ## [2.14.0](https://github.com/moseph333/karaoke-studio/compare/v2.13.0...v2.14.0) (2026-11-25)
 
 
