@@ -20,6 +20,7 @@ from backend.project_store import (
     save_projects,
 )
 from backend.schemas import parse_separation_quality
+from backend.services import intake_lyrics
 from backend.update_drain import ensure_not_draining
 from backend.upload_utils import (
     ALLOWED_AUDIO_EXTS,
@@ -272,6 +273,9 @@ async def upload_audio_track(
     }
     if quality:
         proj_data["separation_quality"] = quality
+    # Kept until the song has its lines: an upload that turns out to be an album can still
+    # be made as one song with them
+    intake_lyrics.keep(proj_data, custom_lyrics)
 
     await run_in_threadpool(_register_upload, project_id, proj_data)
 

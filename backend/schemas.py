@@ -126,6 +126,13 @@ class ProcessRequest(BaseModel):
         max_length=50000,
         description="Optional custom plain or LRC lyrics text",
     )
+    retry: bool = Field(
+        default=False,
+        description=(
+            "Start a failed or cancelled song again as it was first asked for: the lyrics "
+            "pasted for it then are used, unless custom_lyrics brings others"
+        ),
+    )
     created_by: str | None = Field(
         default=None,
         max_length=64,
