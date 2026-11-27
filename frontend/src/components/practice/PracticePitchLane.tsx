@@ -36,7 +36,7 @@ export interface PracticePitchLaneProps {
   playbackRate: number;
   /** The microphone's readings (`useMicPitch.subscribe`). */
   subscribe: (listener: (reading: MicReading) => void) => () => void;
-  /** Called with each sung note placed in the song (the score listens here). */
+  /** Called with each sung note placed in the song, and whether it matched the melody. */
   onSung?: (point: SungPoint, matched: boolean | null) => void;
   className?: string;
 }
