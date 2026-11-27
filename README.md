@@ -130,6 +130,7 @@ The levels are part of the song like its key: videos are rendered with them, a m
 - **Repeat a part.** Turn on **Repeat this part** (or press <kbd>L</kbd>) while a part plays and it goes round until you turn it off. Each pass starts two seconds before the part's first line and runs a moment past its last, and the scrubber marks the stretch in yellow. Jump to another part and that one repeats instead.
 - **Pick the part.** The panel lists the song's parts by their first words. A song has no verse or chorus markers, so the parts are split where the singing pauses, and a long run is cut at its longest breath so no part has more than eight lines. Press a part to repeat it from its start.
 - **Or pick the lines.** **Repeat from line** and **Repeat to line** set a stretch of your own, down to a single line. It stays where you put it.
+- **Bring the singer in and out.** **Original singer** (or <kbd>O</kbd>) switches the original vocal on and off at once, with a level of its own: listen to how a line goes, then switch off and sing it. Unlike the guide vocal in Audio mix it needs no new mix, because the studio plays the singer's track beside the song instead of asking the server to blend it in, and it follows your key and speed. If the mix itself already has the guide vocal in it, the panel says so and offers to take it out.
 - Slow the part down with the player's speed (0.5× to 1.5×, the pitch stays), and set your key in Audio mix: both work as they do outside practice.
 
 ### Stage, look and export
@@ -266,6 +267,7 @@ Shortcuts are ignored while you type in a field or while a dialog is open.
 | <kbd>M</kbd> | Mute / unmute |
 | <kbd>P</kbd> | Practice on / off |
 | <kbd>L</kbd> | In practice: repeat the part being sung |
+| <kbd>O</kbd> | In practice: original singer on / off |
 | <kbd>F</kbd> | Fullscreen stage |
 | <kbd>V</kbd> | Beat visualizer |
 | <kbd>C</kbd> | Chord bar |

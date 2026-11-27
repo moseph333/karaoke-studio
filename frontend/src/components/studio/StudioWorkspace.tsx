@@ -174,13 +174,14 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
         <PracticePanel
           practice={practice}
           lines={project.lines}
+          mix={mix}
           className={cn(
             panelVisibility(activeTab, 'stage'),
             'studio:min-h-0 studio:flex-1 studio:overflow-y-auto'
           )}
         />
       ) : undefined,
-    [practice, project.lines, activeTab]
+    [practice, project.lines, mix, activeTab]
   );
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
 

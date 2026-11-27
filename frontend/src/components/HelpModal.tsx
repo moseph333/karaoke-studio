@@ -101,6 +101,11 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
         label: 'Repeat this part',
         description: 'In practice: the part being sung goes round until you press it again',
       },
+      {
+        keys: ['O'],
+        label: 'Original singer on or off',
+        description: 'In practice: at once, without a new mix',
+      },
     ],
   },
   {
@@ -313,7 +318,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({
             checked={characterKeysOn}
             onChange={handleCharacterKeysChange}
             label="Letter and symbol shortcuts"
-            description="M, V, C, F, T, R, P, L, [, ] and ?. Turn them off if speech input or a stray keypress sets them off; Space and the arrow keys keep working."
+            description="M, V, C, F, T, R, P, L, O, [, ] and ?. Turn them off if speech input or a stray keypress sets them off; Space and the arrow keys keep working."
             testId="help-character-shortcuts-switch"
           />
 

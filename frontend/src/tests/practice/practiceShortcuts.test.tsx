@@ -99,7 +99,7 @@ describe('practice keys', () => {
     const help = await screen.findByRole('dialog');
     expect(help).toHaveTextContent('Practice on or off');
     expect(help).toHaveTextContent('Repeat this part');
-    expect(help).toHaveTextContent('M, V, C, F, T, R, P, L, [, ] and ?');
+    expect(help).toHaveTextContent('M, V, C, F, T, R, P, L, O, [, ] and ?');
   });
 });
 

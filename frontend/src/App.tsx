@@ -296,22 +296,6 @@ export const AppContent: React.FC = () => {
   };
 
   const isStudioReady = Boolean(project && project.status === 'ready');
-  // Practice: the open song with a part repeating in place of the timeline. Opening the
-  // timeline (its phone tab, a guide stop, a fix from the check-up) leaves practice.
-  const practice = usePractice({
-    project: isStudioReady ? project : null,
-    audio,
-    onEnter: () => setActiveWorkspaceTab('stage'),
-    keysEnabled: !showAuthModal,
-  });
-  const leavePractice = practice.leave;
-  const selectWorkspaceTab = useCallback(
-    (tab: StudioWorkspaceTab) => {
-      setActiveWorkspaceTab(tab);
-      if (tab === 'timeline') leavePractice();
-    },
-    [leavePractice]
-  );
   const openExport = useCallback(() => setIsExportOpen(true), []);
   useRenderOutcomeToast(project, openExport);
   // First finished song in this browser: the studio shows its getting-started steps
@@ -393,6 +377,24 @@ export const AppContent: React.FC = () => {
   useEffect(() => {
     if (masterStale) void remixNow();
   }, [masterStale, project?.id, remixNow]);
+
+  // Practice: the open song with what a singer rehearses with in place of the timeline.
+  // Opening the timeline (its phone tab, a guide stop, a fix from the check-up) leaves it.
+  const practice = usePractice({
+    project: isStudioReady ? project : null,
+    audio,
+    semitones: mix.appliedSemitones,
+    onEnter: () => setActiveWorkspaceTab('stage'),
+    keysEnabled: !showAuthModal,
+  });
+  const leavePractice = practice.leave;
+  const selectWorkspaceTab = useCallback(
+    (tab: StudioWorkspaceTab) => {
+      setActiveWorkspaceTab(tab);
+      if (tab === 'timeline') leavePractice();
+    },
+    [leavePractice]
+  );
 
   const handleOpenMixSettings = useCallback(() => {
     setActiveWorkspaceTab('mix');
