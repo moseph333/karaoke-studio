@@ -251,8 +251,10 @@ class BodyLimit:
 # For API and media responses: nothing they return may run as a page. An uploaded backdrop or
 # a JSON body opened directly in a tab then renders inert, in a sandbox with no script.
 API_AND_MEDIA_CSP = "default-src 'none'; frame-ancestors 'none'; sandbox"
-# The studio uses none of these; a script that got in could not ask for them either
-PERMISSIONS_POLICY = "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+# The studio's own pages may ask for the microphone (practice shows a singer's pitch, which
+# is worked out in the browser and sent nowhere); no page it embeds may. The studio uses none
+# of the rest, and a script that got in could not ask for them either
+PERMISSIONS_POLICY = "camera=(), microphone=(self), geolocation=(), payment=(), usb=()"
 # The interactive API reference loads its viewer script, so it is not sandboxed
 _CSP_EXEMPT_PATHS = frozenset({"/api/docs"})
 

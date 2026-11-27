@@ -20,6 +20,7 @@ import threading
 from typing import Any
 
 from backend.project_store import PROJECTS_LOCK, get_project_or_404, save_projects
+from backend.services import melody
 from backend.services.vocal_mix import any_vocal_kept
 
 logger = logging.getLogger("karaoke_backend")
@@ -30,8 +31,14 @@ _ANALYSIS_LOCKS: dict[tuple[str, str], threading.Lock] = {}
 _ANALYSIS_LOCKS_GUARD = threading.Lock()
 
 
+# One melody is worked out at a time across the server: the analyzer reads the whole stem
+# into memory, and several long songs at once would not fit a small host
+_MELODY_SLOT = threading.BoundedSemaphore(1)
+
+
 def _analysis_lock(kind: str, project_id: str) -> threading.Lock:
-    """The lock one song's analysis of one kind ("chords", "vocal_range") runs under."""
+    """The lock one song's analysis of one kind ("chords", "vocal_range", "melody") runs
+    under."""
     with _ANALYSIS_LOCKS_GUARD:
         return _ANALYSIS_LOCKS.setdefault((kind, project_id), threading.Lock())
 
@@ -144,6 +151,38 @@ def ensure_vocal_range(
                 proj["vocal_range"] = analysed
                 save_projects()
             return proj["vocal_range"]
+
+
+def ensure_melody(project_id: str) -> dict[str, Any]:
+    """The song's melody (see ``services/melody``): the one kept beside its stems while that
+    is current, else worked out from the vocals now and kept. Nothing is stored on the song.
+    Raises StemMissing when there is no usable vocal stem. Vocals that cannot be read as audio
+    give an empty melody, which is not kept."""
+    import backend.main as main_mod
+
+    with _analysis_lock("melody", project_id):
+        vocals = get_project_or_404(project_id).get("vocals_path")
+        if not usable_file(vocals):
+            raise StemMissing("isolated vocal stem missing or not ready")
+        kept = melody.read_current(vocals)
+        if kept is not None:
+            return kept
+        with _MELODY_SLOT:
+            try:
+                made = melody.build(vocals, main_mod.vocal_analyzer)
+            except melody.Unreadable as exc:
+                logger.warning(f"No melody for {project_id}: its vocals cannot be read ({exc})")
+                return melody.empty()
+            except melody.SourceChanged:
+                # New vocals arrived mid-run: this melody is of the old ones. The next
+                # request reads the new file
+                logger.info(f"The vocals of {project_id} changed while its melody was read")
+                return melody.empty()
+        # Looked up again: a song deleted meanwhile gets a 404, and no file in a folder that
+        # is gone
+        get_project_or_404(project_id)
+        melody.write(vocals, made)
+        return melody.public(made)
 
 
 def youtube_package(proj: dict) -> dict[str, Any]:
