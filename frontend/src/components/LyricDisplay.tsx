@@ -95,6 +95,9 @@ export interface LyricDisplayProps {
   /** The screen alone, filling the window: no toolbar, no controls, no shortcuts of its own.
    *  A stage window draws its stage this way and follows the studio's. */
   bare?: boolean;
+  /** Shown under the screen, outside the video's frame, and with it in fullscreen (practice's
+   *  pitch lane). Not part of what a stage window is sent. */
+  underScreen?: React.ReactNode;
 }
 
 /** Card text: blank values, and the backend's placeholder artist, are left out. */
@@ -150,6 +153,7 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
   trackTitle,
   trackArtist,
   bare = false,
+  underScreen,
 }) => {
   const look = selectedTheme ?? getStageLook(DEFAULT_STAGE_LOOK_ID);
   const aspect = aspectRatio === '9:16' ? '9:16' : '16:9';
@@ -629,6 +633,8 @@ const LyricDisplayView: React.FC<LyricDisplayProps> = ({
           </div>
         )}
       </div>
+
+      {!bare && underScreen}
 
       {isFullscreen && !bare && (
         <StageFloatingControls
