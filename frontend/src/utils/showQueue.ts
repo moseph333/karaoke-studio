@@ -6,12 +6,17 @@
  * ones `waiting` are sung in order; those `done` or `skipped` stay listed so a singer can go
  * again. The queue is kept in this browser (`localStorage`), so a reload or a closed tab
  * does not lose the night.
+ *
+ * Singers take turns (`turnPlace`) unless the host turns that off: a song that joins the
+ * line goes behind everybody still waiting for a turn and ahead of the songs of singers who
+ * will already have had one. Without it a song joins the end of the line.
  */
 
 import type { StageBilling } from './stageLink';
 
 export const SHOW_QUEUE_STORAGE_KEY = 'karaoke_show_queue_v1';
 export const SHOW_TITLE_STORAGE_KEY = 'karaoke_show_title_v1';
+export const SHOW_TURNS_STORAGE_KEY = 'karaoke_show_turns_v1';
 export const DEFAULT_SHOW_TITLE = 'Karaoke night';
 const SINGER_MAX = 40;
 const TITLE_MAX = 60;
@@ -47,7 +52,8 @@ export interface ShowEntry {
 export type ShowQueue = ShowEntry[];
 
 export type ShowAction =
-  | { type: 'add'; id: string; singer: string; source: ShowSource }
+  /** `turns` puts the song where taking turns has it (`turnPlace`), not at the end. */
+  | { type: 'add'; id: string; singer: string; source: ShowSource; turns?: boolean }
   | { type: 'remove'; id: string }
   /** Moves a waiting entry one place earlier (-1) or later (1) among the waiting ones. */
   | { type: 'move'; id: string; by: -1 | 1 }
@@ -57,8 +63,8 @@ export type ShowAction =
   | { type: 'start'; id: string }
   | { type: 'finish'; id: string }
   | { type: 'skip'; id: string }
-  /** A singer who has sung, or was skipped, goes to the end of the line. */
-  | { type: 'again'; id: string }
+  /** A singer who has sung, or was skipped, joins the line again as a song just added does. */
+  | { type: 'again'; id: string; turns?: boolean }
   | { type: 'clear-finished' };
 
 export function cleanSinger(name: string): string {
@@ -67,6 +73,54 @@ export function cleanSinger(name: string): string {
 
 export function cleanShowTitle(title: string): string {
   return title.replace(/\s+/g, ' ').trim().slice(0, TITLE_MAX) || DEFAULT_SHOW_TITLE;
+}
+
+/** Two names are one singer when only their capitals and spacing differ. */
+const singerKey = (name: string): string => cleanSinger(name).toLowerCase();
+
+/**
+ * Where a singer's next song goes when singers take turns: a place among the waiting
+ * entries, 0 being the head of the line.
+ *
+ * The line is read as rounds. A song's round is how many of its singer's songs are ahead of
+ * it, the one on stage included: a singer's first is round 0, their next round 1. A song
+ * that joins goes behind every song of its own round or an earlier one and ahead of the
+ * later rounds. So everybody waiting sings before anybody sings again, a singer's own songs
+ * keep their order, and nobody is put ahead of the singer the stage has called while
+ * nobody is on. Rounds are read from the line as it stands: a singer the host moved stays
+ * where they were put.
+ */
+export function turnPlace(queue: ShowQueue, singer: string): number {
+  const ahead = new Map<string, number>();
+  const onStage = queue.find((e) => e.status === 'playing');
+  if (onStage) ahead.set(singerKey(onStage.singer), 1);
+  const rounds = queue
+    .filter((e) => e.status === 'waiting')
+    .map((entry) => {
+      const key = singerKey(entry.singer);
+      const round = ahead.get(key) ?? 0;
+      ahead.set(key, round + 1);
+      return round;
+    });
+  const round = ahead.get(singerKey(singer)) ?? 0;
+  let place = 0;
+  rounds.forEach((other, index) => {
+    if (other <= round) place = index + 1;
+  });
+  return place;
+}
+
+/** Where a song joins the line, among the waiting entries: by turns, or at the end. */
+export function joinPlace(queue: ShowQueue, singer: string, turns: boolean): number {
+  return turns ? turnPlace(queue, singer) : queue.filter((e) => e.status === 'waiting').length;
+}
+
+/** The queue with a waiting entry put at a place among the waiting ones. */
+function joined(queue: ShowQueue, entry: ShowEntry, at: number): ShowQueue {
+  const anchor = queue.filter((e) => e.status === 'waiting')[at];
+  if (!anchor) return [...queue, entry];
+  const index = queue.indexOf(anchor);
+  return [...queue.slice(0, index), entry, ...queue.slice(index)];
 }
 
 const setStatus = (queue: ShowQueue, id: string, status: ShowEntryStatus): ShowQueue =>
@@ -88,7 +142,8 @@ export function showQueueReducer(queue: ShowQueue, action: ShowAction): ShowQueu
     case 'add': {
       const singer = cleanSinger(action.singer);
       if (!singer || queue.some((e) => e.id === action.id)) return queue;
-      return [...queue, { id: action.id, singer, source: action.source, status: 'waiting' }];
+      const entry: ShowEntry = { id: action.id, singer, source: action.source, status: 'waiting' };
+      return joined(queue, entry, joinPlace(queue, singer, action.turns === true));
     }
     case 'remove':
       return queue.filter((e) => e.id !== action.id);
@@ -121,7 +176,9 @@ export function showQueueReducer(queue: ShowQueue, action: ShowAction): ShowQueu
     case 'again': {
       const entry = queue.find((e) => e.id === action.id);
       if (!entry || entry.status === 'waiting' || entry.status === 'playing') return queue;
-      return [...queue.filter((e) => e.id !== action.id), { ...entry, status: 'waiting' }];
+      const rest = queue.filter((e) => e.id !== action.id);
+      const place = joinPlace(rest, entry.singer, action.turns === true);
+      return joined(rest, { ...entry, status: 'waiting' }, place);
     }
     case 'clear-finished':
       return queue.filter((e) => e.status === 'waiting' || e.status === 'playing');
@@ -216,6 +273,23 @@ export function loadShowTitle(): string {
 export function saveShowTitle(title: string): void {
   try {
     window.localStorage.setItem(SHOW_TITLE_STORAGE_KEY, cleanShowTitle(title));
+  } catch {
+    // As above
+  }
+}
+
+/** Whether singers take turns. They do until the host says otherwise. */
+export function loadShowTurns(): boolean {
+  try {
+    return window.localStorage.getItem(SHOW_TURNS_STORAGE_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+export function saveShowTurns(turns: boolean): void {
+  try {
+    window.localStorage.setItem(SHOW_TURNS_STORAGE_KEY, turns ? 'on' : 'off');
   } catch {
     // As above
   }

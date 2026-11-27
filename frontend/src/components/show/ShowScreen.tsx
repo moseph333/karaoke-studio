@@ -4,9 +4,11 @@
  * One computer drives two screens: this one is the host's (who is on, the queue, adding a
  * singer), and the stage window is the room's (`/?stage=1`, on the TV). The host adds a
  * singer and their song, a karaoke video from YouTube or a song from the library, and starts
- * each in turn; between singers the stage window calls the next one. The queue and the
- * night's name are kept in this browser, so a reload does not lose them. A song that cannot
- * be found is asked for instead: requests are kept on the server, for the owner to make.
+ * each in turn; between singers the stage window calls the next one. Singers take turns
+ * unless the host turns that off: a singer's next song waits behind everybody who has not
+ * been on. The queue, that choice and the night's name are kept in this browser, so a reload
+ * does not lose them. A song that cannot be found is asked for instead: requests are kept on
+ * the server, for the owner to make.
  *
  * It mounts in place of the app (`main.tsx`): it has no library to edit and no song open,
  * only the sign-in, the stage looks as saved, and one `<audio>` element for library songs.
@@ -24,11 +26,14 @@ import { useVisualTheme } from '../../hooks/useVisualTheme';
 import {
   cleanShowTitle,
   finishedEntries,
+  joinPlace,
   loadShowQueue,
   loadShowTitle,
+  loadShowTurns,
   newEntryId,
   saveShowQueue,
   saveShowTitle,
+  saveShowTurns,
   showQueueReducer,
   waitingEntries,
   type ShowSource,
@@ -51,11 +56,13 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true }) => {
   const [queue, dispatch] = useReducer(showQueueReducer, undefined, loadShowQueue);
   const [titleText, setTitleText] = useState(loadShowTitle);
   const title = cleanShowTitle(titleText);
+  const [turns, setTurns] = useState(loadShowTurns);
   const titleId = useId();
   const { toast } = useToast();
 
   useEffect(() => saveShowQueue(queue), [queue]);
   useEffect(() => saveShowTitle(title), [title]);
+  useEffect(() => saveShowTurns(turns), [turns]);
   useEffect(() => {
     const previous = document.title;
     document.title = `${title} · Karaoke Studio`;
@@ -88,12 +95,17 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true }) => {
     if (!stage.open()) toast.warning(POPUP_BLOCKED);
   }, [stage, toast]);
 
+  // A song that did not join the end of the line says where it went
   const addSinger = useCallback(
     (singer: string, source: ShowSource) => {
-      dispatch({ type: 'add', id: newEntryId(), singer, source });
-      toast.success(`${singer} is in the queue`);
+      const place = joinPlace(queue, singer, turns);
+      const ahead = waiting[place - 1];
+      dispatch({ type: 'add', id: newEntryId(), singer, source, turns });
+      if (place === waiting.length) toast.success(`${singer} is in the queue`);
+      else if (ahead) toast.success(`${singer} is in the queue, after ${ahead.singer}`);
+      else toast.success(`${singer} is in the queue, next to sing`);
     },
-    [toast]
+    [queue, waiting, turns, toast]
   );
 
   // A song nobody could find goes on the server's request list, with who asked and where
@@ -195,7 +207,9 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true }) => {
             onMove={(id, by) => dispatch({ type: 'move', id, by })}
             onPlace={(id, at) => dispatch({ type: 'place', id, at })}
             onRemove={(id) => dispatch({ type: 'remove', id })}
-            onAgain={(id) => dispatch({ type: 'again', id })}
+            onAgain={(id) => dispatch({ type: 'again', id, turns })}
+            turns={turns}
+            onTurnsChange={setTurns}
             onClearFinished={() => dispatch({ type: 'clear-finished' })}
           />
         </div>

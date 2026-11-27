@@ -13,12 +13,16 @@ import {
   billingOf,
   cleanShowTitle,
   finishedEntries,
+  joinPlace,
   loadShowQueue,
   loadShowTitle,
+  loadShowTurns,
   playingEntry,
   saveShowQueue,
   saveShowTitle,
+  saveShowTurns,
   showQueueReducer,
+  turnPlace,
   waitingEntries,
   type ShowAction,
   type ShowQueue,
@@ -187,6 +191,133 @@ describe('who is on stage', () => {
       three
     );
     expect(queue.map((e) => e.singer)).toEqual(['Bo', 'Cy']);
+  });
+});
+
+describe('singers taking turns', () => {
+  /** A song that joins the line by turns. */
+  const joins = (id: string, singer: string): ShowAction => ({
+    type: 'add',
+    id,
+    singer,
+    source: song(`Song ${id}`),
+    turns: true,
+  });
+  const ids = (queue: ShowQueue) => waitingEntries(queue).map((e) => e.id);
+
+  it('puts a singer’s second song behind everyone’s first', () => {
+    const queue = run([joins('a2', 'Alex')], three);
+    expect(ids(queue)).toEqual(['a', 'b', 'c', 'a2']);
+  });
+
+  it('puts a singer new to the line ahead of the second songs', () => {
+    const queue = run([joins('a2', 'Alex'), joins('d', 'Dee')], three);
+    expect(ids(queue)).toEqual(['a', 'b', 'c', 'd', 'a2']);
+  });
+
+  it('spreads songs added together over as many rounds', () => {
+    const queue = run([
+      joins('a1', 'Alex'),
+      joins('a2', 'Alex'),
+      joins('a3', 'Alex'),
+      joins('b1', 'Bo'),
+      joins('c1', 'Cy'),
+      joins('b2', 'Bo'),
+    ]);
+    expect(ids(queue)).toEqual(['a1', 'b1', 'c1', 'a2', 'b2', 'a3']);
+  });
+
+  it('keeps the order of arrival among singers with one song each', () => {
+    const queue = run([joins('a', 'Alex'), joins('b', 'Bo'), joins('c', 'Cy')]);
+    expect(ids(queue)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('counts the song on stage as the singer’s turn of this round', () => {
+    // Alex is on with another song waiting: Bo, who has not been on, goes first
+    const queue = run([
+      joins('a1', 'Alex'),
+      { type: 'start', id: 'a1' },
+      joins('a2', 'Alex'),
+      joins('b1', 'Bo'),
+    ]);
+    expect(ids(queue)).toEqual(['b1', 'a2']);
+  });
+
+  it('puts nobody ahead of the singer called while nobody is on', () => {
+    // The stage window already says Alex is up next
+    const queue = run([
+      joins('a1', 'Alex'),
+      { type: 'start', id: 'a1' },
+      joins('a2', 'Alex'),
+      { type: 'finish', id: 'a1' },
+      joins('b1', 'Bo'),
+    ]);
+    expect(ids(queue)).toEqual(['a2', 'b1']);
+  });
+
+  it('takes two spellings of a name for one singer', () => {
+    const queue = run([joins('a1', 'Alex B'), joins('b1', 'Bo'), joins('a2', '  alex   b ')]);
+    expect(ids(queue)).toEqual(['a1', 'b1', 'a2']);
+    expect(ids(run([joins('c1', 'Cy')], queue))).toEqual(['a1', 'b1', 'c1', 'a2']);
+  });
+
+  it('puts a singer who goes again where a new song of theirs would go', () => {
+    const sung = run(
+      [{ type: 'start', id: 'a' }, { type: 'finish', id: 'a' }, joins('b2', 'Bo')],
+      three
+    );
+    expect(ids(sung)).toEqual(['b', 'c', 'b2']);
+
+    expect(ids(run([{ type: 'again', id: 'a', turns: true }], sung))).toEqual([
+      'b',
+      'c',
+      'a',
+      'b2',
+    ]);
+    expect(ids(run([{ type: 'again', id: 'a' }], sung))).toEqual(['b', 'c', 'b2', 'a']);
+  });
+
+  it('moves nobody who is already waiting', () => {
+    // The host put both of Alex’s songs ahead of Bo: they stay there
+    const moved = run([
+      joins('a1', 'Alex'),
+      joins('b1', 'Bo'),
+      joins('a2', 'Alex'),
+      { type: 'move', id: 'a2', by: -1 },
+    ]);
+    expect(ids(moved)).toEqual(['a1', 'a2', 'b1']);
+    expect(ids(run([joins('c1', 'Cy')], moved))).toEqual(['a1', 'a2', 'b1', 'c1']);
+  });
+
+  it('leaves those who have been on where they were listed', () => {
+    const queue = run(
+      [
+        { type: 'start', id: 'a' },
+        { type: 'finish', id: 'a' },
+        joins('b2', 'Bo'),
+        joins('d', 'Dee'),
+      ],
+      three
+    );
+    expect(ids(queue)).toEqual(['b', 'c', 'd', 'b2']);
+    expect(finishedEntries(queue).map((e) => e.id)).toEqual(['a']);
+  });
+
+  it('says where a song would go before it is added', () => {
+    const queue = run([joins('a2', 'Alex')], three);
+    expect(turnPlace(queue, 'Dee')).toBe(3);
+    expect(turnPlace(queue, 'Alex')).toBe(4);
+    expect(joinPlace(queue, 'Dee', true)).toBe(3);
+    expect(joinPlace(queue, 'Dee', false)).toBe(4);
+    expect(turnPlace([], 'Dee')).toBe(0);
+  });
+
+  it('is on until the host turns it off, and that is kept across a reload', () => {
+    expect(loadShowTurns()).toBe(true);
+    saveShowTurns(false);
+    expect(loadShowTurns()).toBe(false);
+    saveShowTurns(true);
+    expect(loadShowTurns()).toBe(true);
   });
 });
 

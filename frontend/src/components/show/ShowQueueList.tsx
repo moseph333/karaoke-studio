@@ -3,7 +3,9 @@
  * and take one off; under it, the singers who have been on, who can go again.
  *
  * A waiting singer is moved by dragging their row (by its grip with a finger, anywhere on it
- * with a mouse) or, one place at a time, with the row's arrow buttons.
+ * with a mouse) or, one place at a time, with the row's arrow buttons. The switch beside the
+ * heading says whether singers take turns: where a song that joins the line is put
+ * (`showQueue.turnPlace`). It moves nobody who is already waiting.
  */
 
 import React from 'react';
@@ -12,7 +14,7 @@ import { useReorderDrag } from '../../hooks/useReorderDrag';
 import { videoNote, type ShowVideoInfo } from '../../hooks/useShowVideos';
 import { cn } from '../../utils/cn';
 import type { ShowEntry } from '../../utils/showQueue';
-import { Button, IconButton } from '../ui';
+import { Button, IconButton, Switch } from '../ui';
 
 export interface ShowQueueListProps {
   waiting: ShowEntry[];
@@ -27,6 +29,10 @@ export interface ShowQueueListProps {
   onRemove: (id: string) => void;
   onAgain: (id: string) => void;
   onClearFinished: () => void;
+  /** Whether a song that joins the line is put by turns; without `onTurnsChange` the list
+   *  has no switch for it. */
+  turns?: boolean;
+  onTurnsChange?: (turns: boolean) => void;
 }
 
 const row =
@@ -56,6 +62,8 @@ export const ShowQueueList: React.FC<ShowQueueListProps> = ({
   onRemove,
   onAgain,
   onClearFinished,
+  turns = false,
+  onTurnsChange,
 }) => {
   const { listRef, draggingId, rowProps, placeOf } = useReorderDrag<HTMLOListElement>({
     ids: waiting.map((entry) => entry.id),
@@ -65,12 +73,24 @@ export const ShowQueueList: React.FC<ShowQueueListProps> = ({
   return (
     <div className="flex flex-col gap-8">
       <section aria-labelledby="show-queue-heading">
-        <h2 id="show-queue-heading" className={heading}>
-          Queue
-          <span className="ml-2 font-theme-body text-base font-semibold normal-case tabular-nums text-theme-text-muted">
-            {waiting.length}
-          </span>
-        </h2>
+        <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-1">
+          <h2 id="show-queue-heading" className={heading}>
+            Queue
+            <span className="ml-2 font-theme-body text-base font-semibold normal-case tabular-nums text-theme-text-muted">
+              {waiting.length}
+            </span>
+          </h2>
+          {onTurnsChange && (
+            <Switch
+              checked={turns}
+              onChange={onTurnsChange}
+              label="Take turns"
+              description="Everyone waiting sings before anyone sings again"
+              testId="show-turns"
+              className="w-full sm:w-auto"
+            />
+          )}
+        </div>
         {waiting.length === 0 ? (
           <p className="border-b border-theme-border-subtle py-3 text-sm text-theme-text-muted">
             Nobody is waiting. Add a singer and their song.
