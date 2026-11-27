@@ -25,6 +25,10 @@ class LoginRequest(BaseModel):
     username: str | None = Field(default="Friend", max_length=64)
 
 
+class ShowLoginRequest(BaseModel):
+    password: str = Field(..., max_length=256, description="The server's show passphrase")
+
+
 class AdminLoginRequest(BaseModel):
     password: str = Field(..., max_length=256, description="The server's admin passphrase")
 

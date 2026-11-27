@@ -128,7 +128,13 @@ def test_auth_status_open_mode(client, monkeypatch):
     monkeypatch.setattr(config, "APP_PASSWORD", "")
     resp = client.get("/api/auth/status")
     assert resp.status_code == 200
-    assert resp.json() == {"auth_required": False, "authenticated": True, "admin": False}
+    assert resp.json() == {
+        "auth_required": False,
+        "authenticated": True,
+        "admin": False,
+        "show": False,
+        "show_authenticated": False,
+    }
 
 
 def test_find_project_by_track_id_fallback(project_factory):

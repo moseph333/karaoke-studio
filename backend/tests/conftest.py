@@ -58,6 +58,8 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         monkeypatch.setattr(config, "APP_PASSWORD", "sluggos")
     # No server setting can be changed from the studio unless a test sets an admin passphrase
     monkeypatch.setattr(config, "ADMIN_PASSWORD", "")
+    # Nor is there a show-only sign-in unless a test sets a show passphrase
+    monkeypatch.setattr(config, "SHOW_PASSWORD", "")
     # The studio streams the WAV master unless a test switches the AAC preview on
     monkeypatch.setattr(config, "PREVIEW_AUDIO_FORMAT", "wav")
     # The free-space guard is off, so results never depend on the host's disk; tests that

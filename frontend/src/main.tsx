@@ -17,6 +17,7 @@
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
+import { getAuthToken, getShowToken } from './api';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './hooks/useToast';
 import { startInstallPromptCapture } from './utils/installPrompt';
@@ -27,8 +28,12 @@ import './fonts.css';
 import './index.css';
 
 const isStageWindow = isStageWindowUrl(window.location.search);
-// A show's host screen: the queue of a karaoke night, in place of the library and studio
-const isShow = !isStageWindow && isShowUrl(window.location.search);
+// A show's host screen: the queue of a karaoke night, in place of the library and studio.
+// A browser signed in for the show only (a venue's) has nothing else to open, so the app's
+// own address is the host screen there too
+const isShow =
+  !isStageWindow &&
+  (isShowUrl(window.location.search) || (Boolean(getShowToken()) && !getAuthToken()));
 const StageWindow = lazy(() =>
   import('./components/stage-window/StageWindow').then((m) => ({ default: m.StageWindow }))
 );

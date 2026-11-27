@@ -276,6 +276,10 @@ APP_PASSWORD = os.getenv("APP_PASSWORD", "").strip()
 # The owner's passphrase for the Server settings page (/api/admin/*), asked for on top of
 # APP_PASSWORD. Empty turns the page off: nobody can change a server setting from the studio.
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "").strip()
+# A passphrase that only runs a show (the host screen of a karaoke night): it reads the
+# library and plays it, and can change nothing. For a venue's host. Empty: a show is run with
+# APP_PASSWORD like everything else.
+SHOW_PASSWORD = os.getenv("SHOW_PASSWORD", "").strip()
 LOGIN_RATE_LIMIT_MAX_ATTEMPTS = int(os.getenv("LOGIN_RATE_LIMIT_MAX_ATTEMPTS", "5"))
 LOGIN_RATE_LIMIT_WINDOW_SECONDS = float(os.getenv("LOGIN_RATE_LIMIT_WINDOW_SECONDS", "60.0"))
 # How many reverse proxies in front of the app append to X-Forwarded-For. The rate limit keys
