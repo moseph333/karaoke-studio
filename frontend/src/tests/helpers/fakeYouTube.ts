@@ -1,7 +1,9 @@
 /**
- * YouTube's IFrame Player API for tests: `window.YT.Player` as the stage window uses it. A
- * test drives the player the way YouTube would (`ready`, `setState`, `fail`) and reads what
- * the app asked of it (`calls`).
+ * YouTube's IFrame Player API for tests: `window.YT.Player` as a show uses it. A test drives
+ * the player the way YouTube would (`ready`, `setState`, `fail`) and reads what the app asked
+ * of it (`calls`). A show makes two kinds: the one the room hears, in the stage window
+ * (`current`), and the host screen's silent one that follows it (`monitor`), told apart as
+ * YouTube tells them, by the `mute` player variable.
  */
 
 import { YT_STATE, type YouTubePlayerOptions } from '../../utils/youtube';
@@ -13,18 +15,31 @@ export class FakeYouTubePlayer {
   time = 0;
   duration = 200;
   destroyed = false;
+  muted: boolean;
   calls: string[] = [];
 
   constructor(
     public element: HTMLElement,
     public options: YouTubePlayerOptions
   ) {
+    this.muted = options.playerVars?.mute === 1;
     FakeYouTubePlayer.instances.push(this);
   }
 
-  /** The newest player that has not been destroyed. */
+  private static newest(silent: boolean): FakeYouTubePlayer | undefined {
+    return [...FakeYouTubePlayer.instances]
+      .reverse()
+      .find((player) => !player.destroyed && (player.options.playerVars?.mute === 1) === silent);
+  }
+
+  /** The newest player with sound that has not been destroyed: the stage window's. */
   static get current(): FakeYouTubePlayer | undefined {
-    return [...FakeYouTubePlayer.instances].reverse().find((player) => !player.destroyed);
+    return FakeYouTubePlayer.newest(false);
+  }
+
+  /** The newest silent player that has not been destroyed: the host screen's monitor. */
+  static get monitor(): FakeYouTubePlayer | undefined {
+    return FakeYouTubePlayer.newest(true);
   }
 
   // --- What YouTube does ------------------------------------------------------------------
@@ -55,10 +70,15 @@ export class FakeYouTubePlayer {
     this.calls.push(`volume ${volume}`);
   }
   mute(): void {
+    this.muted = true;
     this.calls.push('mute');
   }
   unMute(): void {
+    this.muted = false;
     this.calls.push('unmute');
+  }
+  isMuted(): boolean {
+    return this.muted;
   }
   getCurrentTime(): number {
     return this.time;

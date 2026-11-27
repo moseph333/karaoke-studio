@@ -1,7 +1,8 @@
 /**
  * A show's host screen, alone and beside a stage window: adding singers, the queue, calling
  * the next singer, playing a karaoke video on the stage window and a library song in the
- * host's, and what happens to a video YouTube will not play in its embedded player.
+ * host's, what happens to a video YouTube will not play in its embedded player, and the
+ * silent copy of the stage's video that the host watches.
  */
 
 import React from 'react';
@@ -499,5 +500,158 @@ describe('a show beside its stage window', () => {
     fireEvent.ended(audio);
     expect(within(host.getByTestId('show-sung')).getByText('Cy')).toBeInTheDocument();
     expect(stage.queryByTestId('lyric-display-stage')).toBeNull();
+  });
+});
+
+describe('the stage’s video on the host screen', () => {
+  /** A video started with a stage window open, and both players made. */
+  async function playing() {
+    const both = openBoth();
+    await addVideo(both.host, 'Alex', results[0].title);
+    fireEvent.click(both.host.getByRole('button', { name: 'Start the song' }));
+    await act(async () => {});
+    return both;
+  }
+
+  it('shows the same video in a player of its own, without sound', async () => {
+    const { host } = await playing();
+
+    const monitor = FakeYouTubePlayer.monitor!;
+    expect(monitor).not.toBe(FakeYouTubePlayer.current);
+    expect(monitor.options.videoId).toBe(ZOOM);
+    expect(monitor.options.playerVars).toMatchObject({ mute: 1, autoplay: 0, controls: 0 });
+    expect(host.getByTestId('show-monitor-youtube')).toBeInTheDocument();
+    expect(
+      host.getByText('The video on the stage window, shown here without sound.')
+    ).toBeInTheDocument();
+  });
+
+  it('starts where the stage’s video is and pauses when it does', async () => {
+    await playing();
+    const monitor = FakeYouTubePlayer.monitor!;
+    act(() => monitor.ready());
+    expect(monitor.calls).toEqual([]);
+
+    act(() => FakeYouTubePlayer.current!.setState(YT_STATE.playing, 30));
+
+    expect(monitor.calls.filter((call) => call.startsWith('seek'))).toHaveLength(1);
+    expect(monitor.time).toBeCloseTo(30.25, 1);
+    expect(monitor.calls).toContain('play');
+
+    monitor.state = YT_STATE.playing;
+    act(() => FakeYouTubePlayer.current!.setState(YT_STATE.paused, 30.5));
+
+    expect(monitor.calls).toContain('pause');
+  });
+
+  it('catches up with a video that was playing before its own player was ready', async () => {
+    await playing();
+    const monitor = FakeYouTubePlayer.monitor!;
+    act(() => FakeYouTubePlayer.current!.setState(YT_STATE.playing, 12));
+    expect(monitor.calls).toEqual([]);
+
+    act(() => monitor.ready());
+
+    expect(monitor.time).toBeGreaterThanOrEqual(12);
+    expect(monitor.calls).toContain('play');
+  });
+
+  it('is never given sound, whatever the host’s volume', async () => {
+    const { host } = await playing();
+    const monitor = FakeYouTubePlayer.monitor!;
+    act(() => monitor.ready());
+    act(() => FakeYouTubePlayer.current!.setState(YT_STATE.playing, 1));
+
+    fireEvent.change(host.getByTestId('show-volume'), { target: { value: '0.5' } });
+
+    expect(FakeYouTubePlayer.current!.calls).toContain('volume 50');
+    expect(monitor.isMuted()).toBe(true);
+    expect(monitor.calls.some((call) => /^(volume|unmute)/.test(call))).toBe(false);
+  });
+
+  it('mutes a player that came up with sound', async () => {
+    await playing();
+    const monitor = FakeYouTubePlayer.monitor!;
+    monitor.muted = false;
+
+    act(() => monitor.ready());
+
+    expect(monitor.calls).toContain('mute');
+  });
+
+  it('cannot be clicked or tabbed into', async () => {
+    const { host } = await playing();
+
+    const frame = host.getByTestId('show-monitor-youtube').parentElement!;
+    expect(frame).toHaveAttribute('inert');
+    expect(frame).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  it('goes when the song is over', async () => {
+    const { host } = await playing();
+    const monitor = FakeYouTubePlayer.monitor!;
+
+    act(() => FakeYouTubePlayer.current!.setState(YT_STATE.ended, 223));
+
+    expect(host.queryByTestId('show-monitor')).toBeNull();
+    expect(monitor.destroyed).toBe(true);
+  });
+
+  it('says so when it cannot play, and leaves the stage’s video playing', async () => {
+    const { host, stage } = await playing();
+    act(() => FakeYouTubePlayer.current!.setState(YT_STATE.playing, 5));
+
+    act(() => FakeYouTubePlayer.monitor!.fail(5));
+
+    expect(host.getByTestId('show-monitor')).toHaveTextContent(
+      'The video plays on the stage window. It could not be shown here as well.'
+    );
+    expect(host.queryByRole('alert')).toBeNull();
+    expect(host.getByRole('button', { name: 'Pause' })).toBeInTheDocument();
+    expect(stage.getByTestId('stage-youtube')).toBeInTheDocument();
+    expect(FakeYouTubePlayer.current!.destroyed).toBe(false);
+  });
+
+  it('shows the server’s copy when that is what the stage plays', async () => {
+    server.videos[SINGKING] = videoInfo({
+      embeddable: false,
+      status: 'ready',
+      url: `/api/show/videos/${SINGKING}/file`,
+      progress: 100,
+    });
+    const { host, stage } = openBoth();
+    await addVideo(host, 'Alex', results[1].title);
+    await waitFor(() => expect(called('GET', `/api/show/videos/${SINGKING}`)).toBe(true));
+    fireEvent.click(await host.findByRole('button', { name: 'Start the song' }));
+    const onStage = (await stage.findByTestId('stage-file-video')) as HTMLVideoElement;
+
+    const monitor = (await host.findByTestId('show-monitor-file')) as HTMLVideoElement;
+    expect(monitor).toHaveAttribute('src', `/api/show/videos/${SINGKING}/file`);
+    expect(monitor.muted).toBe(true);
+    expect(FakeYouTubePlayer.instances).toHaveLength(0);
+
+    fireEvent.loadedMetadata(monitor);
+    onStage.currentTime = 20;
+    fireEvent.playing(onStage);
+
+    expect(monitor.paused).toBe(false);
+    expect(monitor.currentTime).toBeCloseTo(20.25, 1);
+    expect(monitor.muted).toBe(true);
+
+    fireEvent.pause(onStage);
+    expect(monitor.paused).toBe(true);
+  });
+
+  it('is not there without a stage window, where no video plays', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    const host = openHost();
+    await addVideo(host, 'Alex', results[0].title);
+
+    fireEvent.click(host.getByRole('button', { name: 'Start the song' }));
+    await act(async () => {});
+
+    expect(host.queryByTestId('show-monitor')).toBeNull();
+    expect(FakeYouTubePlayer.instances).toHaveLength(0);
+    open.mockRestore();
   });
 });
