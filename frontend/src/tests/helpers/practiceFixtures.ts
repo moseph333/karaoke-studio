@@ -1,5 +1,5 @@
 import type { LyricLine, ProjectState } from '../../types';
-import { mockGuideFetch } from './guideFixtures';
+import { json, mockStudioFetch } from './qualityFixtures';
 
 const WORDS = [
   'Morning comes in slowly',
@@ -54,4 +54,33 @@ export const PRACTICE_SONG: ProjectState = {
   chords: [{ start: 10, end: 18, chord: 'C' }],
 };
 
-export const mockPracticeFetch = (song: ProjectState = PRACTICE_SONG) => mockGuideFetch(song);
+/** Where the server says the song's vocals alone are, at the original key. */
+export const PRACTICE_VOCAL_URL = '/static/stems/practice/vocals.wav';
+
+/** Mocks the server for a studio that has `song` (open it with `?project=practice-song`):
+ *  an empty library, and the vocals alone at whatever key is asked for. */
+export function mockPracticeFetch(song: ProjectState = PRACTICE_SONG) {
+  return mockStudioFetch((url, init) => {
+    if (url.includes('/api/auth/status')) {
+      return json({ auth_required: false, authenticated: true });
+    }
+    if (url.includes(`/api/project/${song.id}/practice-vocal`)) {
+      const semitones = JSON.parse(String(init?.body ?? '{}')).semitones ?? 0;
+      return json({
+        status: 'ok',
+        url: semitones === 0 ? PRACTICE_VOCAL_URL : `/static/output/vocal_${semitones}.wav?v=1`,
+        semitones,
+      });
+    }
+    if (url.includes(`/api/project/${song.id}/mix`)) {
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      return json({
+        status: 'ok',
+        master_audio_url: `/static/output/mix_${body.semitones}_${body.guide_volume}.wav?v=1`,
+      });
+    }
+    if (url.includes(`/api/project/${song.id}`)) return json(song);
+    if (url.includes('/api/projects')) return json({});
+    return undefined;
+  });
+}

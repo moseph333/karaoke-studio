@@ -118,6 +118,18 @@ export const FEATURES: Feature[] = [
     how: 'Turn this on while the part plays, or pick a part or two lines below. The L key does the same.',
   },
   {
+    id: 'practice-singer',
+    group: 'Sing it',
+    screen: 'studio',
+    anchors: ['practice-singer'],
+    open: 'practice',
+    optional: true,
+    missing: 'Open Practice first: its button is beside the song’s title.',
+    title: 'Bring the singer in and out',
+    text: 'Hear the original singer while you learn a part, then sing it alone. No waiting for a new mix.',
+    how: 'Switch this on to hear the singer, off to sing alone. The O key does the same.',
+  },
+  {
     id: 'fullscreen',
     group: 'Sing it',
     screen: 'studio',
