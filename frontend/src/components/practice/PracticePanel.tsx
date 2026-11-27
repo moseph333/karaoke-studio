@@ -10,6 +10,9 @@
  *
  * See your pitch: a switch that asks for the microphone and puts the pitch lane under the
  * stage (`PracticePitchLane`). What the singer sings stays in the browser.
+ *
+ * Score: how much of the last pass was in tune, beside the pitch switch, and each part's
+ * latest in its row.
  */
 
 import React, { useId, useMemo } from 'react';
@@ -20,6 +23,7 @@ import { usePlaybackValue } from '../../hooks/usePlaybackClock';
 import { LEAD_IN_SEC } from '../../utils/practiceLoop';
 import { firstWords, partAt } from '../../utils/practiceSections';
 import { cn } from '../../utils/cn';
+import { percent, shareOfLines } from '../../utils/practiceScore';
 import { hasVocalLevels } from '../../utils/vocalLevels';
 import { formatTime } from '../../utils/format';
 import { Button } from '../ui/Button';
@@ -55,7 +59,7 @@ export const PracticePanel: React.FC<PracticePanelProps> = ({
   mix,
   className,
 }) => {
-  const { loop, singer, mic, melody } = practice;
+  const { loop, singer, mic, melody, score } = practice;
   const { parts, range, mode } = loop;
   const repeating = mode !== 'off';
   const ids = useId().replace(/:/g, '');
@@ -268,12 +272,33 @@ export const PracticePanel: React.FC<PracticePanelProps> = ({
               This song has no melody to show, so only your own pitch is drawn.
             </p>
           )}
-          {mic.status === 'on' && melody.status === 'ready' && (
+          {mic.status === 'on' && melody.status === 'ready' && !score.last && (
             <p className={noteCls}>
               The grey line is the song. Yours turns yellow while you are on the note, in any
-              octave.
+              octave. Sing a part through to see how much of it was in tune.
+              {score.best !== null && ` Your best for the whole song: ${percent(score.best)}%.`}
             </p>
           )}
+          {/* Said once when a pass ends, not while it runs */}
+          <p role="status" data-testid="practice-score" className="text-sm text-theme-text">
+            {mic.wanted && score.last && (
+              <>
+                Last pass:{' '}
+                <span className="font-semibold tabular-nums">{percent(score.last.share)}%</span> in
+                tune,{' '}
+                {score.last.firstLine === score.last.lastLine
+                  ? `line ${score.last.firstLine + 1}`
+                  : `lines ${score.last.firstLine + 1} to ${score.last.lastLine + 1}`}
+                .
+                {score.best !== null && (
+                  <>
+                    {' '}
+                    Best: <span className="tabular-nums">{percent(score.best)}%</span>.
+                  </>
+                )}
+              </>
+            )}
+          </p>
         </div>
       </div>
 
@@ -282,13 +307,22 @@ export const PracticePanel: React.FC<PracticePanelProps> = ({
           {parts.map((part) => {
             const isRepeating = part.number === repeatingPart;
             const isSung = part.number === sungPart;
+            const share = shareOfLines(
+              score.lineScores,
+              score.scorable,
+              part.firstLine,
+              part.lastLine
+            );
             return (
               <li key={part.number} className="border-b border-theme-border-subtle">
                 <button
                   type="button"
                   aria-pressed={isRepeating}
                   aria-current={isSung ? 'true' : undefined}
-                  aria-label={`Repeat part ${part.number}: ${part.name}`}
+                  aria-label={
+                    `Repeat part ${part.number}: ${part.name}` +
+                    (share === null ? '' : `, ${percent(share)}% in tune last time`)
+                  }
                   onClick={() => (isRepeating ? loop.clear() : loop.repeatPart(part.number))}
                   className={cn(
                     'flex min-h-[44px] w-full items-center gap-3 text-left text-sm transition-colors md:min-h-[36px]',
@@ -304,6 +338,14 @@ export const PracticePanel: React.FC<PracticePanelProps> = ({
                   <span className={cn('min-w-0 flex-1 truncate', isSung && 'font-semibold')}>
                     {part.name}
                   </span>
+                  {share !== null && (
+                    <span
+                      data-testid={`practice-part-score-${part.number}`}
+                      className="shrink-0 whitespace-nowrap tabular-nums"
+                    >
+                      {percent(share)}% in tune
+                    </span>
+                  )}
                   <span className="shrink-0 whitespace-nowrap tabular-nums">
                     {isRepeating
                       ? 'Repeating'
