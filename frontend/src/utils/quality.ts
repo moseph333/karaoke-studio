@@ -55,11 +55,29 @@ const FALLBACK_PRESETS: Record<SeparationPreset, SeparationPresetInfo> = {
   },
 };
 
+/** The presets this server offers (its owner may turn Balanced or Best off), cheapest first;
+ * all three until the server has said, or when it lists none. */
+export function offeredPresets(
+  capabilities?: StudioCapabilities['separation'] | null
+): readonly SeparationPreset[] {
+  const listed = SEPARATION_PRESET_ORDER.filter((preset) =>
+    capabilities?.presets.some((info) => info.id === preset)
+  );
+  return listed.length > 0 ? listed : SEPARATION_PRESET_ORDER;
+}
+
 export function presetInfo(
   preset: SeparationPreset,
   capabilities?: StudioCapabilities['separation'] | null
 ): SeparationPresetInfo {
-  return capabilities?.presets.find((p) => p.id === preset) ?? FALLBACK_PRESETS[preset];
+  const listed = capabilities?.presets.find((p) => p.id === preset);
+  if (listed) return listed;
+  if (offeredPresets(capabilities).includes(preset)) return FALLBACK_PRESETS[preset];
+  return {
+    ...FALLBACK_PRESETS[preset],
+    available: false,
+    reason: 'it is turned off on this server',
+  };
 }
 
 /** The preset new songs get when nobody picks one: what the server would actually run. */

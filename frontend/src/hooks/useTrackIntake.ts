@@ -6,11 +6,12 @@
  * picked (none means the server's default).
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { AlbumSongsStarted, ProjectState, SeparationPreset } from '../types';
 import { apiFetch, readApiError } from '../api';
 import { useToast } from './useToast';
-import { SEPARATION_PRESET_ORDER } from '../utils/quality';
+import { SEPARATION_PRESET_ORDER, offeredPresets } from '../utils/quality';
+import { loadCapabilities } from './useCapabilities';
 
 export const SEPARATION_QUALITY_STORAGE_KEY = 'karaoke_separation_quality';
 
@@ -21,6 +22,16 @@ function readStoredQuality(): SeparationPreset | null {
   } catch {
     return null;
   }
+}
+
+/** The quality to ask the server for: the pick, unless the server has stopped offering that
+ * preset (it would refuse the song), in which case its default applies. */
+async function offeredQuality(
+  quality: SeparationPreset | null | undefined
+): Promise<SeparationPreset | null> {
+  if (!quality) return null;
+  const capabilities = await loadCapabilities();
+  return offeredPresets(capabilities?.separation).includes(quality) ? quality : null;
 }
 
 export interface UseTrackIntakeOptions {
@@ -34,6 +45,25 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
   const [separationQuality, setSeparationQualityState] = useState<SeparationPreset | null>(
     readStoredQuality
   );
+
+  // A remembered pick the server no longer offers is forgotten, so the intake shows and
+  // sends the server's default instead
+  useEffect(() => {
+    if (!separationQuality) return;
+    let active = true;
+    void offeredQuality(separationQuality).then((offered) => {
+      if (!active || offered) return;
+      setSeparationQualityState(null);
+      try {
+        localStorage.removeItem(SEPARATION_QUALITY_STORAGE_KEY);
+      } catch {
+        // Nothing was remembered
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [separationQuality]);
 
   const setSeparationQuality = useCallback((preset: SeparationPreset) => {
     setSeparationQualityState(preset);
@@ -52,9 +82,9 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
     customLyrics?: string,
     again?: Pick<ProjectState, 'created_by' | 'separation_quality'>
   ) => {
-    const quality = again?.separation_quality || separationQuality;
     setLoading(true);
     try {
+      const quality = await offeredQuality(again?.separation_quality || separationQuality);
       const res = await apiFetch('/api/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -101,7 +131,8 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
       if (params.artist) formData.append('artist', params.artist);
       if (params.customLyrics) formData.append('custom_lyrics', params.customLyrics);
       formData.append('created_by', params.createdBy || currentUser || 'Friend');
-      if (separationQuality) formData.append('separation_quality', separationQuality);
+      const quality = await offeredQuality(separationQuality);
+      if (quality) formData.append('separation_quality', quality);
 
       const res = await apiFetch('/api/upload-track', {
         method: 'POST',
@@ -144,9 +175,9 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
     artist?: string,
     again?: Pick<ProjectState, 'created_by' | 'separation_quality'>
   ): Promise<AlbumSongsStarted | null> => {
-    const quality = again?.separation_quality || separationQuality;
     setLoading(true);
     try {
+      const quality = await offeredQuality(again?.separation_quality || separationQuality);
       const res = await apiFetch(`/api/project/${encodeURIComponent(albumId)}/album/songs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,10 +215,11 @@ export function useTrackIntake({ currentUser, setProject }: UseTrackIntakeOption
   const handleAlbumWhole = async (albumId: string): Promise<boolean> => {
     setLoading(true);
     try {
+      const quality = await offeredQuality(separationQuality);
       const res = await apiFetch(`/api/project/${encodeURIComponent(albumId)}/album/whole`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(separationQuality ? { separation_quality: separationQuality } : {}),
+        body: JSON.stringify(quality ? { separation_quality: quality } : {}),
       });
       if (!res.ok) throw new Error(await readApiError(res, 'Could not start the song'));
       const data = await res.json();

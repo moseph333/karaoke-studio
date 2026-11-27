@@ -34,6 +34,7 @@ from backend.services.separation_presets import (
     configured_preset,
     estimate_seconds,
     normalize_preset,
+    offered_preset,
 )
 from backend.services.sync_confidence import uncovered_vocals
 from backend.services.voice_parts import assign_voice_parts
@@ -53,6 +54,12 @@ def _shared_stem_provenance(main_mod, project_id: str, audio_id: str) -> dict | 
     return None
 
 
+def project_preset(proj: dict) -> str:
+    """The preset a song's stems are made at: the one it asked for, else the server's default.
+    One the server has stopped offering since becomes the best it still offers below it."""
+    return offered_preset(normalize_preset(proj.get("separation_quality")) or configured_preset())
+
+
 def separate_project_stems(
     main_mod,
     project_id: str,
@@ -65,7 +72,7 @@ def separate_project_stems(
     """Separates a pipeline's song at the project's chosen quality (or the server default),
     records the stems and how they were made on the project, and returns the stem paths."""
     proj = get_project_or_404(project_id)
-    quality = normalize_preset(proj.get("separation_quality")) or configured_preset()
+    quality = project_preset(proj)
     update_pipe(
         "separating",
         35,
@@ -114,7 +121,7 @@ def warm_separation_gpu(main_mod, project_id: str) -> None:
         proj = find_project(project_id)
         if proj is None:
             return
-        quality = normalize_preset(proj.get("separation_quality")) or configured_preset()
+        quality = project_preset(proj)
         has_cached = getattr(main_mod.separator, "has_cached_stems", None)
         if callable(has_cached) and has_cached(project_id, quality):
             return
