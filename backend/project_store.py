@@ -82,11 +82,58 @@ def load_projects() -> dict[str, dict[str, Any]]:
         return {}
 
 
-def _backup_is_stale(backup_file: Path) -> bool:
+def _backup_is_stale(backup_file: Path, max_age: float | None = None) -> bool:
     try:
-        return time.time() - backup_file.stat().st_mtime >= BACKUP_REFRESH_SEC
+        age = time.time() - backup_file.stat().st_mtime
     except OSError:
         return True  # no backup yet
+    return age >= (BACKUP_REFRESH_SEC if max_age is None else max_age)
+
+
+def write_text_atomically(
+    path: Path,
+    text: str,
+    *,
+    directory: Path | None = None,
+    backup: Path | None = None,
+    backup_every: float = 0.0,
+) -> None:
+    """Replaces a file's contents in one step: the text goes to a temporary file beside it,
+    is flushed to the disk, and then takes the file's name, so a reader (or a crash) sees the
+    old contents or the new, never half of either.
+
+    With ``backup``, the contents being replaced are first copied there, at most once every
+    ``backup_every`` seconds. Raises what the disk raised and removes the temporary file,
+    leaving the file as it was."""
+    folder = directory if directory is not None else path.parent
+    folder.mkdir(parents=True, exist_ok=True)
+    # The same directory, so the rename never crosses filesystems
+    temp_file = folder / f".{path.name}.tmp.{uuid.uuid4().hex}"
+    try:
+        with open(temp_file, "w", encoding="utf-8") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+
+        if (
+            backup is not None
+            and path.exists()
+            and path.stat().st_size > 0
+            and _backup_is_stale(backup, backup_every)
+        ):
+            try:
+                backup.write_bytes(path.read_bytes())
+            except Exception as bak_err:
+                logger.warning(f"Could not update the backup {backup.name}: {bak_err}")
+
+        os.replace(temp_file, path)
+    except BaseException:
+        try:
+            if temp_file.exists():
+                temp_file.unlink()
+        except Exception:
+            logger.debug(f"Could not remove {temp_file}", exc_info=True)
+        raise
 
 
 def save_projects(*, strict: bool = False) -> bool:
@@ -117,28 +164,15 @@ def save_projects(*, strict: bool = False) -> bool:
             # Compact: indenting makes json fall back to its much slower pure-Python encoder
             serialized = json.dumps(unique_projects, separators=(",", ":"))
 
-            data_dir.mkdir(parents=True, exist_ok=True)
-            # Write to a temporary file in the same directory (guarantees same filesystem for atomic rename)
-            temp_file = data_dir / f".projects.json.tmp.{uuid.uuid4().hex}"
-            with open(temp_file, "w", encoding="utf-8") as f:
-                f.write(serialized)
-                f.flush()
-                os.fsync(f.fileno())
-
             # Keep a copy of the previous store for recovery. Copying it on every save would
             # double the disk traffic of progress updates, so it is renewed once a minute.
-            if (
-                store_file.exists()
-                and store_file.stat().st_size > 0
-                and _backup_is_stale(backup_file)
-            ):
-                try:
-                    backup_file.write_bytes(store_file.read_bytes())
-                except Exception as bak_err:
-                    logger.warning(f"Could not update projects backup: {bak_err}")
-
-            # Atomic swap
-            os.replace(temp_file, store_file)
+            write_text_atomically(
+                store_file,
+                serialized,
+                directory=data_dir,
+                backup=backup_file,
+                backup_every=BACKUP_REFRESH_SEC,
+            )
             _last_save_at = time.monotonic()
             return True
         except Exception as e:
@@ -148,11 +182,6 @@ def save_projects(*, strict: bool = False) -> bool:
                 f"Failed to persist projects.json atomically: {e}",
                 exc_info=not isinstance(e, OSError),
             )
-            if "temp_file" in locals() and temp_file.exists():
-                try:
-                    temp_file.unlink()
-                except Exception:
-                    logger.debug(f"Could not remove {temp_file}", exc_info=True)
             # Counted as a write: on a full disk, throttled progress saves then retry about
             # once a second instead of on every progress tick of every running job
             _last_save_at = time.monotonic()

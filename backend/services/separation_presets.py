@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
+from backend import server_settings
+
 PRESET_IDS = ("fast", "balanced", "best")
 DEFAULT_PRESET = "balanced"
 DEFAULT_DEMUCS_MODEL = "htdemucs"
@@ -96,7 +98,7 @@ def _env_float(name: str, default: float) -> float:
 
 def configured_preset() -> str:
     """SEPARATION_QUALITY (fast | balanced | best), defaulting to balanced."""
-    return normalize_preset(os.getenv("SEPARATION_QUALITY")) or DEFAULT_PRESET
+    return normalize_preset(server_settings.env("SEPARATION_QUALITY")) or DEFAULT_PRESET
 
 
 def downloads_allowed() -> bool:
@@ -113,7 +115,7 @@ def separation_stall_seconds() -> float:
 
 def remote_backend() -> str | None:
     """SEPARATION_REMOTE: "modal" runs Balanced and Best on a cloud GPU; unset runs them here."""
-    value = (os.getenv("SEPARATION_REMOTE") or "").strip().lower()
+    value = (server_settings.env("SEPARATION_REMOTE") or "").strip().lower()
     return value if value in REMOTE_BACKENDS else None
 
 

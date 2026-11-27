@@ -20,6 +20,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from backend import server_settings
 from backend.services.separation_presets import package_available, package_version, version_tuple
 
 ENGINES = ("auto", "ctc", "dsp")
@@ -54,7 +55,7 @@ def normalize_engine(value: object) -> str | None:
 
 
 def requested_engine() -> str:
-    return normalize_engine(os.getenv("ALIGNMENT_ENGINE")) or "auto"
+    return normalize_engine(server_settings.env("ALIGNMENT_ENGINE")) or "auto"
 
 
 def downloads_allowed() -> bool:

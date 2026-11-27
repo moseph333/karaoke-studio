@@ -30,7 +30,7 @@ from typing import Any
 
 import requests
 
-from backend import config
+from backend import config, server_settings
 
 logger = logging.getLogger(__name__)
 
@@ -763,11 +763,11 @@ def _result(future: Future | None, deadline: float) -> list | None:
 
 def search_songs(query: str, sources: tuple[str, ...] | None = None) -> SearchOutcome:
     """Songs for the typed words, best first (up to MAX_RESULTS). Asks the catalogs in
-    ``sources`` (default ``config.SONG_SEARCH_SOURCES``) side by side and answers within
+    ``sources`` (default ``SONG_SEARCH_SOURCES``) side by side and answers within
     SEARCH_DEADLINE_SEC with what arrived; answers are kept for CACHE_TTL_SEC. An empty
     ``sources`` in the outcome means no catalog answered."""
     clean = " ".join(str(query or "").split())
-    sources = config.SONG_SEARCH_SOURCES if sources is None else sources
+    sources = server_settings.song_search_sources() if sources is None else sources
     if not clean or not ({"deezer", "itunes"} & set(sources)):
         return SearchOutcome(results=[])
     key = (clean.casefold(), tuple(sources), config.SONG_SEARCH_COUNTRY)

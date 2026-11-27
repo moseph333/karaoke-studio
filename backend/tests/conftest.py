@@ -124,8 +124,11 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "UPDATE_DRAIN_MAX_SEC",
     ):
         monkeypatch.delenv(name, raising=False)
-    from backend import project_store, update_drain
+    from backend import project_store, server_settings, update_drain
 
+    # No test starts with another's saved server settings (they are kept in memory per
+    # data folder, and every test has its own)
+    server_settings.reset_cache()
     # Tests that run the app's lifespan must not leave a thread writing .jobs_active into
     # later tests' folders
     monkeypatch.setattr(update_drain, "start_jobs_heartbeat", lambda: None)

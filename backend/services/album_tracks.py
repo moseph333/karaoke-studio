@@ -13,7 +13,7 @@ import statistics
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-from backend import config
+from backend import config, server_settings
 from backend.services import song_search
 
 logger = logging.getLogger(__name__)
@@ -164,7 +164,8 @@ def looks_like_album(info: dict[str, Any] | None) -> bool:
 
 def album_limit_seconds() -> float | None:
     """The longest album recording the server downloads (MAX_ALBUM_MINUTES), or None."""
-    return config.MAX_ALBUM_MINUTES * 60.0 if config.MAX_ALBUM_MINUTES else None
+    minutes = server_settings.max_album_minutes()
+    return minutes * 60.0 if minutes else None
 
 
 # --------------------------------------------------------------------------- names
@@ -406,7 +407,7 @@ def find_catalog_album(
     songs, or an upload missing one, is not the recording."""
     if not artist or not title or not duration:
         return None
-    sources = config.SONG_SEARCH_SOURCES if sources is None else sources
+    sources = server_settings.song_search_sources() if sources is None else sources
     found: list[CatalogAlbum] = []
     for source, ask in (("deezer", _deezer_albums), ("itunes", _itunes_albums)):
         if source not in sources:

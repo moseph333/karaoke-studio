@@ -17,6 +17,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from backend import server_settings
 from backend.config import OUTPUT_DIR
 from backend.services import remote_song_loop
 from backend.upload_utils import MAX_BACKGROUND_UPLOAD_BYTES
@@ -74,7 +75,9 @@ def lyrics_text(proj: dict) -> str:
 def offered_models() -> list[str]:
     """SONG_LOOP_MODELS: the video models the studio may choose between, in the worker's
     order (all of them if unset, or if it names none the worker knows)."""
-    named = {name.strip().lower() for name in (os.getenv("SONG_LOOP_MODELS") or "").split(",")}
+    named = {
+        name.strip().lower() for name in (server_settings.env("SONG_LOOP_MODELS") or "").split(",")
+    }
     offered = [model for model in MODELS if model in named]
     return offered or list(MODELS)
 
@@ -82,7 +85,7 @@ def offered_models() -> list[str]:
 def configured_model() -> str:
     """SONG_LOOP_MODEL: the video model a loop is made with when the request names none
     (the worker's default if unset or unknown; the first one offered if that is not)."""
-    value = (os.getenv("SONG_LOOP_MODEL") or "").strip().lower()
+    value = (server_settings.env("SONG_LOOP_MODEL") or "").strip().lower()
     model = value if value in MODELS else DEFAULT_MODEL
     offered = offered_models()
     return model if model in offered else offered[0]

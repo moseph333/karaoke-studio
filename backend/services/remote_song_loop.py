@@ -15,6 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from backend import server_settings
 from backend.services.modal_jobs import RemoteUnavailable, run_modal_job
 from backend.services.process_watchdog import duration_text
 from backend.services.separation_presets import remote_status
@@ -44,7 +45,7 @@ def _env_float(name: str, default: float) -> float:
 
 def backend() -> str | None:
     """SONG_LOOP_REMOTE: "modal" makes song loops on a cloud GPU; unset, none are made."""
-    value = (os.getenv("SONG_LOOP_REMOTE") or "").strip().lower()
+    value = (server_settings.env("SONG_LOOP_REMOTE") or "").strip().lower()
     return value if value in REMOTE_BACKENDS else None
 
 

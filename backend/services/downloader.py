@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 import requests
 import yt_dlp
 
-from backend import config
+from backend import server_settings
 from backend.config import DOWNLOADS_DIR
 from backend.services.album_tracks import album_limit_seconds, looks_like_album
 from backend.services.lyrics import LyricsNormalizer
@@ -142,7 +142,7 @@ def refuse_unsuitable(info: dict[str, Any] | None, *, incomplete: bool = False) 
             "That link is a live stream, which has no end to download. "
             "Paste a link to a finished recording of the song."
         )
-    limit = config.MAX_SONG_MINUTES
+    limit = server_settings.max_song_minutes()
     duration = info.get("duration")
     if (
         limit

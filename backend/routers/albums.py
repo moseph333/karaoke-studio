@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-from backend import config
+from backend import server_settings
 from backend.album_pipeline import ALBUM_STATUS, song_project_id
 from backend.background_jobs import BUSY_PIPELINE_STATES, run_job
 from backend.config import DOWNLOADS_DIR
@@ -60,7 +60,7 @@ def get_album(project_id: str):
             {**track, **_song_state(main_mod, song_project_id(album_id, int(track["number"])))}
             for track in album.get("tracks") or []
         ]
-        limit = config.MAX_SONG_MINUTES * 60
+        limit = server_settings.max_song_minutes() * 60
         duration = float(album.get("duration") or 0)
         return {
             **{key: value for key, value in album.items() if key != "tracks"},
@@ -180,7 +180,7 @@ def make_album_whole(project_id: str, req: AlbumWholeRequest, bg_tasks: Backgrou
     merge_disk_projects(main_mod.projects)
     proj = get_project_or_404(project_id)
     album = _album_of(proj)
-    limit = config.MAX_SONG_MINUTES
+    limit = server_settings.max_song_minutes()
     duration = float(album.get("duration") or 0)
     if album.get("kind") == "link" and limit and duration > limit * 60:
         raise HTTPException(
