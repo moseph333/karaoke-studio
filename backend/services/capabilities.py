@@ -3,7 +3,8 @@ splits of the vocal stem into parts, the lyric alignment engine, and song loops.
 
 Detection only inspects installed package metadata and files on disk; it never imports
 PyTorch, so the endpoint stays fast and safe to call on every page load. Presets that run on
-the cloud GPU (SEPARATION_REMOTE) say so in "runs_on" and report the GPU's speed.
+the cloud GPU (SEPARATION_REMOTE) say so in "runs_on" and report the GPU's speed. Presets
+the server does not offer (SEPARATION_PRESETS) are left out.
 """
 
 from typing import Any
@@ -11,11 +12,11 @@ from typing import Any
 from backend.services.alignment_config import alignment_capabilities
 from backend.services.separation_presets import (
     CPU_REALTIME_FACTORS,
-    PRESET_IDS,
     REMOTE_REALTIME_FACTORS,
     configured_preset,
     downloads_allowed,
     fallback_chain,
+    offered_presets,
     plan_status,
     preset_plan,
     remote_backend,
@@ -28,7 +29,7 @@ from backend.services.vocal_parts import split_capabilities
 def separation_capabilities() -> dict[str, Any]:
     presets = []
     ready_by_id: dict[str, bool] = {}
-    for preset in PRESET_IDS:
+    for preset in offered_presets():
         plan = preset_plan(preset)
         ready, reason = plan_status(plan)
         ready_by_id[preset] = ready

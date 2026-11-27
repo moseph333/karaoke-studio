@@ -14,7 +14,7 @@ from pydantic import (
 )
 
 from backend.services.media_links import UnusableLink, parse_media_link, supported_sites_sentence
-from backend.services.separation_presets import PRESET_IDS, normalize_preset
+from backend.services.separation_presets import normalize_preset, offered_presets
 from backend.services.vocal_mix import normalize_levels
 from backend.shared_assets import load
 
@@ -42,14 +42,21 @@ class SongSearchRequest(BaseModel):
 
 
 def parse_separation_quality(value: Any, optional: bool = False) -> str | None:
-    """A preset id from user input such as " Best ", or a ValueError listing the choices."""
+    """A preset id from user input such as " Best ", or a ValueError listing the choices:
+    the presets this server offers (SEPARATION_PRESETS)."""
+    offered = offered_presets()
     if value is None or (isinstance(value, str) and not value.strip()):
         if optional:
             return None
-        raise ValueError("Choose a separation quality: " + ", ".join(PRESET_IDS))
+        raise ValueError("Choose a separation quality: " + ", ".join(offered))
     preset = normalize_preset(value)
     if preset is None:
-        raise ValueError("Separation quality must be one of: " + ", ".join(PRESET_IDS))
+        raise ValueError("Separation quality must be one of: " + ", ".join(offered))
+    if preset not in offered:
+        raise ValueError(
+            f"This server does not offer {preset.capitalize()} stems. "
+            "Choose one of: " + ", ".join(offered)
+        )
     return preset
 
 

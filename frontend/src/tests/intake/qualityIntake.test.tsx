@@ -13,9 +13,12 @@ import { ToastProvider } from '../../hooks/useToast';
 import {
   formatDurationEstimate,
   formatTimeLeft,
+  offeredPresets,
+  presetInfo,
   separationEstimate,
   stemsLabel,
 } from '../../utils/quality';
+import type { StudioCapabilities } from '../../types';
 import { CAPABILITIES, json, mockStudioFetch } from '../helpers/qualityFixtures';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -134,6 +137,132 @@ describe('Stem quality at intake', () => {
     localStorage.setItem(SEPARATION_QUALITY_STORAGE_KEY, 'ultra');
     const junk = renderHook(() => useTrackIntake({ currentUser: 'Ana', setProject }), { wrapper });
     expect(junk.result.current.separationQuality).toBeNull();
+  });
+});
+
+describe('A server that has turned a preset off', () => {
+  // Its owner offers Fast and Balanced only: Best is not in the list at all
+  const WITHOUT_BEST: StudioCapabilities = {
+    ...CAPABILITIES,
+    separation: {
+      ...CAPABILITIES.separation,
+      default: 'balanced',
+      presets: CAPABILITIES.separation.presets.filter((preset) => preset.id !== 'best'),
+    },
+  };
+
+  beforeEach(() => {
+    resetCapabilitiesCache();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('lists only the presets the server offers', async () => {
+    mockStudioFetch(undefined, WITHOUT_BEST);
+    const user = userEvent.setup();
+    render(
+      <TrackSearch onSelectTrack={vi.fn()} isLoading={false} onSeparationQualityChange={vi.fn()} />
+    );
+    await user.click(screen.getByRole('button', { name: 'Advanced options' }));
+
+    const group = screen.getByRole('group', { name: 'Stem separation quality' });
+    await waitFor(() => expect(within(group).queryByRole('radio', { name: 'Best' })).toBeNull());
+    expect(
+      within(group)
+        .getAllByRole('radio')
+        .map((radio) => radio.getAttribute('value'))
+    ).toEqual(['fast', 'balanced']);
+  });
+
+  it('says so when asked about a preset it does not offer, and never suggests it', () => {
+    expect(offeredPresets(WITHOUT_BEST.separation)).toEqual(['fast', 'balanced']);
+    expect(presetInfo('best', WITHOUT_BEST.separation)).toMatchObject({
+      available: false,
+      reason: 'it is turned off on this server',
+    });
+    expect(presetInfo('balanced', WITHOUT_BEST.separation).available).toBe(true);
+    // Until the server answers, and for one that lists no presets, all three stand
+    expect(offeredPresets(null)).toEqual(['fast', 'balanced', 'best']);
+    expect(offeredPresets({ ...WITHOUT_BEST.separation, presets: [] })).toEqual([
+      'fast',
+      'balanced',
+      'best',
+    ]);
+    expect(presetInfo('best', null).available).toBe(true);
+  });
+
+  it('forgets a remembered quality the server no longer offers and sends none', async () => {
+    const bodies: unknown[] = [];
+    mockStudioFetch((url, init) => {
+      if (url.includes('/api/process')) {
+        bodies.push(JSON.parse(String(init?.body)));
+        return json({ project_id: 'p1' });
+      }
+      return undefined;
+    }, WITHOUT_BEST);
+    localStorage.setItem(SEPARATION_QUALITY_STORAGE_KEY, 'best');
+    const { result } = renderHook(
+      () => useTrackIntake({ currentUser: 'Ana', setProject: vi.fn() }),
+      { wrapper }
+    );
+
+    await waitFor(() => expect(result.current.separationQuality).toBeNull());
+    expect(localStorage.getItem(SEPARATION_QUALITY_STORAGE_KEY)).toBeNull();
+    await act(() => result.current.handleSelectTrack('dQw4w9WgXcQ'));
+    expect(bodies[0]).not.toHaveProperty('separation_quality');
+  });
+
+  it('starts a failed song again at the default when its quality is no longer offered', async () => {
+    const bodies: unknown[] = [];
+    mockStudioFetch((url, init) => {
+      if (url.includes('/api/process')) {
+        bodies.push(JSON.parse(String(init?.body)));
+        return json({ project_id: 'p1' });
+      }
+      return undefined;
+    }, WITHOUT_BEST);
+    const { result } = renderHook(
+      () => useTrackIntake({ currentUser: 'Ana', setProject: vi.fn() }),
+      { wrapper }
+    );
+
+    await act(() =>
+      result.current.handleSelectTrack('dQw4w9WgXcQ', undefined, {
+        created_by: 'Ben',
+        separation_quality: 'best',
+      })
+    );
+    await act(() =>
+      result.current.handleSelectTrack('dQw4w9WgXcQ', undefined, {
+        created_by: 'Ben',
+        separation_quality: 'balanced',
+      })
+    );
+
+    expect(bodies[0]).not.toHaveProperty('separation_quality');
+    expect(bodies[1]).toMatchObject({ created_by: 'Ben', separation_quality: 'balanced' });
+  });
+
+  it('keeps a remembered quality when the server cannot be asked', async () => {
+    const bodies: unknown[] = [];
+    mockStudioFetch((url, init) => {
+      if (url.includes('/api/process')) {
+        bodies.push(JSON.parse(String(init?.body)));
+        return json({ project_id: 'p1' });
+      }
+      return undefined;
+    }, null);
+    localStorage.setItem(SEPARATION_QUALITY_STORAGE_KEY, 'best');
+    const { result } = renderHook(
+      () => useTrackIntake({ currentUser: 'Ana', setProject: vi.fn() }),
+      { wrapper }
+    );
+
+    await act(() => result.current.handleSelectTrack('dQw4w9WgXcQ'));
+
+    expect(result.current.separationQuality).toBe('best');
+    expect(bodies[0]).toMatchObject({ separation_quality: 'best' });
   });
 });
 

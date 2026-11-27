@@ -108,6 +108,7 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "SEPARATION_REMOTE_APP",
         "SEPARATION_REMOTE_QUEUE_SEC",
         "SEPARATION_REMOTE_PREWARM",
+        "SEPARATION_PRESETS",
         "MODAL_TOKEN_ID",
         "MODAL_TOKEN_SECRET",
         "RENDER_REMOTE",

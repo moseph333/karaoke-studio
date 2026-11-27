@@ -10,6 +10,10 @@ RoFormer runs in a worker process (backend.workers.roformer_worker) and needs th
 SEPARATION_ALLOW_DOWNLOAD=0. When a preset cannot run, separation falls back down the chain
 best -> balanced -> fast. Availability checks never import torch.
 
+SEPARATION_PRESETS names the presets a server offers (all of them by default; Fast always):
+one that is not offered is refused when asked for, left out of the fallback chain, and never
+the default.
+
 With SEPARATION_REMOTE=modal, Balanced and Best run on a cloud GPU instead (see
 remote_separation and gpu/modal_app.py), so they need the Modal client and credentials here
 rather than audio-separator, torch or local weights.
@@ -96,9 +100,34 @@ def _env_float(name: str, default: float) -> float:
     return value if value > 0 else default
 
 
+def offered_presets() -> tuple[str, ...]:
+    """SEPARATION_PRESETS: the presets this server offers, cheapest first. Fast always is,
+    since it is what the others fall back to; unset, or naming no preset, offers them all."""
+    named = {
+        name.strip().lower()
+        for name in (server_settings.env("SEPARATION_PRESETS") or "").split(",")
+    }
+    if not named & set(PRESET_IDS):
+        return PRESET_IDS
+    return tuple(preset for preset in PRESET_IDS if preset == "fast" or preset in named)
+
+
+def offered_preset(preset: str) -> str:
+    """This preset if the server offers it, else the best one it offers below it (a song
+    started when Best was offered runs Balanced, or Fast, once Best is not)."""
+    offered = offered_presets()
+    if preset in offered:
+        return preset
+    rank = preset_rank(preset)
+    return next((p for p in reversed(offered) if preset_rank(p) < rank), "fast")
+
+
 def configured_preset() -> str:
-    """SEPARATION_QUALITY (fast | balanced | best), defaulting to balanced."""
-    return normalize_preset(server_settings.env("SEPARATION_QUALITY")) or DEFAULT_PRESET
+    """SEPARATION_QUALITY (fast | balanced | best), defaulting to balanced: the preset a new
+    song gets when it asks for none. Always one the server offers."""
+    return offered_preset(
+        normalize_preset(server_settings.env("SEPARATION_QUALITY")) or DEFAULT_PRESET
+    )
 
 
 def downloads_allowed() -> bool:
@@ -212,12 +241,13 @@ def resolve_plan(model_name: str | None) -> SeparationPlan:
 
 
 def fallback_chain(plan: SeparationPlan) -> list[SeparationPlan]:
-    """Plans to try in order: the requested one, then cheaper presets."""
-    if plan.preset == "best":
-        return [plan, preset_plan("balanced"), preset_plan("fast")]
-    if plan.preset == "balanced":
-        return [plan, preset_plan("fast")]
-    return [plan]
+    """Plans to try in order: the requested one, then the cheaper presets the server
+    offers (Best falls straight back to Fast where Balanced is turned off)."""
+    if plan.preset not in ("best", "balanced"):
+        return [plan]
+    offered = offered_presets()
+    cheaper = PRESET_IDS[: PRESET_IDS.index(plan.preset)]
+    return [plan] + [preset_plan(p) for p in reversed(cheaper) if p in offered]
 
 
 # --- Availability ---

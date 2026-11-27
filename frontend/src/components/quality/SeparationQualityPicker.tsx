@@ -2,7 +2,8 @@
  * Separation Quality Picker
  *
  * Fast / Balanced / Best as a radio group of cards: what each preset does, roughly how long
- * it takes on CPU, and whether this server can run it (with the reason when it cannot).
+ * it takes on CPU, and whether this server can run it (with the reason when it cannot). A
+ * preset the server's owner turned off is not listed.
  */
 
 import React, { useId } from 'react';
@@ -10,8 +11,8 @@ import type { SeparationPreset, StudioCapabilities } from '../../types';
 import {
   PRESET_BLURBS,
   PRESET_NAMES,
-  SEPARATION_PRESET_ORDER,
   defaultPreset,
+  offeredPresets,
   presetInfo,
   separationEstimate,
 } from '../../utils/quality';
@@ -51,9 +52,9 @@ export const SeparationQualityPicker: React.FC<SeparationQualityPickerProps> = (
   return (
     <fieldset className={cn('min-w-0 space-y-2', className)} disabled={disabled}>
       <legend className="mb-1 text-sm font-semibold text-theme-text">{legend}</legend>
-      {/* Three choices side by side under a rule each; the chosen one's rule is lit */}
+      {/* The choices side by side under a rule each; the chosen one's rule is lit */}
       <div className="grid gap-x-6 gap-y-2 sm:grid-cols-3">
-        {SEPARATION_PRESET_ORDER.map((preset) => {
+        {offeredPresets(capabilities).map((preset) => {
           const info = presetInfo(preset, capabilities);
           const unavailable = info.available === false;
           const checked = value === preset;
