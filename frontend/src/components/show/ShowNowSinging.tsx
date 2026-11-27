@@ -1,8 +1,9 @@
 /**
  * A show's "Now singing": who is on stage, the controls for their song, and what stands in
  * the way when it is not playing. With nobody on, it calls the next singer in the queue.
- * A library song's stage is shown here as well (it is the one the stage window follows); a
- * video plays only on the stage window.
+ * A library song's stage is shown here as well (it is the one the stage window follows). A
+ * video plays on the stage window, and here once more without sound, following that one
+ * (`ShowStageMonitor`).
  */
 
 import React, { useEffect, useState } from 'react';
@@ -16,6 +17,7 @@ import type { ProjectState } from '../../types';
 import { formatTime } from '../../utils/format';
 import type { ShowEntry } from '../../utils/showQueue';
 import { Button, ProgressBar, Slider } from '../ui';
+import { ShowStageMonitor } from './ShowStageMonitor';
 
 export interface ShowNowSingingProps {
   player: UseShowPlayer;
@@ -198,6 +200,8 @@ export const ShowNowSinging: React.FC<ShowNowSingingProps> = ({
   }
 
   const ready = !trouble || trouble.kind === 'blocked';
+  const { scene } = player;
+  const videoScene = scene.kind === 'youtube' || scene.kind === 'file' ? scene : null;
   return (
     <section aria-labelledby="show-now-heading" className="flex flex-col gap-4">
       <h2 id="show-now-heading" className={`${label} text-theme-accent`}>
@@ -271,7 +275,17 @@ export const ShowNowSinging: React.FC<ShowNowSingingProps> = ({
         ready && (
           <>
             <Position time={player.videoTime} duration={player.duration} onSeek={player.seek} />
-            <p className="text-sm text-theme-text-muted">The video plays on the stage window.</p>
+            {videoScene ? (
+              // A new playing is a new monitor, as it is a new player on the stage window
+              <ShowStageMonitor
+                key={`${videoScene.kind === 'youtube' ? videoScene.videoId : videoScene.url}:${videoScene.play}`}
+                scene={videoScene}
+                playing={player.isPlaying}
+                time={player.videoTime}
+              />
+            ) : (
+              <p className="text-sm text-theme-text-muted">The video plays on the stage window.</p>
+            )}
           </>
         )
       )}

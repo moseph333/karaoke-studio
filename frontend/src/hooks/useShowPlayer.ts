@@ -7,7 +7,8 @@
  * - A YouTube video plays in the stage window, in YouTube's player, and reports back
  *   (`useShowStage`). One whose uploader does not allow embedding plays from the server's
  *   copy instead; found out only when it is played, it is fetched then and starts once the
- *   copy is ready.
+ *   copy is ready. The host screen shows the same video without sound, following those
+ *   reports (`show/ShowStageMonitor`).
  *
  * Between singers the stage window shows a card: the next singer in line, or the night's
  * name when nobody is waiting. A song that ends is marked done and the card comes back.
@@ -77,6 +78,8 @@ export interface UseShowPlayer {
   current: ShowEntry | null;
   /** The library song loaded for the entry on stage. */
   project: ProjectState | null;
+  /** What the stage window is showing. */
+  scene: StageScene;
   audio: UseStudioAudioReturn;
   /** Handlers for the host screen's `<audio>` element. */
   audioEvents: {
@@ -379,6 +382,7 @@ export function useShowPlayer({
     stage,
     current,
     project: songOnStage,
+    scene,
     audio,
     audioEvents,
     isVideo,

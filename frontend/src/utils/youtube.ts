@@ -2,9 +2,10 @@
  * YouTube, for a show's karaoke videos: reading a video id out of a pasted link, and loading
  * YouTube's IFrame Player API.
  *
- * The API script is the one thing this app loads from another site, and only in a stage
- * window that is about to play a YouTube video: the video itself comes from YouTube either
- * way, in its player.
+ * The API script is the one thing this app loads from another site, and only where a YouTube
+ * video is about to play: a stage window, and the host screen that shows the same video
+ * without sound (`show/ShowStageMonitor`). The video itself comes from YouTube either way,
+ * in its player.
  */
 
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -38,7 +39,7 @@ export function karaokeQuery(words: string): string {
   return /karaoke/i.test(trimmed) ? trimmed : `${trimmed} karaoke`;
 }
 
-// --- The IFrame Player API, as far as the stage uses it ----------------------------------
+// --- The IFrame Player API, as far as a show uses it -------------------------------------
 
 export const YT_STATE = { unstarted: -1, ended: 0, playing: 1, paused: 2, buffering: 3, cued: 5 };
 
@@ -49,6 +50,7 @@ export interface YouTubePlayer {
   setVolume(volume: number): void;
   mute(): void;
   unMute(): void;
+  isMuted(): boolean;
   getCurrentTime(): number;
   getDuration(): number;
   getPlayerState(): number;
