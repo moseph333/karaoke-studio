@@ -16,13 +16,13 @@ runs (at most every WARMUP_INTERVAL_SECONDS, under that window) so the container
 """
 
 import logging
-import os
 import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from backend import server_settings
 from backend.services import emission_cache
 from backend.services.modal_jobs import STARTED, RemoteOutcome, RemoteUnavailable, run_modal_job
 from backend.services.separation_presets import (
@@ -55,7 +55,7 @@ __all__ = [
 
 def prewarm_enabled() -> bool:
     """SEPARATION_REMOTE_PREWARM (default on): start a cloud GPU when a song's intake begins."""
-    value = (os.getenv("SEPARATION_REMOTE_PREWARM") or "1").strip().lower()
+    value = (server_settings.env("SEPARATION_REMOTE_PREWARM") or "1").strip().lower()
     return value not in ("0", "false", "no", "off")
 
 

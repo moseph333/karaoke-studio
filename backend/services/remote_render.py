@@ -18,6 +18,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from backend import server_settings
 from backend.services.modal_jobs import RemoteUnavailable, run_modal_job
 from backend.services.separation_presets import remote_app_name, remote_status
 
@@ -61,7 +62,7 @@ def _env_float(name: str, default: float) -> float:
 
 def backend() -> str | None:
     """RENDER_REMOTE: "modal" renders exports on a cloud CPU; unset renders them here."""
-    value = (os.getenv("RENDER_REMOTE") or "").strip().lower()
+    value = (server_settings.env("RENDER_REMOTE") or "").strip().lower()
     return value if value in REMOTE_BACKENDS else None
 
 
@@ -86,7 +87,7 @@ def timeout_seconds() -> float:
 
 def prewarm_enabled() -> bool:
     """RENDER_REMOTE_PREWARM (default on): start a cloud CPU when the Export dialog opens."""
-    value = (os.getenv("RENDER_REMOTE_PREWARM") or "1").strip().lower()
+    value = (server_settings.env("RENDER_REMOTE_PREWARM") or "1").strip().lower()
     return value not in ("0", "false", "no", "off")
 
 
