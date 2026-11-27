@@ -14,7 +14,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from backend import config
+from backend import config, show_auth
 from backend.auth import authenticate_request, get_client_ip, log_credential_rejection
 from backend.http_delivery import cache_control_for
 from backend.logging_setup import request_id_var
@@ -66,7 +66,10 @@ class PassphraseAuth:
 
     Wrong credentials in headers or cookies count against the login rate limit, and a client
     IP over it gets a 429 with Retry-After before its credentials are compared. A 401 for
-    cookie credentials also expires both session cookies, so a stale cookie counts once."""
+    cookie credentials also expires both session cookies, so a stale cookie counts once.
+
+    A request without a session but with a show token (``show_auth``: a venue's sign-in, which
+    only runs a show) goes through when it is one a show makes, and gets 403 otherwise."""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -98,6 +101,27 @@ class PassphraseAuth:
                     await limited(scope, receive, send)
                     return
                 if not authenticated:
+                    # A venue's sign-in: it runs a show and reads the library, nothing else
+                    try:
+                        show_only = show_auth.holds_token(request)
+                    except HTTPException as exc:
+                        limited = JSONResponse(
+                            status_code=exc.status_code,
+                            content={"detail": exc.detail},
+                            headers=exc.headers,
+                        )
+                        await limited(scope, receive, send)
+                        return
+                    if show_only:
+                        if show_auth.allows(scope["method"], path):
+                            await self.app(scope, receive, send)
+                            return
+                        # 403, not 401: the host screen takes a 401 to mean it was signed out
+                        refused = JSONResponse(
+                            status_code=403, content={"detail": show_auth.SHOW_ONLY_DETAIL}
+                        )
+                        await refused(scope, receive, send)
+                        return
                     if _presents_credentials(request):
                         log_credential_rejection(get_client_ip(request))
                     response = JSONResponse(

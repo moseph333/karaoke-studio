@@ -38,7 +38,13 @@ import { ShowQueueList } from './ShowQueueList';
 
 const POPUP_BLOCKED = 'The browser blocked the stage window. Allow pop-ups for this site.';
 
-export const ShowScreen: React.FC = () => {
+export interface ShowScreenProps {
+  /** Whether the screen offers the way back to the songs. A show-only sign-in has none: the
+   *  library and the studio would not answer it. */
+  canLeave?: boolean;
+}
+
+export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true }) => {
   const [queue, dispatch] = useReducer(showQueueReducer, undefined, loadShowQueue);
   const [titleText, setTitleText] = useState(loadShowTitle);
   const title = cleanShowTitle(titleText);
@@ -108,13 +114,15 @@ export const ShowScreen: React.FC = () => {
     <div className="flex min-h-screen flex-col bg-theme-bg font-theme-body text-theme-text">
       <header className="border-b-2 border-theme-border pt-[env(safe-area-inset-top,0px)]">
         <div className="mx-auto flex w-full max-w-screen-2xl flex-wrap items-end gap-x-6 gap-y-3 px-4 py-3 sm:px-8">
-          <a
-            href={window.location.pathname}
-            className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold text-theme-text-muted hover:text-theme-text focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-focus"
-          >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to the songs
-          </a>
+          {canLeave && (
+            <a
+              href={window.location.pathname}
+              className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold text-theme-text-muted hover:text-theme-text focus:outline-none focus-visible:ring-2 focus-visible:ring-theme-focus"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Back to the songs
+            </a>
+          )}
           <div className="min-w-[12rem] flex-1 sm:max-w-sm">
             <label htmlFor={titleId} className="block text-sm font-semibold text-theme-text">
               Name of the night

@@ -156,6 +156,7 @@ The levels are part of the song like its key: videos are rendered with them, a m
 - **Videos YouTube will not embed.** Some uploaders, the largest karaoke channels among them, only let their videos play on youtube.com. The server finds this out when the video is queued, fetches a copy (720p at most) and plays that on the stage window instead. Copies are kept up to `SHOW_VIDEO_CACHE_GB` (3 GB), the least recently used going first; `SHOW_VIDEO_DOWNLOADS=0` turns this off, and those videos then cannot be played.
 - The queue and the name of the night are kept in the browser, so a reload does not lose them. Click the stage window once after opening it (the prompt to fill the screen is that click): browsers start sound only in a window that has been clicked.
 - YouTube shows its adverts in its player unless the browser is signed in to an account without them.
+- **Handing it to a venue.** Set `SHOW_PASSWORD` on the server and give the venue that passphrase and the address ending in `/?show=1`. It opens the host screen and nothing else: the songs can be queued and played, not edited, renamed, deleted or exported, and the studio and the server's settings stay shut. Changing `SHOW_PASSWORD` signs the venue out.
 
 ### On your phone
 
@@ -275,6 +276,7 @@ cp .env.example .env
 | `PORT` | `8000` | Port for the web UI and API |
 | `APP_PASSWORD` | *(empty)* | Optional shared passphrase (`HttpOnly` cookie session). Leave blank for open local access. |
 | `ADMIN_PASSWORD` | *(empty)* | The owner's passphrase for the [Server settings](#server-settings) page, asked for on top of `APP_PASSWORD`. Empty turns the page off: no server setting can be changed from the studio. |
+| `SHOW_PASSWORD` | *(empty)* | A passphrase that only runs [a karaoke night](#a-karaoke-night): it opens the host screen, reads the songs and plays them, and can change or delete nothing. For a venue's host, in place of `APP_PASSWORD`. Empty: the host screen takes `APP_PASSWORD` only. |
 | `SESSION_SECRET` | *(empty)* | Server secret session tokens are signed with, together with the passphrase. Empty uses a random secret the server creates in `<data dir>/.session_secret` on first sign-in. Changing either signs everyone out. |
 | `SELF_UPDATE` | *(off)* | `1` where a host service applies updates written to `<data dir>/.update_requested` (as on the homelab). The studio then shows an **Update now** toast when GitHub's `main` is ahead of the running build. |
 | `UPDATE_DRAIN_MAX_SEC` | `2700` | How long `scripts/update_when_idle.sh` waits for running jobs before it restarts the server anyway (jobs still running then are interrupted). New jobs stay paused while it waits. |

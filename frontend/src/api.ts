@@ -47,6 +47,32 @@ export function clearAuthToken(): void {
   setAuthToken(null);
 }
 
+// --- A show-only sign-in ------------------------------------------------------------------
+// A venue's host signs in with the server's show passphrase, which only runs a show
+// (`/?show=1`): the token it is traded for goes in `X-Show-Token`, never in the studio's
+// headers, where the server would count it as a wrong studio passphrase.
+
+export const SHOW_TOKEN_KEY = 'karaoke_show_token';
+let memoryShowToken: string | null = null;
+
+export function getShowToken(): string | null {
+  try {
+    return localStorage.getItem(SHOW_TOKEN_KEY) ?? memoryShowToken;
+  } catch {
+    return memoryShowToken;
+  }
+}
+
+export function setShowToken(token: string | null): void {
+  memoryShowToken = token;
+  try {
+    if (token) localStorage.setItem(SHOW_TOKEN_KEY, token);
+    else localStorage.removeItem(SHOW_TOKEN_KEY);
+  } catch {
+    // Kept in memory
+  }
+}
+
 /**
  * Retrieve current user nickname from storage or memory.
  */
@@ -135,6 +161,8 @@ export async function apiFetch(url: string | URL, options: RequestInit = {}): Pr
       headers.set('Authorization', `Bearer ${token}`);
     }
   }
+  const showToken = getShowToken();
+  if (showToken && !headers.has('X-Show-Token')) headers.set('X-Show-Token', showToken);
 
   const res = await fetch(url, {
     ...options,
@@ -144,10 +172,13 @@ export async function apiFetch(url: string | URL, options: RequestInit = {}): Pr
 
   const urlString = typeof url === 'string' ? url : url.toString();
   const isAuthExempt =
-    urlString.includes('/api/auth/status') || urlString.includes('/api/auth/login');
+    urlString.includes('/api/auth/status') ||
+    urlString.includes('/api/auth/login') ||
+    urlString.includes('/api/auth/show-login');
 
   if (res.status === 401 && !isAuthExempt) {
     clearAuthToken();
+    setShowToken(null);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
     }
