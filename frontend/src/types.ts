@@ -580,6 +580,14 @@ export interface Toast {
 // Vocal Range & Smart Key Recommender Types
 // ==========================================
 
+/** `POST /api/project/{id}/practice-vocal`: where the song's vocals alone are served. */
+export interface PracticeVocalResponse {
+  status: string;
+  url: string;
+  /** The key of that file, in semitones from the original. */
+  semitones: number;
+}
+
 export type VoicePreset = 'Bass' | 'Baritone' | 'Tenor' | 'Alto' | 'Mezzo-Soprano' | 'Soprano';
 
 export interface VocalRangeData {

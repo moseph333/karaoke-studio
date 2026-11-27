@@ -1,5 +1,5 @@
 /**
- * Whether single-key shortcuts (M, V, C, F, T, R, P, L, [, ], ?) are on. Speech input and some
+ * Whether single-key shortcuts (M, V, C, F, T, R, P, L, O, [, ], ?) are on. Speech input and some
  * keyboards type those characters by accident, so WCAG 2.1.4 asks for a way to turn them
  * off. Space, the arrow keys and Ctrl/⌘ shortcuts are not affected.
  */

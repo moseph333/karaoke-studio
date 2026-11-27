@@ -216,6 +216,7 @@ class MockAudioNode {
 }
 
 class MockAnalyserNode extends MockAudioNode {
+  context: unknown = null;
   fftSize = 128;
   frequencyBinCount = 64;
   minDecibels = -100;
@@ -231,6 +232,27 @@ class MockAnalyserNode extends MockAudioNode {
       array[i] = 128;
     }
   });
+}
+
+class MockAudioParam {
+  value = 1;
+  setTargetAtTime = vi.fn((value: number) => {
+    this.value = value;
+    return this;
+  });
+  setValueAtTime = vi.fn((value: number) => {
+    this.value = value;
+    return this;
+  });
+}
+
+class MockGainNode extends MockAudioNode {
+  gain = new MockAudioParam();
+  context: unknown;
+  constructor(context: unknown) {
+    super();
+    this.context = context;
+  }
 }
 
 class MockAudioContext {
@@ -254,7 +276,12 @@ class MockAudioContext {
     return Promise.resolve();
   });
 
-  createAnalyser = vi.fn().mockImplementation(() => new MockAnalyserNode());
+  createAnalyser = vi.fn().mockImplementation(() => {
+    const analyser = new MockAnalyserNode();
+    analyser.context = this;
+    return analyser;
+  });
+  createGain = vi.fn().mockImplementation(() => new MockGainNode(this));
   createMediaElementSource = vi.fn().mockImplementation(() => new MockAudioNode());
 }
 
