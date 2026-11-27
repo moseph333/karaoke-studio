@@ -86,8 +86,11 @@ describe('Song library', () => {
 
   it('shows skeleton cards while the library loads', async () => {
     let release: (r: Response) => void = () => {};
-    vi.spyOn(globalThis, 'fetch').mockImplementation(
-      () => new Promise<Response>((resolve) => (release = resolve))
+    // Only the library's answer is held back: the home screen also asks for the song requests
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input) =>
+      String(input).includes('/api/projects')
+        ? new Promise<Response>((resolve) => (release = resolve))
+        : Promise.resolve(new Response(JSON.stringify({}), { status: 200 }))
     );
     const { container } = render(<TrackSearch onSelectTrack={vi.fn()} isLoading={false} />);
     expect(screen.getByText('Loading library tracks...')).toHaveClass('sr-only');

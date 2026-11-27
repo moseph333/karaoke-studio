@@ -5,7 +5,8 @@
  * singer), and the stage window is the room's (`/?stage=1`, on the TV). The host adds a
  * singer and their song, a karaoke video from YouTube or a song from the library, and starts
  * each in turn; between singers the stage window calls the next one. The queue and the
- * night's name are kept in this browser, so a reload does not lose them.
+ * night's name are kept in this browser, so a reload does not lose them. A song that cannot
+ * be found is asked for instead: requests are kept on the server, for the owner to make.
  *
  * It mounts in place of the app (`main.tsx`): it has no library to edit and no song open,
  * only the sign-in, the stage looks as saved, and one `<audio>` element for library songs.
@@ -17,6 +18,7 @@ import { isInputElement } from '../../hooks/useKeyboardShortcuts';
 import { useScreenWakeLock } from '../../hooks/useScreenWakeLock';
 import { useShowPlayer } from '../../hooks/useShowPlayer';
 import { useShowVideos } from '../../hooks/useShowVideos';
+import { useSongRequests } from '../../hooks/useSongRequests';
 import { useToast } from '../../hooks/useToast';
 import { useVisualTheme } from '../../hooks/useVisualTheme';
 import {
@@ -35,6 +37,7 @@ import { Button, Input } from '../ui';
 import { ShowAddSinger } from './ShowAddSinger';
 import { ShowNowSinging } from './ShowNowSinging';
 import { ShowQueueList } from './ShowQueueList';
+import { ShowRequests } from './ShowRequests';
 
 const POPUP_BLOCKED = 'The browser blocked the stage window. Allow pop-ups for this site.';
 
@@ -91,6 +94,26 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true }) => {
       toast.success(`${singer} is in the queue`);
     },
     [toast]
+  );
+
+  // A song nobody could find goes on the server's request list, with who asked and where
+  const { requests, ask } = useSongRequests();
+  const requestSong = useCallback(
+    async (song: string, singer: string) => {
+      const result = await ask(song, singer, title);
+      if (!result.ok) {
+        toast.error(result.error);
+        return false;
+      }
+      const count = result.request?.count ?? 1;
+      toast.success(
+        count > 1
+          ? `“${song}” has now been asked for ${count} times`
+          : `“${song}” is on the request list`
+      );
+      return true;
+    },
+    [ask, title, toast]
   );
 
   // Space plays and pauses the song on stage
@@ -175,7 +198,10 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true }) => {
             onClearFinished={() => dispatch({ type: 'clear-finished' })}
           />
         </div>
-        <ShowAddSinger onAdd={addSinger} />
+        <div className="flex min-w-0 flex-col gap-10">
+          <ShowAddSinger onAdd={addSinger} onRequest={requestSong} />
+          <ShowRequests requests={requests} />
+        </div>
       </main>
 
       {project?.master_audio_url && (

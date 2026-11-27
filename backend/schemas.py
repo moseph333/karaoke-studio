@@ -29,6 +29,16 @@ class ShowLoginRequest(BaseModel):
     password: str = Field(..., max_length=256, description="The server's show passphrase")
 
 
+class SongRequestCreate(BaseModel):
+    song: str = Field(
+        ...,
+        max_length=500,
+        description="The song asked for, as the host typed it (title, with the artist if known)",
+    )
+    singer: str | None = Field(None, max_length=200, description="Who asked for it")
+    show: str | None = Field(None, max_length=200, description="The name of the night")
+
+
 class AdminLoginRequest(BaseModel):
     password: str = Field(..., max_length=256, description="The server's admin passphrase")
 

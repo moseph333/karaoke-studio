@@ -8,8 +8,8 @@ its own, good for seven days), sent in ``X-Show-Token`` and, for the media a pag
 itself (the song's audio, a video's copy, the cover art), in the ``show_token`` cookie.
 
 A show token opens only what a show reads (``ALLOWED``): the list of songs, one song, its
-cover art, the capabilities, the YouTube search, the show's video routes and the media under
-``/static``. Anything else answers 403, never 401: the studio takes a 401 from any route to
+cover art, the capabilities, the YouTube search, the show's video routes, the request list
+(to read and to add to, never to remove from) and the media under ``/static``. Anything else answers 403, never 401: the studio takes a 401 from any route to
 mean its session ended. With SHOW_PASSWORD unset there are no show tokens and the show is run
 with the studio passphrase; on a server with no studio passphrase everything is open anyway.
 
@@ -54,6 +54,8 @@ ALLOWED: tuple[tuple[frozenset[str], re.Pattern[str]], ...] = (
     (_READ, re.compile(r"/api/show/videos/[^/]+")),
     (_READ, re.compile(r"/api/show/videos/[^/]+/file")),
     (_POST, re.compile(r"/api/show/videos/[^/]+/fetch")),
+    # The songs it could not find: it reads the list and adds to it, and removes nothing
+    (_READ | _POST, re.compile(r"/api/show/requests")),
 )
 
 

@@ -1,5 +1,6 @@
 """Show API router: the YouTube karaoke videos a host screen queues for the stage window
-(see ``services/show_videos``). The queue itself lives in the host's browser."""
+(see ``services/show_videos``) and the requests for songs the host could not find (see
+``services/show_requests``). The queue itself lives in the host's browser."""
 
 import logging
 import threading
@@ -8,8 +9,9 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import FileResponse
 
 from backend.background_jobs import run_job
-from backend.project_store import PROJECTS_LOCK, ensure_free_space
-from backend.services import show_videos
+from backend.project_store import PROJECTS_LOCK, SAVE_FAILED_DETAIL, ensure_free_space
+from backend.schemas import SongRequestCreate
+from backend.services import show_requests, show_videos
 from backend.services.downloader import TrackDownloader
 from backend.update_drain import ensure_not_draining
 
@@ -18,6 +20,7 @@ logger = logging.getLogger("karaoke_backend")
 router = APIRouter(tags=["show"])
 
 DOWNLOADS_OFF_DETAIL = "This server does not keep copies of videos."
+NO_SONG_DETAIL = "Type the song to ask for."
 
 
 def _video_id(raw: str) -> str:
@@ -74,3 +77,44 @@ def show_video_file(video_id: str):
     return FileResponse(
         show_videos.video_file(vid), media_type="video/mp4", headers={"Cache-Control": "no-cache"}
     )
+
+
+@router.get("/api/show/requests", summary="The songs a show asked for")
+def song_requests():
+    """The songs hosts could not find, waiting for the owner to make them, the latest asked
+    for first: each has an `id`, the `song` as typed, the `singers` who asked, the `show` it
+    was last asked at, how many times it was asked for (`count`) and when it last was
+    (`requested_at`, seconds since 1970)."""
+    return {"requests": show_requests.listing()}
+
+
+@router.post("/api/show/requests", summary="Ask for a song the show could not find")
+def request_song(req: SongRequestCreate):
+    """Files a request for a song, for the owner to make later; nothing is made by itself.
+    A song already asked for is counted once more. Answers the `request` and the whole list
+    (`requests`). 422 without a song, 409 when the list is full, 507 on a full disk."""
+    song = show_requests.clean(req.song, show_requests.SONG_MAX)
+    if not song:
+        raise HTTPException(status_code=422, detail=NO_SONG_DETAIL)
+    try:
+        entry = show_requests.add(song, req.singer or "", req.show or "")
+    except show_requests.RequestsFull as e:
+        raise HTTPException(status_code=409, detail=show_requests.FULL_DETAIL) from e
+    except OSError as e:
+        logger.error(f"Could not save a song request: {e}")
+        raise HTTPException(status_code=507, detail=SAVE_FAILED_DETAIL) from e
+    return {"request": entry, "requests": show_requests.listing()}
+
+
+@router.delete("/api/show/requests/{request_id}", summary="Take a song off the request list")
+def remove_song_request(request_id: str):
+    """Removes a request, once its song is made or will not be. The studio's own: a show
+    sign-in cannot. Answers the list that is left. 404 for a request that is not there."""
+    try:
+        removed = show_requests.remove(request_id)
+    except OSError as e:
+        logger.error(f"Could not save the song requests: {e}")
+        raise HTTPException(status_code=507, detail=SAVE_FAILED_DETAIL) from e
+    if not removed:
+        raise HTTPException(status_code=404, detail="That request is not on the list.")
+    return {"requests": show_requests.listing()}
