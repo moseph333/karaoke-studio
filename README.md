@@ -262,6 +262,7 @@ cp .env.example .env
 | :--- | :--- | :--- |
 | `PORT` | `8000` | Port for the web UI and API |
 | `APP_PASSWORD` | *(empty)* | Optional shared passphrase (`HttpOnly` cookie session). Leave blank for open local access. |
+| `ADMIN_PASSWORD` | *(empty)* | The owner's passphrase for the [Server settings](#server-settings) page, asked for on top of `APP_PASSWORD`. Empty turns the page off: no server setting can be changed from the studio. |
 | `SESSION_SECRET` | *(empty)* | Server secret session tokens are signed with, together with the passphrase. Empty uses a random secret the server creates in `<data dir>/.session_secret` on first sign-in. Changing either signs everyone out. |
 | `SELF_UPDATE` | *(off)* | `1` where a host service applies updates written to `<data dir>/.update_requested` (as on the homelab). The studio then shows an **Update now** toast when GitHub's `main` is ahead of the running build. |
 | `UPDATE_DRAIN_MAX_SEC` | `2700` | How long `scripts/update_when_idle.sh` waits for running jobs before it restarts the server anyway (jobs still running then are interrupted). New jobs stay paused while it waits. |
@@ -289,6 +290,7 @@ cp .env.example .env
 | Variable | Default | Purpose |
 | :--- | :--- | :--- |
 | `SEPARATION_QUALITY` | `balanced` | Default preset for new songs: `fast`, `balanced` or `best` |
+| `SEPARATION_PRESETS` | `fast,balanced,best` | The presets the server offers, comma-separated. Fast is always offered, since the others fall back to it. A preset left out is not listed in the studio, is refused when asked for, is skipped as a fallback and is never the default; a song that asked for it earlier gets the best preset still offered below it. |
 | `SEPARATION_ALLOW_DOWNLOAD` | `1` | Download RoFormer weights on first use |
 | `AUDIO_SEPARATOR_MODEL_DIR` | `<data dir>/models/audio-separator` | Where RoFormer weights live |
 | `SEPARATION_BALANCED_MODEL` / `SEPARATION_BEST_MODELS` | built-in | Override the RoFormer checkpoints |
@@ -338,6 +340,27 @@ cp .env.example .env
 | `MAX_CONCURRENT_ALIGN_JOBS` | `1` | Neural passes at once (each loads the model) |
 | `ALIGN_REFINE_PLAIN` | `1` | Snap pasted, untimed lyrics to the sung phrases |
 | `ALIGNMENT_SONG_PASS` | `1` | Also place every line in the whole song with the neural model, so lines far from the first estimate (and lyrics timed for another version) are found |
+
+### Server settings
+
+Set `ADMIN_PASSWORD` and the studio gains a **Server settings** page for the server's owner, where options are turned on or off and defaults are set while the server runs, without editing `.env` or restarting. Open it from the command palette (<kbd>Ctrl</kbd>/<kbd>⌘</kbd> <kbd>K</kbd>, "Server settings"), from the link in Help's footer, or at `/?admin=1`. It asks for the admin passphrase once per browser (the unlock lasts seven days) and then lists:
+
+| Group | Settings | Variable it stands in for |
+| :--- | :--- | :--- |
+| Song loops | Make song loops · the video models offered · the default video model | `SONG_LOOP_REMOTE` · `SONG_LOOP_MODELS` · `SONG_LOOP_MODEL` |
+| Stem quality | The presets offered · the default for new songs · Balanced and Best on the cloud GPU | `SEPARATION_PRESETS` · `SEPARATION_QUALITY` · `SEPARATION_REMOTE` |
+| Export and cloud | Cloud rendering · a cloud machine started when Export opens · a cloud GPU started when a song starts | `RENDER_REMOTE` · `RENDER_REMOTE_PREWARM` · `SEPARATION_REMOTE_PREWARM` |
+| Limits and search | The longest song · the longest album · the song search's catalogs · lyric timing | `MAX_SONG_MINUTES` · `MAX_ALBUM_MINUTES` · `SONG_SEARCH_SOURCES` · `ALIGNMENT_ENGINE` |
+
+For example, to stop offering the heavy video model for song loops and make the light one the default: switch **Best** off under "Video models offered" (the default moves to **Fast**) and save.
+
+- A saved change applies at once, for everyone, and is kept in `<data dir>/settings.json`, so it survives restarts and updates. It wins over the matching variable in `.env`.
+- A setting changed on the page says what the server's own setting (its `.env` or the built-in default) is. **Reset** removes the saved value so that one applies again.
+- Turning a cloud option on still needs the Modal credentials on the server; the page says when they are missing.
+- Without `ADMIN_PASSWORD` the page is off and the studio does not offer it. The admin passphrase is separate from the studio's: singers who know `APP_PASSWORD` cannot change settings. Wrong guesses are rate limited like studio ones, counted apart from them.
+- Scripts can read and change the same settings with `GET` and `PUT /api/admin/settings`, sending the passphrase in `X-Admin-Password` (and the studio's in `X-App-Password` when it has one).
+
+Everything else in the tables above is read once at start-up or belongs to the host (paths, secrets, job slots, upload limits) and stays in `.env`.
 
 ## API reference
 
