@@ -13,6 +13,7 @@ import { IconButton } from '../ui/IconButton';
 import { Input } from '../ui/Field';
 import { cn } from '../../utils/cn';
 import { isTrackMade, madeTrackLabel, trackRangeLabel } from '../../utils/albumTracks';
+import { TEXT_LIMITS } from '../../utils/textLimits';
 
 export interface AlbumTrackRowProps {
   track: AlbumTrack;
@@ -135,7 +136,7 @@ export const AlbumTrackRow: React.FC<AlbumTrackRowProps> = ({
             value={title ?? (track.named ? track.title : '')}
             onChange={(e) => onTitleChange(track.number, e.target.value)}
             placeholder="Song title (finds the lyrics)"
-            maxLength={300}
+            maxLength={TEXT_LIMITS.title}
             autoComplete="off"
             autoFocus={renaming}
           />

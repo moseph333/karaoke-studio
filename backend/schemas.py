@@ -18,11 +18,15 @@ from backend.services.separation_presets import normalize_preset, offered_preset
 from backend.services.vocal_mix import normalize_levels
 from backend.shared_assets import load
 
+# How long a song's title and artist, a singer's name and pasted lyrics may be, in
+# characters. The studio stops typing at the same lengths (@shared/text_limits.json)
+TEXT_LIMITS: dict[str, int] = load("text_limits")
+
 
 class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     password: str = Field(..., description="Studio password")
-    username: str | None = Field(default="Friend", max_length=64)
+    username: str | None = Field(default="Friend", max_length=TEXT_LIMITS["singer"])
 
 
 class AdminLoginRequest(BaseModel):
@@ -77,7 +81,7 @@ class AlbumSongPick(BaseModel):
     number: int = Field(..., ge=1, le=999, description="The song's number on the album")
     title: str | None = Field(
         default=None,
-        max_length=300,
+        max_length=TEXT_LIMITS["title"],
         description="The song's name, when the one found is wrong or a stand-in (Track 3)",
     )
 
@@ -88,9 +92,11 @@ class AlbumSongsRequest(BaseModel):
         ..., min_length=1, max_length=99, description="The songs of the album to make"
     )
     artist: str | None = Field(
-        default=None, max_length=300, description="The album's artist, when the one found is wrong"
+        default=None,
+        max_length=TEXT_LIMITS["artist"],
+        description="The album's artist, when the one found is wrong",
     )
-    created_by: str | None = Field(default=None, max_length=64)
+    created_by: str | None = Field(default=None, max_length=TEXT_LIMITS["singer"])
     separation_quality: str | None = Field(
         default=None,
         description="Stem separation preset for the songs (the album's, else the server default)",
@@ -123,7 +129,7 @@ class ProcessRequest(BaseModel):
     )
     custom_lyrics: str | None = Field(
         default=None,
-        max_length=50000,
+        max_length=TEXT_LIMITS["lyrics"],
         description="Optional custom plain or LRC lyrics text",
     )
     retry: bool = Field(
@@ -135,7 +141,7 @@ class ProcessRequest(BaseModel):
     )
     created_by: str | None = Field(
         default=None,
-        max_length=64,
+        max_length=TEXT_LIMITS["singer"],
         description="Optional creator username or nickname",
     )
     separation_quality: str | None = Field(
@@ -511,12 +517,12 @@ class ProjectMetadataUpdate(BaseModel):
     model_config = ConfigDict(extra="ignore")
     title: str | None = Field(
         default=None,
-        max_length=300,
+        max_length=TEXT_LIMITS["title"],
         description="Optional updated track title (max 300 chars)",
     )
     artist: str | None = Field(
         default=None,
-        max_length=300,
+        max_length=TEXT_LIMITS["artist"],
         description="Optional updated artist name (max 300 chars)",
     )
     part_names: dict[Literal["singer1", "singer2", "both"], str] | None = Field(
@@ -540,7 +546,7 @@ class RealignLyricsRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
     custom_lyrics: str | None = Field(
         default=None,
-        max_length=50000,
+        max_length=TEXT_LIMITS["lyrics"],
         description="Optional custom plain or LRC lyrics text",
     )
     fetch_lrclib: bool = Field(

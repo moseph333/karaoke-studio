@@ -34,6 +34,8 @@ import { SegmentedControl } from '../ui/SegmentedControl';
 import { EmptyState } from '../ui/EmptyState';
 import { cn } from '../../utils/cn';
 import { formatTime } from '../../utils/format';
+import { TEXT_LIMITS } from '../../utils/textLimits';
+import { LyricsLimitNote } from '../LyricsLimitNote';
 
 /** What each of the server's quality flags means, for the list of LRCLIB versions. */
 const QUALITY_FLAG_LABELS: Record<LyricQualityFlag, string> = {
@@ -413,8 +415,10 @@ export const LyricReplacementModal: React.FC<LyricReplacementModalProps> = ({
                   value={lyricsText}
                   onChange={(e) => setLyricsText(e.target.value)}
                   placeholder="[00:12.34] First lyric line&#10;[00:16.78] Second line&#10;Or paste plain untimed lyrics..."
+                  maxLength={TEXT_LIMITS.lyrics}
                   className="min-h-[160px] w-full resize-y border-2 border-theme-border bg-theme-bg px-3.5 py-2.5 font-mono text-base text-theme-text placeholder:text-theme-text-muted focus:border-theme-accent focus:outline-none focus:ring-1 focus:ring-theme-focus sm:text-xs"
                 />
+                <LyricsLimitNote text={lyricsText} />
               </div>
 
               {pasteInspector && (

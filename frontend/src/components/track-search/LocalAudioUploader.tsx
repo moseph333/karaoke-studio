@@ -12,6 +12,7 @@ import uploadLimits from '@shared/upload_limits.json';
 import { ProjectState } from '../../types';
 import { apiFetch, readApiError } from '../../api';
 import { cn } from '../../utils/cn';
+import { TEXT_LIMITS } from '../../utils/textLimits';
 import { focusRing } from '../ui/variants';
 
 export interface UploadTrackParams {
@@ -306,6 +307,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
               onChange={(e) => setTrackTitle(e.target.value)}
               placeholder="e.g. Bohemian Rhapsody"
               aria-label="Track Title"
+              maxLength={TEXT_LIMITS.title}
               className={inputCls}
               disabled={isLoading || uploadingTrack}
             />
@@ -321,6 +323,7 @@ export const LocalAudioUploader: React.FC<LocalAudioUploaderProps> = ({
               onChange={(e) => setTrackArtist(e.target.value)}
               placeholder="e.g. Queen"
               aria-label="Artist Name"
+              maxLength={TEXT_LIMITS.artist}
               className={inputCls}
               disabled={isLoading || uploadingTrack}
             />

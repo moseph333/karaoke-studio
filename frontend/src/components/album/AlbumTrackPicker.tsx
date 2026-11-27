@@ -15,6 +15,7 @@ import { Field, Input } from '../ui/Field';
 import { Skeleton } from '../ui/Skeleton';
 import { AlbumTrackRow } from './AlbumTrackRow';
 import { formatTime } from '../../utils/format';
+import { TEXT_LIMITS } from '../../utils/textLimits';
 import {
   albumSourceSentence,
   isTrackMade,
@@ -156,7 +157,7 @@ export const AlbumTrackPicker: React.FC<AlbumTrackPickerProps> = ({
               id={artistId}
               value={artist}
               onChange={(e) => setArtist(e.target.value)}
-              maxLength={300}
+              maxLength={TEXT_LIMITS.artist}
               autoComplete="off"
             />
           </Field>
