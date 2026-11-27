@@ -1,4 +1,4 @@
-import type { LyricLine, ProjectState } from '../../types';
+import type { LyricLine, MelodyData, ProjectState } from '../../types';
 import { json, mockStudioFetch } from './qualityFixtures';
 
 const WORDS = [
@@ -54,6 +54,22 @@ export const PRACTICE_SONG: ProjectState = {
   chords: [{ start: 10, end: 18, chord: 'C' }],
 };
 
+/** The song's melody: every line held on A3 (57), with pauses between the lines. */
+export const PRACTICE_MELODY: MelodyData = {
+  project_id: 'practice-song',
+  version: 1,
+  source: 'vocals',
+  detected: true,
+  start: 0.064,
+  hop: 0.032,
+  low: 57,
+  high: 57,
+  midi: Array.from({ length: 2000 }, (_, frame) => {
+    const time = 0.064 + frame * 0.032;
+    return STARTS.some((start) => time >= start && time < start + 2.5) ? 57 : null;
+  }),
+};
+
 /** Where the server says the song's vocals alone are, at the original key. */
 export const PRACTICE_VOCAL_URL = '/static/stems/practice/vocals.wav';
 
@@ -72,6 +88,7 @@ export function mockPracticeFetch(song: ProjectState = PRACTICE_SONG) {
         semitones,
       });
     }
+    if (url.includes(`/api/project/${song.id}/melody`)) return json(PRACTICE_MELODY);
     if (url.includes(`/api/project/${song.id}/mix`)) {
       const body = JSON.parse(String(init?.body ?? '{}'));
       return json({

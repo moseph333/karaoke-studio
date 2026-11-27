@@ -580,6 +580,25 @@ export interface Toast {
 // Vocal Range & Smart Key Recommender Types
 // ==========================================
 
+/** `GET /api/project/{id}/melody`: the pitch the song's singer holds over time. */
+export interface MelodyData {
+  project_id: string;
+  version: number;
+  /** What it was read from: the lead part of split vocals, or the whole vocal stem. */
+  source: 'lead' | 'vocals';
+  /** False when no sung pitch was found. */
+  detected: boolean;
+  /** Seconds from the start of the song to the first frame. */
+  start: number;
+  /** Seconds between frames. */
+  hop: number;
+  /** The sung range, as MIDI note numbers. */
+  low: number | null;
+  high: number | null;
+  /** One MIDI note number per frame, in the original key; null where nothing is sung. */
+  midi: (number | null)[];
+}
+
 /** `POST /api/project/{id}/practice-vocal`: where the song's vocals alone are served. */
 export interface PracticeVocalResponse {
   status: string;
