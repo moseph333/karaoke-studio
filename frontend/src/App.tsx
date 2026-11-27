@@ -14,7 +14,8 @@ import { RenderProgressAnnouncer } from './components/RenderProgressAnnouncer';
 import { StudioModals } from './components/StudioModals';
 import { InstallAppDialog } from './components/InstallAppDialog';
 import { StudioSkeleton, WhenShown } from './components/studio/StudioSkeleton';
-import { GuideTour, StudioWorkspace, TransportDock } from './deferredScreens';
+import { GuideTour, ServerSettingsDialog, StudioWorkspace, TransportDock } from './deferredScreens';
+import { opensServerSettings, urlWithoutAdminParam } from './utils/adminLink';
 import { LyricLine, ProjectState, SyncDisplayMode, StudioWorkspaceTab } from './types';
 import type { EditedMetadata } from './components/EditMetadataModal';
 import { useProjectChords } from './hooks/useProjectChords';
@@ -85,6 +86,17 @@ export const AppContent: React.FC = () => {
   const [guide, setGuide] = useState<GuideRequest | null>(null);
   const endGuide = useCallback(() => setGuide(null), []);
   const [showInstallSteps, setShowInstallSteps] = useState(false);
+  // The owner's Server settings page. `/?admin=1` opens it (a link the owner can keep); the
+  // parameter then leaves the address. Its code is fetched the first time it opens.
+  const [showServerSettings, setShowServerSettings] = useState(() =>
+    opensServerSettings(window.location.search)
+  );
+  const [serverSettingsOpened, setServerSettingsOpened] = useState(showServerSettings);
+  if (showServerSettings && !serverSettingsOpened) setServerSettingsOpened(true);
+  useEffect(() => {
+    if (!opensServerSettings(window.location.search)) return;
+    window.history.replaceState(window.history.state, '', urlWithoutAdminParam(window.location));
+  }, []);
   const openInstallSteps = useCallback(() => setShowInstallSteps(true), []);
   const installApp = useInstallPrompt(openInstallSteps);
 
@@ -118,6 +130,7 @@ export const AppContent: React.FC = () => {
     authToken,
     handleAuthSuccess,
     authRequired,
+    adminEnabled,
     isAuthLocked,
   } = useStudioAuth();
 
@@ -534,6 +547,11 @@ export const AppContent: React.FC = () => {
     openEditModal: () => setShowStudioEditModal(true),
     openDeleteModal: () => setShowStudioDeleteModal(true),
     openCheckup: () => setShowCheckup(true),
+    // Help steps aside for the page it opens
+    openServerSettings: () => {
+      setShowHelpModal(false);
+      setShowServerSettings(true);
+    },
     // Help steps aside for the guide it starts
     startTour: () => {
       setShowHelpModal(false);
@@ -575,6 +593,7 @@ export const AppContent: React.FC = () => {
     onSelectTab: setActiveWorkspaceTab,
     quality,
     onInstallApp: installApp.canInstall ? installApp.install : undefined,
+    onOpenServerSettings: adminEnabled ? handlers.openServerSettings : undefined,
   });
 
   const guideScreen = view === 'studio' ? 'studio' : view === 'library' ? 'home' : null;
@@ -790,6 +809,7 @@ export const AppContent: React.FC = () => {
           guideScreen={guideScreen}
           onShowFeature={handlers.showFeature}
           onStartTour={guideScreen ? handlers.startTour : undefined}
+          onOpenServerSettings={adminEnabled ? handlers.openServerSettings : undefined}
           showStudioDeleteModal={showStudioDeleteModal}
           onCloseStudioDelete={() => setShowStudioDeleteModal(false)}
           onStudioProjectDeleted={handleStudioProjectDeleted}
@@ -807,6 +827,22 @@ export const AppContent: React.FC = () => {
           onClose={() => setShowInstallSteps(false)}
           onHideButton={installApp.showHeaderButton ? installApp.hideHeaderButton : undefined}
         />
+        {/* The owner's page waits behind the studio passphrase, and a chunk that cannot load
+            leaves it closed rather than taking the studio down */}
+        {serverSettingsOpened && (
+          <ErrorBoundary
+            fallback={() => null}
+            resetKey={showServerSettings}
+            onError={() => setShowServerSettings(false)}
+          >
+            <Suspense fallback={null}>
+              <ServerSettingsDialog
+                isOpen={showServerSettings && !showAuthModal}
+                onClose={() => setShowServerSettings(false)}
+              />
+            </Suspense>
+          </ErrorBoundary>
+        )}
         {/* The guide, over everything but the toasts. Its code is fetched when first asked
             for; a failure leaves it closed rather than taking the studio down */}
         {guide && !showAuthModal && (

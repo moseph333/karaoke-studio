@@ -116,6 +116,7 @@ const studio = chunk(() => import('./components/studio/studioBundle'));
 const help = chunk(() => import('./components/HelpModal'));
 const palette = chunk(() => import('./components/commandPalette/CommandPalette'));
 const guide = chunk(() => import('./components/guide/GuideTour'));
+const admin = chunk(() => import('./components/admin/ServerSettingsDialog'));
 
 // The studio's chunk is fetched when a song opens, before there is anything to lose, so a
 // missing one reloads the page. Help and the palette open over a studio that may hold unsaved
@@ -131,10 +132,12 @@ export const HelpModal = deferred(help, (m) => m.HelpModal);
 export const CommandPalette = deferred(palette, (m) => m.CommandPalette);
 // The tour opens over the studio too: a failure only leaves it closed
 export const GuideTour = deferred(guide, (m) => m.GuideTour);
+// The owner's page, opened over the library or a song: a failure only leaves it closed
+export const ServerSettingsDialog = deferred(admin, (m) => m.ServerSettingsDialog);
 
 /** Fetches every deferred chunk now; resolves when all have arrived. */
 export function loadDeferredScreens(): Promise<void> {
-  return Promise.all([studio.load(), help.load(), palette.load(), guide.load()]).then(
+  return Promise.all([studio.load(), help.load(), palette.load(), guide.load(), admin.load()]).then(
     () => undefined
   );
 }

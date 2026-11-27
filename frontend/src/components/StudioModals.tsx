@@ -59,6 +59,8 @@ export interface StudioModalsProps {
   onShowFeature?: (featureId: string) => void;
   /** Help's tour button: starts the tour of the screen behind it. */
   onStartTour?: () => void;
+  /** Opens the owner's Server settings page from Help (servers with an admin passphrase). */
+  onOpenServerSettings?: () => void;
   showStudioDeleteModal: boolean;
   onCloseStudioDelete: () => void;
   onStudioProjectDeleted: () => void;
@@ -102,6 +104,7 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
   guideScreen,
   onShowFeature,
   onStartTour,
+  onOpenServerSettings,
   showStudioDeleteModal,
   onCloseStudioDelete,
   onStudioProjectDeleted,
@@ -173,6 +176,7 @@ export const StudioModals: React.FC<StudioModalsProps> = ({
             guideScreen={guideScreen}
             onShowFeature={onShowFeature}
             onStartTour={onStartTour}
+            onOpenServerSettings={onOpenServerSettings}
           />
         </ErrorBoundary>
       )}

@@ -18,6 +18,8 @@ import {
 
 export function useStudioAuth() {
   const [authRequired, setAuthRequired] = useState(false);
+  // Whether the server has an owner who can change its settings (it has an admin passphrase)
+  const [adminEnabled, setAdminEnabled] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAuthToken()));
   const [internalShowAuthModal, setInternalShowAuthModal] = useState(false);
   const [currentUser, setCurrentUser] = useState(() => getAuthUser());
@@ -28,6 +30,7 @@ export function useStudioAuth() {
     apiFetch('/api/auth/status')
       .then((res) => res.json())
       .then((data) => {
+        setAdminEnabled(data.admin === true);
         if (data.auth_required) {
           setAuthRequired(true);
           if (!data.authenticated) {
@@ -92,6 +95,7 @@ export function useStudioAuth() {
 
   return {
     authRequired,
+    adminEnabled,
     isAuthenticated,
     isAuthLocked,
     showAuthModal,

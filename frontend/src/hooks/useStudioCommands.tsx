@@ -27,6 +27,7 @@ import {
   RotateCcw,
   SkipBack,
   SkipForward,
+  SlidersHorizontal,
   Smartphone,
   Stethoscope,
   Trash2,
@@ -84,6 +85,8 @@ export interface UseStudioCommandsOptions {
   quality?: UseQualityJobsReturn;
   /** Installs the studio as an app; omitted when this browser can't install it. */
   onInstallApp?: () => void;
+  /** Opens the owner's Server settings page; only on a server that has an admin passphrase. */
+  onOpenServerSettings?: () => void;
 }
 
 const SONG_CACHE_MS = 30_000;
@@ -523,6 +526,18 @@ export function useStudioCommands(opts: UseStudioCommandsOptions): void {
       icon: <Download />,
       keywords: ['pwa', 'home screen', 'add', 'phone', 'desktop', 'shortcut'],
       run: opts.onInstallApp,
+    });
+  }
+
+  if (opts.onOpenServerSettings) {
+    add({
+      id: 'server-settings',
+      title: 'Server settings',
+      subtitle: 'What this server offers everyone, for its owner',
+      group: 'Help',
+      icon: <SlidersHorizontal />,
+      keywords: ['admin', 'owner', 'options', 'defaults', 'models', 'limits', 'passphrase'],
+      run: opts.onOpenServerSettings,
     });
   }
 

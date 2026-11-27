@@ -209,6 +209,33 @@ export interface StudioCapabilities {
   song_loop?: SongLoopCapability;
 }
 
+/** A server setting's value: a switch, whole minutes, one option, or some of the options. */
+export type ServerSettingValue = boolean | number | string | string[];
+
+export interface ServerSettingOption {
+  id: string;
+  label: string;
+  note?: string;
+}
+
+/** One setting on the Server settings page (GET /api/admin/settings). */
+export interface ServerSettingEntry {
+  /** What the server does now. */
+  value: ServerSettingValue;
+  /** What its environment alone would make it: what Reset goes back to. */
+  default: ServerSettingValue;
+  /** Whether a value saved from the page is in force. */
+  overridden: boolean;
+  /** What a choice or a set may hold. */
+  options?: ServerSettingOption[];
+}
+
+/** Every server setting by id, and whether the cloud can be asked at all. */
+export interface ServerSettingsState {
+  settings: Record<string, ServerSettingEntry>;
+  cloud: { ready: boolean; reason?: string | null };
+}
+
 export type BackgroundJobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
 
 /** A re-separation running in the background while the song stays usable. */

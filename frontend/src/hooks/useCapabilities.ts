@@ -1,7 +1,8 @@
 /**
  * Server capabilities (GET /api/capabilities): which stem separation presets and which lyric
  * aligner this server can run, and why not. Fetched on first use and shared by every caller;
- * a failed request is retried the next time a component asks.
+ * a failed request is retried the next time a component asks, and `refreshCapabilities`
+ * fetches them again after the owner changed the server's settings.
  */
 
 import { useEffect, useState } from 'react';
@@ -31,10 +32,22 @@ export function loadCapabilities(): Promise<StudioCapabilities | null> {
   return pending;
 }
 
-/** Forgets the shared copy (tests, or after the server's setup changed). */
+/** Forgets the shared copy (tests). */
 export function resetCapabilitiesCache(): void {
   cached = null;
   pending = null;
+}
+
+const listeners = new Set<(value: StudioCapabilities) => void>();
+
+/** Asks the server again and hands the answer to every mounted `useCapabilities`: after the
+ * owner changed what the server offers, the pickers on screen follow without a reload. */
+export function refreshCapabilities(): Promise<StudioCapabilities | null> {
+  resetCapabilitiesCache();
+  return loadCapabilities().then((value) => {
+    if (value) listeners.forEach((listener) => listener(value));
+    return value;
+  });
 }
 
 /** The capabilities once loaded, or null while loading or when the server could not say.
@@ -52,6 +65,14 @@ export function useCapabilities(enabled = true): StudioCapabilities | null {
       active = false;
     };
   }, [enabled, capabilities]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    listeners.add(setCapabilities);
+    return () => {
+      listeners.delete(setCapabilities);
+    };
+  }, [enabled]);
 
   return capabilities;
 }
