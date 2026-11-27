@@ -23,7 +23,7 @@ from backend.project_store import (
     save_projects,
     save_projects_throttled,
 )
-from backend.services import remote_separation, vocal_parts
+from backend.services import intake_lyrics, remote_separation, vocal_parts
 from backend.services.album_audio import file_chapters
 from backend.services.album_tracks import ALBUM_MIN_SECONDS
 from backend.services.downloader import AlbumDetected, DownloadCancelled
@@ -459,6 +459,8 @@ def run_pipeline(project_id: str, url_or_id: str, custom_lyrics: str | None = No
         with PROJECTS_LOCK:
             proj = get_project_or_404(project_id)
             proj.update(first_mix)
+            # The song's lines hold the pasted lyrics now
+            intake_lyrics.forget(proj)
 
         # Step 6: Ready!
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)
@@ -695,6 +697,8 @@ def run_local_pipeline(
         with PROJECTS_LOCK:
             proj = get_project_or_404(project_id)
             proj.update(first_mix)
+            # The song's lines hold the pasted lyrics now
+            intake_lyrics.forget(proj)
 
         # Step 6: Ready!
         update_pipe("ready", 100, "Studio is ready! Sing and customize your track.", 0)

@@ -1,16 +1,18 @@
 /**
  * A show's "Add a singer": the singer's name, then their song. A song is a karaoke video
  * found on YouTube (the typed words are searched with "karaoke" added; a pasted YouTube link
- * is taken as it is) or a song from the library.
+ * is taken as it is) or a song from the library. A song that neither has can be asked for:
+ * the typed words go on the request list (`utils/songRequests`), for the owner to make.
  */
 
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { ListPlus, Plus, Search } from 'lucide-react';
 import { apiFetch } from '../../api';
 import { fetchShowVideo } from '../../hooks/useShowVideos';
 import type { ProjectState, SearchResult } from '../../types';
 import { formatTime } from '../../utils/format';
 import { cleanSinger, type ShowSource } from '../../utils/showQueue';
+import { cleanSongRequest } from '../../utils/songRequests';
 import { karaokeQuery, youtubeVideoId } from '../../utils/youtube';
 import { Button, Field, Input, Spinner, Tabs } from '../ui';
 
@@ -25,6 +27,9 @@ const row = 'flex items-center gap-3 border-b border-theme-border-subtle py-2';
 
 export interface ShowAddSingerProps {
   onAdd: (singer: string, source: ShowSource) => void;
+  /** Asks for a song that could not be found, with the singer's name when one is typed.
+   *  Resolves to whether the request was taken. Without it nothing can be asked for. */
+  onRequest?: (song: string, singer: string) => Promise<boolean>;
 }
 
 function videoSource(result: SearchResult): ShowSource {
@@ -38,7 +43,7 @@ function videoSource(result: SearchResult): ShowSource {
   };
 }
 
-export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd }) => {
+export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd, onRequest }) => {
   const [singer, setSinger] = useState('');
   const [needsName, setNeedsName] = useState(false);
   const [tab, setTab] = useState<SongTab>('videos');
@@ -48,10 +53,24 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd }) => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [library, setLibrary] = useState<ProjectState[] | null>(null);
   const [libraryError, setLibraryError] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const singerRef = useRef<HTMLInputElement>(null);
   const searchRun = useRef(0);
   const singerId = useId();
   const wordsId = useId();
+
+  // A clean slate for the next singer: the name, the words searched and what they found
+  // (the library tab then lists every song again). A search still on its way is dropped
+  const reset = useCallback(() => {
+    searchRun.current += 1;
+    setSinger('');
+    setNeedsName(false);
+    setWords('');
+    setVideos(null);
+    setSearching(false);
+    setSearchError(null);
+    singerRef.current?.focus();
+  }, []);
 
   const add = useCallback(
     (source: ShowSource) => {
@@ -62,19 +81,20 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd }) => {
         return;
       }
       onAdd(name, source);
-      // A clean slate for the next singer: the name, the words searched and what they found
-      // (the library tab then lists every song again). A search still on its way is dropped
-      searchRun.current += 1;
-      setSinger('');
-      setNeedsName(false);
-      setWords('');
-      setVideos(null);
-      setSearching(false);
-      setSearchError(null);
-      singerRef.current?.focus();
+      reset();
     },
-    [singer, onAdd]
+    [singer, onAdd, reset]
   );
+
+  // What would be asked for: the typed words, unless they are a link to a video
+  const wanted = youtubeVideoId(words.trim()) ? '' : cleanSongRequest(words);
+  const request = useCallback(async () => {
+    if (!onRequest || !wanted || requesting) return;
+    setRequesting(true);
+    const taken = await onRequest(wanted, cleanSinger(singer));
+    setRequesting(false);
+    if (taken) reset();
+  }, [onRequest, wanted, requesting, singer, reset]);
 
   const searchVideos = useCallback(async () => {
     const typed = words.trim();
@@ -149,6 +169,29 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd }) => {
       `${song.title ?? ''} ${song.artist ?? ''}`.toLowerCase().includes(needle)
     );
   }, [library, words]);
+
+  // Offered once the song has been looked for: YouTube nearly always lists something for
+  // any words, so a search that found videos may still not have found the song
+  const requestLine = (lead: string) =>
+    onRequest &&
+    wanted && (
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <p className="min-w-0 flex-1 basis-48 break-words text-sm text-theme-text-muted">
+          {lead} Ask for “{wanted}” to be made for another night.
+        </p>
+        <Button
+          variant="secondary"
+          className="min-h-[44px] shrink-0"
+          leftIcon={<ListPlus className="h-4 w-4" aria-hidden="true" />}
+          loading={requesting}
+          loadingLabel="Sending the request"
+          aria-label={`Request the song ${wanted}`}
+          onClick={() => void request()}
+        >
+          Request it
+        </Button>
+      </div>
+    );
 
   return (
     <section aria-labelledby="show-add-heading" className="flex flex-col gap-4">
@@ -274,6 +317,7 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd }) => {
                 Search for the song and pick a karaoke video of it. It plays on the stage window.
               </p>
             )}
+            {videos && requestLine(videos.length > 0 ? 'None of these?' : 'Not on YouTube?')}
           </>
         ) : (
           <>
@@ -327,6 +371,7 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd }) => {
                 ))}
               </ul>
             )}
+            {library && librarySongs.length === 0 && requestLine('Not in the library?')}
           </>
         )}
       </div>

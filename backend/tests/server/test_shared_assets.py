@@ -7,11 +7,20 @@ import json
 import pytest
 
 from backend import upload_utils
-from backend.schemas import LyricLineSchema
+from backend.schemas import (
+    AlbumSongPick,
+    AlbumSongsRequest,
+    LoginRequest,
+    LyricLineSchema,
+    ProcessRequest,
+    ProjectMetadataUpdate,
+    RealignLyricsRequest,
+)
 from backend.services import lyric_sync, stage_backgrounds
 from backend.services.ass_generator import singer_part
 from backend.services.stage_looks import DEFAULT_LOOK_ID, LEGACY_IDS, LOOKS
 from backend.shared_assets import SHARED_DIR, load
+from backend.tests.helpers.media import generate_sine_wave_wav
 
 
 @pytest.mark.parametrize("path", sorted(SHARED_DIR.glob("*.json")), ids=lambda path: path.name)
@@ -46,3 +55,51 @@ def test_limits_thresholds_and_motion_are_the_shared_ones():
     assert load("upload_limits")["track_mb"] == 100
     assert lyric_sync.LOW_CONFIDENCE == load("confidence_thresholds")["low"] == 0.6
     assert stage_backgrounds.BACKGROUND_MOTION is load("background_motion")
+
+
+def _longest(model, field: str) -> int:
+    """The max_length a request model gives one of its fields."""
+    return next(
+        m.max_length for m in model.model_fields[field].metadata if hasattr(m, "max_length")
+    )
+
+
+def test_text_fields_are_refused_past_the_shared_lengths():
+    limits = load("text_limits")
+    assert limits == {"title": 300, "artist": 300, "singer": 64, "lyrics": 50000}
+    assert _longest(ProcessRequest, "custom_lyrics") == limits["lyrics"]
+    assert _longest(RealignLyricsRequest, "custom_lyrics") == limits["lyrics"]
+    assert _longest(ProcessRequest, "created_by") == limits["singer"]
+    assert _longest(AlbumSongsRequest, "created_by") == limits["singer"]
+    assert _longest(LoginRequest, "username") == limits["singer"]
+    assert _longest(ProjectMetadataUpdate, "title") == limits["title"]
+    assert _longest(AlbumSongPick, "title") == limits["title"]
+    assert _longest(ProjectMetadataUpdate, "artist") == limits["artist"]
+    assert _longest(AlbumSongsRequest, "artist") == limits["artist"]
+
+
+@pytest.mark.parametrize(
+    ("field", "limit"),
+    [
+        ("title", "title"),
+        ("artist", "artist"),
+        ("created_by", "singer"),
+        ("custom_lyrics", "lyrics"),
+    ],
+)
+def test_an_upload_is_refused_past_the_shared_lengths(client, monkeypatch, field, limit):
+    import backend.main as main_mod
+
+    monkeypatch.setattr(main_mod, "run_local_pipeline", lambda *args: None)
+    wav = generate_sine_wave_wav(main_mod.DOWNLOADS_DIR / "source.wav", duration=0.1).read_bytes()
+    longest = load("text_limits")[limit]
+
+    def upload(length: int):
+        return client.post(
+            "/api/upload-track",
+            files={"file": ("song.wav", wav, "audio/wav")},
+            data={field: "x" * length},
+        )
+
+    assert upload(longest).status_code == 200
+    assert upload(longest + 1).status_code == 422

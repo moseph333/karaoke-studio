@@ -13,6 +13,7 @@ import { AlertCircle } from 'lucide-react';
 import { apiFetch, getAuthUser, setAuthToken, setAuthUser, readApiError } from '../api';
 import { Dialog } from './ui/Dialog';
 import { Button } from './ui/Button';
+import { TEXT_LIMITS } from '../utils/textLimits';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -178,7 +179,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
-              maxLength={64}
+              maxLength={TEXT_LIMITS.singer}
               required
               className={inputCls}
             />
