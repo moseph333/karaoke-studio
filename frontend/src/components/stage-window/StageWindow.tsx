@@ -2,11 +2,15 @@
  * Stage Window
  *
  * The page a stage window shows (`/?stage=1`): the stage alone, for a second screen. It has
- * no player and loads no song. The studio's window tells it what to draw and where the song
+ * no sign-in and loads no song. The studio's window tells it what to draw and where the song
  * is (`utils/stageLink`), and it keeps time by itself between those updates, so the lyrics
  * on the TV move with the ones in the studio. Space and the arrow keys ask the studio to
  * play, pause and seek; F fills the screen, which a browser only allows from a key or click
  * made in this window, so a prompt asks for one.
+ *
+ * A show's host screen (`/?show=1`) also sends a `scene`: a card between singers, or a
+ * karaoke video, which plays here (`StageVideo`) and reports back to the host. With a scene
+ * of `lyrics`, or none, the window shows the lyrics stage it is sent.
  *
  * It saves nothing: the look, colours and lines are the studio's, sent over, so two windows
  * never write the same stage settings.
@@ -24,11 +28,15 @@ import {
   PAUSED_AT_START,
   openStageLink,
   transportTime,
+  type PlayerReport,
   type StageCommand,
   type StageLink,
+  type StageScene,
   type StageState,
   type StageTransport,
 } from '../../utils/stageLink';
+import { ShowIdleCard, StudioIdleCard, UpNextCard } from './StageCards';
+import { FileVideo, YouTubeVideo, type StageVideoHandle } from './StageVideo';
 
 const SEEK_STEP_SEC = 5;
 /** The fill-the-screen prompt leaves this long after the pointer or a key was last used. */
@@ -43,8 +51,15 @@ interface FollowedStage {
   state: StageState;
 }
 
+interface HostedScene {
+  /** The show's host window; a video's reports go back to it. */
+  from: string;
+  scene: StageScene;
+}
+
 export const StageWindow: React.FC = () => {
   const [stage, setStage] = useState<FollowedStage | null>(null);
+  const [hosted, setHosted] = useState<HostedScene | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(
@@ -55,7 +70,9 @@ export const StageWindow: React.FC = () => {
   const [clock] = useState(createPlaybackClock);
   const transportRef = useRef<StageTransport>(PAUSED_AT_START);
   const studioRef = useRef<string | null>(null);
+  const hostRef = useRef<string | null>(null);
   const linkRef = useRef<StageLink | null>(null);
+  const videoRef = useRef<StageVideoHandle>(null);
 
   // A TV must not dim between songs either
   useScreenWakeLock(true);
@@ -68,7 +85,7 @@ export const StageWindow: React.FC = () => {
     };
   }, []);
 
-  // --- Following the studio -------------------------------------------------------------
+  // --- Following the studio, and a show's host --------------------------------------------
   useEffect(() => {
     clock.setLiveReader(() => transportTime(transportRef.current, Date.now()));
     const follow = (transport: StageTransport) => {
@@ -90,6 +107,16 @@ export const StageWindow: React.FC = () => {
         }
       } else if (message.type === 'transport') {
         if (message.from === studioRef.current) follow(message.transport);
+      } else if (message.type === 'scene') {
+        if (message.scene) {
+          hostRef.current = message.from;
+          setHosted({ from: message.from, scene: message.scene });
+        } else if (message.from === hostRef.current) {
+          hostRef.current = null;
+          setHosted(null);
+        }
+      } else if (message.type === 'player') {
+        if (message.from === hostRef.current) videoRef.current?.command(message.command);
       } else if (message.type === 'who') {
         link?.post({ type: 'hello' });
       }
@@ -115,6 +142,10 @@ export const StageWindow: React.FC = () => {
     [send]
   );
   const seek = useCallback((time: number) => send({ name: 'seek', time }), [send]);
+  const report = useCallback((update: PlayerReport) => {
+    const to = hostRef.current;
+    if (to) linkRef.current?.post({ type: 'report', to, report: update });
+  }, []);
 
   // --- Filling the screen ---------------------------------------------------------------
   const toggleFullscreen = useCallback(() => {
@@ -150,6 +181,8 @@ export const StageWindow: React.FC = () => {
   }, []);
 
   // --- Keys -----------------------------------------------------------------------------
+  const scene = hosted?.scene ?? null;
+  const showsVideo = scene?.kind === 'youtube' || scene?.kind === 'file';
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -162,69 +195,96 @@ export const StageWindow: React.FC = () => {
         // On the prompt's button, Space presses the button
         if (e.target instanceof HTMLButtonElement) return;
         e.preventDefault();
-        if (!e.repeat) togglePlay();
+        if (e.repeat) return;
+        // A video plays in this window; a song plays in the studio's
+        if (showsVideo) videoRef.current?.toggle();
+        else togglePlay();
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         e.preventDefault();
         const step = e.key === 'ArrowLeft' ? -SEEK_STEP_SEC : SEEK_STEP_SEC;
-        seek(Math.max(0, clock.now() + step));
+        if (showsVideo) videoRef.current?.nudge(step);
+        else seek(Math.max(0, clock.now() + step));
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [clock, seek, toggleFullscreen, togglePlay]);
+  }, [clock, seek, showsVideo, toggleFullscreen, togglePlay]);
 
   const state = stage?.state;
+  // A show's cards and videos take the stage; otherwise it is the lyrics stage, when sent
+  let content: React.ReactNode;
+  if (scene?.kind === 'youtube') {
+    content = (
+      <YouTubeVideo
+        key={`${scene.videoId}:${scene.play}`}
+        ref={videoRef}
+        videoId={scene.videoId}
+        play={scene.play}
+        onReport={report}
+      />
+    );
+  } else if (scene?.kind === 'file') {
+    content = (
+      <FileVideo
+        key={`${scene.url}:${scene.play}`}
+        ref={videoRef}
+        url={scene.url}
+        play={scene.play}
+        onReport={report}
+      />
+    );
+  } else if (scene?.kind === 'upnext') {
+    content = <UpNextCard title={scene.title} now={scene.now} next={scene.next} />;
+  } else if (scene?.kind === 'idle') {
+    content = <ShowIdleCard title={scene.title} next={scene.next} />;
+  } else if (state) {
+    content = (
+      <LyricDisplay
+        bare
+        lines={state.lines}
+        duration={state.duration}
+        isPlaying={isPlaying}
+        playbackRate={playbackRate}
+        onTogglePlay={togglePlay}
+        onSeek={seek}
+        albumArtUrl={state.albumArtUrl}
+        artworkUrl={state.artworkUrl}
+        backgroundMedia={state.backgroundMedia}
+        // The spectrum is drawn from the player's sound, which only the studio's window has
+        backgroundStyle={state.backgroundStyle === 'spectrum' ? 'artwork' : state.backgroundStyle}
+        backgroundPalette={state.backgroundPalette}
+        themeSungColor={state.sung}
+        themeUnsungColor={state.unsung}
+        singer2SungColor={state.singer2}
+        bothSungColor={state.both}
+        partNames={state.partNames}
+        aspectRatio={state.aspect}
+        fontSizeScale={state.fontSizeScale}
+        syncMode={state.syncMode}
+        selectedTheme={getStageLook(state.lookId)}
+        showVisualizer={state.showVisualizer}
+        showChords={state.showChordBar}
+        chords={state.chords}
+        semitones={state.semitones}
+        keyHint={state.keyHint}
+        trackTitle={state.title}
+        trackArtist={state.artist}
+      />
+    );
+  } else {
+    // A show's song whose stage has not arrived yet stays dark for that moment
+    content = scene ? null : <StudioIdleCard />;
+  }
+
   return (
     <PlaybackClockContext.Provider value={clock}>
       <main
         data-testid="stage-window"
+        data-scene={scene?.kind ?? (state ? 'lyrics' : 'none')}
         aria-label="Stage"
         className="fixed inset-0 overflow-hidden bg-theme-bg text-theme-text"
       >
-        {state ? (
-          <LyricDisplay
-            bare
-            lines={state.lines}
-            duration={state.duration}
-            isPlaying={isPlaying}
-            playbackRate={playbackRate}
-            onTogglePlay={togglePlay}
-            onSeek={seek}
-            albumArtUrl={state.albumArtUrl}
-            artworkUrl={state.artworkUrl}
-            backgroundMedia={state.backgroundMedia}
-            // The spectrum is drawn from the player's sound, which only the studio's window has
-            backgroundStyle={
-              state.backgroundStyle === 'spectrum' ? 'artwork' : state.backgroundStyle
-            }
-            backgroundPalette={state.backgroundPalette}
-            themeSungColor={state.sung}
-            themeUnsungColor={state.unsung}
-            singer2SungColor={state.singer2}
-            bothSungColor={state.both}
-            partNames={state.partNames}
-            aspectRatio={state.aspect}
-            fontSizeScale={state.fontSizeScale}
-            syncMode={state.syncMode}
-            selectedTheme={getStageLook(state.lookId)}
-            showVisualizer={state.showVisualizer}
-            showChords={state.showChordBar}
-            chords={state.chords}
-            semitones={state.semitones}
-            keyHint={state.keyHint}
-            trackTitle={state.title}
-            trackArtist={state.artist}
-          />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-5 px-8 text-center">
-            <h1 className="ks-display text-[64px] font-black text-theme-text sm:text-[128px]">
-              Karaoke Studio
-            </h1>
-            <p className="max-w-xl text-lg text-theme-text-muted">
-              Open a song in the studio and its stage shows here.
-            </p>
-          </div>
-        )}
+        {content}
 
         {!isFullscreen && promptVisible && (
           <div className="pointer-events-none absolute inset-x-0 bottom-6 z-[60] flex justify-center px-4">

@@ -102,6 +102,7 @@ def _job_kind(key: str) -> str:
         ("_reseparate", "stems"),
         ("_sync", "lyrics"),
         ("_song_loop", "song loop"),
+        ("_show_video", "show video"),
     )
     for suffix, kind in kinds:
         if key.endswith(suffix):

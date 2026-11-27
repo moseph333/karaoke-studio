@@ -8,7 +8,7 @@
  * made in it.
  */
 
-import { STAGE_PARAM } from './stageLink';
+import { SHOW_PARAM, STAGE_PARAM } from './stageLink';
 
 export const STAGE_WINDOW_NAME = 'karaoke-stage';
 const FALLBACK_SIZE = { width: 1280, height: 720 };
@@ -27,6 +27,16 @@ type WindowWithScreens = Window & { getScreenDetails?: () => Promise<ScreenDetai
 
 export function stageWindowUrl(): string {
   return `${window.location.pathname}?${STAGE_PARAM}=1`;
+}
+
+/** The address of a show's host screen. */
+export function showUrl(): string {
+  return `${window.location.pathname}?${SHOW_PARAM}=1`;
+}
+
+/** Leaves the app for a show's host screen (a page of its own, see `main.tsx`). */
+export function openShow(): void {
+  window.location.assign(showUrl());
 }
 
 /** Whether this browser can show a stage window at all. */

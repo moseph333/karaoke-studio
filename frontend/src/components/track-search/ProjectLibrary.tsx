@@ -14,6 +14,7 @@ import {
   XCircle,
   Disc3,
   type LucideIcon,
+  Mic2,
   Music,
   Pencil,
   RefreshCw,
@@ -34,6 +35,7 @@ import { Spinner } from '../ui/Spinner';
 import { focusRing } from '../ui/variants';
 import { cn } from '../../utils/cn';
 import { formatTime } from '../../utils/format';
+import { openShow } from '../../utils/stageWindowOpen';
 
 /** How many songs the library holds, reported after each successful load. */
 export interface LibraryCounts {
@@ -329,6 +331,18 @@ export const ProjectLibrary: React.FC<ProjectLibraryProps> = ({
             className="min-h-[36px]"
           >
             Refresh
+          </Button>
+          {/* A karaoke night: a queue of singers, with the stage on a second screen */}
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="run-show"
+            data-guide="run-show"
+            onClick={openShow}
+            leftIcon={<Mic2 className="h-4 w-4" aria-hidden="true" />}
+            className="min-h-[36px]"
+          >
+            Run a show
           </Button>
         </div>
       </div>

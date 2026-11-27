@@ -18,6 +18,7 @@ import type { UseMixControllerReturn } from '../../hooks/useMixController';
 import type { UseVisualThemeReturn } from '../../hooks/useVisualTheme';
 import type { UseQualityJobsReturn } from '../../hooks/useQualityJobs';
 import { useCapabilities } from '../../hooks/useCapabilities';
+import { useProjectStageInputs } from '../../hooks/useProjectStageInputs';
 import type { GuideAction } from '../../utils/guideActions';
 import { checkupFixCount } from '../../utils/songCheckup';
 import { normalizeSingerRole } from '../stage/singers';
@@ -161,21 +162,8 @@ const StudioWorkspaceView: React.FC<StudioWorkspaceProps> = ({
         : undefined,
     [quality, project.song_loop, project.song_loop_job, songLoopCapability]
   );
-  // The song's loop is drawn like an uploaded video; a song without one shows its cover art
-  const loopUrl = project.song_loop?.url;
-  const showsLoop = theme.backgroundStyle === 'loop';
-  const backgroundMedia = useMemo(
-    () => (showsLoop && loopUrl ? { url: loopUrl, kind: 'video' as const } : theme.stageBackground),
-    [showsLoop, loopUrl, theme.stageBackground]
-  );
-  const backgroundStyle = showsLoop && !loopUrl ? 'artwork' : theme.backgroundStyle;
+  const { backgroundMedia, backgroundStyle, artworkUrl } = useProjectStageInputs(project, theme);
   const hasDuetLines = project.lines.some((l) => normalizeSingerRole(l.singer) !== 'singer1');
-  // The cover art exactly as exports draw it (the larger, panned still for the drift)
-  const artworkUrl = project.thumbnail_url
-    ? `/api/project/${encodeURIComponent(project.id)}/backdrop?aspect=${
-        theme.aspectRatio === '9:16' ? '9:16' : '16:9'
-      }${theme.backgroundStyle === 'drift' ? '&drift=1' : ''}&look=${theme.selectedTheme.id}`
-    : undefined;
 
   return (
     <div

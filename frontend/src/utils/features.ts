@@ -48,6 +48,15 @@ export const FEATURES: Feature[] = [
     how: 'Open Advanced options and pick a stem quality.',
   },
   {
+    id: 'show',
+    group: 'Start a song',
+    screen: 'home',
+    anchors: ['run-show'],
+    title: 'Run a karaoke night',
+    text: 'A queue of singers and the stage on a second screen, with songs from here or karaoke videos from YouTube.',
+    how: 'Press this to open the host screen.',
+  },
+  {
     id: 'change-key',
     group: 'Sing it',
     screen: 'studio',
