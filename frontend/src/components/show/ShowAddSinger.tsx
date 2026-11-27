@@ -62,8 +62,15 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd }) => {
         return;
       }
       onAdd(name, source);
+      // A clean slate for the next singer: the name, the words searched and what they found
+      // (the library tab then lists every song again). A search still on its way is dropped
+      searchRun.current += 1;
       setSinger('');
       setNeedsName(false);
+      setWords('');
+      setVideos(null);
+      setSearching(false);
+      setSearchError(null);
       singerRef.current?.focus();
     },
     [singer, onAdd]

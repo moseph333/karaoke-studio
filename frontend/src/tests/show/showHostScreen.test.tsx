@@ -203,6 +203,43 @@ describe('adding a singer', () => {
     expect(host.getByLabelText('Singer')).toHaveValue('');
   });
 
+  it('clears the search box and its results once the song is queued', async () => {
+    const host = openHost();
+
+    await addVideo(host, 'Alex', results[0].title);
+
+    expect(host.getByLabelText('Song, artist or a YouTube link')).toHaveValue('');
+    expect(host.queryByTestId('show-video-results')).toBeNull();
+    expect(host.getByText(/Search for the song and pick a karaoke video/)).toBeInTheDocument();
+    expect(host.getByLabelText('Singer')).toHaveFocus();
+  });
+
+  it('keeps the search when the song was not queued for want of a name', async () => {
+    const host = openHost();
+    fireEvent.change(host.getByLabelText('Song, artist or a YouTube link'), {
+      target: { value: 'dancing queen' },
+    });
+    fireEvent.click(host.getByRole('button', { name: 'Search' }));
+
+    fireEvent.click(await host.findByRole('button', { name: `Add the video ${results[0].title}` }));
+
+    expect(host.getByLabelText('Song, artist or a YouTube link')).toHaveValue('dancing queen');
+    expect(host.getByTestId('show-video-results')).toBeInTheDocument();
+  });
+
+  it('clears the library filter once a library song is queued', async () => {
+    const host = openHost();
+    fireEvent.change(host.getByLabelText('Singer'), { target: { value: 'Cy' } });
+    fireEvent.click(host.getByRole('tab', { name: 'Library' }));
+    await host.findByRole('button', { name: 'Add the song Neon Skyline' });
+    fireEvent.change(host.getByLabelText('Find in the library'), { target: { value: 'neon' } });
+
+    fireEvent.click(host.getByRole('button', { name: 'Add the song Neon Skyline' }));
+
+    expect(host.getByLabelText('Find in the library')).toHaveValue('');
+    expect(host.getByRole('button', { name: 'Add the song Neon Skyline' })).toBeInTheDocument();
+  });
+
   it('asks for the singer’s name before it queues a song', async () => {
     const host = openHost();
     fireEvent.change(host.getByLabelText('Song, artist or a YouTube link'), {
