@@ -82,10 +82,23 @@ export type StageScene =
   | { kind: 'upnext'; title: string; now: StageBilling; next: StageBilling[] }
   /** A song from the library: the stage the host's window sends (`state`, `transport`). */
   | { kind: 'lyrics' }
-  /** A YouTube video in YouTube's own player. `play` tells one playing of it from the next. */
-  | { kind: 'youtube'; videoId: string; play: number }
+  /** A YouTube video in YouTube's own player. `play` tells one playing of it from the next.
+   *  `at` (seconds) is where a player that has to be made again starts: the scene is sent
+   *  with it to a stage window that opens while the video is on. A player that is already
+   *  playing takes no notice of it. */
+  | { kind: 'youtube'; videoId: string; play: number; at?: number }
   /** A video file (the server's copy of a video that cannot be embedded). */
-  | { kind: 'file'; url: string; play: number };
+  | { kind: 'file'; url: string; play: number; at?: number };
+
+/** A video is not picked up this near its start or its end: it starts over, or is over. */
+export const RESUME_EDGE_SEC = 5;
+
+/** Where a video that was at `time` of `duration` is picked up, or null for "from the top". */
+export function resumeAt(time: number, duration: number): number | null {
+  if (!Number.isFinite(time) || time < RESUME_EDGE_SEC) return null;
+  if (duration > 0 && time > duration - RESUME_EDGE_SEC) return null;
+  return time;
+}
 
 export type PlayerCommand =
   | { name: 'play' }
