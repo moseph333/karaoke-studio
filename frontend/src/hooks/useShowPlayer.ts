@@ -196,7 +196,7 @@ export function useShowPlayer({
     },
     [finish]
   );
-  const stage = useShowStage(onReport);
+  const stage = useShowStage(onReport, title);
   const { show, command } = stage;
 
   // --- Putting an entry on stage --------------------------------------------------------

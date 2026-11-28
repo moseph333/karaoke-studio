@@ -18,6 +18,10 @@
  * studio tab never replaces the singer's lyrics. Without a show it is the studio that spoke
  * last.
  *
+ * When a show's host screen goes, the window keeps the night's name up for a while
+ * (`STAGE_HOLD_MS`): a reloaded host is back in a moment with its scene. It gives way at once
+ * to that scene, or to a stage a studio sends after the host went.
+ *
  * It saves nothing: the look, colours and lines are the studio's, sent over, so two windows
  * never write the same stage settings.
  */
@@ -32,6 +36,7 @@ import { getStageLook } from '../../theme/stageLooks';
 import { characterShortcutsEnabled } from '../../utils/shortcutPrefs';
 import {
   PAUSED_AT_START,
+  STAGE_HOLD_MS,
   openStageLink,
   transportTime,
   type PlayerReport,
@@ -66,6 +71,8 @@ interface HostedScene {
 export const StageWindow: React.FC = () => {
   const [stage, setStage] = useState<FollowedStage | null>(null);
   const [hosted, setHosted] = useState<HostedScene | null>(null);
+  /** The night's name, kept up after the show's host screen went. */
+  const [held, setHeld] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(
@@ -116,12 +123,20 @@ export const StageWindow: React.FC = () => {
       studioRef.current = leader;
       follow((leader && transportsRef.current.get(leader)) || PAUSED_AT_START);
     };
+    let holdTimer: ReturnType<typeof setTimeout> | null = null;
+    const hold = (title: string | null) => {
+      if (holdTimer) clearTimeout(holdTimer);
+      holdTimer = title ? setTimeout(() => setHeld(null), STAGE_HOLD_MS) : null;
+      setHeld(title);
+    };
     const link = openStageLink((message) => {
       if (message.type === 'state') {
         // Set again, a sender goes to the end: it is the one that spoke last
         stagesRef.current.delete(message.from);
         if (message.state) {
           stagesRef.current.set(message.from, { from: message.from, state: message.state });
+          // A studio's stage, sent now: the show that left is not coming back to this
+          hold(null);
         } else {
           transportsRef.current.delete(message.from);
         }
@@ -133,10 +148,12 @@ export const StageWindow: React.FC = () => {
         if (message.scene) {
           hostRef.current = message.from;
           setHosted({ from: message.from, scene: message.scene });
+          hold(null);
           lead();
         } else if (message.from === hostRef.current) {
           hostRef.current = null;
           setHosted(null);
+          hold(message.title || null);
           lead();
         }
       } else if (message.type === 'player') {
@@ -153,6 +170,7 @@ export const StageWindow: React.FC = () => {
     const leave = () => link?.post({ type: 'closed' });
     window.addEventListener('pagehide', leave);
     return () => {
+      if (holdTimer) clearTimeout(holdTimer);
       window.removeEventListener('pagehide', leave);
       clock.setLiveReader(null);
       link?.close();
@@ -266,6 +284,8 @@ export const StageWindow: React.FC = () => {
     content = <UpNextCard title={scene.title} now={scene.now} next={scene.next} />;
   } else if (scene?.kind === 'idle') {
     content = <ShowIdleCard title={scene.title} next={scene.next} />;
+  } else if (held && !scene) {
+    content = <ShowIdleCard title={held} next={[]} />;
   } else if (state) {
     content = (
       <LyricDisplay
@@ -309,7 +329,7 @@ export const StageWindow: React.FC = () => {
     <PlaybackClockContext.Provider value={clock}>
       <main
         data-testid="stage-window"
-        data-scene={scene?.kind ?? (state ? 'lyrics' : 'none')}
+        data-scene={scene?.kind ?? (held ? 'held' : state ? 'lyrics' : 'none')}
         aria-label="Stage"
         className="fixed inset-0 overflow-hidden bg-theme-bg text-theme-text"
       >
