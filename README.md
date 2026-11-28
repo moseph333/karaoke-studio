@@ -324,6 +324,7 @@ cp .env.example .env
 | `SHOW_VIDEO_DOWNLOADS` | `1` | In a show, a YouTube karaoke video whose uploader does not allow embedding is downloaded and played from the server's copy. `0` turns that off: such videos then cannot be played. |
 | `SHOW_VIDEO_CACHE_GB` | `3` | How many gigabytes of those copies are kept (`<data dir>/show_videos`). Past it the least recently used are removed; `0` removes the limit. |
 | `SONG_SEARCH_COUNTRY` | `us` | The iTunes Store whose songs are searched, as a two-letter country code (`gb`, `jp`, ...). |
+| `LIBRARY_SNAPSHOT_DAYS` | `14` | Daily copies of the library (`projects.json`, gzipped) kept in `<data dir>/snapshots`, the newest this many. One is made when the server starts and then once a day, only if the library changed. `0` makes none. See [Restoring the library](#restoring-the-library). |
 | `DISK_MIN_FREE_MB` | `1024` | Free space (MB) to keep on the data folder's disk. Below it, new songs, uploads, renders and re-separations are refused with HTTP `507`; edits are never blocked. `0` turns the check off. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Cloudflare tunnel token (Docker `--profile tunnel`) |
 | `LOG_LEVEL` | `INFO` | Level of the app's own log lines |
@@ -404,6 +405,21 @@ For example, to stop offering the heavy video model for song loops and make the 
 - Scripts can read and change the same settings with `GET` and `PUT /api/admin/settings`, sending the passphrase in `X-Admin-Password` (and the studio's in `X-App-Password` when it has one).
 
 Everything else in the tables above is read once at start-up or belongs to the host (paths, secrets, job slots, upload limits) and stays in `.env`.
+
+### Restoring the library
+
+The library is one file, `projects.json` in the data folder, with every song's lyrics, timing and settings; the audio, stems and videos are files beside it. `projects.json.bak` follows it within a minute, which recovers a file cut off mid-write. For anything slower to notice (songs deleted by mistake, a library that came up empty after an update), the server keeps a copy per day in `<data dir>/snapshots` (`LIBRARY_SNAPSHOT_DAYS`), named for the day it was made: `projects-2026-11-28.json.gz` is the library as it stood when the server first looked that day. To go back to one, stop the server first (a running server writes its own copy of the library over the file):
+
+```bash
+docker compose stop karaoke-studio
+cd workspace_data                      # your KARAOKE_DATA_DIR
+cp projects.json projects.json.before-restore
+gunzip -c snapshots/projects-2026-11-28.json.gz > projects.json
+rm -f projects.json.bak
+docker compose start karaoke-studio
+```
+
+Songs made after the snapshot are not in it; their files stay in the data folder, and pasting the link again makes the song anew. A song deleted after the snapshot comes back in the list without its files: delete it again or re-import it. Snapshots hold the library only, so back the data folder up as a whole for the audio. A `projects.json` the server could not read is kept beside it as `projects.json.damaged-<date>-<time>` before the next save replaces it.
 
 ## API reference
 
