@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.18.0](https://github.com/moseph333/karaoke-studio/compare/v2.17.0...v2.18.0) (2026-11-28)
+
+
+### Features
+
+* **auth:** renew a show sign-in while the host screen is in use ([c46d90f](https://github.com/moseph333/karaoke-studio/commit/c46d90f90774d89b8dddfaae4bb85a520b1d42b2))
+* **auth:** say how long a sign-in has left ([43ed83e](https://github.com/moseph333/karaoke-studio/commit/43ed83ec8f61cb4662ba6c7a29e24c092c745a4e))
+* **show:** ask for a fresh studio sign-in before the night starts ([6ffaec6](https://github.com/moseph333/karaoke-studio/commit/6ffaec61a7f64630c9659f64f775f29f07954265))
+* **show:** hold the night's name on the stage while the host screen reloads ([8e0ba97](https://github.com/moseph333/karaoke-studio/commit/8e0ba977e1c276128bca6670f93efdc78240c4dd))
+* **show:** offer to resume a song that was cut off ([5843ed0](https://github.com/moseph333/karaoke-studio/commit/5843ed0466af373d1e2ea57064fa35910e72edf8))
+* **show:** start a new night ([71546bf](https://github.com/moseph333/karaoke-studio/commit/71546bf9589493a53268fce7bb22647d2f45c1c7))
+* **show:** undo a skip, an ended song or a singer taken off ([588c538](https://github.com/moseph333/karaoke-studio/commit/588c538c07a674959fe590ac4f5a18f7baca1af7))
+
+
+### Bug Fixes
+
+* **show:** keep a studio tab's lyrics off the stage during a show ([dd03d9c](https://github.com/moseph333/karaoke-studio/commit/dd03d9c4c067d4a299ff414886570ec81bfc0854))
+* **show:** keep focus on a moved singer and say the new place ([2db296a](https://github.com/moseph333/karaoke-studio/commit/2db296affcb33102b240c34594f88950306df447))
+* **show:** keep the show on screen when the sign-in ends ([9d961ba](https://github.com/moseph333/karaoke-studio/commit/9d961baade570dcae413100b3bf077a1015d1f15))
+* **show:** list songs made during the night ([f93d3e1](https://github.com/moseph333/karaoke-studio/commit/f93d3e1510217bf5ac197447954dd5c97c6ef4bd))
+* **show:** load the song when Start is pressed as the host screen appears ([fefb046](https://github.com/moseph333/karaoke-studio/commit/fefb046604ffca30c414021f5de4319e138aeb9d))
+* **show:** notice a stage window that has gone ([e09e88d](https://github.com/moseph333/karaoke-studio/commit/e09e88df7b1b8df00e9c2f05388085b129296bc4))
+* **show:** run the show from one tab at a time ([780c83a](https://github.com/moseph333/karaoke-studio/commit/780c83a39d74052c5939c9488c05666f5e8799ef))
+* **show:** start a video where it was when the stage window comes back ([1b54451](https://github.com/moseph333/karaoke-studio/commit/1b54451bd89c5290f48601c6a4a96ba10bec87a9))
+
 ## [2.17.0](https://github.com/moseph333/karaoke-studio/compare/v2.16.0...v2.17.0) (2026-11-27)
 
 
