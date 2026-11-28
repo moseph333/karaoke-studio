@@ -412,6 +412,21 @@ def _token_status(token: str, app_pwd: str, max_age: int = 86400 * 7) -> str:
         return "signed"
 
 
+def token_seconds_left(token: str, app_pwd: str, max_age: int = 86400 * 7) -> int | None:
+    """How many seconds a valid token still has, or None for anything that is not one (the raw
+    passphrase, which does not run out, included)."""
+    if _token_status(token, app_pwd, max_age) != "valid":
+        return None
+    try:
+        payload_b64 = token.strip().split(".")[0]
+        padded = payload_b64 + ("=" * ((4 - len(payload_b64) % 4) % 4))
+        issued = json.loads(base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8"))["t"]
+    except Exception:
+        return None
+    # A token stamped a little ahead of this clock is not good for longer than a new one
+    return max(0, min(max_age, int(max_age - (time.time() - issued))))
+
+
 def verify_session_token(token: str, app_pwd: str, max_age: int = 86400 * 7) -> bool:
     """Verify HMAC-SHA256 signed session token:
 
@@ -537,6 +552,15 @@ def authenticate_request(request: Request, app_pwd: str) -> tuple[bool, bool]:
         for guess in guesses:
             record_credential_failure(client_ip, guess)
     return authenticated, not authenticated and from_cookies
+
+
+def session_seconds_left(request: Request, app_pwd: str) -> int | None:
+    """How long the session token a request carries still has: the longest of them, or None
+    when it carries none that is valid (a request signed in with the passphrase itself has
+    nothing that runs out)."""
+    candidates, _ = _presented_credentials(request)
+    left = [token_seconds_left(candidate, app_pwd) for candidate in candidates]
+    return max((seconds for seconds in left if seconds is not None), default=None)
 
 
 def authenticated_within_limit(request: Request, app_pwd: str) -> bool:

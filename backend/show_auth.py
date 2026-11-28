@@ -29,6 +29,7 @@ from backend.auth import (
     create_session_token,
     get_client_ip,
     record_credential_failure,
+    token_seconds_left,
 )
 
 TOKEN_HEADER = "x-show-token"
@@ -117,6 +118,16 @@ def holds_token(request: Request) -> bool:
         if status == "invalid":
             record_credential_failure(key, token)
     return False
+
+
+def seconds_left(request: Request) -> int | None:
+    """How long the show token a request carries still has, or None when it carries none that
+    is valid. Counts nothing: ask `holds_token` first."""
+    if not enabled():
+        return None
+    secret = _signing_secret(config.SHOW_PASSWORD)
+    left = [token_seconds_left(token, secret, TOKEN_MAX_AGE_SEC) for token in _presented(request)]
+    return max((seconds for seconds in left if seconds is not None), default=None)
 
 
 def holds_token_within_limit(request: Request) -> bool:

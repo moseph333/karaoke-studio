@@ -259,6 +259,8 @@ def test_auth_status_counts_guesses_and_reports_false_while_limited(unauth_clien
             "admin": False,
             "show": False,
             "show_authenticated": False,
+            "expires_in": None,
+            "show_expires_in": None,
         }
     assert _failures("198.51.100.10") == 5
 
