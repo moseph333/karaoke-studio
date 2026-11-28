@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 
-from backend import config, update_drain
+from backend import config, library_snapshots, update_drain
 from backend.auth import (
     LOGIN_RATE_LIMIT_LOCK,
     _last_rate_limit_cleanup,
@@ -169,11 +169,17 @@ chord_detector = ChordDetector()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Before the server takes its first request: marks the intakes, renders and background
-    jobs that the previous server process left running as interrupted, since nothing will
-    finish them, and deletes what the jobs it cut off left half-made: videos and scratch mixes
-    of renders, staged stems of re-separations, and the mixer's unfinished files. Then trims
-    every song's cached mixes in a background thread."""
+    """Before the server takes its first request: starts the thread that keeps a daily copy
+    of the library, marks the intakes, renders and background jobs that the previous server
+    process left running as interrupted, since nothing will finish them, and deletes what
+    the jobs it cut off left half-made: videos and scratch mixes of renders, staged stems of
+    re-separations, and the mixer's unfinished files. Then trims every song's cached mixes in
+    a background thread."""
+    try:
+        # The library as this process found it, copied once a day (off the event loop)
+        library_snapshots.start()
+    except Exception:
+        logger.exception("Could not start making library snapshots")
     try:
         settled = await run_in_threadpool(settle_all_stale_jobs)
         if settled:

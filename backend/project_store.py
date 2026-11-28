@@ -50,6 +50,21 @@ SAVE_ERROR_DETAIL = "The server could not save this change."
 _MISSING = object()
 
 
+def _keep_damaged_store(store_file: Path) -> None:
+    """Copies a store that could not be read to ``projects.json.damaged-<when it was
+    written>``, once. The next save replaces the store (and, a minute later, the backup), and
+    what the damaged file held could then no longer be looked at or repaired by hand."""
+    try:
+        written = time.strftime("%Y%m%d-%H%M%S", time.localtime(store_file.stat().st_mtime))
+        kept = store_file.with_name(f"{store_file.name}.damaged-{written}")
+        if kept.exists():
+            return
+        shutil.copy2(store_file, kept)
+        logger.warning(f"The unreadable {store_file.name} is kept as {kept.name}")
+    except OSError as e:
+        logger.warning(f"Could not keep a copy of the unreadable {store_file.name}: {e}")
+
+
 def load_projects() -> dict[str, dict[str, Any]]:
     import backend.main as main_mod
 
@@ -57,6 +72,7 @@ def load_projects() -> dict[str, dict[str, Any]]:
     backup_file = getattr(main_mod, "PROJECTS_BACKUP_FILE", PROJECTS_BACKUP_FILE)
 
     with PROJECTS_LOCK:
+        unreadable = False
         # 1. Attempt primary load
         if store_file.exists():
             try:
@@ -64,10 +80,12 @@ def load_projects() -> dict[str, dict[str, Any]]:
                 if content:
                     return json.loads(content)
             except Exception as e:
+                unreadable = True
                 logger.error(
                     f"Corrupted projects.json detected: {e}. Attempting backup recovery...",
                     exc_info=True,
                 )
+                _keep_damaged_store(store_file)
 
         # 2. Attempt fallback to backup if primary failed or does not exist
         if backup_file.exists():
@@ -77,8 +95,15 @@ def load_projects() -> dict[str, dict[str, Any]]:
                     logger.info("Successfully recovered projects state from projects.json.bak")
                     return json.loads(content)
             except Exception as e:
+                unreadable = True
                 logger.error(f"Could not load backup projects.json.bak: {e}", exc_info=True)
 
+        if unreadable:
+            logger.error(
+                "Neither projects.json nor its backup holds a library that can be read, so "
+                "the library is empty for now. The daily copies are in the data folder's "
+                "snapshots/ (README: Restoring the library)"
+            )
         return {}
 
 

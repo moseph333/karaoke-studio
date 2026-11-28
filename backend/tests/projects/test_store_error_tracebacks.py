@@ -21,9 +21,12 @@ def test_a_corrupt_store_and_backup_are_logged_with_tracebacks(caplog):
 
     assert load_projects() == {}
 
-    errors = _errors(caplog)
-    assert len(errors) == 2
-    assert all(r.exc_info and r.exc_info[0] is json.JSONDecodeError for r in errors)
+    # One per file with its traceback, then one line saying the library starts empty
+    *failures, summary = _errors(caplog)
+    assert len(failures) == 2
+    assert all(r.exc_info and r.exc_info[0] is json.JSONDecodeError for r in failures)
+    assert not summary.exc_info
+    assert "the library is empty for now" in summary.getMessage()
 
 
 def test_an_unexpected_save_failure_keeps_its_traceback(monkeypatch, caplog):

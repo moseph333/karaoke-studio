@@ -127,9 +127,11 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "FFMPEG_PRESET",
         "SELF_UPDATE",
         "UPDATE_DRAIN_MAX_SEC",
+        "LIBRARY_SNAPSHOT_DAYS",
+        "PAGE_CONTENT_SECURITY_POLICY",
     ):
         monkeypatch.delenv(name, raising=False)
-    from backend import project_store, server_settings, update_drain
+    from backend import library_snapshots, project_store, server_settings, update_drain
 
     # No test starts with another's saved server settings (they are kept in memory per
     # data folder, and every test has its own)
@@ -137,6 +139,8 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
     # Tests that run the app's lifespan must not leave a thread writing .jobs_active into
     # later tests' folders
     monkeypatch.setattr(update_drain, "start_jobs_heartbeat", lambda: None)
+    # Nor a thread copying a library; tests of the snapshots call take_snapshot themselves
+    monkeypatch.setattr(library_snapshots, "start", lambda: None)
     from backend.services import separator as separator_service
     from backend.services import sync_confidence, uploaded_backgrounds
     from backend.services.audio_mixer import reset_ffmpeg_probe

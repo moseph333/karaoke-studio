@@ -215,6 +215,8 @@ docker compose --profile tunnel up -d
 
 To update a shared instance without cutting off anyone's song import or render, run `scripts/update_when_idle.sh` from the checkout (from cron or a systemd timer, say) instead of `git pull && docker compose up -d --build`. It builds the new image while the old container keeps serving, then pauses new songs, uploads, renders and re-made stems (everyone sees a notice; editing and playback keep working), waits until the running jobs finish or `UPDATE_DRAIN_MAX_SEC` passes, and only then recreates the container. If the build or the restart fails, the old container keeps serving and the next run tries again, until a fix is pushed. `--force` rebuilds without a new commit.
 
+After the restart the script waits for Docker to call the new container healthy (`UPDATE_HEALTH_WAIT_SEC`). If it is not by then, or keeps dying and being restarted, the script prints the container's last log lines, puts the checkout and the old image back, starts the old version again and exits 1. That commit is then left alone until a newer one arrives or `--force` asks for it again, so a version that cannot start takes the server down for a few minutes once, not on every run. An update that comes up removes the image it replaced. Only one update runs at a time: a call made while another is building or waiting leaves it to finish.
+
 When the checkout's origin is on GitHub, the script moves to a new commit only once that commit's CI run has passed. A failed run keeps the install on the version it is running, and a run that is still going is waited for (`UPDATE_CI_WAIT_SEC`), then left for the next call. A commit whose run was seen failed or still going stays held back on later calls that cannot read a result. Otherwise, if there is no result to read (GitHub's API cannot be reached, or the commit has no CI run), the update goes ahead and the log says so. `UPDATE_REQUIRE_CI=0` turns the check off; `--force` does not.
 
 ### Manual development setup
@@ -304,12 +306,14 @@ cp .env.example .env
 | `SESSION_SECRET` | *(empty)* | Server secret session tokens are signed with, together with the passphrase. Empty uses a random secret the server creates in `<data dir>/.session_secret` on first sign-in. Changing either signs everyone out. |
 | `SELF_UPDATE` | *(off)* | `1` where a host service applies updates written to `<data dir>/.update_requested` (as on the homelab). The studio then shows an **Update now** toast when GitHub's `main` is ahead of the running build. |
 | `UPDATE_DRAIN_MAX_SEC` | `2700` | How long `scripts/update_when_idle.sh` waits for running jobs before it restarts the server anyway (jobs still running then are interrupted). New jobs stay paused while it waits. |
+| `UPDATE_HEALTH_WAIT_SEC` | `180` | How long `scripts/update_when_idle.sh` waits for Docker to call the updated container healthy before it puts the old version back. `0` skips the check and never goes back. |
 | `UPDATE_REQUIRE_CI` | `1` | `scripts/update_when_idle.sh` moves to a new commit only once its CI run on GitHub has passed. `0` updates without asking. |
 | `UPDATE_CI_WAIT_SEC` | `900` | How long the script waits for a CI run that is still going before it leaves the update for its next call. |
 | `UPDATE_CI_TOKEN` | *(empty)* | GitHub token the script reads the CI result with. Only a private repository needs one (read access to Actions); without it GitHub answers 404 and the update goes ahead unchecked. |
 | `LOGIN_RATE_LIMIT_MAX_ATTEMPTS` / `LOGIN_RATE_LIMIT_WINDOW_SECONDS` | `5` / `60.0` | Wrong passphrases allowed per IP and window, at login or in a header or cookie on any route (each distinct value counts once per window), before HTTP `429`. A client over the limit gets `429` even with valid credentials. |
 | `FORWARDED_TRUSTED_HOPS` | `1` | Reverse proxies in front of the app that append to `X-Forwarded-For`; the rate limit keys on the entry this many places from the end. `2` for cloudflared in front of Nginx Proxy Manager, but only if Nginx Proxy Manager gets traffic from cloudflared alone: a client that reaches it directly (on the LAN, say) can pick its own rate-limit key with a forged header, so use `1` there. `0` to ignore the header and use the socket address. |
 | `MAX_JSON_BODY_MB` | `16` | Largest request body outside the upload routes (which keep their own limits plus 1 MB); larger bodies get HTTP `413` before they are read. |
+| `PAGE_CONTENT_SECURITY_POLICY` | *(built in)* | The `Content-Security-Policy` sent with the studio's pages. The built-in one runs script only from this server and YouTube's player (a show's karaoke videos), so text in a title or a lyric can never run as script. Set a policy of your own to replace it, or `off` to send none. |
 | `ALLOWED_HOSTS` | *(empty)* | Comma-separated host names the server answers to (`*.example.com` matches subdomains); other `Host` headers get HTTP `400`. Empty answers any host. Set it on an install without a passphrase to stop DNS rebinding, where a website points its own name at the server. `localhost`, `127.0.0.1` and `::1` always work. |
 | `MAX_CONCURRENT_JOBS` | `2` | Separations, re-separations, re-alignments and renders running at once |
 | `PREVIEW_AUDIO_FORMAT` | `wav` | What the studio streams: the WAV master, or `aac` for a 160 kbps `.m4a` copy (about 5 MB instead of 40 MB for a 4-minute song; each new mix takes a few seconds longer). Exports and videos always use the WAV. |
@@ -321,6 +325,7 @@ cp .env.example .env
 | `SHOW_VIDEO_DOWNLOADS` | `1` | In a show, a YouTube karaoke video whose uploader does not allow embedding is downloaded and played from the server's copy. `0` turns that off: such videos then cannot be played. |
 | `SHOW_VIDEO_CACHE_GB` | `3` | How many gigabytes of those copies are kept (`<data dir>/show_videos`). Past it the least recently used are removed; `0` removes the limit. |
 | `SONG_SEARCH_COUNTRY` | `us` | The iTunes Store whose songs are searched, as a two-letter country code (`gb`, `jp`, ...). |
+| `LIBRARY_SNAPSHOT_DAYS` | `14` | Daily copies of the library (`projects.json`, gzipped) kept in `<data dir>/snapshots`, the newest this many. One is made when the server starts and then once a day, only if the library changed. `0` makes none. See [Restoring the library](#restoring-the-library). |
 | `DISK_MIN_FREE_MB` | `1024` | Free space (MB) to keep on the data folder's disk. Below it, new songs, uploads, renders and re-separations are refused with HTTP `507`; edits are never blocked. `0` turns the check off. |
 | `CLOUDFLARE_TUNNEL_TOKEN` | *(empty)* | Cloudflare tunnel token (Docker `--profile tunnel`) |
 | `LOG_LEVEL` | `INFO` | Level of the app's own log lines |
@@ -401,6 +406,21 @@ For example, to stop offering the heavy video model for song loops and make the 
 - Scripts can read and change the same settings with `GET` and `PUT /api/admin/settings`, sending the passphrase in `X-Admin-Password` (and the studio's in `X-App-Password` when it has one).
 
 Everything else in the tables above is read once at start-up or belongs to the host (paths, secrets, job slots, upload limits) and stays in `.env`.
+
+### Restoring the library
+
+The library is one file, `projects.json` in the data folder, with every song's lyrics, timing and settings; the audio, stems and videos are files beside it. `projects.json.bak` follows it within a minute, which recovers a file cut off mid-write. For anything slower to notice (songs deleted by mistake, a library that came up empty after an update), the server keeps a copy per day in `<data dir>/snapshots` (`LIBRARY_SNAPSHOT_DAYS`), named for the day it was made: `projects-2026-11-28.json.gz` is the library as it stood when the server first looked that day. To go back to one, stop the server first (a running server writes its own copy of the library over the file):
+
+```bash
+docker compose stop karaoke-studio
+cd workspace_data                      # your KARAOKE_DATA_DIR
+cp projects.json projects.json.before-restore
+gunzip -c snapshots/projects-2026-11-28.json.gz > projects.json
+rm -f projects.json.bak
+docker compose start karaoke-studio
+```
+
+Songs made after the snapshot are not in it; their files stay in the data folder, and pasting the link again makes the song anew. A song deleted after the snapshot comes back in the list without its files: delete it again or re-import it. Snapshots hold the library only, so back the data folder up as a whole for the audio. A `projects.json` the server could not read is kept beside it as `projects.json.damaged-<date>-<time>` before the next save replaces it.
 
 ## API reference
 

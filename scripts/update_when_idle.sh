@@ -22,6 +22,14 @@
 #    (the server is not answering), or UPDATE_DRAIN_MAX_SEC (default 2700 s) passes.
 # 6. Recreates the container. The new server removes the marker when it starts; this script
 #    also removes it on exit, so a failed build never leaves new jobs paused.
+# 7. Waits for Docker to call the new container healthy (UPDATE_HEALTH_WAIT_SEC, default
+#    180 s; 0 skips this). If it does not come up, the script shows its last log lines, puts
+#    the checkout and the image back as they were, starts the old version again and exits 1.
+#    The commit is then written to <data dir>/.update_failed and left alone until a newer
+#    commit arrives or --force asks for it again.
+#
+# Only one update runs at a time (a lock on <data dir>/.update_lock, where flock is
+# installed): a second call made while one is building or waiting leaves it to finish.
 #
 # Settings come from the environment, then the repo's .env: KARAOKE_DATA_DIR (the host path
 # compose mounts, default ./workspace_data), UPDATE_DRAIN_MAX_SEC, UPDATE_REQUIRE_CI (1),
@@ -29,8 +37,10 @@
 # Actions runs; only a private repository needs one) and UPDATE_CI_REPO (owner/name, read
 # from the origin URL by default). For tests and other hosts: UPDATE_BRANCH (main),
 # UPDATE_DRAIN_POLL_SEC (10), UPDATE_DRAIN_STALE_SEC (60), UPDATE_CI_POLL_SEC (30),
-# UPDATE_CI_WORKFLOW (ci.yml), UPDATE_CI_API_URL (https://api.github.com) and COMPOSE_CMD
-# ("docker compose").
+# UPDATE_CI_WORKFLOW (ci.yml), UPDATE_CI_API_URL (https://api.github.com), COMPOSE_CMD
+# ("docker compose"), DOCKER_CMD ("docker"), UPDATE_SERVICE (the compose service,
+# karaoke-studio), UPDATE_HEALTH_POLL_SEC (5) and UPDATE_ROLLBACK_IMAGE (the name the old
+# image is kept under during an update, karaoke-studio-update:previous).
 set -euo pipefail
 
 # Everything runs from one function, parsed before the first line runs: the git reset below
@@ -76,6 +86,22 @@ main() {
   STALE="${UPDATE_DRAIN_STALE_SEC:-60}"
   BRANCH="${UPDATE_BRANCH:-main}"
   read -r -a COMPOSE <<<"${COMPOSE_CMD:-docker compose}"
+  read -r -a DOCKER <<<"${DOCKER_CMD:-docker}"
+  SERVICE="${UPDATE_SERVICE:-karaoke-studio}"
+  # Without the lock's descriptor (9, below): a helper one of them leaves running would
+  # otherwise hold the lock after this script ended, and no update could start again
+  compose() { "${COMPOSE[@]}" "$@" 9>&-; }
+  docker_cli() { "${DOCKER[@]}" "$@" 9>&-; }
+
+  # A timer's call can still be building or waiting for jobs when the next one, or a forced
+  # update, starts. Two at once would reset the checkout under a build and restart twice
+  mkdir -p "$DATA_DIR"
+  if command -v flock >/dev/null 2>&1 && exec 9>"$DATA_DIR/.update_lock"; then
+    if ! flock -n 9; then
+      log "Another update is still running; leaving this one to it"
+      exit 0
+    fi
+  fi
 
   DRAIN_FILE="$DATA_DIR/.update_draining"
   JOBS_FILE="$DATA_DIR/.jobs_active"
@@ -87,6 +113,87 @@ main() {
     { mkdir -p "$DATA_DIR" && printf '%s\n' "$1" >"$DEPLOYED_FILE.tmp" &&
       mv "$DEPLOYED_FILE.tmp" "$DEPLOYED_FILE"; } 2>/dev/null ||
       log "Could not write $DEPLOYED_FILE"
+  }
+
+  HEALTH_WAIT="$(setting UPDATE_HEALTH_WAIT_SEC 180)"
+  [[ "$HEALTH_WAIT" =~ ^[0-9]+$ ]] || HEALTH_WAIT=180
+  HEALTH_POLL="${UPDATE_HEALTH_POLL_SEC:-5}"
+  # A container that keeps dying is restarted by Docker over and over; this many restarts
+  # is enough to stop waiting for it
+  HEALTH_MAX_RESTARTS=3
+  # A container without a health check can only be seen running; it has to stay up this long
+  HEALTH_SETTLE=15
+  ((HEALTH_SETTLE <= HEALTH_WAIT)) || HEALTH_SETTLE="$HEALTH_WAIT"
+  ROLLBACK_IMAGE="${UPDATE_ROLLBACK_IMAGE:-karaoke-studio-update:previous}"
+  # The commit whose container did not come up, so the next call does not take the server
+  # down for it again
+  FAILED_FILE="$DATA_DIR/.update_failed"
+  # The name compose gives the service's image, once the image the running container was
+  # made from is kept as ROLLBACK_IMAGE; empty while there is nothing to go back to
+  OLD_IMAGE=""
+  HEALTH_NOTE=""
+
+  service_container() {
+    compose ps -a -q "$SERVICE" 2>/dev/null | head -n 1
+  }
+
+  # Gives the running container's image a name of its own before the build takes its name
+  # away, so it is still there to go back to. Without a running container, or where Docker
+  # cannot be asked, there is nothing to go back to and the update goes on as before
+  keep_running_image() {
+    local cid image_id name
+    cid="$(service_container)" || cid=""
+    [[ -n "$cid" ]] || return 0
+    image_id="$(docker_cli inspect --format '{{.Image}}' "$cid" 2>/dev/null)" || return 0
+    name="$(docker_cli inspect --format '{{.Config.Image}}' "$cid" 2>/dev/null)" || return 0
+    [[ -n "$image_id" && -n "$name" ]] || return 0
+    docker_cli tag "$image_id" "$ROLLBACK_IMAGE" >/dev/null 2>&1 || return 0
+    OLD_IMAGE="$name"
+  }
+
+  # Returns 0 once Docker calls the service's container healthy (or there is nothing to
+  # ask), 1 when it is not by UPDATE_HEALTH_WAIT_SEC or keeps dying; HEALTH_NOTE says which
+  came_up() {
+    local started elapsed cid state status health restarts
+    ((HEALTH_WAIT > 0)) || return 0
+    started="$(date +%s)"
+    while :; do
+      cid="$(service_container)" || cid=""
+      state=""
+      if [[ -n "$cid" ]]; then
+        state="$(docker_cli inspect --format \
+          '{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} {{.RestartCount}}' \
+          "$cid" 2>/dev/null)" || state=""
+      fi
+      if [[ -z "$state" ]]; then
+        log "Docker does not say how the container is doing; taking it as started"
+        return 0
+      fi
+      read -r status health restarts <<<"$state"
+      elapsed=$(($(date +%s) - started))
+      if [[ "$health" == "healthy" ]]; then
+        return 0
+      fi
+      if [[ "$health" == "none" && "$status" == "running" ]] && ((elapsed >= HEALTH_SETTLE)); then
+        return 0
+      fi
+      if [[ "$restarts" =~ ^[0-9]+$ ]] && ((restarts >= HEALTH_MAX_RESTARTS)); then
+        HEALTH_NOTE="it stopped and was restarted $restarts times"
+        return 1
+      fi
+      if ((elapsed >= HEALTH_WAIT)); then
+        HEALTH_NOTE="after ${elapsed}s it is $status, health: $health"
+        return 1
+      fi
+      sleep "$HEALTH_POLL"
+    done
+  }
+
+  show_container_log() {
+    local cid
+    cid="$(service_container)" || cid=""
+    [[ -n "$cid" ]] || return 0
+    docker_cli logs --tail 40 "$cid" 2>&1 | sed 's/^/    | /' || true
   }
 
   REQUIRE_CI="$(setting UPDATE_REQUIRE_CI 1)"
@@ -242,6 +349,13 @@ main() {
     log "Already at ${DEPLOYED:0:7}; nothing to update"
     exit 0
   fi
+  FAILED=""
+  [[ -f "$FAILED_FILE" ]] && FAILED="$(head -n 1 "$FAILED_FILE" 2>/dev/null || true)"
+  if [[ "$FAILED" == "$REMOTE" && "$FORCE" -eq 0 ]]; then
+    log "${REMOTE:0:7} did not come up when it was last tried; staying on ${DEPLOYED:0:7}" \
+      "until a newer commit arrives. --force tries it again"
+    exit 0
+  fi
   if [[ "$LOCAL" == "$REMOTE" && "$DEPLOYED" != "$REMOTE" ]]; then
     log "The checkout is at ${LOCAL:0:7} but the running container was built from" \
       "${DEPLOYED:0:7} (an earlier build or restart did not finish); trying again"
@@ -258,8 +372,9 @@ main() {
 
   trap 'rm -f "$DRAIN_FILE"' EXIT
 
+  keep_running_image
   log "Building the new image; the running container keeps serving"
-  "${COMPOSE[@]}" build
+  compose build
 
   mkdir -p "$DATA_DIR"
   STARTED="$(date +%s)"
@@ -301,9 +416,52 @@ main() {
   done
 
   log "Restarting: $REASON"
-  "${COMPOSE[@]}" up -d
-  record_deployed "$REMOTE"
-  log "Update to ${REMOTE:0:7} done"
+  compose up -d
+  if came_up; then
+    record_deployed "$REMOTE"
+    rm -f "$FAILED_FILE"
+    # The image this update replaced has only the name given to it above; removing that
+    # name deletes it, instead of leaving one more unnamed image on the disk per update
+    [[ -z "$OLD_IMAGE" ]] || docker_cli rmi "$ROLLBACK_IMAGE" >/dev/null 2>&1 || true
+    log "Update to ${REMOTE:0:7} done"
+    return 0
+  fi
+
+  log "${REMOTE:0:7} did not come up: $HEALTH_NOTE. The container's last lines:"
+  show_container_log
+  if [[ -z "$OLD_IMAGE" ]]; then
+    # Nothing ran before it, so it is what is deployed, such as it is
+    record_deployed "$REMOTE"
+    log "There is no earlier image to go back to; the container is left as it is"
+    exit 1
+  fi
+  { printf '%s\n' "$REMOTE" >"$FAILED_FILE.tmp" && mv "$FAILED_FILE.tmp" "$FAILED_FILE"; } \
+    2>/dev/null || log "Could not write $FAILED_FILE; the next call will try ${REMOTE:0:7} again"
+  log "Going back to ${DEPLOYED:0:7}"
+  BAD_IMAGE="$(docker_cli inspect --format '{{.Image}}' "$(service_container)" 2>/dev/null)" ||
+    BAD_IMAGE=""
+  # The old compose file with the old image: the new commit may have changed either
+  if ! git reset --hard --quiet "$DEPLOYED"; then
+    log "Could not move the checkout back to ${DEPLOYED:0:7}; going back with the files as they are"
+  fi
+  if ! docker_cli tag "$ROLLBACK_IMAGE" "$OLD_IMAGE" >/dev/null; then
+    log "Could not put the old image back; the container is left as it is"
+    exit 1
+  fi
+  if ! compose up -d; then
+    log "Could not start the old version again"
+    exit 1
+  fi
+  # The image that did not come up has no name now and no container; a fix builds its own
+  [[ -z "$BAD_IMAGE" ]] || docker_cli rmi "$BAD_IMAGE" >/dev/null 2>&1 || true
+  if came_up; then
+    log "Back on ${DEPLOYED:0:7}, which is serving again. ${REMOTE:0:7} is left alone until a" \
+      "newer commit arrives or --force asks for it"
+  else
+    log "The old version did not come up either: $HEALTH_NOTE. The container's last lines:"
+    show_container_log
+  fi
+  exit 1
 }
 
 main "$@"
