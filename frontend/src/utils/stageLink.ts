@@ -132,8 +132,10 @@ export type StageMessage =
   | { type: 'closed' }
   /** From a stage window, to the studio it follows. */
   | { type: 'command'; to: string; command: StageCommand }
-  /** From a show's host: what the stage window shows, or null when the show closed. */
-  | { type: 'scene'; from: string; scene: StageScene | null }
+  /** From a show's host: what the stage window shows, or null when the host screen went
+   *  (it closed, or is being reloaded). A null scene carries the night's name, which the
+   *  stage window keeps up for a while: a reload is back in a moment. */
+  | { type: 'scene'; from: string; scene: StageScene | null; title?: string }
   /** From a show's host, to the video playing in the stage window. */
   | { type: 'player'; from: string; command: PlayerCommand }
   /** From a stage window's video player, to the host that put it there. */
@@ -144,6 +146,8 @@ export type StageMessage =
   /** From a stage window, to the host that asked. */
   | { type: 'pong'; to: string };
 
+/** How long a stage window keeps the night's name up after its host screen went. */
+export const STAGE_HOLD_MS = 30_000;
 /** How often a show's host asks whether the stage window is still there. */
 export const STAGE_PING_MS = 3000;
 /** This many asks in a row with no answer, and the stage window is taken to be gone. */

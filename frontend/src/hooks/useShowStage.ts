@@ -6,7 +6,9 @@
  * when it changes and again when a stage window says hello, so a stage window opened in the
  * middle of the night shows what is on. A video plays in the stage window, so its commands
  * go there and its reports (state, position, errors) come back here. When the host screen
- * closes, the stage window is told and goes back to its own idle card.
+ * goes (it was closed, or reloaded), the stage window is told, with the night's name, which
+ * it keeps up for a while before it goes back to its own idle card: a reload is back in a
+ * moment, and the room should not see the app's name for it.
  *
  * A stage window that says hello while a video is on (it was closed and opened again, or
  * reloaded) has a new player to make: the scene it is sent says where the old one was (`at`,
@@ -47,8 +49,14 @@ export interface UseShowStage {
   command: (command: PlayerCommand) => void;
 }
 
-export function useShowStage(onReport: (report: PlayerReport) => void): UseShowStage {
+export function useShowStage(
+  onReport: (report: PlayerReport) => void,
+  /** The night's name, left on the stage window when this screen goes. */
+  title = ''
+): UseShowStage {
   const [hostId] = useState(newStudioId);
+  const titleRef = useRef(title);
+  titleRef.current = title;
   const [isOpen, setIsOpen] = useState(false);
   const linkRef = useRef<StageLink | null>(null);
   const sceneRef = useRef<StageScene | null>(null);
@@ -103,11 +111,25 @@ export function useShowStage(onReport: (report: PlayerReport) => void): UseShowS
       missed += 1;
       link.post({ type: 'ping', from: hostId });
     }, STAGE_PING_MS);
-    const leave = () => link.post({ type: 'scene', from: hostId, scene: null });
+    const leave = () =>
+      link.post({
+        type: 'scene',
+        from: hostId,
+        scene: null,
+        ...(titleRef.current ? { title: titleRef.current } : {}),
+      });
+    // A page kept by the browser and shown again (Back, Forward) said it had left
+    const back = (event: PageTransitionEvent) => {
+      if (event.persisted && sceneRef.current) {
+        link.post({ type: 'scene', from: hostId, scene: sceneRef.current });
+      }
+    };
     window.addEventListener('pagehide', leave);
+    window.addEventListener('pageshow', back);
     return () => {
       clearInterval(pinger);
       window.removeEventListener('pagehide', leave);
+      window.removeEventListener('pageshow', back);
       leave();
       link.close();
       linkRef.current = null;
