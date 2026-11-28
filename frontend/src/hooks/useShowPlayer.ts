@@ -334,7 +334,11 @@ export function useShowPlayer({
       if (id && place) keepPlace(id, place.time, place.duration, true);
     };
     window.addEventListener('pagehide', going);
-    return () => window.removeEventListener('pagehide', going);
+    return () => {
+      window.removeEventListener('pagehide', going);
+      // The screen itself is going (another tab took the show over): the same
+      going();
+    };
   }, [keepPlace, placeNow]);
 
   // The entry on stage was removed from the queue: stop what it was playing
