@@ -220,7 +220,11 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session
             onMove={(id, by) => dispatch({ type: 'move', id, by })}
             onPlace={(id, at) => dispatch({ type: 'place', id, at })}
             onRemove={(id) => dispatch({ type: 'remove', id })}
-            onAgain={(id) => dispatch({ type: 'again', id, turns })}
+            onAgain={(id) => {
+              // Going again is a new song from the top, not the one that was cut off
+              player.forgetPlace(id);
+              dispatch({ type: 'again', id, turns });
+            }}
             turns={turns}
             onTurnsChange={setTurns}
             onClearFinished={() => dispatch({ type: 'clear-finished' })}
@@ -240,7 +244,6 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session
           src={project.master_audio_url}
           crossOrigin="use-credentials"
           preload="auto"
-          onTimeUpdate={audio.handleTimeUpdate}
           onLoadedMetadata={audio.handleLoadedMetadata}
           {...audioEvents}
           className="hidden"
