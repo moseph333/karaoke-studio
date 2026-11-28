@@ -10,7 +10,7 @@ from typing import Any
 
 # Base Paths
 BASE_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_APP_VERSION = "v2.17.0"  # x-release-please-version
+DEFAULT_APP_VERSION = "v2.18.0"  # x-release-please-version
 
 logger = logging.getLogger("karaoke_backend")
 # git failures already reported, so a broken git behind every update check warns once each
