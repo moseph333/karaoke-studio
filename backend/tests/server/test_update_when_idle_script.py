@@ -1,7 +1,8 @@
 """scripts/update_when_idle.sh moves to a new commit only once its CI run passed, builds the new
 image first, pauses new jobs, waits until the server reports none running (or stops answering,
-or the limit passes), and only then recreates the container. Runs the real script against a
-throwaway git origin with a fake compose command and a fake GitHub API."""
+or the limit passes), and only then recreates the container. It then waits for Docker to call
+the new container healthy, and puts the old version back when it is not. Runs the real script
+against a throwaway git origin with fake compose and docker commands and a fake GitHub API."""
 
 import json
 import os
@@ -19,6 +20,9 @@ SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "update_when_idle.sh"
 pytestmark = pytest.mark.skipif(
     shutil.which("bash") is None or shutil.which("git") is None, reason="needs bash and git"
 )
+
+SERVICE_IMAGE = "checkout-karaoke-studio"
+ROLLBACK_IMAGE = "karaoke-studio-update:previous"
 
 GIT_ENV = {
     "GIT_AUTHOR_NAME": "test",
@@ -38,7 +42,9 @@ def _git(cwd: Path, *args: str) -> str:
 
 
 class Install:
-    """A checkout like /opt/karaoke-studio, its origin, a data folder and a fake compose."""
+    """A checkout like /opt/karaoke-studio, its origin, a data folder, a fake compose and a
+    fake docker. Without with_container() compose lists no container, so the script has
+    nothing to ask Docker about and nothing to go back to."""
 
     def __init__(self, root: Path):
         self.origin = root / "origin.git"
@@ -47,6 +53,9 @@ class Install:
         self.data = root / "data"
         self.calls = root / "compose_calls.log"
         self.compose = root / "fake_compose.sh"
+        self.docker = root / "fake_docker.sh"
+        self.docker_state = root / "docker"
+        self.docker_state.mkdir()
         _git(root, "init", "--quiet", "--bare", "-b", "main", str(self.origin))
         _git(root, "clone", "--quiet", str(self.origin), str(self.upstream))
         (self.upstream / "scripts").mkdir()
@@ -56,17 +65,63 @@ class Install:
         _git(self.upstream, "commit", "--quiet", "-m", "v1")
         _git(self.upstream, "push", "--quiet", "origin", "HEAD:main")
         _git(root, "clone", "--quiet", str(self.origin), str(self.checkout))
-        # Logs each call with whether the drain marker existed at that moment
+        # Logs each build and up with whether the drain marker existed at that moment; ps
+        # lists the service's container, if the test gave it one (after_up: only once up ran)
         self.compose.write_text(
             "#!/usr/bin/env bash\n"
+            f'state_dir="{self.docker_state}"\n'
+            'if [[ "$1" == ps ]]; then\n'
+            '  [[ -f "$state_dir/container" ]] && cat "$state_dir/container"\n'
+            "  exit 0\n"
+            "fi\n"
             f'marker="{self.data}/.update_draining"\n'
             'state=absent; [[ -f "$marker" ]] && state=present\n'
             f'echo "$* marker=$state" >> "{self.calls}"\n'
             '[[ "$1" == build && -n "${FAIL_BUILD:-}" ]] && exit 1\n'
             '[[ "$1" == up && -n "${FAIL_UP:-}" ]] && exit 1\n'
+            # A helper that outlives the command, as a credential helper or a builder may
+            '[[ "$1" == up && -n "${LINGER:-}" ]] && (sleep 20 >/dev/null 2>&1 &)\n'
+            'if [[ "$1" == up && -f "$state_dir/container_after_up" ]]; then\n'
+            '  cp "$state_dir/container_after_up" "$state_dir/container"\n'
+            "fi\n"
             "exit 0\n"
         )
         self.compose.chmod(0o755)
+        # Answers inspect from files the test wrote: the state of the new container, and of
+        # the old one once the kept image got the service's name back
+        self.docker.write_text(
+            "#!/usr/bin/env bash\n"
+            f'state_dir="{self.docker_state}"\n'
+            'echo "$*" >> "$state_dir/calls.log"\n'
+            'case "$1" in\n'
+            "  inspect)\n"
+            '    case "$3" in\n'
+            "      '{{.Image}}') echo sha256:running ;;\n"
+            f"      '{{{{.Config.Image}}}}') echo {SERVICE_IMAGE} ;;\n"
+            "      *)\n"
+            '        if [[ -f "$state_dir/rolled_back" ]]; then cat "$state_dir/state_old"\n'
+            '        else cat "$state_dir/state_new"; fi ;;\n'
+            "    esac ;;\n"
+            f'  tag) if [[ "$2" == {ROLLBACK_IMAGE} ]]; then touch "$state_dir/rolled_back"; fi ;;\n'
+            '  logs) echo "ImportError: cannot import name app" ;;\n'
+            "esac\n"
+            "exit 0\n"
+        )
+        self.docker.chmod(0o755)
+
+    def with_container(self, new: str, old: str = "running healthy 0", after_up: bool = False):
+        """Gives the service a container. new is what Docker says of the updated one
+        ("<status> <health> <restarts>"), old of the one that was running, once it is back."""
+        (self.docker_state / ("container_after_up" if after_up else "container")).write_text(
+            "c0ffee\n"
+        )
+        (self.docker_state / "state_new").write_text(new + "\n")
+        (self.docker_state / "state_old").write_text(old + "\n")
+        (self.docker_state / "rolled_back").unlink(missing_ok=True)
+
+    def docker_calls(self) -> list[str]:
+        log = self.docker_state / "calls.log"
+        return log.read_text().splitlines() if log.exists() else []
 
     def push_new_commit(self, content: str = "v2") -> str:
         (self.upstream / "app.txt").write_text(f"{content}\n")
@@ -87,7 +142,9 @@ class Install:
             **GIT_ENV,
             "KARAOKE_DATA_DIR": str(self.data),
             "COMPOSE_CMD": str(self.compose),
+            "DOCKER_CMD": str(self.docker),
             "UPDATE_DRAIN_POLL_SEC": "0.1",
+            "UPDATE_HEALTH_POLL_SEC": "0.1",
             **env,
         }
         return subprocess.run(
@@ -304,6 +361,214 @@ def test_the_limit_is_read_from_the_env_file(install):
 
     assert res.returncode == 0, res.stderr
     assert "waiting up to 1s" in res.stdout
+
+
+# --- The new container's health and the way back ------------------------------------------------
+
+
+def test_a_healthy_container_is_recorded_and_the_image_it_replaced_removed(install):
+    sha = install.push_new_commit()
+    install.with_container(new="running healthy 0")
+
+    res = install.run()
+
+    assert res.returncode == 0, res.stderr
+    assert (install.data / ".update_deployed").read_text().strip() == sha
+    calls = install.docker_calls()
+    assert calls[2] == f"tag sha256:running {ROLLBACK_IMAGE}"  # kept before the build
+    assert calls[-1] == f"rmi {ROLLBACK_IMAGE}"
+    assert install.compose_calls() == ["build marker=absent", "up -d marker=present"]
+
+
+def test_it_waits_for_a_container_that_is_still_starting(install):
+    install.push_new_commit()
+    install.with_container(new="running starting 0")
+    state = install.docker_state / "state_new"
+    threading.Timer(1.5, lambda: state.write_text("running healthy 0\n")).start()
+
+    started = time.monotonic()
+    res = install.run(UPDATE_HEALTH_WAIT_SEC="20")
+    waited = time.monotonic() - started
+
+    assert res.returncode == 0, res.stderr
+    assert waited >= 1.0
+    assert "done" in res.stdout
+
+
+def test_a_container_that_does_not_get_healthy_is_replaced_by_the_old_version(install):
+    old_sha = _git(install.checkout, "rev-parse", "HEAD")
+    new_sha = install.push_new_commit()
+    install.with_container(new="running unhealthy 0")
+
+    res = install.run(UPDATE_HEALTH_WAIT_SEC="1")
+
+    assert res.returncode == 1
+    assert f"{new_sha[:7]} did not come up" in res.stdout
+    assert "health: unhealthy" in res.stdout
+    assert "| ImportError: cannot import name app" in res.stdout
+    assert f"Back on {old_sha[:7]}, which is serving again" in res.stdout
+    # The old files, the old image under the service's name, and one more start
+    assert install.deployed() == "v1"
+    assert f"tag {ROLLBACK_IMAGE} {SERVICE_IMAGE}" in install.docker_calls()
+    assert install.compose_calls() == [
+        "build marker=absent",
+        "up -d marker=present",
+        "up -d marker=present",
+    ]
+    assert (install.data / ".update_deployed").read_text().strip() == old_sha
+    assert (install.data / ".update_failed").read_text().strip() == new_sha
+    assert not (install.data / ".update_draining").exists()
+
+
+def test_the_image_that_did_not_come_up_is_removed_and_the_kept_one_stays(install):
+    install.push_new_commit()
+    install.with_container(new="running unhealthy 0")
+
+    install.run(UPDATE_HEALTH_WAIT_SEC="1")
+
+    calls = install.docker_calls()
+    assert calls[-1].startswith("inspect")  # the old version's health, asked last
+    assert "rmi sha256:running" in calls
+    assert f"rmi {ROLLBACK_IMAGE}" not in calls
+
+
+def test_a_container_that_keeps_restarting_is_not_waited_for(install):
+    install.push_new_commit()
+    install.with_container(new="restarting starting 4")
+
+    started = time.monotonic()
+    res = install.run(UPDATE_HEALTH_WAIT_SEC="600")
+
+    assert time.monotonic() - started < 20
+    assert res.returncode == 1
+    assert "it stopped and was restarted 4 times" in res.stdout
+    assert install.deployed() == "v1"
+
+
+def test_a_commit_that_did_not_come_up_is_not_tried_again(install):
+    new_sha = install.push_new_commit()
+    install.with_container(new="running unhealthy 0")
+    install.run(UPDATE_HEALTH_WAIT_SEC="1")
+    tried = install.compose_calls()
+
+    res = install.run(UPDATE_HEALTH_WAIT_SEC="1")
+
+    assert res.returncode == 0, res.stderr
+    assert f"{new_sha[:7]} did not come up when it was last tried" in res.stdout
+    assert install.compose_calls() == tried
+
+
+def test_a_newer_commit_is_tried_after_one_that_did_not_come_up(install):
+    install.push_new_commit("v2")
+    install.with_container(new="running unhealthy 0")
+    install.run(UPDATE_HEALTH_WAIT_SEC="1")
+    fix = install.push_new_commit("v3")
+    install.with_container(new="running healthy 0")
+
+    res = install.run()
+
+    assert res.returncode == 0, res.stderr
+    assert install.deployed() == "v3"
+    assert (install.data / ".update_deployed").read_text().strip() == fix
+    assert not (install.data / ".update_failed").exists()
+
+
+def test_force_tries_a_commit_that_did_not_come_up_again(install):
+    new_sha = install.push_new_commit()
+    install.with_container(new="running unhealthy 0")
+    install.run(UPDATE_HEALTH_WAIT_SEC="1")
+    install.with_container(new="running healthy 0")
+
+    res = install.run("--force")
+
+    assert res.returncode == 0, res.stderr
+    assert (install.data / ".update_deployed").read_text().strip() == new_sha
+    assert not (install.data / ".update_failed").exists()
+
+
+def test_the_old_version_not_coming_up_either_is_reported(install):
+    install.push_new_commit()
+    install.with_container(new="running unhealthy 0", old="exited starting 0")
+
+    res = install.run(UPDATE_HEALTH_WAIT_SEC="1")
+
+    assert res.returncode == 1
+    assert "The old version did not come up either" in res.stdout
+    assert "it is exited" in res.stdout
+
+
+def test_without_a_container_before_the_update_there_is_nothing_to_go_back_to(install):
+    new_sha = install.push_new_commit()
+    install.with_container(new="running unhealthy 0", after_up=True)
+
+    res = install.run(UPDATE_HEALTH_WAIT_SEC="1")
+
+    assert res.returncode == 1
+    assert "no earlier image to go back to" in res.stdout
+    assert install.compose_calls() == ["build marker=absent", "up -d marker=present"]
+    assert install.deployed() == "v2"
+    # It is what runs, such as it is: the next call does not build it again
+    assert (install.data / ".update_deployed").read_text().strip() == new_sha
+    assert not (install.data / ".update_failed").exists()
+
+
+def test_a_container_without_a_health_check_counts_once_it_stays_up(install):
+    sha = install.push_new_commit()
+    install.with_container(new="running none 0")
+
+    res = install.run(UPDATE_HEALTH_WAIT_SEC="1")
+
+    assert res.returncode == 0, res.stderr
+    assert (install.data / ".update_deployed").read_text().strip() == sha
+
+
+def test_the_health_check_can_be_switched_off(install):
+    sha = install.push_new_commit()
+    install.with_container(new="running unhealthy 0")
+    (install.checkout / ".env").write_text("UPDATE_HEALTH_WAIT_SEC=0\n")
+
+    res = install.run()
+
+    assert res.returncode == 0, res.stderr
+    assert (install.data / ".update_deployed").read_text().strip() == sha
+    assert install.compose_calls() == ["build marker=absent", "up -d marker=present"]
+
+
+@pytest.mark.skipif(shutil.which("flock") is None, reason="needs flock")
+def test_a_second_call_leaves_a_running_update_alone(install):
+    install.push_new_commit()
+
+    with FakeServer(install, count=1) as server:
+        first: list[subprocess.CompletedProcess] = []
+        thread = threading.Thread(target=lambda: first.append(install.run()))
+        thread.start()
+        deadline = time.monotonic() + 20
+        while not (install.data / ".update_draining").exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        second = install.run()
+        calls_while_waiting = install.compose_calls()
+        server.count = 0
+        thread.join()
+
+    assert second.returncode == 0, second.stderr
+    assert "Another update is still running" in second.stdout
+    assert calls_while_waiting == ["build marker=absent"]
+    assert first[0].returncode == 0, first[0].stderr
+    assert install.compose_calls() == ["build marker=absent", "up -d marker=present"]
+
+
+@pytest.mark.skipif(shutil.which("flock") is None, reason="needs flock")
+def test_a_helper_compose_leaves_running_does_not_keep_the_lock(install):
+    install.push_new_commit("v2")
+    first = install.run(LINGER="1")
+    assert first.returncode == 0, first.stderr
+    install.push_new_commit("v3")
+
+    res = install.run()
+
+    assert res.returncode == 0, res.stderr
+    assert "Another update is still running" not in res.stdout
+    assert install.deployed() == "v3"
 
 
 # --- The CI check -----------------------------------------------------------------------------
