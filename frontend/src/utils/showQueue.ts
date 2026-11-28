@@ -10,6 +10,12 @@
  * Singers take turns (`turnPlace`) unless the host turns that off: a song that joins the
  * line goes behind everybody still waiting for a turn and ahead of the songs of singers who
  * will already have had one. Without it a song joins the end of the line.
+ *
+ * What the host does by hand can be undone, and each undo is the action's own opposite, not
+ * a copy of the queue as it was: taking a singer off the line sets them aside (`set-aside`,
+ * listed with those who have been on) and `recall` puts them back where they stood; ending
+ * or skipping the song on stage is undone by `recall` with `head`, which calls that singer
+ * next. So an undo changes one entry and leaves alone whatever happened since.
  */
 
 import type { StageBilling } from './stageLink';
@@ -55,6 +61,11 @@ export type ShowAction =
   /** `turns` puts the song where taking turns has it (`turnPlace`), not at the end. */
   | { type: 'add'; id: string; singer: string; source: ShowSource; turns?: boolean }
   | { type: 'remove'; id: string }
+  /** Takes a waiting entry off the line without losing it: it is listed as passed over. */
+  | { type: 'set-aside'; id: string }
+  /** Undoes a `set-aside`, `finish` or `skip`: the entry waits again, where it stands in
+   *  the list, or with `head` as the next to sing (the singer who was on stage). */
+  | { type: 'recall'; id: string; head?: boolean }
   /** Moves a waiting entry one place earlier (-1) or later (1) among the waiting ones. */
   | { type: 'move'; id: string; by: -1 | 1 }
   /** Puts a waiting entry at a place among the waiting ones; 0 is the head of the line. */
@@ -147,6 +158,17 @@ export function showQueueReducer(queue: ShowQueue, action: ShowAction): ShowQueu
     }
     case 'remove':
       return queue.filter((e) => e.id !== action.id);
+    case 'set-aside': {
+      const entry = queue.find((e) => e.id === action.id);
+      return entry?.status === 'waiting' ? setStatus(queue, action.id, 'skipped') : queue;
+    }
+    case 'recall': {
+      const entry = queue.find((e) => e.id === action.id);
+      if (!entry || entry.status === 'waiting' || entry.status === 'playing') return queue;
+      if (!action.head) return setStatus(queue, action.id, 'waiting');
+      const rest = queue.filter((e) => e.id !== action.id);
+      return joined(rest, { ...entry, status: 'waiting' }, 0);
+    }
     case 'move': {
       const waiting = queue.filter((e) => e.status === 'waiting');
       const at = waiting.findIndex((e) => e.id === action.id);

@@ -483,3 +483,112 @@ describe('how a video gets on stage', () => {
     expect(videoNote(info({ embeddable: false, downloads: false }))).toMatch(/Only plays on/);
   });
 });
+
+describe('taking back what the host did by hand', () => {
+  it('sets a waiting singer aside instead of losing them', () => {
+    const queue = run([{ type: 'set-aside', id: 'b' }], three);
+
+    expect(singers(queue)).toEqual(['Alex', 'Cy']);
+    expect(finishedEntries(queue).map((e) => e.singer)).toEqual(['Bo']);
+    expect(queue.find((e) => e.id === 'b')?.status).toBe('skipped');
+  });
+
+  it('sets aside only a singer who is waiting', () => {
+    const queue = run([{ type: 'start', id: 'a' }], three);
+
+    expect(run([{ type: 'set-aside', id: 'a' }], queue)).toBe(queue);
+    expect(run([{ type: 'set-aside', id: 'nobody' }], queue)).toBe(queue);
+  });
+
+  it('recalls a singer set aside to where they stood', () => {
+    const queue = run(
+      [
+        { type: 'set-aside', id: 'b' },
+        { type: 'recall', id: 'b' },
+      ],
+      three
+    );
+
+    expect(singers(queue)).toEqual(['Alex', 'Bo', 'Cy']);
+  });
+
+  it('leaves alone what happened between the action and its undo', () => {
+    const queue = run(
+      [
+        { type: 'set-aside', id: 'b' },
+        { type: 'add', id: 'd', singer: 'Di', source: video('Jolene') },
+        { type: 'start', id: 'a' },
+        { type: 'recall', id: 'b' },
+      ],
+      three
+    );
+
+    expect(playingEntry(queue)?.singer).toBe('Alex');
+    expect(singers(queue)).toEqual(['Bo', 'Cy', 'Di']);
+  });
+
+  it('recalls the singer whose song was ended as the next to sing', () => {
+    const queue = run(
+      [
+        { type: 'start', id: 'c' },
+        { type: 'finish', id: 'c' },
+        { type: 'recall', id: 'c', head: true },
+      ],
+      three
+    );
+
+    expect(singers(queue)).toEqual(['Cy', 'Alex', 'Bo']);
+    expect(finishedEntries(queue)).toEqual([]);
+  });
+
+  it('recalls a skipped singer as the next to sing, too', () => {
+    const queue = run(
+      [
+        { type: 'start', id: 'b' },
+        { type: 'skip', id: 'b' },
+        { type: 'recall', id: 'b', head: true },
+      ],
+      three
+    );
+
+    expect(singers(queue)).toEqual(['Bo', 'Alex', 'Cy']);
+  });
+
+  it('calls a recalled singer next even while somebody else is on', () => {
+    const queue = run(
+      [
+        { type: 'start', id: 'a' },
+        { type: 'finish', id: 'a' },
+        { type: 'start', id: 'b' },
+        { type: 'recall', id: 'a', head: true },
+      ],
+      three
+    );
+
+    expect(playingEntry(queue)?.singer).toBe('Bo');
+    expect(singers(queue)).toEqual(['Alex', 'Cy']);
+  });
+
+  it('recalls nobody who is waiting, on stage or unknown', () => {
+    const queue = run([{ type: 'start', id: 'a' }], three);
+
+    expect(run([{ type: 'recall', id: 'a', head: true }], queue)).toBe(queue);
+    expect(run([{ type: 'recall', id: 'b' }], queue)).toBe(queue);
+    expect(run([{ type: 'recall', id: 'nobody' }], queue)).toBe(queue);
+  });
+
+  it('undoes twice over without one undo touching the other', () => {
+    const queue = run(
+      [
+        { type: 'set-aside', id: 'a' },
+        { type: 'set-aside', id: 'c' },
+        // The older undo first
+        { type: 'recall', id: 'a' },
+      ],
+      three
+    );
+    expect(singers(queue)).toEqual(['Alex', 'Bo']);
+
+    expect(singers(run([{ type: 'recall', id: 'c' }], queue))).toEqual(['Alex', 'Bo', 'Cy']);
+  });
+});
