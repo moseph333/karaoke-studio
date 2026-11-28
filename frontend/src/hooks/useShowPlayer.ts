@@ -12,6 +12,10 @@
  *
  * Between singers the stage window shows a card: the next singer in line, or the night's
  * name when nobody is waiting. A song that ends is marked done and the card comes back.
+ *
+ * Where the song on stage is gets written down as it goes (`utils/showResume`), so a song
+ * that was cut off (the host's page reloaded, a wrong button undone, a sign-in that ended)
+ * can be started again from there: `start(entry, at)`, offered as "Resume" by the screen.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -26,6 +30,13 @@ import {
   type ShowEntry,
   type ShowQueue,
 } from '../utils/showQueue';
+import {
+  RESUME_SAVE_SEC,
+  loadShowResume,
+  resumePlace,
+  saveShowResume,
+  type ShowResume,
+} from '../utils/showResume';
 import type { PlayerReport, StageScene } from '../utils/stageLink';
 import { getStoredMasterVolume, setStoredMasterVolume } from '../utils/volumeStorage';
 import { useShowStage, type UseShowStage } from './useShowStage';
@@ -61,6 +72,8 @@ interface VideoPlay {
   time: number;
   duration: number;
   failure: string | null;
+  /** Where this playing was asked to start, when not from the top. */
+  at?: number;
 }
 
 export interface UseShowPlayerOptions {
@@ -83,6 +96,7 @@ export interface UseShowPlayer {
   audio: UseStudioAudioReturn;
   /** Handlers for the host screen's `<audio>` element. */
   audioEvents: {
+    onTimeUpdate: () => void;
     onCanPlay: () => void;
     onPlay: () => void;
     onPause: () => void;
@@ -99,15 +113,20 @@ export interface UseShowPlayer {
   trouble: ShowTrouble | null;
   volume: number;
   setVolume: (volume: number) => void;
-  start: (entry: ShowEntry) => void;
+  /** Puts an entry on stage; with `at`, from that many seconds in. */
+  start: (entry: ShowEntry, at?: number) => void;
+  /** Where an entry that was cut off would be picked up (seconds), or null. */
+  resumeFor: (entry: ShowEntry) => number | null;
+  /** Forgets the place kept for an entry: its next start is from the top. */
+  forgetPlace: (entryId: string) => void;
   toggle: () => void;
   seek: (time: number) => void;
   restart: () => void;
   /** Puts the entry on stage on again, after it failed to load or play. */
   retry: () => void;
-  /** Ends the song now and marks it sung. */
+  /** Ends the song now and marks it sung. Its place is kept, in case that was a mistake. */
   finish: () => void;
-  /** Takes the entry off stage without it counting as sung. */
+  /** Takes the entry off stage without it counting as sung; its place is kept too. */
   skip: () => void;
 }
 
@@ -134,16 +153,49 @@ export function useShowPlayer({
   const [volume, setVolumeState] = useState(() => getStoredMasterVolume(1));
 
   const audio = useStudioAudio(project);
-  const { audioRef, setIsPlaying } = audio;
+  const { audioRef, setIsPlaying, queueSeek, handleTimeUpdate } = audio;
+
+  // --- Where the song is, written down as it goes -----------------------------------------
+  /** The place the screen offers to resume from: read when it opens, kept when a song is
+   *  taken off by hand. The writes made while a song plays go to storage only. */
+  const [resume, setResume] = useState<ShowResume | null>(loadShowResume);
+  const written = useRef('');
+  const keepPlace = useCallback(
+    (entryId: string, time: number, duration: number, now = false): ShowResume | null => {
+      if (!Number.isFinite(time) || time < 0) return null;
+      const step = `${entryId}:${Math.floor(time / RESUME_SAVE_SEC)}`;
+      const place = { entryId, time, duration: Number.isFinite(duration) ? duration : 0 };
+      if (!now && step === written.current) return place;
+      written.current = step;
+      saveShowResume(place);
+      return place;
+    },
+    []
+  );
   const playCounter = useRef(0);
   const pendingPlay = useRef(false);
   const loadingId = useRef<string | null>(null);
   const latest = useRef({ currentId, video, fetchCopy, dispatch, volume });
   latest.current = { currentId, video, fetchCopy, dispatch, volume };
 
+  /** Where the entry on stage is now: a video's last report, a library song's element. */
+  const placeNow = useCallback((): { time: number; duration: number } | null => {
+    const playing = latest.current.video;
+    if (playing) return { time: playing.time, duration: playing.duration };
+    const element = audioRef.current;
+    return element ? { time: element.currentTime, duration: element.duration } : null;
+  }, [audioRef]);
+
   const leaveStage = useCallback(
-    (how: 'finish' | 'skip') => {
+    (how: 'finish' | 'skip', byHand: boolean) => {
       const id = latest.current.currentId;
+      // Taken off by hand, the place is kept: the host may put the singer straight back.
+      // A song that ran to its end has no place to go back to
+      const place = byHand && id ? placeNow() : null;
+      const kept = place && id ? keepPlace(id, place.time, place.duration, true) : null;
+      if (!kept) saveShowResume(null);
+      setResume(kept);
+      written.current = '';
       pendingPlay.current = false;
       loadingId.current = null;
       audioRef.current?.pause();
@@ -152,10 +204,12 @@ export function useShowPlayer({
       setSongFailure(null);
       if (id) latest.current.dispatch({ type: how, id });
     },
-    [audioRef]
+    [audioRef, keepPlace, placeNow]
   );
-  const finish = useCallback(() => leaveStage('finish'), [leaveStage]);
-  const skip = useCallback(() => leaveStage('skip'), [leaveStage]);
+  const finish = useCallback(() => leaveStage('finish', true), [leaveStage]);
+  const skip = useCallback(() => leaveStage('skip', true), [leaveStage]);
+  /** The song reached its end. */
+  const ended = useCallback(() => leaveStage('finish', false), [leaveStage]);
 
   // --- Reports from the video in the stage window ---------------------------------------
   const onReport = useCallback(
@@ -163,8 +217,16 @@ export function useShowPlayer({
       const playing = latest.current.video;
       if (!playing || report.play !== playing.play) return;
       if (report.status === 'ended') {
-        finish();
+        ended();
         return;
+      }
+      if (report.status === 'playing' || report.status === 'paused') {
+        keepPlace(
+          playing.entryId,
+          report.time,
+          report.duration || playing.duration,
+          report.status === 'paused'
+        );
       }
       if (report.status === 'error' && report.error === 'embed') {
         // Not allowed in YouTube's player after all: play the server's copy instead
@@ -194,16 +256,20 @@ export function useShowPlayer({
           : v
       );
     },
-    [finish]
+    [ended, keepPlace]
   );
   const stage = useShowStage(onReport, title);
   const { show, command } = stage;
 
   // --- Putting an entry on stage --------------------------------------------------------
   const start = useCallback(
-    (entry: ShowEntry) => {
+    (entry: ShowEntry, at?: number) => {
       audioRef.current?.pause();
       setSongFailure(null);
+      // From the top, or another singer's song: the place that was kept is no use now
+      if (at === undefined || loadShowResume()?.entryId !== entry.id) saveShowResume(null);
+      setResume(null);
+      written.current = '';
       dispatch({ type: 'start', id: entry.id });
       if (entry.source.kind === 'youtube') {
         pendingPlay.current = false;
@@ -214,9 +280,10 @@ export function useShowPlayer({
           videoId: entry.source.videoId,
           play: ++playCounter.current,
           status: 'loading',
-          time: 0,
+          time: at ?? 0,
           duration: entry.source.duration ?? 0,
           failure: null,
+          ...(at ? { at } : {}),
         });
         return;
       }
@@ -233,7 +300,10 @@ export function useShowPlayer({
           return data;
         })
         .then((data) => {
-          if (loadingId.current === projectId) setProject(data);
+          if (loadingId.current !== projectId) return;
+          // Before the song's element exists: it goes there once it has loaded
+          if (at) queueSeek(at);
+          setProject(data);
         })
         .catch(() => {
           if (loadingId.current !== projectId) return;
@@ -242,12 +312,30 @@ export function useShowPlayer({
           setSongFailure(SONG_FAILED);
         });
     },
-    [audioRef, dispatch]
+    [audioRef, dispatch, queueSeek]
   );
 
+  // A song that failed part-way goes on from where it was
   const retry = useCallback(() => {
-    if (current) start(current);
+    if (current) start(current, resumePlace(loadShowResume(), current.id) ?? undefined);
   }, [current, start]);
+
+  const resumeFor = useCallback((entry: ShowEntry) => resumePlace(resume, entry.id), [resume]);
+  const forgetPlace = useCallback((entryId: string) => {
+    if (loadShowResume()?.entryId === entryId) saveShowResume(null);
+    setResume((kept) => (kept?.entryId === entryId ? null : kept));
+  }, []);
+
+  // The page is going (a reload, a closed tab): write down exactly where the song is
+  useEffect(() => {
+    const going = () => {
+      const id = latest.current.currentId;
+      const place = id ? placeNow() : null;
+      if (id && place) keepPlace(id, place.time, place.duration, true);
+    };
+    window.addEventListener('pagehide', going);
+    return () => window.removeEventListener('pagehide', going);
+  }, [keepPlace, placeNow]);
 
   // The entry on stage was removed from the queue: stop what it was playing
   useEffect(() => {
@@ -270,14 +358,20 @@ export function useShowPlayer({
         element.volume = latest.current.volume;
         void element.play()?.catch(() => setIsPlaying(false));
       },
+      onTimeUpdate: () => {
+        handleTimeUpdate();
+        const element = audioRef.current;
+        const id = latest.current.currentId;
+        if (element && id) keepPlace(id, element.currentTime, element.duration);
+      },
       onPlay: () => setIsPlaying(true),
       onPause: () => setIsPlaying(false),
-      onEnded: () => finish(),
+      onEnded: () => ended(),
       onError: () => {
         if (latest.current.currentId) setSongFailure(SONG_FAILED);
       },
     }),
-    [audioRef, setIsPlaying, finish]
+    [audioRef, setIsPlaying, ended, handleTimeUpdate, keepPlace]
   );
 
   // --- What the stage window shows ------------------------------------------------------
@@ -310,10 +404,14 @@ export function useShowPlayer({
     };
     if (songOnStage) return { kind: 'lyrics' };
     if (!videoOnStage || videoOnStage.failure) return called;
+    // A playing that was asked to start part-way says where
+    const from = videoOnStage.at ? { at: videoOnStage.at } : {};
     if (mode === 'embed') {
-      return { kind: 'youtube', videoId: videoOnStage.videoId, play: videoOnStage.play };
+      return { kind: 'youtube', videoId: videoOnStage.videoId, play: videoOnStage.play, ...from };
     }
-    if (mode === 'file' && copyUrl) return { kind: 'file', url: copyUrl, play: videoOnStage.play };
+    if (mode === 'file' && copyUrl) {
+      return { kind: 'file', url: copyUrl, play: videoOnStage.play, ...from };
+    }
     return called;
   }, [queue, current, title, songOnStage, videoOnStage, mode, copyUrl]);
   const sceneKey = JSON.stringify(scene);
@@ -403,6 +501,8 @@ export function useShowPlayer({
     volume,
     setVolume,
     start,
+    resumeFor,
+    forgetPlace,
     toggle,
     seek,
     restart,

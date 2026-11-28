@@ -179,6 +179,8 @@ export const ShowNowSinging: React.FC<ShowNowSingingProps> = ({
   const { current, project, trouble } = player;
 
   if (!current) {
+    // The singer called was on when the song was cut off: it can go on from there
+    const place = next ? player.resumeFor(next) : null;
     return (
       <section aria-labelledby="show-now-heading" className="flex flex-col gap-3">
         <h2 id="show-now-heading" className={`${label} text-theme-text-muted`}>
@@ -190,17 +192,45 @@ export const ShowNowSinging: React.FC<ShowNowSingingProps> = ({
               {next.singer}
             </p>
             <p className="text-lg text-theme-text">{songOf(next)}</p>
-            <div>
-              <Button
-                variant="primary"
-                size="lg"
-                className="min-h-[44px]"
-                leftIcon={<Play className="h-5 w-5" aria-hidden="true" />}
-                onClick={() => player.start(next)}
-              >
-                Start the song
-              </Button>
-            </div>
+            {place === null ? (
+              <div>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  className="min-h-[44px]"
+                  leftIcon={<Play className="h-5 w-5" aria-hidden="true" />}
+                  onClick={() => player.start(next)}
+                >
+                  Start the song
+                </Button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-theme-text-muted">
+                  This song was cut off at {formatTime(place)}.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="min-h-[44px]"
+                    leftIcon={<Play className="h-5 w-5" aria-hidden="true" />}
+                    onClick={() => player.start(next, place)}
+                  >
+                    Resume at {formatTime(place)}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    className="min-h-[44px]"
+                    leftIcon={<RotateCcw className="h-5 w-5" aria-hidden="true" />}
+                    onClick={() => player.start(next)}
+                  >
+                    Start from the top
+                  </Button>
+                </div>
+              </>
+            )}
           </>
         ) : (
           <p className="text-lg text-theme-text-muted">
