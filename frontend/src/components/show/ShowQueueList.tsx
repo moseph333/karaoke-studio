@@ -12,13 +12,19 @@
  *
  * "Clear the list" and "Start a new night" (everybody, waiting and sung) ask first, in
  * place: neither has an undo.
+ *
+ * Moved from the keyboard, a singer's arrow keeps the focus as the row moves, so it can be
+ * pressed again. An arrow that can go no further (the first singer's up, the last one's
+ * down) is marked `aria-disabled`, not disabled: a disabled button drops the focus the
+ * moment the singer arrives there. Where the singer now stands is said in a live region.
  */
 
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, GripVertical, Play, RotateCcw, X } from 'lucide-react';
 import { useReorderDrag } from '../../hooks/useReorderDrag';
 import { videoNote, type ShowVideoInfo } from '../../hooks/useShowVideos';
 import { cn } from '../../utils/cn';
+import { ordinal } from '../../utils/format';
 import type { ShowEntry } from '../../utils/showQueue';
 import { Button, IconButton, InlineConfirm, Switch } from '../ui';
 
@@ -74,10 +80,41 @@ export const ShowQueueList: React.FC<ShowQueueListProps> = ({
   turns = false,
   onTurnsChange,
 }) => {
+  // The move just asked for: once the list has it, the new place is said and the arrow
+  // that was pressed gets the focus back if the move took it
+  const moved = useRef<{ id: string; by: -1 | 0 | 1 } | null>(null);
+  const [said, setSaid] = useState('');
   const { listRef, draggingId, rowProps, placeOf } = useReorderDrag<HTMLOListElement>({
     ids: waiting.map((entry) => entry.id),
-    onReorder: onPlace,
+    onReorder: (id, at) => {
+      moved.current = { id, by: 0 };
+      onPlace(id, at);
+    },
   });
+  const move = (id: string, index: number, by: -1 | 1) => {
+    // The first singer cannot go up, nor the last one down
+    if (by < 0 ? index === 0 : index === waiting.length - 1) return;
+    moved.current = { id, by };
+    onMove(id, by);
+  };
+  const order = waiting.map((entry) => entry.id).join(' ');
+  useLayoutEffect(() => {
+    const last = moved.current;
+    if (!last) return;
+    moved.current = null;
+    const at = waiting.findIndex((entry) => entry.id === last.id);
+    if (at < 0) return;
+    setSaid(`${waiting[at].singer} is now ${ordinal(at + 1)} of ${waiting.length}`);
+    if (last.by === 0) return;
+    const focused = document.activeElement;
+    if (focused && focused !== document.body) return;
+    const arrows = listRef.current?.querySelectorAll<HTMLElement>('[data-move]') ?? [];
+    for (const arrow of Array.from(arrows)) {
+      if (arrow.dataset.move === `${last.id}:${last.by}`) arrow.focus();
+    }
+    // Run when the order changes; `waiting` is read as it is then
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -100,6 +137,9 @@ export const ShowQueueList: React.FC<ShowQueueListProps> = ({
             />
           )}
         </div>
+        <p role="status" aria-live="polite" data-testid="show-queue-said" className="sr-only">
+          {said}
+        </p>
         {waiting.length === 0 ? (
           <p className="border-b border-theme-border-subtle py-3 text-sm text-theme-text-muted">
             Nobody is waiting. Add a singer and their song.
@@ -150,15 +190,17 @@ export const ShowQueueList: React.FC<ShowQueueListProps> = ({
                     icon={<ArrowUp className="h-4 w-4" aria-hidden="true" />}
                     label={`Move ${entry.singer} up`}
                     className="min-h-[44px] min-w-[44px]"
-                    disabled={index === 0}
-                    onClick={() => onMove(entry.id, -1)}
+                    aria-disabled={index === 0 || undefined}
+                    data-move={`${entry.id}:-1`}
+                    onClick={() => move(entry.id, index, -1)}
                   />
                   <IconButton
                     icon={<ArrowDown className="h-4 w-4" aria-hidden="true" />}
                     label={`Move ${entry.singer} down`}
                     className="min-h-[44px] min-w-[44px]"
-                    disabled={index === waiting.length - 1}
-                    onClick={() => onMove(entry.id, 1)}
+                    aria-disabled={index === waiting.length - 1 || undefined}
+                    data-move={`${entry.id}:1`}
+                    onClick={() => move(entry.id, index, 1)}
                   />
                   <IconButton
                     icon={<X className="h-4 w-4" aria-hidden="true" />}

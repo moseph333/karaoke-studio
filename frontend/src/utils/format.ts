@@ -41,3 +41,11 @@ export function formatRate(rate: number): string {
   if (!Number.isFinite(rate) || rate <= 0) return '1.0x';
   return Number.isInteger(rate) ? `${rate.toFixed(1)}x` : `${rate}x`;
 }
+
+/** A place in a line, as it is said: 1 → "1st", 2 → "2nd", 11 → "11th", 22 → "22nd". */
+export function ordinal(place: number): string {
+  const tens = place % 100;
+  if (tens >= 11 && tens <= 13) return `${place}th`;
+  const suffix = ['th', 'st', 'nd', 'rd'][place % 10] ?? 'th';
+  return `${place}${suffix}`;
+}

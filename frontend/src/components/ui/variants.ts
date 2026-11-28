@@ -40,7 +40,7 @@ export const buttonSizes: Record<ButtonSize, string> = {
 export type IconButtonVariant = 'ghost' | 'subtle' | 'solid' | 'outline' | 'overlay';
 export type IconButtonSize = 'sm' | 'md' | 'lg';
 
-export const iconButtonBase = `relative inline-flex shrink-0 items-center justify-center transition-[background-color,border-color,color] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-40 ${focusRing}`;
+export const iconButtonBase = `relative inline-flex shrink-0 items-center justify-center transition-[background-color,border-color,color] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-40 aria-disabled:cursor-not-allowed aria-disabled:opacity-40 ${focusRing}`;
 
 export const iconButtonVariants: Record<IconButtonVariant, string> = {
   ghost:

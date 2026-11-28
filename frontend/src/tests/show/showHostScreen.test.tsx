@@ -314,8 +314,15 @@ describe('the queue', () => {
 
     expect(host.getByRole('heading', { name: 'Up next' })).toBeInTheDocument();
     expect(order(host)).toEqual(['Alex', 'Bo', 'Cy']);
-    expect(host.getByRole('button', { name: 'Move Alex up' })).toBeDisabled();
-    expect(host.getByRole('button', { name: 'Move Cy down' })).toBeDisabled();
+    // Marked, not disabled: the focus can rest there (showQueueFocus.test.tsx)
+    expect(host.getByRole('button', { name: 'Move Alex up' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+    expect(host.getByRole('button', { name: 'Move Cy down' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
   });
 
   it('moves a singer and takes one off', async () => {
