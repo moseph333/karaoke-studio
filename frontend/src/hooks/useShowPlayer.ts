@@ -343,9 +343,15 @@ export function useShowPlayer({
     };
   }, [keepPlace, placeNow]);
 
-  // The entry on stage was removed from the queue: stop what it was playing
+  // The entry on stage was removed from the queue: stop what it was playing. Only when
+  // somebody was on: run as the screen opens, with nobody on yet, this would wipe the note
+  // of which song is loading, after a press on "Start the song" that came before React got
+  // round to the screen's first effects, and the song's data would be dropped on arrival
+  const wasOn = useRef(currentId);
   useEffect(() => {
-    if (currentId) return;
+    const was = wasOn.current;
+    wasOn.current = currentId;
+    if (currentId || !was) return;
     pendingPlay.current = false;
     loadingId.current = null;
     audioRef.current?.pause();
