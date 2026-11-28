@@ -1,9 +1,10 @@
 /**
  * The host screen's sign-in: one passphrase, the show's or the studio's.
  *
- * Before the screen opens it is a gate with no way round it. Once the screen is open and its
- * sign-in has ended (`onClose` is given), it is a dialog over the show that can be put away:
- * the host may have a song to pause first.
+ * Before the screen opens it is a gate with no way round it. Over an open screen (`onClose`
+ * is given) it is a dialog that can be put away: when the sign-in has ended, since the host
+ * may have a song to pause first, and when it is about to (`endsIn`), since the night can
+ * start without it.
  */
 
 import React, { useRef, useState } from 'react';
@@ -17,14 +18,29 @@ export interface ShowSignInProps {
   onSignIn: (passphrase: string) => Promise<string | null>;
   /** The show is open behind the dialog: it can be closed, and says "again". */
   onClose?: () => void;
+  /** Seconds the sign-in still has: the dialog is asking early, before the night. */
+  endsIn?: number | null;
 }
 
-export const ShowSignIn: React.FC<ShowSignInProps> = ({ hasShowPassphrase, onSignIn, onClose }) => {
+/** "in about 3 hours", for a sign-in with that long left. */
+function howSoon(seconds: number): string {
+  const hours = Math.round(seconds / 3600);
+  if (hours < 1) return 'in less than an hour';
+  return hours === 1 ? 'in about an hour' : `in about ${hours} hours`;
+}
+
+export const ShowSignIn: React.FC<ShowSignInProps> = ({
+  hasShowPassphrase,
+  onSignIn,
+  onClose,
+  endsIn = null,
+}) => {
   const [passphrase, setPassphrase] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const again = Boolean(onClose);
+  const early = again && endsIn !== null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,9 +74,11 @@ export const ShowSignIn: React.FC<ShowSignInProps> = ({ hasShowPassphrase, onSig
             id="show-sign-in-title"
             className="ks-display text-[36px] font-black leading-[0.9] text-theme-text sm:text-[44px]"
           >
-            {again ? 'Sign in again' : 'Run the show'}
+            {early ? 'Sign in for tonight' : again ? 'Sign in again' : 'Run the show'}
           </h2>
           <p id="show-sign-in-desc" className="text-base text-theme-text-muted">
+            {early &&
+              `This sign-in ends ${howSoon(endsIn)}, which could be in the middle of a song. `}
             {hasShowPassphrase
               ? 'Enter the show passphrase you were given, or the studio passphrase.'
               : 'Enter the studio passphrase.'}
@@ -113,7 +131,7 @@ export const ShowSignIn: React.FC<ShowSignInProps> = ({ hasShowPassphrase, onSig
               className="min-h-[44px]"
               onClick={onClose}
             >
-              Not now
+              {early ? 'Carry on without' : 'Not now'}
             </Button>
           )}
         </form>
