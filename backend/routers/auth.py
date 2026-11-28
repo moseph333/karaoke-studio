@@ -14,6 +14,7 @@ from backend.auth import (
     get_client_ip,
     record_login_failure,
     reset_login_failures,
+    session_seconds_left,
 )
 from backend.schemas import LoginRequest, ShowLoginRequest
 
@@ -31,6 +32,9 @@ async def auth_status(request: Request):
     # studio offers the Server settings page
     # "show": this server has a passphrase that only runs a show (SHOW_PASSWORD), which the
     # host screen's sign-in takes as well; "show_authenticated": the request carries its token
+    # "expires_in", "show_expires_in": the seconds the session token and the show token it
+    # carries still have, null without one (so a screen that must not be signed out in the
+    # middle of something can ask for the passphrase beforehand)
     app_pwd = config.APP_PASSWORD
     admin = bool(config.ADMIN_PASSWORD)
     if not app_pwd:
@@ -40,14 +44,19 @@ async def auth_status(request: Request):
             "admin": admin,
             "show": False,
             "show_authenticated": False,
+            "expires_in": None,
+            "show_expires_in": None,
         }
     authenticated = authenticated_within_limit(request, app_pwd)
+    show_authenticated = show_auth.holds_token_within_limit(request)
     return {
         "auth_required": True,
         "authenticated": authenticated,
         "admin": admin,
         "show": show_auth.enabled(),
-        "show_authenticated": show_auth.holds_token_within_limit(request),
+        "show_authenticated": show_authenticated,
+        "expires_in": session_seconds_left(request, app_pwd) if authenticated else None,
+        "show_expires_in": show_auth.seconds_left(request) if show_authenticated else None,
     }
 
 
