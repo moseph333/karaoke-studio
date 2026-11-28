@@ -10,6 +10,9 @@ import { YT_STATE, type YouTubePlayerOptions } from '../../utils/youtube';
 
 export class FakeYouTubePlayer {
   static instances: FakeYouTubePlayer[] = [];
+  /** Whether players start at the `start` player variable, as YouTube's does. A test turns
+   *  it off to stand for a player that did not. */
+  static honoursStart = true;
 
   state: number = YT_STATE.unstarted;
   time = 0;
@@ -23,6 +26,8 @@ export class FakeYouTubePlayer {
     public options: YouTubePlayerOptions
   ) {
     this.muted = options.playerVars?.mute === 1;
+    const start = Number(options.playerVars?.start ?? 0);
+    if (FakeYouTubePlayer.honoursStart && start > 0) this.time = start;
     FakeYouTubePlayer.instances.push(this);
   }
 
@@ -99,6 +104,7 @@ type YouTubeWindow = Window & { YT?: unknown };
 /** Puts the API on the page, as if its script had loaded. */
 export function installFakeYouTube(): void {
   FakeYouTubePlayer.instances = [];
+  FakeYouTubePlayer.honoursStart = true;
   (window as YouTubeWindow).YT = { Player: FakeYouTubePlayer };
 }
 

@@ -7,12 +7,18 @@
  * middle of the night shows what is on. A video plays in the stage window, so its commands
  * go there and its reports (state, position, errors) come back here. When the host screen
  * closes, the stage window is told and goes back to its own idle card.
+ *
+ * A stage window that says hello while a video is on (it was closed and opened again, or
+ * reloaded) has a new player to make: the scene it is sent says where the old one was (`at`,
+ * from the last report of the video playing or paused), so the song goes on from there and
+ * not from its first bar.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   newStudioId,
   openStageLink,
+  resumeAt,
   type PlayerCommand,
   type PlayerReport,
   type StageLink,
@@ -41,16 +47,34 @@ export function useShowStage(onReport: (report: PlayerReport) => void): UseShowS
   const sceneRef = useRef<StageScene | null>(null);
   const onReportRef = useRef(onReport);
   onReportRef.current = onReport;
+  /** Where the video on stage was when last heard playing or paused, and which playing. */
+  const heardRef = useRef<{ play: number; time: number; duration: number } | null>(null);
 
   useEffect(() => {
+    // The scene for a stage window that has just opened: a video goes on from where it was
+    const sceneForNewWindow = (): StageScene | null => {
+      const scene = sceneRef.current;
+      const heard = heardRef.current;
+      if (!scene || (scene.kind !== 'youtube' && scene.kind !== 'file')) return scene;
+      if (!heard || heard.play !== scene.play) return scene;
+      const at = resumeAt(heard.time, heard.duration);
+      return at === null ? scene : { ...scene, at };
+    };
     const link = openStageLink((message) => {
       if (message.type === 'hello') {
         setIsOpen(true);
-        if (sceneRef.current) link?.post({ type: 'scene', from: hostId, scene: sceneRef.current });
+        const scene = sceneForNewWindow();
+        if (scene) link?.post({ type: 'scene', from: hostId, scene });
       } else if (message.type === 'closed') {
         setIsOpen(false);
       } else if (message.type === 'report' && message.to === hostId) {
-        onReportRef.current(message.report);
+        const { report } = message;
+        // A player being made reports "loading" at 0: only a video that is running, or held,
+        // says where it is
+        if (report.status === 'playing' || report.status === 'paused') {
+          heardRef.current = { play: report.play, time: report.time, duration: report.duration };
+        }
+        onReportRef.current(report);
       }
     });
     if (!link) return;

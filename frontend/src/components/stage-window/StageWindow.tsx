@@ -244,6 +244,7 @@ export const StageWindow: React.FC = () => {
         ref={videoRef}
         videoId={scene.videoId}
         play={scene.play}
+        at={scene.at}
         onReport={report}
       />
     );
@@ -254,6 +255,7 @@ export const StageWindow: React.FC = () => {
         ref={videoRef}
         url={scene.url}
         play={scene.play}
+        at={scene.at}
         onReport={report}
       />
     );

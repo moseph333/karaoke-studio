@@ -179,12 +179,15 @@ export function useShowPlayer({
           : report.error === 'unavailable'
             ? VIDEO_GONE
             : VIDEO_FAILED;
+      // A player that is being made, or held back by the browser, reports from 0: where the
+      // video was is kept, so the host's slider and its own picture do not jump to the start
+      const knowsPlace = report.status !== 'loading' && report.status !== 'blocked';
       setVideo((v) =>
         v && v.play === report.play
           ? {
               ...v,
               status: report.status,
-              time: report.time,
+              time: knowsPlace ? report.time : v.time,
               duration: report.duration || v.duration,
               failure,
             }

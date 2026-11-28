@@ -7,6 +7,10 @@
  * times a second while it plays). A browser only starts sound in a window that has been
  * clicked or typed in; a video that does not start is reported as `blocked`, and the host
  * says to click the stage window once.
+ *
+ * `at` is where a player starts when it is not the video's first: the stage window was
+ * closed and opened again in the middle of a song. It is read once, when the player is made,
+ * so a scene sent again to a window that is already playing moves nothing.
  */
 
 import React, { useEffect, useImperativeHandle, useRef } from 'react';
@@ -24,10 +28,14 @@ export interface StageVideoHandle {
 interface StageVideoProps {
   /** Which playing this is; goes back in every report. */
   play: number;
+  /** Seconds into the video to start at; from the top without it. */
+  at?: number;
   onReport: (report: PlayerReport) => void;
 }
 
 const REPORT_MS = 250;
+/** A player that started this far short of where it was asked to is moved there. */
+const RESUME_SHORT_SEC = 3;
 /** A video that has not started this long after it was ready was stopped by the browser. */
 const BLOCKED_AFTER_MS = 4000;
 
@@ -41,15 +49,19 @@ function youtubeError(code: number): PlayerError {
 export const YouTubeVideo = React.forwardRef<
   StageVideoHandle,
   StageVideoProps & { videoId: string }
->(function YouTubeVideo({ videoId, play, onReport }, ref) {
+>(function YouTubeVideo({ videoId, play, at, onReport }, ref) {
   const mountRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const reportRef = useRef(onReport);
   reportRef.current = onReport;
+  // Where this player starts, as given when it was made
+  const startAt = useRef(at && at > 0 ? at : 0);
 
   useEffect(() => {
     let cancelled = false;
     let failed = false;
+    const resume = startAt.current;
+    let placed = resume <= 0;
     let ticker: ReturnType<typeof setInterval> | null = null;
     let blockedTimer: ReturnType<typeof setTimeout> | null = null;
     const send = (status: PlayerReport['status'], error?: PlayerError) => {
@@ -92,6 +104,7 @@ export const YouTubeVideo = React.forwardRef<
             iv_load_policy: 3,
             playsinline: 1,
             origin: window.location.origin,
+            ...(resume > 0 ? { start: Math.floor(resume) } : {}),
           },
           events: {
             onReady: ({ target }) => {
@@ -110,7 +123,14 @@ export const YouTubeVideo = React.forwardRef<
                 }
               }, REPORT_MS);
             },
-            onStateChange: ({ data }) => {
+            onStateChange: ({ data, target }) => {
+              // Asked to start part-way and started short of it: go there, once
+              if (!placed && data === YT_STATE.playing) {
+                placed = true;
+                if (target.getCurrentTime() < resume - RESUME_SHORT_SEC) {
+                  target.seekTo(resume, true);
+                }
+              }
               if (!failed) send(statusOf(data));
             },
             onError: ({ data }) => {
@@ -180,15 +200,18 @@ export const YouTubeVideo = React.forwardRef<
 });
 
 export const FileVideo = React.forwardRef<StageVideoHandle, StageVideoProps & { url: string }>(
-  function FileVideo({ url, play, onReport }, ref) {
+  function FileVideo({ url, play, at, onReport }, ref) {
     const videoRef = useRef<HTMLVideoElement>(null);
     const reportRef = useRef(onReport);
     reportRef.current = onReport;
+    const startAt = useRef(at && at > 0 ? at : 0);
 
     useEffect(() => {
       const video = videoRef.current;
       if (!video) return;
       let cancelled = false;
+      // Set before it plays: the file then loads from there
+      if (startAt.current > 0) video.currentTime = startAt.current;
       const send = (status: PlayerReport['status'], error?: PlayerError) => {
         if (cancelled) return;
         reportRef.current({
