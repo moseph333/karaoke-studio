@@ -162,7 +162,7 @@ The levels are part of the song like its key: videos are rendered with them, a m
 
 **Run a show** (on the home screen, or in the command palette) opens a host screen for running karaoke with one computer and two screens: yours has the queue, and the TV or projector has the stage window.
 
-- **Add a singer**: type their name, then pick their song. **Karaoke videos** searches YouTube for karaoke uploads of the song (a pasted YouTube link works too); **Library** lists the songs you have made here.
+- **Add a singer**: type their name, then pick their song. **Karaoke videos** searches YouTube for karaoke uploads of the song (a pasted YouTube link works too); **Library** lists the songs you have made here, including ones finished since the host screen was opened.
 - **Start the song** calls the first singer in the queue. Between singers the TV shows who is up next with their song, and the name of the night when nobody is waiting. A song that ends is marked sung and the next singer is called; "Again" puts a singer back in the queue. While a song is on, the queue's rows start nobody: end or skip the song first.
 - **A new night.** The queue is kept until you clear it. Opened with one from another day, the host screen says which day and offers **Start a new night** (an empty queue) or **Keep this queue**. **Start a new night** is also under the queue; it and **Clear the list** ask first.
 - **Undo.** Taking a singer off the queue, **Skip** and **Song is over** each say what happened with an **Undo** beside it for ten seconds. A singer taken off is also kept under "Sung tonight", so they can be put back later. An undone song is called again with **Resume at** where it was.

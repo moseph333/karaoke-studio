@@ -196,7 +196,7 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session
   }, [forgetPlace, toast]);
 
   // A song nobody could find goes on the server's request list, with who asked and where
-  const { requests, ask } = useSongRequests();
+  const { requests, ask } = useSongRequests(undefined, { refreshOnFocus: true });
   const requestSong = useCallback(
     async (song: string, singer: string) => {
       const result = await ask(song, singer, title);

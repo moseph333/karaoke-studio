@@ -123,9 +123,11 @@ export function useShowVideos(videoIds: string[]): UseShowVideos {
     }
   }, [key, merge, fetchCopy]);
 
-  // Videos being fetched: follow them until they are ready or have failed
+  // Videos being fetched: follow them until they are ready or have failed. Only those
+  // still in the queue: one whose singer has sung or been cleared is nobody's to wait for
+  const queued = new Set(key ? key.split(' ') : []);
   const fetching = Object.keys(videos)
-    .filter((videoId) => videos[videoId].status === 'fetching')
+    .filter((videoId) => queued.has(videoId) && videos[videoId].status === 'fetching')
     .join(' ');
   useEffect(() => {
     if (!fetching) return;

@@ -43,6 +43,9 @@ function videoSource(result: SearchResult): ShowSource {
   };
 }
 
+/** The library list is read again once it is this old: songs are made during a night. */
+const LIBRARY_FRESH_MS = 60_000;
+
 export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd, onRequest }) => {
   const [singer, setSinger] = useState('');
   const [needsName, setNeedsName] = useState(false);
@@ -53,6 +56,9 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd, onRequest }
   const [searchError, setSearchError] = useState<string | null>(null);
   const [library, setLibrary] = useState<ProjectState[] | null>(null);
   const [libraryError, setLibraryError] = useState(false);
+  /** Goes up to have the library looked at again; it is read only when its copy is old. */
+  const [libraryLook, setLibraryLook] = useState(0);
+  const libraryReadAt = useRef(0);
   const [requesting, setRequesting] = useState(false);
   const singerRef = useRef<HTMLInputElement>(null);
   const searchRun = useRef(0);
@@ -69,6 +75,7 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd, onRequest }
     setVideos(null);
     setSearching(false);
     setSearchError(null);
+    setLibraryLook((look) => look + 1);
     singerRef.current?.focus();
   }, []);
 
@@ -136,10 +143,13 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd, onRequest }
     }
   }, [words]);
 
-  // The library is read when its tab is first opened
-  const wantsLibrary = tab === 'library' && library === null && !libraryError;
+  // The library is read when its tab is opened, and again whenever it is looked at with a
+  // copy over a minute old: when the tab is opened again, the window is come back to, or a
+  // singer has just been queued. A song finished during the night is then there to pick
+  const onLibrary = tab === 'library';
   useEffect(() => {
-    if (!wantsLibrary) return;
+    if (!onLibrary) return;
+    if (Date.now() - libraryReadAt.current <= LIBRARY_FRESH_MS) return;
     let cancelled = false;
     apiFetch('/api/projects?scope=all&summary=1')
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error('failed'))))
@@ -151,15 +161,24 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd, onRequest }
           seen.add(song.id);
           return true;
         });
+        libraryReadAt.current = Date.now();
+        setLibraryError(false);
         setLibrary(songs.reverse());
       })
       .catch(() => {
+        // A list already in hand stays: it is tried again at the next look
         if (!cancelled) setLibraryError(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [wantsLibrary]);
+  }, [onLibrary, libraryLook]);
+  useEffect(() => {
+    if (!onLibrary) return;
+    const look = () => setLibraryLook((n) => n + 1);
+    window.addEventListener('focus', look);
+    return () => window.removeEventListener('focus', look);
+  }, [onLibrary]);
 
   const librarySongs = useMemo(() => {
     const needle = words.trim().toLowerCase();
@@ -321,10 +340,22 @@ export const ShowAddSinger: React.FC<ShowAddSingerProps> = ({ onAdd, onRequest }
           </>
         ) : (
           <>
-            {libraryError && (
-              <p role="alert" className="text-sm text-theme-danger">
-                The library could not be read. Reload the page to try again.
-              </p>
+            {libraryError && !library && (
+              <div className="flex flex-wrap items-center gap-3">
+                <p role="alert" className="text-sm text-theme-danger">
+                  The library could not be read.
+                </p>
+                <Button
+                  variant="secondary"
+                  className="min-h-[44px]"
+                  onClick={() => {
+                    setLibraryError(false);
+                    setLibraryLook((look) => look + 1);
+                  }}
+                >
+                  Read it again
+                </Button>
+              </div>
             )}
             {!library && !libraryError && (
               <p className="flex items-center gap-2 text-sm text-theme-text-muted">
