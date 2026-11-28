@@ -14,12 +14,18 @@
  * Opened with a studio sign-in that would end during the night, it asks for the passphrase
  * first, once: before anybody sings is the moment it costs nothing. (A show sign-in renews
  * itself and is never asked for this way.)
+ *
+ * One tab runs the show (`useShowHostLock`): a second one, once signed in, says the show is
+ * open elsewhere and mounts no host screen, so it writes no queue and sends the stage window
+ * nothing until it is told to take the show over.
  */
 
 import React, { useEffect, useState } from 'react';
 import { useShowAuth } from '../../hooks/useShowAuth';
+import { useShowHostLock } from '../../hooks/useShowHostLock';
 import { SHOW_PARAM, isShowUrl } from '../../utils/stageLink';
 import { Button } from '../ui';
+import { ShowOneHost } from './ShowOneHost';
 import { ShowScreen } from './ShowScreen';
 import { ShowSignIn } from './ShowSignIn';
 
@@ -29,6 +35,9 @@ export const ShowApp: React.FC = () => {
   const [carriedOn, setCarriedOn] = useState(false);
   const ended = auth.access === 'ended';
   const early = auth.access === 'open' && auth.endsIn !== null && !carriedOn;
+  // Only a tab that is past the sign-in asks for the show: one sitting at the sign-in
+  // must not keep it from a tab that could run it
+  const host = useShowHostLock(auth.access === 'open' || ended);
 
   // A show sign-in opens the host screen at the app's own address; without its token that
   // address is the studio's again
@@ -47,6 +56,8 @@ export const ShowApp: React.FC = () => {
   if (auth.access === 'locked') {
     return <ShowSignIn hasShowPassphrase={auth.hasShowPassphrase} onSignIn={auth.signIn} />;
   }
+  if (host.turn === 'waiting') return null;
+  if (host.turn === 'elsewhere') return <ShowOneHost onTakeOver={host.takeOver} />;
   return (
     <>
       {ended && (
