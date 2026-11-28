@@ -128,6 +128,7 @@ def isolate_test_environment(tmp_path: Path, monkeypatch):
         "SELF_UPDATE",
         "UPDATE_DRAIN_MAX_SEC",
         "LIBRARY_SNAPSHOT_DAYS",
+        "PAGE_CONTENT_SECURITY_POLICY",
     ):
         monkeypatch.delenv(name, raising=False)
     from backend import library_snapshots, project_store, server_settings, update_drain

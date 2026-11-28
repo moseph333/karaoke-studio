@@ -4,6 +4,7 @@ They replace two BaseHTTPMiddleware layers, which ran every request's endpoint i
 its own and passed each response body through an extra stream.
 """
 
+import os
 import re
 import uuid
 
@@ -258,6 +259,48 @@ PERMISSIONS_POLICY = "camera=(), microphone=(self), geolocation=(), payment=(), 
 # The interactive API reference loads its viewer script, so it is not sandboxed
 _CSP_EXEMPT_PATHS = frozenset({"/api/docs"})
 
+# For the studio's own pages (the built frontend: the studio, a stage window, a show). Script
+# runs only from this server's files and from YouTube, whose player a show's karaoke videos
+# use, so text that got into the page (a song title, a lyric line, a search result) cannot
+# run as script, load a plugin, change where the page's links and forms point, or send what
+# the page knows to another server with fetch. Images and sound may come from any https
+# host: search results show the catalogs' artwork and play their previews. Styles are not
+# restricted further, since the boot shell in index.html is styled inline.
+PAGE_CSP = "; ".join(
+    (
+        "default-src 'self'",
+        "script-src 'self' https://www.youtube.com",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' data: blob: https:",
+        "media-src 'self' blob: https:",
+        "font-src 'self' data:",
+        "connect-src 'self'",
+        "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
+        "worker-src 'self'",
+        "manifest-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+    )
+)
+# The page the service worker shows without a connection reloads itself from an inline
+# script and an onclick, and holds nothing of the library
+_PAGE_CSP_EXEMPT_PATHS = frozenset({"/offline.html"})
+
+
+def page_csp() -> str:
+    """The Content-Security-Policy for the studio's pages: PAGE_CSP, or the text of
+    PAGE_CONTENT_SECURITY_POLICY when that is set (read on each request), where "off" sends
+    none. The setting is there so an owner can loosen or drop the policy from .env the day
+    something the page loads moves, without waiting for a release."""
+    override = os.getenv("PAGE_CONTENT_SECURITY_POLICY", "").strip()
+    if not override:
+        return PAGE_CSP
+    if override.lower() in ("off", "none", "0", "false"):
+        return ""
+    return override
+
 
 def _wants_inert_csp(path: str) -> bool:
     return (path.startswith("/api/") or path.startswith("/static/")) and (
@@ -265,11 +308,21 @@ def _wants_inert_csp(path: str) -> bool:
     )
 
 
+def _is_studio_page(path: str, headers: MutableHeaders) -> bool:
+    """Whether a response is one of the frontend's HTML pages. Only documents get the page
+    policy: on sw.js it would become the service worker's own."""
+    if path.startswith("/api/") or path.startswith("/static/"):
+        return False
+    if path in _PAGE_CSP_EXEMPT_PATHS:
+        return False
+    return headers.get("content-type", "").lower().startswith("text/html")
+
+
 class SecurityHeaders:
     """nosniff, frame, referrer, permissions and opener headers on every response, a
-    Content-Security-Policy that sandboxes API and media responses, plus the Cache-Control of
-    cache_control_for() when the response sets none. The studio's own page gets no CSP yet:
-    its inline boot script would need a hash."""
+    Content-Security-Policy that sandboxes API and media responses and one that lets the
+    studio's own pages run only this server's script (page_csp()), plus the Cache-Control of
+    cache_control_for() when the response sets none."""
 
     def __init__(self, app: ASGIApp) -> None:
         self.app = app
@@ -288,8 +341,13 @@ class SecurityHeaders:
                 headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
                 headers["Permissions-Policy"] = PERMISSIONS_POLICY
                 headers["Cross-Origin-Opener-Policy"] = "same-origin"
-                if _wants_inert_csp(path) and "content-security-policy" not in headers:
-                    headers["Content-Security-Policy"] = API_AND_MEDIA_CSP
+                if "content-security-policy" not in headers:
+                    if _wants_inert_csp(path):
+                        headers["Content-Security-Policy"] = API_AND_MEDIA_CSP
+                    elif _is_studio_page(path, headers):
+                        policy = page_csp()
+                        if policy:
+                            headers["Content-Security-Policy"] = policy
                 cache_control = cache_control_for(path, message["status"])
                 if cache_control and "cache-control" not in headers:
                     headers["Cache-Control"] = cache_control
