@@ -759,6 +759,8 @@ def test_auth_status_open_by_default(client, monkeypatch):
         "admin": False,
         "show": False,
         "show_authenticated": False,
+        "expires_in": None,
+        "show_expires_in": None,
     }
 
 
