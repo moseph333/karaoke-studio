@@ -5,18 +5,66 @@
  * The sign-in takes the studio passphrase or, on a server that has one, the show passphrase
  * a venue's host is given (`useShowAuth`). That one only runs a show, so the screen then has
  * no way back to the songs.
+ *
+ * A sign-in that ends while the screen is open does not close it: the song on stage keeps
+ * playing, a line across the top says what happened, and the host signs in again from there
+ * when there is a moment. The address is kept as the host screen's, so a reload made while
+ * signed out comes back here and not to the studio's sign-in.
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useShowAuth } from '../../hooks/useShowAuth';
+import { SHOW_PARAM, isShowUrl } from '../../utils/stageLink';
+import { Button } from '../ui';
 import { ShowScreen } from './ShowScreen';
 import { ShowSignIn } from './ShowSignIn';
 
 export const ShowApp: React.FC = () => {
   const auth = useShowAuth();
+  const [asking, setAsking] = useState(false);
+  const ended = auth.access === 'ended';
+
+  // A show sign-in opens the host screen at the app's own address; without its token that
+  // address is the studio's again
+  useEffect(() => {
+    if (isShowUrl(window.location.search)) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set(SHOW_PARAM, '1');
+    window.history.replaceState(window.history.state, '', url);
+  }, []);
+
+  useEffect(() => {
+    if (!ended) setAsking(false);
+  }, [ended]);
+
   if (auth.access === 'checking') return null;
   if (auth.access === 'locked') {
     return <ShowSignIn hasShowPassphrase={auth.hasShowPassphrase} onSignIn={auth.signIn} />;
   }
-  return <ShowScreen canLeave={auth.studio} />;
+  return (
+    <>
+      {ended && (
+        <div
+          role="alert"
+          data-testid="show-signed-out"
+          className="flex flex-wrap items-center gap-x-6 gap-y-2 border-b-2 border-theme-border bg-theme-bg px-4 py-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] font-theme-body text-theme-text sm:px-8"
+        >
+          <p className="min-w-0 flex-1 text-base text-theme-warning">
+            The sign-in has ended. What is playing carries on; sign in again to start the next song.
+          </p>
+          <Button variant="primary" className="min-h-[44px]" onClick={() => setAsking(true)}>
+            Sign in again
+          </Button>
+        </div>
+      )}
+      <ShowScreen canLeave={auth.studio} session={auth.session} />
+      {ended && asking && (
+        <ShowSignIn
+          hasShowPassphrase={auth.hasShowPassphrase}
+          onSignIn={auth.signIn}
+          onClose={() => setAsking(false)}
+        />
+      )}
+    </>
+  );
 };

@@ -81,10 +81,11 @@ const Position: React.FC<{
   );
 };
 
-const Trouble: React.FC<{ trouble: ShowTrouble; onOpenStage: () => void }> = ({
-  trouble,
-  onOpenStage,
-}) => {
+const Trouble: React.FC<{
+  trouble: ShowTrouble;
+  onOpenStage: () => void;
+  onRetry: () => void;
+}> = ({ trouble, onOpenStage, onRetry }) => {
   if (trouble.kind === 'fetching') {
     return (
       <div role="status" className="flex flex-col gap-2 text-sm text-theme-text">
@@ -106,12 +107,22 @@ const Trouble: React.FC<{ trouble: ShowTrouble; onOpenStage: () => void }> = ({
       </div>
     );
   }
+  if (trouble.kind === 'blocked') {
+    return (
+      <p role="alert" className="text-sm text-theme-warning">
+        The browser is holding the sound back. Click once in the stage window, then press Play.
+      </p>
+    );
+  }
   return (
-    <p role="alert" className="text-sm text-theme-warning">
-      {trouble.kind === 'blocked'
-        ? 'The browser is holding the sound back. Click once in the stage window, then press Play.'
-        : trouble.message}
-    </p>
+    <div className="flex flex-wrap items-center gap-3">
+      <p role="alert" className="text-sm text-theme-warning">
+        {trouble.message}
+      </p>
+      <Button variant="secondary" className="min-h-[44px]" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
   );
 };
 
@@ -214,7 +225,7 @@ export const ShowNowSinging: React.FC<ShowNowSingingProps> = ({
         <p className="text-lg text-theme-text">{songOf(current)}</p>
       </div>
 
-      {trouble && <Trouble trouble={trouble} onOpenStage={onOpenStage} />}
+      {trouble && <Trouble trouble={trouble} onOpenStage={onOpenStage} onRetry={player.retry} />}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button

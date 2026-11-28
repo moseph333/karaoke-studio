@@ -5,6 +5,10 @@
  * passphrase, which opens everything, or the server's show passphrase (when it has one), which
  * only runs a show and is what a venue's host is given. A show sign-in cannot leave for the
  * library and the studio (`studio` is false), since nothing there would answer it.
+ *
+ * A sign-in that ends while the screen is open (`ended`) does not shut it: the song on stage
+ * is the room's, so the screen stays and asks for the passphrase beside it. `session` counts
+ * the sign-ins made here, so the screen can try again what the ended one refused.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -17,7 +21,8 @@ import {
   setShowToken,
 } from '../api';
 
-export type ShowAccess = 'checking' | 'open' | 'locked';
+/** `ended`: the screen was open and the server has since stopped taking its sign-in. */
+export type ShowAccess = 'checking' | 'open' | 'locked' | 'ended';
 
 export interface UseShowAuth {
   access: ShowAccess;
@@ -25,6 +30,8 @@ export interface UseShowAuth {
   studio: boolean;
   /** The server has a show passphrase, so the sign-in says it takes one. */
   hasShowPassphrase: boolean;
+  /** How many times this screen has signed in: it goes up when a passphrase is taken. */
+  session: number;
   /** Signs in with a passphrase of either kind; resolves to an error message, or null. */
   signIn: (passphrase: string) => Promise<string | null>;
 }
@@ -52,6 +59,7 @@ export function useShowAuth(): UseShowAuth {
   const [access, setAccess] = useState<ShowAccess>('checking');
   const [studio, setStudio] = useState(false);
   const [hasShowPassphrase, setHasShowPassphrase] = useState(false);
+  const [session, setSession] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,9 +83,10 @@ export function useShowAuth(): UseShowAuth {
         if (!cancelled) setAccess('open');
       });
 
+    // A screen that was open stays open: it only says the sign-in has ended
     const signedOut = () => {
       setStudio(false);
-      setAccess('locked');
+      setAccess((was) => (was === 'open' || was === 'ended' ? 'ended' : 'locked'));
     };
     window.addEventListener(AUTH_UNAUTHORIZED_EVENT, signedOut);
     return () => {
@@ -99,6 +108,7 @@ export function useShowAuth(): UseShowAuth {
             setShowToken(data.token ?? null);
             setStudio(false);
             setAccess('open');
+            setSession((count) => count + 1);
             return null;
           }
           if (asShow.status === 429) return TOO_MANY;
@@ -109,6 +119,7 @@ export function useShowAuth(): UseShowAuth {
           setAuthToken(data.token ?? password);
           setStudio(true);
           setAccess('open');
+          setSession((count) => count + 1);
           return null;
         }
         if (asStudio.status === 429) return TOO_MANY;
@@ -121,5 +132,5 @@ export function useShowAuth(): UseShowAuth {
     [hasShowPassphrase]
   );
 
-  return { access, studio, hasShowPassphrase, signIn };
+  return { access, studio, hasShowPassphrase, session, signIn };
 }
