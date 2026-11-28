@@ -12,10 +12,17 @@
  * reloaded) has a new player to make: the scene it is sent says where the old one was (`at`,
  * from the last report of the video playing or paused), so the song goes on from there and
  * not from its first bar.
+ *
+ * A stage window that closes says so. One that crashed or was killed says nothing, so the
+ * host asks every few seconds (`ping`) and takes a window that has stopped answering to be
+ * gone. It only starts counting once a window has answered: a stage window from before this
+ * was added never answers, and is believed until it says it has closed.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  STAGE_PINGS_MISSED,
+  STAGE_PING_MS,
   newStudioId,
   openStageLink,
   resumeAt,
@@ -60,8 +67,16 @@ export function useShowStage(onReport: (report: PlayerReport) => void): UseShowS
       const at = resumeAt(heard.time, heard.duration);
       return at === null ? scene : { ...scene, at };
     };
+    // Asks, and what came back: `answers` is whether a stage window has ever answered one
+    let answers = false;
+    let missed = 0;
     const link = openStageLink((message) => {
-      if (message.type === 'hello') {
+      if (message.type === 'pong' && message.to === hostId) {
+        answers = true;
+        missed = 0;
+        setIsOpen(true);
+      } else if (message.type === 'hello') {
+        missed = 0;
         setIsOpen(true);
         const scene = sceneForNewWindow();
         if (scene) link?.post({ type: 'scene', from: hostId, scene });
@@ -81,9 +96,17 @@ export function useShowStage(onReport: (report: PlayerReport) => void): UseShowS
     linkRef.current = link;
     link.post({ type: 'who' });
     if (sceneRef.current) link.post({ type: 'scene', from: hostId, scene: sceneRef.current });
+    // The count is of asks that went unanswered, checked when the next one is sent: a host
+    // tab whose timers run late only finds out later, never wrongly
+    const pinger = setInterval(() => {
+      if (answers && missed >= STAGE_PINGS_MISSED) setIsOpen(false);
+      missed += 1;
+      link.post({ type: 'ping', from: hostId });
+    }, STAGE_PING_MS);
     const leave = () => link.post({ type: 'scene', from: hostId, scene: null });
     window.addEventListener('pagehide', leave);
     return () => {
+      clearInterval(pinger);
       window.removeEventListener('pagehide', leave);
       leave();
       link.close();

@@ -137,7 +137,17 @@ export type StageMessage =
   /** From a show's host, to the video playing in the stage window. */
   | { type: 'player'; from: string; command: PlayerCommand }
   /** From a stage window's video player, to the host that put it there. */
-  | { type: 'report'; to: string; report: PlayerReport };
+  | { type: 'report'; to: string; report: PlayerReport }
+  /** From a show's host, every few seconds: is the stage window still there? A window that
+   *  closes says `closed`, but one that crashed or was killed says nothing. */
+  | { type: 'ping'; from: string }
+  /** From a stage window, to the host that asked. */
+  | { type: 'pong'; to: string };
+
+/** How often a show's host asks whether the stage window is still there. */
+export const STAGE_PING_MS = 3000;
+/** This many asks in a row with no answer, and the stage window is taken to be gone. */
+export const STAGE_PINGS_MISSED = 2;
 
 export const PAUSED_AT_START: StageTransport = {
   time: 0,

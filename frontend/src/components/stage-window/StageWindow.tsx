@@ -143,6 +143,9 @@ export const StageWindow: React.FC = () => {
         if (message.from === hostRef.current) videoRef.current?.command(message.command);
       } else if (message.type === 'who') {
         link?.post({ type: 'hello' });
+      } else if (message.type === 'ping') {
+        // Still here: a host that hears nothing for a while takes this window to be gone
+        link?.post({ type: 'pong', to: message.from });
       }
     });
     linkRef.current = link;
