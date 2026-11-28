@@ -117,8 +117,9 @@ export interface UseShowPlayer {
   start: (entry: ShowEntry, at?: number) => void;
   /** Where an entry that was cut off would be picked up (seconds), or null. */
   resumeFor: (entry: ShowEntry) => number | null;
-  /** Forgets the place kept for an entry: its next start is from the top. */
-  forgetPlace: (entryId: string) => void;
+  /** Forgets the place kept for an entry (its next start is from the top), or with no
+   *  entry, whatever place is kept. */
+  forgetPlace: (entryId?: string) => void;
   toggle: () => void;
   seek: (time: number) => void;
   restart: () => void;
@@ -321,9 +322,10 @@ export function useShowPlayer({
   }, [current, start]);
 
   const resumeFor = useCallback((entry: ShowEntry) => resumePlace(resume, entry.id), [resume]);
-  const forgetPlace = useCallback((entryId: string) => {
-    if (loadShowResume()?.entryId === entryId) saveShowResume(null);
-    setResume((kept) => (kept?.entryId === entryId ? null : kept));
+  const forgetPlace = useCallback((entryId?: string) => {
+    const mine = (kept: ShowResume | null) => !entryId || kept?.entryId === entryId;
+    if (mine(loadShowResume())) saveShowResume(null);
+    setResume((kept) => (mine(kept) ? null : kept));
   }, []);
 
   // The page is going (a reload, a closed tab): write down exactly where the song is

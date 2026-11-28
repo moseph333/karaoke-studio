@@ -23,6 +23,10 @@ import type { StageBilling } from './stageLink';
 export const SHOW_QUEUE_STORAGE_KEY = 'karaoke_show_queue_v1';
 export const SHOW_TITLE_STORAGE_KEY = 'karaoke_show_title_v1';
 export const SHOW_TURNS_STORAGE_KEY = 'karaoke_show_turns_v1';
+/** When the queue was last saved, in milliseconds: how the screen tells an old night's. */
+export const SHOW_SAVED_AT_STORAGE_KEY = 'karaoke_show_saved_at_v1';
+/** A queue last saved longer ago than this belongs to another night. */
+export const OLD_QUEUE_MS = 12 * 60 * 60 * 1000;
 export const DEFAULT_SHOW_TITLE = 'Karaoke night';
 const SINGER_MAX = 40;
 const TITLE_MAX = 60;
@@ -76,7 +80,9 @@ export type ShowAction =
   | { type: 'skip'; id: string }
   /** A singer who has sung, or was skipped, joins the line again as a song just added does. */
   | { type: 'again'; id: string; turns?: boolean }
-  | { type: 'clear-finished' };
+  | { type: 'clear-finished' }
+  /** A new night: nobody waiting, nobody sung. */
+  | { type: 'clear' };
 
 export function cleanSinger(name: string): string {
   return name.replace(/\s+/g, ' ').trim().slice(0, SINGER_MAX);
@@ -204,6 +210,8 @@ export function showQueueReducer(queue: ShowQueue, action: ShowAction): ShowQueu
     }
     case 'clear-finished':
       return queue.filter((e) => e.status === 'waiting' || e.status === 'playing');
+    case 'clear':
+      return queue.length === 0 ? queue : [];
     default:
       return queue;
   }
@@ -279,9 +287,26 @@ export function loadShowQueue(): ShowQueue {
 export function saveShowQueue(queue: ShowQueue): void {
   try {
     window.localStorage.setItem(SHOW_QUEUE_STORAGE_KEY, JSON.stringify(queue));
+    window.localStorage.setItem(SHOW_SAVED_AT_STORAGE_KEY, String(Date.now()));
   } catch {
     // Storage is full or blocked: the queue lasts as long as the page does
   }
+}
+
+/** When the queue was last saved, or null when that was never written down (a queue from
+ *  before it was) or cannot be read. */
+export function loadShowSavedAt(): number | null {
+  try {
+    const saved = Number(window.localStorage.getItem(SHOW_SAVED_AT_STORAGE_KEY));
+    return Number.isFinite(saved) && saved > 0 ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Whether a queue saved then is another night's: saved long ago, or nobody knows when. */
+export function isOldQueue(savedAt: number | null, now: number): boolean {
+  return savedAt === null || now - savedAt > OLD_QUEUE_MS;
 }
 
 export function loadShowTitle(): string {
