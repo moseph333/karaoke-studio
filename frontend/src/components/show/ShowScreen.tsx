@@ -45,6 +45,8 @@ import { ShowQueueList } from './ShowQueueList';
 import { ShowRequests } from './ShowRequests';
 
 const POPUP_BLOCKED = 'The browser blocked the stage window. Allow pop-ups for this site.';
+/** A toast with Undo stays this long: the host is usually looking at the room. */
+const UNDO_MS = 10_000;
 
 export interface ShowScreenProps {
   /** Whether the screen offers the way back to the songs. A show-only sign-in has none: the
@@ -120,6 +122,39 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session
     },
     [queue, waiting, turns, toast]
   );
+
+  // What the host does by hand to a singer can be taken back from the toast that says it.
+  // Each Undo is that one action's opposite, so two of them up at once do not collide
+  const { current: onNow, finish, skip } = player;
+  const takeOff = useCallback(
+    (id: string) => {
+      const entry = queue.find((e) => e.id === id);
+      dispatch({ type: 'set-aside', id });
+      if (!entry) return;
+      toast.show(`${entry.singer} is off the queue`, 'info', UNDO_MS, {
+        label: 'Undo',
+        onClick: () => dispatch({ type: 'recall', id }),
+      });
+    },
+    [queue, toast]
+  );
+  const offStage = useCallback(
+    (how: 'finish' | 'skip') => {
+      const entry = onNow;
+      if (how === 'finish') finish();
+      else skip();
+      if (!entry) return;
+      const said = how === 'finish' ? `${entry.singer}’s song is over` : `${entry.singer} skipped`;
+      // Called next again; the place the song was at is kept, so it can be resumed
+      toast.show(said, 'info', UNDO_MS, {
+        label: 'Undo',
+        onClick: () => dispatch({ type: 'recall', id: entry.id, head: true }),
+      });
+    },
+    [onNow, finish, skip, toast]
+  );
+  const endSong = useCallback(() => offStage('finish'), [offStage]);
+  const skipSong = useCallback(() => offStage('skip'), [offStage]);
 
   // A song nobody could find goes on the server's request list, with who asked and where
   const { requests, ask } = useSongRequests();
@@ -210,6 +245,8 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session
             next={waiting[0] ?? null}
             theme={theme}
             onOpenStage={openStage}
+            onFinish={endSong}
+            onSkip={skipSong}
           />
           <ShowQueueList
             waiting={waiting}
@@ -219,7 +256,7 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session
             onStart={player.start}
             onMove={(id, by) => dispatch({ type: 'move', id, by })}
             onPlace={(id, at) => dispatch({ type: 'place', id, at })}
-            onRemove={(id) => dispatch({ type: 'remove', id })}
+            onRemove={takeOff}
             onAgain={(id) => {
               // Going again is a new song from the top, not the one that was cut off
               player.forgetPlace(id);

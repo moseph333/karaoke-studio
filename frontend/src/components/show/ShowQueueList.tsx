@@ -6,6 +6,9 @@
  * with a mouse) or, one place at a time, with the row's arrow buttons. The switch beside the
  * heading says whether singers take turns: where a song that joins the line is put
  * (`showQueue.turnPlace`). It moves nobody who is already waiting.
+ *
+ * A row starts its singer only while nobody is on: with a song on stage the host ends or
+ * skips it first, from "Now singing", so one press on a row cannot cut a singer off.
  */
 
 import React from 'react';
@@ -20,7 +23,7 @@ export interface ShowQueueListProps {
   waiting: ShowEntry[];
   finished: ShowEntry[];
   videos: Record<string, ShowVideoInfo>;
-  /** Somebody is on stage: starting another takes them off. */
+  /** Somebody is on stage: the rows offer no Start until their song is ended or skipped. */
   busy: boolean;
   onStart: (entry: ShowEntry) => void;
   onMove: (id: string, by: -1 | 1) => void;
@@ -126,15 +129,17 @@ export const ShowQueueList: React.FC<ShowQueueListProps> = ({
                   }
                 />
                 <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    variant="secondary"
-                    className="min-h-[44px]"
-                    leftIcon={<Play className="h-4 w-4" aria-hidden="true" />}
-                    aria-label={`Start ${entry.singer}${busy ? ' now' : ''}`}
-                    onClick={() => onStart(entry)}
-                  >
-                    Start
-                  </Button>
+                  {!busy && (
+                    <Button
+                      variant="secondary"
+                      className="min-h-[44px]"
+                      leftIcon={<Play className="h-4 w-4" aria-hidden="true" />}
+                      aria-label={`Start ${entry.singer}`}
+                      onClick={() => onStart(entry)}
+                    >
+                      Start
+                    </Button>
+                  )}
                   <IconButton
                     icon={<ArrowUp className="h-4 w-4" aria-hidden="true" />}
                     label={`Move ${entry.singer} up`}

@@ -26,6 +26,10 @@ export interface ShowNowSingingProps {
   next: ShowEntry | null;
   theme: UseVisualThemeReturn;
   onOpenStage: () => void;
+  /** "Song is over" and "Skip", when the screen wraps them (to offer an undo); the
+   *  player's own otherwise. */
+  onFinish?: () => void;
+  onSkip?: () => void;
 }
 
 const label = 'text-sm font-semibold uppercase tracking-wide';
@@ -175,6 +179,8 @@ export const ShowNowSinging: React.FC<ShowNowSingingProps> = ({
   next,
   theme,
   onOpenStage,
+  onFinish = player.finish,
+  onSkip = player.skip,
 }) => {
   const { current, project, trouble } = player;
 
@@ -289,7 +295,7 @@ export const ShowNowSinging: React.FC<ShowNowSingingProps> = ({
           variant="secondary"
           className="min-h-[44px]"
           leftIcon={<Check className="h-4 w-4" aria-hidden="true" />}
-          onClick={player.finish}
+          onClick={onFinish}
         >
           Song is over
         </Button>
@@ -297,7 +303,7 @@ export const ShowNowSinging: React.FC<ShowNowSingingProps> = ({
           variant="ghost"
           className="min-h-[44px]"
           leftIcon={<SkipForward className="h-4 w-4" aria-hidden="true" />}
-          onClick={player.skip}
+          onClick={onSkip}
         >
           Skip
         </Button>
