@@ -10,6 +10,10 @@
  * does not lose them. A song that cannot be found is asked for instead: requests are kept on
  * the server, for the owner to make.
  *
+ * The queue outlasts the night, so the screen can tell an old one: opened with a queue last
+ * saved more than half a day ago, it says which day that was and offers to start a new night
+ * (an empty queue). "Start a new night" is under the queue at any time, too.
+ *
  * It mounts in place of the app (`main.tsx`): it has no library to edit and no song open,
  * only the sign-in, the stage looks as saved, and one `<audio>` element for library songs.
  */
@@ -26,8 +30,10 @@ import { useVisualTheme } from '../../hooks/useVisualTheme';
 import {
   cleanShowTitle,
   finishedEntries,
+  isOldQueue,
   joinPlace,
   loadShowQueue,
+  loadShowSavedAt,
   loadShowTitle,
   loadShowTurns,
   newEntryId,
@@ -48,6 +54,28 @@ const POPUP_BLOCKED = 'The browser blocked the stage window. Allow pop-ups for t
 /** A toast with Undo stays this long: the host is usually looking at the room. */
 const UNDO_MS = 10_000;
 
+/** The queue found when the screen opened, when it is another night's. */
+interface OldQueue {
+  /** The day it was last saved, in words; null when nobody knows. */
+  day: string | null;
+}
+
+/** Read before the queue is first saved by this screen, which stamps it with now. */
+function oldQueueAtOpening(): OldQueue | null {
+  if (loadShowQueue().length === 0) return null;
+  const savedAt = loadShowSavedAt();
+  if (!isOldQueue(savedAt, Date.now())) return null;
+  const day =
+    savedAt === null
+      ? null
+      : new Date(savedAt).toLocaleDateString(undefined, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        });
+  return { day };
+}
+
 export interface ShowScreenProps {
   /** Whether the screen offers the way back to the songs. A show-only sign-in has none: the
    *  library and the studio would not answer it. */
@@ -58,6 +86,7 @@ export interface ShowScreenProps {
 }
 
 export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session = 0 }) => {
+  const [oldQueue, setOldQueue] = useState(oldQueueAtOpening);
   const [queue, dispatch] = useReducer(showQueueReducer, undefined, loadShowQueue);
   const [titleText, setTitleText] = useState(loadShowTitle);
   const title = cleanShowTitle(titleText);
@@ -156,6 +185,16 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session
   const endSong = useCallback(() => offStage('finish'), [offStage]);
   const skipSong = useCallback(() => offStage('skip'), [offStage]);
 
+  // A new night: nobody waiting, nobody sung, no song to pick up. The name of the night and
+  // whether singers take turns are the venue's and stay
+  const { forgetPlace } = player;
+  const newNight = useCallback(() => {
+    dispatch({ type: 'clear' });
+    forgetPlace();
+    setOldQueue(null);
+    toast.success('A new night: the queue is empty');
+  }, [forgetPlace, toast]);
+
   // A song nobody could find goes on the server's request list, with who asked and where
   const { requests, ask } = useSongRequests();
   const requestSong = useCallback(
@@ -240,6 +279,30 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session
       <main className="mx-auto grid w-full max-w-screen-2xl flex-1 gap-x-10 gap-y-10 px-4 py-6 sm:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
         <h1 className="sr-only">{title}: host screen</h1>
         <div className="flex min-w-0 flex-col gap-10">
+          {oldQueue && (
+            <div
+              role="status"
+              data-testid="show-old-queue"
+              className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b-2 border-theme-border pb-4"
+            >
+              <p className="min-w-0 flex-1 text-base text-theme-text">
+                {oldQueue.day
+                  ? `This queue is from ${oldQueue.day}.`
+                  : 'This queue is from an earlier night.'}{' '}
+                <span className="text-theme-text-muted">
+                  {waiting.length} waiting, {finished.length} sung.
+                </span>
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="primary" className="min-h-[44px]" onClick={newNight}>
+                  Start a new night
+                </Button>
+                <Button variant="ghost" className="min-h-[44px]" onClick={() => setOldQueue(null)}>
+                  Keep this queue
+                </Button>
+              </div>
+            </div>
+          )}
           <ShowNowSinging
             player={player}
             next={waiting[0] ?? null}
@@ -265,6 +328,8 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session
             turns={turns}
             onTurnsChange={setTurns}
             onClearFinished={() => dispatch({ type: 'clear-finished' })}
+            // Offered once at a time: the line above asks the same while it is up
+            onNewNight={oldQueue ? undefined : newNight}
           />
         </div>
         <div className="flex min-w-0 flex-col gap-10">

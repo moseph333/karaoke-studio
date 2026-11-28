@@ -9,6 +9,9 @@
  *
  * A row starts its singer only while nobody is on: with a song on stage the host ends or
  * skips it first, from "Now singing", so one press on a row cannot cut a singer off.
+ *
+ * "Clear the list" and "Start a new night" (everybody, waiting and sung) ask first, in
+ * place: neither has an undo.
  */
 
 import React from 'react';
@@ -17,7 +20,7 @@ import { useReorderDrag } from '../../hooks/useReorderDrag';
 import { videoNote, type ShowVideoInfo } from '../../hooks/useShowVideos';
 import { cn } from '../../utils/cn';
 import type { ShowEntry } from '../../utils/showQueue';
-import { Button, IconButton, Switch } from '../ui';
+import { Button, IconButton, InlineConfirm, Switch } from '../ui';
 
 export interface ShowQueueListProps {
   waiting: ShowEntry[];
@@ -32,6 +35,8 @@ export interface ShowQueueListProps {
   onRemove: (id: string) => void;
   onAgain: (id: string) => void;
   onClearFinished: () => void;
+  /** Empties the queue and the list of who has sung; without it the list does not offer to. */
+  onNewNight?: () => void;
   /** Whether a song that joins the line is put by turns; without `onTurnsChange` the list
    *  has no switch for it. */
   turns?: boolean;
@@ -65,6 +70,7 @@ export const ShowQueueList: React.FC<ShowQueueListProps> = ({
   onRemove,
   onAgain,
   onClearFinished,
+  onNewNight,
   turns = false,
   onTurnsChange,
 }) => {
@@ -173,9 +179,17 @@ export const ShowQueueList: React.FC<ShowQueueListProps> = ({
             <h2 id="show-sung-heading" className={heading}>
               Sung tonight
             </h2>
-            <Button variant="ghost" className="min-h-[44px]" onClick={onClearFinished}>
-              Clear the list
-            </Button>
+            <InlineConfirm
+              message="Clear the list of who has sung? They cannot be put back from it after."
+              confirmLabel="Clear it"
+              keepLabel="Keep the list"
+              onConfirm={onClearFinished}
+              renderTrigger={({ ref, onClick }) => (
+                <Button ref={ref} variant="ghost" className="min-h-[44px]" onClick={onClick}>
+                  Clear the list
+                </Button>
+              )}
+            />
           </div>
           <ul data-testid="show-sung">
             {finished.map((entry) => (
@@ -194,6 +208,22 @@ export const ShowQueueList: React.FC<ShowQueueListProps> = ({
             ))}
           </ul>
         </section>
+      )}
+
+      {onNewNight && !busy && waiting.length + finished.length > 0 && (
+        <div>
+          <InlineConfirm
+            message="Start a new night? Everybody waiting and everybody who has sung is cleared."
+            confirmLabel="Clear the queue"
+            keepLabel="Keep the queue"
+            onConfirm={onNewNight}
+            renderTrigger={({ ref, onClick }) => (
+              <Button ref={ref} variant="ghost" className="min-h-[44px]" onClick={onClick}>
+                Start a new night
+              </Button>
+            )}
+          />
+        </div>
       )}
     </div>
   );
