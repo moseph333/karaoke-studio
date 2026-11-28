@@ -10,6 +10,10 @@
  * playing, a line across the top says what happened, and the host signs in again from there
  * when there is a moment. The address is kept as the host screen's, so a reload made while
  * signed out comes back here and not to the studio's sign-in.
+ *
+ * Opened with a studio sign-in that would end during the night, it asks for the passphrase
+ * first, once: before anybody sings is the moment it costs nothing. (A show sign-in renews
+ * itself and is never asked for this way.)
  */
 
 import React, { useEffect, useState } from 'react';
@@ -22,7 +26,9 @@ import { ShowSignIn } from './ShowSignIn';
 export const ShowApp: React.FC = () => {
   const auth = useShowAuth();
   const [asking, setAsking] = useState(false);
+  const [carriedOn, setCarriedOn] = useState(false);
   const ended = auth.access === 'ended';
+  const early = auth.access === 'open' && auth.endsIn !== null && !carriedOn;
 
   // A show sign-in opens the host screen at the app's own address; without its token that
   // address is the studio's again
@@ -63,6 +69,14 @@ export const ShowApp: React.FC = () => {
           hasShowPassphrase={auth.hasShowPassphrase}
           onSignIn={auth.signIn}
           onClose={() => setAsking(false)}
+        />
+      )}
+      {early && (
+        <ShowSignIn
+          hasShowPassphrase={auth.hasShowPassphrase}
+          onSignIn={auth.signIn}
+          onClose={() => setCarriedOn(true)}
+          endsIn={auth.endsIn}
         />
       )}
     </>
