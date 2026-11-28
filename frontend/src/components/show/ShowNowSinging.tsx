@@ -11,6 +11,7 @@ import { Check, Pause, Play, RotateCcw, SkipForward, Volume2 } from 'lucide-reac
 import { LyricDisplay } from '../LyricDisplay';
 import { PlaybackClockContext, usePlaybackValue } from '../../hooks/usePlaybackClock';
 import { useProjectStageInputs } from '../../hooks/useProjectStageInputs';
+import { StageLeaderIdContext } from '../../hooks/useStageLeader';
 import type { ShowTrouble, UseShowPlayer } from '../../hooks/useShowPlayer';
 import type { UseVisualThemeReturn } from '../../hooks/useVisualTheme';
 import type { ProjectState } from '../../types';
@@ -278,7 +279,10 @@ export const ShowNowSinging: React.FC<ShowNowSingingProps> = ({
             {(second) => <Position time={second} duration={player.duration} onSeek={player.seek} />}
           </SongSecond>
           <div className="max-w-3xl" data-testid="show-song-stage">
-            <SongStage project={project} player={player} theme={theme} />
+            {/* Signed as the host's, so the stage window draws it and no studio tab's */}
+            <StageLeaderIdContext.Provider value={player.stage.hostId}>
+              <SongStage project={project} player={player} theme={theme} />
+            </StageLeaderIdContext.Provider>
           </div>
         </PlaybackClockContext.Provider>
       ) : (
