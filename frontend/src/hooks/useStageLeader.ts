@@ -7,9 +7,13 @@
  * (the player's `timeupdate`, a seek) and when play, pause or the speed changes. Commands
  * from the stage window are carried out through the stage's own handlers. When the stage
  * goes (the song closed, the tab closed) the stage window is told, and shows its idle card.
+ *
+ * A show's host screen draws a library song's stage with the same component, and gives it
+ * its own name (`StageLeaderIdContext`): the stage window then knows this stage is the
+ * show's, and draws no other while the show is on.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { usePlaybackClock } from './usePlaybackClock';
 import {
   newStudioId,
@@ -19,6 +23,13 @@ import {
   type StageTransport,
 } from '../utils/stageLink';
 import { canOpenStageWindow, openStageWindow } from '../utils/stageWindowOpen';
+
+/**
+ * The name a stage signs its messages with, in place of one of its own. A show's host screen
+ * provides its host id here, so the stage window can tell the show's lyrics stage from the
+ * stage of a studio tab that happens to be open in the same browser.
+ */
+export const StageLeaderIdContext = createContext<string | null>(null);
 
 export interface UseStageLeaderOptions {
   /** False in a stage window itself, which follows and never leads. */
@@ -51,7 +62,9 @@ export function useStageLeader({
   onSeek,
 }: UseStageLeaderOptions): UseStageLeader {
   const clock = usePlaybackClock();
-  const [studioId] = useState(newStudioId);
+  const givenId = useContext(StageLeaderIdContext);
+  const [ownId] = useState(newStudioId);
+  const studioId = givenId ?? ownId;
   const [isOpen, setIsOpen] = useState(false);
   const linkRef = useRef<StageLink | null>(null);
 

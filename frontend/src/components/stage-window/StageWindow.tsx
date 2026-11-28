@@ -12,6 +12,12 @@
  * karaoke video, which plays here (`StageVideo`) and reports back to the host. With a scene
  * of `lyrics`, or none, the window shows the lyrics stage it is sent.
  *
+ * Several windows may send a stage: two studio tabs, or a studio tab beside a show. Each
+ * sender's stage is kept apart. While a show's scene is on, the stage drawn is the one the
+ * host itself sends (its messages carry the host's name) and no other, so a song open in a
+ * studio tab never replaces the singer's lyrics. Without a show it is the studio that spoke
+ * last.
+ *
  * It saves nothing: the look, colours and lines are the studio's, sent over, so two windows
  * never write the same stage settings.
  */
@@ -69,6 +75,10 @@ export const StageWindow: React.FC = () => {
 
   const [clock] = useState(createPlaybackClock);
   const transportRef = useRef<StageTransport>(PAUSED_AT_START);
+  /** Every sender's stage, the one that spoke last at the end; and where each one's song is. */
+  const stagesRef = useRef(new Map<string, FollowedStage>());
+  const transportsRef = useRef(new Map<string, StageTransport>());
+  /** The sender whose stage is drawn; commands go back to it. */
   const studioRef = useRef<string | null>(null);
   const hostRef = useRef<string | null>(null);
   const linkRef = useRef<StageLink | null>(null);
@@ -94,26 +104,40 @@ export const StageWindow: React.FC = () => {
       setIsPlaying(transport.isPlaying);
       setPlaybackRate(transport.rate);
     };
+    // Whose stage is drawn: the host's own while a show's scene is on, else the studio that
+    // spoke last. A show's song whose stage has not arrived yet draws nothing for that moment
+    const lead = () => {
+      const stages = stagesRef.current;
+      const from = hostRef.current ?? Array.from(stages.keys()).pop() ?? null;
+      const drawn = (from && stages.get(from)) || null;
+      setStage(drawn);
+      const leader = drawn?.from ?? null;
+      if (leader === studioRef.current) return;
+      studioRef.current = leader;
+      follow((leader && transportsRef.current.get(leader)) || PAUSED_AT_START);
+    };
     const link = openStageLink((message) => {
       if (message.type === 'state') {
+        // Set again, a sender goes to the end: it is the one that spoke last
+        stagesRef.current.delete(message.from);
         if (message.state) {
-          // The studio that spoke last is the one on stage
-          studioRef.current = message.from;
-          setStage({ from: message.from, state: message.state });
-        } else if (message.from === studioRef.current) {
-          studioRef.current = null;
-          setStage(null);
-          follow(PAUSED_AT_START);
+          stagesRef.current.set(message.from, { from: message.from, state: message.state });
+        } else {
+          transportsRef.current.delete(message.from);
         }
+        lead();
       } else if (message.type === 'transport') {
+        transportsRef.current.set(message.from, message.transport);
         if (message.from === studioRef.current) follow(message.transport);
       } else if (message.type === 'scene') {
         if (message.scene) {
           hostRef.current = message.from;
           setHosted({ from: message.from, scene: message.scene });
+          lead();
         } else if (message.from === hostRef.current) {
           hostRef.current = null;
           setHosted(null);
+          lead();
         }
       } else if (message.type === 'player') {
         if (message.from === hostRef.current) videoRef.current?.command(message.command);

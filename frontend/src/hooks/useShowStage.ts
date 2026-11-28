@@ -21,6 +21,8 @@ import {
 import { canOpenStageWindow, openStageWindow } from '../utils/stageWindowOpen';
 
 export interface UseShowStage {
+  /** This host screen's name on the stage link: its scenes and its lyrics stage carry it. */
+  hostId: string;
   canOpen: boolean;
   /** A stage window is open and listening. */
   isOpen: boolean;
@@ -79,5 +81,5 @@ export function useShowStage(onReport: (report: PlayerReport) => void): UseShowS
   );
   const open = useCallback(() => openStageWindow(isOpen) !== null, [isOpen]);
 
-  return { canOpen: canOpenStageWindow(), isOpen, open, show, command };
+  return { hostId, canOpen: canOpenStageWindow(), isOpen, open, show, command };
 }
