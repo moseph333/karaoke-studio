@@ -174,7 +174,8 @@ export async function apiFetch(url: string | URL, options: RequestInit = {}): Pr
   const isAuthExempt =
     urlString.includes('/api/auth/status') ||
     urlString.includes('/api/auth/login') ||
-    urlString.includes('/api/auth/show-login');
+    urlString.includes('/api/auth/show-login') ||
+    urlString.includes('/api/auth/show-renew');
 
   if (res.status === 401 && !isAuthExempt) {
     clearAuthToken();
