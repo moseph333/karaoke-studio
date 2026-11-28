@@ -9,13 +9,19 @@
  * A sign-in that ends while the screen is open (`ended`) does not shut it: the song on stage
  * is the room's, so the screen stays and asks for the passphrase beside it. `session` counts
  * the sign-ins made here, so the screen can try again what the ended one refused.
+ *
+ * A show sign-in lasts seven days and a venue runs a show every week, so the screen trades
+ * its show token for a new one when it opens and every few hours while it is open
+ * (`POST /api/auth/show-renew`): a venue is asked for its passphrase again only after a week
+ * without a show. The studio's sign-in is not renewed.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AUTH_UNAUTHORIZED_EVENT,
   apiFetch,
   getAuthUser,
+  getShowToken,
   readApiError,
   setAuthToken,
   setShowToken,
@@ -47,6 +53,11 @@ const WRONG = 'That passphrase is not right. Try again.';
 const TOO_MANY = 'Too many tries. Wait a minute, then try again.';
 const NO_ANSWER = 'The server did not answer. Try again in a moment.';
 
+/** A show token this old is traded for a new one. */
+export const SHOW_RENEW_AFTER_MS = 6 * 60 * 60 * 1000;
+/** How often an open screen looks at its token's age; it also looks when it is come back to. */
+const SHOW_RENEW_CHECK_MS = 30 * 60 * 1000;
+
 async function post(url: string, body: unknown): Promise<Response> {
   return apiFetch(url, {
     method: 'POST',
@@ -61,6 +72,49 @@ export function useShowAuth(): UseShowAuth {
   const [hasShowPassphrase, setHasShowPassphrase] = useState(false);
   const [session, setSession] = useState(0);
 
+  // --- Keeping a show sign-in going ------------------------------------------------------
+  /** When this screen last got a show token: by signing in, or by renewing one. */
+  const renewedAt = useRef(0);
+  const renewing = useRef(false);
+  const renew = useCallback(async () => {
+    if (renewing.current || !getShowToken()) return;
+    renewing.current = true;
+    try {
+      const response = await post('/api/auth/show-renew', {});
+      if (!response.ok) return;
+      const data = (await response.json()) as { token?: string };
+      // No token in the answer: the server renewed nothing, and the one in hand stays. One
+      // that was cleared meanwhile (a 401) is not put back behind the host's back
+      if (data.token && getShowToken()) {
+        setShowToken(data.token);
+        renewedAt.current = Date.now();
+      }
+    } catch {
+      // The server is away: the token in hand stays, and the next look tries again
+    } finally {
+      renewing.current = false;
+    }
+  }, []);
+
+  const isOpen = access === 'open';
+  useEffect(() => {
+    if (!isOpen) return;
+    const look = () => {
+      if (Date.now() - renewedAt.current >= SHOW_RENEW_AFTER_MS) void renew();
+    };
+    const seen = () => {
+      if (document.visibilityState !== 'hidden') look();
+    };
+    const timer = setInterval(look, SHOW_RENEW_CHECK_MS);
+    window.addEventListener('focus', look);
+    document.addEventListener('visibilitychange', seen);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', look);
+      document.removeEventListener('visibilitychange', seen);
+    };
+  }, [isOpen, renew]);
+
   useEffect(() => {
     let cancelled = false;
     apiFetch('/api/auth/status')
@@ -74,6 +128,8 @@ export function useShowAuth(): UseShowAuth {
         } else if (status.show_authenticated) {
           setStudio(false);
           setAccess('open');
+          // Opened with a show sign-in of some age: it starts the night with a whole week
+          void renew();
         } else {
           setAccess('locked');
         }
@@ -93,7 +149,7 @@ export function useShowAuth(): UseShowAuth {
       cancelled = true;
       window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, signedOut);
     };
-  }, []);
+  }, [renew]);
 
   const signIn = useCallback(
     async (passphrase: string): Promise<string | null> => {
@@ -106,6 +162,7 @@ export function useShowAuth(): UseShowAuth {
           if (asShow.ok) {
             const data = (await asShow.json()) as { token?: string };
             setShowToken(data.token ?? null);
+            renewedAt.current = Date.now();
             setStudio(false);
             setAccess('open');
             setSession((count) => count + 1);

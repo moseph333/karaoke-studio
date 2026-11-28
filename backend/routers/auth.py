@@ -79,7 +79,14 @@ async def auth_show_login(req: ShowLoginRequest, request: Request):
     reset_login_failures(key)
     token = show_auth.create_show_token()
     logger.info(f"Signed in a show host from {get_client_ip(request)}")
-    response = JSONResponse(content={"status": "ok", "token": token})
+    return _show_token_response(request, token)
+
+
+def _show_token_response(request: Request, token: str) -> JSONResponse:
+    """A new show token, in the body and as the cookie."""
+    response = JSONResponse(
+        content={"status": "ok", "token": token, "expires_in": show_auth.TOKEN_MAX_AGE_SEC}
+    )
     is_https = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
     # The media a page loads by itself (audio, a video's copy, cover art) carries no header
     response.set_cookie(
@@ -91,6 +98,23 @@ async def auth_show_login(req: ShowLoginRequest, request: Request):
         max_age=show_auth.TOKEN_MAX_AGE_SEC,
     )
     return response
+
+
+@router.post("/api/auth/show-renew", summary="Renew a show sign-in that is still good")
+async def auth_show_renew(request: Request):
+    """Trades a show token that is still good for a new one, good for seven days from now
+    (`{token, expires_in}`, also the `show_token` cookie). The host screen asks when it opens
+    and every few hours while it is open, so a venue that runs a show every week is not
+    signed out in the middle of one.
+
+    It renews show tokens only: a show token changes nothing on the server, and the studio's
+    session keeps its seven days. Without a good show token it answers `{"status": "none"}`
+    and sets nothing: never 401, which the host screen takes for being signed out. Changing
+    SHOW_PASSWORD still ends every show sign-in, renewed or not."""
+    # Async, like the sign-ins: counting a forged token is one step on the event loop
+    if not show_auth.holds_token_within_limit(request):
+        return JSONResponse(content={"status": "none"})
+    return _show_token_response(request, show_auth.create_show_token())
 
 
 @router.post("/api/auth/login")
