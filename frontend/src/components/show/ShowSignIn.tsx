@@ -1,5 +1,9 @@
 /**
  * The host screen's sign-in: one passphrase, the show's or the studio's.
+ *
+ * Before the screen opens it is a gate with no way round it. Once the screen is open and its
+ * sign-in has ended (`onClose` is given), it is a dialog over the show that can be put away:
+ * the host may have a song to pause first.
  */
 
 import React, { useRef, useState } from 'react';
@@ -11,13 +15,16 @@ export interface ShowSignInProps {
   hasShowPassphrase: boolean;
   /** Resolves to an error message, or null once signed in. */
   onSignIn: (passphrase: string) => Promise<string | null>;
+  /** The show is open behind the dialog: it can be closed, and says "again". */
+  onClose?: () => void;
 }
 
-export const ShowSignIn: React.FC<ShowSignInProps> = ({ hasShowPassphrase, onSignIn }) => {
+export const ShowSignIn: React.FC<ShowSignInProps> = ({ hasShowPassphrase, onSignIn, onClose }) => {
   const [passphrase, setPassphrase] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const again = Boolean(onClose);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,8 +46,9 @@ export const ShowSignIn: React.FC<ShowSignInProps> = ({ hasShowPassphrase, onSig
       descriptionId="show-sign-in-desc"
       size="md"
       layer="gate"
+      onClose={onClose}
       dismissOnBackdrop={false}
-      dismissOnEscape={false}
+      dismissOnEscape={again}
       initialFocusRef={inputRef}
       overlayClassName="bg-theme-overlay/90"
     >
@@ -50,7 +58,7 @@ export const ShowSignIn: React.FC<ShowSignInProps> = ({ hasShowPassphrase, onSig
             id="show-sign-in-title"
             className="ks-display text-[36px] font-black leading-[0.9] text-theme-text sm:text-[44px]"
           >
-            Run the show
+            {again ? 'Sign in again' : 'Run the show'}
           </h2>
           <p id="show-sign-in-desc" className="text-base text-theme-text-muted">
             {hasShowPassphrase
@@ -95,8 +103,19 @@ export const ShowSignIn: React.FC<ShowSignInProps> = ({ hasShowPassphrase, onSig
             disabled={!passphrase.trim()}
             loading={busy}
           >
-            Open the host screen
+            {again ? 'Sign in' : 'Open the host screen'}
           </Button>
+          {onClose && (
+            <Button
+              type="button"
+              variant="ghost"
+              fullWidth
+              className="min-h-[44px]"
+              onClick={onClose}
+            >
+              Not now
+            </Button>
+          )}
         </form>
       </div>
     </Dialog>

@@ -103,6 +103,8 @@ export interface UseShowPlayer {
   toggle: () => void;
   seek: (time: number) => void;
   restart: () => void;
+  /** Puts the entry on stage on again, after it failed to load or play. */
+  retry: () => void;
   /** Ends the song now and marks it sung. */
   finish: () => void;
   /** Takes the entry off stage without it counting as sung. */
@@ -239,6 +241,10 @@ export function useShowPlayer({
     },
     [audioRef, dispatch]
   );
+
+  const retry = useCallback(() => {
+    if (current) start(current);
+  }, [current, start]);
 
   // The entry on stage was removed from the queue: stop what it was playing
   useEffect(() => {
@@ -397,6 +403,7 @@ export function useShowPlayer({
     toggle,
     seek,
     restart,
+    retry,
     finish,
     skip,
   };

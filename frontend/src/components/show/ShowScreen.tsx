@@ -14,7 +14,7 @@
  * only the sign-in, the stage looks as saved, and one `<audio>` element for library songs.
  */
 
-import React, { useCallback, useEffect, useId, useMemo, useReducer, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from 'react';
 import { ArrowLeft, MonitorUp } from 'lucide-react';
 import { isInputElement } from '../../hooks/useKeyboardShortcuts';
 import { useScreenWakeLock } from '../../hooks/useScreenWakeLock';
@@ -50,9 +50,12 @@ export interface ShowScreenProps {
   /** Whether the screen offers the way back to the songs. A show-only sign-in has none: the
    *  library and the studio would not answer it. */
   canLeave?: boolean;
+  /** Goes up each time the host signs in while the screen is open (`useShowAuth`): what the
+   *  ended sign-in refused is tried again. */
+  session?: number;
 }
 
-export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true }) => {
+export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true, session = 0 }) => {
   const [queue, dispatch] = useReducer(showQueueReducer, undefined, loadShowQueue);
   const [titleText, setTitleText] = useState(loadShowTitle);
   const title = cleanShowTitle(titleText);
@@ -87,6 +90,16 @@ export const ShowScreen: React.FC<ShowScreenProps> = ({ canLeave = true }) => {
   const player = useShowPlayer({ queue, dispatch, title, videos, fetchCopy });
   const { stage, current, project, audio, audioEvents } = player;
   useScreenWakeLock(player.isPlaying);
+
+  // Signed in again: a song the ended sign-in would not load is tried once more
+  const { retry } = player;
+  const failed = player.trouble?.kind === 'failed';
+  const lastSession = useRef(session);
+  useEffect(() => {
+    if (session === lastSession.current) return;
+    lastSession.current = session;
+    if (failed) retry();
+  }, [session, failed, retry]);
 
   const waiting = useMemo(() => waitingEntries(queue), [queue]);
   const finished = useMemo(() => finishedEntries(queue), [queue]);

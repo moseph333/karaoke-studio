@@ -181,7 +181,7 @@ describe('a browser that is already signed in', () => {
     expect(screen.getByRole('link', { name: 'Back to the songs' })).toBeInTheDocument();
   });
 
-  it('asks again once the server says the sign-in has ended', async () => {
+  it('keeps the screen open once the server says the sign-in has ended, and offers to sign in', async () => {
     server.status = {
       auth_required: true,
       authenticated: false,
@@ -195,7 +195,10 @@ describe('a browser that is already signed in', () => {
       window.dispatchEvent(new CustomEvent(AUTH_UNAUTHORIZED_EVENT));
     });
 
-    expect(await screen.findByRole('heading', { name: 'Run the show' })).toBeInTheDocument();
+    // The show is the room's: it is not shut for a passphrase (showSignedOutMidSong.test.tsx)
+    expect(screen.getByRole('heading', { name: 'Add a singer' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in again' }));
+    expect(await screen.findByRole('heading', { name: 'Sign in again' })).toBeInTheDocument();
   });
 });
 
